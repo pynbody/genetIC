@@ -1,0 +1,181 @@
+% AAS macros taken from aastex.sty files
+% Adapated to work with other styles
+\typeout{Document Style `myaasmacros' by Mark Sullivan <April 2001>.}
+\def\aj{{AJ}}% 
+          % Astronomical Journal 
+\def\araa{{ARA\&A}}% 
+          % Annual Review of Astron and Astrophys 
+\def\apj{{ApJ}}% 
+          % Astrophysical Journal 
+\def\jcap{{JCAP}}
+\def\apjl{{ApJ}}% 
+          % Astrophysical Journal, Letters 
+\def\apjs{{ApJS}}% 
+          % Astrophysical Journal, Supplement 
+\def\ao{{Appl.~Opt.}}% 
+          % Applied Optics 
+\def\apss{{Ap\&SS}}% 
+          % Astrophysics and Space Science 
+\def\aap{{A\&A}}% 
+          % Astronomy and Astrophysics 
+\def\aapr{{A\&A~Rev.}}% 
+          % Astronomy and Astrophysics Reviews 
+\def\aaps{{A\&AS}}% 
+          % Astronomy and Astrophysics, Supplement 
+\def\astro{{Astro-Ph}}%
+\def\azh{{AZh}}% 
+          % Astronomicheskii Zhurnal 
+\def\baas{{BAAS}}% 
+          % Bulletin of the AAS 
+\def\bain{{BAN}}%
+	%Bulletin of the Astronomical Institutes of the Netherlands
+\def\jrasc{{JRASC}}% 
+          % Journal of the RAS of Canada 
+\def\memras{{MmRAS}}% 
+          % Memoirs of the RAS 
+\def\mnras{{MNRAS}}% 
+          % Monthly Notices of the RAS 
+\def\ussr{{J.Phys.USSR}} % journal of Physics Russia
+\def\pra{{Phys.~Rev.~A}}% 
+          % Physical Review A: General Physics 
+\def\prb{{Phys.~Rev.~B}}% 
+          % Physical Review B: Solid State 
+\def\prc{{Phys.~Rev.~C}}% 
+          % Physical Review C 
+\def\prd{{Phys.~Rev.~D}}% 
+          % Physical Review D 
+\def\pre{{Phys.~Rev.~E}}% 
+          % Physical Review E 
+\def\prl{{Phys.~Rev.~Lett.}}% 
+          % Physical Review Letters 
+\def\pasp{{PASP}}% 
+          % Publications of the ASP 
+\def\pasj{{PASJ}}% 
+          % Publications of the ASJ 
+\def\qjras{{QJRAS}}% 
+          % Quarterly Journal of the RAS 
+\def\skytel{{S\&T}}% 
+          % Sky and Telescope 
+\def\solphys{{Sol.~Phys.}}% 
+          % Solar Physics 
+\def\sovast{{Soviet~Ast.}}% 
+          % Soviet Astronomy 
+\def\ssr{{Space~Sci.~Rev.}}% 
+          % Space Science Reviews 
+\def\zap{{ZAp}}% 
+          % Zeitschrift fuer Astrophysik 
+\def\nat{{Nature}}% 
+          % Nature 
+\def\iaucirc{{IAU~Circ.}}% 
+          % IAU Cirulars 
+\def\aplett{{Astrophys.~Lett.}}% 
+          % Astrophysics Letters 
+\def\apspr{{Astrophys.~Space~Phys.~Res.}}% 
+          % Astrophysics Space Physics Research 
+\def\bain{{Bull.~Astron.~Inst.~Netherlands}}% 
+          % Bulletin Astronomical Institute of the Netherlands 
+\def\fcp{{Fund.~Cosmic~Phys.}}% 
+          % Fundamental Cosmic Physics 
+\def\gca{{Geochim.~Cosmochim.~Acta}}% 
+          % Geochimica Cosmochimica Acta 
+\def\grl{{Geophys.~Res.~Lett.}}% 
+          % Geophysics Research Letters 
+\def\jcp{{J.~Chem.~Phys.}}% 
+          % Journal of Chemical Physics 
+\def\jgr{{J.~Geophys.~Res.}}% 
+          % Journal of Geophysics Research 
+\def\jqsrt{{J.~Quant.~Spec.~Radiat.~Transf.}}% 
+          % Journal of Quantitiative Spectroscopy and Radiative Trasfer 
+\def\memsai{{Mem.~Soc.~Astron.~Italiana}}% 
+          % Mem. Societa Astronomica Italiana 
+\def\nphysa{{Nucl.~Phys.~A}}% 
+          % Nuclear Physics A 
+\def\physrep{{Phys.~Rep.}}% 
+          % Physics Reports 
+\def\physscr{{Phys.~Scr}}% 
+          % Physica Scripta 
+\def\planss{{Planet.~Space~Sci.}}% 
+          % Planetary Space Science 
+\def\procspie{{Proc.~SPIE}}% 
+          % Proceedings of the SPIE 
+% \let\astap=\aap 
+% \let\apjlett=\apjl 
+% \let\apjsupp=\apjs 
+% \let\applopt=\ao 
+% \def\phn{\phantom{0}}% 
+% \def\phd{\phantom{.}}% 
+% \def\phs{\phantom{$-$}}% 
+% \def\phm[1]{\phantom{#1}}% 
+% \let\la=\lesssim            % For Springer A&A compliance... 
+% \let\ga=\gtrsim 
+% \def\sq{\mbox{\rlap{$\sqcap$}$\sqcup$}}% 
+ \def\arcdeg{\mbox{$^\circ$}}% 
+ \def\arcmin{\mbox{$^\prime$}}% 
+ \def\arcsec{\mbox{$^{\prime\prime}$}}% 
+ \def\fd{\mbox{$.\!\!^{\mathrm d}$}}% 
+ \def\fh{\mbox{$.\!\!^{\mathrm h}$}}% 
+ \def\fm{\mbox{$.\!\!^{\mathrm m}$}}% 
+ \def\fs{\mbox{$.\!\!^{\mathrm s}$}}%
+ \def\fdg{\mbox{$.\!\!^\circ$}}% 
+ \def\farcm@mss{\mbox{$.\mkern-4mu^\prime$}}% 
+ \let\farcm\farcm@mss 
+ \def\farcs@mss{\mbox{$.\!\!^{\prime\prime}$}}% 
+ \let\farcs\farcs@mss 
+ \def\fp{\mbox{$.\!\!^{\scriptscriptstyle\mathrm p}$}}% 
+ \def\micron{\mbox{$\mu$m}}% 
+ \def\farcm@apj{% 
+  \mbox{.\kern -0.7ex\raisebox{.9ex}{\scriptsize$\prime$}}% 
+ }% 
+ \def\farcs@apj{% 
+  \mbox{% 
+   \kern  0.13ex.% 
+   \kern -0.95ex\raisebox{.9ex}{\scriptsize$\prime\prime$}% 
+   \kern -0.1ex% 
+  }% 
+ }% 
+% \def\case[2]{\mbox{$\frac{#1}{#2}$}}% 
+% \def\slantfrac{\case}% 
+% \def\onehalf{\slantfrac{1}{2}}% 
+% \def\onethird{\slantfrac{1}{3}}% 
+% \def\twothirds{\slantfrac{2}{3}}% 
+% \def\onequarter{\slantfrac{1}{4}}% 
+% \def\threequarters{\slantfrac{3}{4}}% 
+% \def\ubvr{\mbox{$U\!BV\!R$}}%% UBVR system 
+% \def\ub{\mbox{$U\!-\!B$}}%   % U-B 
+% \def\bv{\mbox{$B\!-\!V$}}%   % B-V 
+% \def\vr{\mbox{$V\!-\!R$}}%   % V-R 
+% \def\ur{\mbox{$U\!-\!R$}}%   % U-R 
+% \def\ion[2]{#1$\;${\small\rmfamily\@Roman{#2}}\relax}% 
+% \def\nodata{ ~$\cdots$~ }% 
+% \def\diameter{\ooalign{\hfil/\hfil\crcr\mathhexbox20D}}% 
+ \def\degr{\arcdeg}% 
+% \def\Sun{\sun}% 
+% \def\Sol{\sun}% 
+ \def\sun{\odot}% 
+% \def\Mercury{\astro{\char1}}% Mercury symbol, "1" 
+% \def\Venus{\astro{\char2}}% Venus symbol, "2" 
+% \def\Earth{\earth}% 
+% \def\Terra{\earth}% 
+% \def\earth{\oplus}% 
+% \def\Mars{\astro{\char4}}% Mars symbol, "4" 
+% \def\Jupiter{\astro{\char5}}% Jupiter symbol, "5" 
+% \def\Saturn{\astro{\char6}}% Saturn symbol, "6" 
+% \def\Uranus{\astro{\char7}}% Uranus symbol, "7" 
+% \def\Neptune{\astro{\char8}}% Neptune symbol, "8" 
+% \def\Pluto{\astro{\char9}}% Pluo symbol, "9" 
+% \def\Moon{\astro{\char10}}% Moon symbol, "M" 
+% \def\Luna{\Moon}% 
+% \def\Aries{\astro{\char11}}% 
+% \def\VEq{\Aries}% vernal equinox (Aries) 
+% \def\Taurus{\astro{\char12}}% 
+% \def\Gemini{\astro{\char13}}% 
+% \def\Cancer{\astro{\char14}}% 
+% \def\Leo{\astro{\char15}}% 
+% \def\Virgo{\astro{\char16}}% 
+% \def\Libra{\astro{\char17}}% 
+% \def\AEq{\Libra}% autumnal equinox (Libra) 
+% \def\Scorpius{\astro{\char18}}% 
+% \def\Sagittarius{\astro{\char19}}% 
+% \def\Capricornus{\astro{\char20}}% 
+% \def\Aquarius{\astro{\char21}}% 
+% \def\Pisces{\astro{\char22}}% 
