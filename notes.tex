@@ -76,7 +76,7 @@ can be approximated as a Gaussian whose width $\beta$ we will allow to
 tend to zero later:
 \begin{equation}
 p_1(\vec{x}) \propto \lim_{\beta \to \infty} p(\vec{x}) \exp \left[
-  -\frac{\beta}{2} \left( \vec{\alpha}_1 \cdot \vec{x} - d_1 \right) \right]
+  -\frac{\beta}{2} \left( \vec{\alpha}_1 \cdot \vec{x} - d_1 \right)^2 \right]
 \end{equation}
 
 We want to combine the two Gaussians. We assume the new distribution
@@ -216,14 +216,14 @@ thought, but in practice the following works so it must be fine!]
 With this transformation, we get the following equation for $\tilde{\mathsf{A}}$:
 \begin{equation}
 2 \tilde{\mathsf{A}} + \tilde{\mathsf{A}} \mathsf{C}_0
-\tilde{\mathsf{A}} = - \alpha_1 \alpha_1^{\top}  
+\tilde{\mathsf{A}} = - \vec{\alpha}_1 \vec{\alpha}_1^{\top}  
 \end{equation}
 This is a quadratic equation in the matrix $\tilde{\mathsf{A}}$, which
 are generically hard things to solve analytically. However there is an
 iterative numerical solution. Namely let us start with the solution
 ignoring the quadratic correction,
 \begin{equation}
-\tilde{\mathsf{A}}_0 = -\frac{1}{2} \alpha_1 \alpha_1^{\top}\textrm{.}
+\tilde{\mathsf{A}}_0 = -\frac{1}{2} \vec{\alpha}_1 \vec{\alpha}_1^{\top}\textrm{.}
 \end{equation}
 (For avoidance of doubt, note the numbering on $\tilde{\mathsf{A}}$ is
 not going to count the number of applied constraints like numbering
@@ -231,7 +231,7 @@ was earlier on, it's going to count the number of iterations.) Then to
 get $\tilde{\mathsf{A}}_{i}$ we apply the formula
 \begin{equation}
 \tilde{\mathsf{A}}_{i} = -\frac{1}{2} \left(\tilde{\mathsf{A}}_{i-1}
-  \mathsf{C}_0 \tilde{\mathsf{A}}_{i-1} + \alpha_1 \alpha_1^{\top} \right)\textrm{.}
+  \mathsf{C}_0 \tilde{\mathsf{A}}_{i-1} + \vec{\alpha}_1 \vec{\alpha}_1^{\top} \right)\textrm{.}
 \end{equation}
 As written, there are a whole load of matrix operations that we wanted
 to avoid! However, suppose we have an algorithm ${\tt calculateA(i-1,z)}$
@@ -241,7 +241,7 @@ $\tilde{\mathsf{A}}_i$. Then we can write down the algorithm for ${\tt
   calculateA(i,z)}$ as
 \begin{equation}
 {\tt calculateA(i,z) = -0.5 \left(calculateA(i-1, C_0 \cdot calculateA(i-1,
-  z)) + \alpha_1 \alpha_1^{\top} \right)}\textrm{.}
+  z)) + \vec{\alpha}_1 \vec{\alpha}_1^{\top} \vec{z} \right)}\textrm{.}
 \end{equation}
 Note this algorithm uses only matrix multiplication by $\mathsf{C}_0$
 (which is diagonal) and vector dot products. So it is tractable even
