@@ -146,15 +146,18 @@ intuitive. The mean ensures that $\vec{\alpha}_1 \cdot \langle \vec{x}
 \vec{\alpha}_1 \cdot \langle \vec{x} \rangle = \vec{\alpha}_1 \cdot
 \vec{x}_1 = \vec{\alpha}_1 \cdot \vec{x_0} - \vec{\alpha}_1 \cdot
 \vec{x}_0 + d_1 = d_1
+\label{eq:newvar}
 \end{equation}
 where I have used the normalization condition \eqref{eq:norm}.
 
 The covariance ensures that there is no variation along that
 direction:
 \begin{equation}
-\langle (\vec{\alpha}_1 \cdot \vec{x}-d_1)^2 \rangle =
-\alpha_1^{\top}\tens{C}_1 \alpha_1 -d_1^2 = 0.
+0=\langle (\vec{\alpha}_1 \cdot \vec{x}-d_1)^2 \rangle =% \dots =
+%\alpha_1^{\top}\tens{C}_1 \alpha_1 -d_1^2 = 0.
+\vec{\alpha}_1^{\top}\tens{C}_1 \vec{\alpha}_1 %= 0,
 \end{equation}
+where we have used \eqref{eq:newvar} in the intermediate steps to cancel all terms which contain $\vec{x}_1$ and $d_1$.
 
 This is a generalized version of Hoffman and Ribak 1991 (ApJ).
 
