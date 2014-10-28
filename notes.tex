@@ -291,4 +291,39 @@ All in all, I'd have to say this is pretty nice stuff. Mathematics, eh?
 \includegraphics[width=1.1\textwidth]{HR-approx-demo.pdf}
 \end{center}
 
+\section{Angular momentum constraints}
+\label{sec:AM}
+
+Instead of constraining $\delta$, we actually want to constrain the angular momentum. Fortunately, the method detailed above can be rather straightforwardly extended to do this. 
+
+First of all we note that the constraint condition
+\begin{equation}
+d= \vec{\alpha} \cdot \vec{\delta}
+\end{equation}
+is equivalent to 
+\begin{equation}
+d= \vec{\alpha}^{\mathrm{P}} \cdot \vec{\phi}
+\end{equation}
+where $\vec{\delta}$ and $\vec{\phi}$ (the potential) are related via the Poisson equation, and $\vec{\alpha}$ and $\vec{\alpha}^{\mathrm{P}}$ by its inverse.
+
+To linear order, the angular momentum of a set of particles is given by
+\begin{equation}
+L_{\mu} \propto - \sum_j \sum_{\nu, \rho} \epsilon_{\mu \nu \rho} \vec{x}_j^{\nu} \left[ \partial_{\rho} \vec{\phi} \right] _j
+\label{eq:L}
+\end{equation}
+where Roman indices sum over a set of particles and Greek indices sum over the 3 spatial directions. The final term therefore represents the derivative in direction $\rho$ at position $\vec{x}_j$. We can rewrite this term as a finite difference (here: 4th order)
+\begin{equation}
+\left[ \partial_{\rho} \vec{\phi} \right] _j =  \partial_{\rho} \phi(\vec{x})|_{\vec{x}=\vec{x}_j} = a \vec{x}_j^{\rho-2} +b\vec{x}_j^{\rho-1} -b \vec{x}_j^{\rho+1} -a \vec{x}_j^{\rho+2}
+\end{equation}
+where $\vec{x}_j^{\rho+s}$ means the coordinate obtained by shifting of $\vec{x}_j$ by $s$ grid cells in direction $\rho$, $a=1/(12 \Delta) $, $b=-2/(3 \Delta)$, and $\Delta$ is the grid spacing.
+
+If we then require the constrained field to obey
+\begin{equation}
+L_{\mu} = \vec{\alpha}_{\mu}^{\mathrm{P}} \cdot \vec{\phi},
+\label{eq:Lconst}
+\end{equation}
+we can find the components of $\vec{\alpha}_{\mu}^{\mathrm{P}}$ by comparing terms between the right-hand-sides of equations (\ref{eq:L}) and (\ref{eq:Lconst}). Note that the sum over $j$ in Equation (\ref{eq:L}) can go over an arbitrary number of particles, while the scalar product in Equation (\ref{eq:Lconst}) implies a sum over all grid points. Some components of $\vec{\alpha}^{\mathrm{P}}$ receive contributions from multiple particles, while others may be 0.
+
+After numerically calculating $\vec{\alpha}_{\mu}^{\mathrm{P}}$, we can get the usual $\vec{\alpha}_{\mu}$ from the inverse Poisson equation and iteratively constrain the density field as detailed in the previous section. 
+One difference here is that there are now technically three constraint vectors, one for each component of $L_{\mu}$, which are not independent of each other (in the sense that $\vec{\alpha}_i$ may get contributions from each direction). Other directions can be constrained by using linear combinations of these $\vec{\alpha}_{\mu}$. However, this also means that even if one chooses a "pure" constraint vector in only one direction, the angular momentum in the other directions will also change.
 \end{document}
