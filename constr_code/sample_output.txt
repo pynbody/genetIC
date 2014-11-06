@@ -1,0 +1,40 @@
+Reading parameter file...paramfile.txt
+
+  !!! Warning: input vector for constraint is not normalised to 1 (within numerical accuracy). Fixing this now ... Vector: (0.937648,-0.34578,-0.0353964), vnorm = 1.
+
+Writing output to ./temp_non_synced/IC_pbc_IC_iter_doub_z99_256_L50_iter0.*
+Reading transfer file camb_transfer_kmax40_z0.dat...
+Drawing random numbers...
+First FFT...
+Growth factor 0.0130811
+Sigma_8 0.000420634
+Interpolation: kmin: 0.125664 Mpc/h, kmax: 27.86 Mpc/h
+Transfer applied!
+Power spectrum sample: (0,0) (5.97889e-06,0) (2.15997e-06,0)
+Calculating potential...
+Constructing grid class
+14920629 15116727 15117496 15116986 15117499
+
+values for alpha_mu*phi (without any constraint, real & k-space): (0.115396,-1.37012e-16) (0.115396,2.85709e-15) (-0.042555,4.86304e-17) (-0.042555,-7.8583e-16) (-0.00435622,-6.57273e-18) (-0.00435622,2.36269e-15)
+
+Iterations: 0
+
+d=0.3, dot(x1, alpha)=(0.3,-1.18486e-18), dot(y1, alpha)=(0.386447,1.78425e-16), dot(y0, alpha)=(0.123069,2.29815e-18)
+
+y1_real, y0_real, x1_real: -0.030531 -0.0306002  0.00012507
+y1_real, y0_real, x1_real: -0.0257272 -0.0258016  0.000128483
+y1_real, y0_real, x1_real: 0.0131066 0.0130273  0.000131194
+y1_real, y0_real, x1_real: -0.0414489 -0.0415327  0.000133208
+y1_real, y0_real, x1_real: -0.00374314 -0.00383106  0.000134531
+
+Iteration done
+
+values for alpha_mu*phi (after constraint, real & k-space): (0.365801,9.17731e-17) (0.365801,3.98986e-17)  (-0.124683,-2.00232e-17) (-0.124683,-5.49387e-15) (-0.0096503,-1.29458e-17) (-0.0096503,7.70217e-15)
+
+d=0.3, dot(phi1_real, alpha')=(0.386447,9.37874e-17), dot(phi0_real, alpha')=(0.123069,-1.14461e-16), dot(phi1_k, alphak')=(0.386447,-2.25959e-15), dot(phi0_k, alphak')=(0.123069,-8.81131e-16)
+
+Grid cell size: 0.195312 Mpc/h
+Applying ZA & PBC... 
+Box/2=25 Mpc/h, Mean position x,y,z: 25.0722 24.9272 24.9796 Mpc/h
+Particle mass: 0.0577466 [10^10 M_sun]
+Done!
