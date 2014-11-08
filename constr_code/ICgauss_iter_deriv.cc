@@ -659,10 +659,10 @@ void mat_mat_diag(const complex<MyFloat> *z, const complex<MyFloat> *alpha, cons
   long int i;
   complex<MyFloat> tf=0.;
   for(i=0;i<n;i++){    
-    tf+=z[i]*alpha[i];    
+    tf+=z[i]*conj(alpha[i]);    
   }
   for(i=0;i<n;i++){    
-    result[i]=conj(alpha[i])*tf*p;    
+    result[i]=alpha[i]*tf*p;    
   }
 
   
