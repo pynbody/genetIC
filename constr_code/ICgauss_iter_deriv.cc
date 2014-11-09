@@ -678,6 +678,12 @@ void mat_sum(const complex<MyFloat> *C1, const complex<MyFloat> *C2, const long 
 }
 
 
+complex<MyFloat>* calc_A_new(complex<MyFloat>* z, const complex<MyFloat> *alpha, const long int n, const complex<MyFloat> *C0, complex<MyFloat> *temp, complex<MyFloat> *temp2, complex<MyFloat> *temp3){ 
+  // Added by AP - non-iterative version... sorry! :-/
+  mat_mat_diag(z,alpha,n, complex<MyFloat>(-1.0,0.), temp);
+  return temp;
+}
+
 complex<MyFloat>* calc_A(int iter, complex<MyFloat>* z, const complex<MyFloat> *alpha, const long int n, const complex<MyFloat> *C0, complex<MyFloat> *temp, complex<MyFloat> *temp2, complex<MyFloat> *temp3){ 
   
   if(iter==0){
@@ -1689,7 +1695,7 @@ T = gsl_rng_ranlxs2; //double precision generator: gsl_rng_ranlxd2 //TODO decide
       complex<MyFloat> *ca_N=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
       complex<MyFloat> *y1=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
      
-     cal2=calc_A(iter, ftsc, alphak, npartTotal, P, ret1, ret2, cal);
+     cal2=calc_A_new(ftsc, alphak, npartTotal, P, ret1, ret2, cal);
      mat_diag(P, cal2, npartTotal, complex<MyFloat> (1.,0.), ca_N);
      for(i=0;i<npartTotal;i++) {y1[i]=ftsc[i]+ca_N[i]+x1[i];}     
      
