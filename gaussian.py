@@ -30,7 +30,9 @@ class Gaussian(object) :
         self._C = C
         self._x0 = x0
 
-    def realization(self) :
+    def realization(self,underlying_realization=None) :
+        if underlying_realization is not None:
+            print "Warning - no underlying field description, ignoring underlying_realization"
         realization = np.zeros_like(self._vals)
         realization[self._vals>0] = np.random.normal(0.0,np.sqrt(self._vals[self._vals>0]))
 
@@ -123,7 +125,7 @@ class ProjectionConstrainedGaussian(Gaussian) :
         x0 = underlying.get_mean()
         self.x1 = x0 \
                   - self.C0_dot_alpha*np.dot(self.alpha,x0) \
-                  + (value/np.sqrt(norm))*self.C0_dot_alpha
+                  + self.C0_dot_alpha*(value/np.sqrt(norm))
 
         
     def cov_dot(self, vec):
@@ -248,8 +250,10 @@ def demo1(projection=False) :
     print "Unconstrained - values of constraints are: ",realization.dot(cv1), realization.dot(cv2)
     print "                covariance along constraints:",np.dot(cv1,G1.cov_dot(cv1)), np.dot(cv2,G1.cov_dot(cv2))
 
-    
+
     realization = G1.realization(underlying_realization=realization)
+
+        
     p.plot(realization,label="Large-scale void")
     print "One constraint - values of constraints are: ",realization.dot(cv1), realization.dot(cv2)
     print "                covariance along constraints:",np.dot(cv1,G1.cov_dot(cv1)), np.dot(cv2,G1.cov_dot(cv2))
