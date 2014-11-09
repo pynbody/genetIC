@@ -67,6 +67,39 @@ class Gaussian(object) :
         covariance matrix."""
         return IterativeConstrainedGaussian(self, alpha, d, niter)
 
+    def explicit_iterative_constrained(self, alpha, d, niter=4):
+        """Return a new object subject to the given linear constraint, using
+        the iterative algorithm but constructing the final covariance matrix
+        explicitly anyway so that it can be studied."""
+
+        alpha = np.array(alpha) # take copy as we'll be modifying this
+        C = self._C
+        x0 = self._x0
+
+        assert len(alpha)==len(x0), "Constraint vector does not match length of data"
+
+        # Normalize to our convention:
+        norm = np.dot(alpha,np.dot(C,alpha))
+        assert norm!=0, "Attempting to construct an overconstrained system"
+        
+        alpha/=np.sqrt(norm)
+        d/=np.sqrt(norm)
+
+        x1 = x0 - np.dot(np.dot(C,np.outer(alpha,alpha)),x0) + d * np.dot(C, alpha)
+
+        def calcA(i):
+            if i==0:
+                return -1.0*np.outer(alpha,alpha)
+            else:
+                Aim1 = calcA(i-1)
+                return -0.5*(np.dot(Aim1,np.dot(C,Aim1))+np.outer(alpha,alpha))
+
+        A = np.dot(C,calcA(niter))
+        IplusA = np.eye(len(A))+A
+        C1 = np.dot(IplusA,np.dot(C,IplusA.T))
+        
+        return Gaussian(C1,x1)
+        
     
 class IterativeConstrainedGaussian(object) :
     def __init__(self, underlying, constraint, value, niter) :
@@ -92,19 +125,22 @@ class IterativeConstrainedGaussian(object) :
         self.x1 = underlying._x0 - np.dot(np.dot(underlying._C,np.outer(self.cv,self.cv)),underlying._x0) + value * np.dot(underlying._C, self.cv)
         self.niter = niter
 
-    def realization(self) :
+    def realization(self,underlying_realization=None) :
         
         def calculate(i,d_vec) :
             AATvec = self.cv*np.dot(d_vec,self.cv)
             if i==0 :
-                return -0.5*AATvec
+                return -1.0*AATvec
                         
             C_Mi_d = np.dot(self.underlying._C,calculate(i-1,d_vec))
             Mi_C_Mi_d = calculate(i-1,C_Mi_d)
 
             return -0.5*(AATvec + Mi_C_Mi_d)
 
-        data = self.underlying.realization() - self.underlying._x0
+        if underlying_realization is None:
+            underlying_realization = self.underlying.realization()
+            
+        data = underlying_realization - self.underlying._x0
         return data + np.dot(self.underlying._C,calculate(self.niter,data)) + self.x1
         #return data - self.underlying._C
 
@@ -124,6 +160,11 @@ def powerlaw_covariance(power_index=-0.5, length=500) :
 
     C = np.dot(M.conj().T,np.dot(np.diag(pspec),M)).real
     return C
+
+def random_covariance(length=500):
+    import scipy
+    A = scipy.random.rand(length,length)
+    return np.dot(A,A.transpose())
 
 def constraint_vector(scale=100,length=500,position=None) :
     """Generate a constraint vector corresponding to the Gaussian-filtered
@@ -146,6 +187,8 @@ def estimate_covariance(G, nsamples=1000) :
 
                                     
 def demo1() :
+    """Demonstration of a double-constrained problem"""
+    
     import pylab as p
     cv1 = constraint_vector(150)
     cv2 = constraint_vector(20)
@@ -170,6 +213,8 @@ def demo1() :
 
 
 def demo2(nsamples=10000) :
+    """Demonstration of the covariance matrices"""
+    
     import pylab as p
     cv1 = constraint_vector(50)
     G = Gaussian(powerlaw_covariance(-1.0))
@@ -183,13 +228,14 @@ def demo2(nsamples=10000) :
     p.title("Exact covariance")
     p.draw()
 
-    
+
     p.subplot(242)
     cov = estimate_covariance(G1,nsamples=nsamples)
     p.imshow(cov, vmin=vmin,vmax=vmax)
     p.xticks([])
     p.yticks([])
     p.title("MC exact")
+   
     
     p.subplot(246)
     p.imshow(cov-G1._C, vmin=-vmax/10,vmax=vmax/10)
@@ -227,3 +273,71 @@ def demo2(nsamples=10000) :
     p.xticks([])
     p.yticks([])
     p.colorbar().set_label("diff colourscale")
+
+
+def demo3(width=50,plaw=-1.0,maxiter=10,size=500):
+    """Demonstration of the convergence properties"""
+    
+    import pylab as p
+    
+    if plaw is None:
+        C = random_covariance(size)
+    else:
+        C = powerlaw_covariance(plaw,size)
+        
+    G = Gaussian(C)
+    
+    if width is None:
+        cv1 = np.random.uniform(size=size)
+    else:
+        cv1 = constraint_vector(width)
+    
+    R0 = G.realization()
+    orig = np.dot(cv1,R0)
+    
+    lc = p.plot([-1],[1.0],'x')[0].get_color()
+    
+    for niter in range(maxiter):
+        GI = G.iterative_constrained(cv1,0.0,niter=niter)
+        R1 = GI.realization(underlying_realization=R0)
+        p.plot([niter],[np.dot(cv1,R1)/orig],lc+'x')
+        p.xlim(-2,maxiter)
+        p.ylim(-0.5,1.5)
+        p.draw()
+
+
+
+def demo4(width=50,plaw=-1.0,niter=4,size=500):
+    """Comparison of exact vs explicit iterative covariance matrix"""
+    
+    import pylab as p
+    
+    if plaw is None:
+        C = random_covariance(size)
+    else:
+        C = powerlaw_covariance(plaw,size)
+        
+    G = Gaussian(C)
+    
+    if width is None:
+        cv1 = np.random.uniform(size=size)
+    else:
+        cv1 = constraint_vector(width)
+    
+    Citer = G.explicit_iterative_constrained(cv1, 0, niter)._C
+    Cactual = G.constrained(cv1,0)._C
+
+    p.clf()
+    p.subplot(311)
+    a = Cactual.min()
+    b = Cactual.max()
+
+    
+    p.imshow(Cactual,vmin=a,vmax=b)
+    p.colorbar()
+    p.subplot(312)
+    p.imshow(Citer,vmin=a,vmax=b)
+    p.colorbar()
+    p.subplot(313)
+    p.imshow(np.log10(abs((Citer-Cactual)/b)),vmin=-4,vmax=0)
+    p.colorbar()
