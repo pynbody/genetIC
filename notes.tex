@@ -175,7 +175,7 @@ the same averaged depth.
 \end{center}
 
 
-\section{An iterative scheme}
+\section{The projection scheme}
 
 Unfortunately the scheme above requires one to sample from the new
 covariance matrix $\mathsf{C}_1$. To do that one would need to get the
@@ -209,7 +209,30 @@ get the new covariance correct
 \mathsf{C}_0 - \mathsf{C}_0 \vec{\alpha}_1 \vec{\alpha}_1^{\top} \mathsf{C}_0
 \textrm{.}
 \end{equation}
-using equation \eqref{eq:C1} above. We now make two ansatz, first that
+using equation \eqref{eq:C1} above.
+
+\subsection{November 2014 - the new scheme}
+
+To solve this, we can just set
+\begin{equation}
+\mathsf{A} = - \mathsf{C}_0 \alpha_1 \alpha_1^{\dagger}\textrm{,}
+\end{equation}
+which gives
+\begin{align}
+\mathsf{C}_1 & = (\mathsf{I} - \mathsf{C}_0 \alpha_1
+\alpha_1^{\dagger}) \mathsf{C}_0  (\mathsf{I} - \alpha_1
+\alpha_1^{\dagger} \mathsf{C}_0 ) \\
+& = \mathsf{C}_0 - 2 \mathsf{C}_0 \alpha_1 \alpha_1^{\dagger}
+\mathsf{C}_0 + \mathsf{C}_0 \alpha_1 \alpha_1^{\dagger}
+\mathsf{C}_0 \alpha_1 \alpha_1^{\dagger}
+\mathsf{C}_0  \\
+& = \mathsf{C}_0 - \mathsf{C}_0 \alpha_1 \alpha_1^{\dagger}
+\mathsf{C}_0\textrm{ as required,}
+\end{align}
+where I have used the normalization condition \eqref{eq:norm}.
+
+\subsection{The old iterative scheme}
+ We now make two ansatz, first that
 $\mathsf{A} = \mathsf{C}_0 \tilde{\mathsf{A}}$, second that $\mathsf{A} =
 \mathsf{A}^{\top}$. [The first can always be made since $\mathsf{C}_0$
 is invertible; the second is slightly less clear, but presumably we'd
