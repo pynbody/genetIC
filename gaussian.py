@@ -64,42 +64,84 @@ class Gaussian(object) :
     def iterative_constrained(self, alpha, d, niter=4) :
         """Return a new object subject to the given linear constraint, using
         an iterative algorithm that never explicitly constructs the new
-        covariance matrix."""
+        covariance matrix.
+
+        This no longer seems to be a useful technique -- superceded by
+        projection_constrained -- but is kept here for reference."""
         return IterativeConstrainedGaussian(self, alpha, d, niter)
 
-    def explicit_iterative_constrained(self, alpha, d, niter=4):
+    def projection_constrained(self, alpha, d):
         """Return a new object subject to the given linear constraint, using
-        the iterative algorithm but constructing the final covariance matrix
-        explicitly anyway so that it can be studied."""
+        the non-iterative projection method."""
+        return ProjectionConstrainedGaussian(self, alpha, d)
 
-        alpha = np.array(alpha) # take copy as we'll be modifying this
-        C = self._C
-        x0 = self._x0
+    def cov_dot(self, vec):
+        """Return the covariance matrix applied to a given vector. Note that
+        in some subclasses the covariance matrix may not be known explicitly,
+        so the appropriate calculation will occur."""
 
-        assert len(alpha)==len(x0), "Constraint vector does not match length of data"
+        return np.dot(self._C,vec)
 
-        # Normalize to our convention:
-        norm = np.dot(alpha,np.dot(C,alpha))
-        assert norm!=0, "Attempting to construct an overconstrained system"
+    def get_mean(self):
+        return self._x0
+
+    def build_cov(self):
+        """Work out the covariance matrix, even if it's not explicitly stored"""
         
-        alpha/=np.sqrt(norm)
-        d/=np.sqrt(norm)
+        N = len(self.get_mean())
+        cov = np.zeros((N,N))
+        v = np.zeros(N)
+        for i in xrange(N):
+            v[i]=1.0
+            cov[i,:]=self.cov_dot(v)
+            v[i]=0.0
+        return cov
+            
 
-        x1 = x0 - np.dot(np.dot(C,np.outer(alpha,alpha)),x0) + d * np.dot(C, alpha)
+class ProjectionConstrainedGaussian(Gaussian) :
+    def __init__(self, underlying, constraint, value) :
+        """Initialize a constrained Gaussian without ever calculating
+        its covariance explicitly.
 
-        def calcA(i):
-            if i==0:
-                return -1.0*np.outer(alpha,alpha)
-            else:
-                Aim1 = calcA(i-1)
-                return -0.5*(np.dot(Aim1,np.dot(C,Aim1))+np.outer(alpha,alpha))
+        *args*
 
-        A = np.dot(C,calcA(niter))
-        IplusA = np.eye(len(A))+A
-        C1 = np.dot(IplusA,np.dot(C,IplusA.T))
+        underlying - the underlying Gaussian object from which realizations
+                     will be drawn
+
+        constraint - the constraint vector
+
+        value - the value the vector should take (so that data.constraint = value)
+        """
+        self.underlying = underlying
+
+        # normalize the constraint
+        norm = np.dot(constraint,underlying.cov_dot(constraint))
+        self.alpha = constraint/np.sqrt(norm)
+        self.C0_dot_alpha = underlying.cov_dot(self.alpha)
+        print norm
         
-        return Gaussian(C1,x1)
+        x0 = underlying.get_mean()
+        self.x1 = x0 \
+                  - self.C0_dot_alpha*np.dot(self.alpha,x0) \
+                  + (value/np.sqrt(norm))*self.C0_dot_alpha
+
         
+    def cov_dot(self, vec):
+        C0_dot_vec = self.underlying.cov_dot(vec)
+        return C0_dot_vec - self.C0_dot_alpha*np.dot(self.alpha,C0_dot_vec)
+
+    def get_mean(self):
+        return self.x1
+    
+    def realization(self,underlying_realization=None) :
+
+        if underlying_realization is None:
+            underlying_realization = self.underlying.realization()
+            
+        data = underlying_realization - self.underlying.get_mean()
+        
+        return data - np.dot(self.alpha,data)*self.C0_dot_alpha + self.x1
+
     
 class IterativeConstrainedGaussian(object) :
     def __init__(self, underlying, constraint, value, niter) :
@@ -186,7 +228,7 @@ def estimate_covariance(G, nsamples=1000) :
     return est_cov
 
                                     
-def demo1() :
+def demo1(projection=False) :
     """Demonstration of a double-constrained problem"""
     
     import pylab as p
@@ -194,21 +236,28 @@ def demo1() :
     cv2 = constraint_vector(20)
     
     G = Gaussian(powerlaw_covariance())
-    G1 = G.constrained(cv1,-0.20)
-    G2 = G1.constrained(cv2,+0.20)
+    if projection:
+        G1 = G.projection_constrained(cv1,-2.0)
+        G2 = G1.projection_constrained(cv2,2.0)
+    else:
+        G1 = G.constrained(cv1,-2.0)
+        G2 = G1.constrained(cv2,0.0)
     
     realization = G.realization()
     p.plot(realization,label="Unconstrained")
     print "Unconstrained - values of constraints are: ",realization.dot(cv1), realization.dot(cv2)
+    print "                covariance along constraints:",np.dot(cv1,G1.cov_dot(cv1)), np.dot(cv2,G1.cov_dot(cv2))
 
-    realization = G1.realization()
+    
+    realization = G1.realization(underlying_realization=realization)
     p.plot(realization,label="Large-scale void")
     print "One constraint - values of constraints are: ",realization.dot(cv1), realization.dot(cv2)
-     
+    print "                covariance along constraints:",np.dot(cv1,G1.cov_dot(cv1)), np.dot(cv2,G1.cov_dot(cv2))
 
-    realization = G2.realization()
+    realization = G2.realization(underlying_realization=realization)
     p.plot(realization,label="+Local density enhancement")
     print "Two constraints - values of constraints are: ",realization.dot(cv1), realization.dot(cv2)
+    print "                covariance along constraints:",np.dot(cv1,G2.cov_dot(cv1)), np.dot(cv2,G2.cov_dot(cv2))
     p.legend()
 
 
@@ -324,7 +373,7 @@ def demo4(width=50,plaw=-1.0,niter=4,size=500):
     else:
         cv1 = constraint_vector(width)
     
-    Citer = G.explicit_iterative_constrained(cv1, 0, niter)._C
+    Citer = G.projection_constrained(cv1, 0).build_cov()
     Cactual = G.constrained(cv1,0)._C
 
     p.clf()
@@ -339,5 +388,39 @@ def demo4(width=50,plaw=-1.0,niter=4,size=500):
     p.imshow(Citer,vmin=a,vmax=b)
     p.colorbar()
     p.subplot(313)
-    p.imshow(np.log10(abs((Citer-Cactual)/b)),vmin=-4,vmax=0)
+    p.imshow((Citer-Cactual)/b)
+    p.colorbar()
+
+def demo5(width1=50,width2=100,plaw=-1.0,niter=4,size=500):
+    """Comparison of exact vs explicit iterative covariance matrix"""
+    
+    import pylab as p
+    
+    if plaw is None:
+        C = random_covariance(size)
+    else:
+        C = powerlaw_covariance(plaw,size)
+        
+    G = Gaussian(C)
+    
+ 
+    cv1 = constraint_vector(width1)
+    cv2 = constraint_vector(width2)
+    
+    Citer = G.projection_constrained(cv1, 10).projection_constrained(cv2,-10).build_cov()
+    Cactual = G.constrained(cv1,10).constrained(cv2,-10)._C
+
+    p.clf()
+    p.subplot(311)
+    a = Cactual.min()
+    b = Cactual.max()
+
+    
+    p.imshow(Cactual,vmin=a,vmax=b)
+    p.colorbar()
+    p.subplot(312)
+    p.imshow(Citer,vmin=a,vmax=b)
+    p.colorbar()
+    p.subplot(313)
+    p.imshow((Citer-Cactual)/b)
     p.colorbar()
