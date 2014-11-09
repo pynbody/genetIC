@@ -7,6 +7,7 @@
 \usepackage{amsmath}
 \usepackage{enumerate}
 \usepackage{color}
+\usepackage{soul}
 
 
 \usepackage[left=3cm,right=3cm,top=3cm,bottom=3.5cm]{geometry}
@@ -196,10 +197,11 @@ problem. Let $\vec{y}_0$ be a realization from the original system and
 $\vec{y}_1$ a realization from the constrained system. Then the
 assumption is:
 \begin{equation}
-\vec{y}_1 = (\mathsf{I} + \mathsf{A}) \vec{y}_0 + \vec{x}_1\textrm{,}
+\vec{y}_1 = (\mathsf{I} + \mathsf{A}) (\vec{y}_0-\vec{x}_0) + \vec{x}_1\textrm{,}
 \end{equation}
-recalling that $\vec{x}_1$ is the mean vector of the new system,
-$\vec{x}_1 = d_1 \mathsf{C} \vec{\alpha}_1$. 
+where by definition $\langle \vec{y}_0 - \vec{x}_0\rangle=0$, so we get the new
+mean $\langle \vec{y}_1 \rangle = \vec{x}_1$ which is defined by
+equation \eqref{eq:x1}.
 
 Now we can see what condition $\mathsf{A}$ needs to satisfy for us to
 get the new covariance correct
@@ -230,6 +232,16 @@ which gives
 \mathsf{C}_0\textrm{ as required,}
 \end{align}
 where I have used the normalization condition \eqref{eq:norm}.
+
+\subsection{For multiple constraints}
+
+The properties of the new field are still Gaussian. So, one can just
+recurse. We don't need to know the new covariance matrix explicitly,
+thankfully.  As long as one has a routine that can multiply a
+$\mathsf{C}_1$ by any arbitrary vector, all is well to calculate with
+an arbitrary number of constraints. This seems to work using
+\texttt{projection\_constrained} in the python sample code. The
+complexity should be linear in the number of constraints.
 
 \subsection{The old iterative scheme}
 
@@ -312,7 +324,8 @@ from the realisation noise. For $N_{iter}=0$ there are clearly still
 systematic errors (unsurprising!) but the point is you don't need too
 many iterations to converge to the right answer.
 
-All in all, I'd have to say this is pretty nice stuff. Mathematics, eh?
+\st{All in all, I'd have to say this is pretty nice
+  stuff. Mathematics, eh?} {\bf Health warning -- \it Pride comes before a fall}
 
 \begin{center}
 \includegraphics[width=1.1\textwidth]{HR-approx-demo.pdf}
