@@ -14,6 +14,8 @@
 #include <gsl/gsl_errno.h>
 #include <gsl/gsl_spline.h> 
 
+#include "constrainer.h"
+
 using namespace std;
 
 #ifdef HAVE_HDF5
@@ -645,6 +647,12 @@ complex<MyFloat> *fft_r(complex<MyFloat> *fto, complex<MyFloat> *ftin, const int
   else {std::cerr<<"wrong parameter for direction in fft_r"<<std::endl;}
 	
   return fto;  
+}
+
+complex<MyFloat> dot(complex<MyFloat> *a, complex<MyFloat> *b, const long int n) {
+  complex<MyFloat> res(0);
+  for(long int i=0; i<n; i++) res+=conj(a[i])*b[i];
+  return res;
 }
 
 void mat_diag(const complex<MyFloat> *C, const complex<MyFloat> *alpha, const long int n, const complex<MyFloat> p, complex<MyFloat> *result){  
@@ -1638,12 +1646,13 @@ T = gsl_rng_ranlxs2; //double precision generator: gsl_rng_ranlxd2 //TODO decide
        
 //end of L-alpha calculation  
       
+       /*
       complex<MyFloat> sLx1=0., sLxk1=0.,sLx2=0., sLxk2=0,sLx3=0., sLxk3=0.;       
       for(i=0;i<npartTotal;i++){sLxk1+=(conj(alpha_mu1k[i])*potk0[i]); sLx1+=(conj(alpha_mu1[i])*pot0[i]); sLxk2+=(conj(alpha_mu2k[i])*potk0[i]); sLx2+=(conj(alpha_mu2[i])*pot0[i]); sLxk3+=(conj(alpha_mu3k[i])*potk0[i]); sLx3+=(conj(alpha_mu3[i])*pot0[i]);}    
        
        cout<< endl;
        cout<< "values for alpha_mu*phi (without any constraint, real & k-space): " << sLx1 <<  " " << sLxk1 << " " << sLx2 <<  " " << sLxk2<< " "<< sLx3 <<  " " << sLxk3 << endl;     
-      
+       
        
       complex<MyFloat> *alphak_phi=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));       
       //constraint vector from 3 components dot input vectorL
@@ -1668,77 +1677,81 @@ T = gsl_rng_ranlxs2; //double precision generator: gsl_rng_ranlxd2 //TODO decide
      
      // cout<< "d, Norm_iter, ratio " << d << " " << sqrt(norm_iter) << d/sqrt(norm_iter.real()) << endl;
       d/=sqrt(norm_iter.real());
+
+      
       
       complex<MyFloat> norm_iter2 (0., 0.);
       for(i=0; i<npartTotal; i++){
 	alphak[i]/=sqrt(norm_iter.real());
-	x1[i]=mean[i]-P[i]*alphak[i]*conj(alphak[i])*mean[i]+P[i]*alphak[i]*d; 	
+	// x1[i]=mean[i]-P[i]*alphak[i]*conj(alphak[i])*mean[i]+P[i]*alphak[i]*d; 	
 	norm_iter2+=P[i]*alphak[i]*conj(alphak[i]);	 
       }
+       */
       
-     complex<MyFloat> ssum2=0.;
-     for(i=0;i<npartTotal;i++){ssum2+=(conj(alphak[i])*alphak[i]);}      
-      
-      //assert(abs(real(norm_iter2)-1.) < 1e-12);  
-      //assert(abs(imag(norm_iter2)) < 1e-12);
-      //TODO think about this (it fails more often than it should?) 
-
-      
-   if(iter<0){cout<< endl<< "N_iter=-1, skipping iterative constraint. "  << endl <<endl; }  
-   else{//iteration starts:
-      cout<< endl<< "Iterations: " << iter << endl;      
+      // construct the description of the underlying field and its realization
+      UnderlyingField<MyFloat> underlying_field(P, ftsc, npartTotal);
  
-      complex<MyFloat> *cal=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
-      complex<MyFloat> *cal2;      
-      complex<MyFloat> *ret1=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
-      complex<MyFloat> *ret2=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
-      complex<MyFloat> *ca_N=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
+      // construct the description of the final field by building in each constraint in turn
+      //
+      // WARNING - ConstrainedField renormalizes alpha_mu1k in-place, so take care when checking
+      //           constraints later! alpha_mu1 etc will not be changed, of course, so in this instance
+      //           we just use those for the checks below.
+      ConstrainedField<MyFloat> constrained_field_x  (&underlying_field,     alpha_mu1k, d*a1, npartTotal);
+      ConstrainedField<MyFloat> constrained_field_xy (&constrained_field_x,  alpha_mu2k, d*a2, npartTotal);
+      ConstrainedField<MyFloat> constrained_field_xyz(&constrained_field_xy, alpha_mu3k, d*a3, npartTotal);
+
+
       complex<MyFloat> *y1=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
+      constrained_field_xyz.get_realization(y1);
+
+      // The following line isn't required - it's only here for debug information
+      constrained_field_xyz.get_mean(x1);
+      
+      complex<MyFloat> *ftsc_real=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
+      ftsc_real=fft_r(ftsc_real,ftsc_old,res,-1);
      
-     cal2=calc_A_new(ftsc, alphak, npartTotal, P, ret1, ret2, cal);
-     mat_diag(P, cal2, npartTotal, complex<MyFloat> (1.,0.), ca_N);
-     for(i=0;i<npartTotal;i++) {y1[i]=ftsc[i]+ca_N[i]+x1[i];}     
-     
-     complex<MyFloat> *ftsc_real=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
-     ftsc_real=fft_r(ftsc_real,ftsc_old,res,-1);
-     
-     complex<MyFloat> *y1_real=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
-     complex<MyFloat> *x1_real=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
+      complex<MyFloat> *y1_real=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
+      complex<MyFloat> *x1_real=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
        
       //transform y1 and x1 back to configuration space
       x1_real=fft_r(x1_real,x1,res,-1);
       y1_real=fft_r(y1_real,y1,res,-1);
      
-     complex<MyFloat> su6 (0.,0.);
-     complex<MyFloat> su7 (0.,0.);
-     complex<MyFloat> su8 (0.,0.);
-     
-     for(i=0;i<npartTotal;i++){su8+=(conj(alpha[i])*ftsc_real[i]); su6+=(conj(alpha[i])*y1_real[i]);  su7+=(conj(alpha[i])*x1_real[i]);  }         
-   
-     std::cout<<std::endl;
-     cout<< "d="<< in_d << ", dot(x1, alpha)=" << su7 << ", dot(y1, alpha)=" << su6 << ", dot(y0, alpha)=" << su8 <<  endl<< endl;
-     
-      for(i=0;i<5;i++){std::cout << "y1_real, y0_real, x1_real: "<< y1_real[i].real()<< " " << ftsc_real[i].real() <<  "  " << x1_real[i].real() << endl;}      
+      // Interesting output
+      cerr << "alpha1.y0 =" << dot(alpha_mu1, ftsc_real, npartTotal) << endl;
+      cerr << "alpha1.x1 =" << dot(alpha_mu1, x1_real, npartTotal) << "; should be " << d*a1 << endl;
+      cerr << "alpha1.y1 =" << dot(alpha_mu1, y1_real, npartTotal) << "; should be " << d*a1 << endl << endl;
 
-      std::cout<<std::endl;
-      free(cal);
-      free(ret1);
-      free(ret2);
-      free(ca_N);            
-   
+      cerr << "alpha2.y0 =" << dot(alpha_mu2, ftsc_real, npartTotal) << endl;
+      cerr << "alpha2.x1 =" << dot(alpha_mu2, x1_real, npartTotal) << "; should be " << d*a2 << endl;
+      cerr << "alpha2.y1 =" << dot(alpha_mu2, y1_real, npartTotal) << "; should be " << d*a2 << endl << endl;
+
+      cerr << "alpha3.y0 =" << dot(alpha_mu3, ftsc_real, npartTotal) << endl;
+      cerr << "alpha3.x1 =" << dot(alpha_mu3, x1_real, npartTotal) << "; should be " << d*a3 << endl;
+      cerr << "alpha3.y1 =" << dot(alpha_mu3, y1_real, npartTotal) << "; should be " << d*a3 << endl << endl;
+
+
+      /*
+      // Interesting but v slow output
+      cerr << "Covariances = " << constrained_field_xyz.v_cov_v(alpha_mu1k) << " " 
+	                       << constrained_field_xyz.v_cov_v(alpha_mu2k) << " " 
+	                       << constrained_field_xyz.v_cov_v(alpha_mu3k) << " should all be zero" << endl;
+      */
+      
       for(i=0;i<npartTotal;i++){ftsc[i]=y1[i];}       
-      cout<< "Iteration done" << endl<<endl;
+
       free(y1);
       free(x1_real);
       free(y1_real);
-      free(ftsc_real);
+
        
-   }//end of iteration, ftsc now contains constrained field
+   // ftsc now contains constrained field
    
    
    //output power spectrum of constrained field
    powsp_noJing(n, ftsc, (base+ ".ps").c_str(), Boxlength);    
    
+
    //calculate potential of constrained field
    complex<MyFloat>* potk=(complex<MyFloat>*)calloc(n*n*n,sizeof(complex<MyFloat>));
    potk=poiss(potk, ftsc, n, Boxlength, ain, Om0); //pot in k-space
@@ -1749,6 +1762,7 @@ T = gsl_rng_ranlxs2; //double precision generator: gsl_rng_ranlxd2 //TODO decide
    complex<MyFloat> nsLx1=0., nsLxk1=0., nsLx2=0., nsLxk2=0.,nsLx3=0., nsLxk3=0.;       
    for(i=0;i<npartTotal;i++){nsLxk1+=(conj(alpha_mu1k[i])*potk[i]); nsLx1+=(conj(alpha_mu1[i])*pot[i]); nsLxk2+=(conj(alpha_mu2k[i])*potk[i]); nsLx2+=(conj(alpha_mu2[i])*pot[i]); nsLxk3+=(conj(alpha_mu3k[i])*potk[i]); nsLx3+=(conj(alpha_mu3[i])*pot[i]);}    
        
+   /*
     cout<< "values for alpha_mu*phi (after constraint, real & k-space): " << nsLx1 <<  " " << nsLxk1 << "  " << nsLx2 <<  " " << nsLxk2 <<  " " << nsLx3 <<  " " << nsLxk3<< endl;      
    
      complex<MyFloat> psu6 (0.,0.);
@@ -1759,8 +1773,9 @@ T = gsl_rng_ranlxs2; //double precision generator: gsl_rng_ranlxd2 //TODO decide
      for(i=0;i<npartTotal;i++){prsu8+=(conj(alpha_phi[i])*pot0[i]); prsu6+=(conj(alpha_phi[i])*pot[i]);   psu8+=(conj(alphak_phi[i])*potk0[i]); psu6+=(conj(alphak_phi[i])*potk[i]); }
 	 
 	 std::cout<<std::endl;
-	  cout<< "d="<< in_d <<  ", dot(phi1_real, alpha')=" << prsu6 << ", dot(phi0_real, alpha')=" << prsu8 << ", dot(phi1_k, alphak')=" << psu6 << ", dot(phi0_k, alphak')=" << psu8 <<  endl<< endl;    
-    
+	  cout<< "d="<< in_d <<  ", dot(phi1_real, alpha')=" << prsu6 << ", dot(phi0_real, alpha')=" << prsu8 << ", dot(phi1_k, alphak')=" << psu6 << ", dot(phi0_k, alphak')=" << psu8 <<  endl<< endl;   
+   */
+
       free(alpha_mu1);
       free(alpha_mu1k);
       free(alpha_mu2);
@@ -1768,17 +1783,20 @@ T = gsl_rng_ranlxs2; //double precision generator: gsl_rng_ranlxd2 //TODO decide
       free(alpha_mu3);
       free(alpha_mu3k);
 
+      /*
       free(alpha_phi);
       free(alphak_phi);
+      free(alphak);   
+      free(alpha); 
+      */
       
       free(x1);      
-      free(mean);
-      free(alphak);   
-      free(alpha);       
+      free(mean);    
       free(ft);
       free(kcamb);
       free(Tcamb);
-      free(P);      
+      free(P);    
+
    
       complex<MyFloat>* psift1=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
       complex<MyFloat>* psift2=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
