@@ -1739,7 +1739,7 @@ T = gsl_rng_ranlxs2; //double precision generator: gsl_rng_ranlxd2 //TODO decide
       long j_l=0;
       for(i=0; i< n_in_halo; i++){  
          j_l=index_shift[part_arr_halo[i]];
-         dens_av_before+=ftsc_real[j];
+         dens_av_before+=ftsc_real[j_l];
 
        }
 
@@ -1861,7 +1861,7 @@ T = gsl_rng_ranlxs2; //double precision generator: gsl_rng_ranlxd2 //TODO decide
       j_l=0;
       for(i=0; i< n_in_halo; i++){  
          j_l=index_shift[part_arr_halo[i]];
-         dens_after+=y1_real[j];
+         dens_after+=y1_real[j_l];
 
        }
 
