@@ -1132,10 +1132,23 @@ void GridParticles( int nx, int ny, int nz, MyFloat *Pos1,MyFloat *Pos2,MyFloat 
   }
 }
 
+void old_check_pbc_coords(long *coords, int size){
+  
+  while(coords[0]> size){coords[0]-=size;}
+  while(coords[1]> size){coords[1]-=size;}
+  while(coords[2]> size){coords[2]-=size;}
+  
+  while(coords[0]<0){coords[0]+=size;}
+  while(coords[1]<0){coords[1]+=size;}
+  while(coords[2]<0){coords[2]+=size;}
+  
+  
+}
+
 struct grid_struct{
   
-  int grid[3];
-  int coords[3]; 
+  long grid[3];
+  long coords[3]; 
   MyFloat absval;
   MyFloat delta;
   
@@ -1156,13 +1169,13 @@ class Grid{
     
     ~Grid() {free(cells);}
     
-    int find_next_ind(int index, int *step);
-    int find_index(int x, int y, int z);
-    void check_pbc(int index);
+    void shift_grid(long s1, long s2, long s3);
+    long find_next_ind(long index, int *step);
+    long get_index(long x, long y, long z);
+    void check_pbc_grid(long index);
+    void check_pbc_coords(long index);
   
 };
-
-
 
 Grid::Grid(int n){
   
@@ -1184,7 +1197,6 @@ Grid::Grid(int n){
 	      
 	      ind=(g1*n+g2)*n+g3;
 	      absval=sqrt(gg1*gg1+gg2*gg2+gg3*gg3);
-	      //cout<< absval<< endl;
 	      cells[ind].absval=absval;
 	      cells[ind].coords[0]=gg1;
 	      cells[ind].coords[1]=gg2;
@@ -1201,42 +1213,27 @@ Grid::Grid(int n){
   
 }
 
-void check_pbc_coords(int *coords, int size){
+long Grid::find_next_ind(long index, int *step){ 
   
-  while(coords[0]> size){coords[0]-=size;}
-  while(coords[1]> size){coords[1]-=size;}
-  while(coords[2]> size){coords[2]-=size;}
+  this->cells[index].grid[0]+=step[0];
+  this->cells[index].grid[1]+=step[1];
+  this->cells[index].grid[2]+=step[2]; 
   
-  while(coords[0]<0){coords[0]+=size;}
-  while(coords[1]<0){coords[1]+=size;}
-  while(coords[2]<0){coords[2]+=size;}
+  check_pbc_grid(index);
   
+  long newind;
   
-}
-
-int Grid::find_next_ind(int index, int *step){ 
-  
-  int coords[3];
-  
-  coords[0]=this->cells[index].coords[0]+step[0];
-  coords[1]=this->cells[index].coords[1]+step[1];
-  coords[2]=this->cells[index].coords[2]+step[2]; 
-  
-  check_pbc_coords(coords, this->size);
-  
-  int newind;
-  
-  newind=this->find_index(coords[0], coords[1], coords[2]);
+  newind=this->get_index(this->cells[index].grid[0], this->cells[index].grid[1], this->cells[index].grid[2]);
   
   return newind;
-  
+ 
 }
 
-void Grid::check_pbc(int index){
+void Grid::check_pbc_grid(long index){
   
- int x=this->cells[index].coords[0];
- int y=this->cells[index].coords[1];
- int z=this->cells[index].coords[2];
+ long x=this->cells[index].grid[0];
+ long y=this->cells[index].grid[1];
+ long z=this->cells[index].grid[2];
   
  int size=this->size;
   
@@ -1250,23 +1247,71 @@ void Grid::check_pbc(int index){
   while(y<0){y+=size;}
   while(z<0){z+=size;}
   
-  this->cells[index].coords[0]=x;
-  this->cells[index].coords[1]=y;
-  this->cells[index].coords[2]=z;
+  this->cells[index].grid[0]=x;
+  this->cells[index].grid[1]=y;
+  this->cells[index].grid[2]=z;  
+  
+}
+
+void Grid::check_pbc_coords(long index){
+  
+ long x=this->cells[index].coords[0];
+ long y=this->cells[index].coords[1];
+ long z=this->cells[index].coords[2];
+  
+ int size=this->size;
+ 
+ while(x> size/2){x-=size;}
+ while(y> size/2){y-=size;}
+ while(z> size/2){z-=size;}
+  
+ while(x<-(size/2-1)){x+=size;}
+ while(y<-(size/2-1)){y+=size;}
+ while(z<-(size/2-1)){z+=size;}
+  
+ this->cells[index].coords[0]=x;
+ this->cells[index].coords[1]=y;
+ this->cells[index].coords[2]=z;
   
   
 }
 
-int Grid::find_index(int x, int y, int z){
+void Grid::shift_grid(long s0, long s1, long s2){
+  
+  //long coords[3];
+  long index;
+  long max=(this->size)*(this->size)*(this->size);
+  
+  for(index=0; index< max; index++){
+    //TODO sign!
+     if(index==0 || index ==1 || index==max-1){ cout<< "before: index: "<< index << " " << this->cells[index].coords[0] << " " << this->cells[index].coords[1] << " "<< this->cells[index].coords[2] << endl;}
     
-  int size=this->size;  
-  int index=(x*size+y)*size+z;
+      this->cells[index].coords[0]-=s0;
+      this->cells[index].coords[1]-=s1;
+      this->cells[index].coords[2]-=s2; 
+  
+      if(index==0 || index ==1 || index==max-1){ cout<< "intermed: index: "<< index << " " << this->cells[index].coords[0] << " " << this->cells[index].coords[1] << " "<< this->cells[index].coords[2] << endl;}
+    
+      this->check_pbc_coords(index);
+      
+      if(index==0 || index ==1 || index==max-1){ cout<< "after: index: "<< index << " " << this->cells[index].coords[0] << " " << this->cells[index].coords[1] << " "<< this->cells[index].coords[2] << endl;}
+    
+  }
+  
+  //free(coords);
+  
+}
+
+long Grid::get_index(long x, long y, long z){
+    
+  long size=this->size;  
+  long index=(x*size+y)*size+z;
   
   return index;
   
 }
 
-complex<MyFloat> cen_deriv4_alpha(Grid *in, int index, complex<MyFloat> *alpha, MyFloat dx, int direc, complex<MyFloat> *phi){//4th order central difference
+complex<MyFloat> cen_deriv4_alpha(Grid *in, long index, complex<MyFloat> *alpha, MyFloat dx, long direc, complex<MyFloat> *phi){//4th order central difference
     
   MyFloat x0, y0, z0;//, zm2, zm1, zp2, zp1;
   x0=in->cells[index].coords[0];
@@ -1277,13 +1322,13 @@ complex<MyFloat> cen_deriv4_alpha(Grid *in, int index, complex<MyFloat> *alpha, 
     
   //do the epsilon
   MyFloat c1,c2;
-  int d1,d2;
+  long d1,d2;
   if(direc==0){d2=1; d1=2; c1=y0; c2=z0;} 
   else if(direc==1){d2=2; d1=0, c1=z0; c2=x0;}
   else if(direc==2){d2=0; d1=1; c1=x0; c2=y0;}
   else{cerr<< "Wrong value for parameter 'direc' in function 'cen_deriv4_alpha'."<< endl; exit(1);}
   
-  int ind_p1, ind_m1, ind_p2, ind_m2;
+  long ind_p1, ind_m1, ind_p2, ind_m2;
   //first step in rho direction
     int step1[3]={0,0,0};
     step1[d1]=1;
@@ -1294,8 +1339,7 @@ complex<MyFloat> cen_deriv4_alpha(Grid *in, int index, complex<MyFloat> *alpha, 
     ind_p1=in->find_next_ind(index, step1);  
   
     ind_m2=in->find_next_ind(ind_m1, neg_step1);
-    ind_p2=in->find_next_ind(ind_p1, step1); 
-  
+    ind_p2=in->find_next_ind(ind_p1, step1);   
     
     MyFloat a=1./12./dx, b=-2./3./dx;       
     
@@ -1524,9 +1568,11 @@ T = gsl_rng_ranlxs2; //double precision generator: gsl_rng_ranlxd2 //TODO decide
 
        
 //optional: shift position to center e.g. on specific halo       
-	//long s1=228 , s2= 173, s3= 187; //for halo position
-	long s1=0 , s2= 0, s3= 0; //no shifting
+	long s1=228 , s2= 173, s3= 187; //for halo position
+	//long s1=0 , s2= 0, s3= 0; //no shifting
 	pbc(n, rnd_t, rnd, s1, s2, s3);
+	
+// 	for(i=0;i<npartTotal;i++){if(rnd[i]!=rnd_t[i]){cout<< "rnd "<< rnd[i] << " " << rnd_t[i] << endl;}} //both the same for 0 shift as expected
 	
 	free(rnd_t);
 	
@@ -1582,6 +1628,9 @@ T = gsl_rng_ranlxs2; //double precision generator: gsl_rng_ranlxd2 //TODO decide
       complex<MyFloat> *ftsc_old=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
       for(i=0;i<npartTotal;i++) {ftsc_old[i]=ftsc[i];}     
     
+    
+      cout << "ftsc_old " << ftsc_old[0] << " " << ftsc_old[1] << " " << ftsc_old[2] << " " << ftsc_old[npartTotal-1] << endl;
+    
 //potential for use in alpha_mu constraint, based on unconstrained field
       cout<< "Calculating potential..."<<endl;
             
@@ -1599,8 +1648,35 @@ T = gsl_rng_ranlxs2; //double precision generator: gsl_rng_ranlxd2 //TODO decide
        complex<MyFloat> *alpha_mu2k=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
        complex<MyFloat> *alpha_mu3k=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
        
-  
-       Grid grid(n);       
+       //complex<MyFloat> *dummy=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
+       
+       Grid grid(n);  
+       
+//        cout << "grid " << endl;
+//        cout << grid.cells[0].coords[0] << " "<< grid.cells[0].coords[1]  <<  " "<<grid.cells[0].coords[2]  << endl;
+//        
+//        cout << grid.cells[1].coords[0] << " "<< grid.cells[1].coords[1]  <<  " "<<grid.cells[1].coords[2]  << endl;
+//        
+//        cout << grid.cells[npartTotal-1].coords[0] << " "<< grid.cells[npartTotal-1].coords[1]  <<  " "<<grid.cells[npartTotal-1].coords[2]  << endl;
+       
+       
+       //grid.shift_grid(s1,s2,s3);       
+       
+//              cout << "after shift" << endl;
+//        cout << grid.cells[0].coords[0] << " "<< grid.cells[0].coords[1]  <<  " "<<grid.cells[0].coords[2]  << endl;
+//        
+//        cout << grid.cells[1].coords[0] << " "<< grid.cells[1].coords[1]  <<  " "<<grid.cells[1].coords[2]  << endl;
+//        
+//        cout << grid.cells[npartTotal-1].coords[0] << " "<< grid.cells[npartTotal-1].coords[1]  <<  " "<<grid.cells[npartTotal-1].coords[2]  << endl;
+       
+//        Grid grid2(n);        
+//        
+//        cout << "grid2 " << endl;
+//        cout << grid2.cells[0].coords[0] << " "<< grid2.cells[0].coords[1]  <<  " "<<grid2.cells[0].coords[2]  << endl;
+//        
+//        cout << grid2.cells[1].coords[0] << " "<< grid2.cells[1].coords[1]  <<  " "<<grid2.cells[1].coords[2]  << endl;
+//        
+//        cout << grid2.cells[npartTotal-1].coords[0] << " "<< grid2.cells[npartTotal-1].coords[1]  <<  " "<<grid2.cells[npartTotal-1].coords[2]  << endl;
        
        int n_in_bin=22158;
        //int n_in_bin=2215;
@@ -1608,15 +1684,23 @@ T = gsl_rng_ranlxs2; //double precision generator: gsl_rng_ranlxd2 //TODO decide
        complex<MyFloat> *ang_arr1=(complex<MyFloat>*)calloc(n_in_bin, sizeof(complex<MyFloat>));
        complex<MyFloat> *ang_arr2=(complex<MyFloat>*)calloc(n_in_bin, sizeof(complex<MyFloat>));
        complex<MyFloat> *ang_arr3=(complex<MyFloat>*)calloc(n_in_bin, sizeof(complex<MyFloat>));
+       
+//        complex<MyFloat> *ang_arr1_2=(complex<MyFloat>*)calloc(n_in_bin, sizeof(complex<MyFloat>));
+//        complex<MyFloat> *ang_arr2_2=(complex<MyFloat>*)calloc(n_in_bin, sizeof(complex<MyFloat>));
+//        complex<MyFloat> *ang_arr3_2=(complex<MyFloat>*)calloc(n_in_bin, sizeof(complex<MyFloat>));
 
        //read in particles to constrain
        GetBuffer_int(part_arr, IDfile, n_in_bin);        
        cout << part_arr[0] << " " <<part_arr[1]<<" " <<part_arr[2]<<" " <<part_arr[3]<<" " <<part_arr[4] << endl;
        
 //optional: output the angular momentum calculated from del phi       
-//        ofstream ofs1("ang_arr1.txt");
-//        ofstream ofs2("ang_arr2.txt");
-//        ofstream ofs3("ang_arr3.txt");
+//        ofstream ofs1("ang_arr1_00.txt");
+//        ofstream ofs2("ang_arr2_00.txt");
+//        ofstream ofs3("ang_arr3_00.txt");
+       
+//        ofstream ofs4("ang_arr1_2.txt");
+//        ofstream ofs5("ang_arr2_2.txt");
+//        ofstream ofs6("ang_arr3_2.txt");
        
         MyFloat dx=Boxlength/n;      
         for(i=0; i< n_in_bin; i++){	    
@@ -1628,12 +1712,24 @@ T = gsl_rng_ranlxs2; //double precision generator: gsl_rng_ranlxd2 //TODO decide
 // 	    ofs1<< ang_arr1[i].real() << endl;
 // 	    ofs2<< ang_arr2[i].real() << endl;
 // 	    ofs3<< ang_arr3[i].real() << endl;
+	
+// 	    ang_arr1_2[i]=cen_deriv4_alpha(&grid2, part_arr[i], dummy, dx, 0, pot0);
+// 	    ang_arr2_2[i]=cen_deriv4_alpha(&grid2, part_arr[i], dummy, dx, 1, pot0);
+// 	    ang_arr3_2[i]=cen_deriv4_alpha(&grid2, part_arr[i], dummy, dx, 2, pot0);
+// 
+// 	    ofs4<< ang_arr1_2[i].real() << endl;
+// 	    ofs5<< ang_arr2_2[i].real() << endl;
+// 	    ofs6<< ang_arr3_2[i].real() << endl;
+	    
 	}
         
         
 //        ofs1.close();
 //        ofs2.close();
 //        ofs3.close();
+//        ofs4.close();
+//        ofs5.close();
+//        ofs6.close();
         
        alpha_mu1k=fft_r(alpha_mu1k, alpha_mu1, n, 1);
        alpha_mu2k=fft_r(alpha_mu2k, alpha_mu2, n, 1);
@@ -1644,8 +1740,108 @@ T = gsl_rng_ranlxs2; //double precision generator: gsl_rng_ranlxd2 //TODO decide
        free(ang_arr3);
        free(part_arr);
        
+       
+      // exit(1);
 //end of L-alpha calculation  
       
+       complex<MyFloat> sLx1=0., sLxk1=0.,sLx2=0., sLxk2=0,sLx3=0., sLxk3=0.;       
+      for(i=0;i<npartTotal;i++){sLxk1+=(conj(alpha_mu1k[i])*potk0[i]); sLx1+=(conj(alpha_mu1[i])*pot0[i]); sLxk2+=(conj(alpha_mu2k[i])*potk0[i]); sLx2+=(conj(alpha_mu2[i])*pot0[i]); sLxk3+=(conj(alpha_mu3k[i])*potk0[i]); sLx3+=(conj(alpha_mu3[i])*pot0[i]);}    
+       
+       cout<< endl;
+       cout<< "values for alpha_mu*phi (without any constraint, real & k-space): " << sLx1 <<  " " << sLxk1 << " " << sLx2 <<  " " << sLxk2<< " "<< sLx3 <<  " " << sLxk3 << endl;     
+      
+       
+      complex<MyFloat> *alphak_phi=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));       
+      //constraint vector from 3 components dot input vectorL
+      for(i=0; i<npartTotal; i++){	
+	  alphak_phi[i]=alpha_mu1k[i]*a1 + alpha_mu2k[i]*a2 + alpha_mu3k[i]*a3;	
+      }      
+      
+      complex<MyFloat> *alpha_phi=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
+      alpha_phi=fft_r(alpha_phi, alphak_phi, n, -1); 
+      
+      complex<MyFloat> *alphak=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));       
+      alphak=poiss(alphak, alphak_phi, n, Boxlength, ain, Om0);
+
+      complex<MyFloat> *alpha=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
+      alpha=fft_r(alpha, alphak, n, -1);      
+      
+      complex<MyFloat> norm_iter=0.;
+      for(i=0; i<npartTotal; i++){
+	  norm_iter+=alphak[i]*P[i]*conj(alphak[i]);
+       }
+       
+     
+     // cout<< "d, Norm_iter, ratio " << d << " " << sqrt(norm_iter) << d/sqrt(norm_iter.real()) << endl;
+      d/=sqrt(norm_iter.real());
+      
+      complex<MyFloat> norm_iter2 (0., 0.);
+      for(i=0; i<npartTotal; i++){
+	alphak[i]/=sqrt(norm_iter.real());
+	x1[i]=mean[i]-P[i]*alphak[i]*conj(alphak[i])*mean[i]+P[i]*alphak[i]*d; 	
+	norm_iter2+=P[i]*alphak[i]*conj(alphak[i]);	 
+      }
+      
+     complex<MyFloat> ssum2=0.;
+     for(i=0;i<npartTotal;i++){ssum2+=(conj(alphak[i])*alphak[i]);}      
+      
+      //assert(abs(real(norm_iter2)-1.) < 1e-12);  
+      //assert(abs(imag(norm_iter2)) < 1e-12);
+      //TODO think about this (it fails more often than it should?) 
+
+      
+   if(iter<0){cout<< endl<< "N_iter=-1, skipping iterative constraint. "  << endl <<endl; }  
+   else{//iteration starts:
+      cout<< endl<< "Iterations: " << iter << endl;      
+ 
+      complex<MyFloat> *cal=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
+      complex<MyFloat> *cal2;      
+      complex<MyFloat> *ret1=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
+      complex<MyFloat> *ret2=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
+      complex<MyFloat> *ca_N=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
+      complex<MyFloat> *y1=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
+     
+     cal2=calc_A_new(ftsc, alphak, npartTotal, P, ret1, ret2, cal);
+     mat_diag(P, cal2, npartTotal, complex<MyFloat> (1.,0.), ca_N);
+     for(i=0;i<npartTotal;i++) {y1[i]=ftsc[i]+ca_N[i]+x1[i];}     
+     
+     complex<MyFloat> *ftsc_real=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
+     ftsc_real=fft_r(ftsc_real,ftsc_old,res,-1);
+     
+     complex<MyFloat> *y1_real=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
+     complex<MyFloat> *x1_real=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
+       
+      //transform y1 and x1 back to configuration space
+      x1_real=fft_r(x1_real,x1,res,-1);
+      y1_real=fft_r(y1_real,y1,res,-1);
+     
+     complex<MyFloat> su6 (0.,0.);
+     complex<MyFloat> su7 (0.,0.);
+     complex<MyFloat> su8 (0.,0.);
+     
+     for(i=0;i<npartTotal;i++){su8+=(conj(alpha[i])*ftsc_real[i]); su6+=(conj(alpha[i])*y1_real[i]);  su7+=(conj(alpha[i])*x1_real[i]);  }         
+   
+     std::cout<<std::endl;
+     cout<< "d="<< in_d << ", dot(x1, alpha)=" << su7 << ", dot(y1, alpha)=" << su6 << ", dot(y0, alpha)=" << su8 <<  endl<< endl;
+     
+      for(i=0;i<5;i++){std::cout << "y1_real, y0_real, x1_real: "<< y1_real[i].real()<< " " << ftsc_real[i].real() <<  "  " << x1_real[i].real() << endl;}      
+
+      std::cout<<std::endl;
+      free(cal);
+      free(ret1);
+      free(ret2);
+      free(ca_N);            
+   
+      for(i=0;i<npartTotal;i++){ftsc[i]=y1[i];}       
+      cout<< "Iteration done" << endl<<endl;
+      free(y1);
+      free(x1_real);
+      free(y1_real);
+      free(ftsc_real);
+       
+   }//end of iteration, ftsc now contains constrained field
+       
+       
        /*
       complex<MyFloat> sLx1=0., sLxk1=0.,sLx2=0., sLxk2=0,sLx3=0., sLxk3=0.;       
       for(i=0;i<npartTotal;i++){sLxk1+=(conj(alpha_mu1k[i])*potk0[i]); sLx1+=(conj(alpha_mu1[i])*pot0[i]); sLxk2+=(conj(alpha_mu2k[i])*potk0[i]); sLx2+=(conj(alpha_mu2[i])*pot0[i]); sLxk3+=(conj(alpha_mu3k[i])*potk0[i]); sLx3+=(conj(alpha_mu3[i])*pot0[i]);}    
@@ -1688,64 +1884,64 @@ T = gsl_rng_ranlxs2; //double precision generator: gsl_rng_ranlxd2 //TODO decide
       }
        */
       
-      // construct the description of the underlying field and its realization
-      UnderlyingField<MyFloat> underlying_field(P, ftsc, npartTotal);
- 
-      // construct the description of the final field by building in each constraint in turn
-      //
-      // WARNING - ConstrainedField renormalizes alpha_mu1k in-place, so take care when checking
-      //           constraints later! alpha_mu1 etc will not be changed, of course, so in this instance
-      //           we just use those for the checks below.
-      ConstrainedField<MyFloat> constrained_field_x  (&underlying_field,     alpha_mu1k, d*a1, npartTotal);
-      ConstrainedField<MyFloat> constrained_field_xy (&constrained_field_x,  alpha_mu2k, d*a2, npartTotal);
-      ConstrainedField<MyFloat> constrained_field_xyz(&constrained_field_xy, alpha_mu3k, d*a3, npartTotal);
-
-
-      complex<MyFloat> *y1=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
-      constrained_field_xyz.get_realization(y1);
-
-      // The following line isn't required - it's only here for debug information
-      constrained_field_xyz.get_mean(x1);
-      
-      complex<MyFloat> *ftsc_real=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
-      ftsc_real=fft_r(ftsc_real,ftsc_old,res,-1);
-     
-      complex<MyFloat> *y1_real=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
-      complex<MyFloat> *x1_real=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
-       
-      //transform y1 and x1 back to configuration space
-      x1_real=fft_r(x1_real,x1,res,-1);
-      y1_real=fft_r(y1_real,y1,res,-1);
-     
-      // Interesting output
-      cerr << "alpha1.y0 =" << dot(alpha_mu1, ftsc_real, npartTotal) << endl;
-      cerr << "alpha1.x1 =" << dot(alpha_mu1, x1_real, npartTotal) << "; should be " << d*a1 << endl;
-      cerr << "alpha1.y1 =" << dot(alpha_mu1, y1_real, npartTotal) << "; should be " << d*a1 << endl << endl;
-
-      cerr << "alpha2.y0 =" << dot(alpha_mu2, ftsc_real, npartTotal) << endl;
-      cerr << "alpha2.x1 =" << dot(alpha_mu2, x1_real, npartTotal) << "; should be " << d*a2 << endl;
-      cerr << "alpha2.y1 =" << dot(alpha_mu2, y1_real, npartTotal) << "; should be " << d*a2 << endl << endl;
-
-      cerr << "alpha3.y0 =" << dot(alpha_mu3, ftsc_real, npartTotal) << endl;
-      cerr << "alpha3.x1 =" << dot(alpha_mu3, x1_real, npartTotal) << "; should be " << d*a3 << endl;
-      cerr << "alpha3.y1 =" << dot(alpha_mu3, y1_real, npartTotal) << "; should be " << d*a3 << endl << endl;
-
-
-      /*
-      // Interesting but v slow output
-      cerr << "Covariances = " << constrained_field_xyz.v_cov_v(alpha_mu1k) << " " 
-	                       << constrained_field_xyz.v_cov_v(alpha_mu2k) << " " 
-	                       << constrained_field_xyz.v_cov_v(alpha_mu3k) << " should all be zero" << endl;
-      */
-      
-      for(i=0;i<npartTotal;i++){ftsc[i]=y1[i];}       
-
-      free(y1);
-      free(x1_real);
-      free(y1_real);
-
-       
-   // ftsc now contains constrained field
+//       // construct the description of the underlying field and its realization
+//       UnderlyingField<MyFloat> underlying_field(P, ftsc, npartTotal);
+//  
+//       // construct the description of the final field by building in each constraint in turn
+//       //
+//       // WARNING - ConstrainedField renormalizes alpha_mu1k in-place, so take care when checking
+//       //           constraints later! alpha_mu1 etc will not be changed, of course, so in this instance
+//       //           we just use those for the checks below.
+//       ConstrainedField<MyFloat> constrained_field_x  (&underlying_field,     alpha_mu1k, d*a1, npartTotal);
+//       ConstrainedField<MyFloat> constrained_field_xy (&constrained_field_x,  alpha_mu2k, d*a2, npartTotal);
+//       ConstrainedField<MyFloat> constrained_field_xyz(&constrained_field_xy, alpha_mu3k, d*a3, npartTotal);
+// 
+// 
+//       complex<MyFloat> *y1=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
+//       constrained_field_xyz.get_realization(y1);
+// 
+//       // The following line isn't required - it's only here for debug information
+//       constrained_field_xyz.get_mean(x1);
+//       
+//       complex<MyFloat> *ftsc_real=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
+//       ftsc_real=fft_r(ftsc_real,ftsc_old,res,-1);
+//      
+//       complex<MyFloat> *y1_real=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
+//       complex<MyFloat> *x1_real=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
+//        
+//       //transform y1 and x1 back to configuration space
+//       x1_real=fft_r(x1_real,x1,res,-1);
+//       y1_real=fft_r(y1_real,y1,res,-1);
+//      
+//       // Interesting output
+//       cerr << "alpha1.y0 =" << dot(alpha_mu1, ftsc_real, npartTotal) << endl;
+//       cerr << "alpha1.x1 =" << dot(alpha_mu1, x1_real, npartTotal) << "; should be " << d*a1 << endl;
+//       cerr << "alpha1.y1 =" << dot(alpha_mu1, y1_real, npartTotal) << "; should be " << d*a1 << endl << endl;
+// 
+//       cerr << "alpha2.y0 =" << dot(alpha_mu2, ftsc_real, npartTotal) << endl;
+//       cerr << "alpha2.x1 =" << dot(alpha_mu2, x1_real, npartTotal) << "; should be " << d*a2 << endl;
+//       cerr << "alpha2.y1 =" << dot(alpha_mu2, y1_real, npartTotal) << "; should be " << d*a2 << endl << endl;
+// 
+//       cerr << "alpha3.y0 =" << dot(alpha_mu3, ftsc_real, npartTotal) << endl;
+//       cerr << "alpha3.x1 =" << dot(alpha_mu3, x1_real, npartTotal) << "; should be " << d*a3 << endl;
+//       cerr << "alpha3.y1 =" << dot(alpha_mu3, y1_real, npartTotal) << "; should be " << d*a3 << endl << endl;
+// 
+// 
+//       /*
+//       // Interesting but v slow output
+//       cerr << "Covariances = " << constrained_field_xyz.v_cov_v(alpha_mu1k) << " " 
+// 	                       << constrained_field_xyz.v_cov_v(alpha_mu2k) << " " 
+// 	                       << constrained_field_xyz.v_cov_v(alpha_mu3k) << " should all be zero" << endl;
+//       */
+//       
+//       for(i=0;i<npartTotal;i++){ftsc[i]=y1[i];}       
+// 
+//       free(y1);
+//       free(x1_real);
+//       free(y1_real);
+// 
+//        
+//    // ftsc now contains constrained field
    
    
    //output power spectrum of constrained field

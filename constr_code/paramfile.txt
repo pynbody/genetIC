@@ -10,6 +10,5 @@ seed	8896131
 camb	camb_transfer_kmax40_z0.dat
 outdir	 ./output/
 gadgetformat 2
-IDfile	h40.txt
-vector 0.93764782 -0.34577978 -0.03539638 %wfrom unshifted halo 40
-%vector -0.07265161 0.66846267 -0.74018876 %from shifted halo 40
+IDfile	h40_b8.txt
+vector 0.26235098 0.3430043 0.90195344
