@@ -1512,7 +1512,7 @@ complex<MyFloat> cen_deriv2_alpha(Grid *in, int index, complex<MyFloat> *alpha, 
 
 }
 
-complex<MyFloat> *calcConstraintVector(ifstream inf, int *part_arr, int n_part_arr, int numPartTotal) {
+complex<MyFloat> *calcConstraintVector(ifstream &inf, int *part_arr, int n_part_arr, int npartTotal) {
     char name[100];
     inf >> name;
     cout << "Getting constraint vector " << name << " for " << n_part_arr << " particles.";
@@ -1533,7 +1533,6 @@ int main(int argc, char *argv[]){
 
     MyFloat Om0, Ol0, zin, sigma8, Boxlength, a1, a2, a3;
     int out, n, gadgetformat;
-    const char* IDfile;
 
     int n_in_bin;
     int *part_arr=NULL;
@@ -1762,7 +1761,7 @@ T = gsl_rng_ranlxs2; //double precision generator: gsl_rng_ranlxd2 //TODO decide
 
            if(strcmp(command,"calculate")==0) {
                complex<MyFloat> *vec = calcConstraintVector(inf, part_arr, n_in_bin, npartTotal);
-               cout << "Calculated value -> " << dot(vec, ftsc, npartTotal);
+               cout << "Calculated value -> " << dot(vec, ftsc, npartTotal) << endl;
                free(vec);
            }
 
@@ -1773,7 +1772,8 @@ T = gsl_rng_ranlxs2; //double precision generator: gsl_rng_ranlxd2 //TODO decide
        inf.close();
 
 
-        j_l=0;
+
+        int j_l=0;
 
         MyFloat dx= Boxlength/n;
 
@@ -1861,58 +1861,14 @@ T = gsl_rng_ranlxs2; //double precision generator: gsl_rng_ranlxd2 //TODO decide
       complex<MyFloat> *x1=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
       constrained_field_xyz.get_mean(x1);
 
-      //for(i=0; i< 5;i++){cout<< "after "<< y1[i]<<  " " << ftsc_old[i]<< " "<< x1[i]  <<  " "<< endl;} //works
-        //cout << endl;
-
-      ftsc_real=fft_r(ftsc_real,ftsc_old,res,-1);
-
-      complex<MyFloat> *y1_real=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
-      complex<MyFloat> *x1_real=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
-
-      //transform y1 and x1 back to configuration space
-      x1_real=fft_r(x1_real,x1,res,-1);
-      y1_real=fft_r(y1_real,y1,res,-1);
-
-
-      complex<MyFloat> dens_after=0.;
-      j_l=0;
-      for(i=0; i< n_in_halo; i++){
-         j_l=index_shift[part_arr_halo[i]];
-         dens_after+=y1_real[j_l];
-
-       }
-
-      cerr << "alpha1.y0 =" << dot(alpha1_A, ftsc_real, npartTotal) << endl;
-      cerr << "alpha1.x1 =" << dot(alpha1_A, x1_real, npartTotal) << "; should be " << in_d*a1 << endl;//d*a1 << endl;
-      cerr << "alpha1.y1 =" << dot(alpha1_A, y1_real, npartTotal) << "; should be " << in_d*a1 << endl;//d*a1 << endl << endl;
-
-      cerr << "alpha2.y0 =" << dot(alpha2_A, ftsc_real, npartTotal) << endl;
-      cerr << "alpha2.x1 =" << dot(alpha2_A, x1_real, npartTotal) << "; should be " << in_d*a2 << endl;//d*a2 << endl;
-      cerr << "alpha2.y1 =" << dot(alpha2_A, y1_real, npartTotal) << "; should be " << in_d*a2 << endl;//d*a2 << endl << endl;
-
-      cerr << "alpha3.y0 =" << dot(alpha3_A, ftsc_real, npartTotal) << endl;
-      cerr << "alpha3.x1 =" << dot(alpha3_A, x1_real, npartTotal) << "; should be " << in_d*a3 << endl;//d*a3 << endl;
-      cerr << "alpha3.y1 =" << dot(alpha3_A, y1_real, npartTotal) << "; should be " << in_d*a3 << endl;//d*a3 << endl << endl;
-
 
       cout << endl;
-      for(i=0;i<5;i++){std::cout << "y1, y0, x1: "<< y1_real[i].real()<< " " << ftsc_real[i].real()<<  "  " << x1_real[i].real() << endl;}
 
-        cout << endl;
-      //for(i=0;i<5;i++){std::cout << "y1_k, y0_k, x1_k: "<< y1[i]<< " " << ftsc[i] <<  "  " << x1[i] << endl;}
-      //cout << endl;
-      /*
-      // Interesting but v slow output
-      cerr << "Covariances = " << constrained_field_xyz.v_cov_v(alpha_mu1k) << " "
-	                       << constrained_field_xyz.v_cov_v(alpha_mu2k) << " "
-	                       << constrained_field_xyz.v_cov_v(alpha_mu3k) << " should all be zero" << endl;
-      */
 
       for(i=0;i<npartTotal;i++){ftsc[i]=y1[i];}
 
       free(y1);
-      free(x1_real);
-      free(y1_real);
+
       free(alpha1_A);
       free(alpha2_A);
       free(alpha3_A);
