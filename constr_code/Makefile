@@ -1,6 +1,6 @@
 CC    	= g++
 C	= gcc
-CFLAGS	= -Wall -O2
+CFLAGS	= -Wall -g
 CPATH = /opt/local/include/
 LPATH   =/opt/local/lib
 #HDF5_FLAGS = -lhdf5 -D H5_USE_16_API -DHAVE_HDF5

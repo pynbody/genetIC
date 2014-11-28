@@ -94,6 +94,7 @@ struct io_header_2 //header for gadget2
   char     fill[256- 6*4- 6*8- 2*8- 2*4- 6*4- 2*4 - 4*8];  /* fills to 256 Bytes */
 } header2;
 
+
 struct io_header_3 //header for gadget3
 {
   int npart[6];			/*!< number of particles of each type in this file */
@@ -1382,7 +1383,7 @@ long Grid::get_index(long x, long y, long z){
 
 }
 
-complex<MyFloat> cen_deriv4_alpha(Grid *in, long index, complex<MyFloat> *alpha, MyFloat dx, long direc, complex<MyFloat> *phi){//4th order central difference
+void cen_deriv4_alpha(Grid *in, long index, complex<MyFloat> *alpha, MyFloat dx, long direc){//4th order central difference
 
   MyFloat x0, y0, z0;//, zm2, zm1, zp2, zp1;
   x0=in->cells[index].coords[0];
@@ -1427,10 +1428,6 @@ complex<MyFloat> cen_deriv4_alpha(Grid *in, long index, complex<MyFloat> *alpha,
     alpha[ind_p1]+=(-c1*b);
     alpha[ind_p2]+=(-c1*a);
 
-    ang+=((c1*a*phi[ind_m2])+(c1*b*phi[ind_m1])+(-c1*b*phi[ind_p1])+(-c1*a*phi[ind_p2]));
-
-    //cout<< "phis " << phi[ind_m1] << " "<< phi[ind_m2] << " " << phi[ind_p1] << " " << phi[ind_p2]<< endl;
-    //cout << "nabla phi first" <<  -a*phi[ind_m2] << " "<<  -b*phi[ind_m1] << " " <<  b*phi[ind_p1] << " " << a*phi[ind_p2] << " sum: " << -a*phi[ind_m2] - b*phi[ind_m1] + b*phi[ind_p1] + a*phi[ind_p2] <<  endl;
 
 
   //second step in other rho direction
@@ -1450,13 +1447,6 @@ complex<MyFloat> cen_deriv4_alpha(Grid *in, long index, complex<MyFloat> *alpha,
     alpha[ind_p1]+=(c2*b);
     alpha[ind_p2]+=(c2*a);
 
-    ang+=((-c2*a*phi[ind_m2])+(-c2*b*phi[ind_m1])+(c2*b*phi[ind_p1])+(c2*a*phi[ind_p2]));
-
-    //cout<< "phis second" << phi[ind_m1] << " "<< phi[ind_m1] << " " << phi[ind_m1] << " " << endl;
-
-    //cout << "nabla phi second" <<  a*phi[ind_m2] << " "<<  b*phi[ind_m1] << " " <<  -b*phi[ind_p1] << " " << -a*phi[ind_p2] << " sum: " << a*phi[ind_m2] + b*phi[ind_m1] + -b*phi[ind_p1] + -a*phi[ind_p2] <<  endl;
-
-    return ang;
 
 }
 
@@ -1512,13 +1502,43 @@ complex<MyFloat> cen_deriv2_alpha(Grid *in, int index, complex<MyFloat> *alpha, 
 
 }
 
-complex<MyFloat> *calcConstraintVector(ifstream &inf, int *part_arr, int n_part_arr, int npartTotal) {
+complex<MyFloat> *calcConstraintVector(ifstream &inf, int *part_arr, int n_part_arr, int npartTotal, int res,
+                                       MyFloat dx, float a, float om, float boxlen, long *index_shift, Grid *pGrid) {
     char name[100];
     inf >> name;
-    cout << "Getting constraint vector " << name << " for " << n_part_arr << " particles.";
-    complex<MyFloat> *rval=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
+    cout << "Getting constraint vector '" << name << "' for " << n_part_arr << " particles.";
 
-    return rval;
+    complex<MyFloat> *rval=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
+    complex<MyFloat> *rval_k=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
+
+    if(strcasecmp(name,"overdensity")==0) {
+        MyFloat w = 1.0/n_part_arr;
+        for(long i=0;i<n_part_arr;i++) {
+            rval[index_shift[part_arr[i]]]=w;
+        }
+
+        fft_r(rval_k, rval, res, 1);
+    } else if(strcasecmp(name, "L")==0) {
+        // angular momentum
+        int direction=-1;
+        inf >> direction;
+        for(long i=0;i<n_part_arr;i++) {
+            cen_deriv4_alpha(pGrid, index_shift[part_arr[i]], rval, dx, direction);
+        }
+        complex<MyFloat> *rval_kX=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
+        fft_r(rval_kX, rval, res, -1);
+        // The constraint as derived is on the potential. By considering
+        // unitarity of FT, we can FT the constraint to get the constraint
+        // on the density.
+        poiss(rval_k, rval_kX, res, boxlen, a, om);
+        free(rval_kX);
+    } else {
+        cout << "  -> UNKNOWN constraint vector type, returning zeros [this is bad]" << endl;
+
+    }
+
+    free(rval);
+    return rval_k;
 
 }
 
@@ -1656,13 +1676,13 @@ T = gsl_rng_ranlxs2; //double precision generator: gsl_rng_ranlxd2 //TODO decide
 
 
 //optional: shift position to center e.g. on specific halo
-	//long s1=226 , s2= 171, s3= 186; //for halo position
+  //long s1=226 , s2= 171, s3= 186; //for halo position
   long s1=228 , s2= 173, s3= 187;
-	//long s1=0, s2=0, s3=0;
+
+  // long s1=0, s2=0, s3=0;
+
   long *index_shift =(long*)calloc(npartTotal,sizeof(long));
   pbc(n, rnd_t, rnd, s1, s2, s3, index_shift);
-  cout << "shift: "<< s1 << " " << s2 << " "<< s3 << endl;
-  //cout << index_shift[0] << " " << index_shift[1] << " "<< index_shift[2] << endl;
 
 
 	free(rnd_t);
@@ -1739,15 +1759,17 @@ T = gsl_rng_ranlxs2; //double precision generator: gsl_rng_ranlxd2 //TODO decide
 
 
        Grid grid(n);
+       MyFloat dx= Boxlength/n;
        // construct the description of the underlying field and its realization
-       UnderlyingField<MyFloat> underlying_field(P, ftsc, npartTotal);
+       UnderlyingField<MyFloat> *pField = new UnderlyingField<MyFloat>(P, ftsc, npartTotal);
 
 
        while(!inf.eof()) {
            char command[100];
+           command[0]=0;
            inf >> command;
 
-           if(strcmp(command,"IDfile")==0) {
+           if(strcasecmp(command,"IDfile")==0) {
                char IDfile[100];
 
                if(part_arr!=NULL)
@@ -1756,99 +1778,74 @@ T = gsl_rng_ranlxs2; //double precision generator: gsl_rng_ranlxd2 //TODO decide
                inf >> IDfile;
 
                n_in_bin = AllocAndGetBuffer_int(IDfile, part_arr);
-               cout << "New particle array -> " << part_arr[0] << " " <<part_arr[1]<<" " <<part_arr[2]<<" " <<part_arr[3]<<" " <<part_arr[4] << endl;
-           }
-
-           if(strcmp(command,"calculate")==0) {
-               complex<MyFloat> *vec = calcConstraintVector(inf, part_arr, n_in_bin, npartTotal);
-               cout << "Calculated value -> " << dot(vec, ftsc, npartTotal) << endl;
+               cout << "New particle array " << IDfile << " loaded." << endl;
+           } else
+           if(strcasecmp(command,"calculate")==0) {
+               complex<MyFloat> *vec = calcConstraintVector(inf, part_arr, n_in_bin, npartTotal, res, dx, ain, Om0, Boxlength, index_shift, &grid);
+               cout << "    --> start of vector  = " << vec[0] << " " <<vec[1] << " " <<vec[2] << endl;
+               cout << "    --> calculated value = " << dot(vec, ftsc, npartTotal) << endl;
                free(vec);
+           } else
+           if(strcasecmp(command,"constrain")==0) {
+               bool relative=false;
+               if(pField==NULL) {
+                   cerr << "Eek! You're trying to add a constraint but the calculation is already done. Move your done command." << endl;
+                   exit(0);
+               }
+
+               complex<MyFloat> *vec = calcConstraintVector(inf, part_arr, n_in_bin, npartTotal, res, dx, ain, Om0, Boxlength, index_shift, &grid);
+
+               inf >> command;
+               if (strcasecmp(command,"relative")==0) {
+                   relative=true;
+               } else if (strcasecmp(command,"absolute")!=0) {
+                   cerr << "Constraints must state either relative or absolute" << endl;
+                   exit(0);
+               }
+
+               MyFloat constraint_real;
+               inf >> constraint_real;
+
+               std::complex<MyFloat> constraint = constraint_real;
+               std::complex<MyFloat> initv = dot(vec, ftsc, npartTotal);
+
+               if(relative) constraint*=initv;
+
+               cout << "    --> initial value = " << initv << ", constraining to " << constraint << endl;
+               pField = new ConstrainedField<MyFloat> (pField, vec, constraint, npartTotal);
+           } else
+           if(strcasecmp(command,"done")==0) {
+               if(pField==NULL) {
+                   cerr << "ERROR - field information is not present. Are there two 'done' commands perhaps?" << endl;
+                   exit(0);
+               }
+               complex<MyFloat> *y1=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
+               pField->get_realization(y1);
+
+               for(long i=0; i<npartTotal; i++)
+                   ftsc[i]=y1[i];
+
+               free(y1);
+
+
+               // clean everything up
+               delete pField;
+               pField=NULL;
+
            }
 
 
+       }
+
+       if(pField!=NULL) {
+           cerr << endl << endl << "WHOOPS - you didn't actually calculate the constraints. You need a 'done' command in the paramfile." << endl << endl;
        }
 
 
        inf.close();
 
 
-
-        int j_l=0;
-
-        MyFloat dx= Boxlength/n;
-
-        for(i=0; i< n_in_bin; i++) {
-
-          j_l=index_shift[part_arr[i]];
-
-          cen_deriv4_alpha(&grid, j_l, alpha_mu1, dx, 0, pot0);
-          cen_deriv4_alpha(&grid, j_l, alpha_mu2, dx, 1, pot0);
-          cen_deriv4_alpha(&grid, j_l, alpha_mu3, dx, 2, pot0);
-
-	   }
-
-       alpha_mu1k=fft_r(alpha_mu1k, alpha_mu1, n, 1);
-       alpha_mu2k=fft_r(alpha_mu2k, alpha_mu2, n, 1);
-       alpha_mu3k=fft_r(alpha_mu3k, alpha_mu3, n, 1);
-
-
-       free(part_arr);
-
-
-
-//end of L-alpha calculation
-
-
-
-      complex<MyFloat> *alphak_phi=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
-      //constraint vector from 3 components dot input vectorL
-      for(i=0; i<npartTotal; i++){
-	        alphak_phi[i]=alpha_mu1k[i]*a1 + alpha_mu2k[i]*a2 + alpha_mu3k[i]*a3;
-      }
-
-
-      complex<MyFloat> *alphak=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
-      alphak=poiss(alphak, alphak_phi, n, Boxlength, ain, Om0);
-
-       cout << endl;
-       cout << " alpha_k " << alphak[0] << " " << alphak[1] << " " <<alphak[2] << " " <<alphak[3] << " " <<alphak[4] << " " << endl;
-       cout << endl;
-
-
-
-      complex<MyFloat> norm_iter=0.;
-      for(i=0; i<npartTotal; i++){
-	        norm_iter+=alphak[i]*P[i]*conj(alphak[i]);
-       }
-
-
-      //cout<< "d, Norm_iter, ratio " << d << " " << sqrt(norm_iter) << d/sqrt(norm_iter.real()) << endl;
-      //cout<< endl;
-
-
-      complex<MyFloat> *alphak1_A=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
-      alphak1_A=poiss(alphak1_A, alpha_mu1k, n, Boxlength, ain, Om0);
-
-      complex<MyFloat> *alphak2_A=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
-      alphak2_A=poiss(alphak2_A, alpha_mu2k, n, Boxlength, ain, Om0);
-
-      complex<MyFloat> *alphak3_A=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
-      alphak3_A=poiss(alphak3_A, alpha_mu3k, n, Boxlength, ain, Om0);
-
-      complex<MyFloat> *alpha1_A=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
-      alpha1_A=fft_r(alpha1_A, alphak1_A, res, -1);
-
-      complex<MyFloat> *alpha2_A=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
-      alpha2_A=fft_r(alpha2_A, alphak2_A, res, -1);
-
-      complex<MyFloat> *alpha3_A=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
-      alpha3_A=fft_r(alpha3_A, alphak3_A, res, -1);
-
-
-      cout << endl;
-      cout << " alpha_mu1k " << alphak1_A[0] << " " << alphak1_A[1] << " " <<alphak1_A[2] << " " <<alphak1_A[3] << " " <<alphak1_A[4] << " " << endl;
-      cout << endl;
-
+      /*
 
       ConstrainedField<MyFloat> constrained_field_x  (&underlying_field,     alphak1_A, d*a1, npartTotal);
       ConstrainedField<MyFloat> constrained_field_xy (&constrained_field_x,  alphak2_A, d*a2, npartTotal);
@@ -1861,20 +1858,10 @@ T = gsl_rng_ranlxs2; //double precision generator: gsl_rng_ranlxd2 //TODO decide
       complex<MyFloat> *x1=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
       constrained_field_xyz.get_mean(x1);
 
+      */
 
       cout << endl;
 
-
-      for(i=0;i<npartTotal;i++){ftsc[i]=y1[i];}
-
-      free(y1);
-
-      free(alpha1_A);
-      free(alpha2_A);
-      free(alpha3_A);
-      free(alphak1_A);
-      free(alphak2_A);
-      free(alphak3_A);
 
 
 
@@ -1901,7 +1888,6 @@ T = gsl_rng_ranlxs2; //double precision generator: gsl_rng_ranlxd2 //TODO decide
       free(alpha_mu3k);
 
 
-      free(x1);
       free(ft);
       free(kcamb);
       free(Tcamb);

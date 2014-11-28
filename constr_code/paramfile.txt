@@ -10,5 +10,60 @@ seed	8896131
 camb	camb_transfer_kmax40_z0.dat
 outdir	 ./output/
 gadgetformat 2
-IDfile	h40_b8.txt
-vector 0.26235098 0.3430043 0.90195344
+IDfile h40_b8.txt
+calculate L 0
+calculate L 1
+calculate L 2
+done
+#IDfile	h40_xbins/h40_x0.txt
+#constrain L 0 absolute 2.76e-4
+#constrain L 1 absolute -4.335e-6
+#constrain L 2 absolute 4.331e-4
+IDfile h40_xbins/h40_x7.txt
+constrain L 0 absolute 0.00652224
+constrain L 1 absolute  -0.00010221
+constrain L 2 absolute 0.01021236
+done
+calculate L 0
+calculate L 1
+calculate L 2
+IDfile	h40_xbins/h40_x1.txt
+calculate L 0
+calculate L 1
+calculate L 2
+IDfile	h40_xbins/h40_x2.txt
+calculate L 0
+calculate L 1
+calculate L 2
+IDfile	h40_xbins/h40_x3.txt
+calculate L 0
+calculate L 1
+calculate L 2
+IDfile	h40_xbins/h40_x4.txt
+calculate L 0
+calculate L 1
+calculate L 2
+IDfile	h40_xbins/h40_x5.txt
+calculate L 0
+calculate L 1
+calculate L 2
+IDfile	h40_xbins/h40_x6.txt
+calculate L 0
+calculate L 1
+calculate L 2
+IDfile	h40_xbins/h40_x7.txt
+calculate L 0
+calculate L 1
+calculate L 2
+IDfile	h40_xbins/h40_x8.txt
+calculate L 0
+calculate L 1
+calculate L 2
+IDfile	h40_xbins/h40_x9.txt
+calculate L 0
+calculate L 1
+calculate L 2
+IDfile h40.txt
+calculate L 0
+calculate L 1
+calculate L 2
