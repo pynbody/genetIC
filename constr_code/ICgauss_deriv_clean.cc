@@ -1526,7 +1526,7 @@ complex<MyFloat> *calcConstraintVector(ifstream &inf, int *part_arr, int n_part_
             cen_deriv4_alpha(pGrid, index_shift[part_arr[i]], rval, dx, direction);
         }
         complex<MyFloat> *rval_kX=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
-        fft_r(rval_kX, rval, res, -1);
+        fft_r(rval_kX, rval, res, 1);
         // The constraint as derived is on the potential. By considering
         // unitarity of FT, we can FT the constraint to get the constraint
         // on the density.
@@ -1782,7 +1782,6 @@ T = gsl_rng_ranlxs2; //double precision generator: gsl_rng_ranlxd2 //TODO decide
            } else
            if(strcasecmp(command,"calculate")==0) {
                complex<MyFloat> *vec = calcConstraintVector(inf, part_arr, n_in_bin, npartTotal, res, dx, ain, Om0, Boxlength, index_shift, &grid);
-               cout << "    --> start of vector  = " << vec[0] << " " <<vec[1] << " " <<vec[2] << endl;
                cout << "    --> calculated value = " << dot(vec, ftsc, npartTotal) << endl;
                free(vec);
            } else
