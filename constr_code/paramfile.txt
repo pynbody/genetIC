@@ -11,42 +11,20 @@ camb	camb_transfer_kmax40_z0.dat
 outdir	 ./output/
 gadgetformat 3
 
-IDfile h40_xbins/h40_x0.txt
-calculate L 0
-
-IDfile h40_xbins/h40_x1.txt
-calculate overdensity
-
-IDfile h40_xbins/h40_x2.txt
-calculate overdensity
-
-IDfile h40_xbins/h40_x3.txt
-calculate overdensity
-
-
 IDfile	h40.txt
-constrain overdensity relative 1.5
-constrain L 0 relative 2.0
-constrain L 1 relative 2.0
-constrain L 2 relative 2.0
-
-
-done
-
-IDfile h40.txt
-calculate overdensity
-calculate L 0 
+calculate L 0
 calculate L 1
 calculate L 2
+constrain overdensity relative 1.0
 
-IDfile h40_xbins/h40_x0.txt
-calculate overdensity
+IDfile bigsphere.txt
+constrain L 0 absolute 0.01242
+constrain L 1 absolute 0.002147
+constrain L 2 absolute 0.02249
 
-IDfile h40_xbins/h40_x1.txt
-calculate overdensity
+done 
 
-IDfile h40_xbins/h40_x2.txt
-calculate overdensity
-
-IDfile h40_xbins/h40_x3.txt
-calculate overdensity
+IDfile h40.txt
+calculate L 0
+calculate L 1
+calculate L 2
