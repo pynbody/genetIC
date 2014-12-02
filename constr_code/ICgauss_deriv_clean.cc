@@ -1383,12 +1383,13 @@ long Grid::get_index(long x, long y, long z){
 
 }
 
-void cen_deriv4_alpha(Grid *in, long index, complex<MyFloat> *alpha, MyFloat dx, long direc){//4th order central difference
+void cen_deriv4_alpha(Grid *in, long index, complex<MyFloat> *alpha, MyFloat dx, long direc,
+		      MyFloat xc, MyFloat yc, MyFloat zc){//4th order central difference
 
   MyFloat x0, y0, z0;//, zm2, zm1, zp2, zp1;
-  x0=in->cells[index].coords[0];
-  y0=in->cells[index].coords[1];
-  z0=in->cells[index].coords[2];
+  x0=in->cells[index].coords[0]-xc;
+  y0=in->cells[index].coords[1]-yc;
+  z0=in->cells[index].coords[2]-zc;
 
    // cout << "index "<< index << " (x,y,z) "<< x0<< " " << y0 <<" "<< z0 << endl;
 
@@ -1522,8 +1523,19 @@ complex<MyFloat> *calcConstraintVector(ifstream &inf, int *part_arr, int n_part_
         // angular momentum
         int direction=-1;
         inf >> direction;
+	MyFloat x0,y0,z0;
+	for(long i=0;i<n_part_arr;i++) {
+	  x0+=pGrid->cells[index_shift[part_arr[i]]].coords[0];
+          y0+=pGrid->cells[index_shift[part_arr[i]]].coords[1];
+	  z0+=pGrid->cells[index_shift[part_arr[i]]].coords[2];
+        }
+	x0/=n_part_arr;
+	y0/=n_part_arr;
+	z0/=n_part_arr;
+	cerr << "Angmom centre is " <<x0 << " " <<y0 << " " << z0 << endl;
+
         for(long i=0;i<n_part_arr;i++) {
-            cen_deriv4_alpha(pGrid, index_shift[part_arr[i]], rval, dx, direction);
+	  cen_deriv4_alpha(pGrid, index_shift[part_arr[i]], rval, dx, direction, x0, y0, z0);
         }
         complex<MyFloat> *rval_kX=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
         fft_r(rval_kX, rval, res, 1);
