@@ -2,7 +2,8 @@
 #include <cmath>
 #include <complex>
 #include <map>
-
+#include <vector>
+#include <Eigen/Dense>
 
 void progress(const char* message, float progress) {
     int barWidth = 70;
@@ -19,7 +20,7 @@ void progress(const char* message, float progress) {
 }
 
 void end_progress() {
-  std::cout << "                                                                                                       " << std::endl;
+  std::cout << "                                                                                                                " << std::endl;
 }
 
 template<typename T>
@@ -48,46 +49,53 @@ public:
     return C0[i]*vec[i];
   }
 
-  virtual std::complex<T> mean(long int i) {
-    // returns x0[i]
-    return 0;
-  }
-
-  virtual std::complex<T> realization(long int i) {
-    return y0[i];
-  }
-
-  virtual void destroy_stored_cov(std::complex<T> *v) {
-    // only means something in the child class
-  }
-
   //
   // GENERAL calculations that can run on constrained fields too
   //
 
-  virtual std::complex<T> v_cov_v(std::complex<T> *v){
-    // Calculate v^{\dagger} C v
-    std::complex<T> res(0);
+   virtual std::complex<T> v1_dot_y(std::complex<T> *v1){
+    // Calculate v1^{\dagger} y where y is the underlying realization
+     T res_real(0), res_imag(0);
+#pragma omp parallel for reduction(+:res_real,res_imag)
     for(long int i=0; i<N; i++) {
-      res+=conj(v[i])*cov(v,i);
+      std::complex<T> res = conj(v1[i])*y0[i];
+      // accumulate separately - OMP doesn't support complex number reduction :-(
+      res_real+=std::real(res);
+      res_imag+=std::imag(res);
     }
-    return res;
+    return std::complex<T>(res_real,res_imag);
   }
+
+  virtual std::complex<T> v1_cov_v2(std::complex<T> *v1, std::complex<T> *v2){
+    // Calculate v1^{\dagger} C v2
+    T res_real(0), res_imag(0);
+#pragma omp parallel for reduction(+:res_real,res_imag)
+    for(long int i=0; i<N; i++) {
+      std::complex<T> res = conj(v1[i])*cov(v2,i);
+      // accumulate separately - OMP doesn't support complex number reduction :-(
+      res_real+=std::real(res);
+      res_imag+=std::imag(res);
+    }
+    return std::complex<T>(res_real,res_imag);
+  }
+
+  virtual std::complex<T> v_cov_v(std::complex<T> *v){
+    return v1_cov_v2(v,v);
+  }
+
 
   void get_realization(std::complex<T> *r) {
     // Get the realization and store it in the specified array
     for(long int i=0; i<N; i++) {
-      if(i%1000==0) progress("get constrained y", float(i)/N);
-      r[i]=realization(i);
+      r[i]=y0[i];
     }
-    end_progress();
   }
 
   void get_mean(std::complex<T> *r) {
     // Get the mean of all realizations and store it in the specified array
     for(long int i=0; i<N; i++) {
       if(i%1000==0) progress("get mean x", float(i)/N);
-      r[i]=mean(i);
+      r[i]=0;
     }
     end_progress();
   }
@@ -95,98 +103,90 @@ public:
 };
 
 template<typename T>
-class ConstrainedField: public UnderlyingField<T>
+class MultiConstrainedField: public UnderlyingField<T>
 {
-private:
+ private:
   UnderlyingField<T>* underlying;
-  std::complex<T>* alpha;
-  std::complex<T> alpha_dot_x0;
-  std::complex<T> alpha_dot_d;
-  std::complex<T> value;
-
-  std::map<std::complex<T>*, std::complex<T> > cov_norm_values;
-
-  std::complex<T> cov_norm(std::complex<T> *vec) {
-    typename std::map<std::complex<T>*, std::complex<T> >::iterator search = cov_norm_values.find(vec);
-    if(search==cov_norm_values.end()) {
-      // not found - calcualte
-      std::complex<T> value(0);
-      for(long int i=0; i<this->N; i++)
-	value+=std::conj(alpha[i])*underlying->cov(vec,i);
-      cov_norm_values[vec] = value;
-      return value;
-    } else {
-      return search->second;
-    }
-
-  }
-public:
-  
-   ConstrainedField(UnderlyingField<T>* underlying_,
-				std::complex<T>* alpha_,
-				std::complex<T> value_,
-		                long int N) : UnderlyingField<T>(N),
-					      underlying(underlying_),
-					      alpha(alpha_),
-					      value(value_)
-					                    
-  {
-
-    // normalize the constraint
-    std::complex<T> norm(0);
-    long int i;
-
-    // normalize the constraint wrt C0
-    for(i=0; i<N; i++)
-      norm+=std::conj(alpha[i])*underlying->cov(alpha,i);
-
-    norm = sqrt(norm);
-
-    // renormalize alpha
-    for(i=0; i<N; i++)
-      alpha[i]/=norm;
-
-    // we changed alpha so need to erase cached information on it
-    underlying->destroy_stored_cov(alpha);
+  std::vector<std::complex<T>* > alphas;
+  std::vector<std::complex<T> > values;
+  std::vector<std::complex<T> > existing_values;
+ public:
+  MultiConstrainedField(UnderlyingField<T>* underlying_, long int N) : UnderlyingField<T>(N),
+                                                                 underlying(underlying_)
+   {
     
-    // also renormalize the value
-    value/=norm;
-	
-    // calculate alpha^dagger (y_0 - x_0) and alpha^dagger x_0    
-    alpha_dot_d = 0;
-    alpha_dot_x0 = 0;
-    for(i=0; i<N; i++) {
-      std::complex<T> x0_i = underlying->mean(i);
-      alpha_dot_d+=std::conj(alpha[i])*(underlying->realization(i)-x0_i);
-      alpha_dot_x0+=std::conj(alpha[i])*x0_i;
+  }
+
+  void add_constraint(std::complex<T>* alpha, std::complex<T> value) {
+    
+    alphas.push_back(alpha);
+    values.push_back(value);
+  }
+
+  void prepare() {
+
+    int n=alphas.size();
+    int done=0;
+
+    // Gram-Schmidt orthogonalization in-place
+    for(int i=0; i<n; i++) {
+      std::complex<T>* alpha_i=alphas[i];
+      for(int j=0; j<i; j++) {
+	std::complex<T>* alpha_j=alphas[j];
+	progress("orthogonalizing constraints", ((float)done*2)/(n*(1+n)));
+	std::complex<T> result = underlying->v1_cov_v2(alpha_j,alpha_i);
+	#pragma omp parallel for
+	for(long int k=0; k<this->N; k++) {
+	  alpha_i[k]-=result*alpha_j[k];
+	}
+	values[i]-=result*values[j];
+	done+=1; // one op for each of the orthognalizing constraints
+      }
+
+      // normalize
+      std::complex<T> norm = sqrt(underlying->v_cov_v(alpha_i));
+      #pragma omp parallel for
+      for(long int k=0; k<this->N; k++) {
+	alpha_i[k]/=norm;
+      }
+      values[i]/=norm;
+      done+=1; // one op for the normalization
+
     }
-  }
+    end_progress();
 
-  virtual void destroy_stored_cov(std::complex<T> *v) {
-    // forget any information we had about C0 v -- called if the contents
-    // of v change
-    cov_norm_values.erase(v);
-    underlying->destroy_stored_cov(v);
-  }
-
-  virtual std::complex<T> cov(std::complex<T> *vec, long int i) {
-    // Get C1_{ij} vec_j
-    //
-    // N.B. cov_norm term calculates alpha^{dagger} C0 vec, and caches it between
-    // calls for efficiency
-    std::complex<T> C0_vec_i = underlying->cov(vec,i);
-    return C0_vec_i - underlying->cov(alpha,i)*cov_norm(vec);
-  }
-
-  virtual std::complex<T> mean(long int i) {
-    // returns x1[i]
-    return underlying->mean(i) + underlying->cov(alpha,i)*(value-alpha_dot_x0);
-  }
-
-  virtual std::complex<T> realization(long int i) {
-    // returns y1[i]
-    std::complex<T> d = underlying->realization(i) - underlying->mean(i);
-    return d - alpha_dot_d*underlying->cov(alpha,i) + mean(i);
-  }
   
+    
+    existing_values.clear();
+    for(int i=0; i<n; i++) {
+      std::complex<T>* alpha_i=alphas[i];
+      progress("calculating existing means",((float)i)/n);
+      existing_values.push_back(underlying->v1_dot_y(alpha_i));
+    }
+
+    end_progress();
+    
+  }
+
+   void get_realization(std::complex<T> *r) {
+     int n=alphas.size();
+     underlying->get_realization(r);
+     
+     for(int i=0; i<n; i++) {
+       std::complex<T>* alpha_i=alphas[i];
+       std::complex<T> dval_i = values[i]-existing_values[i];
+       // std::cerr << "constraint " << i <<  values[i] << existing_values[i] << std::endl;
+       progress("get constrained y", float(i)/n);
+       #pragma omp parallel for
+       for(long int j=0; j<this->N; j++) {
+	 r[j]+=dval_i*underlying->cov(alpha_i,j);
+       }
+     }
+    end_progress();
+  }
+
+   
+
 };
+
+

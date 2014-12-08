@@ -6,6 +6,7 @@
 #include <fstream>
 #include <iostream>
 #include <iomanip>
+#include <sstream>
 
 #include <complex>
 
@@ -565,7 +566,7 @@ int GetBuffer_int(int *inarray, const char *file, int insize){
   return r;
 }
 
-int AllocAndGetBuffer_int(const char* IDfile, int *&pArr) {
+int AllocAndGetBuffer_int(const char* IDfile, int *&pArr, int append) {
     // count lines, allocate space, then read
 
     FILE *f;
@@ -585,10 +586,23 @@ int AllocAndGetBuffer_int(const char* IDfile, int *&pArr) {
 
     cerr << "File " <<IDfile << " has " << i << " lines" << endl;
 
-    int *arr = (int*)calloc(i,sizeof(int));
-    pArr = arr;
+    
+    int *arr = (int*)calloc(i+append,sizeof(int));
+    
     GetBuffer_int(arr, IDfile, i);
-    return i;
+
+    // copy old particles into new buffer
+    if (append>0)
+      cerr << "Also keeping " << append << " existing particles" << endl;
+    for(int j=0; j<append; j++)
+      arr[i+j] = pArr[j];
+
+    if(pArr!=NULL)
+      free(pArr);
+
+    pArr = arr;
+
+    return i+append;
 }
 
 string make_base( string basename, int res, MyFloat box, MyFloat zin){
@@ -1503,7 +1517,7 @@ complex<MyFloat> cen_deriv2_alpha(Grid *in, int index, complex<MyFloat> *alpha, 
 
 }
 
-complex<MyFloat> *calcConstraintVector(ifstream &inf, int *part_arr, int n_part_arr, int npartTotal, int res,
+complex<MyFloat> *calcConstraintVector(istream &inf, int *part_arr, int n_part_arr, int npartTotal, int res,
                                        MyFloat dx, float a, float om, float boxlen, long *index_shift, Grid *pGrid) {
     char name[100];
     inf >> name;
@@ -1556,7 +1570,7 @@ complex<MyFloat> *calcConstraintVector(ifstream &inf, int *part_arr, int n_part_
 
 
 int main(int argc, char *argv[]){
-
+  
   if(argc!=2)
   {
       cerr<<"Usage: ./ICgauss paramfile | Output: Pos,Vel,IDs as hdf5 and/or gadget format, power spectrum and used parameters in textfile."<<endl;
@@ -1761,20 +1775,12 @@ T = gsl_rng_ranlxs2; //double precision generator: gsl_rng_ranlxd2 //TODO decide
       complex<MyFloat>* pot0=(complex<MyFloat>*)calloc(n*n*n,sizeof(complex<MyFloat>));
       pot0=fft_r(pot0,potk0,res,-1); //pot in real-space
 
-//here we calculate/constrain L component-wise:
-       complex<MyFloat> *alpha_mu1=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
-       complex<MyFloat> *alpha_mu1k=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
-       complex<MyFloat> *alpha_mu2=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
-       complex<MyFloat> *alpha_mu3=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
-       complex<MyFloat> *alpha_mu2k=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
-       complex<MyFloat> *alpha_mu3k=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
-
 
        Grid grid(n);
        MyFloat dx= Boxlength/n;
        // construct the description of the underlying field and its realization
        UnderlyingField<MyFloat> *pField = new UnderlyingField<MyFloat>(P, ftsc, npartTotal);
-
+       MultiConstrainedField<MyFloat> constr(pField, npartTotal);
 
        while(!inf.eof()) {
            char command[100];
@@ -1783,20 +1789,64 @@ T = gsl_rng_ranlxs2; //double precision generator: gsl_rng_ranlxd2 //TODO decide
 
            if(strcasecmp(command,"IDfile")==0) {
                char IDfile[100];
-
-               if(part_arr!=NULL)
-                   free(part_arr);
-
                inf >> IDfile;
-
-               n_in_bin = AllocAndGetBuffer_int(IDfile, part_arr);
+               n_in_bin = AllocAndGetBuffer_int(IDfile, part_arr,0);
                cout << "New particle array " << IDfile << " loaded." << endl;
-           } else
+           } else if(strcasecmp(command,"append_IDfile")==0) {
+               char IDfile[100];
+               inf >> IDfile;
+               n_in_bin = AllocAndGetBuffer_int(IDfile, part_arr, n_in_bin);
+           }
            if(strcasecmp(command,"calculate")==0) {
                complex<MyFloat> *vec = calcConstraintVector(inf, part_arr, n_in_bin, npartTotal, res, dx, ain, Om0, Boxlength, index_shift, &grid);
                cout << "    --> calculated value = " << dot(vec, ftsc, npartTotal) << endl;
                free(vec);
            } else
+	   if(strcasecmp(command,"constrain_direction")==0) {
+	     // syntax: constrain_direction [and_renormalize] vec_name dir0 dir1 dir2 [renorm_fac]
+	     std::stringstream ss;
+	     char name[100];
+	     bool normalization=false;
+	     complex<MyFloat>* vecs[3];
+	     complex<MyFloat> vals[3];
+	     inf >> name;
+	     if(strcasecmp(name,"and_renormalize")==0) {
+	       normalization=true;
+	       inf >> name;
+	     }
+	     for(int dir=0; dir<3; dir++) {
+	       ss << name << " " ;
+	       ss << dir << " " ;
+	       vecs[dir] = calcConstraintVector(ss, part_arr, n_in_bin, npartTotal, res, dx, ain, Om0, Boxlength, index_shift, &grid);
+	       vals[dir] = dot(vecs[dir],ftsc,npartTotal);
+	     }
+	     
+	     complex<MyFloat> norm = std::sqrt(dot(vals,vals,3));
+	     cerr << "   Initial values are " << vals[0] << " " << vals[1] << " " <<vals[2] << " -> norm = " << norm << endl;
+	     MyFloat direction[3];
+	     inf >> direction[0] >> direction[1] >> direction[2];
+	     complex<MyFloat> in_norm = std::sqrt(direction[0]*direction[0]+direction[1]*direction[1]+direction[2]*direction[2]);
+
+	     MyFloat costheta=0;
+	     for(int dir=0; dir<3; dir++)
+	       costheta+=direction[dir]*std::real(vals[dir])/std::real(norm*in_norm);
+
+	     cerr << "   Between Re original and Re constrained, cos theta = " <<costheta << endl;
+
+	     if(normalization) {
+	       MyFloat renorm;
+	       inf >> renorm;
+	       norm*=renorm;
+	     }
+
+	     for(int dir=0; dir<3; dir++)
+	       vals[dir]=direction[dir]*norm/in_norm;
+
+	     
+	     cerr << "   Constrain values are " << vals[0] << " " << vals[1] << " " << vals[2] << endl;
+	     for(int dir=0; dir<3; dir++)
+	       constr.add_constraint(vecs[dir],vals[dir]);
+	   } else
            if(strcasecmp(command,"constrain")==0) {
                bool relative=false;
                if(pField==NULL) {
@@ -1823,7 +1873,7 @@ T = gsl_rng_ranlxs2; //double precision generator: gsl_rng_ranlxd2 //TODO decide
                if(relative) constraint*=initv;
 
                cout << "    --> initial value = " << initv << ", constraining to " << constraint << endl;
-               pField = new ConstrainedField<MyFloat> (pField, vec, constraint, npartTotal);
+	       constr.add_constraint(vec, constraint);
            } else
            if(strcasecmp(command,"done")==0) {
                if(pField==NULL) {
@@ -1831,7 +1881,8 @@ T = gsl_rng_ranlxs2; //double precision generator: gsl_rng_ranlxd2 //TODO decide
                    exit(0);
                }
                complex<MyFloat> *y1=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
-               pField->get_realization(y1);
+	       constr.prepare();
+               constr.get_realization(y1);
 
                for(long i=0; i<npartTotal; i++)
                    ftsc[i]=y1[i];
@@ -1890,13 +1941,6 @@ T = gsl_rng_ranlxs2; //double precision generator: gsl_rng_ranlxd2 //TODO decide
    complex<MyFloat>* pot=(complex<MyFloat>*)calloc(n*n*n,sizeof(complex<MyFloat>));
    pot=fft_r(pot,potk,res,-1); //pot in real-space
 
-
-      free(alpha_mu1);
-      free(alpha_mu1k);
-      free(alpha_mu2);
-      free(alpha_mu2k);
-      free(alpha_mu3);
-      free(alpha_mu3k);
 
 
       free(ft);
