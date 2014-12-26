@@ -1,13 +1,23 @@
+HOST	= $(shell hostname | cut -c1-5)
+
 CC    	= g++
 C	= gcc
 CFLAGS	= -Wall -g -fopenmp
-CPATH = /opt/local/include/
+CPATH = /opt/local/include/ 
 LPATH   =/opt/local/lib
+
+ifeq ($(HOST), dirac)
+	FFTW    = -I$(GSL_INC_DIR) 
+	FFTWLIB = -L$(FFTWDIR) -I$(FFTWINCLUDE)  -lfftw -lrfftw
+else
+	FFTW    = -DFFTW_TYPE_PREFIX=1
+	FFTWLIB = -ldfftw -ldrfftw
+endif
 #HDF5_FLAGS = -lhdf5 -D H5_USE_16_API -DHAVE_HDF5
 
 all: IC_deriv
 
 IC_deriv: ICgauss_deriv_clean.cc Makefile HDF_IO.hh constrainer.h
-	$(CC) $(CFLAGS) -o IC_deriv -I$(CPATH) ICgauss_deriv_clean.cc -L$(LPATH) -lm -ldrfftw -ldfftw -lgsl -lgslcblas $(HDF5_FLAGS) -DDOUBLEPRECISION -DOUTPUT_IN_DOUBLEPRECISION
+	$(CC) $(CFLAGS) -o IC_deriv -I$(CPATH) $(FFTW) ICgauss_deriv_clean.cc -L$(LPATH) -lm $(FFTWLIB) -lgsl -lgslcblas $(HDF5_FLAGS) -DDOUBLEPRECISION -DOUTPUT_IN_DOUBLEPRECISION
 clean:
 	rm -rf IC_deriv

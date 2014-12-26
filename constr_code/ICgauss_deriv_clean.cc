@@ -7,7 +7,7 @@
 #include <iostream>
 #include <iomanip>
 #include <sstream>
-
+#include <cstdlib>
 #include <complex>
 
 #include <gsl/gsl_rng.h> //link -lgsl and -lgslcblas at the very end
@@ -40,7 +40,11 @@ hid_t hdf_double = H5Tcopy (H5T_NATIVE_FLOAT);
 #else                        /* everything double-precision */
 typedef double  MyFloat;
 typedef double  MyDouble;
+#ifdef FFTW_TYPE_PREFIX
 #include <drfftw.h>
+#else
+#include <rfftw.h>
+#endif
 #ifdef HAVE_HDF5
 hid_t hdf_float = H5Tcopy (H5T_NATIVE_DOUBLE);
 hid_t hdf_double = H5Tcopy (H5T_NATIVE_DOUBLE);
