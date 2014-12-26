@@ -1410,13 +1410,24 @@ long Grid::get_index(long x, long y, long z){
 
 }
 
+MyFloat get_wrapped_delta(MyFloat x0, MyFloat x1, MyFloat boxlen) {
+    MyFloat result = x0-x1;
+    if(result>boxlen/2) {
+        result-=boxlen;
+    }
+    if(result<-boxlen/2) {
+        result+=boxlen;
+    }
+    return result;
+}
+
 void cen_deriv4_alpha(Grid *in, long index, complex<MyFloat> *alpha, MyFloat dx, long direc,
-		      MyFloat xc, MyFloat yc, MyFloat zc){//4th order central difference
+		      MyFloat xc, MyFloat yc, MyFloat zc, MyFloat boxlen){//4th order central difference
 
   MyFloat x0, y0, z0;//, zm2, zm1, zp2, zp1;
-  x0=in->cells[index].coords[0]-xc;
-  y0=in->cells[index].coords[1]-yc;
-  z0=in->cells[index].coords[2]-zc;
+  x0=get_wrapped_delta(dx*in->cells[index].coords[0],xc,boxlen);
+  y0=get_wrapped_delta(dx*in->cells[index].coords[1],yc,boxlen);
+  z0=get_wrapped_delta(dx*in->cells[index].coords[2],zc,boxlen);
 
    // cout << "index "<< index << " (x,y,z) "<< x0<< " " << y0 <<" "<< z0 << endl;
 
@@ -1550,19 +1561,27 @@ complex<MyFloat> *calcConstraintVector(istream &inf, int *part_arr, int n_part_a
         // angular momentum
         int direction=-1;
         inf >> direction;
-	MyFloat x0,y0,z0;
+
+	MyFloat x0=0,y0=0,z0=0;
+    MyFloat xa=pGrid->cells[index_shift[part_arr[0]]].coords[0]*dx;
+    MyFloat ya=pGrid->cells[index_shift[part_arr[0]]].coords[1]*dx;
+    MyFloat za=pGrid->cells[index_shift[part_arr[0]]].coords[2]*dx;
+
 	for(long i=0;i<n_part_arr;i++) {
-	  x0+=pGrid->cells[index_shift[part_arr[i]]].coords[0];
-          y0+=pGrid->cells[index_shift[part_arr[i]]].coords[1];
-	  z0+=pGrid->cells[index_shift[part_arr[i]]].coords[2];
-        }
+	  x0+=get_wrapped_delta(pGrid->cells[index_shift[part_arr[i]]].coords[0]*dx,xa,boxlen);
+      y0+=get_wrapped_delta(pGrid->cells[index_shift[part_arr[i]]].coords[1]*dx,ya,boxlen);
+	  z0+=get_wrapped_delta(pGrid->cells[index_shift[part_arr[i]]].coords[2]*dx,za,boxlen);
+    }
 	x0/=n_part_arr;
 	y0/=n_part_arr;
 	z0/=n_part_arr;
+    x0+=xa;
+    y0+=ya;
+    z0+=za;
 	cerr << "Angmom centre is " <<x0 << " " <<y0 << " " << z0 << endl;
 
         for(long i=0;i<n_part_arr;i++) {
-	  cen_deriv4_alpha(pGrid, index_shift[part_arr[i]], rval, dx, direction, x0, y0, z0);
+	  cen_deriv4_alpha(pGrid, index_shift[part_arr[i]], rval, dx, direction, x0, y0, z0, boxlen);
         }
         complex<MyFloat> *rval_kX=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
         fft_r(rval_kX, rval, res, 1);
@@ -1716,7 +1735,7 @@ T = gsl_rng_ranlxs2; //double precision generator: gsl_rng_ranlxd2 //TODO decide
 
 //optional: shift position to center e.g. on specific halo
   //long s1=226 , s2= 171, s3= 186; //for halo position
-  long s1=228 , s2= 173, s3= 187;
+  long s1=228-127 , s2= 173-127, s3= 187-127;
 
   // long s1=0, s2=0, s3=0;
 
