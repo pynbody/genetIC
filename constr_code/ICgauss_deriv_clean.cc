@@ -586,9 +586,9 @@ int AllocAndGetBuffer_int(const char* IDfile, int *&pArr, int append) {
 
     cerr << "File " <<IDfile << " has " << i << " lines" << endl;
 
-    
+
     int *arr = (int*)calloc(i+append,sizeof(int));
-    
+
     GetBuffer_int(arr, IDfile, i);
 
     // copy old particles into new buffer
@@ -691,6 +691,15 @@ complex<MyFloat> dot(complex<MyFloat> *a, complex<MyFloat> *b, const long int n)
   complex<MyFloat> res(0);
   for(long int i=0; i<n; i++) res+=conj(a[i])*b[i];
   return res;
+}
+
+complex<MyFloat> chi2(complex<MyFloat> *a, complex<MyFloat> *b, const long int n) {
+    complex<MyFloat> res(0);
+    for(long int i=1; i<n; i++) // go from 1 to avoid div by zero
+    {
+        res+=conj(a[i])*a[i]/b[i];
+    }
+    return res/((MyFloat)n);
 }
 
 void mat_diag(const complex<MyFloat> *C, const complex<MyFloat> *alpha, const long int n, const complex<MyFloat> p, complex<MyFloat> *result){
@@ -1570,7 +1579,7 @@ complex<MyFloat> *calcConstraintVector(istream &inf, int *part_arr, int n_part_a
 
 
 int main(int argc, char *argv[]){
-  
+
   if(argc!=2)
   {
       cerr<<"Usage: ./ICgauss paramfile | Output: Pos,Vel,IDs as hdf5 and/or gadget format, power spectrum and used parameters in textfile."<<endl;
@@ -1720,9 +1729,13 @@ T = gsl_rng_ranlxs2; //double precision generator: gsl_rng_ranlxd2 //TODO decide
 
        ft=fft_r(ft, rnd, n, 1);
 
+       std::cout<<"Initial chi^2 (white noise, real space) = " << dot(rnd,rnd,npartTotal)/((MyFloat) npartTotal) << std::endl;
        free(rnd);
 
        ft[0]=complex<MyFloat>(0.,0.); //assure mean==0
+
+
+       std::cout<<"Initial chi^2 (white noise, fourier space) = " << dot(ft,ft,npartTotal)/((MyFloat) npartTotal) << std::endl;
 
       //scale white-noise delta with initial PS
       complex<MyFloat> *ftsc=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
@@ -1732,6 +1745,8 @@ T = gsl_rng_ranlxs2; //double precision generator: gsl_rng_ranlxd2 //TODO decide
       MyFloat kfft;
       MyFloat grwfac;
       MyFloat ns=0.96; //TODO make this an input parameter (long term: run CAMB with input parameters to ensure consistency?)
+
+
 
       //growth factor normalised to 1 today:
       grwfac=D(ain, Om0, Ol0)/D(1., Om0, Ol0);
@@ -1748,6 +1763,7 @@ T = gsl_rng_ranlxs2; //double precision generator: gsl_rng_ranlxd2 //TODO decide
 
       complex<MyFloat> *P=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
 
+
       std::cout<<"Interpolation: kmin: "<< kw <<" Mpc/h, kmax: "<< (MyFloat)( kw*res/2.*sqrt(3.)) <<" Mpc/h"<<std::endl;
 
        MyFloat norm_amp=norm*amp;
@@ -1759,6 +1775,8 @@ T = gsl_rng_ranlxs2; //double precision generator: gsl_rng_ranlxd2 //TODO decide
 
       cout<<"Transfer applied!"<<endl;
       cout<< "Power spectrum sample: " << P[0] << " " << P[1] <<" " << P[npartTotal-1] <<endl;
+
+      std::cout<<"Initial chi^2 (white noise, fourier space) = " << chi2(ftsc,P,npartTotal) << std::endl;
 
       complex<MyFloat> *ftsc_old=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
       for(i=0;i<npartTotal;i++) {ftsc_old[i]=ftsc[i];}
@@ -1781,6 +1799,9 @@ T = gsl_rng_ranlxs2; //double precision generator: gsl_rng_ranlxd2 //TODO decide
        // construct the description of the underlying field and its realization
        UnderlyingField<MyFloat> *pField = new UnderlyingField<MyFloat>(P, ftsc, npartTotal);
        MultiConstrainedField<MyFloat> constr(pField, npartTotal);
+
+       MyFloat orig_chi2 = std::real(chi2(ftsc,P,npartTotal));
+       std::cout<<"Initial chi^2 (scaled) = " << orig_chi2 << std::endl;
 
        while(!inf.eof()) {
            char command[100];
@@ -1820,7 +1841,7 @@ T = gsl_rng_ranlxs2; //double precision generator: gsl_rng_ranlxd2 //TODO decide
 	       vecs[dir] = calcConstraintVector(ss, part_arr, n_in_bin, npartTotal, res, dx, ain, Om0, Boxlength, index_shift, &grid);
 	       vals[dir] = dot(vecs[dir],ftsc,npartTotal);
 	     }
-	     
+
 	     complex<MyFloat> norm = std::sqrt(dot(vals,vals,3));
 	     cerr << "   Initial values are " << vals[0] << " " << vals[1] << " " <<vals[2] << " -> norm = " << norm << endl;
 	     MyFloat direction[3];
@@ -1842,10 +1863,10 @@ T = gsl_rng_ranlxs2; //double precision generator: gsl_rng_ranlxd2 //TODO decide
 	     for(int dir=0; dir<3; dir++)
 	       vals[dir]=direction[dir]*norm/in_norm;
 
-	     
+
 	     cerr << "   Constrain values are " << vals[0] << " " << vals[1] << " " << vals[2] << endl;
 	     for(int dir=0; dir<3; dir++)
-	       constr.add_constraint(vecs[dir],vals[dir]);
+	       constr.add_constraint(vecs[dir],vals[dir],vals[dir]*in_norm/norm);
 	   } else
            if(strcasecmp(command,"constrain")==0) {
                bool relative=false;
@@ -1873,7 +1894,7 @@ T = gsl_rng_ranlxs2; //double precision generator: gsl_rng_ranlxd2 //TODO decide
                if(relative) constraint*=initv;
 
                cout << "    --> initial value = " << initv << ", constraining to " << constraint << endl;
-	       constr.add_constraint(vec, constraint);
+	       constr.add_constraint(vec, constraint, initv);
            } else
            if(strcasecmp(command,"done")==0) {
                if(pField==NULL) {
@@ -1881,7 +1902,7 @@ T = gsl_rng_ranlxs2; //double precision generator: gsl_rng_ranlxd2 //TODO decide
                    exit(0);
                }
                complex<MyFloat> *y1=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
-	       constr.prepare();
+	           constr.prepare();
                constr.get_realization(y1);
 
                for(long i=0; i<npartTotal; i++)
@@ -1889,6 +1910,7 @@ T = gsl_rng_ranlxs2; //double precision generator: gsl_rng_ranlxd2 //TODO decide
 
                free(y1);
 
+               cout << "Expected Delta chi^2=" << constr.get_delta_chi2() << endl;
 
                // clean everything up
                delete pField;
@@ -1905,7 +1927,9 @@ T = gsl_rng_ranlxs2; //double precision generator: gsl_rng_ranlxd2 //TODO decide
 
 
        inf.close();
-
+       MyFloat final_chi2 = std::real(chi2(ftsc,P,npartTotal));
+       std::cout<<"Final chi^2  = " <<  final_chi2 << std::endl;
+       std::cout<<"Delta chi^2  = " <<  final_chi2 - orig_chi2 << std::endl;
 
       /*
 
