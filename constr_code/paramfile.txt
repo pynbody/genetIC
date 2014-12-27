@@ -12,6 +12,7 @@ outdir	 ./output/
 gadgetformat 3
 
 IDfile h40.txt
+calculate overdensity
 constrain overdensity relative 1.0
 constrain L 0 relative 0.9
 constrain L 1 relative 0.9

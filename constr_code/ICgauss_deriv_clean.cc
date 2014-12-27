@@ -1541,8 +1541,40 @@ complex<MyFloat> cen_deriv2_alpha(Grid *in, int index, complex<MyFloat> *alpha, 
 
 }
 
+
+void getCentre(int *part_arr, int n_part_arr, MyFloat boxlen, MyFloat dx,
+               MyFloat &x0, MyFloat &y0, MyFloat &z0, Grid *pGrid) {
+
+    x0 = 0; y0 = 0; z0 =0;
+    MyFloat xa=pGrid->cells[part_arr[0]].coords[0]*dx;
+    MyFloat ya=pGrid->cells[part_arr[0]].coords[1]*dx;
+    MyFloat za=pGrid->cells[part_arr[0]].coords[2]*dx;
+
+    for(long i=0;i<n_part_arr;i++) {
+        x0+=get_wrapped_delta(pGrid->cells[part_arr[i]].coords[0]*dx,xa,boxlen);
+        y0+=get_wrapped_delta(pGrid->cells[part_arr[i]].coords[1]*dx,ya,boxlen);
+        z0+=get_wrapped_delta(pGrid->cells[part_arr[i]].coords[2]*dx,za,boxlen);
+    }
+    x0/=n_part_arr;
+    y0/=n_part_arr;
+    z0/=n_part_arr;
+    x0+=xa;
+    y0+=ya;
+    z0+=za;
+}
+
+void reorderBuffer(int *part_arr, int n_part_arr, int npartTotal, int res,
+                   MyFloat dx, float a, float om, float boxlen, Grid *pGrid) {
+
+    MyFloat r2[n_part_arr];
+    MyFloat x0,y0,z0;
+    getCentre(part_arr, n_part_arr, boxlen, dx, x0,y0,z0, pGrid);
+
+
+}
+
 complex<MyFloat> *calcConstraintVector(istream &inf, int *part_arr, int n_part_arr, int npartTotal, int res,
-                                       MyFloat dx, float a, float om, float boxlen, long *index_shift, Grid *pGrid) {
+                                       MyFloat dx, float a, float om, float boxlen, Grid *pGrid) {
     char name[100];
     inf >> name;
     cout << "Getting constraint vector '" << name << "' for " << n_part_arr << " particles.";
@@ -1553,7 +1585,7 @@ complex<MyFloat> *calcConstraintVector(istream &inf, int *part_arr, int n_part_a
     if(strcasecmp(name,"overdensity")==0) {
         MyFloat w = 1.0/n_part_arr;
         for(long i=0;i<n_part_arr;i++) {
-            rval[index_shift[part_arr[i]]]=w;
+            rval[part_arr[i]]=w;
         }
 
         fft_r(rval_k, rval, res, 1);
@@ -1561,27 +1593,13 @@ complex<MyFloat> *calcConstraintVector(istream &inf, int *part_arr, int n_part_a
         // angular momentum
         int direction=-1;
         inf >> direction;
+        MyFloat x0,y0,z0;
+        getCentre(part_arr, n_part_arr, boxlen, dx, x0,y0,z0, pGrid);
 
-	MyFloat x0=0,y0=0,z0=0;
-    MyFloat xa=pGrid->cells[index_shift[part_arr[0]]].coords[0]*dx;
-    MyFloat ya=pGrid->cells[index_shift[part_arr[0]]].coords[1]*dx;
-    MyFloat za=pGrid->cells[index_shift[part_arr[0]]].coords[2]*dx;
-
-	for(long i=0;i<n_part_arr;i++) {
-	  x0+=get_wrapped_delta(pGrid->cells[index_shift[part_arr[i]]].coords[0]*dx,xa,boxlen);
-      y0+=get_wrapped_delta(pGrid->cells[index_shift[part_arr[i]]].coords[1]*dx,ya,boxlen);
-	  z0+=get_wrapped_delta(pGrid->cells[index_shift[part_arr[i]]].coords[2]*dx,za,boxlen);
-    }
-	x0/=n_part_arr;
-	y0/=n_part_arr;
-	z0/=n_part_arr;
-    x0+=xa;
-    y0+=ya;
-    z0+=za;
-	cerr << "Angmom centre is " <<x0 << " " <<y0 << " " << z0 << endl;
+        cerr << "Angmom centre is " <<x0 << " " <<y0 << " " << z0 << endl;
 
         for(long i=0;i<n_part_arr;i++) {
-	  cen_deriv4_alpha(pGrid, index_shift[part_arr[i]], rval, dx, direction, x0, y0, z0, boxlen);
+            cen_deriv4_alpha(pGrid, part_arr[i], rval, dx, direction, x0, y0, z0, boxlen);
         }
         complex<MyFloat> *rval_kX=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
         fft_r(rval_kX, rval, res, 1);
@@ -1723,27 +1741,15 @@ T = gsl_rng_ranlxs2; //double precision generator: gsl_rng_ranlxd2 //TODO decide
 	free(inarr);
 
        complex<MyFloat> *rnd=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
-       complex<MyFloat> *rnd_t=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
        complex<MyFloat> *ft=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
 
        cout<< "Drawing random numbers..."<< endl;
 
        long i;
        MyFloat sigma=sqrt((MyFloat)(npartTotal));
-       for(i=0;i<npartTotal;i++){rnd_t[i]=gsl_ran_gaussian_ziggurat(r,1.)*sigma;}// cout<< "rnd "<< rnd[i] << endl;}
+       for(i=0;i<npartTotal;i++){rnd[i]=gsl_ran_gaussian_ziggurat(r,1.)*sigma;}// cout<< "rnd "<< rnd[i] << endl;}
 
 
-//optional: shift position to center e.g. on specific halo
-  //long s1=226 , s2= 171, s3= 186; //for halo position
-  long s1=228-127 , s2= 173-127, s3= 187-127;
-
-  // long s1=0, s2=0, s3=0;
-
-  long *index_shift =(long*)calloc(npartTotal,sizeof(long));
-  pbc(n, rnd_t, rnd, s1, s2, s3, index_shift);
-
-
-	free(rnd_t);
 
        gsl_rng_free (r);
 
@@ -1840,9 +1846,19 @@ T = gsl_rng_ranlxs2; //double precision generator: gsl_rng_ranlxd2 //TODO decide
                char IDfile[100];
                inf >> IDfile;
                n_in_bin = AllocAndGetBuffer_int(IDfile, part_arr, n_in_bin);
+           } else if(strcasecmp(command,"order")==0) {
+               reorderBuffer(part_arr, n_in_bin, npartTotal, res, dx, ain, Om0, Boxlength, &grid);
+           } else if(strcasecmp(command,"truncate")==0) {
+               float x;
+               inf >> x;
+               if(x<0 || x>1) {
+                   cerr << "Truncate command takes a fraction between 0 and 1" << endl;
+                   exit(0);
+               }
+               n_in_bin = ((int)(n_in_bin*x));
            }
-           if(strcasecmp(command,"calculate")==0) {
-               complex<MyFloat> *vec = calcConstraintVector(inf, part_arr, n_in_bin, npartTotal, res, dx, ain, Om0, Boxlength, index_shift, &grid);
+           else if(strcasecmp(command,"calculate")==0) {
+               complex<MyFloat> *vec = calcConstraintVector(inf, part_arr, n_in_bin, npartTotal, res, dx, ain, Om0, Boxlength, &grid);
                cout << "    --> calculated value = " << dot(vec, ftsc, npartTotal) << endl;
                free(vec);
            } else
@@ -1861,7 +1877,7 @@ T = gsl_rng_ranlxs2; //double precision generator: gsl_rng_ranlxd2 //TODO decide
 	     for(int dir=0; dir<3; dir++) {
 	       ss << name << " " ;
 	       ss << dir << " " ;
-	       vecs[dir] = calcConstraintVector(ss, part_arr, n_in_bin, npartTotal, res, dx, ain, Om0, Boxlength, index_shift, &grid);
+	       vecs[dir] = calcConstraintVector(ss, part_arr, n_in_bin, npartTotal, res, dx, ain, Om0, Boxlength, &grid);
 	       vals[dir] = dot(vecs[dir],ftsc,npartTotal);
 	     }
 
@@ -1898,7 +1914,7 @@ T = gsl_rng_ranlxs2; //double precision generator: gsl_rng_ranlxd2 //TODO decide
                    exit(0);
                }
 
-               complex<MyFloat> *vec = calcConstraintVector(inf, part_arr, n_in_bin, npartTotal, res, dx, ain, Om0, Boxlength, index_shift, &grid);
+               complex<MyFloat> *vec = calcConstraintVector(inf, part_arr, n_in_bin, npartTotal, res, dx, ain, Om0, Boxlength,  &grid);
 
                inf >> command;
                if (strcasecmp(command,"relative")==0) {
@@ -1996,12 +2012,12 @@ T = gsl_rng_ranlxs2; //double precision generator: gsl_rng_ranlxd2 //TODO decide
       free(P);
 
 
+      complex<MyFloat>* psift1k=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
+      complex<MyFloat>* psift2k=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
+      complex<MyFloat>* psift3k=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
       complex<MyFloat>* psift1=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
       complex<MyFloat>* psift2=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
       complex<MyFloat>* psift3=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
-      complex<MyFloat>* psift1_t=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
-      complex<MyFloat>* psift2_t=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
-      complex<MyFloat>* psift3_t=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
 
       //complex<MyFloat>* test_arr=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
 
@@ -2018,12 +2034,12 @@ T = gsl_rng_ranlxs2; //double precision generator: gsl_rng_ranlxd2 //TODO decide
 
 	      kfft = sqrt(iix*iix+iiy*iiy+iiz*iiz);
 
-	      psift1[idx].real(-ftsc[idx].imag()/(MyFloat)(kfft*kfft)*iix/kw);
-	      psift1[idx].imag(ftsc[idx].real()/(MyFloat)(kfft*kfft)*iix/kw);
-	      psift2[idx].real(-ftsc[idx].imag()/(MyFloat)(kfft*kfft)*iiy/kw);
-	      psift2[idx].imag(ftsc[idx].real()/(MyFloat)(kfft*kfft)*iiy/kw);
-	      psift3[idx].real(-ftsc[idx].imag()/(MyFloat)(kfft*kfft)*iiz/kw);
-	      psift3[idx].imag(ftsc[idx].real()/(MyFloat)(kfft*kfft)*iiz/kw);
+	      psift1k[idx].real(-ftsc[idx].imag()/(MyFloat)(kfft*kfft)*iix/kw);
+	      psift1k[idx].imag(ftsc[idx].real()/(MyFloat)(kfft*kfft)*iix/kw);
+	      psift2k[idx].real(-ftsc[idx].imag()/(MyFloat)(kfft*kfft)*iiy/kw);
+	      psift2k[idx].imag(ftsc[idx].real()/(MyFloat)(kfft*kfft)*iiy/kw);
+	      psift3k[idx].real(-ftsc[idx].imag()/(MyFloat)(kfft*kfft)*iiz/kw);
+	      psift3k[idx].imag(ftsc[idx].real()/(MyFloat)(kfft*kfft)*iiz/kw);
 	  }
 	}
       }
@@ -2054,25 +2070,17 @@ T = gsl_rng_ranlxs2; //double precision generator: gsl_rng_ranlxd2 //TODO decide
         free(ftsc_old);
         free(ftsc);
 
-       psift1[0]=complex<MyFloat>(0.,0.);
-       psift2[0]=complex<MyFloat>(0.,0.);
-       psift3[0]=complex<MyFloat>(0.,0.);
+       psift1k[0]=complex<MyFloat>(0.,0.);
+       psift2k[0]=complex<MyFloat>(0.,0.);
+       psift3k[0]=complex<MyFloat>(0.,0.);
 
-       psift1_t=fft_r(psift1_t,psift1,n,-1); //the output .imag() part is non-zero because of the Nyquist frequency, but this is not used anywhere else
-       psift2_t=fft_r(psift2_t,psift2,n,-1); //same
-       psift3_t=fft_r(psift3_t,psift3,n,-1); //same
+       psift1=fft_r(psift1,psift1k,n,-1); //the output .imag() part is non-zero because of the Nyquist frequency, but this is not used anywhere else
+       psift2=fft_r(psift2,psift2k,n,-1); //same
+       psift3=fft_r(psift3,psift3k,n,-1); //same
 
-
-      //shift back in order to compare to unconstrained ICs
-	  pbc(n, psift1_t, psift1, -s1, -s2, -s3, index_shift);
-	  pbc(n, psift2_t, psift2, -s1, -s2, -s3, index_shift);
-	  pbc(n, psift3_t, psift3, -s1, -s2, -s3, index_shift);
-
-
-      free(psift1_t);
-      free(psift2_t);
-      free(psift3_t);
-      free(index_shift);
+      free(psift1k);
+      free(psift2k);
+      free(psift3k);
 
 
        MyFloat gr=Boxlength/(MyFloat)n;
