@@ -9,6 +9,7 @@
 #include <sstream>
 #include <cstdlib>
 #include <complex>
+#include <algorithm>
 
 #include <gsl/gsl_rng.h> //link -lgsl and -lgslcblas at the very end
 #include <gsl/gsl_randist.h> //for the gaussian (and other) distributions
@@ -1566,11 +1567,34 @@ void getCentre(int *part_arr, int n_part_arr, MyFloat boxlen, MyFloat dx,
 void reorderBuffer(int *part_arr, int n_part_arr, int npartTotal, int res,
                    MyFloat dx, float a, float om, float boxlen, Grid *pGrid) {
 
+    cout << "Reordering buffer radially..." << endl;
     MyFloat r2[n_part_arr];
     MyFloat x0,y0,z0;
+    MyFloat delta_x, delta_y, delta_z;
+    std::vector<size_t> index(n_part_arr);
+
     getCentre(part_arr, n_part_arr, boxlen, dx, x0,y0,z0, pGrid);
+    for(int i=0;i<n_part_arr;i++) {
+        delta_x = get_wrapped_delta(pGrid->cells[part_arr[i]].coords[0]*dx,x0,boxlen);
+        delta_y = get_wrapped_delta(pGrid->cells[part_arr[i]].coords[1]*dx,y0,boxlen);
+        delta_z = get_wrapped_delta(pGrid->cells[part_arr[i]].coords[2]*dx,z0,boxlen);
+        r2[i] = delta_x*delta_x+delta_y*delta_y+delta_z*delta_z;
+        index[i]=i;
+    }
 
+    // Now sort the index array
+    std::sort(std::begin(index),std::end(index),
+         [&r2](size_t i1, size_t i2) { return r2[i1]<r2[i2]; } );
 
+    // Turn the index array into something pointing to the particles
+    for(int i=0; i<n_part_arr; i++) {
+        index[i] = part_arr[index[i]];
+    }
+
+    // Copy back into the particle array
+    for(int i=0; i<n_part_arr; i++) {
+        part_arr[i] = index[i];
+    }
 }
 
 complex<MyFloat> *calcConstraintVector(istream &inf, int *part_arr, int n_part_arr, int npartTotal, int res,
@@ -1970,20 +1994,6 @@ T = gsl_rng_ranlxs2; //double precision generator: gsl_rng_ranlxd2 //TODO decide
        std::cout<<"Final chi^2  = " <<  final_chi2 << std::endl;
        std::cout<<"Delta chi^2  = " <<  final_chi2 - orig_chi2 << std::endl;
 
-      /*
-
-      ConstrainedField<MyFloat> constrained_field_x  (&underlying_field,     alphak1_A, d*a1, npartTotal);
-      ConstrainedField<MyFloat> constrained_field_xy (&constrained_field_x,  alphak2_A, d*a2, npartTotal);
-      ConstrainedField<MyFloat> constrained_field_xyz(&constrained_field_xy, alphak3_A, d*a3, npartTotal);
-
-      complex<MyFloat> *y1=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
-      constrained_field_xyz.get_realization(y1);
-
-      // The following line isn't required - it's only here for debug information
-      complex<MyFloat> *x1=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
-      constrained_field_xyz.get_mean(x1);
-
-      */
 
       cout << endl;
 
