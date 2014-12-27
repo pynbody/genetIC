@@ -10,6 +10,7 @@
 #include <cstdlib>
 #include <complex>
 #include <algorithm>
+#include <iterator>
 
 #include <gsl/gsl_rng.h> //link -lgsl and -lgslcblas at the very end
 #include <gsl/gsl_randist.h> //for the gaussian (and other) distributions
@@ -1583,7 +1584,7 @@ void reorderBuffer(int *part_arr, int n_part_arr, int npartTotal, int res,
     }
 
     // Now sort the index array
-    std::sort(std::begin(index),std::end(index),
+    std::sort(index.begin(),index.end(),
          [&r2](size_t i1, size_t i2) { return r2[i1]<r2[i2]; } );
 
     // Turn the index array into something pointing to the particles

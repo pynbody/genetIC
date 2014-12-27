@@ -2,11 +2,12 @@ HOST	= $(shell hostname | cut -c1-5)
 
 CC    	= g++
 C	= gcc
-CFLAGS	= -Wall -g -fopenmp -std=c++11
+CFLAGS	= -Wall -g -fopenmp -std=c++11 
 CPATH = /opt/local/include/
 LPATH   =/opt/local/lib
 
 ifeq ($(HOST), dirac)
+	CC 	= icc
 	FFTW    = -I$(GSL_INC_DIR)
 	FFTWLIB = -L$(FFTWDIR) -I$(FFTWINCLUDE)  -lfftw -lrfftw
 else
