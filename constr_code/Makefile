@@ -11,8 +11,14 @@ ifeq ($(HOST), dirac)
 	FFTW    = -I$(GSL_INC_DIR)
 	FFTWLIB = -L$(FFTWDIR) -I$(FFTWINCLUDE)  -lfftw -lrfftw
 else
-	FFTW    = -DFFTW_TYPE_PREFIX=1
-	FFTWLIB = -ldfftw -ldrfftw
+	ifeq ($(HOST), chewb)
+		CC      = /usr/local/bin/g++
+		FFTW    = -DFFTW_TYPE_PREFIX=1
+                FFTWLIB = -ldfftw -ldrfftw
+	else
+		FFTW    = -DFFTW_TYPE_PREFIX=1
+		FFTWLIB = -ldfftw -ldrfftw
+	endif
 endif
 #HDF5_FLAGS = -lhdf5 -D H5_USE_16_API -DHAVE_HDF5
 
