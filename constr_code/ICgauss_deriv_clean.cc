@@ -21,6 +21,8 @@
 
 using namespace std;
 
+
+
 #ifdef HAVE_HDF5
 #include "HDF_IO.hh"
 #endif
@@ -59,6 +61,8 @@ typedef double MyOutputFloat;
 #else
 typedef float MyOutputFloat;
 #endif
+
+#include "grid.hpp"
 
 //stupid workaround because apparently pow() in C++ does not accept floats, only doubles...
 MyFloat powf(MyFloat base, MyFloat exp)
@@ -572,7 +576,115 @@ int GetBuffer_int(int *inarray, const char *file, int insize){
   return r;
 }
 
-int AllocAndGetBuffer_int(const char* IDfile, int *&pArr, int append) {
+
+typedef struct _ic_state {
+    int *part_arr;
+    int n_part_arr;
+    MyFloat boxlen;
+    int res;
+    long n_part_total;
+    MyFloat dx; // = boxlen/res
+    MyFloat x0,y0,z0;
+    float a, om;
+    Grid *pGrid;
+    std::complex<MyFloat> *pField_k;
+    std::complex<MyFloat> *pField_x;
+} ic_state;
+
+
+MyFloat get_wrapped_delta(MyFloat x0, MyFloat x1, const ic_state *pState) {
+    MyFloat boxlen = pState->boxlen;
+    MyFloat result = x0-x1;
+    if(result>boxlen/2) {
+        result-=boxlen;
+    }
+    if(result<-boxlen/2) {
+        result+=boxlen;
+    }
+    return result;
+}
+
+
+void getCentre(ic_state *pIcs) {
+
+    pIcs->x0 = 0; pIcs->y0 = 0; pIcs->z0 =0;
+
+    MyFloat xa=pIcs->pGrid->cells[pIcs->part_arr[0]].coords[0]*pIcs->dx;
+    MyFloat ya=pIcs->pGrid->cells[pIcs->part_arr[0]].coords[1]*pIcs->dx;
+    MyFloat za=pIcs->pGrid->cells[pIcs->part_arr[0]].coords[2]*pIcs->dx;
+
+    for(long i=0;i<pIcs->n_part_arr;i++) {
+        pIcs->x0+=get_wrapped_delta(pIcs->pGrid->cells[pIcs->part_arr[i]].coords[0]*pIcs->dx,xa,pIcs);
+        pIcs->y0+=get_wrapped_delta(pIcs->pGrid->cells[pIcs->part_arr[i]].coords[1]*pIcs->dx,ya,pIcs);
+        pIcs->z0+=get_wrapped_delta(pIcs->pGrid->cells[pIcs->part_arr[i]].coords[2]*pIcs->dx,za,pIcs);
+    }
+    pIcs->x0/=pIcs->n_part_arr;
+    pIcs->y0/=pIcs->n_part_arr;
+    pIcs->z0/=pIcs->n_part_arr;
+    pIcs->x0+=xa;
+    pIcs->y0+=ya;
+    pIcs->z0+=za;
+}
+
+extern void ensureRealDelta(ic_state *pIcs);
+
+void centreDenmax(ic_state *pIcs) {
+
+    float den_max=-1000;
+    long index_max=0;
+    ensureRealDelta(pIcs);
+
+    for(long i=0;i<pIcs->n_part_arr;i++) {
+        if(std::real(pIcs->pField_x[pIcs->part_arr[i]])>den_max) {
+            index_max=pIcs->part_arr[i];
+            den_max = std::real(pIcs->pField_x[pIcs->part_arr[i]]);
+            pIcs->x0 = pIcs->pGrid->cells[pIcs->part_arr[i]].coords[0]*pIcs->dx;
+            pIcs->y0 = pIcs->pGrid->cells[pIcs->part_arr[i]].coords[1]*pIcs->dx;
+            pIcs->z0 = pIcs->pGrid->cells[pIcs->part_arr[i]].coords[2]*pIcs->dx;
+        }
+    }
+
+    cerr << "Denmax = " << den_max <<", index=" << index_max << " coords=" << pIcs->x0 << " " << pIcs->y0 << " " << pIcs->z0 << endl;
+
+}
+
+void centreOn(ic_state *pIcs, long id) {
+    pIcs->x0 = pIcs->pGrid->cells[id].coords[0]*pIcs->dx;
+    pIcs->y0 = pIcs->pGrid->cells[id].coords[1]*pIcs->dx;
+    pIcs->z0 = pIcs->pGrid->cells[id].coords[2]*pIcs->dx;
+}
+
+void selectSphere(ic_state *pIcs, float radius) {
+    float r2 = radius*radius;
+    float delta_x, delta_y, delta_z, r2_i;
+    int n=0;
+    for(long i=0;i<pIcs->n_part_total;i++) {
+        delta_x = get_wrapped_delta(pIcs->pGrid->cells[i].coords[0]*pIcs->dx,pIcs->x0,pIcs);
+        delta_y = get_wrapped_delta(pIcs->pGrid->cells[i].coords[1]*pIcs->dx,pIcs->y0,pIcs);
+        delta_z = get_wrapped_delta(pIcs->pGrid->cells[i].coords[2]*pIcs->dx,pIcs->z0,pIcs);
+        r2_i = delta_x*delta_x+delta_y*delta_y+delta_z*delta_z;
+        if(r2_i<r2)
+            n++;
+    }
+    cerr << "Selecting " << n << " particles..." << endl;
+    if(pIcs->part_arr!=NULL)
+        free(pIcs->part_arr);
+
+    pIcs->part_arr = (int*)calloc(n,sizeof(int));
+    n=0;
+    for(long i=0;i<pIcs->n_part_total;i++) {
+        delta_x = get_wrapped_delta(pIcs->pGrid->cells[i].coords[0]*pIcs->dx,pIcs->x0,pIcs);
+        delta_y = get_wrapped_delta(pIcs->pGrid->cells[i].coords[1]*pIcs->dx,pIcs->y0,pIcs);
+        delta_z = get_wrapped_delta(pIcs->pGrid->cells[i].coords[2]*pIcs->dx,pIcs->z0,pIcs);
+        r2_i = delta_x*delta_x+delta_y*delta_y+delta_z*delta_z;
+        if(r2_i<r2)
+            pIcs->part_arr[n++]=i;
+    }
+    pIcs->n_part_arr = n;
+
+
+}
+void AllocAndGetBuffer_int(const char* IDfile, ic_state *pIcs, bool append=false) {
     // count lines, allocate space, then read
 
     FILE *f;
@@ -592,23 +704,31 @@ int AllocAndGetBuffer_int(const char* IDfile, int *&pArr, int append) {
 
     cerr << "File " <<IDfile << " has " << i << " lines" << endl;
 
+    if(append && pIcs->part_arr==NULL) {
+        cerr << "Can't append - no particles were loaded" << endl;
+        append=false;
+    }
+    int final_size = i;
 
-    int *arr = (int*)calloc(i+append,sizeof(int));
+    if(append) final_size+=pIcs->n_part_arr;
+    int *arr = (int*)calloc(final_size,sizeof(int));
 
     GetBuffer_int(arr, IDfile, i);
 
     // copy old particles into new buffer
     if (append>0)
-      cerr << "Also keeping " << append << " existing particles" << endl;
-    for(int j=0; j<append; j++)
-      arr[i+j] = pArr[j];
+      cerr << "Also keeping " << pIcs->n_part_arr << " existing particles" << endl;
+    for(int j=0; j<pIcs->n_part_arr; j++)
+      arr[i+j] = pIcs->part_arr[j];
 
-    if(pArr!=NULL)
-      free(pArr);
+    if(pIcs->part_arr!=NULL)
+      free(pIcs->part_arr);
 
-    pArr = arr;
+    pIcs->part_arr = arr;
+    pIcs->n_part_arr = final_size;
 
-    return i+append;
+    getCentre(pIcs);
+
 }
 
 string make_base( string basename, int res, MyFloat box, MyFloat zin){
@@ -1198,299 +1318,62 @@ void old_check_pbc_coords(long *coords, int size){
 
 }
 
-struct grid_struct{
 
-  long grid[3];
-  long coords[3];
-  MyFloat absval;
-  MyFloat delta;
 
-};
+void cen_deriv4_alpha(long index, int direc, complex<MyFloat> *alpha, const ic_state *pState)
 
-
-class Grid{
-
-  //later: think about making some variables/functions private
-  //private:
-    //int size;
-
-  public:
-    //constructor:
-    Grid(int s);
-    int size;
-    grid_struct* cells;
-
-    ~Grid() {free(cells);}
-
-    void shift_grid(long s1, long s2, long s3);
-    long find_next_ind(long index, int *step);
-    long get_index(long x, long y, long z);
-    //void check_pbc_grid(long index);
-    void check_pbc_grid(long *grid);
-    void check_pbc_coords(long index);
-
-};
-
-Grid::Grid(int n){
-
-  cout<< "Constructing grid class" << endl;
-  size=n;
-
-  grid_struct *cells=(grid_struct*)calloc(n*n*n,sizeof(grid_struct));
-  long g1,g2,g3, gg1,gg2,gg3, ind;
-  MyFloat absval;
-    for(g1=0;g1<n;g1++){
-      gg1=g1;
-      if(g1>n/2) gg1=g1-n;
-	for(g2=0;g2<n;g2++){
-	  gg2=g2;
-	  if(g2>n/2) gg2=g2-n;
-	    for(g3=0;g3<n;g3++){
-	      gg3=g3;
-	      if(g3>n/2) gg3=g3-n;
-
-	      ind=(g1*n+g2)*n+g3;
-	      absval=sqrt(gg1*gg1+gg2*gg2+gg3*gg3);
-	      cells[ind].absval=absval;
-	      cells[ind].coords[0]=gg1;
-	      cells[ind].coords[1]=gg2;
-	      cells[ind].coords[2]=gg3;
-	      cells[ind].grid[0]=g1;
-	      cells[ind].grid[1]=g2;
-	      cells[ind].grid[2]=g3;
-        //if(ind==0){cout<< "in builder "<< cells[0].grid[0] << " "<< cells[0].grid[1] << " "<<cells[0].grid[2]<< endl;} //correct here
-
-	    }
-	  }
-	}
-
-	this->cells=cells;
-
-}
-
-long Grid::find_next_ind(long index, int *step){
-
-  long grid[3]={0,0,0};
-
-  grid[0]=this->cells[index].grid[0];//+step[0];
-  grid[1]=this->cells[index].grid[1];//+step[1];
-  grid[2]=this->cells[index].grid[2];//+step[2];
-
-  // cout << "in finder before sum "<< grid[0] << " " << grid[1] << " "<< grid[2]  <<endl;
-  // cout << this->cells[0].grid[0]<< " "<< this->cells[0].grid[1] << " " << this->cells[0].grid[2] <<endl;
-  // cout << endl;
-
-  grid[0]=this->cells[index].grid[0]+step[0];
-  grid[1]=this->cells[index].grid[1]+step[1];
-  grid[2]=this->cells[index].grid[2]+step[2];
-
-  // cout << "in finder after sum "<< grid[0] << " " << grid[1] << " "<< grid[2]  <<endl;
-  // cout << this->cells[0].grid[0]<< " "<< this->cells[0].grid[1] << " " << this->cells[0].grid[2] <<endl;
-  // cout<< endl;
-
-  this->check_pbc_grid(grid);
-
-  // cout << "after pbc "<< grid[0] << " " << grid[1] << " "<< grid[2]  <<endl;
-  // cout << this->cells[0].grid[0]<< " "<< this->cells[0].grid[1] << " " << this->cells[0].grid[2] <<endl;
-  // cout<<endl;
-
-  long newind;
-
-  newind=this->get_index(grid[0], grid[1], grid[2]);
-
-  //delete grid;
-
-  return newind;
-
-}
-
-void Grid::check_pbc_grid(long *grid){
-
- long x=grid[0];
- long y=grid[1];
- long z=grid[2];
-
- //cout << "in pbc " <<  x << " " << y << " " << z << endl;
-
- int size=this->size;
-
-  while(x> size-1){x-=size;}
-  while(y> size-1){y-=size;}
-  while(z> size-1){z-=size;}
-
-  while(x<0){x+=size;}
-  while(y<0){y+=size;}
-  while(z<0){z+=size;}
-
-  //cout << "in pbc after " <<  x << " " << y << " " << z << endl;
-
-  grid[0]=x;
-  grid[1]=y;
-  grid[2]=z;
-
-  //cout << "in pbc final" <<  grid[0] << " " << grid[1] << " " << grid[2] << endl;
-}
-
-// void Grid::check_pbc_grid_old(long index){
-
-//  long x=this->cells[index].grid[0];
-//  long y=this->cells[index].grid[1];
-//  long z=this->cells[index].grid[2];
-
-//  int size=this->size;
-
-//   //todo: replace this with single cases with signum or something?
-
-//   while(x> size){x-=size;}
-//   while(y> size){y-=size;}
-//   while(z> size){z-=size;}
-
-//   while(x<0){x+=size;}
-//   while(y<0){y+=size;}
-//   while(z<0){z+=size;}
-
-//   this->cells[index].grid[0]=x;
-//   this->cells[index].grid[1]=y;
-//   this->cells[index].grid[2]=z;
-
-// }
-
-void Grid::check_pbc_coords(long index){
-
- long x=this->cells[index].coords[0];
- long y=this->cells[index].coords[1];
- long z=this->cells[index].coords[2];
-
- int size=this->size;
-
- while(x> size/2){x-=size;}
- while(y> size/2){y-=size;}
- while(z> size/2){z-=size;}
-
- while(x<-(size/2-1)){x+=size;}
- while(y<-(size/2-1)){y+=size;}
- while(z<-(size/2-1)){z+=size;}
-
- this->cells[index].coords[0]=x;
- this->cells[index].coords[1]=y;
- this->cells[index].coords[2]=z;
-
-
-}
-
-void Grid::shift_grid(long s0, long s1, long s2){
-
-  //long coords[3];
-  long index;
-  long max=(this->size)*(this->size)*(this->size);
-
-  for(index=0; index< max; index++){
-     if(index==0 || index ==1 || index==max-1){ cout<< "before: index: "<< index << " " << this->cells[index].coords[0] << " " << this->cells[index].coords[1] << " "<< this->cells[index].coords[2] << endl;}
-
-      this->cells[index].coords[0]-=s0;
-      this->cells[index].coords[1]-=s1;
-      this->cells[index].coords[2]-=s2;
-
-      if(index==0 || index ==1 || index==max-1){ cout<< "intermed: index: "<< index << " " << this->cells[index].coords[0] << " " << this->cells[index].coords[1] << " "<< this->cells[index].coords[2] << endl;}
-
-      this->check_pbc_coords(index);
-
-      if(index==0 || index ==1 || index==max-1){ cout<< "after: index: "<< index << " " << this->cells[index].coords[0] << " " << this->cells[index].coords[1] << " "<< this->cells[index].coords[2] << endl;}
-
-  }
-
-  //free(coords);
-
-}
-
-long Grid::get_index(long x, long y, long z){
-
-  long size=this->size;
-  long index=(x*size+y)*size+z;
-
-  return index;
-
-}
-
-MyFloat get_wrapped_delta(MyFloat x0, MyFloat x1, MyFloat boxlen) {
-    MyFloat result = x0-x1;
-    if(result>boxlen/2) {
-        result-=boxlen;
-    }
-    if(result<-boxlen/2) {
-        result+=boxlen;
-    }
-    return result;
-}
-
-void cen_deriv4_alpha(Grid *in, long index, complex<MyFloat> *alpha, MyFloat dx, long direc,
-		      MyFloat xc, MyFloat yc, MyFloat zc, MyFloat boxlen){//4th order central difference
+{//4th order central difference
 
   MyFloat x0, y0, z0;//, zm2, zm1, zp2, zp1;
-  x0=get_wrapped_delta(dx*in->cells[index].coords[0],xc,boxlen);
-  y0=get_wrapped_delta(dx*in->cells[index].coords[1],yc,boxlen);
-  z0=get_wrapped_delta(dx*in->cells[index].coords[2],zc,boxlen);
-
-   // cout << "index "<< index << " (x,y,z) "<< x0<< " " << y0 <<" "<< z0 << endl;
+  x0=get_wrapped_delta(pState->dx*pState->pGrid->cells[index].coords[0],pState->x0,pState);
+  y0=get_wrapped_delta(pState->dx*pState->pGrid->cells[index].coords[1],pState->y0,pState);
+  z0=get_wrapped_delta(pState->dx*pState->pGrid->cells[index].coords[2],pState->z0,pState);
 
   complex<MyFloat> ang=0.;
 
   //do the epsilon
-  MyFloat c1,c2;
-  long d1,d2;
-  if(direc==0){d2=1; d1=2; c1=y0; c2=z0;}
-  else if(direc==1){d2=2; d1=0, c1=z0; c2=x0;}
-  else if(direc==2){d2=0; d1=1; c1=x0; c2=y0;}
+  MyFloat c[3]={0,0,0};
+  if(direc==0){c[2]=y0; c[1]=-z0;}
+  else if(direc==1){c[0]=z0; c[2]=-x0;}
+  else if(direc==2){c[1]=x0; c[0]=-y0;}
+  else if(direc==3){
+      MyFloat r0 = std::sqrt((x0*x0)+(y0*y0)+(z0*z0));
+      if(r0!=0) {
+          c[0]=x0/r0;
+          c[1]=y0/r0;
+          c[2]=z0/r0;
+      }
+  } // radial velocity
+
   else{cerr<< "Wrong value for parameter 'direc' in function 'cen_deriv4_alpha'."<< endl; exit(1);}
 
-  long ind_p1, ind_m1, ind_p2, ind_m2;
-  //first step in rho direction
-    int step1[3]={0,0,0};
-    step1[d1]=1;
-    int neg_step1[3]={0,0,0};
-    neg_step1[d1]=-1;
 
-    ind_m1=in->find_next_ind(index, neg_step1);
-    ind_p1=in->find_next_ind(index, step1);
+  for(int di=0; di<3; di++) {
+      long ind_p1, ind_m1, ind_p2, ind_m2;
+      //first step in rho direction
+      int step1[3]={0,0,0};
+      int neg_step1[3]={0,0,0};
+      step1[di]=1;
+      neg_step1[di]=-1;
 
-    //cout << "m1 " << ind_m1 << " " << in->cells[ind_m1].coords[0] << " "<< in->cells[ind_m1].coords[1]  << " "<< in->cells[ind_m1].coords[2] << endl;
-    //cout << "p1 " << ind_p1 << " " << in->cells[ind_p1].coords[0] << " "<< in->cells[ind_p1].coords[1]  << " "<< in->cells[ind_p1].coords[2] << endl;
-
-    ind_m2=in->find_next_ind(ind_m1, neg_step1);
-    ind_p2=in->find_next_ind(ind_p1, step1);
-
-    //cout << "m2 " << ind_m2 << " " << in->cells[ind_m2].coords[0] << " "<< in->cells[ind_m2].coords[1]  << " "<< in->cells[ind_m2].coords[2] << endl;
-    //cout << "p2 " << ind_p2<< " "  << in->cells[ind_p2].coords[0] << " "<< in->cells[ind_p2].coords[1]  << " "<< in->cells[ind_p2].coords[2] << endl;
-
-    MyFloat a=-1./12./dx, b=2./3./dx;  //the signs here so that L ~ - Nabla Phi
-
-    alpha[ind_m2]+=(c1*a);
-    alpha[ind_m1]+=(c1*b);
-    alpha[ind_p1]+=(-c1*b);
-    alpha[ind_p2]+=(-c1*a);
+      ind_m1=pState->pGrid->find_next_ind(index, neg_step1);
+      ind_p1=pState->pGrid->find_next_ind(index, step1);
 
 
+      ind_m2=pState->pGrid->find_next_ind(ind_m1, neg_step1);
+      ind_p2=pState->pGrid->find_next_ind(ind_p1, step1);
 
-  //second step in other rho direction
-    int step2[3]={0,0,0};
-    step2[d2]=1;
-    int neg_step2[3]={0,0,0};
-    neg_step2[d2]=-1;
+      MyFloat a=-1./12./pState->dx, b=2./3./pState->dx;  //the signs here so that L ~ - Nabla Phi
 
-    ind_m1=in->find_next_ind(index, neg_step2);
-    ind_p1=in->find_next_ind(index, step2);
-
-    ind_m2=in->find_next_ind(ind_m1, neg_step2);
-    ind_p2=in->find_next_ind(ind_p1, step2);
-
-    alpha[ind_m2]+=(-c2*a);
-    alpha[ind_m1]+=(-c2*b);
-    alpha[ind_p1]+=(c2*b);
-    alpha[ind_p2]+=(c2*a);
-
+      alpha[ind_m2]+=(c[di]*a);
+      alpha[ind_m1]+=(c[di]*b);
+      alpha[ind_p1]+=(-c[di]*b);
+      alpha[ind_p2]+=(-c[di]*a);
+   }
 
 }
 
+/*
 complex<MyFloat> cen_deriv2_alpha(Grid *in, int index, complex<MyFloat> *alpha, MyFloat dx, int direc, complex<MyFloat> *phi){//second order central difference
 
   MyFloat x0, y0, z0;
@@ -1543,42 +1426,25 @@ complex<MyFloat> cen_deriv2_alpha(Grid *in, int index, complex<MyFloat> *alpha, 
 
 }
 
+*/
 
-void getCentre(int *part_arr, int n_part_arr, MyFloat boxlen, MyFloat dx,
-               MyFloat &x0, MyFloat &y0, MyFloat &z0, Grid *pGrid) {
-
-    x0 = 0; y0 = 0; z0 =0;
-    MyFloat xa=pGrid->cells[part_arr[0]].coords[0]*dx;
-    MyFloat ya=pGrid->cells[part_arr[0]].coords[1]*dx;
-    MyFloat za=pGrid->cells[part_arr[0]].coords[2]*dx;
-
-    for(long i=0;i<n_part_arr;i++) {
-        x0+=get_wrapped_delta(pGrid->cells[part_arr[i]].coords[0]*dx,xa,boxlen);
-        y0+=get_wrapped_delta(pGrid->cells[part_arr[i]].coords[1]*dx,ya,boxlen);
-        z0+=get_wrapped_delta(pGrid->cells[part_arr[i]].coords[2]*dx,za,boxlen);
-    }
-    x0/=n_part_arr;
-    y0/=n_part_arr;
-    z0/=n_part_arr;
-    x0+=xa;
-    y0+=ya;
-    z0+=za;
-}
-
-void reorderBuffer(int *part_arr, int n_part_arr, int npartTotal, int res,
-                   MyFloat dx, float a, float om, float boxlen, Grid *pGrid) {
+void reorderBuffer(ic_state *pIcs) {
 
     cout << "Reordering buffer radially..." << endl;
+    cout << " [taking centre = " << pIcs->x0 << " " << pIcs->y0 << " " <<pIcs->z0 << "]" << endl;
+
+    int *part_arr = pIcs->part_arr;
+    int n_part_arr = pIcs->n_part_arr;
+
     MyFloat r2[n_part_arr];
-    MyFloat x0,y0,z0;
+    MyFloat x0=pIcs->x0,y0=pIcs->y0,z0=pIcs->z0;
     MyFloat delta_x, delta_y, delta_z;
     std::vector<size_t> index(n_part_arr);
 
-    getCentre(part_arr, n_part_arr, boxlen, dx, x0,y0,z0, pGrid);
     for(int i=0;i<n_part_arr;i++) {
-        delta_x = get_wrapped_delta(pGrid->cells[part_arr[i]].coords[0]*dx,x0,boxlen);
-        delta_y = get_wrapped_delta(pGrid->cells[part_arr[i]].coords[1]*dx,y0,boxlen);
-        delta_z = get_wrapped_delta(pGrid->cells[part_arr[i]].coords[2]*dx,z0,boxlen);
+        delta_x = get_wrapped_delta(pIcs->pGrid->cells[part_arr[i]].coords[0]*pIcs->dx,x0,pIcs);
+        delta_y = get_wrapped_delta(pIcs->pGrid->cells[part_arr[i]].coords[1]*pIcs->dx,y0,pIcs);
+        delta_z = get_wrapped_delta(pIcs->pGrid->cells[part_arr[i]].coords[2]*pIcs->dx,z0,pIcs);
         r2[i] = delta_x*delta_x+delta_y*delta_y+delta_z*delta_z;
         index[i]=i;
     }
@@ -1596,52 +1462,88 @@ void reorderBuffer(int *part_arr, int n_part_arr, int npartTotal, int res,
     for(int i=0; i<n_part_arr; i++) {
         part_arr[i] = index[i];
     }
+
 }
 
-complex<MyFloat> *calcConstraintVector(istream &inf, int *part_arr, int n_part_arr, int npartTotal, int res,
-                                       MyFloat dx, float a, float om, float boxlen, Grid *pGrid) {
+complex<MyFloat> *calcConstraintVector(istream &inf, const ic_state *pState) {
+
     char name[100];
     inf >> name;
-    cout << "Getting constraint vector '" << name << "' for " << n_part_arr << " particles.";
+    cout << "Getting constraint vector '" << name << "' for " << pState->n_part_arr << " particles.";
 
-    complex<MyFloat> *rval=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
-    complex<MyFloat> *rval_k=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
+    complex<MyFloat> *rval=(complex<MyFloat>*)calloc(pState->n_part_total,sizeof(complex<MyFloat>));
+    complex<MyFloat> *rval_k=(complex<MyFloat>*)calloc(pState->n_part_total,sizeof(complex<MyFloat>));
 
     if(strcasecmp(name,"overdensity")==0) {
-        MyFloat w = 1.0/n_part_arr;
-        for(long i=0;i<n_part_arr;i++) {
-            rval[part_arr[i]]=w;
+        MyFloat w = 1.0/pState->n_part_arr;
+        for(long i=0;i<pState->n_part_arr;i++) {
+            rval[pState->part_arr[i]]=w;
         }
 
-        fft_r(rval_k, rval, res, 1);
-    } else if(strcasecmp(name, "L")==0) {
+        fft_r(rval_k, rval, pState->res, 1);
+    }
+    else if(strcasecmp(name,"phi")==0) {
+        MyFloat w = 1.0/pState->n_part_arr;
+        for(long i=0;i<pState->n_part_arr;i++) {
+            rval[pState->part_arr[i]]=w;
+        }
+        complex<MyFloat> *rval_kX=(complex<MyFloat>*)calloc(pState->n_part_total,sizeof(complex<MyFloat>));
+        fft_r(rval_kX, rval, pState->res, 1);
+        poiss(rval_k, rval_kX, pState->res, pState->boxlen, pState->a, pState->om);
+        free(rval_kX);
+    }
+    else if(strcasecmp(name, "L")==0) {
         // angular momentum
         int direction=-1;
         inf >> direction;
-        MyFloat x0,y0,z0;
-        getCentre(part_arr, n_part_arr, boxlen, dx, x0,y0,z0, pGrid);
 
-        cerr << "Angmom centre is " <<x0 << " " <<y0 << " " << z0 << endl;
+        cerr << "Angmom centre is " <<pState->x0 << " " <<pState->y0 << " " << pState->z0 << endl;
 
-        for(long i=0;i<n_part_arr;i++) {
-            cen_deriv4_alpha(pGrid, part_arr[i], rval, dx, direction, x0, y0, z0, boxlen);
+        for(long i=0;i<pState->n_part_arr;i++) {
+            cen_deriv4_alpha(pState->part_arr[i], direction, rval, pState);
         }
-        complex<MyFloat> *rval_kX=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
-        fft_r(rval_kX, rval, res, 1);
+        complex<MyFloat> *rval_kX=(complex<MyFloat>*)calloc(pState->n_part_total,sizeof(complex<MyFloat>));
+        fft_r(rval_kX, rval, pState->res, 1);
         // The constraint as derived is on the potential. By considering
         // unitarity of FT, we can FT the constraint to get the constraint
         // on the density.
-        poiss(rval_k, rval_kX, res, boxlen, a, om);
+        poiss(rval_k, rval_kX, pState->res, pState->boxlen, pState->a, pState->om);
         free(rval_kX);
     } else {
         cout << "  -> UNKNOWN constraint vector type, returning zeros [this is bad]" << endl;
 
     }
 
+    if(pState->pField_x!=NULL) {
+        cout << " dot in real space = " << std::real(dot(pState->pField_x, rval, pState->n_part_total)) << endl;
+    }
+
     free(rval);
     return rval_k;
 
 }
+
+void ensureRealDelta(ic_state *pIcs) {
+    if(pIcs->pField_x==NULL) {
+        pIcs->pField_x = (complex<MyFloat>*)calloc(pIcs->n_part_total,sizeof(complex<MyFloat>));
+        fft_r(pIcs->pField_x,pIcs->pField_k,pIcs->res,-1);
+    }
+}
+
+
+class Dispatch
+{
+public:
+    Dispatch() {}
+
+    template<typename F>
+    add_route(const char* name, F function) {
+        
+    }
+
+private:
+
+};
 
 
 int main(int argc, char *argv[]){
@@ -1655,8 +1557,6 @@ int main(int argc, char *argv[]){
     MyFloat Om0, Ol0, zin, sigma8, Boxlength, a1, a2, a3;
     int out, n, gadgetformat;
 
-    int n_in_bin;
-    int *part_arr=NULL;
 
 	MyFloat in_d=1.0;
 	complex<MyFloat> d (in_d,0.); //purely real to avoid headaches
@@ -1712,6 +1612,7 @@ int main(int argc, char *argv[]){
 
 
      long npartTotal=(long) (n*n*n);
+
 
      gsl_rng * r;
      const gsl_rng_type * T; //generator type variable
@@ -1832,30 +1733,32 @@ T = gsl_rng_ranlxs2; //double precision generator: gsl_rng_ranlxd2 //TODO decide
 
       std::cout<<"Initial chi^2 (white noise, fourier space) = " << chi2(ftsc,P,npartTotal) << std::endl;
 
-      complex<MyFloat> *ftsc_old=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
-      for(i=0;i<npartTotal;i++) {ftsc_old[i]=ftsc[i];}
 
 
-      cout << "ftsc_old " << ftsc_old[0] << " " << ftsc_old[1] << " " << ftsc_old[2] << " " << ftsc_old[npartTotal-1] << endl;
 
-//potential for use in alpha_mu constraint, based on unconstrained field
-      cout<< "Calculating potential..."<<endl;
-
-      complex<MyFloat>* potk0=(complex<MyFloat>*)calloc(n*n*n,sizeof(complex<MyFloat>));
-      potk0=poiss(potk0, ftsc_old, n, Boxlength, ain, Om0); //pot in k-space
-
-      complex<MyFloat>* pot0=(complex<MyFloat>*)calloc(n*n*n,sizeof(complex<MyFloat>));
-      pot0=fft_r(pot0,potk0,res,-1); //pot in real-space
 
 
        Grid grid(n);
-       MyFloat dx= Boxlength/n;
+
        // construct the description of the underlying field and its realization
        UnderlyingField<MyFloat> *pField = new UnderlyingField<MyFloat>(P, ftsc, npartTotal);
        MultiConstrainedField<MyFloat> constr(pField, npartTotal);
 
        MyFloat orig_chi2 = std::real(chi2(ftsc,P,npartTotal));
        std::cout<<"Initial chi^2 (scaled) = " << orig_chi2 << std::endl;
+
+       ic_state ics;
+       ics.boxlen = Boxlength;
+       ics.dx = Boxlength/n;
+       ics.res = n;
+       ics.a = ain;
+       ics.om=Om0;
+       ics.pGrid = &grid;
+       ics.n_part_total=npartTotal;
+       ics.part_arr=NULL;
+       ics.n_part_arr=0;
+       ics.pField_k = ftsc;
+       ics.pField_x = NULL;
 
        while(!inf.eof()) {
            char command[100];
@@ -1865,25 +1768,39 @@ T = gsl_rng_ranlxs2; //double precision generator: gsl_rng_ranlxd2 //TODO decide
            if(strcasecmp(command,"IDfile")==0) {
                char IDfile[100];
                inf >> IDfile;
-               n_in_bin = AllocAndGetBuffer_int(IDfile, part_arr,0);
+               AllocAndGetBuffer_int(IDfile, &ics);
                cout << "New particle array " << IDfile << " loaded." << endl;
            } else if(strcasecmp(command,"append_IDfile")==0) {
                char IDfile[100];
                inf >> IDfile;
-               n_in_bin = AllocAndGetBuffer_int(IDfile, part_arr, n_in_bin);
-           } else if(strcasecmp(command,"order")==0) {
-               reorderBuffer(part_arr, n_in_bin, npartTotal, res, dx, ain, Om0, Boxlength, &grid);
+               AllocAndGetBuffer_int(IDfile, &ics, true);
+           } else if(strcasecmp(command,"select_sphere")==0) {
+               float radius;
+               inf >> radius;
+               selectSphere(&ics,radius);
+           }else if(strcasecmp(command,"centre_max")==0) {
+               centreDenmax(&ics);
+           } else if(strcasecmp(command,"centre_on")==0) {
+               long id;
+               inf >> id;
+               centreOn(&ics, id);
+           }
+           else if(strcasecmp(command,"order")==0) {
+               reorderBuffer(&ics);
            } else if(strcasecmp(command,"truncate")==0) {
                float x;
                inf >> x;
-               if(x<0 || x>1) {
-                   cerr << "Truncate command takes a fraction between 0 and 1" << endl;
+               if(x<0 ) {
+                   cerr << "Truncate command takes a fraction between 0 and 1 or a number>=1" << endl;
                    exit(0);
                }
-               n_in_bin = ((int)(n_in_bin*x));
+               if(x<1)
+                   ics.n_part_arr = ((int)(ics.n_part_arr*x));
+               else
+                   ics.n_part_arr = ((int)x);
            }
            else if(strcasecmp(command,"calculate")==0) {
-               complex<MyFloat> *vec = calcConstraintVector(inf, part_arr, n_in_bin, npartTotal, res, dx, ain, Om0, Boxlength, &grid);
+               complex<MyFloat> *vec = calcConstraintVector(inf, &ics);
                cout << "    --> calculated value = " << dot(vec, ftsc, npartTotal) << endl;
                free(vec);
            } else
@@ -1902,7 +1819,7 @@ T = gsl_rng_ranlxs2; //double precision generator: gsl_rng_ranlxd2 //TODO decide
 	     for(int dir=0; dir<3; dir++) {
 	       ss << name << " " ;
 	       ss << dir << " " ;
-	       vecs[dir] = calcConstraintVector(ss, part_arr, n_in_bin, npartTotal, res, dx, ain, Om0, Boxlength, &grid);
+	       vecs[dir] = calcConstraintVector(ss, &ics);
 	       vals[dir] = dot(vecs[dir],ftsc,npartTotal);
 	     }
 
@@ -1939,7 +1856,7 @@ T = gsl_rng_ranlxs2; //double precision generator: gsl_rng_ranlxd2 //TODO decide
                    exit(0);
                }
 
-               complex<MyFloat> *vec = calcConstraintVector(inf, part_arr, n_in_bin, npartTotal, res, dx, ain, Om0, Boxlength,  &grid);
+               complex<MyFloat> *vec = calcConstraintVector(inf, &ics);
 
                inf >> command;
                if (strcasecmp(command,"relative")==0) {
@@ -1958,8 +1875,10 @@ T = gsl_rng_ranlxs2; //double precision generator: gsl_rng_ranlxd2 //TODO decide
                if(relative) constraint*=initv;
 
                cout << "    --> initial value = " << initv << ", constraining to " << constraint << endl;
-	       constr.add_constraint(vec, constraint, initv);
-           } else
+	           constr.add_constraint(vec, constraint, initv);
+            } else if (strcasecmp(command,"cov")==0) {
+                constr.print_covariance();
+            }else
            if(strcasecmp(command,"done")==0) {
                if(pField==NULL) {
                    cerr << "ERROR - field information is not present. Are there two 'done' commands perhaps?" << endl;
@@ -2074,12 +1993,10 @@ T = gsl_rng_ranlxs2; //double precision generator: gsl_rng_ranlxd2 //TODO decide
       free(pot);
       free(potk);
       free(potr);
-      free(pot0);
-      free(potk0);
+
       free(delta_real);
 
-        free(ftsc_old);
-        free(ftsc);
+      free(ftsc);
 
        psift1k[0]=complex<MyFloat>(0.,0.);
        psift2k[0]=complex<MyFloat>(0.,0.);

@@ -128,6 +128,37 @@ void add_constraint(std::complex<T>* alpha, std::complex<T> value, std::complex<
     existing_values.push_back(existing);
 }
 
+void print_covariance() {
+    int n=alphas.size();
+    int done=0;
+    std::complex<T> c_matrix[n][n];
+
+    // Gram-Schmidt orthogonalization in-place
+    for(int i=0; i<n; i++) {
+        std::complex<T>* alpha_i=alphas[i];
+        for(int j=0; j<=i; j++) {
+            std::complex<T>* alpha_j=alphas[j];
+            progress("calculating covariance", ((float)done*2)/(n*(1+n)));
+            c_matrix[i][j]=underlying->v1_cov_v2(alpha_j,alpha_i);
+            c_matrix[j][i]=c_matrix[i][j];
+            done+=1;
+        }
+    }
+    end_progress();
+
+    std::cout << std::endl << "cov_matr = [";
+    for(int i=0; i<n; i++) {
+        std::cout << "[";
+        for(int j=0; j<n; j++) {
+            std::cout << std::real(c_matrix[i][j]);
+            if(j<n-1) std::cout << ",";
+        }
+        std::cout << "]";
+        if(i<n-1) std::cout << "," << std::endl;
+    }
+    std::cout << "]" << std::endl;
+}
+
 void prepare() {
 
     int n=alphas.size();

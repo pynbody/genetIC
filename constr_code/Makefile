@@ -2,7 +2,7 @@ HOST	= $(shell hostname | cut -c1-5)
 
 CC    	= g++
 C	= gcc
-CFLAGS	= -Wall -g -fopenmp -std=c++11 
+CFLAGS	= -Wall -g -fopenmp -std=c++11   -fdiagnostics-color=auto
 CPATH = /opt/local/include/
 LPATH   =/opt/local/lib
 

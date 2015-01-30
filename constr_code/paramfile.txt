@@ -12,17 +12,13 @@ outdir	 ./output/
 gadgetformat 3
 
 IDfile h40.txt
-calculate overdensity
-reorder
-truncate 0.1
-calculate overdensity
-IDfile h40_xbins/h40_x0.txt
-calculate overdensity
+#centre_max
+order
 constrain overdensity relative 1.0
-constrain L 0 relative 0.9
-constrain L 1 relative 0.9
-constrain L 2 relative 0.9
+truncate 0.1
+constrain overdensity relative 0.9
 
 
 
+cov
 done
