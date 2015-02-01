@@ -1531,21 +1531,7 @@ void ensureRealDelta(ic_state *pIcs) {
 }
 
 
-class Dispatch
-{
-public:
-    Dispatch() {}
-
-    template<typename F>
-    add_route(const char* name, F function) {
-        
-    }
-
-private:
-
-};
-
-
+#if 0
 int main(int argc, char *argv[]){
 
   if(argc!=2)
@@ -1554,7 +1540,7 @@ int main(int argc, char *argv[]){
       return -1;
   }
 
-    MyFloat Om0, Ol0, zin, sigma8, Boxlength, a1, a2, a3;
+    MyFloat Om0, Ol0, zin, sigma8, Boxlength;
     int out, n, gadgetformat;
 
 
@@ -2189,3 +2175,4 @@ T = gsl_rng_ranlxs2; //double precision generator: gsl_rng_ranlxd2 //TODO decide
 
        return 0;
 }
+#endif

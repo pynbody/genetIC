@@ -49,7 +49,7 @@ private:
     static void consume_comments(std::istream & input_stream) {
         std::string s;
         input_stream >> s;
-        if(s[0]=='#') {
+        if(s[0]=='#' || s[0]=='%') {
             while(!input_stream.eof()) {
                 input_stream >> s;
             }
@@ -131,7 +131,7 @@ public:
         std::string s;
         input_stream >> s;
 
-        if (s[0]=='#') // comment
+        if (s[0]=='#' || s[0]=='%') // comment
             return;
 
         decltype(_map.at(s).first.get()) function;
@@ -155,12 +155,13 @@ public:
 
         int line =0;
         while (std::getline(input_stream, str)) {
+            if(str.size()==0) continue;
             ss.str(str);
             line+=1;
             try {
                 run(ss);
             } catch(DispatchError &e) {
-                std::cerr << "Error on line " << line << ": " << e.what() << std::endl;
+                std::cerr << "Error \"" << e.what() << "\" on line " << line << " (\"" << str << "\")" << std::endl;
             }
             ss.clear();
         }
