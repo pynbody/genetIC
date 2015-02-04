@@ -1,16 +1,3 @@
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include <sstream>
-#include <cmath>
-#include <fstream>
-#include <iostream>
-#include <iomanip>
-#include <sstream>
-#include <cstdlib>
-#include <complex>
-#include <algorithm>
-#include <iterator>
 
 #include <gsl/gsl_rng.h> //link -lgsl and -lgslcblas at the very end
 #include <gsl/gsl_randist.h> //for the gaussian (and other) distributions
@@ -24,557 +11,37 @@ using namespace std;
 
 
 #ifdef HAVE_HDF5
-#include "HDF_IO.hh"
+    #include "HDF_IO.hh"
 #endif
 
 #ifndef DOUBLEPRECISION     /* default is single-precision */
-typedef float  MyFloat;
-typedef float  MyDouble;
-#include <srfftw.h>
-#ifdef HAVE_HDF5
-hid_t hdf_float = H5Tcopy (H5T_NATIVE_FLOAT);
-hid_t hdf_double = H5Tcopy (H5T_NATIVE_FLOAT);
-#endif
-//#else
-//#if (DOUBLEPRECISION == 2)   /* mixed precision, do we want to implement this at all? */
-//typedef float   MyFloat;
-//typedef double  MyDouble;
-//hid_t hdf_float = H5Tcopy (H5T_NATIVE_FLOAT);
-//hid_t hdf_double = H5Tcopy (H5T_NATIVE_DOUBLE);
+    typedef float  MyFloat;
+    typedef float  MyDouble;
+    #include <srfftw.h>
+
+    #ifdef HAVE_HDF5
+        hid_t hdf_float = H5Tcopy (H5T_NATIVE_FLOAT);
+        hid_t hdf_double = H5Tcopy (H5T_NATIVE_FLOAT);
+    #endif
+    //#else
+    //#if (DOUBLEPRECISION == 2)   /* mixed precision, do we want to implement this at all? */
+    //typedef float   MyFloat;
+    //typedef double  MyDouble;
+    //hid_t hdf_float = H5Tcopy (H5T_NATIVE_FLOAT);
+    //hid_t hdf_double = H5Tcopy (H5T_NATIVE_DOUBLE);
 #else                        /* everything double-precision */
-typedef double  MyFloat;
-typedef double  MyDouble;
-#ifdef FFTW_TYPE_PREFIX
-#include <drfftw.h>
-#else
-#include <rfftw.h>
-#endif
-#ifdef HAVE_HDF5
-hid_t hdf_float = H5Tcopy (H5T_NATIVE_DOUBLE);
-hid_t hdf_double = H5Tcopy (H5T_NATIVE_DOUBLE);
-#endif
-#endif
-// #endif
-
-#ifdef OUTPUT_IN_DOUBLEPRECISION //currently not used, output is same as MyFloat
-typedef double MyOutputFloat;
-#else
-typedef float MyOutputFloat;
-#endif
-
-#include "grid.hpp"
-
-//stupid workaround because apparently pow() in C++ does not accept floats, only doubles...
-MyFloat powf(MyFloat base, MyFloat exp)
-{
-
-  double result;
-  result=pow(double(base), double(exp));
-
-  return MyFloat(result);
-
-}
-
-size_t my_fwrite(void *ptr, size_t size, size_t nmemb, FILE * stream) //stolen from Gadget
-{
-  size_t nwritten;
-
-  if((nwritten = fwrite(ptr, size, nmemb, stream)) != nmemb)
-    {
-      printf("I/O error (fwrite) has occured.\n");
-      fflush(stdout);
-    }
-  return nwritten;
-}
-
-struct io_header_2 //header for gadget2
-{
-  int      npart[6];
-  double   mass[6];
-  double   time;
-  double   redshift;
-  int      flag_sfr;
-  int      flag_feedback;
-  int      npartTotal[6]; /*!< npart[1] gives the total number of particles in the run. If this number exceeds 2^32, the npartTotal[2] stores the result of a division of the particle number by 2^32, while npartTotal[1] holds the remainder. */
-  int      flag_cooling;
-  int      num_files;
-  double   BoxSize;
-  double   Omega0;
-  double   OmegaLambda;
-  double   HubbleParam;
-  char     fill[256- 6*4- 6*8- 2*8- 2*4- 6*4- 2*4 - 4*8];  /* fills to 256 Bytes */
-} header2;
-
-
-struct io_header_3 //header for gadget3
-{
-  int npart[6];			/*!< number of particles of each type in this file */
-  double mass[6];		/*!< mass of particles of each type. If 0, then the masses are explicitly
-				   stored in the mass-block of the snapshot file, otherwise they are omitted */
-  double time;			/*!< time of snapshot file */
-  double redshift;		/*!< redshift of snapshot file */
-  int flag_sfr;			/*!< flags whether the simulation was including star formation */
-  int flag_feedback;		/*!< flags whether feedback was included (obsolete) */
-  unsigned int npartTotal[6];	/*!< total number of particles of each type in this snapshot. This can be
-				   different from npart if one is dealing with a multi-file snapshot. */
-  int flag_cooling;		/*!< flags whether cooling was included  */
-  int num_files;		/*!< number of files in multi-file snapshot */
-  double BoxSize;		/*!< box-size of simulation in case periodic boundaries were used */
-  double Omega0;		/*!< matter density in units of critical density */
-  double OmegaLambda;		/*!< cosmological constant parameter */
-  double HubbleParam;		/*!< Hubble parameter in units of 100 km/sec/Mpc */
-  int flag_stellarage;		/*!< flags whether the file contains formation times of star particles */
-  int flag_metals;		/*!< flags whether the file contains metallicity values for gas and star
-				   particles */
-  unsigned int npartTotalHighWord[6];	/*!< High word of the total number of particles of each type (see header2)*/
-  int flag_entropy_instead_u;	/*!< flags that IC-file contains entropy instead of u */
-  int flag_doubleprecision;	/*!< flags that snapshot contains double-precision instead of single precision */
-
-  int flag_ic_info;             /*!< flag to inform whether IC files are generated with ordinary Zeldovich approximation,
-                                     or whether they ocontains 2nd order lagrangian perturbation theory initial conditions.
-                                     For snapshots files, the value informs whether the simulation was evolved from
-                                     Zeldoch or 2lpt ICs. Encoding is as follows:
-                                        FLAG_ZELDOVICH_ICS     (1)   - IC file based on Zeldovich
-                                        FLAG_SECOND_ORDER_ICS  (2)   - Special IC-file containing 2lpt masses
-                                        FLAG_EVOLVED_ZELDOVICH (3)   - snapshot evolved from Zeldovich ICs
-                                        FLAG_EVOLVED_2LPT      (4)   - snapshot evolved from 2lpt ICs
-                                        FLAG_NORMALICS_2LPT    (5)   - standard gadget file format with 2lpt ICs
-                                     All other values, including 0 are interpreted as "don't know" for backwards compatability.
-                                 */
-  float lpt_scalingfactor;      /*!< scaling factor for 2lpt initial conditions */
-
-  char fill[48];		/*!< fills to 256 Bytes */
-
-} header3;				/*!< holds header for snapshot files */
-
-#ifdef HAVE_HDF5
-void SaveHDF(const char* Filename, int n, io_header_3 header, MyFloat *p_Data1,  MyFloat *p_Data2, MyFloat *p_Data3, MyFloat *v_Data1,  MyFloat *v_Data2, MyFloat *v_Data3, const char *name1, const char *name2, const char *name3) //saves 3 arrays as datasets "name1", "name2" and "name3" in one HDF5 file
-{
-  hid_t       file_id, gidh, gid, dset_id,ndset_id,iddset_id, hdset_id,mt_id;   /* file and dataset identifiers */
-  hid_t       nfilespace,dataspace_id, memspace, hboxfs,mt,idfilespace,IDmemspace,iddataspace_id;/* file and memory dataspace identifiers */
-  hsize_t ncount[2],ncount2[2], noffset[2], h[1], stride[2],  idcount[2],idoffset[2],idstride[2],mta[1],idblock[2];
-  h[0]=1;
-  int m_nGrid[3]={n,n,n};
-  mta[0]=6;
-
-  file_id = H5Fcreate( Filename, H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT );
-  gidh=H5Gcreate(file_id, "Header", 100 ); //100 gives max number of arguments (?)
-
-   MyFloat *box=new MyFloat[1];
-   MyFloat *mtt=new MyFloat[6];
-   int *boxi=new int[1];
-   mtt[0]=header.mass[0];
-   mtt[1]=header.mass[1];
-   mtt[2]=header.mass[2];
-   mtt[3]=header.mass[3];
-   mtt[4]=header.mass[4];
-   mtt[5]=header.mass[5];
-   mt = H5Screate_simple( 1, mta, NULL );
-
-   mt_id = H5Acreate( gidh, "MassTable", hdf_float, mt, H5P_DEFAULT );
-   H5Awrite( mt_id, hdf_float, mtt);
-   H5Aclose(mt_id);
-
-   hboxfs = H5Screate_simple( 1, h, NULL );
-   box[0]=header.Omega0;
-   hdset_id = H5Acreate( gidh, "OM", hdf_float, hboxfs, H5P_DEFAULT );
-   H5Awrite( hdset_id, hdf_float, box);
-   H5Aclose(hdset_id);
-
-   box[0]=header.OmegaLambda;
-   hdset_id = H5Acreate( gidh, "OLambda", hdf_float, hboxfs, H5P_DEFAULT );
-   H5Awrite( hdset_id, hdf_float, box);
-   H5Aclose(hdset_id);
-
-   box[0]=header.BoxSize;
-   hdset_id = H5Acreate( gidh, "BoxSize", hdf_float, hboxfs, H5P_DEFAULT );
-   H5Awrite( hdset_id, hdf_float, box);
-   H5Aclose(hdset_id);
-
-   box[0]=header.redshift;
-   hdset_id = H5Acreate( gidh, "Redshift", hdf_float, hboxfs, H5P_DEFAULT );
-   H5Awrite( hdset_id, hdf_float, box);
-   H5Aclose(hdset_id);
-
-   box[0]=header.time;
-   hdset_id = H5Acreate( gidh, "Time", hdf_float, hboxfs, H5P_DEFAULT );
-   H5Awrite( hdset_id, hdf_float, box);
-   H5Aclose(hdset_id);
-
-   //box[0]=0.; //fix: read as input
-   //hdset_id = H5Acreate( gidh, "fnl", hdf_float, hboxfs, H5P_DEFAULT );
-   //H5Awrite( hdset_id, hdf_float, box);
-   //H5Aclose(hdset_id);
-
-   box[0]=0.817;//fix: read as input
-   hdset_id = H5Acreate( gidh, "sigma8", hdf_float, hboxfs, H5P_DEFAULT );
-   H5Awrite( hdset_id, hdf_float, box);
-   H5Aclose(hdset_id);
-
-   long *boxu=(long*)calloc(6,sizeof(long));
-   boxu[1]=(long)(m_nGrid[0]*m_nGrid[1]*m_nGrid[2]);
-   hdset_id = H5Acreate( gidh, "NumPart_Total", H5T_NATIVE_UINT, mt, H5P_DEFAULT );
-   H5Awrite( hdset_id, H5T_NATIVE_UINT, boxu);
-   H5Aclose(hdset_id);
-
-//    hdset_id = H5Acreate( gidh, "NumPart_ThisFile", H5T_NATIVE_UINT, mt, H5P_DEFAULT );
-//    H5Awrite( hdset_id, H5T_NATIVE_UINT, boxu);
-//    H5Aclose(hdset_id);
-
-   boxu[1]=header.npartTotalHighWord[1];
-   hdset_id = H5Acreate( gidh, "NumPart_Total_HighWord", H5T_NATIVE_UINT, mt, H5P_DEFAULT );
-   H5Awrite( hdset_id, H5T_NATIVE_UINT, boxu);
-   H5Aclose(hdset_id);
-
-   boxi[0]=header.flag_ic_info;
-   hdset_id = H5Acreate( gidh, "Flag_IC_Info", H5T_NATIVE_INT, hboxfs, H5P_DEFAULT );
-   H5Awrite( hdset_id, H5T_NATIVE_INT, boxi);
-   H5Aclose(hdset_id);
-
-   boxi[0]=header.flag_doubleprecision;
-   hdset_id = H5Acreate( gidh, "flag_doubleprecision", H5T_NATIVE_INT, hboxfs, H5P_DEFAULT );
-   H5Awrite( hdset_id, H5T_NATIVE_INT, boxi);
-   H5Aclose(hdset_id);
-
-//    boxi[0]=header.num_files;
-//    hdset_id = H5Acreate( gidh, "NumFilesPerSnapshot", H5T_NATIVE_INT, hboxfs, H5P_DEFAULT );
-//    H5Awrite( hdset_id, H5T_NATIVE_INT, boxi);
-//    H5Aclose(hdset_id);
-
-
-   H5Sclose(mt);
-   H5Sclose(hboxfs);
-
-    //close "header" group
-       H5Gclose(gidh);
-
-  gid=H5Gcreate(file_id, "PartType1", 100 );
-  idcount[0]=m_nGrid[0]*m_nGrid[1]*m_nGrid[2];
-  idcount[1]=1;
-  idfilespace = H5Screate_simple( 2, idcount, NULL );
-  iddset_id = H5Dcreate( gid, name3, H5T_NATIVE_LONG, idfilespace, H5P_DEFAULT );
-  H5Sclose(idfilespace);
-
-  IDmemspace = H5Screate_simple( 2, idcount, NULL );
-
-  idoffset[0]=0;
-  idoffset[1]=0;
-  idstride[0]=1;
-  idstride[1]=1;
-  idblock[0]=1;
-  idblock[1]=1;
-
-  long i;
-  long* ID=(long*)calloc(n*n*n,sizeof(long));
-  for (i=0; i< (long)(n*n*n); i++){ID[i]=i;}
-
-  iddataspace_id= H5Dget_space(iddset_id);
-  H5Sselect_hyperslab(iddataspace_id, H5S_SELECT_SET, idoffset, idstride, idcount, idblock);
-  H5Dwrite( iddset_id, H5T_NATIVE_LONG, H5S_ALL, H5S_ALL, H5P_DEFAULT, ID );
-
-  free(ID);
-
-  H5Sclose(iddataspace_id);
-  H5Sclose(IDmemspace);
-  H5Dclose(iddset_id);
-
-  ncount[0]=m_nGrid[0]*m_nGrid[1]*m_nGrid[2]; //total number of particles
-  ncount[1]=3; //3 components of position vector
-  nfilespace = H5Screate_simple( 2, ncount, NULL ); //works! for (n**3, (x1,x2,x3) ) array (part pos./vel.)
-  dset_id = H5Dcreate( gid, name1, hdf_float, nfilespace, H5P_DEFAULT );
-  ndset_id = H5Dcreate( gid, name2, hdf_float, nfilespace, H5P_DEFAULT );
-  H5Sclose(nfilespace);
-
-  noffset[0] = 0;
-  noffset[1] = 0;
-
-  ncount2[0]=m_nGrid[0]*m_nGrid[1]*m_nGrid[2];
-  ncount2[1]=1;
-
-  memspace = H5Screate_simple( 2, ncount2, NULL );
-
-  dataspace_id= H5Dget_space(dset_id);
-
-  stride[0]=1;
-  stride[1]=1;
-
-  H5Sselect_hyperslab(dataspace_id, H5S_SELECT_SET, noffset, stride, ncount2, NULL);
-    H5Dwrite( dset_id, hdf_float, memspace, dataspace_id, H5P_DEFAULT, p_Data1 );
-
-    noffset[0] = 0;
-    noffset[1] = 1;
-
-    H5Sselect_hyperslab(dataspace_id, H5S_SELECT_SET, noffset, stride, ncount2, NULL);
-    H5Dwrite( dset_id, hdf_float, memspace, dataspace_id, H5P_DEFAULT, p_Data2 );
-
-    noffset[0] = 0;
-    noffset[1] = 2;
-
-    H5Sselect_hyperslab(dataspace_id, H5S_SELECT_SET, noffset, stride, ncount2, NULL);
-    H5Dwrite( dset_id, hdf_float, memspace, dataspace_id, H5P_DEFAULT, p_Data3 );
-
-    noffset[0] = 0;
-    noffset[1] = 0;
-   H5Sselect_hyperslab(dataspace_id, H5S_SELECT_SET, noffset, NULL, ncount2, NULL);
-   H5Dwrite( ndset_id, hdf_float, memspace, dataspace_id, H5P_DEFAULT, v_Data1 );
-
-   noffset[0] = 0;
-    noffset[1] = 1;
-   H5Sselect_hyperslab(dataspace_id, H5S_SELECT_SET, noffset, NULL, ncount2, NULL);
-   H5Dwrite( ndset_id, hdf_float, memspace, dataspace_id, H5P_DEFAULT, v_Data2 );
-
-   noffset[0] = 0;
-    noffset[1] = 2;
-   H5Sselect_hyperslab(dataspace_id, H5S_SELECT_SET, noffset, NULL, ncount2, NULL);
-   H5Dwrite( ndset_id, hdf_float, memspace, dataspace_id, H5P_DEFAULT, v_Data3 );
-
-  H5Sclose(memspace);
-  H5Dclose(dset_id);
-  H5Dclose(ndset_id);
-  H5Sclose(dataspace_id);
-
-  //close "particle" group
-    H5Gclose(gid);
-
-      //close overall file
-         H5Fclose(file_id);
-
-    free(box);
-    free(boxi);
-    free(boxu);
-    free(mtt);
-
-}
-
-int save_phases(complex<MyFloat> *phk, MyFloat* ph, complex<MyFloat> *delta, int n, const char *name){
-
-      MyFloat *helper=(MyFloat*)calloc(n*n*n, sizeof(MyFloat));
-      int i;
-      for(i=0;i<n*n*n;i++){helper[i]=delta[i].real();}
-
-	hid_t     idfilespace,  file_id, gid, iddset_id,IDmemspace,iddataspace_id ;
-	hsize_t idcount[2];
-	file_id = H5Fcreate( name, H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT );
-	gid=H5Gcreate(file_id, "Potential", 100 );
-	idcount[0]=n*n*n;
-	idcount[1]=2;
-	idfilespace = H5Screate_simple( 2, idcount, NULL );
-	iddset_id = H5Dcreate( gid, "Psi_k", hdf_float, idfilespace, H5P_DEFAULT );
-	H5Sclose(idfilespace);
-
-	IDmemspace = H5Screate_simple( 2, idcount, NULL );
-
-	iddataspace_id= H5Dget_space(iddset_id);
-	H5Dwrite( iddset_id, hdf_float, H5S_ALL, H5S_ALL, H5P_DEFAULT, phk );
-
-	H5Sclose(iddataspace_id);
-	H5Sclose(IDmemspace);
-	H5Dclose(iddset_id);
-
-	idcount[1]=1;
-	idfilespace = H5Screate_simple( 2, idcount, NULL );
-	iddset_id = H5Dcreate( gid, "Psi_r", hdf_float, idfilespace, H5P_DEFAULT );
-	H5Sclose(idfilespace);
-
-	IDmemspace = H5Screate_simple( 2, idcount, NULL );
-
-	iddataspace_id= H5Dget_space(iddset_id);
-	H5Dwrite( iddset_id, hdf_float, H5S_ALL, H5S_ALL, H5P_DEFAULT, ph );
-
-	H5Sclose(iddataspace_id);
-	H5Sclose(IDmemspace);
-	H5Dclose(iddset_id);
-
-	idfilespace = H5Screate_simple( 2, idcount, NULL );
-	iddset_id = H5Dcreate( gid, "delta_r", hdf_float, idfilespace, H5P_DEFAULT );
-	H5Sclose(idfilespace);
-
-	IDmemspace = H5Screate_simple( 2, idcount, NULL );
-
-	iddataspace_id= H5Dget_space(iddset_id);
-	H5Dwrite( iddset_id, hdf_float, H5S_ALL, H5S_ALL, H5P_DEFAULT, helper );
-
-	H5Sclose(iddataspace_id);
-	H5Sclose(IDmemspace);
-	H5Dclose(iddset_id);
-
-	//close "particle" group
-	H5Gclose(gid);
-
-        //close overall file
-        H5Fclose(file_id);
-
-	return 0;
-}
+    typedef double  MyFloat;
+    typedef double  MyDouble;
+
+
+    #ifdef FFTW_TYPE_PREFIX
+    #include <drfftw.h>
+    #else
+    #include <rfftw.h>
+    #endif
 #endif
 
 
-int SaveGadget2(const char *filename, long n, io_header_2 header1, MyFloat* Pos1, MyFloat* Vel1, MyFloat* Pos2, MyFloat* Vel2, MyFloat* Pos3, MyFloat* Vel3) {
-  FILE* fd = fopen(filename, "w");
-
-  MyFloat* Pos=(MyFloat*)calloc(3,sizeof(MyFloat));
-  int dummy;
-  long i;
-  //header block
-  dummy= sizeof(header1);
-  my_fwrite(&dummy, sizeof(dummy), 1, fd);
-  my_fwrite(&header1, sizeof(header1), 1, fd);
-  my_fwrite(&dummy, sizeof(dummy), 1, fd);
-
-  //position block
-  dummy=sizeof(MyFloat)*(long)(n*n*n)*3; //this will be 0 or some strange number for n>563; BUT: gagdget does not actually use this value; it gets the number of particles from the header
-  my_fwrite(&dummy, sizeof(dummy), 1, fd);
-  for(i=0;i<n*n*n;i++){
-    Pos[0]=Pos1[i];
-    Pos[1]=Pos2[i];
-    Pos[2]=Pos3[i];
-    my_fwrite(Pos,sizeof(MyFloat),3,fd);
-  }
-  my_fwrite(&dummy, sizeof(dummy), 1, fd);
-
-  //velocity block
-  //dummy=sizeof(MyFloat)*3*n*n*n; //this will be 0 or some strange number for n>563; BUT: gagdget does not actually use this value; it gets the number of particles from the header
-  my_fwrite(&dummy, sizeof(dummy), 1, fd);
-  for(i=0;i<n*n*n;i++){
-    Pos[0]=Vel1[i];
-    Pos[1]=Vel2[i];
-    Pos[2]=Vel3[i];
-   my_fwrite(Pos,sizeof(MyFloat),3,fd);
-  }
-
-  free(Pos);
-  my_fwrite(&dummy, sizeof(dummy), 1, fd);
-
-  dummy = sizeof(long) * n*n*n; //here: gadget just checks if the IDs are ints or long longs; still the number of particles is read from the header file
-  my_fwrite(&dummy, sizeof(dummy), 1, fd);
-  for(i=0;i<n*n*n;i++){
-  my_fwrite(&i, sizeof(long), 1, fd);
-
-  }
-  my_fwrite(&dummy, sizeof(dummy), 1, fd);
-
-  fclose(fd);
-
- return 0;
-}
-
-int SaveGadget3(const char *filename, long n, io_header_3 header1, MyFloat* Pos1, MyFloat* Vel1, MyFloat* Pos2, MyFloat* Vel2, MyFloat* Pos3, MyFloat* Vel3) {
-
-    FILE* fd = fopen(filename, "w");
-
-    MyFloat* Pos=(MyFloat*)calloc(3,sizeof(MyFloat));
-    int dummy;
-    long i;
-
-    //header block
-    dummy= sizeof(header1);
-    my_fwrite(&dummy, sizeof(dummy), 1, fd);
-    my_fwrite(&header1, sizeof(header1), 1, fd);
-    my_fwrite(&dummy, sizeof(dummy), 1, fd);
-
-    //position block
-    dummy=sizeof(MyFloat)*(long)(n*n*n)*3; //this will be 0 or some strange number for n>563; BUT: gagdget does not actually use this value; it gets the number of particles from the header
-    my_fwrite(&dummy, sizeof(dummy), 1, fd);
-    for(i=0;i<n*n*n;i++){
-	Pos[0]=Pos1[i];
-    	Pos[1]=Pos2[i];
-        Pos[2]=Pos3[i];
-        my_fwrite(Pos,sizeof(MyFloat),3,fd);
-     }
-
-     my_fwrite(&dummy, sizeof(dummy), 1, fd);
-
-    //velocity block
-    my_fwrite(&dummy, sizeof(dummy), 1, fd);
-    for(i=0;i<n*n*n;i++){
-        Pos[0]=Vel1[i];
-        Pos[1]=Vel2[i];
-        Pos[2]=Vel3[i];
-        my_fwrite(Pos,sizeof(MyFloat),3,fd);
-       }
-
-    my_fwrite(&dummy, sizeof(dummy), 1, fd);
-
-    //particle block
-    //long long ido;
-    dummy = sizeof(long) * n*n*n; //here: gadget just checks if the IDs are ints or long longs; still the number of particles is read from the header file
-    my_fwrite(&dummy, sizeof(dummy), 1, fd);
-    for(i=0;i<n*n*n;i++){
-         my_fwrite(&i, sizeof(long), 1, fd);
-    }
-    my_fwrite(&dummy, sizeof(dummy), 1, fd);
-
-    fclose(fd);
-    free(Pos);
-
-  return 0;
-}
-
-int GetBuffer(double *inarray, const char *file, int insize){
-   FILE *Quelle;
-   int i;
-   int r=0;
-
-   Quelle = fopen(file, "r");
-   if (Quelle == NULL)
-      {printf("\n Input file %s not found!\n", file); exit(-1);}
-
-  else
-   { for (i = 0; i < insize*2; i++)
-      {
-         r=fscanf(Quelle, "%lf \n",&inarray[i]);
-
-      }
-	}
-	fclose(Quelle);
-
-  return r;
-}
-
-
-int GetBuffer_long(long *inarray, const char *file, int insize){
-   FILE *Quelle;
-   int i;
-   int r=0;
-
-   Quelle = fopen(file, "r");
-   if (Quelle == NULL)
-      {printf("\n Input file %s not found!\n", file); exit(-1);}
-
-  else
-   { for (i = 0; i < insize; i++)
-      {
-         r=fscanf(Quelle, "%lu \n", &inarray[i]);
-
-      }
-	}
-	fclose(Quelle);
-
-  return r;
-}
-
-int GetBuffer_int(int *inarray, const char *file, int insize){
-   FILE *Quelle;
-   int i;
-   int r=0;
-   float *re=new float [1];
-
-   Quelle = fopen(file, "r");
-   if (Quelle == NULL)
-      {printf("\n Input file %s not found!\n", file); exit(-1);}
-
-  else
-   { for (i = 0; i < insize; i++)
-      {
-         r=fscanf(Quelle, "%f \n", re);
-	 inarray[i]=int(re[0]);
-
-      }
-	}
-	fclose(Quelle);
-
-  return r;
-}
 
 
 typedef struct _ic_state {
@@ -582,11 +49,11 @@ typedef struct _ic_state {
     int n_part_arr;
     MyFloat boxlen;
     int res;
-    long n_part_total;
+    long nPartTotal;
     MyFloat dx; // = boxlen/res
     MyFloat x0,y0,z0;
     float a, om;
-    Grid *pGrid;
+    Grid<MyFloat> *pGrid;
     std::complex<MyFloat> *pField_k;
     std::complex<MyFloat> *pField_x;
 } ic_state;
@@ -658,7 +125,7 @@ void selectSphere(ic_state *pIcs, float radius) {
     float r2 = radius*radius;
     float delta_x, delta_y, delta_z, r2_i;
     int n=0;
-    for(long i=0;i<pIcs->n_part_total;i++) {
+    for(long i=0;i<pIcs->nPartTotal;i++) {
         delta_x = get_wrapped_delta(pIcs->pGrid->cells[i].coords[0]*pIcs->dx,pIcs->x0,pIcs);
         delta_y = get_wrapped_delta(pIcs->pGrid->cells[i].coords[1]*pIcs->dx,pIcs->y0,pIcs);
         delta_z = get_wrapped_delta(pIcs->pGrid->cells[i].coords[2]*pIcs->dx,pIcs->z0,pIcs);
@@ -672,7 +139,7 @@ void selectSphere(ic_state *pIcs, float radius) {
 
     pIcs->part_arr = (int*)calloc(n,sizeof(int));
     n=0;
-    for(long i=0;i<pIcs->n_part_total;i++) {
+    for(long i=0;i<pIcs->nPartTotal;i++) {
         delta_x = get_wrapped_delta(pIcs->pGrid->cells[i].coords[0]*pIcs->dx,pIcs->x0,pIcs);
         delta_y = get_wrapped_delta(pIcs->pGrid->cells[i].coords[1]*pIcs->dx,pIcs->y0,pIcs);
         delta_z = get_wrapped_delta(pIcs->pGrid->cells[i].coords[2]*pIcs->dx,pIcs->z0,pIcs);
@@ -1471,8 +938,8 @@ complex<MyFloat> *calcConstraintVector(istream &inf, const ic_state *pState) {
     inf >> name;
     cout << "Getting constraint vector '" << name << "' for " << pState->n_part_arr << " particles.";
 
-    complex<MyFloat> *rval=(complex<MyFloat>*)calloc(pState->n_part_total,sizeof(complex<MyFloat>));
-    complex<MyFloat> *rval_k=(complex<MyFloat>*)calloc(pState->n_part_total,sizeof(complex<MyFloat>));
+    complex<MyFloat> *rval=(complex<MyFloat>*)calloc(pState->nPartTotal,sizeof(complex<MyFloat>));
+    complex<MyFloat> *rval_k=(complex<MyFloat>*)calloc(pState->nPartTotal,sizeof(complex<MyFloat>));
 
     if(strcasecmp(name,"overdensity")==0) {
         MyFloat w = 1.0/pState->n_part_arr;
@@ -1487,7 +954,7 @@ complex<MyFloat> *calcConstraintVector(istream &inf, const ic_state *pState) {
         for(long i=0;i<pState->n_part_arr;i++) {
             rval[pState->part_arr[i]]=w;
         }
-        complex<MyFloat> *rval_kX=(complex<MyFloat>*)calloc(pState->n_part_total,sizeof(complex<MyFloat>));
+        complex<MyFloat> *rval_kX=(complex<MyFloat>*)calloc(pState->nPartTotal,sizeof(complex<MyFloat>));
         fft_r(rval_kX, rval, pState->res, 1);
         poiss(rval_k, rval_kX, pState->res, pState->boxlen, pState->a, pState->om);
         free(rval_kX);
@@ -1502,7 +969,7 @@ complex<MyFloat> *calcConstraintVector(istream &inf, const ic_state *pState) {
         for(long i=0;i<pState->n_part_arr;i++) {
             cen_deriv4_alpha(pState->part_arr[i], direction, rval, pState);
         }
-        complex<MyFloat> *rval_kX=(complex<MyFloat>*)calloc(pState->n_part_total,sizeof(complex<MyFloat>));
+        complex<MyFloat> *rval_kX=(complex<MyFloat>*)calloc(pState->nPartTotal,sizeof(complex<MyFloat>));
         fft_r(rval_kX, rval, pState->res, 1);
         // The constraint as derived is on the potential. By considering
         // unitarity of FT, we can FT the constraint to get the constraint
@@ -1515,7 +982,7 @@ complex<MyFloat> *calcConstraintVector(istream &inf, const ic_state *pState) {
     }
 
     if(pState->pField_x!=NULL) {
-        cout << " dot in real space = " << std::real(dot(pState->pField_x, rval, pState->n_part_total)) << endl;
+        cout << " dot in real space = " << std::real(dot(pState->pField_x, rval, pState->nPartTotal)) << endl;
     }
 
     free(rval);
@@ -1525,7 +992,7 @@ complex<MyFloat> *calcConstraintVector(istream &inf, const ic_state *pState) {
 
 void ensureRealDelta(ic_state *pIcs) {
     if(pIcs->pField_x==NULL) {
-        pIcs->pField_x = (complex<MyFloat>*)calloc(pIcs->n_part_total,sizeof(complex<MyFloat>));
+        pIcs->pField_x = (complex<MyFloat>*)calloc(pIcs->nPartTotal,sizeof(complex<MyFloat>));
         fft_r(pIcs->pField_x,pIcs->pField_k,pIcs->res,-1);
     }
 }
@@ -1597,7 +1064,7 @@ int main(int argc, char *argv[]){
       else{cerr<< "Noooooo! You fool! That file is not here!"<< endl; return -1;}
 
 
-     long npartTotal=(long) (n*n*n);
+     long nPartTotal=(long) (n*n*n);
 
 
      gsl_rng * r;
@@ -1652,14 +1119,14 @@ T = gsl_rng_ranlxs2; //double precision generator: gsl_rng_ranlxd2 //TODO decide
 
 	free(inarr);
 
-       complex<MyFloat> *rnd=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
-       complex<MyFloat> *ft=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
+       complex<MyFloat> *rnd=(complex<MyFloat>*)calloc(nPartTotal,sizeof(complex<MyFloat>));
+       complex<MyFloat> *ft=(complex<MyFloat>*)calloc(nPartTotal,sizeof(complex<MyFloat>));
 
        cout<< "Drawing random numbers..."<< endl;
 
        long i;
-       MyFloat sigma=sqrt((MyFloat)(npartTotal));
-       for(i=0;i<npartTotal;i++){rnd[i]=gsl_ran_gaussian_ziggurat(r,1.)*sigma;}// cout<< "rnd "<< rnd[i] << endl;}
+       MyFloat sigma=sqrt((MyFloat)(nPartTotal));
+       for(i=0;i<nPartTotal;i++){rnd[i]=gsl_ran_gaussian_ziggurat(r,1.)*sigma;}// cout<< "rnd "<< rnd[i] << endl;}
 
 
 
@@ -1670,16 +1137,16 @@ T = gsl_rng_ranlxs2; //double precision generator: gsl_rng_ranlxd2 //TODO decide
 
        ft=fft_r(ft, rnd, n, 1);
 
-       std::cout<<"Initial chi^2 (white noise, real space) = " << dot(rnd,rnd,npartTotal)/((MyFloat) npartTotal) << std::endl;
+       std::cout<<"Initial chi^2 (white noise, real space) = " << dot(rnd,rnd,nPartTotal)/((MyFloat) nPartTotal) << std::endl;
        free(rnd);
 
        ft[0]=complex<MyFloat>(0.,0.); //assure mean==0
 
 
-       std::cout<<"Initial chi^2 (white noise, fourier space) = " << dot(ft,ft,npartTotal)/((MyFloat) npartTotal) << std::endl;
+       std::cout<<"Initial chi^2 (white noise, fourier space) = " << dot(ft,ft,nPartTotal)/((MyFloat) nPartTotal) << std::endl;
 
       //scale white-noise delta with initial PS
-      complex<MyFloat> *ftsc=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
+      complex<MyFloat> *ftsc=(complex<MyFloat>*)calloc(nPartTotal,sizeof(complex<MyFloat>));
       int ix,iy,iz,idx;
       int iix, iiy, iiz;
       int res=n;
@@ -1702,7 +1169,7 @@ T = gsl_rng_ranlxs2; //double precision generator: gsl_rng_ranlxd2 //TODO decide
       MyFloat amp=(sigma8/sg8)*(sigma8/sg8)*grwfac*grwfac; //norm. for sigma8 and linear growth factor
       MyFloat norm=kw*kw*kw/powf(2.*M_PI,3.); //since kw=2pi/L, this is just 1/V_box
 
-      complex<MyFloat> *P=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
+      complex<MyFloat> *P=(complex<MyFloat>*)calloc(nPartTotal,sizeof(complex<MyFloat>));
 
 
       std::cout<<"Interpolation: kmin: "<< kw <<" Mpc/h, kmax: "<< (MyFloat)( kw*res/2.*sqrt(3.)) <<" Mpc/h"<<std::endl;
@@ -1715,9 +1182,9 @@ T = gsl_rng_ranlxs2; //double precision generator: gsl_rng_ranlxd2 //TODO decide
       //TODO think about this (it fails more often than it should?)
 
       cout<<"Transfer applied!"<<endl;
-      cout<< "Power spectrum sample: " << P[0] << " " << P[1] <<" " << P[npartTotal-1] <<endl;
+      cout<< "Power spectrum sample: " << P[0] << " " << P[1] <<" " << P[nPartTotal-1] <<endl;
 
-      std::cout<<"Initial chi^2 (white noise, fourier space) = " << chi2(ftsc,P,npartTotal) << std::endl;
+      std::cout<<"Initial chi^2 (white noise, fourier space) = " << chi2(ftsc,P,nPartTotal) << std::endl;
 
 
 
@@ -1727,10 +1194,10 @@ T = gsl_rng_ranlxs2; //double precision generator: gsl_rng_ranlxd2 //TODO decide
        Grid grid(n);
 
        // construct the description of the underlying field and its realization
-       UnderlyingField<MyFloat> *pField = new UnderlyingField<MyFloat>(P, ftsc, npartTotal);
-       MultiConstrainedField<MyFloat> constr(pField, npartTotal);
+       UnderlyingField<MyFloat> *pField = new UnderlyingField<MyFloat>(P, ftsc, nPartTotal);
+       MultiConstrainedField<MyFloat> constr(pField, nPartTotal);
 
-       MyFloat orig_chi2 = std::real(chi2(ftsc,P,npartTotal));
+       MyFloat orig_chi2 = std::real(chi2(ftsc,P,nPartTotal));
        std::cout<<"Initial chi^2 (scaled) = " << orig_chi2 << std::endl;
 
        ic_state ics;
@@ -1740,7 +1207,7 @@ T = gsl_rng_ranlxs2; //double precision generator: gsl_rng_ranlxd2 //TODO decide
        ics.a = ain;
        ics.om=Om0;
        ics.pGrid = &grid;
-       ics.n_part_total=npartTotal;
+       ics.nPartTotal=nPartTotal;
        ics.part_arr=NULL;
        ics.n_part_arr=0;
        ics.pField_k = ftsc;
@@ -1787,7 +1254,7 @@ T = gsl_rng_ranlxs2; //double precision generator: gsl_rng_ranlxd2 //TODO decide
            }
            else if(strcasecmp(command,"calculate")==0) {
                complex<MyFloat> *vec = calcConstraintVector(inf, &ics);
-               cout << "    --> calculated value = " << dot(vec, ftsc, npartTotal) << endl;
+               cout << "    --> calculated value = " << dot(vec, ftsc, nPartTotal) << endl;
                free(vec);
            } else
 	   if(strcasecmp(command,"constrain_direction")==0) {
@@ -1806,7 +1273,7 @@ T = gsl_rng_ranlxs2; //double precision generator: gsl_rng_ranlxd2 //TODO decide
 	       ss << name << " " ;
 	       ss << dir << " " ;
 	       vecs[dir] = calcConstraintVector(ss, &ics);
-	       vals[dir] = dot(vecs[dir],ftsc,npartTotal);
+	       vals[dir] = dot(vecs[dir],ftsc,nPartTotal);
 	     }
 
 	     complex<MyFloat> norm = std::sqrt(dot(vals,vals,3));
@@ -1856,7 +1323,7 @@ T = gsl_rng_ranlxs2; //double precision generator: gsl_rng_ranlxd2 //TODO decide
                inf >> constraint_real;
 
                std::complex<MyFloat> constraint = constraint_real;
-               std::complex<MyFloat> initv = dot(vec, ftsc, npartTotal);
+               std::complex<MyFloat> initv = dot(vec, ftsc, nPartTotal);
 
                if(relative) constraint*=initv;
 
@@ -1870,11 +1337,11 @@ T = gsl_rng_ranlxs2; //double precision generator: gsl_rng_ranlxd2 //TODO decide
                    cerr << "ERROR - field information is not present. Are there two 'done' commands perhaps?" << endl;
                    exit(0);
                }
-               complex<MyFloat> *y1=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
+               complex<MyFloat> *y1=(complex<MyFloat>*)calloc(nPartTotal,sizeof(complex<MyFloat>));
 	           constr.prepare();
                constr.get_realization(y1);
 
-               for(long i=0; i<npartTotal; i++)
+               for(long i=0; i<nPartTotal; i++)
                    ftsc[i]=y1[i];
 
                free(y1);
@@ -1896,7 +1363,7 @@ T = gsl_rng_ranlxs2; //double precision generator: gsl_rng_ranlxd2 //TODO decide
 
 
        inf.close();
-       MyFloat final_chi2 = std::real(chi2(ftsc,P,npartTotal));
+       MyFloat final_chi2 = std::real(chi2(ftsc,P,nPartTotal));
        std::cout<<"Final chi^2  = " <<  final_chi2 << std::endl;
        std::cout<<"Delta chi^2  = " <<  final_chi2 - orig_chi2 << std::endl;
 
@@ -1928,14 +1395,14 @@ T = gsl_rng_ranlxs2; //double precision generator: gsl_rng_ranlxd2 //TODO decide
       free(P);
 
 
-      complex<MyFloat>* psift1k=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
-      complex<MyFloat>* psift2k=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
-      complex<MyFloat>* psift3k=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
-      complex<MyFloat>* psift1=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
-      complex<MyFloat>* psift2=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
-      complex<MyFloat>* psift3=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
+      complex<MyFloat>* psift1k=(complex<MyFloat>*)calloc(nPartTotal,sizeof(complex<MyFloat>));
+      complex<MyFloat>* psift2k=(complex<MyFloat>*)calloc(nPartTotal,sizeof(complex<MyFloat>));
+      complex<MyFloat>* psift3k=(complex<MyFloat>*)calloc(nPartTotal,sizeof(complex<MyFloat>));
+      complex<MyFloat>* psift1=(complex<MyFloat>*)calloc(nPartTotal,sizeof(complex<MyFloat>));
+      complex<MyFloat>* psift2=(complex<MyFloat>*)calloc(nPartTotal,sizeof(complex<MyFloat>));
+      complex<MyFloat>* psift3=(complex<MyFloat>*)calloc(nPartTotal,sizeof(complex<MyFloat>));
 
-      //complex<MyFloat>* test_arr=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
+      //complex<MyFloat>* test_arr=(complex<MyFloat>*)calloc(nPartTotal,sizeof(complex<MyFloat>));
 
       //Zeldovich approx.
       for(ix=0; ix<res;ix++){
@@ -1962,7 +1429,7 @@ T = gsl_rng_ranlxs2; //double precision generator: gsl_rng_ranlxd2 //TODO decide
 
 
 
-      complex<MyFloat> *delta_real=(complex<MyFloat>*)calloc(npartTotal,sizeof(complex<MyFloat>));
+      complex<MyFloat> *delta_real=(complex<MyFloat>*)calloc(nPartTotal,sizeof(complex<MyFloat>));
       delta_real=fft_r(delta_real,ftsc,res,-1);
 
       MyFloat *potr=(MyFloat*)calloc(n*n*n,sizeof(MyFloat));
@@ -1997,147 +1464,13 @@ T = gsl_rng_ranlxs2; //double precision generator: gsl_rng_ranlxd2 //TODO decide
       free(psift3k);
 
 
-       MyFloat gr=Boxlength/(MyFloat)n;
-       cout<< "Grid cell size: "<< gr <<" Mpc/h"<<endl;
-
-      MyFloat *Vel1=(MyFloat*)calloc(npartTotal,sizeof(MyFloat));
-      MyFloat *Vel2=(MyFloat*)calloc(npartTotal,sizeof(MyFloat));
-      MyFloat *Vel3=(MyFloat*)calloc(npartTotal,sizeof(MyFloat));
-      MyFloat *Pos1=(MyFloat*)calloc(npartTotal,sizeof(MyFloat));
-      MyFloat *Pos2=(MyFloat*)calloc(npartTotal,sizeof(MyFloat));
-      MyFloat *Pos3=(MyFloat*)calloc(npartTotal,sizeof(MyFloat));
-
-      MyFloat hfac=1.*100.*sqrt(Om0/ain/ain/ain+Ol0)*sqrt(ain); //this should be f*H(t)*a, but gadget wants vel/sqrt(a), so we use H(t)*sqrt(a) //TODO: hardcoded value of f=1 is inaccurate, but fomega currently gives wrong results
-
-    MyFloat mean1=0.,mean2=0.,mean3=0.;
-    MyFloat Mean1=0., Mean2=0., Mean3=0.;
-    cout<< "Applying ZA & PBC... "<<endl;
-      //apply ZA:
-       for(ix=0;ix<res;ix++){
-	 for(iy=0;iy<res;iy++){
-	   for(iz=0;iz<res;iz++){
-	    idx = (ix*res+iy)*(res)+iz;
-
-	    Vel1[idx] = psift1[idx].real()*hfac; //physical units
-	    Vel2[idx] = psift2[idx].real()*hfac;
-	    Vel3[idx] = psift3[idx].real()*hfac;
-
-	    //position in "grid coordinates": Pos e [0,N-1]
-	    Pos1[idx] = psift1[idx].real()*n/Boxlength+ix;
-	    Pos2[idx] = psift2[idx].real()*n/Boxlength+iy;
-	    Pos3[idx] = psift3[idx].real()*n/Boxlength+iz;
-
-	    mean1+=abs(psift1[idx].real()*n/Boxlength);
-	    mean2+=abs(psift2[idx].real()*n/Boxlength);
-	    mean3+=abs(psift3[idx].real()*n/Boxlength);
-
-	    //enforce periodic boundary conditions
-	    if(Pos1[idx]<0.){Pos1[idx]+=(MyFloat)res;}
-	    else if(Pos1[idx]>(MyFloat)res){Pos1[idx]-=(MyFloat)res;}
-	    if(Pos2[idx]<0.){Pos2[idx]+=(MyFloat)res;}
-	    else if(Pos2[idx]>(MyFloat)res){Pos2[idx]-=(MyFloat)res;}
-	    if(Pos3[idx]<0.){Pos3[idx]+=(MyFloat)res;}
-	    else if(Pos3[idx]>(MyFloat)res){Pos3[idx]-=(MyFloat)res;}
-
-	    //rescale to physical coordinates
-	    Pos1[idx] *= (Boxlength/(MyFloat)n);
-	    Pos2[idx] *= (Boxlength/(MyFloat)n);
-	    Pos3[idx] *= (Boxlength/(MyFloat)n);
-
-	    Mean1+=Pos1[idx];
-	    Mean2+=Pos2[idx];
-	    Mean3+=Pos3[idx];
-
-	   }
-	 }
-       }
-
-
-      cout<< "Box/2="<< Boxlength/2.<< " Mpc/h, Mean position x,y,z: "<< Mean1/(MyFloat(res*res*res))<<" "<< Mean2/(MyFloat(res*res*res))<<" "<<Mean3/(MyFloat(res*res*res))<< " Mpc/h"<<  endl;
-
-        free(psift1);
-        free(psift2);
-        free(psift3);
-
-	MyFloat pmass=27.78*Om0*powf(Boxlength/(MyFloat)(res),3.0); // in 10^10 M_sol
-	cout<< "Particle mass: " <<pmass <<" [10^10 M_sun]"<<endl;
-
 
    if (gadgetformat==2){
-	header2.npart[0]=0;
-	header2.npart[1]=npartTotal;
-	header2.npart[2]=0;
-	header2.npart[3]=0;
-	header2.npart[4]=0;
-	header2.npart[5]=0;
-	header2.mass[0]=0;
-	header2.mass[1]=pmass;
-	header2.mass[2]=0;
-	header2.mass[3]=0;
-	header2.mass[4]=0;
-	header2.mass[5]=0;
-	header2.time=ain;
-	header2.redshift=zin;
-	header2.flag_sfr=0;
-	header2.flag_feedback=0;
-	header2.npartTotal[0]=0;
-	header2.npartTotal[1]=npartTotal;
-	header2.npartTotal[2]=0;
-	header2.npartTotal[3]=0;
-	header2.npartTotal[4]=0;
-	header2.npartTotal[5]=0;
-	header2.flag_cooling=0;
-	header2.num_files=1;
-	header2.BoxSize=Boxlength;
-	header2.Omega0=Om0;
-	header2.OmegaLambda=Ol0;
- 	header2.HubbleParam=0.701;
+       SaveGadget2(CreateGadget2Header(nPartTotal, pmass, ain, zin, Boxlength, Om0, Ol0))
      }
 
     if (gadgetformat==3){
-	header3.npart[0]=0;
-        header3.npart[1]=(unsigned int)(npartTotal);
-        header3.npart[2]=0;
-        header3.npart[3]=0;
-        header3.npart[4]=0;
-        header3.npart[5]=0;
-        header3.mass[0]=0;
-        header3.mass[1]=pmass;
-        header3.mass[2]=0;
-        header3.mass[3]=0;
-        header3.mass[4]=0;
-        header3.mass[5]=0;
-        header3.time=ain;
-        header3.redshift=zin;
-        header3.flag_sfr=0;
-        header3.flag_feedback=0;
-        header3.npartTotal[0]=0;
-        header3.npartTotal[1]=(unsigned int)(npartTotal);
-        header3.npartTotal[2]=0;
-        header3.npartTotal[3]=0;
-        header3.npartTotal[4]=0;
-        header3.npartTotal[5]=0;
-        header3.flag_cooling=0;
-        header3.num_files=1;
-        header3.BoxSize=Boxlength;
-        header3.Omega0=Om0;
-        header3.OmegaLambda=Ol0;
-        header3.HubbleParam=0.701;
-	header3.flag_stellarage=0;	/*!< flags whether the file contains formation times of star particles */
-  	header3.flag_metals=0;		/*!< flags whether the file contains metallicity values for gas and star  particles */
-  	header3.npartTotalHighWord[0]=0;
-	header3.npartTotalHighWord[1]=(unsigned int) (npartTotal >> 32); //copied from Gadget3
-	header3.npartTotalHighWord[2]=0;
-	header3.npartTotalHighWord[3]=0;
-	header3.npartTotalHighWord[4]=0;
-	header3.npartTotalHighWord[5]=0;
-  	header3.flag_entropy_instead_u=0;	/*!< flags that IC-file contains entropy instead of u */
-#ifdef OUTPUT_IN_DOUBLEPRECISION
-	header3.flag_doubleprecision=1; /*!< flags that snapshot contains double-precision instead of single precision */
-#else
-        header3.flag_doubleprecision=0;
-#endif
-  	header3.flag_ic_info=1;
+
      }
 
 	string dname="Coordinates";

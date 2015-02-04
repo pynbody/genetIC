@@ -94,6 +94,24 @@ private:
         return f(t1,t2);
     }
 
+    template<typename T1, typename T2, typename T3>
+    static Rtype call_function(const std::function<Rtype(T1,T2,T3)> &f,
+                               std::istream & input_stream) {
+
+        if(input_stream.eof())
+           throw DispatchError("Insufficient arugments (expected 3, got 0)");
+        T1 t1;
+        if(input_stream.eof())
+           throw DispatchError("Insufficient arugments (expected 3, got 1)");
+        T2 t2;
+        if(input_stream.eof())
+           throw DispatchError("Insufficient arugments (expected 3, got 2)");
+        T3 t3;
+        input_stream >> t1 >> t2 >> t3;
+        consume_comments(input_stream);
+        return f(t1,t2,t3);
+    }
+
     template<typename... Args>
     static Rtype unpack_and_call_function(const Base *fobj,
                                std::istream & input_stream) {
@@ -174,14 +192,14 @@ template <typename Ctype, typename Rtype>
 class ClassDispatch: public Dispatch<Rtype>
 {
 private:
-    Ctype c;
+    Ctype *pC;
 public:
-    ClassDispatch(Ctype &c) : c(c){}
+    ClassDispatch(Ctype &c) : pC(&c){}
 
     template<typename... Args>
     void add_class_route(const std::string &name, Rtype (Ctype::*f)(Args...)) {
         // make a lambda that performs the call
-        auto call = [this,f](Args... input_args...) {(c.*f)(input_args...);};
+        auto call = [this,f](Args... input_args...) {(pC->*f)(input_args...);};
         // add it as the route
         this->add_route(name, std::function<Rtype(Args...)>(call));
     }

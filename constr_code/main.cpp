@@ -1,11 +1,29 @@
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <sstream>
+#include <cmath>
+#include <fstream>
+#include <iostream>
+#include <iomanip>
+#include <sstream>
+#include <cstdlib>
+#include <complex>
+#include <algorithm>
+#include <iterator>
+
+#include "float_types.hpp"
 #include "parser.hpp"
+#include "grid.hpp"
+#include "io.hpp"
 #include "ICgauss_deriv_clean.cc"
 #include "ic.cpp"
 
-typedef IC<MyFloat> ICf;
+#define ICf IC<MyFloat>
 
 void setup_parser(ClassDispatch<ICf,void> &dispatch) {
     dispatch.add_class_route("Om",&ICf::setOmegaM0);
+
     dispatch.add_class_route("Ol",&ICf::setOmegaLambda0);
     dispatch.add_class_route("s8",&ICf::setSigma8);
     dispatch.add_class_route("Boxl",&ICf::setBoxLen);
@@ -17,7 +35,6 @@ void setup_parser(ClassDispatch<ICf,void> &dispatch) {
     dispatch.add_class_route("outdir",&ICf::setOutDir);
     dispatch.add_class_route("gadgetformat",&ICf::setGadgetFormat);
 
-/*
     dispatch.add_class_route("IDfile",&ICf::loadID);
     dispatch.add_class_route("append_IDfile",&ICf::appendID);
     dispatch.add_class_route("select_sphere",&ICf::selectSphere);
@@ -27,7 +44,9 @@ void setup_parser(ClassDispatch<ICf,void> &dispatch) {
     dispatch.add_class_route("truncate",&ICf::truncateBuffer);
     dispatch.add_class_route("calculate",&ICf::calculate);
     dispatch.add_class_route("constrain",&ICf::constrain);
-    */
+    dispatch.add_class_route("cov",&ICf::cov);
+    dispatch.add_class_route("done",&ICf::done);
+
 
 }
 
