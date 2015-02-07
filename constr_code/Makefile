@@ -24,7 +24,7 @@ endif
 
 all: IC_deriv
 
-IC_deriv: main.cpp ICgauss_deriv_clean.cc Makefile HDF_IO.hh constrainer.h
-	$(CC) $(CFLAGS) -o IC_deriv -I$(CPATH) $(FFTW) main.cpp -L$(LPATH) -lm $(FFTWLIB) -lgsl -lgslcblas $(HDF5_FLAGS) -DDOUBLEPRECISION -DOUTPUT_IN_DOUBLEPRECISION
+IC_deriv: src/main.cpp src/HDF_IO.hh src/constrainer.hpp src/cosmo.hpp src/fft.hpp src/float_types.hpp src/grid.hpp src/io.hpp src/parser.hpp src/sparse.hpp Makefile
+	$(CC) $(CFLAGS) -o IC_deriv -I$(CPATH) $(FFTW) src/main.cpp -L$(LPATH) -lm $(FFTWLIB) -lgsl -lgslcblas $(HDF5_FLAGS) -DDOUBLEPRECISION -DOUTPUT_IN_DOUBLEPRECISION
 clean:
 	rm -rf IC_deriv

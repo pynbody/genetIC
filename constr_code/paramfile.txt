@@ -22,3 +22,7 @@ constrain overdensity relative 0.9
 
 cov
 done
+IDfile h40.txt
+calculate overdensity
+truncate 0.1
+calculate overdensity

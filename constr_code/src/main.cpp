@@ -12,18 +12,41 @@
 #include <algorithm>
 #include <iterator>
 
+
+#include <gsl/gsl_rng.h> //link -lgsl and -lgslcblas at the very end
+#include <gsl/gsl_randist.h> //for the gaussian (and other) distributions
+#include <gsl/gsl_errno.h>
+#include <gsl/gsl_spline.h>
+
+#include "constrainer.hpp"
+
+
 #include "float_types.hpp"
+#include "sparse.hpp"
+#include "fft.hpp"
+#include "cosmo.hpp"
 #include "parser.hpp"
 #include "grid.hpp"
 #include "io.hpp"
-#include "ICgauss_deriv_clean.cc"
-#include "ic.cpp"
+#include "ic.hpp"
 
-#define ICf IC<MyFloat>
+
+
+
+
+#ifdef DOUBLEPRECISION
+typedef double MyFloat;
+#else
+typedef float MyFloat;
+#endif
+
+typedef IC<MyFloat> ICf ;
 
 void setup_parser(ClassDispatch<ICf,void> &dispatch) {
-    dispatch.add_class_route("Om",&ICf::setOmegaM0);
 
+    // Define the commands for the paramfile
+
+    dispatch.add_class_route("Om",&ICf::setOmegaM0);
     dispatch.add_class_route("Ol",&ICf::setOmegaLambda0);
     dispatch.add_class_route("s8",&ICf::setSigma8);
     dispatch.add_class_route("Boxl",&ICf::setBoxLen);
@@ -31,8 +54,10 @@ void setup_parser(ClassDispatch<ICf,void> &dispatch) {
     dispatch.add_class_route("n",&ICf::setn);
     dispatch.add_class_route("output",&ICf::setOutputMode);
     dispatch.add_class_route("seed",&ICf::setSeed);
+    dispatch.add_class_route("seedfourier",&ICf::setSeedFourier);
     dispatch.add_class_route("camb",&ICf::setCambDat);
     dispatch.add_class_route("outdir",&ICf::setOutDir);
+    dispatch.add_class_route("outname",&ICf::setOutName);
     dispatch.add_class_route("gadgetformat",&ICf::setGadgetFormat);
 
     dispatch.add_class_route("IDfile",&ICf::loadID);

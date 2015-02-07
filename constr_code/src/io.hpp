@@ -10,8 +10,8 @@ hid_t hdf_double = H5Tcopy (H5T_NATIVE_DOUBLE);
 using namespace std;
 
 //stupid workaround because apparently pow() in C++ does not accept floats, only doubles...
-template<typename MyFloat>
-MyFloat powf(MyFloat base, MyFloat exp)
+template<typename MyFloat, typename MyExp>
+MyFloat powf(MyFloat base, MyExp exp)
 {
 
   double result;
@@ -552,8 +552,7 @@ int GetBuffer(double *inarray, const char *file, int insize){
    int r=0;
 
    Quelle = fopen(file, "r");
-   if (Quelle == NULL)
-      {printf("\n Input file %s not found!\n", file); exit(-1);}
+   if (Quelle == NULL) throw std::runtime_error("File not found");
 
   else
    { for (i = 0; i < insize*2; i++)
@@ -574,8 +573,7 @@ int GetBuffer_long(long *inarray, const char *file, int insize){
    int r=0;
 
    Quelle = fopen(file, "r");
-   if (Quelle == NULL)
-      {printf("\n Input file %s not found!\n", file); exit(-1);}
+   if (Quelle == NULL) throw std::runtime_error("File not found");
 
   else
    { for (i = 0; i < insize; i++)
@@ -596,8 +594,8 @@ int GetBuffer_int(int *inarray, const char *file, int insize){
    float *re=new float [1];
 
    Quelle = fopen(file, "r");
-   if (Quelle == NULL)
-      {printf("\n Input file %s not found!\n", file); exit(-1);}
+   if (Quelle == NULL) throw std::runtime_error("File not found");
+
 
   else
    { for (i = 0; i < insize; i++)

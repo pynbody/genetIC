@@ -178,8 +178,9 @@ public:
             line+=1;
             try {
                 run(ss);
-            } catch(DispatchError &e) {
+            } catch(std::exception &e) {
                 std::cerr << "Error \"" << e.what() << "\" on line " << line << " (\"" << str << "\")" << std::endl;
+                exit(1);
             }
             ss.clear();
         }

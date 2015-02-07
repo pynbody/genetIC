@@ -18,7 +18,10 @@ protected:
     int quoppa; // eh?
     double *kcamb, *Tcamb;
     long nPartTotal;
-    string incamb, indir, base;
+    string incamb, indir, inname, base;
+
+    bool whiteNoiseFourier;
+
     complex<MyFloat> *pField_k;
     complex<MyFloat> *P;
 
@@ -38,6 +41,7 @@ public:
         pConstrainer=NULL;
         part_arr=NULL;
         n_part_arr=0;
+        whiteNoiseFourier=false;
     }
 
     ~IC() {
@@ -89,6 +93,11 @@ public:
         seed = in;
     }
 
+    void setSeedFourier(int in) {
+        seed = in;
+        whiteNoiseFourier = true;
+    }
+
     void setCambDat(std::string in) {
         incamb = in;
     }
@@ -97,15 +106,24 @@ public:
         indir = in;
     }
 
+    void setOutName(std::string in) {
+        inname=in;
+    }
+
     void setGadgetFormat(int in) {
         gadgetformat = in;
         prepare();
     }
 
     string make_base( string basename, int n, MyFloat box, MyFloat zin){
-      ostringstream nult;
-      nult << basename<<"IC_iter_" << floatinfo<MyFloat>::name << "_z"<<zin<<"_"<<n<<"_L" << box;
-      return nult.str();
+        ostringstream nult;
+        if(inname.size()==0) {
+            nult << basename<<"IC_iter_" << floatinfo<MyFloat>::name << "_z"<<zin<<"_"<<n<<"_L" << box;
+
+        } else {
+            nult << basename << "/" << inname;
+        }
+        return nult.str();
     }
 
     void readCamb() {
@@ -133,6 +151,25 @@ public:
 
     }
 
+    long kgridToIndex(int k1, int k2, int k3) const {
+        long ii,jj,ll,idk;
+        if(k1<0) ii=k1+n; else ii=k1;
+        if(k2<0) jj=k2+n; else jj=k2;
+        if(k3<0) ll=k3+n; else ll=k3;
+        idk=(ii*(n)+jj)*(n)+ll;
+        return idk;
+    }
+
+    void drawOneFourierMode(gsl_rng *r, int k1, int k2, int k3, MyFloat norm) {
+        long id_k, id_negk;
+        id_k = kgridToIndex(k1,k2,k3);
+        id_negk = kgridToIndex(-k1,-k2,-k3);
+        pField_k[id_k]=std::complex<MyFloat>(norm*gsl_ran_gaussian_ziggurat(r,1.),norm*gsl_ran_gaussian_ziggurat(r,1.));
+
+        // reality condition:
+        pField_k[id_negk]=std::conj(pField_k[id_k]);
+    }
+
     void drawRandom() {
         gsl_rng * r;
         const gsl_rng_type * T; //generator type variable
@@ -141,23 +178,57 @@ public:
         r = gsl_rng_alloc (T); //this allocates memory for the generator with type T
         gsl_rng_set(r,seed);
 
-        complex<MyFloat> *rnd=(complex<MyFloat>*)calloc(nPartTotal,sizeof(complex<MyFloat>));
         pField_k=(complex<MyFloat>*)calloc(nPartTotal,sizeof(complex<MyFloat>));
-
-        cerr << "Drawing random numbers..."<< endl;
-
-        long i;
         MyFloat sigma=sqrt((MyFloat)(nPartTotal));
-        for(i=0;i<nPartTotal;i++){rnd[i]=gsl_ran_gaussian_ziggurat(r,1.)*sigma;}// cout<< "rnd "<< rnd[i] << endl;}
 
-        gsl_rng_free (r);
+        if(!whiteNoiseFourier) {
+            // original implementation
 
-        cout<< "First FFT..." <<endl;
-        fft_r(pField_k, rnd, n, 1);
 
-        free(rnd);
+            complex<MyFloat> *rnd=(complex<MyFloat>*)calloc(nPartTotal,sizeof(complex<MyFloat>));
 
-        pField_k[0]=complex<MyFloat>(0.,0.); //assure mean==0
+            cerr << "Drawing random numbers..."<< endl;
+
+            long i;
+
+            for(i=0;i<nPartTotal;i++){rnd[i]=gsl_ran_gaussian_ziggurat(r,1.)*sigma;}// cout<< "rnd "<< rnd[i] << endl;}
+
+            gsl_rng_free (r);
+
+            cout<< "First FFT..." <<endl;
+            fft_r(pField_k, rnd, n, 1);
+
+            free(rnd);
+
+            pField_k[0]=complex<MyFloat>(0.,0.); //assure mean==0
+
+        } else {
+
+            // do it in fourier space, in order of increasing |k|, so that
+            // resolution can be scaled by factors of 2 and we still get
+            // the 'same' field
+
+            cerr << "Drawing random numbers in fourier space..."<< endl;
+            MyFloat kk=0.;
+            int ks,k1,k2,k3;
+
+            sigma/=sqrt(2.0);
+
+            // Do it in square k-shells
+            for(ks=0; ks<n/2;ks++)
+            {
+                for(k1=-ks; k1<ks; k1++) {
+                    for(k2=-ks; k2<ks; k2++) {
+                        drawOneFourierMode(r,ks,k1,k2,sigma);
+                        drawOneFourierMode(r,k1,ks,k2,sigma);
+                        drawOneFourierMode(r,k1,k2,ks,sigma);
+
+                    }
+                }
+            }
+
+        }
+
 
     }
 
@@ -198,6 +269,7 @@ public:
         cout<< "Power spectrum sample: " << P[0] << " " << P[1] <<" " << P[nPartTotal-1] <<endl;
 
         std::cout<<"Initial chi^2 (white noise, fourier space) = " << chi2(pField_k,P,nPartTotal) << std::endl;
+        powsp_noJing(n, pField_k, (base+ ".ps").c_str(), boxlen);
     }
 
     std::tuple<MyFloat*, MyFloat*, MyFloat*, MyFloat*, MyFloat*, MyFloat*> zeldovich() {
@@ -453,7 +525,7 @@ protected:
         int c;
 
         f = fopen(IDfile, "r");
-        if (f == NULL) {printf("\n Input file %s not found!\n", IDfile); exit(-1);}
+        if (f == NULL) throw std::runtime_error("File not found");
 
         while ( (c=fgetc(f)) != EOF ) {
             if ( c == '\n' )
@@ -679,9 +751,6 @@ public:
         cout << "Reordering buffer radially..." << endl;
         cout << " [taking centre = " << x0 << " " << y0 << " " <<z0 << "]" << endl;
 
-        int *part_arr = part_arr;
-        int n_part_arr = n_part_arr;
-
         MyFloat r2[n_part_arr];
         MyFloat delta_x, delta_y, delta_z;
         std::vector<size_t> index(n_part_arr);
@@ -723,7 +792,7 @@ public:
 
     void calculate(string name) {
         complex<MyFloat> *vec = calcConstraintVector(name);
-        cout << "    --> calculated value = " << dot(vec, this->pField_k, this->nPartTotal) << endl;
+        cout << name << ": calculated value = " << dot(vec, this->pField_k, this->nPartTotal) << endl;
         free(vec);
     }
 
@@ -746,7 +815,7 @@ public:
 
         if(relative) constraint*=initv;
 
-        cout << "    --> initial value = " << initv << ", constraining to " << constraint << endl;
+        cout << name << ": initial value = " << initv << ", constraining to " << constraint << endl;
         pConstrainer->add_constraint(vec, constraint, initv);
 
     }
