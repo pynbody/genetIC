@@ -22,9 +22,9 @@ else
 endif
 #HDF5_FLAGS = -lhdf5 -D H5_USE_16_API -DHAVE_HDF5
 
-all: IC_deriv
+all: IC
 
-IC_deriv: src/main.cpp src/HDF_IO.hh src/constrainer.hpp src/cosmo.hpp src/fft.hpp src/float_types.hpp src/grid.hpp src/io.hpp src/parser.hpp src/sparse.hpp Makefile
-	$(CC) $(CFLAGS) -o IC_deriv -I$(CPATH) $(FFTW) src/main.cpp -L$(LPATH) -lm $(FFTWLIB) -lgsl -lgslcblas $(HDF5_FLAGS) -DDOUBLEPRECISION -DOUTPUT_IN_DOUBLEPRECISION
+IC: src/main.cpp src/HDF_IO.hh src/constrainer.hpp src/cosmo.hpp src/fft.hpp src/float_types.hpp src/grid.hpp src/io.hpp src/parser.hpp src/sparse.hpp Makefile
+	$(CC) $(CFLAGS) -o IC -I$(CPATH) $(FFTW) src/main.cpp -L$(LPATH) -lm $(FFTWLIB) -lgsl -lgslcblas $(HDF5_FLAGS) -DDOUBLEPRECISION -DOUTPUT_IN_DOUBLEPRECISION
 clean:
-	rm -rf IC_deriv
+	rm -rf IC
