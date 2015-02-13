@@ -848,5 +848,14 @@ public:
 
     }
 
+    void reverse() {
+        if(pConstrainer!=NULL) {
+            throw runtime_error("Can only reverse field direction after a 'done' command finailises the constraints");
+        }
+
+        for(long i=0; i<this->nPartTotal; i++)
+            this->pField_k[i]=-this->pField_k[i];
+    }
+
 
 };
