@@ -72,6 +72,7 @@ void setup_parser(ClassDispatch<ICf,void> &dispatch) {
     dispatch.add_class_route("constrain",&ICf::constrain);
     dispatch.add_class_route("cov",&ICf::cov);
     dispatch.add_class_route("done",&ICf::done);
+    dispatch.add_class_route("reverse",&ICf::reverse);
 
 
 }
