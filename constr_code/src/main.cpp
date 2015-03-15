@@ -48,6 +48,7 @@ void setup_parser(ClassDispatch<ICf,void> &dispatch) {
 
     dispatch.add_class_route("Om",&ICf::setOmegaM0);
     dispatch.add_class_route("Ol",&ICf::setOmegaLambda0);
+    dispatch.add_class_route("hubble",&ICf::setHubble);
     dispatch.add_class_route("s8",&ICf::setSigma8);
     dispatch.add_class_route("Boxl",&ICf::setBoxLen);
     dispatch.add_class_route("zin",&ICf::setZ0);

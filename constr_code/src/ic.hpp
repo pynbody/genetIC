@@ -12,7 +12,7 @@ template<typename MyFloat>
 class IC {
 protected:
 
-    MyFloat Om0, Ol0, zin, a, sigma8, boxlen, dx;
+    MyFloat Om0, Ol0, hubble, zin, a, sigma8, boxlen, dx;
     int out, n, gadgetformat, seed;
 
     int quoppa; // eh?
@@ -42,6 +42,7 @@ public:
         part_arr=NULL;
         n_part_arr=0;
         whiteNoiseFourier=false;
+        hubble=0.701; // old default
     }
 
     ~IC() {
@@ -55,6 +56,10 @@ public:
 
     void setOmegaLambda0(MyFloat in) {
         Ol0=in;
+    }
+
+    void setHubble(MyFloat in) {
+        hubble=in;
     }
 
     void setSigma8(MyFloat in) {
@@ -435,14 +440,17 @@ public:
 
         if (gadgetformat==2){
             SaveGadget2( (base+ "_gadget2.dat").c_str(), n,
-            CreateGadget2Header<MyFloat>(nPartTotal, pmass, a, zin, boxlen, Om0, Ol0),
+            CreateGadget2Header<MyFloat>(nPartTotal, pmass, a, zin, boxlen, Om0, Ol0, hubble),
             Pos1, Vel1, Pos2, Vel2, Pos3, Vel3);
         }
-
-        if (gadgetformat==3){
+        else if (gadgetformat==3){
             SaveGadget3( (base+ "_gadget3.dat").c_str(), n,
-            CreateGadget3Header<MyFloat>(nPartTotal, pmass, a, zin, boxlen, Om0, Ol0),
+            CreateGadget3Header<MyFloat>(nPartTotal, pmass, a, zin, boxlen, Om0, Ol0, hubble),
             Pos1, Vel1, Pos2, Vel2, Pos3, Vel3);
+        }
+        else if (gadgetformat==4) {
+            SaveTipsy( (base+".tipsy").c_str(), n, Pos1, Vel1, Pos2, Vel2, Pos3, Vel3,
+            boxlen,  Om0,  Ol0,  hubble,  a, pmass);
         }
 
         free(Pos1);

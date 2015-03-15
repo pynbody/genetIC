@@ -33,6 +33,21 @@ size_t my_fwrite(void *ptr, size_t size, size_t nmemb, FILE * stream) //stolen f
   return nwritten;
 }
 
+struct io_header_tipsy
+{
+    double scalefactor;
+    int n;
+    int ndim;
+    int ngas;
+    int ndark;
+    int nstar;
+} header_tipsy;
+
+struct io_tipsy_dark
+{
+    float mass,x,y,z,vx,vy,vz,eps,phi;
+};
+
 struct io_header_2 //header for gadget2
 {
   int      npart[6];
@@ -460,7 +475,75 @@ int SaveGadget3(const char *filename, long n, io_header_3 header1, MyFloat* Pos1
 }
 
 template<typename MyFloat>
-io_header_2 CreateGadget2Header(long nPartTotal, double pmass, double ain, double zin, double Boxlength, double Om0, double Ol0)
+int SaveTipsy(const char *filename, long n, MyFloat* Pos1, MyFloat* Vel1, MyFloat* Pos2, MyFloat* Vel2, MyFloat* Pos3, MyFloat* Vel3,
+              double Boxlength, double Om0, double Ol0, double hubble, double ain, double pmass) {
+
+    // originally:
+    // pmass in 1e10 h^-1 Msol
+    // pos in Mpc h^-1
+    // vel in km s^-1 a^1/2
+
+    long nPart = n*n*n;
+
+    io_header_tipsy header;
+
+    header.scalefactor = ain;
+    header.n = nPart;
+    header.ndim = 3;
+    header.ngas = 0;
+    header.ndark = nPart;
+    header.nstar = 0;
+
+    double pmass_tipsy = Om0/(nPart); // tipsy convention: sum(mass)=Om0
+    double pos_factor  = 1./Boxlength;  //                   boxsize = 1
+
+    double vel_factor  = ain/(sqrt(3./(8.*M_PI))*100*Boxlength);
+
+    cout << "TIPSY parameters:" << endl;
+
+    double dKpcUnit  = Boxlength*1000/hubble;
+    double dMsolUnit = 1e10*pmass/pmass_tipsy/hubble;
+
+    double dKmsUnit  = sqrt(4.30211349e-6*dMsolUnit/(dKpcUnit));
+
+    // double dKmsUnit  = sqrt(4.30211349e-6*dMsolUnit/(dKpcUnit*ain));
+    // double vel_factor = sqrt(ain)/dKmsUnit;
+    cout << "vel conv ratio: " << vel_factor << endl;
+    // vel conv ratio= 3.47153355609e-05
+
+    cout << "dKpcUnit: " <<  dKpcUnit << endl;
+    cout << "dMsolUnit: " << dMsolUnit  << endl;
+    cout << "hubble0: " << 0.1*hubble * dKpcUnit / dKmsUnit << endl;
+
+    io_tipsy_dark dp;
+    FILE* fd = fopen(filename, "w");
+    dp.mass = pmass_tipsy;
+
+    cout << "Warning: writing default value for epsilon" << endl;
+    dp.eps = 0.01;
+    dp.phi = 0.0;
+
+
+    fwrite(&header, sizeof(io_header_tipsy), 1, fd);
+
+    for(long i=0; i<nPart; i++){
+        dp.x = pos_factor*Pos1[i]-0.5;
+        dp.y = pos_factor*Pos2[i]-0.5;
+        dp.z = pos_factor*Pos3[i]-0.5;
+        dp.vx = vel_factor*Vel1[i];
+        dp.vy = vel_factor*Vel2[i];
+        dp.vz = vel_factor*Vel3[i];
+        fwrite(&dp, sizeof(io_tipsy_dark), 1, fd);
+
+    }
+    fclose(fd);
+
+
+}
+
+
+template<typename MyFloat>
+io_header_2 CreateGadget2Header(long nPartTotal, double pmass, double ain, double zin, double Boxlength, double Om0, double Ol0, double hubble)
 {
     io_header_2 header2;
     header2.npart[0]=0;
@@ -490,12 +573,12 @@ io_header_2 CreateGadget2Header(long nPartTotal, double pmass, double ain, doubl
     header2.BoxSize=Boxlength;
     header2.Omega0=Om0;
     header2.OmegaLambda=Ol0;
-    header2.HubbleParam=0.701;
+    header2.HubbleParam=hubble;
     return header2;
 }
 
 template<typename MyFloat>
-io_header_3 CreateGadget3Header(long nPartTotal, double pmass, double ain, double zin, double Boxlength, double Om0, double Ol0)
+io_header_3 CreateGadget3Header(long nPartTotal, double pmass, double ain, double zin, double Boxlength, double Om0, double Ol0, double hubble)
 {
     io_header_3 header3;
     header3.npart[0]=0;
@@ -525,7 +608,7 @@ io_header_3 CreateGadget3Header(long nPartTotal, double pmass, double ain, doubl
     header3.BoxSize=Boxlength;
     header3.Omega0=Om0;
     header3.OmegaLambda=Ol0;
-    header3.HubbleParam=0.701;
+    header3.HubbleParam=hubble;
     header3.flag_stellarage=0;	/*!< flags whether the file contains formation times of star particles */
     header3.flag_metals=0;		/*!< flags whether the file contains metallicity values for gas and star  particles */
     header3.nPartTotalHighWord[0]=0;
