@@ -3,6 +3,7 @@ import numpy.linalg
 import math
 import scipy.fftpack
 import pylab as p
+import copy
 
 def cov(x,plaw = -1.0):
     if plaw ==0.0:
@@ -23,6 +24,10 @@ def Ufft(x):
 def Uifft(x):
     """Unitary inverse FFT"""
     return scipy.fftpack.irfft(x)*math.sqrt(float(len(x)))
+
+def complex_dot(x,y):
+    """Dot product for packed FFT complex coeffs"""
+    return np.dot(x,y) + np.dot(x[1:],y[1:]) # counts +ve and -ve modes
 
 class ZoomConstrained(object):
     def __init__(self, cov_fn = cov, n1=256, n2=768, scale=4, offset = 10):
@@ -78,8 +83,8 @@ class ZoomConstrained(object):
 
         covm = np.zeros((2,2))
 
-        covm[0,0] = np.dot(pa_k,C*pa_k)
-        covm[0,1] = np.dot(pa_k,C*pb_k)
+        covm[0,0] = complex_dot(pa_k,C*pa_k)
+        covm[0,1] = complex_dot(pa_k,C*pb_k)
         covm[1,0] = covm[0,1]
         covm[1,1] = covm[0,0]
 
@@ -122,17 +127,38 @@ class ZoomConstrained(object):
         delta_low_k_plus = delta_low_k+self.filter_high(k_low) # store the filtered-out components of the low-res field
         delta_low_k*=self.filter_low(k_low)
 
+        # TEST - no low-k component
+        # delta_low_k[:]=0
 
-        for (al_low,al_high), d in zip(self.constraints, self.constraints_val):
-            scale = d - np.dot(al_low,delta_low_k) - np.dot(al_high, delta_high_k)
-            delta_low_k += self.C_low*al_low * scale
-            delta_high_k += self.C_high*al_high  * scale
-            print np.dot(al_low,delta_low_k)+np.dot(al_high,delta_high_k),d
-
+        # THIS SHOULD GO ultimately to save time:
         delta_low, delta_high = self.harmonic_to_pixel(delta_low_k,
                                                        delta_high_k)
 
 
+
+
+        for (al_low_k,al_high_k), d in zip(self.constraints, self.constraints_val):
+            #al_low_k[:]=0
+
+            print "lowdot=",complex_dot(al_low_k,delta_low_k)*self.zoom_fac
+            print "highdot=", complex_dot(al_high_k, delta_high_k)
+
+            print "sum=",complex_dot(al_low_k,delta_low_k)*self.zoom_fac+complex_dot(al_high_k, delta_high_k)
+            al_low, al_high = self.harmonic_to_pixel(al_low_k,al_high_k)
+
+            print "RS simple dot=",np.dot(Uifft(al_high_k),Uifft(delta_high_k))
+
+            print "RS dot=",np.dot(al_high,delta_high)
+            scale = d - complex_dot(al_low_k,delta_low_k)*grid_scalefactor - complex_dot(al_high_k, delta_high_k)
+            print "scale=",scale
+            delta_low_k += self.C_low*al_low_k * scale
+            delta_high_k += self.C_high*al_high_k  * scale
+            print complex_dot(al_low_k,delta_low_k)*grid_scalefactor+complex_dot(al_high_k,delta_high_k),d
+
+
+
+        delta_low, delta_high = self.harmonic_to_pixel(delta_low_k,
+                                                       delta_high_k)
 
 
         # not sure how good this is - but add in the high-k power into the low-res region
@@ -155,7 +181,9 @@ class ZoomConstrained(object):
         delta_low = Uifft(f_low_k*self.filter_low(self.k_low))
         delta_high = Uifft(f_high_k)
 
-        #  interpolate the low frequency contribution into the high-res window
+        # delta_high does not contain low-frequency contributions.
+
+        # interpolate the low frequency contribution into the high-res window
         # prepare the data range just around the window ...
 
         delta_low_window = delta_low[self.offset-1:self.offset+self.n1/self.scale+1]
@@ -197,16 +225,28 @@ class ZoomConstrained(object):
         # FB . vec
 
     def norm(self, low, high):
-        return np.dot(low,low*self.C_low)+np.dot(high,high*self.C_high)
+        return self.zoom_fac*complex_dot(low,low*self.C_low)+complex_dot(high,high*self.C_high)
 
     def xCy(self, low1, high1, low2, high2):
-        return np.dot(low1,low2*self.C_low)+np.dot(high1,high2*self.c_high)
+        return self.zoom_fac*complex_dot(low1,low2*self.C_low)+complex_dot(high1,high2*self.C_high)
 
     def add_constraint(self, val=0.0, hr_vec=None):
-        if len(self.constraints)>0:
-            print "oops - G-S not implemented yet for multiple constraints"
+
+
 
         low, high = self.hr_pixel_to_harmonic(hr_vec)
+
+
+        # perform G-S
+
+        for (la, ha),va in zip(self.constraints,self.constraints_val):
+            dotprod = self.xCy(la,ha,low,high)
+            low-=dotprod*la
+            high-=dotprod*ha
+            val-=dotprod*va
+            print self.xCy(la,ha,low,high)
+
+
         norm = self.norm(low,high)
         low/=math.sqrt(norm)
         high/=math.sqrt(norm)
@@ -249,14 +289,20 @@ def display_cov(G, cov, downgrade=False):
     p.ylim(G.n1,0)
 
 
-def demo(val=2.0):
-    np.random.seed(1)
+def demo(val=2.0,seed=1):
+    if seed is not None:
+        np.random.seed(seed)
     G = ZoomConstrained()
     G.add_constraint(val)
+    vec = np.zeros(G.n2)
+    vec[G.n2/2+4]=1.0
+
+    G.add_constraint(val+2,vec)
     x0, x1 = G.xs()
     r0, r1 = G.realization()
-    p.plot(x0,r0)
-    p.plot(x1,r1)
+    p.plot(x0,r0,':')
+    p.plot(x1,r1,'.')
+    p.plot([42.05,42.05],[-20,20])
 
 
 def cov_demo():
