@@ -524,16 +524,6 @@ different is $\mathsf{WC_{II}^{1/2}W}^{\top}$ from $C_{II,W}^{1/2}$
 where the latter is just evaluated directly within the window?
 
 
-
-Finally, we have the pixel window functions to worry about. To make
-these worries irrelevant for interpolating the low-res part I into the
-box II, the transition scale must be at sufficiently small $k$,
-i.e. on scales much larger than the scale of a low-res pixel.  Then,
-we can do more-or-less any sensible interpolation -- the one
-implemented is linear interpolation. {\bf TO DO: } Again, a formal
-demonstration looking at how errors decline if there is no power near
-the pixel scale would be nice.
-
 \section{Applying the transfer function -- demos}
 
 Using {\tt constrainedzoom.py} routine {\tt WC\_vs\_CW} here are some
@@ -576,6 +566,22 @@ the high-res box. In practice this means the high-low transition
 specified by filters $\mathsf{F}^I$ and $\mathsf{F}^{II}$ must happen
 at sufficiently large $k$.
 
-The above were generated using 
+The above were generated using code version {\tt 7806264b} calling as
+{\tt cz.WC\_vs\_CW(plaw=-1.0,k\_cut=0.001)}, {\tt
+  cz.WC\_vs\_CW(plaw=-1.0,k\_cut=0.1)} and {\tt
+  cz.WC\_vs\_CW(plaw=-1.0,k\_cut=0.5)} respectively.
+
+\section{Adding the low-res part -- demos}
+
+Finally, we have the pixel window functions to worry about. To make
+these worries irrelevant for interpolating the low-res part I into the
+box II, the transition scale must be at sufficiently small $k$,
+i.e. on scales much larger than the scale of a low-res pixel.  Then,
+we can do more-or-less any sensible interpolation -- the one
+implemented is linear interpolation. {\bf TO DO: } Again, a formal
+demonstration looking at how errors decline if there is no power near
+the pixel scale would be nice.
+
+
 
 \end{document}
