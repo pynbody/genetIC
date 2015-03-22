@@ -556,9 +556,17 @@ or at $k/2\pi \le 0.5L$ we get this:
 
 Things get better as the cut moves to higher $k$. Also things are
 typically better closer to the centre of the box rather than at the
-edges. 
+edges.  The above were generated using code version {\tt 7806264b}
+calling as {\tt cz.WC\_vs\_CW(plaw=-1.0,k\_cut=0.001)}, {\tt
+  cz.WC\_vs\_CW(plaw=-1.0,k\_cut=0.1)} and {\tt
+  cz.WC\_vs\_CW(plaw=-1.0,k\_cut=0.5)} respectively.
 
-This is a very complex problem. But for now let's just assume we get
+This is a very complex problem, dependent on the power spectrum, the
+cut-off scale and the severity of the cut-off. (The last point is not
+illustrated here, but has been checked by changing the Fermi function
+in the code into a step function for example). 
+
+But for now let's just assume we get
 away with it if (i) the actual particles finally used are close to the
 centre of the high-res box and (ii) $\mathsf{C}_{II,W} \to 0$
 sufficiently rapidly as $k$ becomes comparable to the lowest modes of
@@ -566,10 +574,7 @@ the high-res box. In practice this means the high-low transition
 specified by filters $\mathsf{F}^I$ and $\mathsf{F}^{II}$ must happen
 at sufficiently large $k$.
 
-The above were generated using code version {\tt 7806264b} calling as
-{\tt cz.WC\_vs\_CW(plaw=-1.0,k\_cut=0.001)}, {\tt
-  cz.WC\_vs\_CW(plaw=-1.0,k\_cut=0.1)} and {\tt
-  cz.WC\_vs\_CW(plaw=-1.0,k\_cut=0.5)} respectively.
+
 
 \section{Adding the low-res part -- demos}
 
