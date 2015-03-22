@@ -4,8 +4,9 @@ import math
 import scipy.fftpack
 import pylab as p
 import copy
+import functools
 
-def cov(x,plaw = -1.0):
+def cov(x,plaw = -1.5):
     if plaw ==0.0:
         return 1.0
     delta = x[1]-x[0]
@@ -30,29 +31,32 @@ def complex_dot(x,y):
     return np.dot(x,y) + np.dot(x[1:],y[1:]) # counts +ve and -ve modes
 
 class ZoomConstrained(object):
-    def __init__(self, cov_fn = cov, n1=256, n2=768, scale=4, offset = 10):
+    def __init__(self, cov_fn = cov, k_cut=0.2, n1=256, n2=768, scale=4, offset = 10):
         self.cov_fn = cov_fn
         self.n1 = n1
         self.n2 = n2
         self.scale = scale
         self.offset = offset
-        self.k_cut = self.n1*0.05
+        self.k_cut = self.n1*k_cut
         self.weights = self.interpolation_coeffs()
-        delta_low = 1./self.n1
-        delta_high = 1./(self.n2*self.scale)
-        self.k_low = scipy.fftpack.rfftfreq(self.n1,d=delta_low)
-        self.k_high = scipy.fftpack.rfftfreq(self.n2,d=delta_high)
+        self.delta_low = 1./self.n1
+        self.delta_high = 1./(self.n2*self.scale)
+        self.k_low = scipy.fftpack.rfftfreq(self.n1,d=self.delta_low)
+        self.k_high = scipy.fftpack.rfftfreq(self.n2,d=self.delta_high)
         self.C_low = self.cov_fn(self.k_low)
         self.C_high = self.cov_fn(self.k_high)
         self.zoom_fac = self.scale*(self.n2/self.n1)
         self.constraints =[]
         self.constraints_val = []
+        self.constraints_real = []
 
     def filter_low(self, k):
-        return k<self.k_cut
+        #return k<self.k_cut
+        T = self.k_cut/10
+        return 1./(1.+np.exp((k-self.k_cut)/T))
 
     def filter_high(self, k):
-        return k>=self.k_cut
+        return 1.-self.filter_low(k)
 
     def randoms(self, k):
         size = len(k)
@@ -96,20 +100,26 @@ class ZoomConstrained(object):
         C = self.lowres_covariance()
         X = C[1,0]/C[0,0]
 
+        # linear interpolation version:
+        weights = np.arange(grid_scalefactor+1,dtype=float)/grid_scalefactor
+        return weights
+        """
+        # attempt to keep power the same (but goes screwy immediately off-diagonal):
+
         # following is exact for X=0
         weights = (np.arange(grid_scalefactor+1,dtype=float)/grid_scalefactor)**0.5
 
-        print X
         for i in range(10):
             xweights = weights
             weights = -weights[::-1] * X + np.sqrt(weights[::-1]**2*(X**2-1)+1)
             weights = (weights+xweights)/2
 
 
-        return np.arange(grid_scalefactor+1,dtype=float)/grid_scalefactor
+        return weights
+        """
 
 
-    def realization(self):
+    def realization(self,test=False):
 
         grid_scalefactor = (self.scale*self.n2)/self.n1
 
@@ -123,16 +133,17 @@ class ZoomConstrained(object):
         delta_low_k = self.randoms(k_low)
         delta_high_k = self.randoms(k_high)
 
-        delta_high_k*=self.filter_high(k_high)
-        delta_low_k_plus = delta_low_k+self.filter_high(k_low) # store the filtered-out components of the low-res field
+        delta_high_k*=np.sqrt(1.-self.filter_low(k_high)**2) # keep original power spectrum
+        delta_low_k_plus = delta_low_k*self.filter_high(k_low) # store the filtered-out components of the low-res field
         delta_low_k*=self.filter_low(k_low)
 
         # TEST - no low-k component
         # delta_low_k[:]=0
 
         # THIS SHOULD GO ultimately to save time:
-        delta_low, delta_high = self.harmonic_to_pixel(delta_low_k,
-                                                       delta_high_k)
+        if test:
+            delta_low, delta_high = self.harmonic_to_pixel(delta_low_k,
+                                                           delta_high_k)
 
 
 
@@ -140,20 +151,22 @@ class ZoomConstrained(object):
         for (al_low_k,al_high_k), d in zip(self.constraints, self.constraints_val):
             #al_low_k[:]=0
 
-            print "lowdot=",complex_dot(al_low_k,delta_low_k)*self.zoom_fac
-            print "highdot=", complex_dot(al_high_k, delta_high_k)
+            if test:
+                print "lowdot=",complex_dot(al_low_k,delta_low_k)*self.zoom_fac
+                print "highdot=", complex_dot(al_high_k, delta_high_k)
+                print "sum=",complex_dot(al_low_k,delta_low_k)*self.zoom_fac+complex_dot(al_high_k, delta_high_k)
+                al_low, al_high = self.harmonic_to_pixel(al_low_k,al_high_k)
+                print "RS simple dot=",np.dot(Uifft(al_high_k),Uifft(delta_high_k))
+                print "RS dot=",np.dot(al_high,delta_high)
 
-            print "sum=",complex_dot(al_low_k,delta_low_k)*self.zoom_fac+complex_dot(al_high_k, delta_high_k)
-            al_low, al_high = self.harmonic_to_pixel(al_low_k,al_high_k)
-
-            print "RS simple dot=",np.dot(Uifft(al_high_k),Uifft(delta_high_k))
-
-            print "RS dot=",np.dot(al_high,delta_high)
             scale = d - complex_dot(al_low_k,delta_low_k)*grid_scalefactor - complex_dot(al_high_k, delta_high_k)
-            print "scale=",scale
+
+            if test:
+                print "scale=",scale
+
             delta_low_k += self.C_low*al_low_k * scale
             delta_high_k += self.C_high*al_high_k  * scale
-            print complex_dot(al_low_k,delta_low_k)*grid_scalefactor+complex_dot(al_high_k,delta_high_k),d
+
 
 
 
@@ -162,20 +175,87 @@ class ZoomConstrained(object):
 
 
         # not sure how good this is - but add in the high-k power into the low-res region
-        delta_low2 = 1.0*Uifft(delta_low_k_plus)
+        delta_low2 = Uifft(delta_low_k_plus)
 
         return delta_low2+delta_low, delta_high
 
-    def estimate_cov(self, Ntrials=2000):
+    def estimate_cov(self, Ntrials=2000, with_means=False):
         cov = np.zeros((self.n1+self.n2,self.n1+self.n2))
+        cstr_means = np.zeros(len(self.constraints_real))
+        cstr_vars = np.zeros(len(self.constraints_real))
         for i in xrange(Ntrials):
             r1,r2 = self.realization()
             cov[:self.n1,:self.n1]+=np.outer(r1,r1)
             cov[:self.n1,self.n1:]+=np.outer(r1,r2)
             cov[self.n1:,self.n1:]+=np.outer(r2,r2)
+            cstr_means+=[np.dot(cstr,r2) for cstr in self.constraints_real]
+            cstr_vars+=[np.dot(cstr,r2)**2 for cstr in self.constraints_real]
+
+        cstr_means/=Ntrials
+        cstr_vars/=Ntrials
+
+        cstr_vars-=cstr_means**2
 
         cov[self.n1:,:self.n1]=cov[:self.n1,self.n1:].T
-        return cov
+
+        if with_means:
+            return cov, cstr_means, np.sqrt(cstr_vars)
+        else:
+            return cov
+
+
+    def get_hi_cov(self,white=False):
+        """Returns the covariance matrix for the high-res segment.
+
+        Constraints are ignored."""
+
+        C = np.zeros((self.n2,self.n2))
+        for i,Ci in enumerate(self.C_high*self.filter_high(self.k_high)):
+            T = np.zeros(self.n2)
+            T[i]=1.0
+            T = Uifft(T)
+            if white:
+                Ci = 1.0
+            C+=Ci*np.outer(T,T)
+
+        return C
+
+    def get_hi_cov_unwindowed(self, white=False):
+        """Returns the covariance matrix for the high-res segment as
+        calculated for the FULL box size (i.e. the ideal case where we could
+        actually calculate the whole box at the full resolution, then just
+        extract a small segment)
+
+        Constraints are ignored."""
+        C = np.zeros((self.n2*self.zoom_fac,self.n2*self.zoom_fac))
+
+        super_k = scipy.fftpack.rfftfreq(self.n2*self.zoom_fac,d=self.delta_high)
+        for i,Ci in enumerate(self.cov_fn(super_k)*self.filter_high(super_k)):
+            T = np.zeros(self.n2*self.zoom_fac)
+            T[i]=1.0
+            T = Uifft(T)
+            if white:
+                Ci = 1.0
+            else:
+                Ci*=self.zoom_fac
+            C+=Ci*np.outer(T,T)
+
+        return C[self.offset*self.zoom_fac:self.offset*self.zoom_fac+self.n2,
+                 self.offset*self.zoom_fac:self.offset*self.zoom_fac+self.n2]
+
+    def hi_U(self):
+        """Return the unitary matrix mapping pixel to harmonic space"""
+
+        U = np.zeros((self.n2,self.n2))
+
+        U_cplx = np.exp(- 1.j * 2 * np.outer(np.arange(self.n2/2+1),np.arange(self.n2)) * math.pi/self.n2)/np.sqrt(self.n2/2+1)
+        print U_cplx.shape
+        U[2::2] = np.imag(U_cplx[1:-1])
+        U[1::2] = np.real(U_cplx[1:])
+        U[0] = np.real(U_cplx[0])
+
+        return U
+
 
     def harmonic_to_pixel(self, f_low_k, f_high_k):
         delta_low = Uifft(f_low_k*self.filter_low(self.k_low))
@@ -233,6 +313,8 @@ class ZoomConstrained(object):
     def add_constraint(self, val=0.0, hr_vec=None):
 
 
+        self.constraints_real.append(hr_vec) # stored only for information - not part of the algorithm
+
 
         low, high = self.hr_pixel_to_harmonic(hr_vec)
 
@@ -256,6 +338,17 @@ class ZoomConstrained(object):
         self.constraints_val.append(val)
 
 
+def constraint_vector(scale=100,length=768,position=None) :
+    """Generate a constraint vector corresponding to the Gaussian-filtered
+    density at the given position."""
+    if position is None :
+        position = length/2
+
+    pixel_vals = np.arange(0.,length)
+    constraint = np.exp(-(pixel_vals-position)**2/(2*scale))
+    constraint/=constraint.sum()
+    return constraint
+
 
 def display_cov(G, cov, downgrade=False):
     vmin = np.min(cov)
@@ -277,6 +370,11 @@ def display_cov(G, cov, downgrade=False):
                 C22new += C22[i::zoom_fac,j::zoom_fac]
         C22 = C22new/zoom_fac**2
 
+        C12new=0
+        for i in range(zoom_fac):
+            C12new+=C12[:,i::zoom_fac]
+        C12 = C12new/zoom_fac
+
     p.imshow(C12.T,extent=[0,G.n1,G.offset+zoom_width,G.offset],vmin=vmin,vmax=vmax,interpolation='nearest')
     p.imshow(C22,extent=[G.offset,G.offset+zoom_width,G.offset+zoom_width,G.offset],vmin=vmin,vmax=vmax,interpolation='nearest')
 
@@ -285,28 +383,80 @@ def display_cov(G, cov, downgrade=False):
     p.plot([G.offset,G.offset],[0,G.n1],'w:')
     p.plot([G.offset+zoom_width,G.offset+zoom_width],[0,G.n1],'w:')
 
+    p.text(G.offset+zoom_width,G.offset,'h-h',horizontalalignment='right',verticalalignment='top',color='white')
+    p.text(G.n1,G.offset,'h-l',horizontalalignment='right',verticalalignment='top',color='white')
+    p.text(G.n1,G.offset+zoom_width,'l-l',horizontalalignment='right',verticalalignment='top',color='white')
+    p.text(G.offset+zoom_width,G.offset+zoom_width,'l-l',horizontalalignment='right',verticalalignment='top',color='white')
     p.xlim(0,G.n1)
     p.ylim(G.n1,0)
 
 
-def demo(val=2.0,seed=1):
+def cov2cor(matr):
+    return matr/np.sqrt(np.outer(matr.diagonal(),matr.diagonal()))
+
+def WC_vs_CW(plaw=0.0, k_cut = 0.2):
+
+    cov_this = functools.partial(cov,plaw=plaw)
+
+    G = ZoomConstrained(cov_this,n2=256,k_cut=k_cut)
+
+
+    U = G.hi_U()
+
+    cv_noW = G.get_hi_cov_unwindowed()
+    cv_W = G.get_hi_cov()
+
+
+
+    vmin = cv_noW.min()
+    vmax = cv_noW.max()
+    #vmin = vmax = None
+
+    p.subplot(231)
+
+    p.imshow(cv_noW,vmin=vmin,vmax=vmax)
+    p.ylabel("Real space")
+    p.title("Ideal HR covariance")
+    p.subplot(232)
+    p.imshow(cv_W,vmin=vmin,vmax=vmax)
+    p.title("Actual HR covariance")
+    p.subplot(233)
+    p.imshow(cv_W-cv_noW,vmin=vmin/10,vmax=vmax/10)
+    p.title("Residuals x 10")
+    p.draw()
+    cv_noW = np.dot(U,np.dot(cv_noW,U.T))
+    cv_W = np.dot(U,np.dot(cv_W,U.T))
+    vmin = cv_noW.min()
+    vmax = cv_noW.max()
+    p.subplot(234)
+    p.ylabel("Harmonic space")
+    p.imshow(cv_noW,vmin=vmin,vmax=vmax)
+    p.subplot(235)
+    p.imshow(cv_W,vmin=vmin,vmax=vmax)
+    p.subplot(236)
+    p.imshow(cv_W-cv_noW,vmin=vmin/10,vmax=vmax/10)
+
+
+def demo(val=2.0,seed=1,plaw=-1.5):
+    cov_this = functools.partial(cov,plaw=plaw)
     if seed is not None:
         np.random.seed(seed)
-    G = ZoomConstrained()
-    G.add_constraint(val)
-    vec = np.zeros(G.n2)
-    vec[G.n2/2+4]=1.0
-
-    G.add_constraint(val+2,vec)
+    G = ZoomConstrained(cov_this)
+    #G.add_constraint(val,constraint_vector())
+    #G.add_constraint(-val,constraint_vector(500))
     x0, x1 = G.xs()
     r0, r1 = G.realization()
     p.plot(x0,r0,':')
     p.plot(x1,r1,'.')
-    p.plot([42.05,42.05],[-20,20])
+    #p.plot([42.05,42.05],[-20,20])
 
 
-def cov_demo():
-    G = ZoomConstrained()
-
-    cov = G.estimate_cov()
-    display_cov(G, cov)
+def cov_demo(downgrade_view=False,plaw=-1.5):
+    cov_this = functools.partial(globals()['cov'],plaw=plaw)
+    G = ZoomConstrained(cov_this,n2=256)
+    #G.add_constraint(0.0,constraint_vector())
+    #G.constraints_real.append(np.ones(768))
+    cov, means, stds = G.estimate_cov(with_means=True)
+    print "Mean of constraint:",means
+    print "Std-dev of constraints:",stds
+    display_cov(G, cov, downgrade_view)

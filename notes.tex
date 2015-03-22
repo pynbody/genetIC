@@ -172,7 +172,7 @@ void is enhanced in peak depth. This correctly maintains the large scale void at
 the same averaged depth. 
 
 \begin{center}
-\includegraphics[width=0.5\textwidth]{HR-demo.pdf}
+\includegraphics[width=0.5\textwidth]{figs/HR-demo.pdf}
 \end{center}
 
 
@@ -328,7 +328,7 @@ many iterations to converge to the right answer.
   stuff. Mathematics, eh?} {\bf Health warning -- \it Pride comes before a fall}
 
 \begin{center}
-\includegraphics[width=1.1\textwidth]{HR-approx-demo.pdf}
+\includegraphics[width=1.1\textwidth]{figs/HR-approx-demo.pdf}
 \end{center}
 
 \section{Angular momentum constraints}
@@ -365,5 +365,217 @@ L_{\mu} = \vec{\alpha}_{\mu}^{\mathrm{P}} \cdot \vec{\phi},
 we can find the components of $\vec{\alpha}_{\mu}^{\mathrm{P}}$ by comparing terms between the right-hand-sides of equations (\ref{eq:L}) and (\ref{eq:Lconst}). Note that the sum over $j$ in Equation (\ref{eq:L}) can go over an arbitrary number of particles, while the scalar product in Equation (\ref{eq:Lconst}) implies a sum over all grid points. Some components of $\vec{\alpha}^{\mathrm{P}}$ receive contributions from multiple particles, while others may be 0.
 
 After numerically calculating $\vec{\alpha}_{\mu}^{\mathrm{P}}$, we can get the usual $\vec{\alpha}_{\mu}$ from the inverse Poisson equation and iteratively constrain the density field as detailed in the previous section. 
-One difference here is that there are now technically three constraint vectors, one for each component of $L_{\mu}$, which are not independent of each other (in the sense that $\vec{\alpha}_i$ may get contributions from each direction). Other directions can be constrained by using linear combinations of these $\vec{\alpha}_{\mu}$. However, this also means that even if one chooses a "pure" constraint vector in only one direction, the angular momentum in the other directions will also change.
+One difference here is that there are now technically three constraint
+vectors, one for each component of $L_{\mu}$, which are not
+independent of each other (in the sense that $\vec{\alpha}_i$ may get
+contributions from each direction). Other directions can be
+constrained by using linear combinations of these
+$\vec{\alpha}_{\mu}$. However, this also means that even if one
+chooses a "pure" constraint vector in only one direction, the angular
+momentum in the other directions will also change.
+
+
+\section{Prepare to ZOOM}
+
+To do the really interesting experiments, we need to be able to
+prepare zoom initial conditions, i.e. where one has high resolution in
+a subregion of the main box. The two really comprehensive references
+for how to do this seem to be Bertschinger 2001 (astro-ph/0103301) and
+Hahn \& Abel 2011 (1103.6031). Both are written in complex language
+that is quite hard to understand. 
+
+\subsection{As much as I understand of the existing approaches}
+
+The Bertschinger approach is to generate white noise, using the
+Hoffman-Ribak algorithm to constrain the long-wavelength modes in the
+high-res subbox (I'm going to call this region II) to match those of
+the low-res superbox (region I). Normally this matching would be very
+intensive, requiring a new constraint for every 'pixel' in the low res
+box, but because the spectrum is initially completely white, the HR
+algorithm becomes trivial (the covariance matrix is just the identity
+matrix) and this approach is computationally tractable. However, when
+he then applies the transfer function, things become very complicated
+because all sorts of artefacts appear on the boundary and must be
+avoided using a box of tricks including extending the grid out to
+large distances.
+
+Hahn \& Abel use the same observation about the triviality of the HR
+algorithm for white noise, but they use a different bag of tricks to
+apply the transfer function. They claim this leads to more accurate
+results and issue all sorts of obscure warnings for things that can go
+wrong.
+
+The trouble is with these approaches for our purposes (beyond their
+complexity) is that we need to be able to explicitly calculate
+covariances of particular directions in the field. In the
+Bertschinger/Hahn+ approach this just doesn't seem to be possible
+because the algorithm for constructing the field never makes explicit
+what the covarainces between high res and low res elements really
+are. 
+
+\subsection{But hang on, shouldn't this be easy?}
+
+The weird thing is that I was expecting this part of the problem to be
+easy. Naively, you'd think you just lay down a higher res grid in some
+subbox, interpolate the low-k modes onto that new grid, then add in
+high-k modes to complete the power spectrum in the new region. It's
+worth spending a moment to understand why that can't work in practice
+as it informs the eventual solution.
+
+If one were to overlay a new high resolution grid completely on top of
+the old low resolution grid, the intuition would all work out
+fine. Say the new grid has 2x as many points as the old one, then
+there are 2x as many Fourier modes. The low Fourier modes match up
+exactly, and can be copied across. The high Fourier modes come from a
+new realization.  This is then an exact realization on the new
+high-resolution grid
+
+The problem comes that the subgrid is not only higher resolution but
+also {\it smaller} than the original grid. {\it This means that
+  Region-II does not in itself have periodic boundary conditions and
+  therefore must have an inhomogeneous correlation function}. This
+inhomogeneous correlation function corresponds to a non-trivial
+aliasing of power between different Fourier modes coming from the
+sharp window function of the high-res region in real space.
+
+To put it another way, most Fourier modes of wavelength $L$ in the
+original box will not fit an integer number of times into the subbox
+and therefore do not correspond in any simple way to a Fourier mode in the
+subbox. 
+
+That is why there is no algorithm which simply copies in the low-k
+modes and then adds the high-k modes.
+
+\subsection{The multiscale random field without constraints}
+
+Let's split up the problem into the three issues: 
+
+\begin{itemize}
+\item the resolution split
+\item the windowing
+\item the pixellization
+\end{itemize}
+
+The resolution split is relatively straight-forward to deal with in
+the absence of windowing and pixelization. We can imagine our final
+field $\vec{\delta}$ is made up of two parts with low- and high-
+frequencies respectively.  At present we imagine the whole problem is
+band-limited and over-pixellized so there are no issues of
+pixelization to think of. Then we can just write
+\begin{equation}
+\vec{\delta} = \vec{\delta}^I + \vec{\delta}^{II}
+\end{equation}
+
+These can be made out of separate Gaussian random fields with
+covariance matrices $\mathsf{C}^I$ and $\mathsf{C}^{II}$
+\begin{equation}
+\mathsf{C}^R = \mathsf{F}^R \mathsf{C} \mathsf{F}^{R\dagger}
+\end{equation}
+where $R=I$ or $II$. A single realization can be made by setting
+\begin{equation}
+\vec{\delta}^R = \mathsf{F}^R \mathsf{C}^{1/2} \vec{q}^R
+\end{equation}
+where $\vec{q}^R$ are two independent vectors of Gaussian white
+noise. 
+ In harmonic space, where $\mathsf{C}$ is
+diagonal, the filters must satisfy
+\begin{equation}
+(\mathsf{F}^{I})^2+ (\mathsf{F}^{II})^2 = \mathsf{I}\textrm{,}
+\end{equation}
+to recover the original covariance matrix $\mathsf{C}$ for the full
+field. 
+
+Now we also have to window the high-resolution part II, i.e.
+\begin{align}
+\vec{\delta}^{II} & = \mathsf{W} \mathsf{F}^{II} \mathsf{C}^{1/2}
+\vec{q}^{II}\\
+& \equiv \mathsf{WC_{II}^{1/2}} \vec{q}^{II} \label{eq:deltaII-ideal}
+\end{align}
+where $\mathsf{W}$ is the window function which is
+diagonal {\it in pixel space} and $\mathsf{C}_{II}^{1/2} \equiv
+\mathsf{F}^{II} \mathsf{C}^{1/2}$ .  Then within the window, we have the
+best possible representation of the power spectrum, but outside the
+window we have only the low-frequency part.
+
+The first approximation comes because we cannot actually calculate
+equation \eqref{eq:deltaII-ideal}. It would involve making a high
+resolution data vector covering the entire region, $\vec{q}^{II}$ ,
+which is precisely what computational requirements prevent us from
+doing. Instead we want to start from $q^{II}_W \equiv
+\mathsf{W}\vec{q}^{II}$ -- a shorter, pre-windowed vector that
+contains only information from inside the high-res window. In this
+case, we actually lack some of the information we technically need,
+but we can still do a maximum-likelihood estimate of
+$\vec{\delta}^{II}$, subject to knowing only $\vec{q}^{II}_W$, which
+gives us
+\begin{equation}
+\vec{\delta}^{II} = \mathsf{WC_{II}^{1/2}W}^{\top} (\mathsf{WW}^{\top})^{-1} \vec{q}^{II}_W \textrm{.}
+\end{equation}
+Note that $(\mathsf{WW}^{\top})^{-1}$ is just the identity in the
+restricted region (it's small x small since $\mathsf{W}$ is small x large). 
+
+But we still have a problem! The $\mathsf{WC_{II}^{1/2}W}^{\top}$
+cannot be calculated without generating a high-res, full-sized
+representation of the covariance matrix. Intuitively, though, we ought
+to be able to replace this complicated beast with just the standard
+covariance matrix for the appropriate $k$ in the small-scale, high-$k$
+limit when the window is basically irrelevant. The question is, how
+different is $\mathsf{WC_{II}^{1/2}W}^{\top}$ from $C_{II,W}^{1/2}$
+where the latter is just evaluated directly within the window?
+
+
+
+Finally, we have the pixel window functions to worry about. To make
+these worries irrelevant for interpolating the low-res part I into the
+box II, the transition scale must be at sufficiently small $k$,
+i.e. on scales much larger than the scale of a low-res pixel.  Then,
+we can do more-or-less any sensible interpolation -- the one
+implemented is linear interpolation. {\bf TO DO: } Again, a formal
+demonstration looking at how errors decline if there is no power near
+the pixel scale would be nice.
+
+\section{Applying the transfer function -- demos}
+
+Using {\tt constrainedzoom.py} routine {\tt WC\_vs\_CW} here are some
+examples of the difference between applying the transfer function
+inside the window vs applying it in the full box and windowing
+afterwards. All use a power spectrum $P(k) \propto k^{-1}$. Note there
+is a significant dependence on the power spectrum. (For white noise,
+for example, there is no problem at all because $\mathsf{C}$ is just
+the identity matrix.)
+
+Here's what happens if you just naively do the whole problem in the
+finite box (4x smaller than the parent domain). The top rows show the
+final covariance matrices in real space; the lower rows show the same
+in harmonic space. From left to right, we have the ``correct''
+solution (which is ultimately intractable); the ``naive'' solution
+(just applying $\mathsf{C}$ inside the window); and the error (colour
+scale exaggerated by factor 10):
+
+\includegraphics[width=\textwidth]{figs/zoom_test1.pdf}
+
+If we cut out all modes with $k/2\pi<0.1L^{-1}$ where $L$ is the
+parent box size (and using a Fermi function to soften the cut) we get
+this:
+
+\includegraphics[width=\textwidth]{figs/zoom_test2.pdf}
+
+or at $k/2\pi \le 0.5L$ we get this:
+
+\includegraphics[width=\textwidth]{figs/zoom_test3.pdf}
+
+Things get better as the cut moves to higher $k$. Also things are
+typically better closer to the centre of the box rather than at the
+edges. 
+
+This is a very complex problem. But for now let's just assume we get
+away with it if (i) the actual particles finally used are close to the
+centre of the high-res box and (ii) $\mathsf{C}_{II,W} \to 0$
+sufficiently rapidly as $k$ becomes comparable to the lowest modes of
+the high-res box. In practice this means the high-low transition
+specified by filters $\mathsf{F}^I$ and $\mathsf{F}^{II}$ must happen
+at sufficiently large $k$.
+
+The above were generated using 
+
 \end{document}
