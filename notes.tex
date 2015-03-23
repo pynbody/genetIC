@@ -98,7 +98,7 @@ three dangling linear-in-$\vec{x}$ terms to vanish thus determining
 $\vec{x}_1$. We will need two things; first a normalization for the $\vec{\alpha}_1$ which conveniently can
 be chosen\footnote{unless $\vec{\alpha}_1$ is a null direction of
   $\tens{C}$, but then there would be zero probability of our
-  constraint in the original distribution, so that case is already meaningless. } as 
+  constraint in the original distribution, so that case is already meaningless. } as
 \begin{equation}
 \vec{\alpha}_1^{\top} \tens{C} \vec{\alpha}_1 = 1\textrm{.}\label{eq:norm}
 \end{equation}
@@ -123,7 +123,7 @@ and in the limit $\beta \to \infty$,
 \vec{x}_1 = \left[1-\tens{C} \vec{\alpha}_1 \vec{\alpha}_1^{\top}
 \right] \vec{x}_0 + d_1 \tens{C} \vec{\alpha}_1\textrm{.}\label{eq:x1}
 \end{equation}
-We'll interpret this formula in a moment but first note that 
+We'll interpret this formula in a moment but first note that
 \begin{equation}
 \tens{C}_1 \equiv \left(\tens{C}^{-1} - \beta \alpha_1
   \alpha_1^{\top}\right)^{-1} = \lim_{\beta \to \infty} \tens{C}
@@ -169,7 +169,7 @@ the realizations after constraining twice respect both constraints.
 
 If one adds a local density enhancement to a larger scale void, the
 void is enhanced in peak depth. This correctly maintains the large scale void at
-the same averaged depth. 
+the same averaged depth.
 
 \begin{center}
 \includegraphics[width=0.5\textwidth]{figs/HR-demo.pdf}
@@ -258,7 +258,7 @@ thought, but in practice the following works so it must be fine!]
 With this transformation, we get the following equation for $\tilde{\mathsf{A}}$:
 \begin{equation}
 2 \tilde{\mathsf{A}} + \tilde{\mathsf{A}} \mathsf{C}_0
-\tilde{\mathsf{A}} = - \vec{\alpha}_1 \vec{\alpha}_1^{\top}  
+\tilde{\mathsf{A}} = - \vec{\alpha}_1 \vec{\alpha}_1^{\top}
 \end{equation}
 This is a quadratic equation in the matrix $\tilde{\mathsf{A}}$, which
 are generically hard things to solve analytically. However there is an
@@ -287,7 +287,7 @@ $\tilde{\mathsf{A}}_i$. Then we can write down the algorithm for ${\tt
 \end{equation}
 Note this algorithm uses only matrix multiplication by $\mathsf{C}_0$
 (which is diagonal) and vector dot products. So it is tractable even
-for huge $N$! 
+for huge $N$!
 
 Then the actual result we want is
 \begin{equation}
@@ -315,7 +315,7 @@ output covariance matrices, from left to right these are
   calculated using the iterative algorithm, with $N_{iter}=5$. It
   looks like the noise here is pretty consistent with that just from
   the realisation noise, as above.
-\item The same, with $N_{iter}=0$. 
+\item The same, with $N_{iter}=0$.
 \end{itemize}
 
 The bottom panels show the errors in the covariance matrix
@@ -334,13 +334,13 @@ many iterations to converge to the right answer.
 \section{Angular momentum constraints}
 \label{sec:AM}
 
-Instead of constraining $\delta$, we actually want to constrain the angular momentum. Fortunately, the method detailed above can be rather straightforwardly extended to do this. 
+Instead of constraining $\delta$, we actually want to constrain the angular momentum. Fortunately, the method detailed above can be rather straightforwardly extended to do this.
 
 First of all we note that the constraint condition
 \begin{equation}
 d= \vec{\alpha} \cdot \vec{\delta}
 \end{equation}
-is equivalent to 
+is equivalent to
 \begin{equation}
 d= \vec{\alpha}^{\mathrm{P}} \cdot \vec{\phi}
 \end{equation}
@@ -364,7 +364,7 @@ L_{\mu} = \vec{\alpha}_{\mu}^{\mathrm{P}} \cdot \vec{\phi},
 \end{equation}
 we can find the components of $\vec{\alpha}_{\mu}^{\mathrm{P}}$ by comparing terms between the right-hand-sides of equations (\ref{eq:L}) and (\ref{eq:Lconst}). Note that the sum over $j$ in Equation (\ref{eq:L}) can go over an arbitrary number of particles, while the scalar product in Equation (\ref{eq:Lconst}) implies a sum over all grid points. Some components of $\vec{\alpha}^{\mathrm{P}}$ receive contributions from multiple particles, while others may be 0.
 
-After numerically calculating $\vec{\alpha}_{\mu}^{\mathrm{P}}$, we can get the usual $\vec{\alpha}_{\mu}$ from the inverse Poisson equation and iteratively constrain the density field as detailed in the previous section. 
+After numerically calculating $\vec{\alpha}_{\mu}^{\mathrm{P}}$, we can get the usual $\vec{\alpha}_{\mu}$ from the inverse Poisson equation and iteratively constrain the density field as detailed in the previous section.
 One difference here is that there are now technically three constraint
 vectors, one for each component of $L_{\mu}$, which are not
 independent of each other (in the sense that $\vec{\alpha}_i$ may get
@@ -382,7 +382,7 @@ prepare zoom initial conditions, i.e. where one has high resolution in
 a subregion of the main box. The two really comprehensive references
 for how to do this seem to be Bertschinger 2001 (astro-ph/0103301) and
 Hahn \& Abel 2011 (1103.6031). Both are written in complex language
-that is quite hard to understand. 
+that is quite hard to understand.
 
 \subsection{As much as I understand of the existing approaches}
 
@@ -411,7 +411,7 @@ covariances of particular directions in the field. In the
 Bertschinger/Hahn+ approach this just doesn't seem to be possible
 because the algorithm for constructing the field never makes explicit
 what the covarainces between high res and low res elements really
-are. 
+are.
 
 \subsection{But hang on, shouldn't this be easy?}
 
@@ -441,14 +441,14 @@ sharp window function of the high-res region in real space.
 To put it another way, most Fourier modes of wavelength $L$ in the
 original box will not fit an integer number of times into the subbox
 and therefore do not correspond in any simple way to a Fourier mode in the
-subbox. 
+subbox.
 
 That is why there is no algorithm which simply copies in the low-k
 modes and then adds the high-k modes.
 
 \subsection{The multiscale random field without constraints}
 
-Let's split up the problem into the three issues: 
+Let's split up the problem into the three issues:
 
 \begin{itemize}
 \item the resolution split
@@ -476,14 +476,14 @@ where $R=I$ or $II$. A single realization can be made by setting
 \vec{\delta}^R = \mathsf{F}^R \mathsf{C}^{1/2} \vec{q}^R
 \end{equation}
 where $\vec{q}^R$ are two independent vectors of Gaussian white
-noise. 
+noise.
  In harmonic space, where $\mathsf{C}$ is
 diagonal, the filters must satisfy
 \begin{equation}
 (\mathsf{F}^{I})^2+ (\mathsf{F}^{II})^2 = \mathsf{I}\textrm{,}
 \end{equation}
 to recover the original covariance matrix $\mathsf{C}$ for the full
-field. 
+field.
 
 Now we also have to window the high-resolution part II, i.e.
 \begin{align}
@@ -512,7 +512,7 @@ gives us
 \vec{\delta}^{II} = \mathsf{WC_{II}^{1/2}W}^{\top} (\mathsf{WW}^{\top})^{-1} \vec{q}^{II}_W \textrm{.}
 \end{equation}
 Note that $(\mathsf{WW}^{\top})^{-1}$ is just the identity in the
-restricted region (it's small x small since $\mathsf{W}$ is small x large). 
+restricted region (it's small x small since $\mathsf{W}$ is small x large).
 
 But we still have a problem! The $\mathsf{WC_{II}^{1/2}W}^{\top}$
 cannot be calculated without generating a high-res, full-sized
@@ -544,6 +544,8 @@ scale exaggerated by factor 10):
 
 \includegraphics[width=\textwidth]{figs/zoom_test1.pdf}
 
+Note that, in harmonic space, the problems all arise at low $k$ (lower
+right panel).
 If we cut out all modes with $k/2\pi<0.1L^{-1}$ where $L$ is the
 parent box size (and using a Fermi function to soften the cut) we get
 this:
@@ -564,7 +566,7 @@ calling as {\tt cz.WC\_vs\_CW(plaw=-1.0,k\_cut=0.001)}, {\tt
 This is a very complex problem, dependent on the power spectrum, the
 cut-off scale and the severity of the cut-off. (The last point is not
 illustrated here, but has been checked by changing the Fermi function
-in the code into a step function for example). 
+in the code into a step function for example).
 
 But for now let's just assume we get
 away with it if (i) the actual particles finally used are close to the

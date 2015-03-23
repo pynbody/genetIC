@@ -2,10 +2,13 @@ import numpy as np
 import numpy.linalg
 import math
 import scipy.fftpack
+import scipy.integrate
 import pylab as p
 import copy
 import functools
 
+"""
+# old self-integrating version (deprecated because integral of filters is also important)
 def cov(x,plaw = -1.5):
     if plaw ==0.0:
         return 1.0
@@ -16,6 +19,22 @@ def cov(x,plaw = -1.5):
         cv = np.log(x)-np.log(x-delta)
     cv[cv==np.inf]=0
     cv[cv!=cv]=0
+    return cv
+"""
+
+
+def cov(x,plaw = -1.5):
+    try:
+        cv = x**plaw
+    except ZeroDivisionError:
+        return 0.0
+    except ValueError:
+        return 0.0
+
+    if isinstance(cv, np.ndarray):
+        cv[cv==np.inf]=0
+        cv[cv!=cv]=0
+
     return cv
 
 def Ufft(x):
@@ -43,8 +62,8 @@ class ZoomConstrained(object):
         self.delta_high = 1./(self.n2*self.scale)
         self.k_low = scipy.fftpack.rfftfreq(self.n1,d=self.delta_low)
         self.k_high = scipy.fftpack.rfftfreq(self.n2,d=self.delta_high)
-        self.C_low = self.cov_fn(self.k_low)
-        self.C_high = self.cov_fn(self.k_high)
+        self.C_low = self.get_cov(self.k_low)
+        self.C_high = self.get_cov(self.k_high)
         self.zoom_fac = self.scale*(self.n2/self.n1)
         self.constraints =[]
         self.constraints_val = []
@@ -58,10 +77,28 @@ class ZoomConstrained(object):
     def filter_high(self, k):
         return 1.-self.filter_low(k)
 
+    def C_filter_low(self,k):
+        return self.filter_low(k)**2
+
+    def C_filter_high(self,k):
+        return 1.-self.C_filter_low(k)
+
+    def get_cov(self, k, k_filter=lambda x:1):
+        integrand = lambda k1: self.cov_fn(k1)*k_filter(k1)
+        delta_k = k[1]-k[0]
+        Cv = np.zeros_like(k)
+        for i,ki in enumerate(k):
+            if ki==0:
+                Cv[i]=0
+            else:
+                Cv[i] = scipy.integrate.quad(integrand,ki-delta_k/2,ki+delta_k/2)[0]
+        return Cv
+
+
     def randoms(self, k):
         size = len(k)
         r = np.random.normal(0.0,1.0,size=size)
-        r*=np.sqrt(self.cov_fn(k)*size)
+        r*=np.sqrt(self.get_cov(k)*size)
         return r
 
     def xs(self):
@@ -75,7 +112,7 @@ class ZoomConstrained(object):
         # calculate the pixel-space diagonal variance and just-off-diagonal covariance
         # for the lo-res grid
         k = scipy.fftpack.rfftfreq(self.n1,d=1./self.n1)
-        C = self.cov_fn(k)
+        C = self.get_cov(k)
 
         pa = np.zeros(self.n1)
         pb = np.zeros(self.n1)
@@ -204,13 +241,39 @@ class ZoomConstrained(object):
             return cov
 
 
+    def get_lo_cov(self,white=False):
+        """Returns the covariance matrix for the low-res part of the
+        high-res window"""
+
+        Cs = self.C_low*self.filter_low(self.k_low)**2
+        C = np.zeros((self.n2,self.n2))
+
+        for i,Ci in enumerate(Cs):
+            T = np.zeros(self.n1)
+            T[i]=1.0
+            if white:
+                Ci = 1.0
+            pspace = self.harmonic_to_pixel(T,None)[1]
+            C+=Ci*np.outer(pspace,pspace)
+
+        return C
+
+
+
+    def get_lo_cov_unwindowed(self):
+        """Returns the covariance matrix for the low-res part of the
+        high-res window, IN THE IDEAL CASE"""
+
+        return self.get_hi_cov_unwindowed(lo=True)
+
     def get_hi_cov(self,white=False):
         """Returns the covariance matrix for the high-res segment.
 
         Constraints are ignored."""
 
         C = np.zeros((self.n2,self.n2))
-        for i,Ci in enumerate(self.C_high*self.filter_high(self.k_high)):
+        Cs = self.C_high*(1-self.filter_low(self.k_high)**2)
+        for i,Ci in enumerate(Cs):
             T = np.zeros(self.n2)
             T[i]=1.0
             T = Uifft(T)
@@ -220,7 +283,7 @@ class ZoomConstrained(object):
 
         return C
 
-    def get_hi_cov_unwindowed(self, white=False):
+    def get_hi_cov_unwindowed(self, white=False, lo=False):
         """Returns the covariance matrix for the high-res segment as
         calculated for the FULL box size (i.e. the ideal case where we could
         actually calculate the whole box at the full resolution, then just
@@ -230,7 +293,12 @@ class ZoomConstrained(object):
         C = np.zeros((self.n2*self.zoom_fac,self.n2*self.zoom_fac))
 
         super_k = scipy.fftpack.rfftfreq(self.n2*self.zoom_fac,d=self.delta_high)
-        for i,Ci in enumerate(self.cov_fn(super_k)*self.filter_high(super_k)):
+        if lo:
+            Cs = self.get_cov(super_k,self.C_filter_low)
+        else:
+            Cs = self.get_cov(super_k,self.C_filter_high)
+
+        for i,Ci in enumerate(Cs):
             T = np.zeros(self.n2*self.zoom_fac)
             T[i]=1.0
             T = Uifft(T)
@@ -259,7 +327,10 @@ class ZoomConstrained(object):
 
     def harmonic_to_pixel(self, f_low_k, f_high_k):
         delta_low = Uifft(f_low_k*self.filter_low(self.k_low))
-        delta_high = Uifft(f_high_k)
+        if f_high_k is not None:
+            delta_high = Uifft(f_high_k)
+        else:
+            delta_high = np.zeros(self.n2)
 
         # delta_high does not contain low-frequency contributions.
 
@@ -394,7 +465,7 @@ def display_cov(G, cov, downgrade=False):
 def cov2cor(matr):
     return matr/np.sqrt(np.outer(matr.diagonal(),matr.diagonal()))
 
-def WC_vs_CW(plaw=0.0, k_cut = 0.2):
+def WC_vs_CW(plaw=0.0, k_cut = 0.2, lo=False):
 
     cov_this = functools.partial(cov,plaw=plaw)
 
@@ -403,10 +474,12 @@ def WC_vs_CW(plaw=0.0, k_cut = 0.2):
 
     U = G.hi_U()
 
-    cv_noW = G.get_hi_cov_unwindowed()
-    cv_W = G.get_hi_cov()
-
-
+    if lo:
+        cv_noW = G.get_lo_cov_unwindowed()
+        cv_W = G.get_lo_cov()
+    else:
+        cv_noW = G.get_hi_cov_unwindowed()
+        cv_W = G.get_hi_cov()
 
     vmin = cv_noW.min()
     vmax = cv_noW.max()
