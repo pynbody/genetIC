@@ -6,6 +6,13 @@ CFLAGS	= -Wall -g -fopenmp -std=c++11   -fdiagnostics-color=auto
 CPATH = /opt/local/include/
 LPATH   =/opt/local/lib
 
+ifeq ($(HOST), Piann)
+	CPATH = /sw/include/
+	LPATH = /sw/lib/
+	C = gcc-4
+	CC = g++-4
+endif
+
 ifeq ($(HOST), dirac)
 	CC 	= icc
 	FFTW    = -I$(GSL_INC_DIR)
