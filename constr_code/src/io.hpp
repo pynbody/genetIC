@@ -374,7 +374,7 @@ int save_phases(complex<MyFloat> *phk, MyFloat* ph, complex<MyFloat> *delta, int
 template<typename MyFloat>
 int SaveGadget2(const char *filename, long n, io_header_2 header1, MyFloat* Pos1, MyFloat* Vel1, MyFloat* Pos2, MyFloat* Vel2, MyFloat* Pos3, MyFloat* Vel3) {
   FILE* fd = fopen(filename, "w");
-
+  if(!fd) throw std::runtime_error("Unable to open file for writing");
   MyFloat* Pos=(MyFloat*)calloc(3,sizeof(MyFloat));
   int dummy;
   long i;
@@ -425,7 +425,7 @@ template<typename MyFloat>
 int SaveGadget3(const char *filename, long n, io_header_3 header1, MyFloat* Pos1, MyFloat* Vel1, MyFloat* Pos2, MyFloat* Vel2, MyFloat* Pos3, MyFloat* Vel3) {
 
     FILE* fd = fopen(filename, "w");
-
+    if(!fd) throw std::runtime_error("Unable to open file for writing");
     MyFloat* Pos=(MyFloat*)calloc(3,sizeof(MyFloat));
     int dummy;
     long i;
@@ -517,6 +517,7 @@ int SaveTipsy(const char *filename, long n, MyFloat* Pos1, MyFloat* Vel1, MyFloa
 
     io_tipsy_dark dp;
     FILE* fd = fopen(filename, "w");
+    if(!fd) throw std::runtime_error("Unable to open file for writing");
     dp.mass = pmass_tipsy;
 
     cout << "Warning: writing default value for epsilon" << endl;
