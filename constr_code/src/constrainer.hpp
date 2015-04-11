@@ -107,6 +107,21 @@ public:
 };
 
 template<typename T>
+class MultiscaleUnderlyingField: public UnderlyingField<T>
+{
+protected:
+    UnderlyingField<T> *pParent;
+    UnderlyingField<T> *pChild;
+public:
+    MultiscaleUnderlyingField(UnderlyingField<T> *pParent,
+                              UnderlyingField<T> *pChild) : pParent(pParent), pChild(pChild)
+    {
+
+    }
+    
+};
+
+template<typename T>
 class MultiConstrainedField: public UnderlyingField<T>
 {
 private:
@@ -117,177 +132,174 @@ private:
 public:
     MultiConstrainedField(UnderlyingField<T>* underlying_, long int N) : UnderlyingField<T>(N),
     underlying(underlying_)
-{
+    {
 
-}
+    }
 
-void add_constraint(std::complex<T>* alpha, std::complex<T> value, std::complex<T> existing) {
+    void add_constraint(std::complex<T>* alpha, std::complex<T> value, std::complex<T> existing) {
 
-    alphas.push_back(alpha);
-    values.push_back(value);
-    existing_values.push_back(existing);
-}
+        alphas.push_back(alpha);
+        values.push_back(value);
+        existing_values.push_back(existing);
+    }
 
-void print_covariance() {
-    int n=alphas.size();
-    int done=0;
-    std::complex<T> c_matrix[n][n];
+    void print_covariance() {
+        int n=alphas.size();
+        int done=0;
+        std::complex<T> c_matrix[n][n];
 
-    // Gram-Schmidt orthogonalization in-place
-    for(int i=0; i<n; i++) {
-        std::complex<T>* alpha_i=alphas[i];
-        for(int j=0; j<=i; j++) {
-            std::complex<T>* alpha_j=alphas[j];
-            progress("calculating covariance", ((float)done*2)/(n*(1+n)));
-            c_matrix[i][j]=underlying->v1_cov_v2(alpha_j,alpha_i);
-            c_matrix[j][i]=c_matrix[i][j];
-            done+=1;
+        // Gram-Schmidt orthogonalization in-place
+        for(int i=0; i<n; i++) {
+            std::complex<T>* alpha_i=alphas[i];
+            for(int j=0; j<=i; j++) {
+                std::complex<T>* alpha_j=alphas[j];
+                progress("calculating covariance", ((float)done*2)/(n*(1+n)));
+                c_matrix[i][j]=underlying->v1_cov_v2(alpha_j,alpha_i);
+                c_matrix[j][i]=c_matrix[i][j];
+                done+=1;
+            }
         }
-    }
-    end_progress();
+        end_progress();
 
-    std::cout << std::endl << "cov_matr = [";
-    for(int i=0; i<n; i++) {
-        std::cout << "[";
-        for(int j=0; j<n; j++) {
-            std::cout << std::real(c_matrix[i][j]);
-            if(j<n-1) std::cout << ",";
+        std::cout << std::endl << "cov_matr = [";
+        for(int i=0; i<n; i++) {
+            std::cout << "[";
+            for(int j=0; j<n; j++) {
+                std::cout << std::real(c_matrix[i][j]);
+                if(j<n-1) std::cout << ",";
+            }
+            std::cout << "]";
+            if(i<n-1) std::cout << "," << std::endl;
         }
-        std::cout << "]";
-        if(i<n-1) std::cout << "," << std::endl;
+        std::cout << "]" << std::endl;
     }
-    std::cout << "]" << std::endl;
-}
 
-void prepare() {
+    void prepare() {
 
-    int n=alphas.size();
-    int done=0;
+        int n=alphas.size();
+        int done=0;
 
-    std::cout << "v0=[";
-    for(int i=0; i<n; i++) {
-        std::cout << std::real(existing_values[i]);
-        if(i<n-1)
-            std::cout << ", ";
-    }
-    std::cout << "]"<<std::endl;
-
-    std::cout << "v1=[";
-    for(int i=0; i<n; i++) {
-        std::cout << std::real(values[i]);
-        if(i<n-1)
-            std::cout << ", ";
+        std::cout << "v0=[";
+        for(int i=0; i<n; i++) {
+            std::cout << std::real(existing_values[i]);
+            if(i<n-1)
+                std::cout << ", ";
         }
         std::cout << "]"<<std::endl;
 
+        std::cout << "v1=[";
+        for(int i=0; i<n; i++) {
+            std::cout << std::real(values[i]);
+            if(i<n-1)
+                std::cout << ", ";
+            }
+            std::cout << "]"<<std::endl;
 
-    // Store transformation matrix, just for display purposes
-    std::complex<T> t_matrix[n][n];
-    for(int i=0; i<n; i++) {
-        for(int j=0; j<n; j++) {
-            if(i==j) t_matrix[i][j]=1.0; else t_matrix[i][j]=0.0;
+
+        // Store transformation matrix, just for display purposes
+        std::complex<T> t_matrix[n][n];
+        for(int i=0; i<n; i++) {
+            for(int j=0; j<n; j++) {
+                if(i==j) t_matrix[i][j]=1.0; else t_matrix[i][j]=0.0;
+            }
         }
-    }
 
-    // Gram-Schmidt orthogonalization in-place
-    for(int i=0; i<n; i++) {
-        std::complex<T>* alpha_i=alphas[i];
-        for(int j=0; j<i; j++) {
-            std::complex<T>* alpha_j=alphas[j];
-            progress("orthogonalizing constraints", ((float)done*2)/(n*(1+n)));
-            std::complex<T> result = underlying->v1_cov_v2(alpha_j,alpha_i);
+        // Gram-Schmidt orthogonalization in-place
+        for(int i=0; i<n; i++) {
+            std::complex<T>* alpha_i=alphas[i];
+            for(int j=0; j<i; j++) {
+                std::complex<T>* alpha_j=alphas[j];
+                progress("orthogonalizing constraints", ((float)done*2)/(n*(1+n)));
+                std::complex<T> result = underlying->v1_cov_v2(alpha_j,alpha_i);
 
+                #pragma omp parallel for
+                for(long int k=0; k<this->N; k++) {
+                    alpha_i[k]-=result*alpha_j[k];
+                }
+
+                // update display matrix accordingly such that at each step
+                // our current values array is equal to t_matrix . input_values
+                for(int k=0; k<=j; k++)
+                    t_matrix[i][k]-=result*t_matrix[j][k];
+
+                // update constraining value
+                values[i]-=result*values[j];
+                done+=1; // one op for each of the orthognalizing constraints
+            }
+
+            // normalize
+            std::complex<T> norm = sqrt(underlying->v_cov_v(alpha_i));
             #pragma omp parallel for
             for(long int k=0; k<this->N; k++) {
-                alpha_i[k]-=result*alpha_j[k];
+                alpha_i[k]/=norm;
             }
+            values[i]/=norm;
 
-            // update display matrix accordingly such that at each step
-            // our current values array is equal to t_matrix . input_values
-            for(int k=0; k<=j; k++)
-                t_matrix[i][k]-=result*t_matrix[j][k];
-
-            // update constraining value
-            values[i]-=result*values[j];
-            done+=1; // one op for each of the orthognalizing constraints
-        }
-
-        // normalize
-        std::complex<T> norm = sqrt(underlying->v_cov_v(alpha_i));
-        #pragma omp parallel for
-        for(long int k=0; k<this->N; k++) {
-            alpha_i[k]/=norm;
-        }
-        values[i]/=norm;
-
-        for(int j=0;j<n; j++) {
-            t_matrix[i][j]/=norm;
-        }
-        done+=1; // one op for the normalization
-
-    }
-    end_progress();
-
-    // Now display t_matrix^{dagger} t_matrix, which is the matrix allowing one
-    // to form chi^2: Delta chi^2 = d_1^dagger t_matrix^dagger t_matrix d_1 -
-    // d_0^dagger t_matrix^dagger t_matrix d_0.
-
-
-
-    existing_values.clear();
-    for(int i=0; i<n; i++) {
-        std::complex<T>* alpha_i=alphas[i];
-        progress("calculating existing means",((float)i)/n);
-        existing_values.push_back(underlying->v1_dot_y(alpha_i));
-    }
-    end_progress();
-
-    std::cout << std::endl << "chi2_matr = [";
-    for(int i=0; i<n; i++) {
-        std::cout << "[";
-        for(int j=0; j<n; j++) {
-            std::complex<T> r=0;
-            for(int k=0;k<n; k++) {
-                r+=std::conj(t_matrix[k][i])*t_matrix[k][j];
+            for(int j=0;j<n; j++) {
+                t_matrix[i][j]/=norm;
             }
-            std::cout << std::real(r)/this->N;
-            if(j<n-1) std::cout << ",";
+            done+=1; // one op for the normalization
+
         }
-        std::cout << "]";
-        if(i<n-1) std::cout << "," << std::endl;
-    }
-    std::cout << "]" << std::endl;
+        end_progress();
+
+        // Now display t_matrix^{dagger} t_matrix, which is the matrix allowing one
+        // to form chi^2: Delta chi^2 = d_1^dagger t_matrix^dagger t_matrix d_1 -
+        // d_0^dagger t_matrix^dagger t_matrix d_0.
 
 
 
-}
-
-T get_delta_chi2() {
-    T rval=0.0, v0, v1;
-    for(int i=0; i<alphas.size(); i++) {
-        v0 = std::abs(existing_values[i]);
-        v1 = std::abs(values[i]);
-        rval+=v1*v1-v0*v0;
-    }
-    return rval/this->N;
-}
-void get_realization(std::complex<T> *r) {
-    int n=alphas.size();
-    underlying->get_realization(r);
-
-    for(int i=0; i<n; i++) {
-        std::complex<T>* alpha_i=alphas[i];
-        std::complex<T> dval_i = values[i]-existing_values[i];
-        // std::cerr << "constraint " << i <<  values[i] << existing_values[i] << std::endl;
-        progress("get constrained y", float(i)/n);
-        #pragma omp parallel for
-        for(long int j=0; j<this->N; j++) {
-            r[j]+=dval_i*underlying->cov(alpha_i,j);
+        existing_values.clear();
+        for(int i=0; i<n; i++) {
+            std::complex<T>* alpha_i=alphas[i];
+            progress("calculating existing means",((float)i)/n);
+            existing_values.push_back(underlying->v1_dot_y(alpha_i));
         }
+        end_progress();
+
+        std::cout << std::endl << "chi2_matr = [";
+        for(int i=0; i<n; i++) {
+            std::cout << "[";
+            for(int j=0; j<n; j++) {
+                std::complex<T> r=0;
+                for(int k=0;k<n; k++) {
+                    r+=std::conj(t_matrix[k][i])*t_matrix[k][j];
+                }
+                std::cout << std::real(r)/this->N;
+                if(j<n-1) std::cout << ",";
+            }
+            std::cout << "]";
+            if(i<n-1) std::cout << "," << std::endl;
+        }
+        std::cout << "]" << std::endl;
+
+
+
     }
-    end_progress();
-}
 
+    T get_delta_chi2() {
+        T rval=0.0, v0, v1;
+        for(int i=0; i<alphas.size(); i++) {
+            v0 = std::abs(existing_values[i]);
+            v1 = std::abs(values[i]);
+            rval+=v1*v1-v0*v0;
+        }
+        return rval/this->N;
+    }
+    void get_realization(std::complex<T> *r) {
+        int n=alphas.size();
+        underlying->get_realization(r);
 
-
+        for(int i=0; i<n; i++) {
+            std::complex<T>* alpha_i=alphas[i];
+            std::complex<T> dval_i = values[i]-existing_values[i];
+            // std::cerr << "constraint " << i <<  values[i] << existing_values[i] << std::endl;
+            progress("get constrained y", float(i)/n);
+            #pragma omp parallel for
+            for(long int j=0; j<this->N; j++) {
+                r[j]+=dval_i*underlying->cov(alpha_i,j);
+            }
+        }
+        end_progress();
+    }
 };

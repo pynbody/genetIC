@@ -73,6 +73,10 @@ void setup_parser(ClassDispatch<ICf,void> &dispatch) {
     dispatch.add_class_route("cov",&ICf::cov);
     dispatch.add_class_route("done",&ICf::done);
     dispatch.add_class_route("reverse",&ICf::reverse);
+    dispatch.add_class_route("dumpgrid",&ICf::dumpGrid);
+
+    dispatch.add_class_route("zoom", &ICf::zoom);
+    dispatch.add_class_route("n2", &ICf::setn2);
 
 
 }

@@ -4,25 +4,31 @@ Ol	0.721
 s8	0.817
 Boxl	50
 zin	99
-n       256
+n       64
 output	1
 seed	8896131
 camb	camb_transfer_kmax40_z0.dat
 outdir	 ./output/
+zoom 4
+n2 64
+
 gadgetformat 3
 
-IDfile h40.txt
+dumpgrid 0
+dumpgrid 1
+
+#IDfile h40.txt
 #centre_max
-order
-constrain overdensity relative 1.0
-truncate 0.1
-constrain overdensity relative 0.9
+#order
+#constrain overdensity relative 1.0
+#truncate 0.1
+#constrain overdensity relative 0.9
 
 
 
-cov
+#cov
 done
-IDfile h40.txt
-calculate overdensity
-truncate 0.1
-calculate overdensity
+#IDfile h40.txt
+#calculate overdensity
+#truncate 0.1
+#calculate overdensity

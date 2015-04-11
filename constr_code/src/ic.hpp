@@ -5,6 +5,14 @@
 #include <gsl/gsl_errno.h>
 #include <gsl/gsl_spline.h>
 
+#define NUMPY_DUMPY
+
+#ifdef NUMPY_DUMPY
+#include "npy.h"
+#endif
+
+#define for_each_level(level) for(int level=0; level<2 && n[level]>0; level++)
+
 using namespace std;
 
 
@@ -12,9 +20,23 @@ template<typename MyFloat>
 class IC {
 protected:
 
-    MyFloat Om0, Ol0, hubble, zin, a, sigma8, boxlen, dx;
-    int out, n, gadgetformat, seed;
+    MyFloat Om0, Ol0, hubble, zin, a, sigma8;
 
+    // Everything about the main grid
+    MyFloat boxlen[2], dx[2];
+    int n[2]; // number of grid divisions along one axis
+    Grid<MyFloat> *pGrid[2]; // the object that helps us relate points on the grid
+    complex<MyFloat> *pField_k[2]; // the field in k-space
+    complex<MyFloat> *pField_x[2]; // the field in x-space
+    complex<MyFloat> *P[2]; // the power spectrum for each k-space point
+
+    MyFloat x_off[2], y_off[2], z_off[2]; // x,y,z offsets for subgrids
+
+    MyFloat zoomfac; // the zoom factor, i.e. the ratio dx/dx[1]
+
+
+
+    int out, gadgetformat, seed;
     int quoppa; // eh?
     double *kcamb, *Tcamb;
     long nPartTotal;
@@ -22,32 +44,36 @@ protected:
 
     bool whiteNoiseFourier;
 
-    complex<MyFloat> *pField_k;
-    complex<MyFloat> *P;
 
-    Grid<MyFloat> *pGrid;
+
+
     int *part_arr;
     int n_part_arr;
     MyFloat x0, y0, z0;
-    complex<MyFloat> *pField_x;
+
     MultiConstrainedField<MyFloat> *pConstrainer;
 
 
 
 public:
     IC() {
-        pGrid=NULL;
-        pField_x=NULL;
+        pGrid[0]=pGrid[1]=NULL;
+        pField_x[0]=pField_x[1]=NULL;
+        pField_k[0]=pField_k[1]=NULL;
         pConstrainer=NULL;
         part_arr=NULL;
         n_part_arr=0;
         whiteNoiseFourier=false;
         hubble=0.701; // old default
+        n[0]=0;
+        n[1]=-1; // no subgrid by default
+        x_off[0]=y_off[0]=z_off[0]=0;
+        x_off[1]=y_off[1]=z_off[1]=0;
     }
 
     ~IC() {
-        if(pGrid!=NULL) delete pGrid;
-
+        if(pGrid[0]!=NULL) delete pGrid[0];
+        if(pGrid[1]!=NULL) delete pGrid[1];
     }
 
     void setOmegaM0(MyFloat in) {
@@ -67,8 +93,8 @@ public:
     }
 
     void setBoxLen(MyFloat in) {
-        boxlen = in;
-        dx = boxlen/n;
+        boxlen[0] = in;
+        dx[0] = boxlen[0]/n[0];
     }
 
     void setZ0(MyFloat in) {
@@ -77,9 +103,35 @@ public:
     }
 
     void setn(int in) {
-        n = in;
-        dx = boxlen/n;
+        n[0] = in;
+        dx[0] = boxlen[0]/n[0];
     }
+
+    void setn2(int in) {
+        n[1] = in;
+        if(boxlen[1]>0)
+            initZoom();
+    }
+
+    void zoom(MyFloat in) {
+        // open a subgrid which is the specified factor smaller than
+        // the parent grid
+        boxlen[1] = boxlen[0]/in;
+        if(n[1]>0)
+            initZoom();
+    }
+
+    void initZoom() {
+        zoomfac = (boxlen[0]/n[0])/(boxlen[1]/n[1]);
+        dx[1] = boxlen[1]/n[1];
+        cout << "Initialized a zoom region:" << endl;
+        cout << "  Subbox length   = " << boxlen[1] << " Mpc/h" << endl;
+        cout << "  n[1]            = " << n[1] << endl;
+        cout << "  dx[1]           = " << dx[1] << endl;
+        cout << "  Zoom factor     = " << zoomfac << endl;
+
+    }
+
 
     void setOutputMode(int in) {
         out = in; // the joy of writing this line is substantial
@@ -120,13 +172,16 @@ public:
         prepare();
     }
 
-    string make_base( string basename, int n, MyFloat box, MyFloat zin){
+    string make_base( string basename, int level=0){
         ostringstream nult;
         if(inname.size()==0) {
-            nult << basename<<"IC_iter_" << floatinfo<MyFloat>::name << "_z"<<zin<<"_"<<n<<"_L" << box;
+            nult << basename<<"IC_iter_" << floatinfo<MyFloat>::name << "_z"<<zin<<"_"<<n[level]<<"_L" << boxlen[level];
 
         } else {
-            nult << basename << "/" << inname;
+            if (level==0)
+                nult << basename << "/" << inname;
+            else
+                nult << basename << "/" << inname << "_" << level;
         }
         return nult.str();
     }
@@ -156,7 +211,8 @@ public:
 
     }
 
-    long kgridToIndex(int k1, int k2, int k3) const {
+
+    static long kgridToIndex(int k1, int k2, int k3, int n)  {
         long ii,jj,ll,idk;
         if(k1<0) ii=k1+n; else ii=k1;
         if(k2<0) jj=k2+n; else jj=k2;
@@ -165,14 +221,81 @@ public:
         return idk;
     }
 
-    void drawOneFourierMode(gsl_rng *r, int k1, int k2, int k3, MyFloat norm) {
+    static void drawOneFourierMode(gsl_rng *r, int k1, int k2, int k3,
+                                  MyFloat norm, int n, complex<MyFloat> *pField_k) {
         long id_k, id_negk;
-        id_k = kgridToIndex(k1,k2,k3);
-        id_negk = kgridToIndex(-k1,-k2,-k3);
+        id_k = kgridToIndex(k1,k2,k3,n);
+        id_negk = kgridToIndex(-k1,-k2,-k3,n);
         pField_k[id_k]=std::complex<MyFloat>(norm*gsl_ran_gaussian_ziggurat(r,1.),norm*gsl_ran_gaussian_ziggurat(r,1.));
 
         // reality condition:
         pField_k[id_negk]=std::conj(pField_k[id_k]);
+    }
+
+
+    static void drawRandomForSpecifiedGrid(int n, complex<MyFloat> *& pField_x,
+                                           complex<MyFloat> *& pField_k,
+                                           gsl_rng * r)
+    {
+        long nPartTotal = n;
+        nPartTotal*=n*n;
+
+        pField_k=(complex<MyFloat>*)calloc(nPartTotal,sizeof(complex<MyFloat>));
+        MyFloat sigma=sqrt((MyFloat)(nPartTotal));
+
+        complex<MyFloat> *rnd=(complex<MyFloat>*)calloc(nPartTotal,sizeof(complex<MyFloat>));
+
+        cerr << "Drawing random numbers..."<< endl;
+
+        long i;
+
+        for(i=0;i<nPartTotal;i++){rnd[i]=gsl_ran_gaussian_ziggurat(r,1.)*sigma;}// cout<< "rnd "<< rnd[i] << endl;}
+
+
+
+        cout<< "First FFT..." <<endl;
+        fft_r(pField_k, rnd, n, 1);
+
+        free(rnd);
+
+        pField_k[0]=complex<MyFloat>(0.,0.); //assure mean==0
+
+
+
+    }
+
+    static void drawRandomForSpecifiedGridFourier(int n,
+                                           complex<MyFloat> *& pField_k,
+                                           gsl_rng * r) {
+
+       long nPartTotal = n;
+       nPartTotal*=n*n;
+
+       pField_k=(complex<MyFloat>*)calloc(nPartTotal,sizeof(complex<MyFloat>));
+       MyFloat sigma=sqrt((MyFloat)(nPartTotal));
+
+
+       // do it in fourier space, in order of increasing |k|, so that
+       // resolution can be scaled by factors of 2 and we still get
+       // the 'same' field
+
+       cerr << "Drawing random numbers in fourier space..."<< endl;
+       MyFloat kk=0.;
+       int ks,k1,k2,k3;
+
+       sigma/=sqrt(2.0);
+
+       // Do it in square k-shells
+       for(ks=0; ks<n/2;ks++) {
+           for(k1=-ks; k1<ks; k1++) {
+               for(k2=-ks; k2<ks; k2++) {
+                   drawOneFourierMode(r,ks,k1,k2,sigma,n,pField_k);
+                   drawOneFourierMode(r,k1,ks,k2,sigma,n,pField_k);
+                   drawOneFourierMode(r,k1,k2,ks,sigma,n,pField_k);
+               }
+           }
+        }
+
     }
 
     void drawRandom() {
@@ -183,61 +306,87 @@ public:
         r = gsl_rng_alloc (T); //this allocates memory for the generator with type T
         gsl_rng_set(r,seed);
 
-        pField_k=(complex<MyFloat>*)calloc(nPartTotal,sizeof(complex<MyFloat>));
-        MyFloat sigma=sqrt((MyFloat)(nPartTotal));
-
-        if(!whiteNoiseFourier) {
-            // original implementation
-
-
-            complex<MyFloat> *rnd=(complex<MyFloat>*)calloc(nPartTotal,sizeof(complex<MyFloat>));
-
-            cerr << "Drawing random numbers..."<< endl;
-
-            long i;
-
-            for(i=0;i<nPartTotal;i++){rnd[i]=gsl_ran_gaussian_ziggurat(r,1.)*sigma;}// cout<< "rnd "<< rnd[i] << endl;}
-
-            gsl_rng_free (r);
-
-            cout<< "First FFT..." <<endl;
-            fft_r(pField_k, rnd, n, 1);
-
-            free(rnd);
-
-            pField_k[0]=complex<MyFloat>(0.,0.); //assure mean==0
-
-        } else {
-
-            // do it in fourier space, in order of increasing |k|, so that
-            // resolution can be scaled by factors of 2 and we still get
-            // the 'same' field
-
-            cerr << "Drawing random numbers in fourier space..."<< endl;
-            MyFloat kk=0.;
-            int ks,k1,k2,k3;
-
-            sigma/=sqrt(2.0);
-
-            // Do it in square k-shells
-            for(ks=0; ks<n/2;ks++)
-            {
-                for(k1=-ks; k1<ks; k1++) {
-                    for(k2=-ks; k2<ks; k2++) {
-                        drawOneFourierMode(r,ks,k1,k2,sigma);
-                        drawOneFourierMode(r,k1,ks,k2,sigma);
-                        drawOneFourierMode(r,k1,k2,ks,sigma);
-
-                    }
-                }
-            }
-
+        for_each_level(level) {
+            cerr << "Generate random noise for level " << level <<endl;
+            if(whiteNoiseFourier)
+                drawRandomForSpecifiedGridFourier(n[level], pField_k[level],r);
+            else
+                drawRandomForSpecifiedGrid(n[level], pField_x[level], pField_k[level],r);
         }
 
-
+        gsl_rng_free (r);
     }
 
-    void applyPowerSpec() {
+    void interpolateLevel(int level) {
+
+        if(level<=0)
+            throw std::runtime_error("Trying to interpolate onto the top-level grid");
+
+        ensureRealDelta(level);
+        ensureRealDelta(level-1);
+
+        int n_l = n[level];
+        MyFloat dx_l = dx[level];
+        MyFloat dx_p = dx[level-1];
+
+        Grid<MyFloat> *pGrid_l = pGrid[level];
+        Grid<MyFloat> *pGrid_p = pGrid[level-1];
+        MyFloat x,y,z; // coordinates
+        int x_p_0, y_p_0, z_p_0, x_p_1, y_p_1, z_p_1; // parent grid locations
+        MyFloat xw0,yw0,zw0; // weights for lower-left parent grid contribution
+        MyFloat xw1,yw1,zw1; // weights for upper-right parent grid contribution
+
+        MyFloat x_off_l = x_off[level], y_off_l = y_off[level], z_off_l = z_off[level];
+        MyFloat x_off_p = x_off[level-1], y_off_p = y_off[level-1], z_off_p = z_off[level-1];
+
+        complex<MyFloat> *pField_x_l = pField_x[level];
+        complex<MyFloat> *pField_x_p = pField_x[level-1];
+
+        for(int x_l=0; x_l<n_l; x_l++) {
+            for(int y_l=0; y_l<n_l; y_l++){
+                for(int z_l=0; z_l<n_l; z_l++) {
+                    x = ((MyFloat) x_l)*dx_l+x_off_l;
+                    y = ((MyFloat) y_l)*dx_l+y_off_l;
+                    z = ((MyFloat) z_l)*dx_l+z_off_l;
+
+                    // coordinates of bottom-left
+                    x_p_0 = ((int) ((x-x_off_p)/dx_p));
+                    y_p_0 = ((int) ((y-y_off_p)/dx_p));
+                    z_p_0 = ((int) ((z-z_off_p)/dx_p));
+
+                    // coordinates of top-right
+                    x_p_1 = x_p_0+1;
+                    y_p_1 = y_p_0+1;
+                    z_p_1 = z_p_0+1;
+
+                    // weights, which are the distance to the upper-right
+                    // coordinate in grid units (-> maximum 1)
+                    xw0 = ((MyFloat) x_p_1) - ((x-x_off_p)/dx_p);
+                    yw0 = ((MyFloat) y_p_1) - ((y-y_off_p)/dx_p);
+                    zw0 = ((MyFloat) z_p_1) - ((z-z_off_p)/dx_p);
+
+                    xw1 = 1.-xw0;
+                    yw1 = 1.-yw0;
+                    zw1 = 1.-zw0;
+
+                    long ind_l = pGrid_l->get_index(x_l,y_l,z_l);
+
+                    pField_x_l[ind_l] = xw0*yw0*zw1*pField_x_p[pGrid_p->get_index(x_p_0,y_p_0,z_p_1)] +
+                                        xw1*yw0*zw1*pField_x_p[pGrid_p->get_index(x_p_1,y_p_0,z_p_1)] +
+                                        xw0*yw1*zw1*pField_x_p[pGrid_p->get_index(x_p_0,y_p_1,z_p_1)] +
+                                        xw1*yw1*zw1*pField_x_p[pGrid_p->get_index(x_p_1,y_p_1,z_p_1)] +
+                                        xw0*yw0*zw0*pField_x_p[pGrid_p->get_index(x_p_0,y_p_0,z_p_0)] +
+                                        xw1*yw0*zw0*pField_x_p[pGrid_p->get_index(x_p_1,y_p_0,z_p_0)] +
+                                        xw0*yw1*zw0*pField_x_p[pGrid_p->get_index(x_p_0,y_p_1,z_p_0)] +
+                                        xw1*yw1*zw0*pField_x_p[pGrid_p->get_index(x_p_1,y_p_1,z_p_0)];
+
+
+                }
+            }
+        }
+    }
+
+    void applyPowerSpecForLevel(int level) {
         //scale white-noise delta with initial PS
 
 
@@ -250,34 +399,60 @@ public:
         cout<< "Growth factor " << grwfac << endl;
         MyFloat sg8;
 
-        sg8=sig(8., kcamb, Tcamb, ns, boxlen, n, quoppa);
+        sg8=sig(8., kcamb, Tcamb, ns, boxlen[level], n[level], quoppa);
         std::cout <<"Sigma_8 "<< sg8 << std::endl;
 
-        MyFloat kw = 2.*M_PI/(MyFloat)boxlen;
+        MyFloat kw = 2.*M_PI/(MyFloat)boxlen[level];
+
+        // TODO: link sigma8 from the top level down
+
         MyFloat amp=(sigma8/sg8)*(sigma8/sg8)*grwfac*grwfac; //norm. for sigma8 and linear growth factor
         MyFloat norm=kw*kw*kw/powf(2.*M_PI,3.); //since kw=2pi/L, this is just 1/V_box
 
-        P=(complex<MyFloat>*)calloc(nPartTotal,sizeof(complex<MyFloat>));
+        P[level]=(complex<MyFloat>*)calloc(nPartTotal,sizeof(complex<MyFloat>));
 
 
-        std::cout<<"Interpolation: kmin: "<< kw <<" Mpc/h, kmax: "<< (MyFloat)( kw*n/2.*sqrt(3.)) <<" Mpc/h"<<std::endl;
+        std::cout<<"Interpolation: kmin: "<< kw <<" Mpc/h, kmax: "<< (MyFloat)( kw*n[level]/2.*sqrt(3.)) <<" Mpc/h"<<std::endl;
 
         MyFloat norm_amp=norm*amp;
 
-        brute_interpol_new(n, kcamb, Tcamb,  quoppa, kw, ns, norm_amp, pField_k, pField_k, P);
+        brute_interpol_new(n[level], kcamb, Tcamb,  quoppa, kw, ns, norm_amp, pField_k[level], pField_k[level], P[level]);
 
         //assert(abs(real(norm_iter)) >1e-12); //norm!=0
         //assert(abs(imag(norm_iter)) <1e-12); //because there shouldn't be an imaginary part since we assume d is purely real
         //TODO think about this (it fails more often than it should?)
 
         cout<<"Transfer applied!"<<endl;
-        cout<< "Power spectrum sample: " << P[0] << " " << P[1] <<" " << P[nPartTotal-1] <<endl;
+        cout<< "Power spectrum sample: " << P[level][0] << " " << P[level][1] <<" " << P[level][nPartTotal-1] <<endl;
 
-        std::cout<<"Initial chi^2 (white noise, fourier space) = " << chi2(pField_k,P,nPartTotal) << std::endl;
-        powsp_noJing(n, pField_k, (base+ ".ps").c_str(), boxlen);
+        std::cout<<"Initial chi^2 (white noise, fourier space) = " << chi2(pField_k[level],P[level],nPartTotal) << std::endl;
+        powsp_noJing(n[level], pField_k[level], (base+".ps").c_str(), boxlen[level]);
     }
 
-    std::tuple<MyFloat*, MyFloat*, MyFloat*, MyFloat*, MyFloat*, MyFloat*> zeldovich() {
+    void applyPowerSpec() {
+        for_each_level(level) {
+            cerr << "Apply transfer function for level " << level <<endl;
+            applyPowerSpecForLevel(level);
+        }
+    }
+
+    void dumpGrid(int level=0) {
+#ifdef NUMPY_DUMPY
+        ensureRealDelta(level);
+        int shape[3] = {n[level], n[level], n[level]};
+        int fortran_order = 0;
+
+        ostringstream filename;
+        filename << "grid-" << level << ".npy";
+
+        npy_save_double_complex(filename.str().c_str(), 0, 3, shape, pField_x[level]);
+
+#else
+    throw runtime_error("Numpy support not compiled into binary");
+#endif
+    }
+
+    std::tuple<MyFloat*, MyFloat*, MyFloat*, MyFloat*, MyFloat*, MyFloat*> zeldovich(int level=0) {
         //Zeldovich approx.
 
         complex<MyFloat>* psift1k=(complex<MyFloat>*)calloc(nPartTotal,sizeof(complex<MyFloat>));
@@ -287,27 +462,27 @@ public:
         int iix, iiy, iiz;
         long idx;
         MyFloat kfft;
-        MyFloat kw = 2.*M_PI/(MyFloat)boxlen;
+        MyFloat kw = 2.*M_PI/(MyFloat)boxlen[level];
 
-        for(int ix=0; ix<n;ix++){
-            for(int iy=0;iy<n;iy++){
-                for(int iz=0;iz<n;iz++){
+        for(int ix=0; ix<n[level];ix++){
+            for(int iy=0;iy<n[level];iy++){
+                for(int iz=0;iz<n[level];iz++){
 
 
-                    idx = (ix*n+iy)*(n)+iz;
+                    idx = (ix*n[level]+iy)*(n[level])+iz;
 
-                    if( ix>n/2 ) iix = ix - n; else iix = ix;
-                    if( iy>n/2 ) iiy = iy - n; else iiy = iy;
-                    if( iz>n/2 ) iiz = iz - n; else iiz = iz;
+                    if( ix>n[level]/2 ) iix = ix - n[level]; else iix = ix;
+                    if( iy>n[level]/2 ) iiy = iy - n[level]; else iiy = iy;
+                    if( iz>n[level]/2 ) iiz = iz - n[level]; else iiz = iz;
 
                     kfft = sqrt(iix*iix+iiy*iiy+iiz*iiz);
 
-                    psift1k[idx].real(-pField_k[idx].imag()/(MyFloat)(kfft*kfft)*iix/kw);
-                    psift1k[idx].imag(pField_k[idx].real()/(MyFloat)(kfft*kfft)*iix/kw);
-                    psift2k[idx].real(-pField_k[idx].imag()/(MyFloat)(kfft*kfft)*iiy/kw);
-                    psift2k[idx].imag(pField_k[idx].real()/(MyFloat)(kfft*kfft)*iiy/kw);
-                    psift3k[idx].real(-pField_k[idx].imag()/(MyFloat)(kfft*kfft)*iiz/kw);
-                    psift3k[idx].imag(pField_k[idx].real()/(MyFloat)(kfft*kfft)*iiz/kw);
+                    psift1k[idx].real(-pField_k[level][idx].imag()/(MyFloat)(kfft*kfft)*iix/kw);
+                    psift1k[idx].imag(pField_k[level][idx].real()/(MyFloat)(kfft*kfft)*iix/kw);
+                    psift2k[idx].real(-pField_k[level][idx].imag()/(MyFloat)(kfft*kfft)*iiy/kw);
+                    psift2k[idx].imag(pField_k[level][idx].real()/(MyFloat)(kfft*kfft)*iiy/kw);
+                    psift3k[idx].real(-pField_k[level][idx].imag()/(MyFloat)(kfft*kfft)*iiz/kw);
+                    psift3k[idx].imag(pField_k[level][idx].real()/(MyFloat)(kfft*kfft)*iiz/kw);
                 }
             }
         }
@@ -350,15 +525,15 @@ public:
         complex<MyFloat>* psift2=(complex<MyFloat>*)calloc(nPartTotal,sizeof(complex<MyFloat>));
         complex<MyFloat>* psift3=(complex<MyFloat>*)calloc(nPartTotal,sizeof(complex<MyFloat>));
 
-        psift1=fft_r(psift1,psift1k,n,-1); //the output .imag() part is non-zero because of the Nyquist frequency, but this is not used anywhere else
-        psift2=fft_r(psift2,psift2k,n,-1); //same
-        psift3=fft_r(psift3,psift3k,n,-1); //same
+        psift1=fft_r(psift1,psift1k,n[level],-1); //the output .imag() part is non-zero because of the Nyquist frequency, but this is not used anywhere else
+        psift2=fft_r(psift2,psift2k,n[level],-1); //same
+        psift3=fft_r(psift3,psift3k,n[level],-1); //same
 
         free(psift1k);
         free(psift2k);
         free(psift3k);
 
-        MyFloat gr=boxlen/(MyFloat)n;
+        MyFloat gr=boxlen[level]/(MyFloat)n[level];
         cout<< "Grid cell size: "<< gr <<" Mpc/h"<<endl;
 
         MyFloat *Vel1=(MyFloat*)calloc(nPartTotal,sizeof(MyFloat));
@@ -377,37 +552,37 @@ public:
         MyFloat Mean1=0., Mean2=0., Mean3=0.;
         cout<< "Applying ZA & PBC... "<<endl;
         //apply ZA:
-        for(int ix=0;ix<n;ix++) {
-            for(int iy=0;iy<n;iy++) {
-                for(int iz=0;iz<n;iz++) {
+        for(int ix=0;ix<n[level];ix++) {
+            for(int iy=0;iy<n[level];iy++) {
+                for(int iz=0;iz<n[level];iz++) {
 
-                    idx = (ix*n+iy)*(n)+iz;
+                    idx = (ix*n[level]+iy)*(n[level])+iz;
 
                     Vel1[idx] = psift1[idx].real()*hfac; //physical units
                     Vel2[idx] = psift2[idx].real()*hfac;
                     Vel3[idx] = psift3[idx].real()*hfac;
 
                     //position in "grid coordinates": Pos e [0,N-1]
-                    Pos1[idx] = psift1[idx].real()*n/boxlen+ix;
-                    Pos2[idx] = psift2[idx].real()*n/boxlen+iy;
-                    Pos3[idx] = psift3[idx].real()*n/boxlen+iz;
+                    Pos1[idx] = psift1[idx].real()*n[level]/boxlen[level]+ix;
+                    Pos2[idx] = psift2[idx].real()*n[level]/boxlen[level]+iy;
+                    Pos3[idx] = psift3[idx].real()*n[level]/boxlen[level]+iz;
 
-                    mean1+=abs(psift1[idx].real()*n/boxlen);
-                    mean2+=abs(psift2[idx].real()*n/boxlen);
-                    mean3+=abs(psift3[idx].real()*n/boxlen);
+                    mean1+=abs(psift1[idx].real()*n[level]/boxlen[level]);
+                    mean2+=abs(psift2[idx].real()*n[level]/boxlen[level]);
+                    mean3+=abs(psift3[idx].real()*n[level]/boxlen[level]);
 
                     //enforce periodic boundary conditions
-                    if(Pos1[idx]<0.) Pos1[idx]+=(MyFloat)n;
-                    else if(Pos1[idx]>(MyFloat)n) Pos1[idx]-=(MyFloat)n;
-                    if(Pos2[idx]<0.) Pos2[idx]+=(MyFloat)n;
-                    else if(Pos2[idx]>(MyFloat)n) Pos2[idx]-=(MyFloat)n;
-                    if(Pos3[idx]<0.) Pos3[idx]+=(MyFloat)n;
-                    else if(Pos3[idx]>(MyFloat)n) Pos3[idx]-=(MyFloat)n;
+                    if(Pos1[idx]<0.) Pos1[idx]+=(MyFloat)n[level];
+                    else if(Pos1[idx]>(MyFloat)n[level]) Pos1[idx]-=(MyFloat)n[level];
+                    if(Pos2[idx]<0.) Pos2[idx]+=(MyFloat)n[level];
+                    else if(Pos2[idx]>(MyFloat)n[level]) Pos2[idx]-=(MyFloat)n[level];
+                    if(Pos3[idx]<0.) Pos3[idx]+=(MyFloat)n[level];
+                    else if(Pos3[idx]>(MyFloat)n[level]) Pos3[idx]-=(MyFloat)n[level];
 
                     //ncale to physical coordinates
-                    Pos1[idx] *= (boxlen/(MyFloat)n);
-                    Pos2[idx] *= (boxlen/(MyFloat)n);
-                    Pos3[idx] *= (boxlen/(MyFloat)n);
+                    Pos1[idx] *= (boxlen[level]/(MyFloat)n[level]);
+                    Pos2[idx] *= (boxlen[level]/(MyFloat)n[level]);
+                    Pos3[idx] *= (boxlen[level]/(MyFloat)n[level]);
 
                     Mean1+=Pos1[idx];
                     Mean2+=Pos2[idx];
@@ -418,7 +593,7 @@ public:
         }
 
 
-        cout<< "Box/2="<< boxlen/2.<< " Mpc/h, Mean position x,y,z: "<< Mean1/(MyFloat(n*n*n))<<" "<< Mean2/(MyFloat(n*n*n))<<" "<<Mean3/(MyFloat(n*n*n))<< " Mpc/h"<<  endl;
+        cout<< "Box/2="<< boxlen[level]/2.<< " Mpc/h, Mean position x,y,z: "<< Mean1/(MyFloat(n[level]*n[level]*n[level]))<<" "<< Mean2/(MyFloat(n[level]*n[level]*n[level]))<<" "<<Mean3/(MyFloat(n[level]*n[level]*n[level]))<< " Mpc/h"<<  endl;
 
         free(psift1);
         free(psift2);
@@ -429,28 +604,28 @@ public:
 
     }
 
-    void write() {
+    void writeLevel(int level=0) {
 
         MyFloat *Pos1, *Pos2, *Pos3, *Vel1, *Vel2, *Vel3;
 
-        tie(Pos1,Pos2,Pos3,Vel1,Vel2,Vel3) = zeldovich();
+        tie(Pos1,Pos2,Pos3,Vel1,Vel2,Vel3) = zeldovich(level);
 
-        MyFloat pmass=27.78*Om0*powf(boxlen/(MyFloat)(n),3.0); // in 10^10 M_sol
+        MyFloat pmass=27.78*Om0*powf(boxlen[level]/(MyFloat)(n[level]),3.0); // in 10^10 M_sol
         cout<< "Particle mass: " <<pmass <<" [10^10 M_sun]"<<endl;
 
         if (gadgetformat==2){
-            SaveGadget2( (base+ "_gadget2.dat").c_str(), n,
-            CreateGadget2Header<MyFloat>(nPartTotal, pmass, a, zin, boxlen, Om0, Ol0, hubble),
+            SaveGadget2( (base+ "_gadget2.dat").c_str(), n[level],
+            CreateGadget2Header<MyFloat>(nPartTotal, pmass, a, zin, boxlen[level], Om0, Ol0, hubble),
             Pos1, Vel1, Pos2, Vel2, Pos3, Vel3);
         }
         else if (gadgetformat==3){
-            SaveGadget3( (base+ "_gadget3.dat").c_str(), n,
-            CreateGadget3Header<MyFloat>(nPartTotal, pmass, a, zin, boxlen, Om0, Ol0, hubble),
+            SaveGadget3( (base+ "_gadget3.dat").c_str(), n[level],
+            CreateGadget3Header<MyFloat>(nPartTotal, pmass, a, zin, boxlen[level], Om0, Ol0, hubble),
             Pos1, Vel1, Pos2, Vel2, Pos3, Vel3);
         }
         else if (gadgetformat==4) {
-            SaveTipsy( (base+".tipsy").c_str(), n, Pos1, Vel1, Pos2, Vel2, Pos3, Vel3,
-            boxlen,  Om0,  Ol0,  hubble,  a, pmass);
+            SaveTipsy( (base+".tipsy").c_str(), n[level], Pos1, Vel1, Pos2, Vel2, Pos3, Vel3,
+            boxlen[level],  Om0,  Ol0,  hubble,  a, pmass);
         }
 
         free(Pos1);
@@ -461,22 +636,34 @@ public:
         free(Vel3);
     }
 
+    void write() {
+        for_each_level(level) {
+            cerr << "Write level "<<level << endl;
+            base = make_base(indir, level);
+            writeLevel(level);
+        }
+    }
 
     virtual void prepare() {
-        nPartTotal = ((long)n*n)*n;
+        UnderlyingField<MyFloat> *pField[2];
 
-        base = make_base(indir,n,boxlen,zin);
+        nPartTotal = ((long)n[0]*n[0])*n[0];
+
+        base = make_base(indir);
 
         readCamb();
         drawRandom();
         applyPowerSpec();
 
-        pGrid = new Grid<MyFloat>(n);
+        for_each_level(level) {
+            pGrid[level] = new Grid<MyFloat>(n[level]);
+            pField[level] = new UnderlyingField<MyFloat>(this->P[level], this->pField_k[level], this->nPartTotal);
+            if(level>0)
+                interpolateLevel(level); // copy in the underlying field
+        }
 
-        UnderlyingField<MyFloat> *pField =
-            new UnderlyingField<MyFloat>(this->P, this->pField_k, this->nPartTotal);
-
-        pConstrainer = new MultiConstrainedField<MyFloat>(pField, this->nPartTotal);
+        // TODO: actually combine the different levels before passing them to the constrainer
+        pConstrainer = new MultiConstrainedField<MyFloat>(pField[0], this->nPartTotal);
     }
 
     ///////////////////////
@@ -490,11 +677,11 @@ protected:
 
     MyFloat get_wrapped_delta(MyFloat x0, MyFloat x1) {
         MyFloat result = x0-x1;
-        if(result>this->boxlen/2) {
-            result-=this->boxlen;
+        if(result>this->boxlen[0]/2) {
+            result-=this->boxlen[0];
         }
-        if(result<-this->boxlen/2) {
-            result+=this->boxlen;
+        if(result<-this->boxlen[0]/2) {
+            result+=this->boxlen[0];
         }
         return result;
     }
@@ -504,14 +691,14 @@ protected:
 
         x0 = 0; y0 = 0; z0 =0;
 
-        MyFloat xa=this->pGrid->cells[part_arr[0]].coords[0]*this->dx;
-        MyFloat ya=this->pGrid->cells[part_arr[0]].coords[1]*this->dx;
-        MyFloat za=this->pGrid->cells[part_arr[0]].coords[2]*this->dx;
+        MyFloat xa=this->pGrid[0]->cells[part_arr[0]].coords[0]*this->dx[0];
+        MyFloat ya=this->pGrid[0]->cells[part_arr[0]].coords[1]*this->dx[0];
+        MyFloat za=this->pGrid[0]->cells[part_arr[0]].coords[2]*this->dx[0];
 
         for(long i=0;i<n_part_arr;i++) {
-            x0+=get_wrapped_delta(this->pGrid->cells[part_arr[i]].coords[0]*this->dx,xa);
-            y0+=get_wrapped_delta(this->pGrid->cells[part_arr[i]].coords[1]*this->dx,ya);
-            z0+=get_wrapped_delta(this->pGrid->cells[part_arr[i]].coords[2]*this->dx,za);
+            x0+=get_wrapped_delta(this->pGrid[0]->cells[part_arr[i]].coords[0]*this->dx[0],xa);
+            y0+=get_wrapped_delta(this->pGrid[0]->cells[part_arr[i]].coords[1]*this->dx[0],ya);
+            z0+=get_wrapped_delta(this->pGrid[0]->cells[part_arr[i]].coords[2]*this->dx[0],za);
         }
         x0/=n_part_arr;
         y0/=n_part_arr;
@@ -577,9 +764,9 @@ protected:
     {//4th order central difference
 
       MyFloat x0, y0, z0;//, zm2, zm1, zp2, zp1;
-      x0=get_wrapped_delta(dx*pGrid->cells[index].coords[0],x0);
-      y0=get_wrapped_delta(dx*pGrid->cells[index].coords[1],y0);
-      z0=get_wrapped_delta(dx*pGrid->cells[index].coords[2],z0);
+      x0=get_wrapped_delta(dx[0]*pGrid[0]->cells[index].coords[0],x0);
+      y0=get_wrapped_delta(dx[0]*pGrid[0]->cells[index].coords[1],y0);
+      z0=get_wrapped_delta(dx[0]*pGrid[0]->cells[index].coords[2],z0);
 
       complex<MyFloat> ang=0.;
 
@@ -608,14 +795,14 @@ protected:
           step1[di]=1;
           neg_step1[di]=-1;
 
-          ind_m1=pGrid->find_next_ind(index, neg_step1);
-          ind_p1=pGrid->find_next_ind(index, step1);
+          ind_m1=pGrid[0]->find_next_ind(index, neg_step1);
+          ind_p1=pGrid[0]->find_next_ind(index, step1);
 
 
-          ind_m2=pGrid->find_next_ind(ind_m1, neg_step1);
-          ind_p2=pGrid->find_next_ind(ind_p1, step1);
+          ind_m2=pGrid[0]->find_next_ind(ind_m1, neg_step1);
+          ind_p2=pGrid[0]->find_next_ind(ind_p1, step1);
 
-          MyFloat a=-1./12./dx, b=2./3./dx;  //the signs here so that L ~ - Nabla Phi
+          MyFloat a=-1./12./dx[0], b=2./3./dx[0];  //the signs here so that L ~ - Nabla Phi
 
           alpha[ind_m2]+=(c[di]*a);
           alpha[ind_m1]+=(c[di]*b);
@@ -637,7 +824,7 @@ protected:
                 rval[part_arr[i]]=w;
             }
 
-            fft_r(rval_k, rval, this->n, 1);
+            fft_r(rval_k, rval, this->n[0], 1);
         }
         else if(strcasecmp(name,"phi")==0) {
             MyFloat w = 1.0/n_part_arr;
@@ -645,8 +832,8 @@ protected:
                 rval[part_arr[i]]=w;
             }
             complex<MyFloat> *rval_kX=(complex<MyFloat>*)calloc(this->nPartTotal,sizeof(complex<MyFloat>));
-            fft_r(rval_kX, rval, this->n, 1);
-            poiss(rval_k, rval_kX, this->n, this->boxlen, this->a, this->Om0);
+            fft_r(rval_kX, rval, this->n[0], 1);
+            poiss(rval_k, rval_kX, this->n[0], this->boxlen[0], this->a, this->Om0);
             free(rval_kX);
         }
         else if(name[0]=='L' || name[0]=='l') {
@@ -659,19 +846,19 @@ protected:
                 cen_deriv4_alpha(part_arr[i], direction, rval);
             }
             complex<MyFloat> *rval_kX=(complex<MyFloat>*)calloc(this->nPartTotal,sizeof(complex<MyFloat>));
-            fft_r(rval_kX, rval, this->n, 1);
+            fft_r(rval_kX, rval, this->n[0], 1);
             // The constraint as derived is on the potential. By considering
             // unitarity of FT, we can FT the constraint to get the constraint
             // on the density.
-            poiss(rval_k, rval_kX, this->n, this->boxlen, this->a, this->Om0);
+            poiss(rval_k, rval_kX, this->n[0], this->boxlen[0], this->a, this->Om0);
             free(rval_kX);
         } else {
             cout << "  -> UNKNOWN constraint vector type, returning zeros [this is bad]" << endl;
 
         }
 
-        if(pField_x!=NULL) {
-            cout << " dot in real space = " << std::real(dot(pField_x, rval, this->nPartTotal)) << endl;
+        if(pField_x[0]!=NULL) {
+            cout << " dot in real space = " << std::real(dot(pField_x[0], rval, this->nPartTotal)) << endl;
         }
 
         free(rval);
@@ -679,10 +866,10 @@ protected:
 
     }
 
-    void ensureRealDelta() {
-        if(pField_x==NULL) {
-            pField_x = (complex<MyFloat>*)calloc(this->nPartTotal,sizeof(complex<MyFloat>));
-            fft_r(pField_x,this->pField_k,this->n,-1);
+    void ensureRealDelta(int level=0) {
+        if(pField_x[level]==NULL) {
+            pField_x[level] = (complex<MyFloat>*)calloc(this->nPartTotal,sizeof(complex<MyFloat>));
+            fft_r(pField_x[level],this->pField_k[level],this->n[level],-1);
         }
     }
 
@@ -700,9 +887,9 @@ public:
     }
 
     void centreParticle(long id) {
-        x0 = this->pGrid->cells[id].coords[0]*this->dx;
-        y0 = this->pGrid->cells[id].coords[1]*this->dx;
-        z0 = this->pGrid->cells[id].coords[2]*this->dx;
+        x0 = this->pGrid[0]->cells[id].coords[0]*this->dx[0];
+        y0 = this->pGrid[0]->cells[id].coords[1]*this->dx[0];
+        z0 = this->pGrid[0]->cells[id].coords[2]*this->dx[0];
     }
 
     void selectSphere(float radius) {
@@ -710,9 +897,9 @@ public:
         float delta_x, delta_y, delta_z, r2_i;
         int n=0;
         for(long i=0;i<this->nPartTotal;i++) {
-            delta_x = get_wrapped_delta(this->pGrid->cells[i].coords[0]*this->dx,x0);
-            delta_y = get_wrapped_delta(this->pGrid->cells[i].coords[1]*this->dx,y0);
-            delta_z = get_wrapped_delta(this->pGrid->cells[i].coords[2]*this->dx,z0);
+            delta_x = get_wrapped_delta(this->pGrid[0]->cells[i].coords[0]*this->dx[0],x0);
+            delta_y = get_wrapped_delta(this->pGrid[0]->cells[i].coords[1]*this->dx[0],y0);
+            delta_z = get_wrapped_delta(this->pGrid[0]->cells[i].coords[2]*this->dx[0],z0);
             r2_i = delta_x*delta_x+delta_y*delta_y+delta_z*delta_z;
             if(r2_i<r2)
                 n++;
@@ -724,9 +911,9 @@ public:
         part_arr = (int*)calloc(n,sizeof(int));
         n=0;
         for(long i=0;i<this->nPartTotal;i++) {
-            delta_x = get_wrapped_delta(this->pGrid->cells[i].coords[0]*this->dx,x0);
-            delta_y = get_wrapped_delta(this->pGrid->cells[i].coords[1]*this->dx,y0);
-            delta_z = get_wrapped_delta(this->pGrid->cells[i].coords[2]*this->dx,z0);
+            delta_x = get_wrapped_delta(this->pGrid[0]->cells[i].coords[0]*this->dx[0],x0);
+            delta_y = get_wrapped_delta(this->pGrid[0]->cells[i].coords[1]*this->dx[0],y0);
+            delta_z = get_wrapped_delta(this->pGrid[0]->cells[i].coords[2]*this->dx[0],z0);
             r2_i = delta_x*delta_x+delta_y*delta_y+delta_z*delta_z;
             if(r2_i<r2) part_arr[n++]=i;
         }
@@ -741,12 +928,12 @@ public:
         ensureRealDelta();
 
         for(long i=0;i<n_part_arr;i++) {
-            if(std::real(pField_x[part_arr[i]])>den_max) {
+            if(std::real(pField_x[0][part_arr[i]])>den_max) {
                 index_max=part_arr[i];
-                den_max = std::real(pField_x[part_arr[i]]);
-                x0 = this->pGrid->cells[part_arr[i]].coords[0]*this->dx;
-                y0 = this->pGrid->cells[part_arr[i]].coords[1]*this->dx;
-                z0 = this->pGrid->cells[part_arr[i]].coords[2]*this->dx;
+                den_max = std::real(pField_x[0][part_arr[i]]);
+                x0 = this->pGrid[0]->cells[part_arr[i]].coords[0]*this->dx[0];
+                y0 = this->pGrid[0]->cells[part_arr[i]].coords[1]*this->dx[0];
+                z0 = this->pGrid[0]->cells[part_arr[i]].coords[2]*this->dx[0];
             }
         }
 
@@ -764,9 +951,9 @@ public:
         std::vector<size_t> index(n_part_arr);
 
         for(int i=0;i<n_part_arr;i++) {
-            delta_x = get_wrapped_delta(this->pGrid->cells[part_arr[i]].coords[0]*this->dx,x0);
-            delta_y = get_wrapped_delta(this->pGrid->cells[part_arr[i]].coords[1]*this->dx,y0);
-            delta_z = get_wrapped_delta(this->pGrid->cells[part_arr[i]].coords[2]*this->dx,z0);
+            delta_x = get_wrapped_delta(this->pGrid[0]->cells[part_arr[i]].coords[0]*this->dx[0],x0);
+            delta_y = get_wrapped_delta(this->pGrid[0]->cells[part_arr[i]].coords[1]*this->dx[0],y0);
+            delta_z = get_wrapped_delta(this->pGrid[0]->cells[part_arr[i]].coords[2]*this->dx[0],z0);
             r2[i] = delta_x*delta_x+delta_y*delta_y+delta_z*delta_z;
             index[i]=i;
         }
@@ -800,7 +987,7 @@ public:
 
     void calculate(string name) {
         complex<MyFloat> *vec = calcConstraintVector(name);
-        cout << name << ": calculated value = " << dot(vec, this->pField_k, this->nPartTotal) << endl;
+        cout << name << ": calculated value = " << dot(vec, this->pField_k[0], this->nPartTotal) << endl;
         free(vec);
     }
 
@@ -819,7 +1006,7 @@ public:
 
         std::complex<MyFloat> constraint = value;
         complex<MyFloat> *vec = calcConstraintVector(name);
-        std::complex<MyFloat> initv = dot(vec, this->pField_k, this->nPartTotal);
+        std::complex<MyFloat> initv = dot(vec, this->pField_k[0], this->nPartTotal);
 
         if(relative) constraint*=initv;
 
@@ -845,7 +1032,7 @@ public:
         pConstrainer->get_realization(y1);
 
         for(long i=0; i<this->nPartTotal; i++)
-            this->pField_k[i]=y1[i];
+            this->pField_k[0][i]=y1[i];
 
         free(y1);
 
@@ -862,7 +1049,7 @@ public:
         }
 
         for(long i=0; i<this->nPartTotal; i++)
-            this->pField_k[i]=-this->pField_k[i];
+            this->pField_k[0][i]=-this->pField_k[0][i];
     }
 
 

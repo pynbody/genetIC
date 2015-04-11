@@ -227,7 +227,17 @@ void Grid<MyFloat>::shift_grid(long s0, long s1, long s2){
 template<typename MyFloat>
 long Grid<MyFloat>::get_index(long x, long y, long z){
 
+
     long size=this->size;
+
+    // wrap:
+    if(x<0) x+=size;
+    if(y<0) y+=size;
+    if(z<0) z+=size;
+    if(x>=size) x-=size;
+    if(y>=size) y-=size;
+    if(z>=size) z-=size;
+
     long index=(x*size+y)*size+z;
 
     return index;

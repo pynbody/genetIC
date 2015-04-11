@@ -515,7 +515,7 @@ def demo(val=2.0,seed=1,plaw=-1.5):
     if seed is not None:
         np.random.seed(seed)
     G = ZoomConstrained(cov_this)
-    #G.add_constraint(val,constraint_vector())
+    G.add_constraint(val,constraint_vector())
     #G.add_constraint(-val,constraint_vector(500))
     x0, x1 = G.xs()
     r0, r1 = G.realization()
