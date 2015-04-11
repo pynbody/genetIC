@@ -53,6 +53,7 @@ void setup_parser(ClassDispatch<ICf,void> &dispatch) {
     dispatch.add_class_route("Boxl",&ICf::setBoxLen);
     dispatch.add_class_route("zin",&ICf::setZ0);
     dispatch.add_class_route("n",&ICf::setn);
+    dispatch.add_class_route("ns",&ICf::setns);
     dispatch.add_class_route("output",&ICf::setOutputMode);
     dispatch.add_class_route("seed",&ICf::setSeed);
     dispatch.add_class_route("seedfourier",&ICf::setSeedFourier);

@@ -4,12 +4,10 @@
 #include <gsl/gsl_randist.h> //for the gaussian (and other) distributions
 #include <gsl/gsl_errno.h>
 #include <gsl/gsl_spline.h>
+#include <cassert>
+#include <functional>
 
-#define NUMPY_DUMPY
-
-#ifdef NUMPY_DUMPY
 #include "numpy.hpp"
-#endif
 
 #define for_each_level(level) for(int level=0; level<2 && n[level]>0; level++)
 
@@ -20,7 +18,7 @@ template<typename MyFloat>
 class IC {
 protected:
 
-    MyFloat Om0, Ol0, hubble, zin, a, sigma8;
+    MyFloat Om0, Ol0, hubble, zin, a, sigma8, ns;
 
     // Everything about the main grid
     MyFloat boxlen[2], dx[2];
@@ -30,16 +28,18 @@ protected:
     complex<MyFloat> *pField_x[2]; // the field in x-space
     complex<MyFloat> *P[2]; // the power spectrum for each k-space point
 
+    complex<MyFloat> *pField_k_0_high; // high-k modes for level 0
+
     MyFloat x_off[2], y_off[2], z_off[2]; // x,y,z offsets for subgrids
 
     MyFloat zoomfac; // the zoom factor, i.e. the ratio dx/dx[1]
-
+    MyFloat k_cut;   // the cut-off k for low-scale power
 
 
     int out, gadgetformat, seed;
-    int quoppa; // eh?
+    int nCambLines; // eh?
     double *kcamb, *Tcamb;
-    long nPartTotal;
+    long nPartLevel[2];
     string incamb, indir, inname, base;
 
     bool whiteNoiseFourier;
@@ -64,7 +64,8 @@ public:
         part_arr=NULL;
         n_part_arr=0;
         whiteNoiseFourier=false;
-        hubble=0.701; // old default
+        hubble=0.701;   // old default
+        ns = 0.96;      // old default
         n[0]=0;
         n[1]=-1; // no subgrid by default
         x_off[0]=y_off[0]=z_off[0]=0;
@@ -107,6 +108,10 @@ public:
         dx[0] = boxlen[0]/n[0];
     }
 
+    void setns(MyFloat in) {
+        ns = in;
+    }
+
     void setn2(int in) {
         n[1] = in;
         if(boxlen[1]>0)
@@ -129,6 +134,7 @@ public:
         cout << "  n[1]            = " << n[1] << endl;
         cout << "  dx[1]           = " << dx[1] << endl;
         cout << "  Zoom factor     = " << zoomfac << endl;
+
 
     }
 
@@ -188,24 +194,37 @@ public:
 
     void readCamb() {
 
-        int quoppas=600; //max. lines in camb power spectrum file
-        int c=7; //for transfer function
-
-        double *inarr=(double*)calloc(quoppas*c,sizeof(double));
-        kcamb=(double*)calloc(quoppas,sizeof(double));
-        Tcamb=(double*)calloc(quoppas,sizeof(double));
+        const int maxlines=600; //max. lines in camb power spectrum file
+        const int c=7; //for transfer function
+        int j;
+        double *inarr=(double*)calloc(maxlines*c,sizeof(double));
+        kcamb=(double*)calloc(maxlines,sizeof(double));
+        Tcamb=(double*)calloc(maxlines,sizeof(double));
 
         cerr << "Reading transfer file "<< incamb << "..." << endl;
-        GetBuffer(inarr, incamb.c_str(), quoppas*c);
+        GetBuffer(inarr, incamb.c_str(), maxlines*c);
         MyFloat ap=inarr[1]; //to normalise CAMB transfer function so T(0)= 1, doesn't matter if we normalise here in terms of accuracy, but feels more natural
 
-        quoppa=0;
+        nCambLines=0;
 
-        for(int j=0;j<quoppas;j++)
+        for(j=0;j<maxlines;j++)
         {
-          if(inarr[c*j]>0){kcamb[j]=MyFloat(inarr[c*j]); Tcamb[j]=MyFloat(inarr[c*j+1])/MyFloat(ap); quoppa+=1;}
+          if(inarr[c*j]>0){kcamb[j]=MyFloat(inarr[c*j]); Tcamb[j]=MyFloat(inarr[c*j+1])/MyFloat(ap); nCambLines+=1;}
           else {continue;}
         }
+
+        // extend high-k range using power law
+
+        MyFloat gradient = log(Tcamb[nCambLines-1]/Tcamb[nCambLines-2])/log(kcamb[nCambLines-1]/kcamb[nCambLines-2]);
+        cerr << "Extending CAMB transfer using powerlaw " << gradient << " from " << Tcamb[nCambLines-1] << endl;
+
+        for(j=nCambLines;kcamb[j-1]<100;j++)
+        {
+            kcamb[j] = kcamb[j-1]+1.0;
+            Tcamb[j] = exp(log(Tcamb[nCambLines-1]) + gradient * (log(kcamb[j]/kcamb[nCambLines-1])));
+            cerr << kcamb[j-1] << " " << Tcamb[j-1] << endl;
+        }
+        nCambLines=j-1;
 
         free(inarr);
 
@@ -336,6 +355,7 @@ public:
         MyFloat xw0,yw0,zw0; // weights for lower-left parent grid contribution
         MyFloat xw1,yw1,zw1; // weights for upper-right parent grid contribution
 
+        // get offsets of bottom-left of grids
         MyFloat x_off_l = x_off[level], y_off_l = y_off[level], z_off_l = z_off[level];
         MyFloat x_off_p = x_off[level-1], y_off_p = y_off[level-1], z_off_p = z_off[level-1];
 
@@ -345,33 +365,39 @@ public:
         for(int x_l=0; x_l<n_l; x_l++) {
             for(int y_l=0; y_l<n_l; y_l++){
                 for(int z_l=0; z_l<n_l; z_l++) {
-                    x = ((MyFloat) x_l)*dx_l+x_off_l;
-                    y = ((MyFloat) y_l)*dx_l+y_off_l;
-                    z = ((MyFloat) z_l)*dx_l+z_off_l;
+                    // find centre point of current cell:
+                    x = ((MyFloat) x_l+0.5)*dx_l+x_off_l;
+                    y = ((MyFloat) y_l+0.5)*dx_l+y_off_l;
+                    z = ((MyFloat) z_l+0.5)*dx_l+z_off_l;
 
-                    // coordinates of bottom-left
-                    x_p_0 = ((int) ((x-x_off_p)/dx_p));
-                    y_p_0 = ((int) ((y-y_off_p)/dx_p));
-                    z_p_0 = ((int) ((z-z_off_p)/dx_p));
+                    // grid coordinates of parent cell starting to bottom-left
+                    // of our current point
+                    x_p_0 = (int) floor(((x-x_off_p)/dx_p - 0.5));
+                    y_p_0 = (int) floor(((y-y_off_p)/dx_p - 0.5));
+                    z_p_0 = (int) floor(((z-z_off_p)/dx_p - 0.5));
 
-                    // coordinates of top-right
+                    // grid coordinates of top-right
                     x_p_1 = x_p_0+1;
                     y_p_1 = y_p_0+1;
                     z_p_1 = z_p_0+1;
 
-                    // weights, which are the distance to the upper-right
-                    // coordinate in grid units (-> maximum 1)
-                    xw0 = ((MyFloat) x_p_1) - ((x-x_off_p)/dx_p);
-                    yw0 = ((MyFloat) y_p_1) - ((y-y_off_p)/dx_p);
-                    zw0 = ((MyFloat) z_p_1) - ((z-z_off_p)/dx_p);
+
+                    // weights, which are the distance to the centre point of the
+                    // upper-right cell, in grid units (-> maximum 1)
+
+                    xw0 = ((MyFloat) x_p_1 + 0.5) - ((x-x_off_p)/dx_p);
+                    yw0 = ((MyFloat) y_p_1 + 0.5) - ((y-y_off_p)/dx_p);
+                    zw0 = ((MyFloat) z_p_1 + 0.5) - ((z-z_off_p)/dx_p);
 
                     xw1 = 1.-xw0;
                     yw1 = 1.-yw0;
                     zw1 = 1.-zw0;
 
+                    assert(xw0<=1.0 && xw0>=0.0);
+
                     long ind_l = pGrid_l->get_index(x_l,y_l,z_l);
 
-                    pField_x_l[ind_l] = xw0*yw0*zw1*pField_x_p[pGrid_p->get_index(x_p_0,y_p_0,z_p_1)] +
+                    pField_x_l[ind_l]+= xw0*yw0*zw1*pField_x_p[pGrid_p->get_index(x_p_0,y_p_0,z_p_1)] +
                                         xw1*yw0*zw1*pField_x_p[pGrid_p->get_index(x_p_1,y_p_0,z_p_1)] +
                                         xw0*yw1*zw1*pField_x_p[pGrid_p->get_index(x_p_0,y_p_1,z_p_1)] +
                                         xw1*yw1*zw1*pField_x_p[pGrid_p->get_index(x_p_1,y_p_1,z_p_1)] +
@@ -386,12 +412,70 @@ public:
         }
     }
 
-    void applyPowerSpecForLevel(int level) {
+
+    /*
+    Much of the griding code is generic and could support 'nested' zoom
+    regions. However the following parts are specific to a 2-level system
+    */
+    MyFloat filter_low(MyFloat k) {
+        // Return filter for low-res part of field
+        MyFloat k_cut = ((MyFloat) n[0]) * 0.5 * 2.*M_PI/boxlen[0];
+        MyFloat T = k_cut/10; // arbitrary
+        return 1./(1.+exp((k-k_cut)/T));
+    }
+
+    MyFloat filter_high(MyFloat k) {
+        // Return filter for high-res part of field
+        return 1.-filter_low(k);
+    }
+
+    std::function<MyFloat(MyFloat)> C_filter_low() {
+        // Return filter for low-res part of covariance
+        return [this](MyFloat k){
+            MyFloat p = this->filter_low(k);
+            return p*p;
+        };
+    }
+
+    std::function<MyFloat(MyFloat)> C_filter_high() {
+        // Return filter for high-res part of covariance
+        return [this](MyFloat k){
+            MyFloat p = this->filter_low(k);
+            return MyFloat(1.0)-p*p;
+        };
+    }
+
+    std::function<MyFloat(MyFloat)> C_filter_default() {
+        return
+            [](MyFloat k) {
+                return MyFloat(1.0);
+            };
+    }
+
+
+    void splitLevel0() {
+        pField_k_0_high = (complex<MyFloat>*)calloc(this->nPartLevel[0],sizeof(complex<MyFloat>));
+        memcpy(pField_k_0_high,pField_k[0],sizeof(complex<MyFloat>)*this->nPartLevel[0]);
+        applyPowerSpecForLevel(0,true);
+    }
+
+    void recombineLevel0() {
+        // operate in k-space
+        free(pField_x[0]);
+        pField_x[0]=NULL;
+
+        for(long i=0; i<this->nPartLevel[0]; i++)
+            pField_k[0][i]+=pField_k_0_high[i];
+
+        free(pField_k_0_high);
+        ensureRealDelta(0);
+    }
+
+    void applyPowerSpecForLevel(int level, bool high_k=false) {
         //scale white-noise delta with initial PS
 
 
         MyFloat grwfac;
-        MyFloat ns=0.96; //TODO make this an input parameter (long term: run CAMB with input parameters to ensure consistency?)
 
         //growth factor normalised to 1 today:
         grwfac=D(a, Om0, Ol0)/D(1., Om0, Ol0);
@@ -399,7 +483,7 @@ public:
         cout<< "Growth factor " << grwfac << endl;
         MyFloat sg8;
 
-        sg8=sig(8., kcamb, Tcamb, ns, boxlen[level], n[level], quoppa);
+        sg8=sig(8., kcamb, Tcamb, ns, boxlen[level], n[level], nCambLines);
         std::cout <<"Sigma_8 "<< sg8 << std::endl;
 
         MyFloat kw = 2.*M_PI/(MyFloat)boxlen[level];
@@ -409,24 +493,39 @@ public:
         MyFloat amp=(sigma8/sg8)*(sigma8/sg8)*grwfac*grwfac; //norm. for sigma8 and linear growth factor
         MyFloat norm=kw*kw*kw/powf(2.*M_PI,3.); //since kw=2pi/L, this is just 1/V_box
 
-        P[level]=(complex<MyFloat>*)calloc(nPartTotal,sizeof(complex<MyFloat>));
+        P[level]=(complex<MyFloat>*)calloc(nPartLevel[level],sizeof(complex<MyFloat>));
+
+        std::function<MyFloat(MyFloat)> filter;
+
+        if(level==0 && n[1]>0 && !high_k)
+            filter = C_filter_low();
+        else if(level==1 || (level==0 && high_k))
+            filter = C_filter_high();
+        else
+            filter = C_filter_default();
 
 
         std::cout<<"Interpolation: kmin: "<< kw <<" Mpc/h, kmax: "<< (MyFloat)( kw*n[level]/2.*sqrt(3.)) <<" Mpc/h"<<std::endl;
 
         MyFloat norm_amp=norm*amp;
 
-        brute_interpol_new(n[level], kcamb, Tcamb,  quoppa, kw, ns, norm_amp, pField_k[level], pField_k[level], P[level]);
+        complex<MyFloat> *pField_k_this = pField_k[level];
+        if(high_k)
+            pField_k_this = pField_k_0_high;
+
+        brute_interpol_new(n[level], kcamb, Tcamb,  nCambLines, kw, ns, norm_amp, pField_k_this, pField_k_this, P[level], filter);
 
         //assert(abs(real(norm_iter)) >1e-12); //norm!=0
         //assert(abs(imag(norm_iter)) <1e-12); //because there shouldn't be an imaginary part since we assume d is purely real
         //TODO think about this (it fails more often than it should?)
 
         cout<<"Transfer applied!"<<endl;
-        cout<< "Power spectrum sample: " << P[level][0] << " " << P[level][1] <<" " << P[level][nPartTotal-1] <<endl;
+        // cout<< "Power spectrum sample: " << P[level][0] << " " << P[level][1] <<" " << P[level][nPartTotal-1] <<endl;
 
-        std::cout<<"Initial chi^2 (white noise, fourier space) = " << chi2(pField_k[level],P[level],nPartTotal) << std::endl;
-        powsp_noJing(n[level], pField_k[level], (base+".ps").c_str(), boxlen[level]);
+        // std::cout<<"Initial chi^2 (white noise, fourier space) = " << chi2(pField_k[level],P[level],nPartTotal) << std::endl;
+
+        // powsp_noJing(n[level], pField_k[level], (base+".ps").c_str(), boxlen[level]);
+
     }
 
     void applyPowerSpec() {
@@ -437,7 +536,6 @@ public:
     }
 
     void dumpGrid(int level=0) {
-#ifdef NUMPY_DUMPY
         ensureRealDelta(level);
 
 
@@ -448,19 +546,15 @@ public:
         filename << "grid-" << level << ".npy";
 
         numpy::SaveArrayAsNumpy(filename.str(),n[level],n[level],n[level], pField_x[level]);
-        // npy_save_double_complex(filename.str().c_str(), 0, 3, shape, pField_x[level]);
 
-#else
-    throw runtime_error("Numpy support not compiled into binary");
-#endif
     }
 
     std::tuple<MyFloat*, MyFloat*, MyFloat*, MyFloat*, MyFloat*, MyFloat*> zeldovich(int level=0) {
         //Zeldovich approx.
 
-        complex<MyFloat>* psift1k=(complex<MyFloat>*)calloc(nPartTotal,sizeof(complex<MyFloat>));
-        complex<MyFloat>* psift2k=(complex<MyFloat>*)calloc(nPartTotal,sizeof(complex<MyFloat>));
-        complex<MyFloat>* psift3k=(complex<MyFloat>*)calloc(nPartTotal,sizeof(complex<MyFloat>));
+        complex<MyFloat>* psift1k=(complex<MyFloat>*)calloc(nPartLevel[level],sizeof(complex<MyFloat>));
+        complex<MyFloat>* psift2k=(complex<MyFloat>*)calloc(nPartLevel[level],sizeof(complex<MyFloat>));
+        complex<MyFloat>* psift3k=(complex<MyFloat>*)calloc(nPartLevel[level],sizeof(complex<MyFloat>));
 
         int iix, iiy, iiz;
         long idx;
@@ -524,9 +618,9 @@ public:
         psift2k[0]=complex<MyFloat>(0.,0.);
         psift3k[0]=complex<MyFloat>(0.,0.);
 
-        complex<MyFloat>* psift1=(complex<MyFloat>*)calloc(nPartTotal,sizeof(complex<MyFloat>));
-        complex<MyFloat>* psift2=(complex<MyFloat>*)calloc(nPartTotal,sizeof(complex<MyFloat>));
-        complex<MyFloat>* psift3=(complex<MyFloat>*)calloc(nPartTotal,sizeof(complex<MyFloat>));
+        complex<MyFloat>* psift1=(complex<MyFloat>*)calloc(nPartLevel[level],sizeof(complex<MyFloat>));
+        complex<MyFloat>* psift2=(complex<MyFloat>*)calloc(nPartLevel[level],sizeof(complex<MyFloat>));
+        complex<MyFloat>* psift3=(complex<MyFloat>*)calloc(nPartLevel[level],sizeof(complex<MyFloat>));
 
         psift1=fft_r(psift1,psift1k,n[level],-1); //the output .imag() part is non-zero because of the Nyquist frequency, but this is not used anywhere else
         psift2=fft_r(psift2,psift2k,n[level],-1); //same
@@ -539,12 +633,12 @@ public:
         MyFloat gr=boxlen[level]/(MyFloat)n[level];
         cout<< "Grid cell size: "<< gr <<" Mpc/h"<<endl;
 
-        MyFloat *Vel1=(MyFloat*)calloc(nPartTotal,sizeof(MyFloat));
-        MyFloat *Vel2=(MyFloat*)calloc(nPartTotal,sizeof(MyFloat));
-        MyFloat *Vel3=(MyFloat*)calloc(nPartTotal,sizeof(MyFloat));
-        MyFloat *Pos1=(MyFloat*)calloc(nPartTotal,sizeof(MyFloat));
-        MyFloat *Pos2=(MyFloat*)calloc(nPartTotal,sizeof(MyFloat));
-        MyFloat *Pos3=(MyFloat*)calloc(nPartTotal,sizeof(MyFloat));
+        MyFloat *Vel1=(MyFloat*)calloc(nPartLevel[level],sizeof(MyFloat));
+        MyFloat *Vel2=(MyFloat*)calloc(nPartLevel[level],sizeof(MyFloat));
+        MyFloat *Vel3=(MyFloat*)calloc(nPartLevel[level],sizeof(MyFloat));
+        MyFloat *Pos1=(MyFloat*)calloc(nPartLevel[level],sizeof(MyFloat));
+        MyFloat *Pos2=(MyFloat*)calloc(nPartLevel[level],sizeof(MyFloat));
+        MyFloat *Pos3=(MyFloat*)calloc(nPartLevel[level],sizeof(MyFloat));
 
         MyFloat hfac=1.*100.*sqrt(Om0/a/a/a+Ol0)*sqrt(a);
         //this should be f*H(t)*a, but gadget wants vel/sqrt(a), so we use H(t)*sqrt(a)
@@ -618,12 +712,12 @@ public:
 
         if (gadgetformat==2){
             SaveGadget2( (base+ "_gadget2.dat").c_str(), n[level],
-            CreateGadget2Header<MyFloat>(nPartTotal, pmass, a, zin, boxlen[level], Om0, Ol0, hubble),
+            CreateGadget2Header<MyFloat>(nPartLevel[level], pmass, a, zin, boxlen[level], Om0, Ol0, hubble),
             Pos1, Vel1, Pos2, Vel2, Pos3, Vel3);
         }
         else if (gadgetformat==3){
             SaveGadget3( (base+ "_gadget3.dat").c_str(), n[level],
-            CreateGadget3Header<MyFloat>(nPartTotal, pmass, a, zin, boxlen[level], Om0, Ol0, hubble),
+            CreateGadget3Header<MyFloat>(nPartLevel[level], pmass, a, zin, boxlen[level], Om0, Ol0, hubble),
             Pos1, Vel1, Pos2, Vel2, Pos3, Vel3);
         }
         else if (gadgetformat==4) {
@@ -650,23 +744,31 @@ public:
     virtual void prepare() {
         UnderlyingField<MyFloat> *pField[2];
 
-        nPartTotal = ((long)n[0]*n[0])*n[0];
+        for_each_level(level) nPartLevel[level] = ((long)n[level]*n[level])*n[level];
 
         base = make_base(indir);
 
         readCamb();
         drawRandom();
+
+        if(n[1]>0)
+            splitLevel0();
+
         applyPowerSpec();
 
+
+        // the following wants to come JUST before writing...
         for_each_level(level) {
             pGrid[level] = new Grid<MyFloat>(n[level]);
-            pField[level] = new UnderlyingField<MyFloat>(this->P[level], this->pField_k[level], this->nPartTotal);
+            pField[level] = new UnderlyingField<MyFloat>(this->P[level], this->pField_k[level], this->nPartLevel[level]);
             if(level>0)
                 interpolateLevel(level); // copy in the underlying field
         }
 
+        recombineLevel0();
+
         // TODO: actually combine the different levels before passing them to the constrainer
-        pConstrainer = new MultiConstrainedField<MyFloat>(pField[0], this->nPartTotal);
+        pConstrainer = new MultiConstrainedField<MyFloat>(pField[0], this->nPartLevel[0]);
     }
 
     ///////////////////////
@@ -818,8 +920,8 @@ protected:
     complex<MyFloat> *calcConstraintVector(string name_in) {
         const char* name = name_in.c_str();
 
-        complex<MyFloat> *rval=(complex<MyFloat>*)calloc(this->nPartTotal,sizeof(complex<MyFloat>));
-        complex<MyFloat> *rval_k=(complex<MyFloat>*)calloc(this->nPartTotal,sizeof(complex<MyFloat>));
+        complex<MyFloat> *rval=(complex<MyFloat>*)calloc(this->nPartLevel[0],sizeof(complex<MyFloat>));
+        complex<MyFloat> *rval_k=(complex<MyFloat>*)calloc(this->nPartLevel[0],sizeof(complex<MyFloat>));
 
         if(strcasecmp(name,"overdensity")==0) {
             MyFloat w = 1.0/n_part_arr;
@@ -834,7 +936,7 @@ protected:
             for(long i=0;i<n_part_arr;i++) {
                 rval[part_arr[i]]=w;
             }
-            complex<MyFloat> *rval_kX=(complex<MyFloat>*)calloc(this->nPartTotal,sizeof(complex<MyFloat>));
+            complex<MyFloat> *rval_kX=(complex<MyFloat>*)calloc(this->nPartLevel[0],sizeof(complex<MyFloat>));
             fft_r(rval_kX, rval, this->n[0], 1);
             poiss(rval_k, rval_kX, this->n[0], this->boxlen[0], this->a, this->Om0);
             free(rval_kX);
@@ -848,7 +950,7 @@ protected:
             for(long i=0;i<n_part_arr;i++) {
                 cen_deriv4_alpha(part_arr[i], direction, rval);
             }
-            complex<MyFloat> *rval_kX=(complex<MyFloat>*)calloc(this->nPartTotal,sizeof(complex<MyFloat>));
+            complex<MyFloat> *rval_kX=(complex<MyFloat>*)calloc(this->nPartLevel[0],sizeof(complex<MyFloat>));
             fft_r(rval_kX, rval, this->n[0], 1);
             // The constraint as derived is on the potential. By considering
             // unitarity of FT, we can FT the constraint to get the constraint
@@ -861,7 +963,7 @@ protected:
         }
 
         if(pField_x[0]!=NULL) {
-            cout << " dot in real space = " << std::real(dot(pField_x[0], rval, this->nPartTotal)) << endl;
+            cout << " dot in real space = " << std::real(dot(pField_x[0], rval, this->nPartLevel[0])) << endl;
         }
 
         free(rval);
@@ -871,7 +973,7 @@ protected:
 
     void ensureRealDelta(int level=0) {
         if(pField_x[level]==NULL) {
-            pField_x[level] = (complex<MyFloat>*)calloc(this->nPartTotal,sizeof(complex<MyFloat>));
+            pField_x[level] = (complex<MyFloat>*)calloc(this->nPartLevel[level],sizeof(complex<MyFloat>));
             fft_r(pField_x[level],this->pField_k[level],this->n[level],-1);
         }
     }
@@ -899,7 +1001,7 @@ public:
         float r2 = radius*radius;
         float delta_x, delta_y, delta_z, r2_i;
         int n=0;
-        for(long i=0;i<this->nPartTotal;i++) {
+        for(long i=0;i<this->nPartLevel[0];i++) {
             delta_x = get_wrapped_delta(this->pGrid[0]->cells[i].coords[0]*this->dx[0],x0);
             delta_y = get_wrapped_delta(this->pGrid[0]->cells[i].coords[1]*this->dx[0],y0);
             delta_z = get_wrapped_delta(this->pGrid[0]->cells[i].coords[2]*this->dx[0],z0);
@@ -913,7 +1015,7 @@ public:
 
         part_arr = (int*)calloc(n,sizeof(int));
         n=0;
-        for(long i=0;i<this->nPartTotal;i++) {
+        for(long i=0;i<this->nPartLevel[0];i++) {
             delta_x = get_wrapped_delta(this->pGrid[0]->cells[i].coords[0]*this->dx[0],x0);
             delta_y = get_wrapped_delta(this->pGrid[0]->cells[i].coords[1]*this->dx[0],y0);
             delta_z = get_wrapped_delta(this->pGrid[0]->cells[i].coords[2]*this->dx[0],z0);
@@ -990,7 +1092,7 @@ public:
 
     void calculate(string name) {
         complex<MyFloat> *vec = calcConstraintVector(name);
-        cout << name << ": calculated value = " << dot(vec, this->pField_k[0], this->nPartTotal) << endl;
+        cout << name << ": calculated value = " << dot(vec, this->pField_k[0], this->nPartLevel[0]) << endl;
         free(vec);
     }
 
@@ -1009,7 +1111,7 @@ public:
 
         std::complex<MyFloat> constraint = value;
         complex<MyFloat> *vec = calcConstraintVector(name);
-        std::complex<MyFloat> initv = dot(vec, this->pField_k[0], this->nPartTotal);
+        std::complex<MyFloat> initv = dot(vec, this->pField_k[0], this->nPartLevel[0]);
 
         if(relative) constraint*=initv;
 
@@ -1030,11 +1132,11 @@ public:
         if(pConstrainer==NULL) {
             throw runtime_error("No constraint information is available. Is your done command too early, or repeated?");
         }
-        complex<MyFloat> *y1=(complex<MyFloat>*)calloc(this->nPartTotal,sizeof(complex<MyFloat>));
+        complex<MyFloat> *y1=(complex<MyFloat>*)calloc(this->nPartLevel[0],sizeof(complex<MyFloat>));
         pConstrainer->prepare();
         pConstrainer->get_realization(y1);
 
-        for(long i=0; i<this->nPartTotal; i++)
+        for(long i=0; i<this->nPartLevel[0]; i++)
             this->pField_k[0][i]=y1[i];
 
         free(y1);
@@ -1051,7 +1153,7 @@ public:
             throw runtime_error("Can only reverse field direction after a 'done' command finailises the constraints");
         }
 
-        for(long i=0; i<this->nPartTotal; i++)
+        for(long i=0; i<this->nPartLevel[0]; i++)
             this->pField_k[0][i]=-this->pField_k[0][i];
     }
 

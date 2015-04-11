@@ -6,11 +6,11 @@ Boxl	50
 zin	99
 n       64
 output	1
-seed	8896131
+seedfourier	8896131
 camb	camb_transfer_kmax40_z0.dat
 outdir	 ./output/
 zoom 4
-n2 64
+n2 32
 
 gadgetformat 3
 
