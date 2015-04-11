@@ -8,7 +8,7 @@
 #define NUMPY_DUMPY
 
 #ifdef NUMPY_DUMPY
-#include "npy.h"
+#include "numpy.hpp"
 #endif
 
 #define for_each_level(level) for(int level=0; level<2 && n[level]>0; level++)
@@ -439,13 +439,16 @@ public:
     void dumpGrid(int level=0) {
 #ifdef NUMPY_DUMPY
         ensureRealDelta(level);
+
+
         int shape[3] = {n[level], n[level], n[level]};
         int fortran_order = 0;
 
         ostringstream filename;
         filename << "grid-" << level << ".npy";
 
-        npy_save_double_complex(filename.str().c_str(), 0, 3, shape, pField_x[level]);
+        numpy::SaveArrayAsNumpy(filename.str(),n[level],n[level],n[level], pField_x[level]);
+        // npy_save_double_complex(filename.str().c_str(), 0, 3, shape, pField_x[level]);
 
 #else
     throw runtime_error("Numpy support not compiled into binary");
