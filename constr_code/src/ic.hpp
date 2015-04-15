@@ -6,6 +6,7 @@
 #include <gsl/gsl_spline.h>
 #include <cassert>
 #include <functional>
+#include <algorithm>
 
 #include "numpy.hpp"
 
@@ -32,7 +33,7 @@ protected:
 
     MyFloat x_off[2], y_off[2], z_off[2]; // x,y,z offsets for subgrids
 
-    MyFloat zoomfac; // the zoom factor, i.e. the ratio dx/dx[1]
+    int zoomfac; // the zoom factor, i.e. the ratio dx/dx[1]
     MyFloat k_cut;   // the cut-off k for low-scale power
 
 
@@ -40,15 +41,21 @@ protected:
     int nCambLines; // eh?
     double *kcamb, *Tcamb;
     long nPartLevel[2];
+    long nPartTotal;
+
     string incamb, indir, inname, base;
 
     bool whiteNoiseFourier;
 
-
+    bool prepared;
 
 
     int *part_arr;
     int n_part_arr;
+
+    int *zoom_part_arr;
+    int n_zoom_part_arr;
+
     MyFloat x0, y0, z0;
 
     MultiConstrainedField<MyFloat> *pConstrainer;
@@ -70,6 +77,7 @@ public:
         n[1]=-1; // no subgrid by default
         x_off[0]=y_off[0]=z_off[0]=0;
         x_off[1]=y_off[1]=z_off[1]=0;
+        prepared = false;
     }
 
     ~IC() {
@@ -105,6 +113,7 @@ public:
 
     void setn(int in) {
         n[0] = in;
+        nPartLevel[0] = ((long)n[0]*n[0])*n[0];
         dx[0] = boxlen[0]/n[0];
     }
 
@@ -114,27 +123,100 @@ public:
 
     void setn2(int in) {
         n[1] = in;
-        if(boxlen[1]>0)
-            initZoom();
+        nPartLevel[1] = ((long)n[1]*n[1])*n[1];
     }
 
-    void zoom(MyFloat in) {
+    void setZoom(int in) {
         // open a subgrid which is the specified factor smaller than
         // the parent grid
         boxlen[1] = boxlen[0]/in;
-        if(n[1]>0)
-            initZoom();
+        zoomfac = in;
+    }
+
+    void setZoomParticles(string fname) {
+        if(n[1]==0)
+            throw(std::runtime_error("Set n2 before specifying the zoom particles"));
+
+        if(boxlen[1]==0)
+            throw(std::runtime_error("Set the zoom factor before specifying the zoom particles"));
+
+        AllocAndGetBuffer_int(fname.c_str());
+        zoom_part_arr = part_arr;
+        n_zoom_part_arr = n_part_arr;
+        part_arr=NULL;
+        n_part_arr=0;
+
+        // Not strictly necessary for this function, but we rely on having the
+        // particle IDs sorted later on (when writing)
+        std::sort(zoom_part_arr, zoom_part_arr+sizeof(int)*n_part_arr);
+
+
+
+        // find boundaries
+        int x0, x1, y0, y1, z0, z1;
+        int x,y,z;
+
+        x0=y0=z0=n[0];
+        x1=y1=z1=0;
+        Grid<MyFloat> g(n[0]);
+
+        // TO DO: wrap the box sensibly
+
+        for(long i=0; i<n_zoom_part_arr; i++) {
+            std::tie(x,y,z) = g.get_coordinates(zoom_part_arr[i]);
+            if(x<x0) x0=x;
+            if(y<y0) y0=y;
+            if(z<z0) z0=z;
+            if(x>x1) x1=x;
+            if(y>y1) y1=y;
+            if(z>z1) z1=z;
+            // cerr << i << " " << zoom_part_arr[i] << " " << x << " " << y << " " << z << endl;
+        }
+
+        // Now see if the zoom the user chose is OK
+        int n_user = n[0]/zoomfac;
+        if((x1-x0)>n_user || (y1-y0)>n_user || (z1-z0)>n_user) {
+            cerr << x1 << " " << x0 << " " << n_user << endl;
+            throw(std::runtime_error("Zoom particles do not fit in specified sub-box. Decrease zoom, or choose different particles. (NB wrapping not yet implemented)"));
+        }
+        // At this point we know things fit. All we need to do is choose
+        // the correct offset to get the particles near the centre of the
+        // zoom box.
+
+        // Here is the bottom left of the box:
+        x=(x0+x1)/2-n[0]/(2*zoomfac);
+        y=(y0+y1)/2-n[0]/(2*zoomfac);
+        z=(z0+z1)/2-n[0]/(2*zoomfac);
+
+        if(x<0) x=0;
+        if(y<0) y=0;
+        if(z<0) z=0;
+        if(x>n[0]-n[0]/zoomfac) x = n[0]-n[0]/zoomfac;
+        if(y>n[0]-n[0]/zoomfac) y = n[0]-n[0]/zoomfac;
+        if(z>n[0]-n[0]/zoomfac) z = n[0]-n[0]/zoomfac;
+
+
+        x_off[1] = x_off[0] + x*dx[0];
+        y_off[1] = y_off[0] + y*dx[0];
+        z_off[1] = z_off[0] + z*dx[0];
+
+
+
+        initZoom();
+
     }
 
     void initZoom() {
         zoomfac = (boxlen[0]/n[0])/(boxlen[1]/n[1]);
         dx[1] = boxlen[1]/n[1];
+        nPartTotal = nPartLevel[0]+(zoomfac*zoomfac*zoomfac-1)*n_zoom_part_arr;
         cout << "Initialized a zoom region:" << endl;
         cout << "  Subbox length   = " << boxlen[1] << " Mpc/h" << endl;
         cout << "  n[1]            = " << n[1] << endl;
         cout << "  dx[1]           = " << dx[1] << endl;
         cout << "  Zoom factor     = " << zoomfac << endl;
-
+        cout << "  Low-left corner = " << x_off[1] << ", " << y_off[1] << ", " << z_off[1] << endl;
+        cout << "  Total particles = " << nPartTotal << endl;
 
     }
 
@@ -175,7 +257,8 @@ public:
 
     void setGadgetFormat(int in) {
         gadgetformat = in;
-        prepare();
+        if(!prepared)
+            prepare(); //compatibility with old paramfiles
     }
 
     string make_base( string basename, int level=0){
@@ -222,7 +305,7 @@ public:
         {
             kcamb[j] = kcamb[j-1]+1.0;
             Tcamb[j] = exp(log(Tcamb[nCambLines-1]) + gradient * (log(kcamb[j]/kcamb[nCambLines-1])));
-            cerr << kcamb[j-1] << " " << Tcamb[j-1] << endl;
+            // cerr << kcamb[j-1] << " " << Tcamb[j-1] << endl;
         }
         nCambLines=j-1;
 
@@ -336,13 +419,25 @@ public:
         gsl_rng_free (r);
     }
 
-    void interpolateLevel(int level) {
+    void zeroLevel(int level) {
+        cerr << "*** Warning: your script calls zeroLevel("<<level <<"). This is intended for testing purposes only!" << endl;
+        if(level==-1) {
+            if(pField_k_0_high) memset(pField_k_0_high,0,sizeof(MyFloat)*2*nPartLevel[0]);
+        } else {
+            if(pField_x[level]!=NULL) {
+                memset(pField_x[level],0,sizeof(MyFloat)*2*nPartLevel[level]);
+            }
+            if(pField_k[level]!=NULL) {
+                memset(pField_k[level],0,sizeof(MyFloat)*2*nPartLevel[level]);
+            }
+        }
+    }
+
+    template<typename T>
+    void interpolateLevel(int level, T* pField_x_l, T* pField_x_p) {
 
         if(level<=0)
             throw std::runtime_error("Trying to interpolate onto the top-level grid");
-
-        ensureRealDelta(level);
-        ensureRealDelta(level-1);
 
         int n_l = n[level];
         MyFloat dx_l = dx[level];
@@ -359,8 +454,7 @@ public:
         MyFloat x_off_l = x_off[level], y_off_l = y_off[level], z_off_l = z_off[level];
         MyFloat x_off_p = x_off[level-1], y_off_p = y_off[level-1], z_off_p = z_off[level-1];
 
-        complex<MyFloat> *pField_x_l = pField_x[level];
-        complex<MyFloat> *pField_x_p = pField_x[level-1];
+
 
         for(int x_l=0; x_l<n_l; x_l++) {
             for(int y_l=0; y_l<n_l; y_l++){
@@ -395,6 +489,12 @@ public:
 
                     assert(xw0<=1.0 && xw0>=0.0);
 
+                    /*
+                    cerr << "  " << x_l << " " << y_l << " " << z_l << endl;
+                    cerr << "->" << x_p_0 << " " << y_p_0 << " " << z_p_0 << endl;
+                    cerr << " w" << xw0 << " " << yw0 << " " << zw0;
+                    */
+
                     long ind_l = pGrid_l->get_index(x_l,y_l,z_l);
 
                     pField_x_l[ind_l]+= xw0*yw0*zw1*pField_x_p[pGrid_p->get_index(x_p_0,y_p_0,z_p_1)] +
@@ -410,6 +510,15 @@ public:
                 }
             }
         }
+
+    }
+
+    void interpolateLevel(int level) {
+        operateInRealSpace(level);
+        operateInRealSpace(level-1);
+        complex<MyFloat> *pField_x_l = pField_x[level];
+        complex<MyFloat> *pField_x_p = pField_x[level-1];
+        interpolateLevel(level,pField_x_l,pField_x_p);
     }
 
 
@@ -419,7 +528,7 @@ public:
     */
     MyFloat filter_low(MyFloat k) {
         // Return filter for low-res part of field
-        MyFloat k_cut = ((MyFloat) n[0]) * 0.5 * 2.*M_PI/boxlen[0];
+        MyFloat k_cut = ((MyFloat) n[0]) * 0.3 * 2.*M_PI/boxlen[0];
         MyFloat T = k_cut/10; // arbitrary
         return 1./(1.+exp((k-k_cut)/T));
     }
@@ -433,6 +542,16 @@ public:
         // Return filter for low-res part of covariance
         return [this](MyFloat k){
             MyFloat p = this->filter_low(k);
+            return p*p;
+        };
+    }
+
+    std::function<MyFloat(MyFloat)> C_filter_lowhigh() {
+        // Return filter for high-k contribution to low-res part of covariance
+        // NB this is sampled from the same original low-res field so the sqrt of
+        // the filter needs to sum to one, not the filter itself
+        return [this](MyFloat k){
+            MyFloat p= this->filter_high(k);
             return p*p;
         };
     }
@@ -454,26 +573,26 @@ public:
 
 
     void splitLevel0() {
+        operateInFourierSpace(0);
         pField_k_0_high = (complex<MyFloat>*)calloc(this->nPartLevel[0],sizeof(complex<MyFloat>));
         memcpy(pField_k_0_high,pField_k[0],sizeof(complex<MyFloat>)*this->nPartLevel[0]);
+        cerr << "Apply transfer function for high-k part of level 0 field" << endl;
         applyPowerSpecForLevel(0,true);
     }
 
     void recombineLevel0() {
-        // operate in k-space
-        free(pField_x[0]);
-        pField_x[0]=NULL;
 
+        operateInFourierSpace(0);
         for(long i=0; i<this->nPartLevel[0]; i++)
             pField_k[0][i]+=pField_k_0_high[i];
-
         free(pField_k_0_high);
-        ensureRealDelta(0);
+
     }
 
     void applyPowerSpecForLevel(int level, bool high_k=false) {
         //scale white-noise delta with initial PS
 
+        operateInFourierSpace(level);
 
         MyFloat grwfac;
 
@@ -497,13 +616,27 @@ public:
 
         std::function<MyFloat(MyFloat)> filter;
 
-        if(level==0 && n[1]>0 && !high_k)
-            filter = C_filter_low();
-        else if(level==1 || (level==0 && high_k))
-            filter = C_filter_high();
-        else
-            filter = C_filter_default();
+        if(level==0 && n[1]>0)
+        {
+            if(high_k) {
+                cerr << "Select C_filter_lowhigh" << endl;
+                filter = C_filter_lowhigh();
+            } else {
+                cerr << "Select C_filter_low" << endl;
+                filter = C_filter_low();
+            }
+        }
 
+        else if(level==1)
+        {
+            cerr << "Select C_filter_high" << endl;
+            filter = C_filter_high();
+        }
+        else
+        {
+            filter = C_filter_default();
+            cerr << "No filter" << endl;
+        }
 
         std::cout<<"Interpolation: kmin: "<< kw <<" Mpc/h, kmax: "<< (MyFloat)( kw*n[level]/2.*sqrt(3.)) <<" Mpc/h"<<std::endl;
 
@@ -524,7 +657,7 @@ public:
 
         // std::cout<<"Initial chi^2 (white noise, fourier space) = " << chi2(pField_k[level],P[level],nPartTotal) << std::endl;
 
-        // powsp_noJing(n[level], pField_k[level], (base+".ps").c_str(), boxlen[level]);
+
 
     }
 
@@ -538,19 +671,41 @@ public:
     void dumpGrid(int level=0) {
         ensureRealDelta(level);
 
-
         int shape[3] = {n[level], n[level], n[level]};
         int fortran_order = 0;
 
         ostringstream filename;
-        filename << "grid-" << level << ".npy";
+        filename << indir << "/grid-" << level << ".npy";
 
-        numpy::SaveArrayAsNumpy(filename.str(),n[level],n[level],n[level], pField_x[level]);
+        const int dim[3] = { n[level],n[level],n[level] };
+        numpy::SaveArrayAsNumpy(filename.str(), true, 3, dim, pField_x[level] );
 
+
+        filename.str("");
+        filename << indir << "/grid-info-" << level << ".txt";
+
+        ofstream ifile;
+        ifile.open(filename.str());
+        cerr << "Writing to " << filename.str() << endl;
+
+        ifile << x_off[level] << " " << y_off[level] << " " << z_off[level] << " " << boxlen[level] << endl;
+        ifile << "The line above contains information about grid level " << level << endl;
+        ifile << "It gives the x-offset, y-offset and z-offset of the low-left corner and also the box length" << endl;
+        ifile.close();
     }
 
-    std::tuple<MyFloat*, MyFloat*, MyFloat*, MyFloat*, MyFloat*, MyFloat*> zeldovich(int level=0) {
+    void dumpPS(int level=0) {
+        operateInFourierSpace(level);
+        powsp_noJing(n[level], pField_k[level], (base+"_"+((char)(level+'0'))+".ps").c_str(), boxlen[level]);
+    }
+
+    std::tuple<MyFloat*, MyFloat*, MyFloat*, MyFloat*, MyFloat*, MyFloat*> zeldovich(int level=0, long nPartAllocate=-1) {
         //Zeldovich approx.
+
+        if(nPartAllocate==-1)
+            nPartAllocate = nPartLevel[level];
+
+        operateInFourierSpace(level);
 
         complex<MyFloat>* psift1k=(complex<MyFloat>*)calloc(nPartLevel[level],sizeof(complex<MyFloat>));
         complex<MyFloat>* psift2k=(complex<MyFloat>*)calloc(nPartLevel[level],sizeof(complex<MyFloat>));
@@ -585,35 +740,6 @@ public:
         }
 
 
-        /* //Optional stuff:
-
-        complex<MyFloat> *delta_real=(complex<MyFloat>*)calloc(nPartTotal,sizeof(complex<MyFloat>));
-        delta_real=fft_r(delta_real,pField_k,n,-1);
-
-        MyFloat *potr=(MyFloat*)calloc(n*n*n,sizeof(MyFloat));
-        for(i=0;i<n*n*n;i++) {
-            potr[i]=(MyFloat)(pot[i].real());
-            pot[i].imag(0.);
-        }
-
-        //optional: save potential
-        //string phases_out=(base+ "_phases.hdf5").c_str();
-        //save_phases(potk, potr, delta_real, n, phases_out.c_str());
-
-        MyFloat exp=0.;
-        for(i=0;i<n*n*n;i++) exp+=(MyFloat)(pot[i].real()*pot[i].real());
-
-        exp/=(MyFloat)(n*n*n);
-
-        free(pot);
-        free(potk);
-        free(potr);
-
-        free(delta_real);
-
-        free(pField_k);
-        */
-
         psift1k[0]=complex<MyFloat>(0.,0.);
         psift2k[0]=complex<MyFloat>(0.,0.);
         psift3k[0]=complex<MyFloat>(0.,0.);
@@ -633,12 +759,12 @@ public:
         MyFloat gr=boxlen[level]/(MyFloat)n[level];
         cout<< "Grid cell size: "<< gr <<" Mpc/h"<<endl;
 
-        MyFloat *Vel1=(MyFloat*)calloc(nPartLevel[level],sizeof(MyFloat));
-        MyFloat *Vel2=(MyFloat*)calloc(nPartLevel[level],sizeof(MyFloat));
-        MyFloat *Vel3=(MyFloat*)calloc(nPartLevel[level],sizeof(MyFloat));
-        MyFloat *Pos1=(MyFloat*)calloc(nPartLevel[level],sizeof(MyFloat));
-        MyFloat *Pos2=(MyFloat*)calloc(nPartLevel[level],sizeof(MyFloat));
-        MyFloat *Pos3=(MyFloat*)calloc(nPartLevel[level],sizeof(MyFloat));
+        MyFloat *Vel1=(MyFloat*)calloc(nPartAllocate,sizeof(MyFloat));
+        MyFloat *Vel2=(MyFloat*)calloc(nPartAllocate,sizeof(MyFloat));
+        MyFloat *Vel3=(MyFloat*)calloc(nPartAllocate,sizeof(MyFloat));
+        MyFloat *Pos1=(MyFloat*)calloc(nPartAllocate,sizeof(MyFloat));
+        MyFloat *Pos2=(MyFloat*)calloc(nPartAllocate,sizeof(MyFloat));
+        MyFloat *Pos3=(MyFloat*)calloc(nPartAllocate,sizeof(MyFloat));
 
         MyFloat hfac=1.*100.*sqrt(Om0/a/a/a+Ol0)*sqrt(a);
         //this should be f*H(t)*a, but gadget wants vel/sqrt(a), so we use H(t)*sqrt(a)
@@ -659,38 +785,34 @@ public:
                     Vel2[idx] = psift2[idx].real()*hfac;
                     Vel3[idx] = psift3[idx].real()*hfac;
 
-                    //position in "grid coordinates": Pos e [0,N-1]
-                    Pos1[idx] = psift1[idx].real()*n[level]/boxlen[level]+ix;
-                    Pos2[idx] = psift2[idx].real()*n[level]/boxlen[level]+iy;
-                    Pos3[idx] = psift3[idx].real()*n[level]/boxlen[level]+iz;
+                    // position OFFSET in physical coordinates
+                    // NB must work in offsets to support interpolation below
+                    Pos1[idx] = psift1[idx].real();
+                    Pos2[idx] = psift2[idx].real();
+                    Pos3[idx] = psift3[idx].real();
 
-                    mean1+=abs(psift1[idx].real()*n[level]/boxlen[level]);
-                    mean2+=abs(psift2[idx].real()*n[level]/boxlen[level]);
-                    mean3+=abs(psift3[idx].real()*n[level]/boxlen[level]);
 
-                    //enforce periodic boundary conditions
-                    if(Pos1[idx]<0.) Pos1[idx]+=(MyFloat)n[level];
-                    else if(Pos1[idx]>(MyFloat)n[level]) Pos1[idx]-=(MyFloat)n[level];
-                    if(Pos2[idx]<0.) Pos2[idx]+=(MyFloat)n[level];
-                    else if(Pos2[idx]>(MyFloat)n[level]) Pos2[idx]-=(MyFloat)n[level];
-                    if(Pos3[idx]<0.) Pos3[idx]+=(MyFloat)n[level];
-                    else if(Pos3[idx]>(MyFloat)n[level]) Pos3[idx]-=(MyFloat)n[level];
+                    /*
+                    // grid now added elsewhere...
 
-                    //ncale to physical coordinates
-                    Pos1[idx] *= (boxlen[level]/(MyFloat)n[level]);
-                    Pos2[idx] *= (boxlen[level]/(MyFloat)n[level]);
-                    Pos3[idx] *= (boxlen[level]/(MyFloat)n[level]);
+                    Pos1[idx] = fmod(Pos1[idx],boxlen[0]);
+                    if(Pos1[idx]<0) Pos1[idx]+=boxlen[0];
+                    Pos2[idx] = fmod(Pos2[idx],boxlen[0]);
+                    if(Pos2[idx]<0) Pos2[idx]+=boxlen[0];
+                    Pos3[idx] = fmod(Pos3[idx],boxlen[0]);
+                    if(Pos3[idx]<0) Pos3[idx]+=boxlen[0];
+
 
                     Mean1+=Pos1[idx];
                     Mean2+=Pos2[idx];
                     Mean3+=Pos3[idx];
+                    */
+
 
                 }
             }
         }
 
-
-        cout<< "Box/2="<< boxlen[level]/2.<< " Mpc/h, Mean position x,y,z: "<< Mean1/(MyFloat(n[level]*n[level]*n[level]))<<" "<< Mean2/(MyFloat(n[level]*n[level]*n[level]))<<" "<<Mean3/(MyFloat(n[level]*n[level]*n[level]))<< " Mpc/h"<<  endl;
 
         free(psift1);
         free(psift2);
@@ -698,8 +820,9 @@ public:
 
         return make_tuple(Pos1,Pos2,Pos3,Vel1,Vel2,Vel3);
 
-
     }
+
+
 
     void writeLevel(int level=0) {
 
@@ -707,21 +830,23 @@ public:
 
         tie(Pos1,Pos2,Pos3,Vel1,Vel2,Vel3) = zeldovich(level);
 
+        pGrid[level]->add_grid(Pos1,Pos2,Pos3,boxlen[0]); // last arg forces wrapping at BASE level always
+
         MyFloat pmass=27.78*Om0*powf(boxlen[level]/(MyFloat)(n[level]),3.0); // in 10^10 M_sol
         cout<< "Particle mass: " <<pmass <<" [10^10 M_sun]"<<endl;
 
         if (gadgetformat==2){
-            SaveGadget2( (base+ "_gadget2.dat").c_str(), n[level],
+            SaveGadget2( (base+ "_gadget2.dat").c_str(), nPartLevel[level],
             CreateGadget2Header<MyFloat>(nPartLevel[level], pmass, a, zin, boxlen[level], Om0, Ol0, hubble),
             Pos1, Vel1, Pos2, Vel2, Pos3, Vel3);
         }
         else if (gadgetformat==3){
-            SaveGadget3( (base+ "_gadget3.dat").c_str(), n[level],
+            SaveGadget3( (base+ "_gadget3.dat").c_str(), nPartLevel[level],
             CreateGadget3Header<MyFloat>(nPartLevel[level], pmass, a, zin, boxlen[level], Om0, Ol0, hubble),
             Pos1, Vel1, Pos2, Vel2, Pos3, Vel3);
         }
         else if (gadgetformat==4) {
-            SaveTipsy( (base+".tipsy").c_str(), n[level], Pos1, Vel1, Pos2, Vel2, Pos3, Vel3,
+            SaveTipsy( (base+".tipsy").c_str(), nPartLevel[level], Pos1, Vel1, Pos2, Vel2, Pos3, Vel3,
             boxlen[level],  Om0,  Ol0,  hubble,  a, pmass);
         }
 
@@ -733,15 +858,171 @@ public:
         free(Vel3);
     }
 
+    void deleteParticles(std::vector<MyFloat*> A) {
+
+        // delete the particles in the 'zoom' region.
+        // This involves just moving everything backwards
+        // in steps.
+
+        long i_zoom=0;
+        long write_ptcl=0;
+        long next_zoom=zoom_part_arr[0];
+        long next_zoom_i=0;
+
+        for(long read_ptcl=0; read_ptcl<nPartLevel[0]; read_ptcl++) {
+            if(read_ptcl!=next_zoom) {
+                if(read_ptcl!=write_ptcl) {
+                    for(auto ar=A.begin(); ar!=A.end(); ++ar) {
+                        (*ar)[write_ptcl]=(*ar)[read_ptcl];
+                    }
+                }
+                write_ptcl++;
+            } else {
+                // we've just hit a 'zoom' particle. Skip over it.
+                // Keep track of the next zoom particle
+                if(next_zoom_i+1<n_zoom_part_arr) {
+                    next_zoom_i++;
+                    next_zoom = zoom_part_arr[next_zoom_i];
+                } else {
+                    // no more zoom particles
+                    next_zoom =-1;
+                }
+            }
+        }
+    }
+
+    std::vector<long> mapid(long id0, int level0=0, int level1=1) {
+        std::tie(x0,y0,z0) = pGrid[level0]->get_centroid_location(id0);
+        return pGrid[level1]->get_ids_in_cube(x0,y0,z0,dx[level0]);
+    }
+
+    void insertParticles(std::vector<MyFloat*> A, std::vector<MyFloat*> B) {
+        // insert the particles from the zoom region
+
+        // the last 'low-res' particle is just before this address:
+        long i_write = nPartLevel[0]-n_zoom_part_arr;
+
+        int zoomfac3=zoomfac*zoomfac*zoomfac; // used for testing only
+
+        for(long i=0; i<n_zoom_part_arr; i++) {
+            // get the list of zoomed particles corresponding to this one
+            std::vector<long> hr_particles = mapid(zoom_part_arr[i]);
+            assert(hr_particles.size()==zoomfac3);
+            for(auto i=hr_particles.begin(); i!=hr_particles.end(); i++) {
+                for(auto ar_to=A.begin(), ar_from=B.begin();
+                    ar_to!=A.end() && ar_from!=B.end();)
+                {
+                    (*ar_to)[i_write] = (*ar_from)[(*i)];
+                    ++ar_from;
+                    ++ar_to;
+                }
+                ++i_write;
+            }
+        }
+        assert(i_write==nPartTotal);
+    }
+
     void write() {
+        /*
         for_each_level(level) {
             cerr << "Write level "<<level << endl;
             base = make_base(indir, level);
             writeLevel(level);
         }
+        */
+        if(n[1]==0) {
+            cerr << "***** WRITE - no zoom *****" << endl;
+            writeLevel(0);
+        } else {
+            cerr << "***** WRITE - zoom, total particles = "<< nPartTotal << " *****" << endl;
+
+            MyFloat *Pos1, *Pos2, *Pos3, *Vel1, *Vel2, *Vel3, *Mass;
+            MyFloat *Pos1z, *Pos2z, *Pos3z, *Vel1z, *Vel2z, *Vel3z;
+
+            tie(Pos1,Pos2,Pos3,Vel1,Vel2,Vel3) = zeldovich(0);
+
+            MyFloat pmass1=27.78*Om0*powf(boxlen[0]/(MyFloat)(n[0]),3.0); // in 10^10 M_sol
+            MyFloat pmass2 = 27.78*Om0*powf(boxlen[1]/(MyFloat)(n[1]),3.0); // in 10^10 M_sol
+
+            cerr<< "Main particle mass: " <<pmass1 <<" [10^10 M_sun]"<<endl;
+            cerr<< "Zoom particle mass: " <<pmass2 <<" [10^10 M_sun]"<<endl;
+
+            tie(Pos1z,Pos2z,Pos3z,Vel1z,Vel2z,Vel3z) = zeldovich(1);
+
+            // Interpolate the low-frequency information from level 0:
+            interpolateLevel(1,Pos1z,Pos1);
+            interpolateLevel(1,Pos2z,Pos2);
+            interpolateLevel(1,Pos3z,Pos3);
+            interpolateLevel(1,Vel1z,Vel1);
+            interpolateLevel(1,Vel2z,Vel2);
+            interpolateLevel(1,Vel3z,Vel3);
+
+            // Now re-do level 0, but include the high-k modes which have
+            // earlier been filtered out
+            free(Pos1); free(Pos2); free(Pos3); free(Vel1); free(Vel2); free(Vel3);
+
+            recombineLevel0();
+
+            tie(Pos1,Pos2,Pos3,Vel1,Vel2,Vel3) = zeldovich(0, nPartTotal);
+
+
+            // add the grid offsets to each position:
+            pGrid[0]->add_grid(Pos1,Pos2,Pos3,boxlen[0]);
+            pGrid[1]->add_grid(Pos1z,Pos2z,Pos3z,boxlen[0]);
+
+            // now we go through and populate the zoom particles into the
+            // output buffer
+
+            // First, delete the low-res counterparts
+            deleteParticles({Pos1,Pos2,Pos3,Vel1,Vel2,Vel3});
+
+
+            // Then, inject the high-res particles
+            insertParticles({Pos1,Pos2,Pos3,Vel1,Vel2,Vel3},{Pos1z,Pos2z,Pos3z,Vel1z,Vel2z,Vel3z});
+
+
+            Mass = (MyFloat*)calloc(nPartTotal,sizeof(MyFloat));
+
+            for(long i=0; i<nPartTotal; i++) {
+                if(i<nPartLevel[0]-n_zoom_part_arr)
+                    Mass[i] = pmass1;
+                else
+                    Mass[i] = pmass2;
+            }
+
+            if (gadgetformat==2){
+                SaveGadget2( (base+ "zoom_gadget2.dat").c_str(), nPartTotal,
+                CreateGadget2Header<MyFloat>(nPartTotal, 0, a, zin, boxlen[0], Om0, Ol0, hubble),
+                Pos1, Vel1, Pos2, Vel2, Pos3, Vel3, Mass);
+            }
+            else if (gadgetformat==3){
+                SaveGadget3( (base+ "zoom_gadget3.dat").c_str(), nPartTotal,
+                CreateGadget3Header<MyFloat>(nPartTotal, 0, a, zin, boxlen[0], Om0, Ol0, hubble),
+                Pos1, Vel1, Pos2, Vel2, Pos3, Vel3, Mass);
+            }
+            else if (gadgetformat==4) {
+                SaveTipsy( (base+"zoom.tipsy").c_str(), nPartTotal, Pos1, Vel1, Pos2, Vel2, Pos3, Vel3,
+                boxlen[0],  Om0,  Ol0,  hubble,  a, pmass1);
+            }
+
+
+            free(Pos1);
+            free(Vel1);
+            free(Pos2);
+            free(Vel2);
+            free(Pos3);
+            free(Vel3);
+
+        }
+
     }
 
     virtual void prepare() {
+        if(prepared)
+            throw(std::runtime_error("Called prepare, but field is already prepared"));
+
+        cerr << "***** PREPARE FIELD *****" << endl;
+        prepared=true;
         UnderlyingField<MyFloat> *pField[2];
 
         for_each_level(level) nPartLevel[level] = ((long)n[level]*n[level])*n[level];
@@ -756,16 +1037,11 @@ public:
 
         applyPowerSpec();
 
-
-        // the following wants to come JUST before writing...
         for_each_level(level) {
-            pGrid[level] = new Grid<MyFloat>(n[level]);
+            pGrid[level] = new Grid<MyFloat>(n[level], dx[level], x_off[level], y_off[level], z_off[level]);
             pField[level] = new UnderlyingField<MyFloat>(this->P[level], this->pField_k[level], this->nPartLevel[level]);
-            if(level>0)
-                interpolateLevel(level); // copy in the underlying field
         }
 
-        recombineLevel0();
 
         // TODO: actually combine the different levels before passing them to the constrainer
         pConstrainer = new MultiConstrainedField<MyFloat>(pField[0], this->nPartLevel[0]);
@@ -858,8 +1134,6 @@ protected:
 
         part_arr = arr;
         n_part_arr = final_size;
-
-        getCentre();
 
     }
 
@@ -971,11 +1245,42 @@ protected:
 
     }
 
+    void freeRealDelta(int level=0) {
+        if(pField_x[level]!=NULL) {
+            free(pField_x[level]);
+            pField_x[level]=NULL;
+        }
+    }
+
+    void freeFourierDelta(int level=0) {
+        if(pField_k[level]!=NULL) {
+            free(pField_k[level]);
+            pField_k[level]=NULL;
+        }
+    }
+
     void ensureRealDelta(int level=0) {
         if(pField_x[level]==NULL) {
             pField_x[level] = (complex<MyFloat>*)calloc(this->nPartLevel[level],sizeof(complex<MyFloat>));
             fft_r(pField_x[level],this->pField_k[level],this->n[level],-1);
         }
+    }
+
+    void ensureFourierDelta(int level=0) {
+        if(pField_k[level]==NULL) {
+            pField_k[level] = (complex<MyFloat>*)calloc(this->nPartLevel[level],sizeof(complex<MyFloat>));
+            fft_r(pField_k[level],pField_x[level],n[level],1);
+        }
+    }
+
+    void operateInRealSpace(int level=0) {
+        ensureRealDelta(level);
+        freeFourierDelta(level);
+    }
+
+    void operateInFourierSpace(int level=0) {
+        ensureFourierDelta(level);
+        freeRealDelta(level);
     }
 
 
@@ -985,10 +1290,12 @@ public:
 
     void loadID(string fname) {
         AllocAndGetBuffer_int(fname.c_str());
+        getCentre();
     }
 
     void appendID(string fname) {
         AllocAndGetBuffer_int(fname.c_str(), true);
+        getCentre();
     }
 
     void centreParticle(long id) {
@@ -1145,6 +1452,19 @@ public:
 
         delete pConstrainer;
         pConstrainer=NULL;
+
+
+        /*
+        // the following wants to come JUST before writing...
+        // and perhaps should be performed after k-filtering to get the
+        // directional offsets (that's where it can currently be found)
+        for_each_level(level) {
+            if(level>0)
+                interpolateLevel(level); // copy in the underlying field
+        }
+
+        recombineLevel0();
+        */
 
     }
 

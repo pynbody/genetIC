@@ -9,26 +9,25 @@ output	1
 seedfourier	8896131
 camb	camb_transfer_kmax40_z0.dat
 outdir	 ./output/
-zoom 4
-n2 32
+
+outname zoomtest
+
+zoom 2
+n2 64
+zoom_IDfile zoomtest.txt
+
+prepare
+
 
 gadgetformat 3
 
+
+done
+
+dumpps 1
+dumpps 0
+
+writeLevel 0
+
 dumpgrid 0
 dumpgrid 1
-
-#IDfile h40.txt
-#centre_max
-#order
-#constrain overdensity relative 1.0
-#truncate 0.1
-#constrain overdensity relative 0.9
-
-
-
-#cov
-done
-#IDfile h40.txt
-#calculate overdensity
-#truncate 0.1
-#calculate overdensity

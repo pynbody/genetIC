@@ -372,7 +372,7 @@ int save_phases(complex<MyFloat> *phk, MyFloat* ph, complex<MyFloat> *delta, int
 #endif
 
 template<typename MyFloat>
-int SaveGadget2(const char *filename, long n, io_header_2 header1, MyFloat* Pos1, MyFloat* Vel1, MyFloat* Pos2, MyFloat* Vel2, MyFloat* Pos3, MyFloat* Vel3) {
+int SaveGadget2(const char *filename, long nPart, io_header_2 header1, MyFloat* Pos1, MyFloat* Vel1, MyFloat* Pos2, MyFloat* Vel2, MyFloat* Pos3, MyFloat* Vel3, MyFloat *Mass=NULL) {
   FILE* fd = fopen(filename, "w");
   if(!fd) throw std::runtime_error("Unable to open file for writing");
   MyFloat* Pos=(MyFloat*)calloc(3,sizeof(MyFloat));
@@ -385,9 +385,9 @@ int SaveGadget2(const char *filename, long n, io_header_2 header1, MyFloat* Pos1
   my_fwrite(&dummy, sizeof(dummy), 1, fd);
 
   //position block
-  dummy=sizeof(MyFloat)*(long)(n*n*n)*3; //this will be 0 or some strange number for n>563; BUT: gagdget does not actually use this value; it gets the number of particles from the header
+  dummy=sizeof(MyFloat)*(long)(nPart)*3; //this will be 0 or some strange number for n>563; BUT: gagdget does not actually use this value; it gets the number of particles from the header
   my_fwrite(&dummy, sizeof(dummy), 1, fd);
-  for(i=0;i<n*n*n;i++){
+  for(i=0;i<nPart;i++){
     Pos[0]=Pos1[i];
     Pos[1]=Pos2[i];
     Pos[2]=Pos3[i];
@@ -396,9 +396,9 @@ int SaveGadget2(const char *filename, long n, io_header_2 header1, MyFloat* Pos1
   my_fwrite(&dummy, sizeof(dummy), 1, fd);
 
   //velocity block
-  //dummy=sizeof(MyFloat)*3*n*n*n; //this will be 0 or some strange number for n>563; BUT: gagdget does not actually use this value; it gets the number of particles from the header
+  //dummy=sizeof(MyFloat)*3*nPart; //this will be 0 or some strange number for n>563; BUT: gagdget does not actually use this value; it gets the number of particles from the header
   my_fwrite(&dummy, sizeof(dummy), 1, fd);
-  for(i=0;i<n*n*n;i++){
+  for(i=0;i<nPart;i++){
     Pos[0]=Vel1[i];
     Pos[1]=Vel2[i];
     Pos[2]=Vel3[i];
@@ -408,13 +408,21 @@ int SaveGadget2(const char *filename, long n, io_header_2 header1, MyFloat* Pos1
   free(Pos);
   my_fwrite(&dummy, sizeof(dummy), 1, fd);
 
-  dummy = sizeof(long) * n*n*n; //here: gadget just checks if the IDs are ints or long longs; still the number of particles is read from the header file
+  dummy = sizeof(long) * nPart; //here: gadget just checks if the IDs are ints or long longs; still the number of particles is read from the header file
   my_fwrite(&dummy, sizeof(dummy), 1, fd);
-  for(i=0;i<n*n*n;i++){
+  for(i=0;i<nPart;i++){
   my_fwrite(&i, sizeof(long), 1, fd);
 
   }
   my_fwrite(&dummy, sizeof(dummy), 1, fd);
+
+  if(Mass!=NULL) {
+      dummy = sizeof(MyFloat)*nPart;
+      my_fwrite(&dummy, sizeof(dummy), 1, fd);
+      my_fwrite(Mass,sizeof(MyFloat),  nPart, fd);
+      my_fwrite(&dummy, sizeof(dummy), 1, fd);
+  }
+
 
   fclose(fd);
 
@@ -422,7 +430,7 @@ int SaveGadget2(const char *filename, long n, io_header_2 header1, MyFloat* Pos1
 }
 
 template<typename MyFloat>
-int SaveGadget3(const char *filename, long n, io_header_3 header1, MyFloat* Pos1, MyFloat* Vel1, MyFloat* Pos2, MyFloat* Vel2, MyFloat* Pos3, MyFloat* Vel3) {
+int SaveGadget3(const char *filename, long n, io_header_3 header1, MyFloat* Pos1, MyFloat* Vel1, MyFloat* Pos2, MyFloat* Vel2, MyFloat* Pos3, MyFloat* Vel3, MyFloat *Mass=NULL) {
 
     FILE* fd = fopen(filename, "w");
     if(!fd) throw std::runtime_error("Unable to open file for writing");
@@ -437,9 +445,9 @@ int SaveGadget3(const char *filename, long n, io_header_3 header1, MyFloat* Pos1
     my_fwrite(&dummy, sizeof(dummy), 1, fd);
 
     //position block
-    dummy=sizeof(MyFloat)*(long)(n*n*n)*3; //this will be 0 or some strange number for n>563; BUT: gagdget does not actually use this value; it gets the number of particles from the header
+    dummy=sizeof(MyFloat)*(long)(n)*3; //this will be 0 or some strange number for n>563; BUT: gagdget does not actually use this value; it gets the number of particles from the header
     my_fwrite(&dummy, sizeof(dummy), 1, fd);
-    for(i=0;i<n*n*n;i++){
+    for(i=0;i<n;i++){
     Pos[0]=Pos1[i];
         Pos[1]=Pos2[i];
         Pos[2]=Pos3[i];
@@ -450,7 +458,7 @@ int SaveGadget3(const char *filename, long n, io_header_3 header1, MyFloat* Pos1
 
     //velocity block
     my_fwrite(&dummy, sizeof(dummy), 1, fd);
-    for(i=0;i<n*n*n;i++){
+    for(i=0;i<n;i++){
         Pos[0]=Vel1[i];
         Pos[1]=Vel2[i];
         Pos[2]=Vel3[i];
@@ -461,12 +469,20 @@ int SaveGadget3(const char *filename, long n, io_header_3 header1, MyFloat* Pos1
 
     //particle block
     //long long ido;
-    dummy = sizeof(long) * n*n*n; //here: gadget just checks if the IDs are ints or long longs; still the number of particles is read from the header file
+    dummy = sizeof(long) * n; //here: gadget just checks if the IDs are ints or long longs; still the number of particles is read from the header file
     my_fwrite(&dummy, sizeof(dummy), 1, fd);
-    for(i=0;i<n*n*n;i++){
+    for(i=0;i<n;i++){
          my_fwrite(&i, sizeof(long), 1, fd);
     }
     my_fwrite(&dummy, sizeof(dummy), 1, fd);
+
+
+    if(Mass!=NULL) {
+        dummy = sizeof(MyFloat)*n;
+        my_fwrite(&dummy, sizeof(dummy), 1, fd);
+        my_fwrite(Mass,sizeof(MyFloat),  n, fd);
+        my_fwrite(&dummy, sizeof(dummy), 1, fd);
+    }
 
     fclose(fd);
     free(Pos);
@@ -475,7 +491,7 @@ int SaveGadget3(const char *filename, long n, io_header_3 header1, MyFloat* Pos1
 }
 
 template<typename MyFloat>
-int SaveTipsy(const char *filename, long n, MyFloat* Pos1, MyFloat* Vel1, MyFloat* Pos2, MyFloat* Vel2, MyFloat* Pos3, MyFloat* Vel3,
+int SaveTipsy(const char *filename, long nPart, MyFloat* Pos1, MyFloat* Vel1, MyFloat* Pos2, MyFloat* Vel2, MyFloat* Pos3, MyFloat* Vel3,
               double Boxlength, double Om0, double Ol0, double hubble, double ain, double pmass) {
 
     // originally:
@@ -483,7 +499,6 @@ int SaveTipsy(const char *filename, long n, MyFloat* Pos1, MyFloat* Vel1, MyFloa
     // pos in Mpc h^-1
     // vel in km s^-1 a^1/2
 
-    long nPart = n*n*n;
 
     io_header_tipsy header;
 

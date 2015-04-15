@@ -1,3 +1,4 @@
+#include <cassert>
 
 using namespace std;
 
@@ -20,9 +21,15 @@ class Grid{
 
 public:
     //constructor:
-    Grid(int s=1);
+    Grid(int s=1, MyFloat dx=1.0, MyFloat x0=0.0, MyFloat y0=0.0, MyFloat z0=0.0);
     int size;
+    long size2;
+    long size3;
+
+    MyFloat dx,x0,y0,z0;
+
     grid_struct<MyFloat>* cells;
+    vector<long> get_ids_in_cube(MyFloat x0c, MyFloat y0c, MyFloat z0c, MyFloat dxc);
 
 
     // move constructor
@@ -37,19 +44,27 @@ public:
     void shift_grid(long s1, long s2, long s3);
     long find_next_ind(long index, int *step);
     long get_index(long x, long y, long z);
+    tuple<int, int, int> get_coordinates(long id);
+    tuple<MyFloat, MyFloat, MyFloat> get_centroid_location(long id);
+
     //void check_pbc_grid(long index);
     void check_pbc_grid(long *grid);
     void check_pbc_coords(long index);
+    void add_grid(MyFloat *Pos1, MyFloat *Pos2, MyFloat *Pos3, MyFloat boxlen=-1);
+
 
 };
 
 template<typename MyFloat>
-Grid<MyFloat>::Grid(int n){
+Grid<MyFloat>::Grid(int n,MyFloat dx, MyFloat x0, MyFloat y0, MyFloat z0) : dx(dx), x0(x0), y0(y0), z0(z0)
+{
 
     cout<< "Constructing grid class" << endl;
     size=n;
+    size2 = (long)size*size;
+    size3 = size2*size;
 
-    grid_struct<MyFloat> *cells=(grid_struct<MyFloat>*)calloc(n*n*n,sizeof(grid_struct<MyFloat>));
+    grid_struct<MyFloat> *cells=(grid_struct<MyFloat>*)calloc(size*size*size,sizeof(grid_struct<MyFloat>));
     long g1,g2,g3, gg1,gg2,gg3, ind;
     MyFloat absval;
     for(g1=0;g1<n;g1++){
@@ -241,5 +256,97 @@ long Grid<MyFloat>::get_index(long x, long y, long z){
     long index=(x*size+y)*size+z;
 
     return index;
+
+}
+
+template<typename MyFloat>
+tuple<int, int, int> Grid<MyFloat>::get_coordinates(long id) {
+    int x, y, z;
+
+    x = (int) (id/size2);
+    y = (int) (id%size2)/size;
+    z = (int) (id%size);
+
+    // following check should be removed in the end:
+    if(get_index(x,y,z)!=id) {
+        cerr << "ERROR in get_coordinates";
+        cerr << "id=" << id << " x,y,z=" << x << "," << y << "," << z << endl;
+        cerr << "which gives " << get_index(x,y,z) << endl;
+        assert(false);
+    }
+
+    return std::make_tuple(x,y,z);
+}
+
+template<typename MyFloat>
+tuple<MyFloat, MyFloat, MyFloat> Grid<MyFloat>::get_centroid_location(long id) {
+    int x, y, z;
+    std::tie(x,y,z) = get_coordinates(id);
+    return std::make_tuple(x0+x*dx+dx/2,y0+y*dx+dx/2,z0+z*dx+dx/2);
+}
+
+
+template<typename MyFloat>
+vector<long> Grid<MyFloat>::get_ids_in_cube(MyFloat x0c, MyFloat y0c, MyFloat z0c, MyFloat dxc) {
+    // return all the grid IDs whose centres lie within the specified cube
+    vector<long> ids;
+    int xa=((int) floor((x0c-x0-dxc/2+dx/2)/dx));
+    int ya=((int) floor((y0c-y0-dxc/2+dx/2)/dx));
+    int za=((int) floor((z0c-z0-dxc/2+dx/2)/dx));
+
+    int xb=((int) floor((x0c-x0+dxc/2-dx/2)/dx));
+    int yb=((int) floor((y0c-y0+dxc/2-dx/2)/dx));
+    int zb=((int) floor((z0c-z0+dxc/2-dx/2)/dx));
+
+    for(int x=xa; x<=xb; x++) {
+        for(int y=ya; y<=yb; y++) {
+            for(int z=za; z<=zb; z++) {
+                ids.push_back(get_index(x,y,z));
+            }
+        }
+    }
+
+    return ids;
+
+}
+
+template<typename MyFloat>
+void Grid<MyFloat>::add_grid(MyFloat *Pos1, MyFloat *Pos2, MyFloat *Pos3, MyFloat boxlen) {
+    if(boxlen<0)
+        boxlen = dx*size;
+
+    MyFloat Mean1=0, Mean2=0, Mean3=0;
+    long idx;
+
+    for(int ix=0;ix<size;ix++) {
+        for(int iy=0;iy<size;iy++) {
+            for(int iz=0;iz<size;iz++) {
+
+                idx = (long)(ix*size+iy)*size+iz;
+
+                // position in physical coordinates
+                Pos1[idx]+= ix*dx+dx/2+x0;
+                Pos2[idx]+= iy*dx+dx/2+y0;
+                Pos3[idx]+= iz*dx+dx/2+z0;
+
+                // always wrap at the BASE level:
+                Pos1[idx] = fmod(Pos1[idx],boxlen);
+                if(Pos1[idx]<0) Pos1[idx]+=boxlen;
+                Pos2[idx] = fmod(Pos2[idx],boxlen);
+                if(Pos2[idx]<0) Pos2[idx]+=boxlen;
+                Pos3[idx] = fmod(Pos3[idx],boxlen);
+                if(Pos3[idx]<0) Pos3[idx]+=boxlen;
+
+
+                Mean1+=Pos1[idx];
+                Mean2+=Pos2[idx];
+                Mean3+=Pos3[idx];
+
+            }
+        }
+    }
+
+
+    cout<< "Box/2="<< boxlen/2.<< " Mpc/h, Mean position x,y,z: "<< Mean1/(MyFloat(size*size*size))<<" "<< Mean2/(MyFloat(size*size*size))<<" "<<Mean3/(MyFloat(size*size*size))<< " Mpc/h"<<  endl;
 
 }

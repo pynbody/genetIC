@@ -61,6 +61,7 @@ void setup_parser(ClassDispatch<ICf,void> &dispatch) {
     dispatch.add_class_route("outdir",&ICf::setOutDir);
     dispatch.add_class_route("outname",&ICf::setOutName);
     dispatch.add_class_route("gadgetformat",&ICf::setGadgetFormat);
+    dispatch.add_class_route("prepare",&ICf::prepare);
 
     dispatch.add_class_route("IDfile",&ICf::loadID);
     dispatch.add_class_route("append_IDfile",&ICf::appendID);
@@ -75,9 +76,14 @@ void setup_parser(ClassDispatch<ICf,void> &dispatch) {
     dispatch.add_class_route("done",&ICf::done);
     dispatch.add_class_route("reverse",&ICf::reverse);
     dispatch.add_class_route("dumpgrid",&ICf::dumpGrid);
+    dispatch.add_class_route("dumpps",&ICf::dumpPS);
 
-    dispatch.add_class_route("zoom", &ICf::zoom);
+    dispatch.add_class_route("zoom", &ICf::setZoom);
     dispatch.add_class_route("n2", &ICf::setn2);
+    dispatch.add_class_route("zoom_IDfile",&ICf::setZoomParticles);
+    dispatch.add_class_route("writeLevel", &ICf::writeLevel);
+
+    dispatch.add_class_route("zeroLevel", &ICf::zeroLevel);
 
 
 }

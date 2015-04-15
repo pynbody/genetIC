@@ -18,6 +18,7 @@
 #include <exception>
 #include <utility>
 #include <functional>
+#include <cctype>
 
 template <typename Rtype>
 class Dispatch
@@ -139,7 +140,10 @@ public:
         auto pcaller = std::function<Rtype(const Base*, std::istream&) >(&unpack_and_call_function<Args...>);
         pfunc->f = function;
 
-        _map.insert(std::make_pair(name, std::make_pair(pfunc, pcaller)));
+        std::string lname(name);
+
+        std::transform(lname.begin(), lname.end(), lname.begin(), ::tolower);
+        _map.insert(std::make_pair(lname, std::make_pair(pfunc, pcaller)));
     }
 
 
@@ -154,6 +158,8 @@ public:
 
         decltype(_map.at(s).first.get()) function;
         decltype(_map.at(s).second) caller;
+
+        std::transform(s.begin(), s.end(), s.begin(), ::tolower);
 
         // retrieve the function and something to call it with
         try {
