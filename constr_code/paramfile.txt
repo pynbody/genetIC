@@ -1,33 +1,29 @@
 %do not change the order of these values! output:(0 HDF5, 1 Gadget, 2 both); trailing / for directory important! (TODO add flag for single/double to be checked against compile flags)
-Om	0.279
-Ol	0.721
-s8	0.817
+Om  0.279
+Ol  0.721
+s8  0.817
 Boxl	50
 zin	99
 n       64
 output	1
-seedfourier	8896131
-camb	camb_transfer_kmax40_z0.dat
-outdir	 ./output/
+seed	8896131
 
-outname zoomtest
 
-zoom 2
+zoom 3
 n2 64
 zoom_IDfile zoomtest.txt
 
-prepare
 
-
+camb	./camb_transfer_kmax40_z0.dat
+outdir	 ./output/
 gadgetformat 3
 
 
+
+IDfile constrtest.txt
+calculate overdensity
+constrain overdensity absolute 125.0
+
 done
 
-dumpps 1
-dumpps 0
-
-writeLevel 0
-
-dumpgrid 0
-dumpgrid 1
+calculate overdensity

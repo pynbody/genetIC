@@ -3,6 +3,7 @@
 #include <complex>
 #include <map>
 #include <vector>
+#include <cassert>
 //#include <Eigen/Dense>
 
 void progress(const char* message, float progress) {
@@ -26,16 +27,46 @@ void end_progress() {
 template<typename T>
 class UnderlyingField {
 private:
-    std::complex<T> *C0;
-    std::complex<T> *y0;
+    std::vector<std::complex<T> *> y0s;
+    std::vector<std::complex<T> *> C0s;
 
 protected:
-    long int N;
-    UnderlyingField(long int N): N(N) { }
+    std::vector<long int> Ns;
+    std::vector<long int> cumu_Ns;
+    long int Ntot;
+    int n_components;
+
+    void id_to_component_id(long int i, int &component, long int &component_i) {
+        component=0;
+        while(component<n_components && i-Ns[component]>0) {
+            i-=Ns[component];
+            component++;
+        }
+        if(i>Ns[component])
+            throw std::runtime_error("ID out of range when mapping into underlying fields in id_to_component_id");
+        component_i = i;
+    }
+
+    UnderlyingField(long int N) {
+        n_components=1;
+        Ns.push_back(N);
+        Ntot = N;
+    }
 
 public:
-    UnderlyingField(std::complex<T> *C0,  std::complex<T> *y0, long int N) : C0(C0),
-    y0(y0), N(N) {
+    UnderlyingField(std::complex<T> *C0,  std::complex<T> *y0, long int N) {
+        n_components=0;
+        Ntot=0;
+        add_component(C0,y0,N);
+    }
+
+    void add_component(std::complex<T> *C0,  std::complex<T> *y0, long int N) {
+        C0s.push_back(C0);
+        y0s.push_back(y0);
+        Ns.push_back(N);
+        cumu_Ns.push_back(Ntot);
+        Ntot+=N;
+        n_components+=1;
     }
 
 
@@ -46,7 +77,16 @@ public:
     virtual std::complex<T> cov(std::complex<T> *vec, long int i) {
         // returns Sum_j C[i,j] vec[j]
         // Here, though, C0 is diagonal
-        return C0[i]*vec[i];
+        int comp;
+        long j;
+        id_to_component_id(i,comp,j);
+        return C0s[comp][j]*vec[i];
+    }
+
+    virtual std::complex<T> cov(std::complex<T> *vec, int comp, long int j) {
+        // returns Sum_j C[i,j] vec[j]
+        // Here, though, C0 is diagonal
+        return C0s[comp][j]*vec[j+cumu_Ns[comp]];
     }
 
     //
@@ -56,12 +96,16 @@ public:
     virtual std::complex<T> v1_dot_y(std::complex<T> *v1){
         // Calculate v1^{\dagger} y where y is the underlying realization
         T res_real(0), res_imag(0);
-        #pragma omp parallel for reduction(+:res_real,res_imag)
-        for(long int i=0; i<N; i++) {
-            std::complex<T> res = conj(v1[i])*y0[i];
-            // accumulate separately - OMP doesn't support complex number reduction :-(
-            res_real+=std::real(res);
-            res_imag+=std::imag(res);
+
+
+        for(int comp=0; comp<n_components; comp++) {
+            #pragma omp parallel for reduction(+:res_real,res_imag)
+            for(long int i=0; i<Ns[comp]; i++) {
+                std::complex<T> res = conj(v1[i+cumu_Ns[comp]])*y0s[comp][i];
+                // accumulate separately - OMP doesn't support complex number reduction :-(
+                res_real+=std::real(res);
+                res_imag+=std::imag(res);
+            }
         }
         return std::complex<T>(res_real,res_imag);
     }
@@ -69,12 +113,14 @@ public:
     virtual std::complex<T> v1_cov_v2(std::complex<T> *v1, std::complex<T> *v2){
         // Calculate v1^{\dagger} C v2
         T res_real(0), res_imag(0);
-        #pragma omp parallel for reduction(+:res_real,res_imag)
-        for(long int i=0; i<N; i++) {
-            std::complex<T> res = conj(v1[i])*cov(v2,i);
-            // accumulate separately - OMP doesn't support complex number reduction :-(
-            res_real+=std::real(res);
-            res_imag+=std::imag(res);
+        for(int comp=0; comp<n_components; comp++) {
+            #pragma omp parallel for reduction(+:res_real,res_imag)
+            for(long int i=0; i<Ns[comp]; i++) {
+                std::complex<T> res = conj(v1[i+cumu_Ns[comp]])*cov(v2,comp,i);
+                // accumulate separately - OMP doesn't support complex number reduction :-(
+                res_real+=std::real(res);
+                res_imag+=std::imag(res);
+            }
         }
         return std::complex<T>(res_real,res_imag);
     }
@@ -86,15 +132,20 @@ public:
 
     void get_realization(std::complex<T> *r) {
         // Get the realization and store it in the specified array
-        for(long int i=0; i<N; i++) {
-            r[i]=y0[i];
+        long int j=0;
+        for(int comp=0; comp<n_components; comp++) {
+            for(long int i=0; i<Ns[comp]; i++) {
+                r[j]=y0s[comp][i];
+                j++;
+            }
         }
+        assert(j==Ntot);
     }
 
     void get_mean(std::complex<T> *r) {
         // Get the mean of all realizations and store it in the specified array
-        for(long int i=0; i<N; i++) {
-            if(i%1000==0) progress("get mean x", float(i)/N);
+        for(long int i=0; i<Ntot; i++) {
+            if(i%1000==0) progress("get mean x", float(i)/Ntot);
             r[i]=0;
         }
         end_progress();
@@ -107,29 +158,16 @@ public:
 };
 
 template<typename T>
-class MultiscaleUnderlyingField: public UnderlyingField<T>
-{
-protected:
-    UnderlyingField<T> *pParent;
-    UnderlyingField<T> *pChild;
-public:
-    MultiscaleUnderlyingField(UnderlyingField<T> *pParent,
-                              UnderlyingField<T> *pChild) : pParent(pParent), pChild(pChild)
-    {
-
-    }
-    
-};
-
-template<typename T>
 class MultiConstrainedField: public UnderlyingField<T>
 {
 private:
-    UnderlyingField<T>* underlying;
+
     std::vector<std::complex<T>* > alphas;
     std::vector<std::complex<T> > values;
     std::vector<std::complex<T> > existing_values;
 public:
+    UnderlyingField<T>* underlying;
+    
     MultiConstrainedField(UnderlyingField<T>* underlying_, long int N) : UnderlyingField<T>(N),
     underlying(underlying_)
     {
@@ -146,7 +184,7 @@ public:
     void print_covariance() {
         int n=alphas.size();
         int done=0;
-        std::complex<T> c_matrix[n][n];
+        std::vector<std::vector<std::complex<T>>> c_matrix(n,std::vector<std::complex<T>>(n,0));
 
         // Gram-Schmidt orthogonalization in-place
         for(int i=0; i<n; i++) {
@@ -197,7 +235,8 @@ public:
 
 
         // Store transformation matrix, just for display purposes
-        std::complex<T> t_matrix[n][n];
+        std::vector<std::vector<std::complex<T>>> t_matrix(n,std::vector<std::complex<T>>(n,0));
+
         for(int i=0; i<n; i++) {
             for(int j=0; j<n; j++) {
                 if(i==j) t_matrix[i][j]=1.0; else t_matrix[i][j]=0.0;
@@ -213,7 +252,7 @@ public:
                 std::complex<T> result = underlying->v1_cov_v2(alpha_j,alpha_i);
 
                 #pragma omp parallel for
-                for(long int k=0; k<this->N; k++) {
+                for(long int k=0; k<this->Ntot; k++) {
                     alpha_i[k]-=result*alpha_j[k];
                 }
 
@@ -230,7 +269,7 @@ public:
             // normalize
             std::complex<T> norm = sqrt(underlying->v_cov_v(alpha_i));
             #pragma omp parallel for
-            for(long int k=0; k<this->N; k++) {
+            for(long int k=0; k<this->Ntot; k++) {
                 alpha_i[k]/=norm;
             }
             values[i]/=norm;
@@ -265,7 +304,7 @@ public:
                 for(int k=0;k<n; k++) {
                     r+=std::conj(t_matrix[k][i])*t_matrix[k][j];
                 }
-                std::cout << std::real(r)/this->N;
+                std::cout << std::real(r)/this->Ntot;
                 if(j<n-1) std::cout << ",";
             }
             std::cout << "]";
@@ -284,7 +323,7 @@ public:
             v1 = std::abs(values[i]);
             rval+=v1*v1-v0*v0;
         }
-        return rval/this->N;
+        return rval/this->Ntot;
     }
     void get_realization(std::complex<T> *r) {
         int n=alphas.size();
@@ -296,7 +335,7 @@ public:
             // std::cerr << "constraint " << i <<  values[i] << existing_values[i] << std::endl;
             progress("get constrained y", float(i)/n);
             #pragma omp parallel for
-            for(long int j=0; j<this->N; j++) {
+            for(long int j=0; j<this->Ntot; j++) {
                 r[j]+=dval_i*underlying->cov(alpha_i,j);
             }
         }

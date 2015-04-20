@@ -50,11 +50,15 @@ protected:
     bool prepared;
 
 
-    int *part_arr;
-    int n_part_arr;
 
-    int *zoom_part_arr;
-    int n_zoom_part_arr;
+
+    std::vector<long> genericParticleArray;
+    std::vector<long> levelParticleArray[2];
+
+
+    std::vector<long> zoomParticleArray;
+
+
 
     MyFloat x0, y0, z0;
 
@@ -68,8 +72,6 @@ public:
         pField_x[0]=pField_x[1]=NULL;
         pField_k[0]=pField_k[1]=NULL;
         pConstrainer=NULL;
-        part_arr=NULL;
-        n_part_arr=0;
         whiteNoiseFourier=false;
         hubble=0.701;   // old default
         ns = 0.96;      // old default
@@ -141,14 +143,13 @@ public:
             throw(std::runtime_error("Set the zoom factor before specifying the zoom particles"));
 
         AllocAndGetBuffer_int(fname.c_str());
-        zoom_part_arr = part_arr;
-        n_zoom_part_arr = n_part_arr;
-        part_arr=NULL;
-        n_part_arr=0;
+        zoomParticleArray = genericParticleArray;
+
+        genericParticleArray.clear();
 
         // Not strictly necessary for this function, but we rely on having the
         // particle IDs sorted later on (when writing)
-        std::sort(zoom_part_arr, zoom_part_arr+sizeof(int)*n_part_arr);
+        std::sort(zoomParticleArray.begin(), zoomParticleArray.end());
 
 
 
@@ -162,15 +163,15 @@ public:
 
         // TO DO: wrap the box sensibly
 
-        for(long i=0; i<n_zoom_part_arr; i++) {
-            std::tie(x,y,z) = g.get_coordinates(zoom_part_arr[i]);
+        for(long i=0; i<zoomParticleArray.size(); i++) {
+            g.get_coordinates(zoomParticleArray[i],x,y,z);
             if(x<x0) x0=x;
             if(y<y0) y0=y;
             if(z<z0) z0=z;
             if(x>x1) x1=x;
             if(y>y1) y1=y;
             if(z>z1) z1=z;
-            // cerr << i << " " << zoom_part_arr[i] << " " << x << " " << y << " " << z << endl;
+            // cerr << i << " " << zoomParticleArray[i] << " " << x << " " << y << " " << z << endl;
         }
 
         // Now see if the zoom the user chose is OK
@@ -209,7 +210,7 @@ public:
     void initZoom() {
         zoomfac = (boxlen[0]/n[0])/(boxlen[1]/n[1]);
         dx[1] = boxlen[1]/n[1];
-        nPartTotal = nPartLevel[0]+(zoomfac*zoomfac*zoomfac-1)*n_zoom_part_arr;
+        nPartTotal = nPartLevel[0]+(zoomfac*zoomfac*zoomfac-1)*zoomParticleArray.size();
         cout << "Initialized a zoom region:" << endl;
         cout << "  Subbox length   = " << boxlen[1] << " Mpc/h" << endl;
         cout << "  n[1]            = " << n[1] << endl;
@@ -858,6 +859,10 @@ public:
         free(Vel3);
     }
 
+    ///////////////////////////////////////////////
+    // ZOOM particle management
+    ///////////////////////////////////////////////
+
     void deleteParticles(std::vector<MyFloat*> A) {
 
         // delete the particles in the 'zoom' region.
@@ -866,7 +871,7 @@ public:
 
         long i_zoom=0;
         long write_ptcl=0;
-        long next_zoom=zoom_part_arr[0];
+        long next_zoom=zoomParticleArray[0];
         long next_zoom_i=0;
 
         for(long read_ptcl=0; read_ptcl<nPartLevel[0]; read_ptcl++) {
@@ -880,9 +885,9 @@ public:
             } else {
                 // we've just hit a 'zoom' particle. Skip over it.
                 // Keep track of the next zoom particle
-                if(next_zoom_i+1<n_zoom_part_arr) {
+                if(next_zoom_i+1<zoomParticleArray.size()) {
                     next_zoom_i++;
-                    next_zoom = zoom_part_arr[next_zoom_i];
+                    next_zoom = zoomParticleArray[next_zoom_i];
                 } else {
                     // no more zoom particles
                     next_zoom =-1;
@@ -892,6 +897,8 @@ public:
     }
 
     std::vector<long> mapid(long id0, int level0=0, int level1=1) {
+        // Finds all the particles at level1 corresponding to the single
+        // particle at level0
         std::tie(x0,y0,z0) = pGrid[level0]->get_centroid_location(id0);
         return pGrid[level1]->get_ids_in_cube(x0,y0,z0,dx[level0]);
     }
@@ -899,14 +906,15 @@ public:
     void insertParticles(std::vector<MyFloat*> A, std::vector<MyFloat*> B) {
         // insert the particles from the zoom region
 
+
         // the last 'low-res' particle is just before this address:
-        long i_write = nPartLevel[0]-n_zoom_part_arr;
+        long i_write = nPartLevel[0]-zoomParticleArray.size();
 
         int zoomfac3=zoomfac*zoomfac*zoomfac; // used for testing only
 
-        for(long i=0; i<n_zoom_part_arr; i++) {
+        for(long i=0; i<zoomParticleArray.size(); i++) {
             // get the list of zoomed particles corresponding to this one
-            std::vector<long> hr_particles = mapid(zoom_part_arr[i]);
+            std::vector<long> hr_particles = mapid(zoomParticleArray[i]);
             assert(hr_particles.size()==zoomfac3);
             for(auto i=hr_particles.begin(); i!=hr_particles.end(); i++) {
                 for(auto ar_to=A.begin(), ar_from=B.begin();
@@ -922,15 +930,51 @@ public:
         assert(i_write==nPartTotal);
     }
 
-    void write() {
-        /*
-        for_each_level(level) {
-            cerr << "Write level "<<level << endl;
-            base = make_base(indir, level);
-            writeLevel(level);
+    void interpretParticleList() {
+
+        levelParticleArray[0].clear();
+        levelParticleArray[1].clear();
+
+        if(zoomParticleArray.size()==0) {
+            levelParticleArray[0] = genericParticleArray;
+        } else {
+
+            long i0 = nPartLevel[0]-zoomParticleArray.size();
+            long lr_particle;
+            int n_hr_per_lr = zoomfac*zoomfac*zoomfac;
+
+            for(auto i=genericParticleArray.begin(); i!=genericParticleArray.end(); ++i) {
+                if((*i)<i0)
+                    throw std::runtime_error("Constraining particle is in low-res region - not permitted");
+
+                if(((*i)-i0)/n_hr_per_lr>=zoomParticleArray.size())
+                    throw std::runtime_error("Particle ID out of range");
+
+                // find the low-res particle. Note that we push it onto the list
+                // even if it's already on there to get the weighting right and
+                // prevent the need for a costly search
+                lr_particle = zoomParticleArray[((*i)-i0)/n_hr_per_lr];
+
+                levelParticleArray[0].push_back(lr_particle);
+
+                // get all the HR particles
+                std::vector<long> hr_particles = mapid(lr_particle);
+                assert(hr_particles.size()==n_hr_per_lr);
+
+                // work out which of these this particle must be and push it onto
+                // the HR list
+                int offset = ((*i)-i0)%n_hr_per_lr;
+                levelParticleArray[1].push_back(hr_particles[offset]);
+
+            }
+
         }
-        */
-        if(n[1]==0) {
+    }
+
+
+
+    void write() {
+        if(n[1]<=0) {
             cerr << "***** WRITE - no zoom *****" << endl;
             writeLevel(0);
         } else {
@@ -956,6 +1000,10 @@ public:
             interpolateLevel(1,Vel1z,Vel1);
             interpolateLevel(1,Vel2z,Vel2);
             interpolateLevel(1,Vel3z,Vel3);
+
+            // This isn't strictly necessary but it can make for useful output:
+            // interpolate the density field
+            interpolateLevel(1);
 
             // Now re-do level 0, but include the high-k modes which have
             // earlier been filtered out
@@ -984,7 +1032,7 @@ public:
             Mass = (MyFloat*)calloc(nPartTotal,sizeof(MyFloat));
 
             for(long i=0; i<nPartTotal; i++) {
-                if(i<nPartLevel[0]-n_zoom_part_arr)
+                if(i<nPartLevel[0]-zoomParticleArray.size())
                     Mass[i] = pmass1;
                 else
                     Mass[i] = pmass2;
@@ -1013,6 +1061,9 @@ public:
             free(Pos3);
             free(Vel3);
 
+            dumpGrid(0);
+            dumpGrid(1);
+
         }
 
     }
@@ -1023,7 +1074,7 @@ public:
 
         cerr << "***** PREPARE FIELD *****" << endl;
         prepared=true;
-        UnderlyingField<MyFloat> *pField[2];
+        UnderlyingField<MyFloat> *pField;
 
         for_each_level(level) nPartLevel[level] = ((long)n[level]*n[level])*n[level];
 
@@ -1037,14 +1088,17 @@ public:
 
         applyPowerSpec();
 
+        pField = new UnderlyingField<MyFloat>(this->P[0], this->pField_k[0], this->nPartLevel[0]);
+
         for_each_level(level) {
             pGrid[level] = new Grid<MyFloat>(n[level], dx[level], x_off[level], y_off[level], z_off[level]);
-            pField[level] = new UnderlyingField<MyFloat>(this->P[level], this->pField_k[level], this->nPartLevel[level]);
+            if(level>0)
+                pField->add_component(this->P[level],this->pField_k[level],this->nPartLevel[level]);
         }
 
 
         // TODO: actually combine the different levels before passing them to the constrainer
-        pConstrainer = new MultiConstrainedField<MyFloat>(pField[0], this->nPartLevel[0]);
+        pConstrainer = new MultiConstrainedField<MyFloat>(pField, this->nPartTotal);
     }
 
     ///////////////////////
@@ -1055,6 +1109,9 @@ public:
 
 protected:
 
+    int deepestLevelWithParticles() {
+        if(levelParticleArray[1].size()>0) return 1; else return 0;
+    }
 
     MyFloat get_wrapped_delta(MyFloat x0, MyFloat x1) {
         MyFloat result = x0-x1;
@@ -1069,24 +1126,26 @@ protected:
 
 
     void getCentre() {
-
         x0 = 0; y0 = 0; z0 =0;
 
-        MyFloat xa=this->pGrid[0]->cells[part_arr[0]].coords[0]*this->dx[0];
-        MyFloat ya=this->pGrid[0]->cells[part_arr[0]].coords[1]*this->dx[0];
-        MyFloat za=this->pGrid[0]->cells[part_arr[0]].coords[2]*this->dx[0];
+        int level = deepestLevelWithParticles();
 
-        for(long i=0;i<n_part_arr;i++) {
-            x0+=get_wrapped_delta(this->pGrid[0]->cells[part_arr[i]].coords[0]*this->dx[0],xa);
-            y0+=get_wrapped_delta(this->pGrid[0]->cells[part_arr[i]].coords[1]*this->dx[0],ya);
-            z0+=get_wrapped_delta(this->pGrid[0]->cells[part_arr[i]].coords[2]*this->dx[0],za);
+        MyFloat xa,ya,za, xb, yb, zb;
+        pGrid[level]->get_centroid_location(levelParticleArray[level][0],xa,ya,za);
+
+        for(long i=0;i<levelParticleArray[level].size();i++) {
+            pGrid[level]->get_centroid_location(levelParticleArray[level][i],xb,yb,zb);
+            x0+=get_wrapped_delta(xa,xb);
+            y0+=get_wrapped_delta(ya,yb);
+            z0+=get_wrapped_delta(za,zb);
         }
-        x0/=n_part_arr;
-        y0/=n_part_arr;
-        z0/=n_part_arr;
+        x0/=levelParticleArray[level].size();
+        y0/=levelParticleArray[level].size();
+        z0/=levelParticleArray[level].size();
         x0+=xa;
         y0+=ya;
         z0+=za;
+        cerr << "Centre of region is " << x0 << " " << y0 << " " << z0 << endl;
     }
 
 
@@ -1095,57 +1154,43 @@ protected:
     void AllocAndGetBuffer_int(const char* IDfile, bool append=false) {
         // count lines, allocate space, then read
 
-        FILE *f;
-        int i=0;
-        int r=0;
-        int c;
+        cerr << "Loading " << IDfile << endl;
 
-        f = fopen(IDfile, "r");
-        if (f == NULL) throw std::runtime_error("File not found");
+        ifstream inf;
+        inf.open(IDfile);
 
-        while ( (c=fgetc(f)) != EOF ) {
-            if ( c == '\n' )
-                    i++;
+        if(!inf.is_open()) {
+            throw(runtime_error("Error: could not open particle file"));
         }
 
-        fclose(f);
+        if(!append)
+            genericParticleArray.clear();
+        else
+            cerr << "Append: starts with " << genericParticleArray.size() << " existing particles" << endl;
 
-        cerr << "File " <<IDfile << " has " << i << " lines" << endl;
 
-        if(append && part_arr==NULL) {
-            cerr << "Can't append - no particles were loaded" << endl;
-            append=false;
+        while(true) {
+            long x;
+            inf >> x;
+            if(inf.eof()) break;
+            genericParticleArray.push_back(x);
         }
-        int final_size = i;
 
-        if(append) final_size+=n_part_arr;
-        int *arr = (int*)calloc(final_size,sizeof(int));
+        cerr << "Total number of particles is " << genericParticleArray.size() << endl;
 
-        GetBuffer_int(arr, IDfile, i);
-
-        // copy old particles into new buffer
-        if (append>0)
-          cerr << "Also keeping " << n_part_arr << " existing particles" << endl;
-        for(int j=0; j<n_part_arr; j++)
-          arr[i+j] = part_arr[j];
-
-        if(part_arr!=NULL)
-          free(part_arr);
-
-        part_arr = arr;
-        n_part_arr = final_size;
-
+        interpretParticleList();
     }
 
 
-    void cen_deriv4_alpha(long index, int direc, complex<MyFloat> *alpha)
+    void cen_deriv4_alpha(long index, int direc, complex<MyFloat> *alpha, int level)
 
     {//4th order central difference
 
-      MyFloat x0, y0, z0;//, zm2, zm1, zp2, zp1;
-      x0=get_wrapped_delta(dx[0]*pGrid[0]->cells[index].coords[0],x0);
-      y0=get_wrapped_delta(dx[0]*pGrid[0]->cells[index].coords[1],y0);
-      z0=get_wrapped_delta(dx[0]*pGrid[0]->cells[index].coords[2],z0);
+      MyFloat xp, yp, zp;//, zm2, zm1, zp2, zp1;
+      pGrid[level]->get_centroid_location(index, xp, yp, zp);
+      xp=get_wrapped_delta(xp,x0);
+      yp=get_wrapped_delta(yp,y0);
+      zp=get_wrapped_delta(zp,z0);
 
       complex<MyFloat> ang=0.;
 
@@ -1174,12 +1219,12 @@ protected:
           step1[di]=1;
           neg_step1[di]=-1;
 
-          ind_m1=pGrid[0]->find_next_ind(index, neg_step1);
-          ind_p1=pGrid[0]->find_next_ind(index, step1);
+          // N.B. can't wrap - might be on subgrid
 
-
-          ind_m2=pGrid[0]->find_next_ind(ind_m1, neg_step1);
-          ind_p2=pGrid[0]->find_next_ind(ind_p1, step1);
+          ind_m1=pGrid[level]->find_next_ind_no_wrap(index, neg_step1);
+          ind_p1=pGrid[level]->find_next_ind_no_wrap(index, step1);
+          ind_m2=pGrid[level]->find_next_ind_no_wrap(ind_m1, neg_step1);
+          ind_p2=pGrid[level]->find_next_ind_no_wrap(ind_p1, step1);
 
           MyFloat a=-1./12./dx[0], b=2./3./dx[0];  //the signs here so that L ~ - Nabla Phi
 
@@ -1191,28 +1236,57 @@ protected:
 
     }
 
-    complex<MyFloat> *calcConstraintVector(string name_in) {
-        const char* name = name_in.c_str();
+    complex<MyFloat> *calcConstraintVectorAllLevels(string name_in) {
+        long nall = 0;
+        for_each_level(level) nall+=nPartLevel[level];
+        complex<MyFloat> *rval_k=(complex<MyFloat>*)calloc(nall,sizeof(complex<MyFloat>));
+        for_each_level(level) calcConstraintVector(name_in, level, rval_k);
+        return rval_k;
+    }
 
-        complex<MyFloat> *rval=(complex<MyFloat>*)calloc(this->nPartLevel[0],sizeof(complex<MyFloat>));
-        complex<MyFloat> *rval_k=(complex<MyFloat>*)calloc(this->nPartLevel[0],sizeof(complex<MyFloat>));
+    complex<MyFloat> *calcConstraintVector(string name_in, int level) {
+        complex<MyFloat> *rval_k=(complex<MyFloat>*)calloc(this->nPartLevel[level],sizeof(complex<MyFloat>));
+        calcConstraintVector(name_in, level, rval_k, false);
+        return rval_k;
+
+    }
+
+    void calcConstraintVector(string name_in, int level, complex<MyFloat> *ar, bool offset=true) {
+        //
+        // If offset is true, offset the storage to take account relative to the
+        // start of ar, to take account of the other levels
+
+        const char* name = name_in.c_str();
+        complex<MyFloat> *rval=(complex<MyFloat>*)calloc(this->nPartLevel[level],sizeof(complex<MyFloat>));
+        complex<MyFloat> *rval_k;
+
+        if(offset) {
+            long offset_amount = 0;
+            for(int l=0; l<level; l++) {
+                offset_amount+=nPartLevel[l];
+            }
+            cerr << "Note level = " << level << " offset = " << offset_amount << endl;
+            rval_k = &ar[offset_amount];
+        } else {
+            rval_k = ar;
+        }
 
         if(strcasecmp(name,"overdensity")==0) {
-            MyFloat w = 1.0/n_part_arr;
-            for(long i=0;i<n_part_arr;i++) {
-                rval[part_arr[i]]=w;
+            MyFloat w = 1.0/levelParticleArray[level].size();
+            for(long i=0;i<levelParticleArray[level].size();i++) {
+                rval[levelParticleArray[level][i]]+=w;
             }
 
-            fft_r(rval_k, rval, this->n[0], 1);
+            fft_r(rval_k, rval, this->n[level], 1);
         }
         else if(strcasecmp(name,"phi")==0) {
-            MyFloat w = 1.0/n_part_arr;
-            for(long i=0;i<n_part_arr;i++) {
-                rval[part_arr[i]]=w;
+            MyFloat w = 1.0/levelParticleArray[level].size();
+            for(long i=0;i<levelParticleArray[level].size();i++) {
+                rval[levelParticleArray[level][i]]+=w;
             }
-            complex<MyFloat> *rval_kX=(complex<MyFloat>*)calloc(this->nPartLevel[0],sizeof(complex<MyFloat>));
-            fft_r(rval_kX, rval, this->n[0], 1);
-            poiss(rval_k, rval_kX, this->n[0], this->boxlen[0], this->a, this->Om0);
+            complex<MyFloat> *rval_kX=(complex<MyFloat>*)calloc(this->nPartLevel[level],sizeof(complex<MyFloat>));
+            fft_r(rval_kX, rval, this->n[level], 1);
+            poiss(rval_k, rval_kX, this->n[level], this->boxlen[level], this->a, this->Om0);
             free(rval_kX);
         }
         else if(name[0]=='L' || name[0]=='l') {
@@ -1221,28 +1295,26 @@ protected:
 
             cerr << "Angmom centre is " <<x0 << " " <<y0 << " " << z0 << endl;
 
-            for(long i=0;i<n_part_arr;i++) {
-                cen_deriv4_alpha(part_arr[i], direction, rval);
+            for(long i=0;i<levelParticleArray[level].size();i++) {
+                cen_deriv4_alpha(levelParticleArray[level][i], direction, rval, level);
             }
-            complex<MyFloat> *rval_kX=(complex<MyFloat>*)calloc(this->nPartLevel[0],sizeof(complex<MyFloat>));
-            fft_r(rval_kX, rval, this->n[0], 1);
+            complex<MyFloat> *rval_kX=(complex<MyFloat>*)calloc(this->nPartLevel[level],sizeof(complex<MyFloat>));
+            fft_r(rval_kX, rval, this->n[level], 1);
             // The constraint as derived is on the potential. By considering
             // unitarity of FT, we can FT the constraint to get the constraint
             // on the density.
-            poiss(rval_k, rval_kX, this->n[0], this->boxlen[0], this->a, this->Om0);
+            poiss(rval_k, rval_kX, this->n[level], this->boxlen[level], this->a, this->Om0);
             free(rval_kX);
         } else {
             cout << "  -> UNKNOWN constraint vector type, returning zeros [this is bad]" << endl;
 
         }
 
-        if(pField_x[0]!=NULL) {
-            cout << " dot in real space = " << std::real(dot(pField_x[0], rval, this->nPartLevel[0])) << endl;
+        if(pField_x[level]!=NULL) {
+            cout << " dot in real space = " << std::real(dot(pField_x[level], rval, this->nPartLevel[level])) << endl;
         }
 
         free(rval);
-        return rval_k;
-
     }
 
     void freeRealDelta(int level=0) {
@@ -1299,37 +1371,25 @@ public:
     }
 
     void centreParticle(long id) {
-        x0 = this->pGrid[0]->cells[id].coords[0]*this->dx[0];
-        y0 = this->pGrid[0]->cells[id].coords[1]*this->dx[0];
-        z0 = this->pGrid[0]->cells[id].coords[2]*this->dx[0];
+        pGrid[0]->get_centroid_location(id,x0,y0,z0);
     }
 
     void selectSphere(float radius) {
-        float r2 = radius*radius;
-        float delta_x, delta_y, delta_z, r2_i;
-        int n=0;
-        for(long i=0;i<this->nPartLevel[0];i++) {
-            delta_x = get_wrapped_delta(this->pGrid[0]->cells[i].coords[0]*this->dx[0],x0);
-            delta_y = get_wrapped_delta(this->pGrid[0]->cells[i].coords[1]*this->dx[0],y0);
-            delta_z = get_wrapped_delta(this->pGrid[0]->cells[i].coords[2]*this->dx[0],z0);
-            r2_i = delta_x*delta_x+delta_y*delta_y+delta_z*delta_z;
-            if(r2_i<r2)
-                n++;
-        }
-        cerr << "Selecting " << n << " particles..." << endl;
-        if(part_arr!=NULL)
-            free(part_arr);
+        MyFloat r2 = radius*radius;
+        MyFloat delta_x, delta_y, delta_z, r2_i;
+        MyFloat xp,yp,zp;
 
-        part_arr = (int*)calloc(n,sizeof(int));
-        n=0;
+        genericParticleArray.clear();
+
         for(long i=0;i<this->nPartLevel[0];i++) {
-            delta_x = get_wrapped_delta(this->pGrid[0]->cells[i].coords[0]*this->dx[0],x0);
-            delta_y = get_wrapped_delta(this->pGrid[0]->cells[i].coords[1]*this->dx[0],y0);
-            delta_z = get_wrapped_delta(this->pGrid[0]->cells[i].coords[2]*this->dx[0],z0);
+            pGrid[0]->get_centroid_location(i,xp,yp,zp);
+            delta_x = get_wrapped_delta(xp,x0);
+            delta_y = get_wrapped_delta(yp,y0);
+            delta_z = get_wrapped_delta(zp,z0);
             r2_i = delta_x*delta_x+delta_y*delta_y+delta_z*delta_z;
-            if(r2_i<r2) part_arr[n++]=i;
+            if(r2_i<r2) genericParticleArray.push_back(i);
         }
-        n_part_arr = n;
+        interpretParticleList();
     }
 
 
@@ -1339,13 +1399,11 @@ public:
         long index_max=0;
         ensureRealDelta();
 
-        for(long i=0;i<n_part_arr;i++) {
-            if(std::real(pField_x[0][part_arr[i]])>den_max) {
-                index_max=part_arr[i];
-                den_max = std::real(pField_x[0][part_arr[i]]);
-                x0 = this->pGrid[0]->cells[part_arr[i]].coords[0]*this->dx[0];
-                y0 = this->pGrid[0]->cells[part_arr[i]].coords[1]*this->dx[0];
-                z0 = this->pGrid[0]->cells[part_arr[i]].coords[2]*this->dx[0];
+        for(long i=0;i<genericParticleArray.size();i++) {
+            if(std::real(pField_x[0][genericParticleArray[i]])>den_max) {
+                index_max=genericParticleArray[i];
+                den_max = std::real(pField_x[0][genericParticleArray[i]]);
+                pGrid[0]->get_centroid_location(i,x0,y0,z0);
             }
         }
 
@@ -1358,14 +1416,16 @@ public:
         cout << "Reordering buffer radially..." << endl;
         cout << " [taking centre = " << x0 << " " << y0 << " " <<z0 << "]" << endl;
 
-        MyFloat r2[n_part_arr];
+        std::vector<MyFloat> r2(genericParticleArray.size());
         MyFloat delta_x, delta_y, delta_z;
-        std::vector<size_t> index(n_part_arr);
 
-        for(int i=0;i<n_part_arr;i++) {
-            delta_x = get_wrapped_delta(this->pGrid[0]->cells[part_arr[i]].coords[0]*this->dx[0],x0);
-            delta_y = get_wrapped_delta(this->pGrid[0]->cells[part_arr[i]].coords[1]*this->dx[0],y0);
-            delta_z = get_wrapped_delta(this->pGrid[0]->cells[part_arr[i]].coords[2]*this->dx[0],z0);
+        std::vector<size_t> index(genericParticleArray.size());
+
+        for(int i=0;i<genericParticleArray.size();i++) {
+            pGrid[0]->get_centroid_location(i,delta_x, delta_y, delta_z);
+            delta_x = get_wrapped_delta(delta_x,x0);
+            delta_y = get_wrapped_delta(delta_y,y0);
+            delta_z = get_wrapped_delta(delta_z,z0);
             r2[i] = delta_x*delta_x+delta_y*delta_y+delta_z*delta_z;
             index[i]=i;
         }
@@ -1375,13 +1435,13 @@ public:
              [&r2](size_t i1, size_t i2) { return r2[i1]<r2[i2]; } );
 
         // Turn the index array into something pointing to the particles
-        for(int i=0; i<n_part_arr; i++) {
-            index[i] = part_arr[index[i]];
+        for(int i=0; i<genericParticleArray.size(); i++) {
+            index[i] = genericParticleArray[index[i]];
         }
 
         // Copy back into the particle array
-        for(int i=0; i<n_part_arr; i++) {
-            part_arr[i] = index[i];
+        for(int i=0; i<genericParticleArray.size(); i++) {
+            genericParticleArray[i] = index[i];
         }
 
     }
@@ -1392,15 +1452,19 @@ public:
             exit(0);
         }
         if(x<1)
-            n_part_arr = ((int)(n_part_arr*x));
+            genericParticleArray.resize(((int)(genericParticleArray.size()*x)));
         else
-            n_part_arr = ((int)x);
+            genericParticleArray.resize(((int)x));
     }
 
     void calculate(string name) {
-        complex<MyFloat> *vec = calcConstraintVector(name);
-        cout << name << ": calculated value = " << dot(vec, this->pField_k[0], this->nPartLevel[0]) << endl;
-        free(vec);
+        float val=0.0;
+        for_each_level(level) {
+            complex<MyFloat> *vec = calcConstraintVector(name,level);
+            val+=std::real(dot(vec, this->pField_k[level], this->nPartLevel[level]));
+            free(vec);
+        }
+        cout << name << ": calculated value = " <<  val << endl;
     }
 
     void constrain(string name, string type, float value) {
@@ -1408,7 +1472,7 @@ public:
             throw runtime_error("No constraint information is available. Is your done command too early, or repeated?");
         }
 
-        bool relative;
+        bool relative=false;
         if (strcasecmp(type.c_str(),"relative")==0) {
             relative=true;
         } else if (strcasecmp(type.c_str(),"absolute")!=0) {
@@ -1417,8 +1481,8 @@ public:
         }
 
         std::complex<MyFloat> constraint = value;
-        complex<MyFloat> *vec = calcConstraintVector(name);
-        std::complex<MyFloat> initv = dot(vec, this->pField_k[0], this->nPartLevel[0]);
+        complex<MyFloat> *vec = calcConstraintVectorAllLevels(name);
+        std::complex<MyFloat> initv = pConstrainer->underlying->v1_dot_y(vec);
 
         if(relative) constraint*=initv;
 
@@ -1465,6 +1529,7 @@ public:
 
         recombineLevel0();
         */
+
 
     }
 

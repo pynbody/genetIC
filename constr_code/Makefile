@@ -13,6 +13,11 @@ ifeq ($(HOST), Piann)
 	CC = g++-4
 endif
 
+ifeq ($(HOST), Rhodo)
+	C = clang
+	CC = clang -lstdc++
+endif
+
 ifeq ($(HOST), dirac)
 	CC 	= icc
 	FFTW    = -I$(GSL_INC_DIR)
