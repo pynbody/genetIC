@@ -69,6 +69,10 @@ public:
         n_components+=1;
     }
 
+    long get_ntot() const {
+        return Ntot;
+    }
+
 
     //
     // SPECIFIC calculations for the underlying field
@@ -167,8 +171,8 @@ private:
     std::vector<std::complex<T> > existing_values;
 public:
     UnderlyingField<T>* underlying;
-    
-    MultiConstrainedField(UnderlyingField<T>* underlying_, long int N) : UnderlyingField<T>(N),
+
+    MultiConstrainedField(UnderlyingField<T>* underlying_) : UnderlyingField<T>(underlying_->get_ntot()),
     underlying(underlying_)
     {
 
@@ -217,6 +221,7 @@ public:
         int n=alphas.size();
         int done=0;
 
+
         std::cout << "v0=[";
         for(int i=0; i<n; i++) {
             std::cout << std::real(existing_values[i]);
@@ -230,9 +235,10 @@ public:
             std::cout << std::real(values[i]);
             if(i<n-1)
                 std::cout << ", ";
-            }
-            std::cout << "]"<<std::endl;
+        }
+        std::cout << "]"<<std::endl;
 
+        // std::cout << "ratio[0] = " << values[0]/existing_values[0] << std::endl;
 
         // Store transformation matrix, just for display purposes
         std::vector<std::vector<std::complex<T>>> t_matrix(n,std::vector<std::complex<T>>(n,0));
@@ -295,6 +301,10 @@ public:
             existing_values.push_back(underlying->v1_dot_y(alpha_i));
         }
         end_progress();
+
+
+
+        //std::cout << "ratio[0] = " << values[0]/existing_values[0] << std::endl;
 
         std::cout << std::endl << "chi2_matr = [";
         for(int i=0; i<n; i++) {

@@ -47,6 +47,7 @@ void setup_parser(ClassDispatch<ICf,void> &dispatch) {
     // Define the commands for the paramfile
 
     dispatch.add_class_route("Om",&ICf::setOmegaM0);
+    dispatch.add_class_route("Ob",&ICf::setOmegaB0);
     dispatch.add_class_route("Ol",&ICf::setOmegaLambda0);
     dispatch.add_class_route("hubble",&ICf::setHubble);
     dispatch.add_class_route("s8",&ICf::setSigma8);
@@ -66,8 +67,10 @@ void setup_parser(ClassDispatch<ICf,void> &dispatch) {
     dispatch.add_class_route("IDfile",&ICf::loadID);
     dispatch.add_class_route("append_IDfile",&ICf::appendID);
     dispatch.add_class_route("select_sphere",&ICf::selectSphere);
+    dispatch.add_class_route("select_nearest",&ICf::selectNearest);
     dispatch.add_class_route("centre_max",&ICf::centreDenmax);
     dispatch.add_class_route("centre_on",&ICf::centreParticle);
+    dispatch.add_class_route("centre", &ICf::setCentre);
     dispatch.add_class_route("order",&ICf::reorderBuffer);
     dispatch.add_class_route("truncate",&ICf::truncateBuffer);
     dispatch.add_class_route("calculate",&ICf::calculate);

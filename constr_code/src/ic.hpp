@@ -19,7 +19,7 @@ template<typename MyFloat>
 class IC {
 protected:
 
-    MyFloat Om0, Ol0, hubble, zin, a, sigma8, ns;
+    MyFloat Om0, Ol0, Ob0, hubble, zin, a, sigma8, ns;
 
     // Everything about the main grid
     MyFloat boxlen[2], dx[2];
@@ -74,6 +74,7 @@ public:
         pConstrainer=NULL;
         whiteNoiseFourier=false;
         hubble=0.701;   // old default
+        Ob0=-1.0;
         ns = 0.96;      // old default
         n[0]=0;
         n[1]=-1; // no subgrid by default
@@ -89,6 +90,10 @@ public:
 
     void setOmegaM0(MyFloat in) {
         Om0=in;
+    }
+
+    void setOmegaB0(MyFloat in) {
+        Ob0=in;
     }
 
     void setOmegaLambda0(MyFloat in) {
@@ -1050,7 +1055,7 @@ public:
             }
             else if (gadgetformat==4) {
                 SaveTipsy( (base+"zoom.tipsy").c_str(), nPartTotal, Pos1, Vel1, Pos2, Vel2, Pos3, Vel3,
-                boxlen[0],  Om0,  Ol0,  hubble,  a, pmass1);
+                boxlen[0],  Om0,  Ol0,  hubble,  a, pmass1, Mass, Ob0);
             }
 
 
@@ -1098,7 +1103,7 @@ public:
 
 
         // TODO: actually combine the different levels before passing them to the constrainer
-        pConstrainer = new MultiConstrainedField<MyFloat>(pField, this->nPartTotal);
+        pConstrainer = new MultiConstrainedField<MyFloat>(pField);
     }
 
     ///////////////////////
@@ -1255,7 +1260,6 @@ protected:
         //
         // If offset is true, offset the storage to take account relative to the
         // start of ar, to take account of the other levels
-
         const char* name = name_in.c_str();
         complex<MyFloat> *rval=(complex<MyFloat>*)calloc(this->nPartLevel[level],sizeof(complex<MyFloat>));
         complex<MyFloat> *rval_k;
@@ -1374,6 +1378,46 @@ public:
         pGrid[0]->get_centroid_location(id,x0,y0,z0);
     }
 
+    void selectNearest() {
+        MyFloat delta_x, delta_y, delta_z, r2_i;
+        MyFloat xp,yp,zp;
+
+        genericParticleArray.clear();
+
+        for_each_level(level) {
+            int repeat=1;
+            if(level==0 && zoomfac>1) {
+                repeat = zoomfac*zoomfac*zoomfac;
+            }
+
+            if(level==1) continue;
+
+            levelParticleArray[level].clear();
+
+            MyFloat r2_nearest = 1.0/0.0;
+            long i_nearest;
+
+            for(long i=0;i<this->nPartLevel[level];i++) {
+                pGrid[level]->get_centroid_location(i,xp,yp,zp);
+                delta_x = get_wrapped_delta(xp,x0);
+                delta_y = get_wrapped_delta(yp,y0);
+                delta_z = get_wrapped_delta(zp,z0);
+                r2_i = delta_x*delta_x+delta_y*delta_y+delta_z*delta_z;
+
+                if(r2_i<r2_nearest) {
+                    r2_nearest = r2_i;
+                    i_nearest = i;
+                }
+
+            }
+
+            for(int q=0; q<repeat; q++)
+                levelParticleArray[level].push_back(i_nearest);
+
+        }
+
+    }
+
     void selectSphere(float radius) {
         MyFloat r2 = radius*radius;
         MyFloat delta_x, delta_y, delta_z, r2_i;
@@ -1381,15 +1425,26 @@ public:
 
         genericParticleArray.clear();
 
-        for(long i=0;i<this->nPartLevel[0];i++) {
-            pGrid[0]->get_centroid_location(i,xp,yp,zp);
-            delta_x = get_wrapped_delta(xp,x0);
-            delta_y = get_wrapped_delta(yp,y0);
-            delta_z = get_wrapped_delta(zp,z0);
-            r2_i = delta_x*delta_x+delta_y*delta_y+delta_z*delta_z;
-            if(r2_i<r2) genericParticleArray.push_back(i);
+        for_each_level(level) {
+            int repeat=1;
+            if(level==0 && zoomfac>1) {
+                repeat = zoomfac*zoomfac*zoomfac;
+            }
+
+
+            levelParticleArray[level].clear();
+            for(long i=0;i<this->nPartLevel[level];i++) {
+                pGrid[level]->get_centroid_location(i,xp,yp,zp);
+                delta_x = get_wrapped_delta(xp,x0);
+                delta_y = get_wrapped_delta(yp,y0);
+                delta_z = get_wrapped_delta(zp,z0);
+                r2_i = delta_x*delta_x+delta_y*delta_y+delta_z*delta_z;
+                if(r2_i<r2)
+                    for(int q=0; q<repeat; q++)
+                        levelParticleArray[level].push_back(i);
+            }
         }
-        interpretParticleList();
+
     }
 
 
@@ -1409,6 +1464,12 @@ public:
 
         cerr << "Denmax = " << den_max <<", index=" << index_max << " coords=" << x0 << " " << y0 << " " << z0 << endl;
 
+    }
+
+    void setCentre(MyFloat xin, MyFloat yin, MyFloat zin) {
+            x0=xin;
+            y0=yin;
+            z0=zin;
     }
 
     void reorderBuffer() {
@@ -1462,8 +1523,10 @@ public:
         for_each_level(level) {
             complex<MyFloat> *vec = calcConstraintVector(name,level);
             val+=std::real(dot(vec, this->pField_k[level], this->nPartLevel[level]));
+            cerr << val << " ";
             free(vec);
         }
+        cerr << endl;
         cout << name << ": calculated value = " <<  val << endl;
     }
 
@@ -1503,12 +1566,21 @@ public:
         if(pConstrainer==NULL) {
             throw runtime_error("No constraint information is available. Is your done command too early, or repeated?");
         }
-        complex<MyFloat> *y1=(complex<MyFloat>*)calloc(this->nPartLevel[0],sizeof(complex<MyFloat>));
+
+        long nall = 0;
+        for_each_level(level) nall+=nPartLevel[level];
+        complex<MyFloat> *y1=(complex<MyFloat>*)calloc(nall,sizeof(complex<MyFloat>));
+
         pConstrainer->prepare();
         pConstrainer->get_realization(y1);
 
-        for(long i=0; i<this->nPartLevel[0]; i++)
-            this->pField_k[0][i]=y1[i];
+        long j=0;
+        for_each_level(level) {
+            for(long i=0; i<this->nPartLevel[level]; i++) {
+                this->pField_k[level][i]=y1[j];
+                j++;
+            }
+        }
 
         free(y1);
 

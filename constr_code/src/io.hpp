@@ -48,6 +48,13 @@ struct io_tipsy_dark
     float mass,x,y,z,vx,vy,vz,eps,phi;
 };
 
+struct io_tipsy_gas
+{
+    float mass,x,y,z,vx,vy,vz,rho,temp,eps,metals,phi;
+};
+
+
+
 struct io_header_2 //header for gadget2
 {
   int      npart[6];
@@ -491,8 +498,10 @@ int SaveGadget3(const char *filename, long n, io_header_3 header1, MyFloat* Pos1
 }
 
 template<typename MyFloat>
-int SaveTipsy(const char *filename, long nPart, MyFloat* Pos1, MyFloat* Vel1, MyFloat* Pos2, MyFloat* Vel2, MyFloat* Pos3, MyFloat* Vel3,
-              double Boxlength, double Om0, double Ol0, double hubble, double ain, double pmass) {
+int SaveTipsy(const char *filename, long nPart, MyFloat* Pos1, MyFloat* Vel1,
+              MyFloat* Pos2, MyFloat* Vel2, MyFloat* Pos3, MyFloat* Vel3,
+              double Boxlength, double Om0, double Ol0, double hubble, double ain,
+              double pmass, MyFloat *masses=NULL, double Ob0=-1.0) {
 
     // originally:
     // pmass in 1e10 h^-1 Msol
@@ -500,17 +509,41 @@ int SaveTipsy(const char *filename, long nPart, MyFloat* Pos1, MyFloat* Vel1, My
     // vel in km s^-1 a^1/2
 
 
+
+
+    double pmass_tipsy = Om0/(nPart); // tipsy convention: sum(mass)=Om0
+    double pos_factor  = 1./Boxlength;  //                   boxsize = 1
+
+    double mass_factor = 0.0;
+    double min_mass=10000000;
+
+    long n_gas = 0;
+
+    if(masses!=NULL) {
+        for(long i=0; i<nPart; i++) {
+            mass_factor+=masses[i];
+            if(masses[i]<min_mass) {
+                min_mass = masses[i];
+                n_gas = 0;
+            }
+            if(masses[i]==min_mass) {
+                n_gas+=1;
+            }
+        }
+        mass_factor = (pmass_tipsy*nPart)/mass_factor;
+    }
+
+    if(Ob0<0) n_gas=0;
+
+
     io_header_tipsy header;
 
     header.scalefactor = ain;
     header.n = nPart;
     header.ndim = 3;
-    header.ngas = 0;
+    header.ngas = n_gas;
     header.ndark = nPart;
     header.nstar = 0;
-
-    double pmass_tipsy = Om0/(nPart); // tipsy convention: sum(mass)=Om0
-    double pos_factor  = 1./Boxlength;  //                   boxsize = 1
 
     double vel_factor  = ain/(sqrt(3./(8.*M_PI))*100*Boxlength);
 
@@ -531,16 +564,48 @@ int SaveTipsy(const char *filename, long nPart, MyFloat* Pos1, MyFloat* Vel1, My
     cout << "hubble0: " << 0.1*hubble * dKpcUnit / dKmsUnit << endl;
 
     io_tipsy_dark dp;
+    io_tipsy_gas gp;
+
     FILE* fd = fopen(filename, "w");
     if(!fd) throw std::runtime_error("Unable to open file for writing");
     dp.mass = pmass_tipsy;
 
     cout << "Warning: writing default value for epsilon" << endl;
     dp.eps = 0.01;
+
     dp.phi = 0.0;
 
 
+    gp.eps = 0.01;
+    gp.temp = 2.73/ain;
+    gp.metals = 0.0;
+    gp.rho = 0.0;
+
+
+
     fwrite(&header, sizeof(io_header_tipsy), 1, fd);
+
+    if(Ob0>0) {
+        for(long i=0; i<nPart; i++){
+            if(masses[i]==min_mass) {
+
+                gp.x = pos_factor*Pos1[i]-0.5;
+                gp.y = pos_factor*Pos2[i]-0.5;
+                gp.z = pos_factor*Pos3[i]-0.5;
+                gp.vx = vel_factor*Vel1[i];
+                gp.vy = vel_factor*Vel2[i];
+                gp.vz = vel_factor*Vel3[i];
+                gp.mass = mass_factor*masses[i];
+                gp.mass*=(Ob0)/Om0;
+
+                fwrite(&gp, sizeof(io_tipsy_gas), 1, fd);
+                n_gas-=1;
+            }
+
+        }
+    }
+
+    assert(n_gas==0);
 
     for(long i=0; i<nPart; i++){
         dp.x = pos_factor*Pos1[i]-0.5;
@@ -549,6 +614,11 @@ int SaveTipsy(const char *filename, long nPart, MyFloat* Pos1, MyFloat* Vel1, My
         dp.vx = vel_factor*Vel1[i];
         dp.vy = vel_factor*Vel2[i];
         dp.vz = vel_factor*Vel3[i];
+        if(masses!=NULL)
+            dp.mass = mass_factor*masses[i];
+        if(Ob0>0.0 && masses[i]==min_mass) {
+            dp.mass*=(Om0-Ob0)/Om0;
+        }
         fwrite(&dp, sizeof(io_tipsy_dark), 1, fd);
 
     }
