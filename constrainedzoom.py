@@ -465,7 +465,7 @@ def display_cov(G, cov, downgrade=False):
 def cov2cor(matr):
     return matr/np.sqrt(np.outer(matr.diagonal(),matr.diagonal()))
 
-def WC_vs_CW(plaw=0.0, k_cut = 0.2, lo=False):
+def WC_vs_CW(plaw=0.0, k_cut = 0.2, part='lo', log=False):
 
     cov_this = functools.partial(cov,plaw=plaw)
 
@@ -474,40 +474,75 @@ def WC_vs_CW(plaw=0.0, k_cut = 0.2, lo=False):
 
     U = G.hi_U()
 
-    if lo:
+    if part=='lo':
         cv_noW = G.get_lo_cov_unwindowed()
         cv_W = G.get_lo_cov()
-    else:
+    elif part=='hi':
         cv_noW = G.get_hi_cov_unwindowed()
         cv_W = G.get_hi_cov()
+    elif part=='sum':
+        cv_noW = G.get_hi_cov_unwindowed() + G.get_lo_cov_unwindowed()
+        cv_W = G.get_hi_cov() + G.get_lo_cov()
 
-    vmin = cv_noW.min()
-    vmax = cv_noW.max()
+    cv_noW_orig = cv_noW
+    cv_W_orig = cv_W
+
+    if log:
+        cv_noW = np.log10(abs(cv_noW))
+        cv_W = np.log10(abs(cv_W))
+        vmax = cv_W.max()
+        vmin = vmax-3
+
+        vmax_diff = vmax
+        vmin_diff = vmin
+
+    else:
+        vmin = cv_noW.min()
+        vmax = cv_noW.max()
+
+        vmin_diff = vmin/10
+        vmax_diff = vmax/10
     #vmin = vmax = None
 
     p.subplot(231)
 
     p.imshow(cv_noW,vmin=vmin,vmax=vmax)
     p.ylabel("Real space")
-    p.title("Ideal HR covariance")
+    p.title("Ideal covariance")
     p.subplot(232)
     p.imshow(cv_W,vmin=vmin,vmax=vmax)
-    p.title("Actual HR covariance")
+    p.title("Actual covariance")
     p.subplot(233)
-    p.imshow(cv_W-cv_noW,vmin=vmin/10,vmax=vmax/10)
+    p.imshow(cv_W-cv_noW,vmin=vmin_diff,vmax=vmax_diff)
     p.title("Residuals x 10")
     p.draw()
-    cv_noW = np.dot(U,np.dot(cv_noW,U.T))
-    cv_W = np.dot(U,np.dot(cv_W,U.T))
-    vmin = cv_noW.min()
-    vmax = cv_noW.max()
+
+
+    cv_noW = np.dot(U,np.dot(cv_noW_orig,U.T))
+    cv_W = np.dot(U,np.dot(cv_W_orig,U.T))
+
+
+
+    if log:
+        cv_noW = np.log10(abs(cv_noW))
+        cv_W = np.log10(abs(cv_W))
+        vmax = cv_noW.max()
+        vmin = vmax-3
+        vmin_diff = vmin
+        vmax_diff = vmax
+    else:
+        vmin = cv_noW.min()
+        vmax = cv_noW.max()
+        vmin_diff = vmin/10
+        vmax_diff = vmax/10
+
     p.subplot(234)
     p.ylabel("Harmonic space")
     p.imshow(cv_noW,vmin=vmin,vmax=vmax)
     p.subplot(235)
     p.imshow(cv_W,vmin=vmin,vmax=vmax)
     p.subplot(236)
-    p.imshow(cv_W-cv_noW,vmin=vmin/10,vmax=vmax/10)
+    p.imshow(cv_W-cv_noW,vmin=vmin_diff,vmax=vmax_diff)
 
 
 def demo(val=2.0,seed=1,plaw=-1.5):
