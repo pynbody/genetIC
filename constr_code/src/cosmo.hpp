@@ -1,3 +1,6 @@
+#include <functional>
+
+
 template<typename MyFloat>
 MyFloat sig(MyFloat R, double *kcamb, double *Tcamb, MyFloat ns, MyFloat L, int res, int quoppa) {
 
@@ -275,7 +278,10 @@ std::complex<MyFloat> *rev_poiss(std::complex<MyFloat> *out, std::complex<MyFloa
 
 //faster than sorting, even though we interpolate more often
 template<typename MyFloat>
-void brute_interpol_new(int res, double *kcamb, double *Tcamb, int quoppa, MyFloat kw, MyFloat ns, MyFloat norm_amp, std::complex<MyFloat> *ft, std::complex<MyFloat> *ftsc, std::complex<MyFloat> *P){
+void brute_interpol_new(int res, double *kcamb, double *Tcamb, int quoppa,
+                        MyFloat kw, MyFloat ns, MyFloat norm_amp, std::complex<MyFloat> *ft,
+                        std::complex<MyFloat> *ftsc, std::complex<MyFloat> *P,
+                        std::function<MyFloat(MyFloat)> filter) {
 
   std::complex<MyFloat> norm_iter (0.,0.);
 
@@ -302,6 +308,7 @@ void brute_interpol_new(int res, double *kcamb, double *Tcamb, int quoppa, MyFlo
 
      P[idk]=gsl_spline_eval (spline, kk, acc);
      P[idk]*=(P[idk]* std::complex<MyFloat>(powf(kk,ns)) *norm_amp );
+     P[idk]*=filter(kk);
 
      ftsc[idk]=sqrt(P[idk])*ft[idk];
 

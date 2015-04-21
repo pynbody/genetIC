@@ -2,9 +2,7 @@ import numpy as np
 import numpy.linalg
 import math
 
-class MultiscaleGaussian(object) :
-    def __init__(self,Cfn=lambda x : 1):
-        
+
 
 class Gaussian(object) :
     def __init__(self,C,x0=None) :
@@ -91,6 +89,20 @@ class Gaussian(object) :
     def get_mean(self):
         return self._x0
 
+    def chi2(self, vec):
+        return np.dot(vec,np.dot(np.linalg.inv(self._C),vec))
+
+
+    def get_chi2_matrix(self, *constraints):
+        n_constraints = len(constraints)
+        A = np.zeros((n_constraints,n_constraints))
+        for i in range(n_constraints):
+            for j in range(n_constraints):
+                A[i,j] = np.dot(constraints[i],self.cov_dot(constraints[j]))
+
+        return np.linalg.inv(A)
+
+
     def build_cov(self):
         """Work out the covariance matrix, even if it's not explicitly stored"""
 
@@ -124,12 +136,13 @@ class ProjectionConstrainedGaussian(Gaussian) :
         norm = np.dot(constraint,underlying.cov_dot(constraint))
         self.alpha = constraint/np.sqrt(norm)
         self.C0_dot_alpha = underlying.cov_dot(self.alpha)
-        print norm
+
 
         x0 = underlying.get_mean()
         self.x1 = x0 \
                   - self.C0_dot_alpha*np.dot(self.alpha,x0) \
                   + self.C0_dot_alpha*(value/np.sqrt(norm))
+
 
 
     def cov_dot(self, vec):
@@ -145,6 +158,19 @@ class ProjectionConstrainedGaussian(Gaussian) :
             underlying_realization = self.underlying.realization()
 
         data = underlying_realization - self.underlying.get_mean()
+        """
+        print "alpha.data=",np.dot(self.alpha,data)
+        print "C0_dot_alpha norm=",self.underlying.chi2(self.C0_dot_alpha)
+        """
+
+
+        """
+        u = self.underlying
+        CdA = np.dot(u._C,self.alpha)
+        print "OR",np.dot(CdA,np.dot(np.linalg.inv(u._C),CdA))
+        print "OR",np.dot(self.alpha,np.dot(u._C,np.dot(np.linalg.inv(u._C),CdA)))
+        print "alpha C0 alpha = ",np.dot(self.alpha,CdA)
+        """
 
         return data - np.dot(self.alpha,data)*self.C0_dot_alpha + self.x1
 
@@ -200,13 +226,19 @@ def pixel_to_harmonic_matrix(length=500) :
     p_vec = np.arange(0.,length)
     return np.exp(2.j*math.pi*np.outer(p_vec,p_vec)/length)/np.sqrt(length)
 
-def powerlaw_covariance(power_index=-0.5, length=500) :
+def powerlaw_covariance(power_index=-0.5, length=500, cutoff=None) :
     """Generate a covariance matrix for a given power law spectrum"""
     M = pixel_to_harmonic_matrix(length)
     pspec = np.arange(0.,length)**power_index
-    pspec[0]=0
+    pspec[0]=pspec[1]
+
+    if cutoff:
+        pspec*=1./(np.exp((np.arange(0.,length)-cutoff)/(50))+1)
+
 
     C = np.dot(M.conj().T,np.dot(np.diag(pspec),M)).real
+
+
     return C
 
 def random_covariance(length=500):
@@ -432,3 +464,63 @@ def demo5(width1=50,width2=100,plaw=-1.0,niter=4,size=500):
     p.subplot(313)
     p.imshow((Citer-Cactual)/b)
     p.colorbar()
+
+
+
+def demo_fabio(*heights,**kwargs):
+    seed = kwargs.pop('seed',0)
+    import pylab as p
+    maxwidth = 300
+
+    cv1 = constraint_vector(100)
+    cv2 = constraint_vector(300)
+
+
+
+    cvs = (cv1,cv2)[:len(heights)]
+
+    G = Gaussian(powerlaw_covariance(-1.0,cutoff=50))
+
+
+    G1 = G
+    for height_i, cv_i in zip(heights,cvs):
+        G1 = G1.projection_constrained(cv_i,height_i)
+
+    np.random.seed(seed)
+    R = G.realization()
+    np.random.seed(seed)
+    R1 = G1.realization()
+    p.plot(R)
+    p.plot(R1)
+
+
+
+    d0 = [np.dot(R,cv_i) for cv_i in cvs] # original (unmodified) 'heights'
+
+    M = G.get_chi2_matrix(*cvs)
+    print "chi2 actual=",G.chi2(R1)-G.chi2(R)
+    print "chi2 expect=",np.dot(heights,np.dot(M,heights)) - np.dot(d0,np.dot(M,d0))
+
+def chi2_fabio(plaw=-1.0, height2_fac=1.0, offset=0):
+    import pylab as p
+
+    cv1 = constraint_vector(50)
+    cv2 = constraint_vector(5,position=250+offset)
+
+    G = Gaussian(powerlaw_covariance(plaw))
+
+    M = G.get_chi2_matrix(cv1,cv2)
+
+    np.random.seed(1)
+
+    height2 = np.sqrt(np.dot(cv2,G.cov_dot(cv2)))*height2_fac
+    height1_scale = np.sqrt(np.dot(cv1,G.cov_dot(cv1)))
+
+    heights1 = np.arange(0.1,5.0,0.01)*height1_scale
+
+    chi2 = [np.dot([height1,height2],np.dot(M,[height1,height2])) for height1 in heights1]
+    chi2 = np.array(chi2)
+    chi2-=chi2.min()
+    p.plot(heights1/height1_scale,chi2)
+
+    p.ylabel(r"$\Delta \chi^2$")
