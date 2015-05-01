@@ -1,10 +1,9 @@
-HOST	= $(shell if [ `which scutil` ]; then scutil --get ComputerName | cut -c1-5; else hostname | cut -c1-5 ; fi )
-
+# Reasonably sensible defaults
 CC    	= g++
-C	= gcc
+C		= gcc
 CFLAGS	= -Wall -g -fopenmp -std=c++11   -fdiagnostics-color=auto
-CPATH = /opt/local/include/
-LPATH   =/opt/local/lib
+CPATH 	= /opt/local/include/
+LPATH   = /opt/local/lib
 
 
 # Use -DFFTW3 to use FFTW3 (instead of FFTW 2).
@@ -24,6 +23,21 @@ FFTWLIB = -lfftw3 -lfftw3_threads
 
 #FFTW    = -DFFTW_TYPE_PREFIX=1
 #FFTWLIB = -ldfftw -ldrfftw
+
+
+# If you want to use HDF5, something like the following is necessary.
+#
+#HDF5_FLAGS = -lhdf5 -D H5_USE_16_API -DHAVE_HDF5
+#
+# WARNING - HDF5 has not been tested recently and in particular won't work
+# with zoom simulations as the code does not support varying mass particles
+
+
+
+
+# Some customizations for known systems
+
+HOST	= $(shell if [ `which scutil` ]; then scutil --get ComputerName | cut -c1-5; else hostname | cut -c1-5 ; fi )
 
 
 ifeq ($(HOST), Piann)
@@ -47,11 +61,10 @@ endif
 ifeq ($(HOST), chewb)
 	CC      = /usr/local/bin/g++
 	FFTW    = -DFFTW_TYPE_PREFIX=1
-            FFTWLIB = -ldfftw -ldrfftw
+    FFTWLIB = -ldfftw -ldrfftw
 endif
 
 
-#HDF5_FLAGS = -lhdf5 -D H5_USE_16_API -DHAVE_HDF5
 
 all: IC
 
