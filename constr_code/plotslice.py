@@ -27,3 +27,19 @@ def plotslice(prefix="output/",slice=0.0,plot_b=True,vmin=-0.15,vmax=0.15):
         p.plot([bx,bx+bL,bx+bL,bx,bx],[by,by,by+bL,by+bL,by],'k:')
     p.xlim(0,aL)
     p.ylim(0,aL)
+
+
+def plotslice_pynbody(f, slice=0.0,vmin=-0.15,vmax=0.15):
+    slice/=f.properties['boxsize'].in_units('Mpc a h^-1',**f.conversion_context())
+    import pynbody
+    f.original_units()
+    rho_mean = f.dm['mass'].sum()/f.properties['boxsize']**3 # should be numerically equal to omegaM0
+    print "rho_mean=",rho_mean
+    f.dm['delta'] = (f.dm['rho']-rho_mean)/rho_mean
+
+    assert abs(f.dm['z'].max() - f.dm['z'].min() - 1.0)<0.001
+
+    f.dm['z']-=f.dm['z'].min()
+    f.dm['z']-=slice
+
+    pynbody.plot.sph.image(f.dm,qty='delta',width=1,log=False,vmin=-0.15,vmax=0.15)

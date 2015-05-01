@@ -7,16 +7,24 @@ CPATH = /opt/local/include/
 LPATH   =/opt/local/lib
 
 
-# Use -DFFTW3 to use FFTW3 (instead of 2).
-# Additionally use -DFFTW3_THREADS=n to use n threads with FFTW3
+# Use -DFFTW3 to use FFTW3 (instead of FFTW 2).
 #
-# Note you have to link to fftw3 and fftw3_threads (or fftw3_omp) if you are using threads
+#
+# Additionally use -DFFTW3_THREADS=n to use threads. This will use n threads
+# UNLESS you are compiling with openmp, in which case you do not need to set n
+# as it will automatically be set to omp_get_num_threads()
+#
+# Note you have to link to fftw3 and fftw3_threads (or fftw3_omp)
+# if you are using threads
 
-FFTW = -DFFTW3 -DFFTW_THREADS=8
+FFTW = -DFFTW3 -DFFTW_THREADS
 FFTWLIB = -lfftw3 -lfftw3_threads
 
-# FFTW    = -DFFTW_TYPE_PREFIX=1
-# FFTWLIB = -ldfftw -ldrfftw
+# Example for FFTW2:
+
+#FFTW    = -DFFTW_TYPE_PREFIX=1
+#FFTWLIB = -ldfftw -ldrfftw
+
 
 ifeq ($(HOST), Piann)
 	CPATH = /sw/include/
