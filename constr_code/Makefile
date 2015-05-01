@@ -6,6 +6,18 @@ CFLAGS	= -Wall -g -fopenmp -std=c++11   -fdiagnostics-color=auto
 CPATH = /opt/local/include/
 LPATH   =/opt/local/lib
 
+
+# Use -DFFTW3 to use FFTW3 (instead of 2).
+# Additionally use -DFFTW3_THREADS=n to use n threads with FFTW3
+#
+# Note you have to link to fftw3 and fftw3_threads (or fftw3_omp) if you are using threads
+
+FFTW = -DFFTW3 -DFFTW_THREADS=8
+FFTWLIB = -lfftw3 -lfftw3_threads
+
+# FFTW    = -DFFTW_TYPE_PREFIX=1
+# FFTWLIB = -ldfftw -ldrfftw
+
 ifeq ($(HOST), Piann)
 	CPATH = /sw/include/
 	LPATH = /sw/lib/
@@ -22,16 +34,15 @@ ifeq ($(HOST), dirac)
 	CC 	= icc
 	FFTW    = -I$(GSL_INC_DIR)
 	FFTWLIB = -L$(FFTWDIR) -I$(FFTWINCLUDE)  -lfftw -lrfftw
-else
-	ifeq ($(HOST), chewb)
-		CC      = /usr/local/bin/g++
-		FFTW    = -DFFTW_TYPE_PREFIX=1
-                FFTWLIB = -ldfftw -ldrfftw
-	else
-		FFTW    = -DFFTW_TYPE_PREFIX=1
-		FFTWLIB = -ldfftw -ldrfftw
-	endif
 endif
+
+ifeq ($(HOST), chewb)
+	CC      = /usr/local/bin/g++
+	FFTW    = -DFFTW_TYPE_PREFIX=1
+            FFTWLIB = -ldfftw -ldrfftw
+endif
+
+
 #HDF5_FLAGS = -lhdf5 -D H5_USE_16_API -DHAVE_HDF5
 
 all: IC

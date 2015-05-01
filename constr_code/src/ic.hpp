@@ -357,6 +357,7 @@ public:
 
         long i;
 
+        // N.B. DO NOT PARALLELIZE this loop - want things to be done in a reliable order
         for(i=0;i<nPartTotal;i++){rnd[i]=gsl_ran_gaussian_ziggurat(r,1.)*sigma;}// cout<< "rnd "<< rnd[i] << endl;}
 
 
@@ -392,6 +393,7 @@ public:
 
        sigma/=sqrt(2.0);
 
+       // N.B. DO NOT PARALLELIZE this loop - want things to be done in a reliable order
        // Do it in square k-shells
        for(ks=0; ks<n/2;ks++) {
            for(k1=-ks; k1<ks; k1++) {
@@ -450,18 +452,24 @@ public:
 
         Grid<MyFloat> *pGrid_l = pGrid[level];
         Grid<MyFloat> *pGrid_p = pGrid[level-1];
-        MyFloat x,y,z; // coordinates
-        int x_p_0, y_p_0, z_p_0, x_p_1, y_p_1, z_p_1; // parent grid locations
-        MyFloat xw0,yw0,zw0; // weights for lower-left parent grid contribution
-        MyFloat xw1,yw1,zw1; // weights for upper-right parent grid contribution
+
 
         // get offsets of bottom-left of grids
         MyFloat x_off_l = x_off[level], y_off_l = y_off[level], z_off_l = z_off[level];
         MyFloat x_off_p = x_off[level-1], y_off_p = y_off[level-1], z_off_p = z_off[level-1];
 
 
-
+        #pragma omp parallel for schedule(static)
         for(int x_l=0; x_l<n_l; x_l++) {
+
+            // private variables used in calculation:
+
+            MyFloat x,y,z; // coordinates
+            int x_p_0, y_p_0, z_p_0, x_p_1, y_p_1, z_p_1; // parent grid locations
+            MyFloat xw0,yw0,zw0; // weights for lower-left parent grid contribution
+            MyFloat xw1,yw1,zw1; // weights for upper-right parent grid contribution
+
+
             for(int y_l=0; y_l<n_l; y_l++){
                 for(int z_l=0; z_l<n_l; z_l++) {
                     // find centre point of current cell:
@@ -704,6 +712,11 @@ public:
     std::tuple<MyFloat*, MyFloat*, MyFloat*, MyFloat*, MyFloat*, MyFloat*> zeldovich(int level=0, long nPartAllocate=-1) {
         //Zeldovich approx.
 
+        MyFloat gr=boxlen[level]/(MyFloat)n[level];
+
+        cout << "Applying Zeldovich approximation; grid cell size=" << gr << " Mpc/h...";
+        cout.flush();
+
         if(nPartAllocate==-1)
             nPartAllocate = nPartLevel[level];
 
@@ -714,16 +727,18 @@ public:
         complex<MyFloat>* psift3k=(complex<MyFloat>*)calloc(nPartLevel[level],sizeof(complex<MyFloat>));
 
         int iix, iiy, iiz;
-        long idx;
         MyFloat kfft;
+        size_t idx;
+
         MyFloat kw = 2.*M_PI/(MyFloat)boxlen[level];
 
+        #pragma omp parallel for schedule(static) default(shared) private(iix, iiy, iiz, kfft, idx)
         for(int ix=0; ix<n[level];ix++){
             for(int iy=0;iy<n[level];iy++){
                 for(int iz=0;iz<n[level];iz++){
 
 
-                    idx = (ix*n[level]+iy)*(n[level])+iz;
+                    idx = static_cast<size_t>((ix*n[level]+iy)*(n[level])+iz);
 
                     if( ix>n[level]/2 ) iix = ix - n[level]; else iix = ix;
                     if( iy>n[level]/2 ) iiy = iy - n[level]; else iiy = iy;
@@ -758,8 +773,7 @@ public:
         free(psift2k);
         free(psift3k);
 
-        MyFloat gr=boxlen[level]/(MyFloat)n[level];
-        cout<< "Grid cell size: "<< gr <<" Mpc/h"<<endl;
+
 
         MyFloat *Vel1=(MyFloat*)calloc(nPartAllocate,sizeof(MyFloat));
         MyFloat *Vel2=(MyFloat*)calloc(nPartAllocate,sizeof(MyFloat));
@@ -774,13 +788,15 @@ public:
 
 
 
-        cout<< "Applying Zeldovich approximation..."<<endl;
+
+
         //apply ZA:
+        #pragma omp parallel for schedule(static) default(shared) private(iix, iiy, iiz, kfft, idx)
         for(int ix=0;ix<n[level];ix++) {
             for(int iy=0;iy<n[level];iy++) {
                 for(int iz=0;iz<n[level];iz++) {
 
-                    idx = (ix*n[level]+iy)*(n[level])+iz;
+                    idx = static_cast<size_t>((ix*n[level]+iy)*(n[level])+iz);
 
                     Vel1[idx] = psift1[idx].real()*hfac; //physical units
                     Vel2[idx] = psift2[idx].real()*hfac;
@@ -818,6 +834,7 @@ public:
         free(psift1);
         free(psift2);
         free(psift3);
+        cout << "done."<<endl;
 
         return make_tuple(Pos1,Pos2,Pos3,Vel1,Vel2,Vel3);
 
@@ -994,6 +1011,9 @@ public:
 
             tie(Pos1z,Pos2z,Pos3z,Vel1z,Vel2z,Vel3z) = zeldovich(1);
 
+            cerr << "Interpolating low-frequency information into zoom region...";
+            cerr.flush();
+
             // Interpolate the low-frequency information from level 0:
             interpolateLevel(1,Pos1z,Pos1);
             interpolateLevel(1,Pos2z,Pos2);
@@ -1006,21 +1026,36 @@ public:
             // interpolate the density field
             interpolateLevel(1);
 
+            cerr << "done." << endl;
+
+
+            cerr << "Re-introducing high-k modes into low-res region...";
+
             // Now re-do level 0, but include the high-k modes which have
             // earlier been filtered out
             free(Pos1); free(Pos2); free(Pos3); free(Vel1); free(Vel2); free(Vel3);
 
             recombineLevel0();
 
+            cerr << "done." << endl;
+
             tie(Pos1,Pos2,Pos3,Vel1,Vel2,Vel3) = zeldovich(0, nPartTotal);
 
+
+            cout << "Adding grid offsets to each particle...";
+            cout.flush();
 
             // add the grid offsets to each position:
             pGrid[0]->add_grid(Pos1,Pos2,Pos3,boxlen[0]);
             pGrid[1]->add_grid(Pos1z,Pos2z,Pos3z,boxlen[0]);
+            cout << "done." << endl;
+
 
             // now we go through and populate the zoom particles into the
             // output buffer
+
+            cout << "Combining particles from different levels...";
+            cout.flush();
 
             // First, delete the low-res counterparts
             deleteParticles({Pos1,Pos2,Pos3,Vel1,Vel2,Vel3});
@@ -1028,6 +1063,7 @@ public:
 
             // Then, inject the high-res particles
             insertParticles({Pos1,Pos2,Pos3,Vel1,Vel2,Vel3},{Pos1z,Pos2z,Pos3z,Vel1z,Vel2z,Vel3z});
+            cout << "done." << endl;
 
 
             Mass = (MyFloat*)calloc(nPartTotal,sizeof(MyFloat));
