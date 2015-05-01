@@ -218,9 +218,9 @@ public:
 
 
 
-    vector<long> get_ids_in_cube(MyFloat x0c, MyFloat y0c, MyFloat z0c, MyFloat dxc) {
+    vector<size_t> get_ids_in_cube(MyFloat x0c, MyFloat y0c, MyFloat z0c, MyFloat dxc) {
         // return all the grid IDs whose centres lie within the specified cube
-        vector<long> ids;
+        vector<size_t> ids;
         int xa=((int) floor((x0c-x0-dxc/2+dx/2)/dx));
         int ya=((int) floor((y0c-y0-dxc/2+dx/2)/dx));
         int za=((int) floor((z0c-z0-dxc/2+dx/2)/dx));
