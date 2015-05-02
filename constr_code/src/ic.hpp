@@ -853,7 +853,7 @@ public:
         }
         else if (gadgetformat==4) {
             SaveTipsy( (base+".tipsy").c_str(), nPartLevel[level], Pos1, Vel1, Pos2, Vel2, Pos3, Vel3,
-            boxlen[level],  Om0,  Ol0,  hubble,  a, pmass);
+		       boxlen[level],  Om0,  Ol0,  hubble,  a, pmass, (MyFloat*)NULL, -1.0, 1.0/(140*n[level]));
         }
 
         free(Pos1);
@@ -1055,7 +1055,7 @@ public:
             }
             else if (gadgetformat==4) {
                 SaveTipsy( (base+"zoom.tipsy").c_str(), nPartTotal, Pos1, Vel1, Pos2, Vel2, Pos3, Vel3,
-                boxlen[0],  Om0,  Ol0,  hubble,  a, pmass1, Mass, Ob0);
+			   boxlen[0],  Om0,  Ol0,  hubble,  a, pmass1, Mass, Ob0, 1.0/(140*n[0]));
             }
 
 

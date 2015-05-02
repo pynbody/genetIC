@@ -501,7 +501,7 @@ template<typename MyFloat>
 int SaveTipsy(const char *filename, long nPart, MyFloat* Pos1, MyFloat* Vel1,
               MyFloat* Pos2, MyFloat* Vel2, MyFloat* Pos3, MyFloat* Vel3,
               double Boxlength, double Om0, double Ol0, double hubble, double ain,
-              double pmass, MyFloat *masses=NULL, double Ob0=-1.0) {
+              double pmass, MyFloat *masses=NULL, double Ob0=-1.0, double eps=0.01) {
 
     // originally:
     // pmass in 1e10 h^-1 Msol
@@ -516,6 +516,7 @@ int SaveTipsy(const char *filename, long nPart, MyFloat* Pos1, MyFloat* Vel1,
 
     double mass_factor = 0.0;
     double min_mass=10000000;
+    double max_mass=0.0;
 
     long n_gas = 0;
 
@@ -529,6 +530,9 @@ int SaveTipsy(const char *filename, long nPart, MyFloat* Pos1, MyFloat* Vel1,
             if(masses[i]==min_mass) {
                 n_gas+=1;
             }
+	    if(masses[i]>max_mass) {
+	      max_mass = masses[i];
+	    }
         }
         mass_factor = (pmass_tipsy*nPart)/mass_factor;
     }
@@ -570,13 +574,13 @@ int SaveTipsy(const char *filename, long nPart, MyFloat* Pos1, MyFloat* Vel1,
     if(!fd) throw std::runtime_error("Unable to open file for writing");
     dp.mass = pmass_tipsy;
 
-    cout << "Warning: writing default value for epsilon" << endl;
-    dp.eps = 0.01;
+
+    dp.eps = eps;
 
     dp.phi = 0.0;
 
 
-    gp.eps = 0.01;
+    gp.eps = eps;
     gp.temp = 2.73/ain;
     gp.metals = 0.0;
     gp.rho = 0.0;
@@ -614,8 +618,10 @@ int SaveTipsy(const char *filename, long nPart, MyFloat* Pos1, MyFloat* Vel1,
         dp.vx = vel_factor*Vel1[i];
         dp.vy = vel_factor*Vel2[i];
         dp.vz = vel_factor*Vel3[i];
-        if(masses!=NULL)
+        if(masses!=NULL) {
             dp.mass = mass_factor*masses[i];
+	    dp.eps = eps*pow(masses[i]/max_mass,0.3333);
+	}
         if(Ob0>0.0 && masses[i]==min_mass) {
             dp.mass*=(Om0-Ob0)/Om0;
         }
