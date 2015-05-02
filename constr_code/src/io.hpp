@@ -379,7 +379,7 @@ int save_phases(complex<MyFloat> *phk, MyFloat* ph, complex<MyFloat> *delta, int
 #endif
 
 template<typename MyFloat>
-int SaveGadget2(const char *filename, long nPart, io_header_2 header1, MyFloat* Pos1, MyFloat* Vel1, MyFloat* Pos2, MyFloat* Vel2, MyFloat* Pos3, MyFloat* Vel3, MyFloat *Mass=NULL) {
+void SaveGadget2(const char *filename, long nPart, io_header_2 header1, MyFloat* Pos1, MyFloat* Vel1, MyFloat* Pos2, MyFloat* Vel2, MyFloat* Pos3, MyFloat* Vel3, MyFloat *Mass=NULL) {
   FILE* fd = fopen(filename, "w");
   if(!fd) throw std::runtime_error("Unable to open file for writing");
   MyFloat* Pos=(MyFloat*)calloc(3,sizeof(MyFloat));
@@ -433,11 +433,10 @@ int SaveGadget2(const char *filename, long nPart, io_header_2 header1, MyFloat* 
 
   fclose(fd);
 
- return 0;
 }
 
 template<typename MyFloat>
-int SaveGadget3(const char *filename, long n, io_header_3 header1, MyFloat* Pos1, MyFloat* Vel1, MyFloat* Pos2, MyFloat* Vel2, MyFloat* Pos3, MyFloat* Vel3, MyFloat *Mass=NULL) {
+void SaveGadget3(const char *filename, long n, io_header_3 header1, MyFloat* Pos1, MyFloat* Vel1, MyFloat* Pos2, MyFloat* Vel2, MyFloat* Pos3, MyFloat* Vel3, MyFloat *Mass=NULL) {
 
     FILE* fd = fopen(filename, "w");
     if(!fd) throw std::runtime_error("Unable to open file for writing");
@@ -494,11 +493,10 @@ int SaveGadget3(const char *filename, long n, io_header_3 header1, MyFloat* Pos1
     fclose(fd);
     free(Pos);
 
-  return 0;
 }
 
 template<typename MyFloat>
-int SaveTipsy(const char *filename, long nPart, MyFloat* Pos1, MyFloat* Vel1,
+void SaveTipsy(const char *filename, long nPart, MyFloat* Pos1, MyFloat* Vel1,
               MyFloat* Pos2, MyFloat* Vel2, MyFloat* Pos3, MyFloat* Vel3,
               double Boxlength, double Om0, double Ol0, double hubble, double ain,
               double pmass, MyFloat *masses=NULL, double Ob0=-1.0, double eps=0.01) {

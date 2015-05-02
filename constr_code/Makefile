@@ -1,10 +1,44 @@
+# Reasonably sensible defaults
+CC    	= g++
+C		= gcc
+CFLAGS	= -Wall -g -fopenmp -std=c++11   -fdiagnostics-color=auto
+CPATH 	= /opt/local/include/
+LPATH   = /opt/local/lib
+
+
+# Use -DFFTW3 to use FFTW3 (instead of FFTW 2).
+#
+#
+# Additionally use -DFFTW3_THREADS=n to use threads. This will use n threads
+# UNLESS you are compiling with openmp, in which case you do not need to set n
+# as it will automatically be set to omp_get_num_threads()
+#
+# Note you have to link to fftw3 and fftw3_threads (or fftw3_omp)
+# if you are using threads
+
+FFTW = -DFFTW3 -DFFTW_THREADS
+FFTWLIB = -lfftw3 -lfftw3_threads
+
+# Example for FFTW2:
+
+#FFTW    = -DFFTW_TYPE_PREFIX=1
+#FFTWLIB = -ldfftw -ldrfftw
+
+
+# If you want to use HDF5, something like the following is necessary.
+#
+#HDF5_FLAGS = -lhdf5 -D H5_USE_16_API -DHAVE_HDF5
+#
+# WARNING - HDF5 has not been tested recently and in particular won't work
+# with zoom simulations as the code does not support varying mass particles
+
+
+
+
+# Some customizations for known systems
+
 HOST	= $(shell if [ `which scutil` ]; then scutil --get ComputerName | cut -c1-5; else hostname | cut -c1-5 ; fi )
 
-CC    	= g++
-C	= gcc
-CFLAGS	= -Wall -g -fopenmp -std=c++11   -fdiagnostics-color=auto
-CPATH = /opt/local/include/
-LPATH   =/opt/local/lib
 
 ifeq ($(HOST), Piann)
 	CPATH = /sw/include/
@@ -22,17 +56,15 @@ ifeq ($(HOST), dirac)
 	CC 	= icc
 	FFTW    = -I$(GSL_INC_DIR)
 	FFTWLIB = -L$(FFTWDIR) -I$(FFTWINCLUDE)  -lfftw -lrfftw
-else
-	ifeq ($(HOST), chewb)
-		CC      = /usr/local/bin/g++
-		FFTW    = -DFFTW_TYPE_PREFIX=1
-                FFTWLIB = -ldfftw -ldrfftw
-	else
-		FFTW    = -DFFTW_TYPE_PREFIX=1
-		FFTWLIB = -ldfftw -ldrfftw
-	endif
 endif
-#HDF5_FLAGS = -lhdf5 -D H5_USE_16_API -DHAVE_HDF5
+
+ifeq ($(HOST), chewb)
+	CC      = /usr/local/bin/g++
+	FFTW    = -DFFTW_TYPE_PREFIX=1
+    FFTWLIB = -ldfftw -ldrfftw
+endif
+
+
 
 all: IC
 

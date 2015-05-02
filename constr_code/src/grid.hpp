@@ -218,9 +218,9 @@ public:
 
 
 
-    vector<long> get_ids_in_cube(MyFloat x0c, MyFloat y0c, MyFloat z0c, MyFloat dxc) {
+    vector<size_t> get_ids_in_cube(MyFloat x0c, MyFloat y0c, MyFloat z0c, MyFloat dxc) {
         // return all the grid IDs whose centres lie within the specified cube
-        vector<long> ids;
+        vector<size_t> ids;
         int xa=((int) floor((x0c-x0-dxc/2+dx/2)/dx));
         int ya=((int) floor((y0c-y0-dxc/2+dx/2)/dx));
         int za=((int) floor((z0c-z0-dxc/2+dx/2)/dx));
@@ -246,13 +246,13 @@ public:
             boxlen = dx*size;
 
         MyFloat Mean1=0, Mean2=0, Mean3=0;
-        long idx;
+        size_t idx;
 
         for(int ix=0;ix<size;ix++) {
             for(int iy=0;iy<size;iy++) {
                 for(int iz=0;iz<size;iz++) {
 
-                    idx = (long)(ix*size+iy)*size+iz;
+                    idx = static_cast<size_t>((ix*size+iy)*size+iz);
 
                     // position in physical coordinates
                     Pos1[idx]+= ix*dx+dx/2+x0;

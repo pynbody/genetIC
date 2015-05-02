@@ -294,6 +294,7 @@ void brute_interpol_new(int res, double *kcamb, double *Tcamb, int quoppa,
   long ii,jj,ll;
   long idk;
 
+  #pragma omp parallel for schedule(static) default(shared) private(k1,k2,k3,ii,jj,ll,idk,kk)
   for(k1=-res/2; k1<res/2;k1++){
       if(k1<0){ii=k1+res;}else{ii=k1;}
      for(k2=-res/2;k2<res/2;k2++){

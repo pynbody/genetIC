@@ -40,8 +40,8 @@ protected:
     int out, gadgetformat, seed;
     int nCambLines; // eh?
     double *kcamb, *Tcamb;
-    long nPartLevel[2];
-    long nPartTotal;
+    size_t nPartLevel[2];
+    size_t nPartTotal;
 
     string incamb, indir, inname, base;
 
@@ -168,7 +168,7 @@ public:
 
         // TO DO: wrap the box sensibly
 
-        for(long i=0; i<zoomParticleArray.size(); i++) {
+        for(size_t i=0; i<zoomParticleArray.size(); i++) {
             g.get_coordinates(zoomParticleArray[i],x,y,z);
             if(x<x0) x0=x;
             if(y<y0) y0=y;
@@ -307,7 +307,7 @@ public:
         MyFloat gradient = log(Tcamb[nCambLines-1]/Tcamb[nCambLines-2])/log(kcamb[nCambLines-1]/kcamb[nCambLines-2]);
         cerr << "Extending CAMB transfer using powerlaw " << gradient << " from " << Tcamb[nCambLines-1] << endl;
 
-        for(j=nCambLines;kcamb[j-1]<100;j++)
+        for(j=nCambLines;kcamb[j-1]<300;j++)
         {
             kcamb[j] = kcamb[j-1]+1.0;
             Tcamb[j] = exp(log(Tcamb[nCambLines-1]) + gradient * (log(kcamb[j]/kcamb[nCambLines-1])));
@@ -357,6 +357,7 @@ public:
 
         long i;
 
+        // N.B. DO NOT PARALLELIZE this loop - want things to be done in a reliable order
         for(i=0;i<nPartTotal;i++){rnd[i]=gsl_ran_gaussian_ziggurat(r,1.)*sigma;}// cout<< "rnd "<< rnd[i] << endl;}
 
 
@@ -388,11 +389,11 @@ public:
        // the 'same' field
 
        cerr << "Drawing random numbers in fourier space..."<< endl;
-       MyFloat kk=0.;
-       int ks,k1,k2,k3;
+       int ks,k1,k2;
 
        sigma/=sqrt(2.0);
 
+       // N.B. DO NOT PARALLELIZE this loop - want things to be done in a reliable order
        // Do it in square k-shells
        for(ks=0; ks<n/2;ks++) {
            for(k1=-ks; k1<ks; k1++) {
@@ -451,18 +452,24 @@ public:
 
         Grid<MyFloat> *pGrid_l = pGrid[level];
         Grid<MyFloat> *pGrid_p = pGrid[level-1];
-        MyFloat x,y,z; // coordinates
-        int x_p_0, y_p_0, z_p_0, x_p_1, y_p_1, z_p_1; // parent grid locations
-        MyFloat xw0,yw0,zw0; // weights for lower-left parent grid contribution
-        MyFloat xw1,yw1,zw1; // weights for upper-right parent grid contribution
+
 
         // get offsets of bottom-left of grids
         MyFloat x_off_l = x_off[level], y_off_l = y_off[level], z_off_l = z_off[level];
         MyFloat x_off_p = x_off[level-1], y_off_p = y_off[level-1], z_off_p = z_off[level-1];
 
 
-
+        #pragma omp parallel for schedule(static)
         for(int x_l=0; x_l<n_l; x_l++) {
+
+            // private variables used in calculation:
+
+            MyFloat x,y,z; // coordinates
+            int x_p_0, y_p_0, z_p_0, x_p_1, y_p_1, z_p_1; // parent grid locations
+            MyFloat xw0,yw0,zw0; // weights for lower-left parent grid contribution
+            MyFloat xw1,yw1,zw1; // weights for upper-right parent grid contribution
+
+
             for(int y_l=0; y_l<n_l; y_l++){
                 for(int z_l=0; z_l<n_l; z_l++) {
                     // find centre point of current cell:
@@ -589,7 +596,7 @@ public:
     void recombineLevel0() {
 
         operateInFourierSpace(0);
-        for(long i=0; i<this->nPartLevel[0]; i++)
+        for(size_t i=0; i<this->nPartLevel[0]; i++)
             pField_k[0][i]+=pField_k_0_high[i];
         free(pField_k_0_high);
 
@@ -677,9 +684,6 @@ public:
     void dumpGrid(int level=0) {
         ensureRealDelta(level);
 
-        int shape[3] = {n[level], n[level], n[level]};
-        int fortran_order = 0;
-
         ostringstream filename;
         filename << indir << "/grid-" << level << ".npy";
 
@@ -708,6 +712,11 @@ public:
     std::tuple<MyFloat*, MyFloat*, MyFloat*, MyFloat*, MyFloat*, MyFloat*> zeldovich(int level=0, long nPartAllocate=-1) {
         //Zeldovich approx.
 
+        MyFloat gr=boxlen[level]/(MyFloat)n[level];
+
+        cout << "Applying Zeldovich approximation; grid cell size=" << gr << " Mpc/h...";
+        cout.flush();
+
         if(nPartAllocate==-1)
             nPartAllocate = nPartLevel[level];
 
@@ -718,16 +727,18 @@ public:
         complex<MyFloat>* psift3k=(complex<MyFloat>*)calloc(nPartLevel[level],sizeof(complex<MyFloat>));
 
         int iix, iiy, iiz;
-        long idx;
         MyFloat kfft;
+        size_t idx;
+
         MyFloat kw = 2.*M_PI/(MyFloat)boxlen[level];
 
+        #pragma omp parallel for schedule(static) default(shared) private(iix, iiy, iiz, kfft, idx)
         for(int ix=0; ix<n[level];ix++){
             for(int iy=0;iy<n[level];iy++){
                 for(int iz=0;iz<n[level];iz++){
 
 
-                    idx = (ix*n[level]+iy)*(n[level])+iz;
+                    idx = static_cast<size_t>((ix*n[level]+iy)*(n[level])+iz);
 
                     if( ix>n[level]/2 ) iix = ix - n[level]; else iix = ix;
                     if( iy>n[level]/2 ) iiy = iy - n[level]; else iiy = iy;
@@ -762,8 +773,7 @@ public:
         free(psift2k);
         free(psift3k);
 
-        MyFloat gr=boxlen[level]/(MyFloat)n[level];
-        cout<< "Grid cell size: "<< gr <<" Mpc/h"<<endl;
+
 
         MyFloat *Vel1=(MyFloat*)calloc(nPartAllocate,sizeof(MyFloat));
         MyFloat *Vel2=(MyFloat*)calloc(nPartAllocate,sizeof(MyFloat));
@@ -777,15 +787,16 @@ public:
         //TODO: hardcoded value of f=1 is inaccurate, but fomega currently gives wrong nults
 
 
-        MyFloat mean1=0.,mean2=0.,mean3=0.;
-        MyFloat Mean1=0., Mean2=0., Mean3=0.;
-        cout<< "Applying ZA & PBC... "<<endl;
+
+
+
         //apply ZA:
+        #pragma omp parallel for schedule(static) default(shared) private(iix, iiy, iiz, kfft, idx)
         for(int ix=0;ix<n[level];ix++) {
             for(int iy=0;iy<n[level];iy++) {
                 for(int iz=0;iz<n[level];iz++) {
 
-                    idx = (ix*n[level]+iy)*(n[level])+iz;
+                    idx = static_cast<size_t>((ix*n[level]+iy)*(n[level])+iz);
 
                     Vel1[idx] = psift1[idx].real()*hfac; //physical units
                     Vel2[idx] = psift2[idx].real()*hfac;
@@ -823,6 +834,7 @@ public:
         free(psift1);
         free(psift2);
         free(psift3);
+        cout << "done."<<endl;
 
         return make_tuple(Pos1,Pos2,Pos3,Vel1,Vel2,Vel3);
 
@@ -874,12 +886,11 @@ public:
         // This involves just moving everything backwards
         // in steps.
 
-        long i_zoom=0;
-        long write_ptcl=0;
-        long next_zoom=zoomParticleArray[0];
-        long next_zoom_i=0;
+        size_t write_ptcl=0;
+        size_t next_zoom=zoomParticleArray[0];
+        size_t next_zoom_i=0;
 
-        for(long read_ptcl=0; read_ptcl<nPartLevel[0]; read_ptcl++) {
+        for(size_t read_ptcl=0; read_ptcl<nPartLevel[0]; read_ptcl++) {
             if(read_ptcl!=next_zoom) {
                 if(read_ptcl!=write_ptcl) {
                     for(auto ar=A.begin(); ar!=A.end(); ++ar) {
@@ -901,7 +912,7 @@ public:
         }
     }
 
-    std::vector<long> mapid(long id0, int level0=0, int level1=1) {
+    std::vector<size_t> mapid(size_t id0, size_t level0=0, size_t level1=1) {
         // Finds all the particles at level1 corresponding to the single
         // particle at level0
         std::tie(x0,y0,z0) = pGrid[level0]->get_centroid_location(id0);
@@ -913,14 +924,16 @@ public:
 
 
         // the last 'low-res' particle is just before this address:
-        long i_write = nPartLevel[0]-zoomParticleArray.size();
+        size_t i_write = nPartLevel[0]-zoomParticleArray.size();
 
-        int zoomfac3=zoomfac*zoomfac*zoomfac; // used for testing only
+        size_t zoomfac3=zoomfac*zoomfac*zoomfac; // used for testing only
 
-        for(long i=0; i<zoomParticleArray.size(); i++) {
+        for(size_t i=0; i<zoomParticleArray.size(); i++) {
             // get the list of zoomed particles corresponding to this one
-            std::vector<long> hr_particles = mapid(zoomParticleArray[i]);
+            std::vector<size_t> hr_particles = mapid(zoomParticleArray[i]);
+
             assert(hr_particles.size()==zoomfac3);
+
             for(auto i=hr_particles.begin(); i!=hr_particles.end(); i++) {
                 for(auto ar_to=A.begin(), ar_from=B.begin();
                     ar_to!=A.end() && ar_from!=B.end();)
@@ -946,13 +959,13 @@ public:
 
             long i0 = nPartLevel[0]-zoomParticleArray.size();
             long lr_particle;
-            int n_hr_per_lr = zoomfac*zoomfac*zoomfac;
+            size_t n_hr_per_lr = zoomfac*zoomfac*zoomfac;
 
             for(auto i=genericParticleArray.begin(); i!=genericParticleArray.end(); ++i) {
                 if((*i)<i0)
                     throw std::runtime_error("Constraining particle is in low-res region - not permitted");
 
-                if(((*i)-i0)/n_hr_per_lr>=zoomParticleArray.size())
+                if( ((*i)-i0)/n_hr_per_lr >= zoomParticleArray.size() )
                     throw std::runtime_error("Particle ID out of range");
 
                 // find the low-res particle. Note that we push it onto the list
@@ -963,7 +976,7 @@ public:
                 levelParticleArray[0].push_back(lr_particle);
 
                 // get all the HR particles
-                std::vector<long> hr_particles = mapid(lr_particle);
+                std::vector<size_t> hr_particles = mapid(lr_particle);
                 assert(hr_particles.size()==n_hr_per_lr);
 
                 // work out which of these this particle must be and push it onto
@@ -998,6 +1011,9 @@ public:
 
             tie(Pos1z,Pos2z,Pos3z,Vel1z,Vel2z,Vel3z) = zeldovich(1);
 
+            cerr << "Interpolating low-frequency information into zoom region...";
+            cerr.flush();
+
             // Interpolate the low-frequency information from level 0:
             interpolateLevel(1,Pos1z,Pos1);
             interpolateLevel(1,Pos2z,Pos2);
@@ -1010,21 +1026,36 @@ public:
             // interpolate the density field
             interpolateLevel(1);
 
+            cerr << "done." << endl;
+
+
+            cerr << "Re-introducing high-k modes into low-res region...";
+
             // Now re-do level 0, but include the high-k modes which have
             // earlier been filtered out
             free(Pos1); free(Pos2); free(Pos3); free(Vel1); free(Vel2); free(Vel3);
 
             recombineLevel0();
 
+            cerr << "done." << endl;
+
             tie(Pos1,Pos2,Pos3,Vel1,Vel2,Vel3) = zeldovich(0, nPartTotal);
 
+
+            cout << "Adding grid offsets to each particle...";
+            cout.flush();
 
             // add the grid offsets to each position:
             pGrid[0]->add_grid(Pos1,Pos2,Pos3,boxlen[0]);
             pGrid[1]->add_grid(Pos1z,Pos2z,Pos3z,boxlen[0]);
+            cout << "done." << endl;
+
 
             // now we go through and populate the zoom particles into the
             // output buffer
+
+            cout << "Combining particles from different levels...";
+            cout.flush();
 
             // First, delete the low-res counterparts
             deleteParticles({Pos1,Pos2,Pos3,Vel1,Vel2,Vel3});
@@ -1032,11 +1063,12 @@ public:
 
             // Then, inject the high-res particles
             insertParticles({Pos1,Pos2,Pos3,Vel1,Vel2,Vel3},{Pos1z,Pos2z,Pos3z,Vel1z,Vel2z,Vel3z});
+            cout << "done." << endl;
 
 
             Mass = (MyFloat*)calloc(nPartTotal,sizeof(MyFloat));
 
-            for(long i=0; i<nPartTotal; i++) {
+            for(size_t i=0; i<nPartTotal; i++) {
                 if(i<nPartLevel[0]-zoomParticleArray.size())
                     Mass[i] = pmass1;
                 else
@@ -1138,7 +1170,7 @@ protected:
         MyFloat xa,ya,za, xb, yb, zb;
         pGrid[level]->get_centroid_location(levelParticleArray[level][0],xa,ya,za);
 
-        for(long i=0;i<levelParticleArray[level].size();i++) {
+        for(size_t i=0;i<levelParticleArray[level].size();i++) {
             pGrid[level]->get_centroid_location(levelParticleArray[level][i],xb,yb,zb);
             x0+=get_wrapped_delta(xa,xb);
             y0+=get_wrapped_delta(ya,yb);
@@ -1197,7 +1229,6 @@ protected:
       yp=get_wrapped_delta(yp,y0);
       zp=get_wrapped_delta(zp,z0);
 
-      complex<MyFloat> ang=0.;
 
       //do the epsilon
       MyFloat c[3]={0,0,0};
@@ -1277,7 +1308,7 @@ protected:
 
         if(strcasecmp(name,"overdensity")==0) {
             MyFloat w = 1.0/levelParticleArray[level].size();
-            for(long i=0;i<levelParticleArray[level].size();i++) {
+            for(size_t i=0;i<levelParticleArray[level].size();i++) {
                 rval[levelParticleArray[level][i]]+=w;
             }
 
@@ -1285,7 +1316,7 @@ protected:
         }
         else if(strcasecmp(name,"phi")==0) {
             MyFloat w = 1.0/levelParticleArray[level].size();
-            for(long i=0;i<levelParticleArray[level].size();i++) {
+            for(size_t i=0;i<levelParticleArray[level].size();i++) {
                 rval[levelParticleArray[level][i]]+=w;
             }
             complex<MyFloat> *rval_kX=(complex<MyFloat>*)calloc(this->nPartLevel[level],sizeof(complex<MyFloat>));
@@ -1299,7 +1330,7 @@ protected:
 
             cerr << "Angmom centre is " <<x0 << " " <<y0 << " " << z0 << endl;
 
-            for(long i=0;i<levelParticleArray[level].size();i++) {
+            for(size_t i=0;i<levelParticleArray[level].size();i++) {
                 cen_deriv4_alpha(levelParticleArray[level][i], direction, rval, level);
             }
             complex<MyFloat> *rval_kX=(complex<MyFloat>*)calloc(this->nPartLevel[level],sizeof(complex<MyFloat>));
@@ -1397,7 +1428,7 @@ public:
             MyFloat r2_nearest = 1.0/0.0;
             long i_nearest;
 
-            for(long i=0;i<this->nPartLevel[level];i++) {
+            for(size_t i=0;i<this->nPartLevel[level];i++) {
                 pGrid[level]->get_centroid_location(i,xp,yp,zp);
                 delta_x = get_wrapped_delta(xp,x0);
                 delta_y = get_wrapped_delta(yp,y0);
@@ -1433,7 +1464,7 @@ public:
 
 
             levelParticleArray[level].clear();
-            for(long i=0;i<this->nPartLevel[level];i++) {
+            for(size_t i=0;i<this->nPartLevel[level];i++) {
                 pGrid[level]->get_centroid_location(i,xp,yp,zp);
                 delta_x = get_wrapped_delta(xp,x0);
                 delta_y = get_wrapped_delta(yp,y0);
@@ -1454,7 +1485,7 @@ public:
         long index_max=0;
         ensureRealDelta();
 
-        for(long i=0;i<genericParticleArray.size();i++) {
+        for(size_t i=0;i<genericParticleArray.size();i++) {
             if(std::real(pField_x[0][genericParticleArray[i]])>den_max) {
                 index_max=genericParticleArray[i];
                 den_max = std::real(pField_x[0][genericParticleArray[i]]);
@@ -1482,7 +1513,7 @@ public:
 
         std::vector<size_t> index(genericParticleArray.size());
 
-        for(int i=0;i<genericParticleArray.size();i++) {
+        for(size_t i=0;i<genericParticleArray.size();i++) {
             pGrid[0]->get_centroid_location(i,delta_x, delta_y, delta_z);
             delta_x = get_wrapped_delta(delta_x,x0);
             delta_y = get_wrapped_delta(delta_y,y0);
@@ -1496,12 +1527,12 @@ public:
              [&r2](size_t i1, size_t i2) { return r2[i1]<r2[i2]; } );
 
         // Turn the index array into something pointing to the particles
-        for(int i=0; i<genericParticleArray.size(); i++) {
+        for(size_t i=0; i<genericParticleArray.size(); i++) {
             index[i] = genericParticleArray[index[i]];
         }
 
         // Copy back into the particle array
-        for(int i=0; i<genericParticleArray.size(); i++) {
+        for(size_t i=0; i<genericParticleArray.size(); i++) {
             genericParticleArray[i] = index[i];
         }
 
@@ -1576,7 +1607,7 @@ public:
 
         long j=0;
         for_each_level(level) {
-            for(long i=0; i<this->nPartLevel[level]; i++) {
+            for(size_t i=0; i<this->nPartLevel[level]; i++) {
                 this->pField_k[level][i]=y1[j];
                 j++;
             }
@@ -1610,7 +1641,7 @@ public:
             throw runtime_error("Can only reverse field direction after a 'done' command finailises the constraints");
         }
 
-        for(long i=0; i<this->nPartLevel[0]; i++)
+        for(size_t i=0; i<this->nPartLevel[0]; i++)
             this->pField_k[0][i]=-this->pField_k[0][i];
     }
 
