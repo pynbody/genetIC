@@ -1076,17 +1076,17 @@ public:
             }
 
             if (gadgetformat==2){
-                SaveGadget2( (base+ "zoom_gadget2.dat").c_str(), nPartTotal,
+                SaveGadget2( (base+ ".gadget2").c_str(), nPartTotal,
                 CreateGadget2Header<MyFloat>(nPartTotal, 0, a, zin, boxlen[0], Om0, Ol0, hubble),
                 Pos1, Vel1, Pos2, Vel2, Pos3, Vel3, Mass);
             }
             else if (gadgetformat==3){
-                SaveGadget3( (base+ "zoom_gadget3.dat").c_str(), nPartTotal,
+                SaveGadget3( (base+ ".gadget3").c_str(), nPartTotal,
                 CreateGadget3Header<MyFloat>(nPartTotal, 0, a, zin, boxlen[0], Om0, Ol0, hubble),
                 Pos1, Vel1, Pos2, Vel2, Pos3, Vel3, Mass);
             }
             else if (gadgetformat==4) {
-                SaveTipsy( (base+"zoom.tipsy").c_str(), nPartTotal, Pos1, Vel1, Pos2, Vel2, Pos3, Vel3,
+                SaveTipsy( (base+".tipsy").c_str(), nPartTotal, Pos1, Vel1, Pos2, Vel2, Pos3, Vel3,
 			   boxlen[0],  Om0,  Ol0,  hubble,  a, pmass1, Mass, Ob0, 1.0/(140*n[0]));
             }
 
