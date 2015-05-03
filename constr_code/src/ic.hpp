@@ -732,18 +732,13 @@ public:
         psift2k[0]=complex<MyFloat>(0.,0.);
         psift3k[0]=complex<MyFloat>(0.,0.);
 
-        complex<MyFloat>* psift1=(complex<MyFloat>*)calloc(nPartLevel[level],sizeof(complex<MyFloat>));
-        complex<MyFloat>* psift2=(complex<MyFloat>*)calloc(nPartLevel[level],sizeof(complex<MyFloat>));
-        complex<MyFloat>* psift3=(complex<MyFloat>*)calloc(nPartLevel[level],sizeof(complex<MyFloat>));
+        complex<MyFloat>* psift1=psift1k;  // was malloc; use same space for efficiency savings
+        complex<MyFloat>* psift2=psift2k;
+        complex<MyFloat>* psift3=psift3k;
 
         fft(psift1,psift1k,n[level],-1); //the output .imag() part is non-zero because of the Nyquist frequency, but this is not used anywhere else
         fft(psift2,psift2k,n[level],-1); //same
         fft(psift3,psift3k,n[level],-1); //same
-
-        free(psift1k);
-        free(psift2k);
-        free(psift3k);
-
 
 
         MyFloat *Vel1=(MyFloat*)calloc(nPartAllocate,sizeof(MyFloat));

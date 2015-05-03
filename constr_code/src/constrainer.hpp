@@ -38,7 +38,7 @@ protected:
 
     void id_to_component_id(size_t i, size_t &component, size_t &component_i) {
         component=0;
-        while(component<n_components && i-Ns[component]>0) {
+        while(component<n_components && i>Ns[component]) {
             i-=Ns[component];
             component++;
         }
