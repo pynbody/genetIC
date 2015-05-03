@@ -1,3 +1,5 @@
+#ifndef _IO_INCLUDED
+#define _IO_INCLUDED
 
 #ifdef HAVE_HDF5
 hid_t hdf_float = H5Tcopy (H5T_NATIVE_DOUBLE);
@@ -5,6 +7,7 @@ hid_t hdf_double = H5Tcopy (H5T_NATIVE_DOUBLE);
 #endif
 
 // #endif
+
 
 
 using namespace std;
@@ -718,67 +721,17 @@ io_header_3 CreateGadget3Header(long nPartTotal, double pmass, double ain, doubl
 INPUT ROUTINES
 */
 
-
-int GetBuffer(double *inarray, const char *file, int insize){
-   FILE *Quelle;
-   int i;
-   int r=0;
-
-   Quelle = fopen(file, "r");
-   if (Quelle == NULL) throw std::runtime_error("File not found");
-
-  else
-   { for (i = 0; i < insize*2; i++)
-      {
-         r=fscanf(Quelle, "%lf \n",&inarray[i]);
-
-      }
+template<typename T>
+void getBuffer(std::vector<T> &store, std::string filename) {
+    std::ifstream f(filename);
+    if(!f.is_open())
+        throw std::runtime_error("File "+filename+" not found");
+    string line;
+    while(!f.eof()) {
+        T temp;
+        if(f >> temp)
+            store.push_back(temp);
     }
-    fclose(Quelle);
-
-  return r;
 }
 
-
-int GetBuffer_long(long *inarray, const char *file, int insize){
-   FILE *Quelle;
-   int i;
-   int r=0;
-
-   Quelle = fopen(file, "r");
-   if (Quelle == NULL) throw std::runtime_error("File not found");
-
-  else
-   { for (i = 0; i < insize; i++)
-      {
-         r=fscanf(Quelle, "%lu \n", &inarray[i]);
-
-      }
-    }
-    fclose(Quelle);
-
-  return r;
-}
-
-int GetBuffer_int(int *inarray, const char *file, int insize){
-   FILE *Quelle;
-   int i;
-   int r=0;
-   float *re=new float [1];
-
-   Quelle = fopen(file, "r");
-   if (Quelle == NULL) throw std::runtime_error("File not found");
-
-
-  else
-   { for (i = 0; i < insize; i++)
-      {
-         r=fscanf(Quelle, "%f \n", re);
-     inarray[i]=int(re[0]);
-
-      }
-    }
-    fclose(Quelle);
-
-  return r;
-}
+#endif // _IO_INCLUDED

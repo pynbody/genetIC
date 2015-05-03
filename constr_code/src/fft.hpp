@@ -7,11 +7,18 @@
 #include <omp.h>
 #endif
 
-
-
-
 template<typename MyFloat>
-std::complex<MyFloat> *fft_r(std::complex<MyFloat> *fto, std::complex<MyFloat> *ftin,
+void fft(std::complex<MyFloat> *fto, std::complex<MyFloat> *ftin,
+                             const unsigned int res, const  int dir)
+{
+    throw std::runtime_error("Sorry, the fourier transform has not been implemented for your specified precision");
+    // you'll need to implement an alternative specialisation like the one below for the correct calls
+    // see http://www.fftw.org/doc/Precision.html#Precision
+}
+
+
+template<>
+void fft<double>(std::complex<double> *fto, std::complex<double> *ftin,
                              const unsigned int res, const  int dir)
 { //works when fto and ftin and output are the same, but overwrites fto for the backwards transform so we have another temporary array there
 
@@ -29,13 +36,11 @@ std::complex<MyFloat> *fft_r(std::complex<MyFloat> *fto, std::complex<MyFloat> *
 
   fftw_plan plan;
   size_t i;
-  MyFloat norm = pow(static_cast<MyFloat>(res), 1.5);
+  double norm = pow(static_cast<double>(res), 1.5);
   size_t len = static_cast<size_t>(res*res);
   len*=res;
 
   if(dir==1){
-    // std::complex<MyFloat> *fti = (std::complex<MyFloat>*)calloc(res*res*res,sizeof(std::complex<MyFloat>));
-    //
 
     plan = fftw_plan_dft_3d(res,res,res,
                             reinterpret_cast<fftw_complex*>(&ftin[0]),
@@ -44,19 +49,14 @@ std::complex<MyFloat> *fft_r(std::complex<MyFloat> *fto, std::complex<MyFloat> *
     fftw_execute(plan);
     fftw_destroy_plan(plan);
 
-    MyFloat norm = pow(static_cast<MyFloat>(res), 1.5);
-
     #pragma omp parallel for schedule(static) private(i)
     for(i=0;i<len;i++)
         fto[i]/=norm;
 
-    // free(fti);
     }
 
   else if(dir==-1){
-    // std::complex<MyFloat> *fti = (std::complex<MyFloat>*)calloc(res*res*res,sizeof(std::complex<MyFloat>));
 
-    // for(i=0;i<res*res*res;i++){fti[i]=ftin[i]/sqrt((MyFloat)(res*res*res));}
     plan = fftw_plan_dft_3d(res,res,res,
                             reinterpret_cast<fftw_complex*>(&ftin[0]),
                             reinterpret_cast<fftw_complex*>(&fto[0]),
@@ -72,9 +72,8 @@ std::complex<MyFloat> *fft_r(std::complex<MyFloat> *fto, std::complex<MyFloat> *
 
   }
 
-  else {std::cerr<<"wrong parameter for direction in fft_r"<<std::endl;}
+  else throw std::runtime_error("Incorrect direction parameter to fft");
 
-  return fto;
 }
 
 
@@ -111,7 +110,7 @@ std::complex<MyFloat> *fft_r(std::complex<MyFloat> *fto, std::complex<MyFloat> *
 
 
 template<typename MyFloat>
-std::complex<MyFloat> *fft_r(std::complex<MyFloat> *fto, std::complex<MyFloat> *ftin, const int res, const int dir)
+void fft(std::complex<MyFloat> *fto, std::complex<MyFloat> *ftin, const int res, const int dir)
 { //works when fto and ftin and output are the same, but overwrites fto for the backwards transform so we have another temporary array there
 
     long i;
@@ -137,9 +136,8 @@ std::complex<MyFloat> *fft_r(std::complex<MyFloat> *fto, std::complex<MyFloat> *
     free(fti);
       }
 
-  else {std::cerr<<"wrong parameter for direction in fft_r"<<std::endl;}
+  else {std::cerr<<"wrong parameter for direction in fft"<<std::endl;}
 
-  return fto;
 }
 
 #endif

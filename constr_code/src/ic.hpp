@@ -38,8 +38,12 @@ protected:
 
 
     int out, gadgetformat, seed;
-    int nCambLines; // eh?
-    double *kcamb, *Tcamb;
+
+
+    int nCambLines;
+
+    CAMB<MyFloat> spectrum;
+
     size_t nPartLevel[2];
     size_t nPartTotal;
 
@@ -147,7 +151,7 @@ public:
         if(boxlen[1]==0)
             throw(std::runtime_error("Set the zoom factor before specifying the zoom particles"));
 
-        AllocAndGetBuffer_int(fname.c_str());
+        AllocAndGetBuffer_int(fname);
         zoomParticleArray = genericParticleArray;
 
         genericParticleArray.clear();
@@ -282,41 +286,7 @@ public:
     }
 
     void readCamb() {
-
-        const int maxlines=600; //max. lines in camb power spectrum file
-        const int c=7; //for transfer function
-        int j;
-        double *inarr=(double*)calloc(maxlines*c,sizeof(double));
-        kcamb=(double*)calloc(maxlines,sizeof(double));
-        Tcamb=(double*)calloc(maxlines,sizeof(double));
-
-        cerr << "Reading transfer file "<< incamb << "..." << endl;
-        GetBuffer(inarr, incamb.c_str(), maxlines*c);
-        MyFloat ap=inarr[1]; //to normalise CAMB transfer function so T(0)= 1, doesn't matter if we normalise here in terms of accuracy, but feels more natural
-
-        nCambLines=0;
-
-        for(j=0;j<maxlines;j++)
-        {
-          if(inarr[c*j]>0){kcamb[j]=MyFloat(inarr[c*j]); Tcamb[j]=MyFloat(inarr[c*j+1])/MyFloat(ap); nCambLines+=1;}
-          else {continue;}
-        }
-
-        // extend high-k range using power law
-
-        MyFloat gradient = log(Tcamb[nCambLines-1]/Tcamb[nCambLines-2])/log(kcamb[nCambLines-1]/kcamb[nCambLines-2]);
-        cerr << "Extending CAMB transfer using powerlaw " << gradient << " from " << Tcamb[nCambLines-1] << endl;
-
-        for(j=nCambLines;kcamb[j-1]<300;j++)
-        {
-            kcamb[j] = kcamb[j-1]+1.0;
-            Tcamb[j] = exp(log(Tcamb[nCambLines-1]) + gradient * (log(kcamb[j]/kcamb[nCambLines-1])));
-            // cerr << kcamb[j-1] << " " << Tcamb[j-1] << endl;
-        }
-        nCambLines=j-1;
-
-        free(inarr);
-
+        spectrum.read(incamb);
     }
 
 
@@ -363,7 +333,7 @@ public:
 
 
         cout<< "First FFT..." <<endl;
-        fft_r(pField_k, rnd, n, 1);
+        fft(pField_k, rnd, n, 1);
 
         free(rnd);
 
@@ -615,7 +585,7 @@ public:
         cout<< "Growth factor " << grwfac << endl;
         MyFloat sg8;
 
-        sg8=sig(8., kcamb, Tcamb, ns, boxlen[level], n[level], nCambLines);
+        sg8=spectrum.sig(8., ns, boxlen[level], n[level]);
         std::cout <<"Sigma_8 "<< sg8 << std::endl;
 
         MyFloat kw = 2.*M_PI/(MyFloat)boxlen[level];
@@ -659,7 +629,8 @@ public:
         if(high_k)
             pField_k_this = pField_k_0_high;
 
-        brute_interpol_new(n[level], kcamb, Tcamb,  nCambLines, kw, ns, norm_amp, pField_k_this, pField_k_this, P[level], filter);
+        spectrum.applyTransfer(n[level], kw, ns, norm_amp,
+                               pField_k_this, pField_k_this, P[level], filter);
 
         //assert(abs(real(norm_iter)) >1e-12); //norm!=0
         //assert(abs(imag(norm_iter)) <1e-12); //because there shouldn't be an imaginary part since we assume d is purely real
@@ -765,9 +736,9 @@ public:
         complex<MyFloat>* psift2=(complex<MyFloat>*)calloc(nPartLevel[level],sizeof(complex<MyFloat>));
         complex<MyFloat>* psift3=(complex<MyFloat>*)calloc(nPartLevel[level],sizeof(complex<MyFloat>));
 
-        psift1=fft_r(psift1,psift1k,n[level],-1); //the output .imag() part is non-zero because of the Nyquist frequency, but this is not used anywhere else
-        psift2=fft_r(psift2,psift2k,n[level],-1); //same
-        psift3=fft_r(psift3,psift3k,n[level],-1); //same
+        fft(psift1,psift1k,n[level],-1); //the output .imag() part is non-zero because of the Nyquist frequency, but this is not used anywhere else
+        fft(psift2,psift2k,n[level],-1); //same
+        fft(psift3,psift3k,n[level],-1); //same
 
         free(psift1k);
         free(psift2k);
@@ -1188,32 +1159,18 @@ protected:
 
 
 
-    void AllocAndGetBuffer_int(const char* IDfile, bool append=false) {
-        // count lines, allocate space, then read
+    void AllocAndGetBuffer_int(std::string IDfile, bool append=false) {
 
         cerr << "Loading " << IDfile << endl;
-
-        ifstream inf;
-        inf.open(IDfile);
-
-        if(!inf.is_open()) {
-            throw(runtime_error("Error: could not open particle file"));
-        }
 
         if(!append)
             genericParticleArray.clear();
         else
-            cerr << "Append: starts with " << genericParticleArray.size() << " existing particles" << endl;
+            cerr << " -> append: starts with " << genericParticleArray.size() << " existing particles" << endl;
 
+        getBuffer(genericParticleArray, IDfile);
 
-        while(true) {
-            long x;
-            inf >> x;
-            if(inf.eof()) break;
-            genericParticleArray.push_back(x);
-        }
-
-        cerr << "Total number of particles is " << genericParticleArray.size() << endl;
+        cerr << "  -> total number of particles is " << genericParticleArray.size() << " " << genericParticleArray[0] << " " << genericParticleArray.back() << endl;
 
         interpretParticleList();
     }
@@ -1312,7 +1269,7 @@ protected:
                 rval[levelParticleArray[level][i]]+=w;
             }
 
-            fft_r(rval_k, rval, this->n[level], 1);
+            fft(rval_k, rval, this->n[level], 1);
         }
         else if(strcasecmp(name,"phi")==0) {
             MyFloat w = 1.0/levelParticleArray[level].size();
@@ -1320,7 +1277,7 @@ protected:
                 rval[levelParticleArray[level][i]]+=w;
             }
             complex<MyFloat> *rval_kX=(complex<MyFloat>*)calloc(this->nPartLevel[level],sizeof(complex<MyFloat>));
-            fft_r(rval_kX, rval, this->n[level], 1);
+            fft(rval_kX, rval, this->n[level], 1);
             poiss(rval_k, rval_kX, this->n[level], this->boxlen[level], this->a, this->Om0);
             free(rval_kX);
         }
@@ -1334,7 +1291,7 @@ protected:
                 cen_deriv4_alpha(levelParticleArray[level][i], direction, rval, level);
             }
             complex<MyFloat> *rval_kX=(complex<MyFloat>*)calloc(this->nPartLevel[level],sizeof(complex<MyFloat>));
-            fft_r(rval_kX, rval, this->n[level], 1);
+            fft(rval_kX, rval, this->n[level], 1);
             // The constraint as derived is on the potential. By considering
             // unitarity of FT, we can FT the constraint to get the constraint
             // on the density.
@@ -1369,14 +1326,14 @@ protected:
     void ensureRealDelta(int level=0) {
         if(pField_x[level]==NULL) {
             pField_x[level] = (complex<MyFloat>*)calloc(this->nPartLevel[level],sizeof(complex<MyFloat>));
-            fft_r(pField_x[level],this->pField_k[level],this->n[level],-1);
+            fft(pField_x[level],this->pField_k[level],this->n[level],-1);
         }
     }
 
     void ensureFourierDelta(int level=0) {
         if(pField_k[level]==NULL) {
             pField_k[level] = (complex<MyFloat>*)calloc(this->nPartLevel[level],sizeof(complex<MyFloat>));
-            fft_r(pField_k[level],pField_x[level],n[level],1);
+            fft(pField_k[level],pField_x[level],n[level],1);
         }
     }
 
@@ -1396,12 +1353,12 @@ public:
 
 
     void loadID(string fname) {
-        AllocAndGetBuffer_int(fname.c_str());
+        AllocAndGetBuffer_int(fname);
         getCentre();
     }
 
     void appendID(string fname) {
-        AllocAndGetBuffer_int(fname.c_str(), true);
+        AllocAndGetBuffer_int(fname, true);
         getCentre();
     }
 

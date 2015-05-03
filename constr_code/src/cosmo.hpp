@@ -1,35 +1,158 @@
 #include <functional>
-
+#include "io.hpp"
 
 template<typename MyFloat>
-MyFloat sig(MyFloat R, double *kcamb, double *Tcamb, MyFloat ns, MyFloat L, int res, int quoppa) {
+class CAMB
+{
+protected:
+    std::vector<MyFloat> kcamb;
+    std::vector<MyFloat> Tcamb;
+    gsl_interp_accel *acc;
+    gsl_spline *spline;
 
-  MyFloat s=0.,k,t;
+    void dealloc() {
+        if(spline!=NULL)
+            gsl_spline_free (spline);
+        if(acc!=NULL)
+            gsl_interp_accel_free (acc);
+    }
 
-  MyFloat amp=9./2./M_PI/M_PI;
-  MyFloat kmax=kcamb[quoppa-1];
-  MyFloat kmin=kcamb[0];
+public:
 
-  gsl_interp_accel *acc = gsl_interp_accel_alloc ();
-  gsl_spline *spline = gsl_spline_alloc (gsl_interp_cspline, quoppa);
-  gsl_spline_init (spline, kcamb, Tcamb, quoppa);
+    CAMB() {
+        spline=NULL;
+        acc=NULL;
+    }
 
-  MyFloat dk=(kmax-kmin)/10000.;
-    for(k=kmin; k<kmax;k+=dk){
+    ~CAMB() {
+        dealloc();
+    }
 
-    t=gsl_spline_eval (spline, k, acc);
+    void read(std::string incamb)
+    {
+        dealloc();
+        const int c=7; // number of columns in transfer function
+        int j;
 
-    s+= powf(k,ns+2.)*((sin(k*R)-k*R*cos(k*R))/((k*R)*(k*R)*(k*R)) ) *( (sin(k*R)-k*R*cos(k*R))/((k*R)*(k*R)*(k*R)) )*t*t;
+        std::vector<double> input;
+
+        std::cerr << "Reading transfer file "<< incamb << "..." << std::endl;
+        getBuffer(input, incamb);
+
+        if(input.size()<c || input.size()%c!=0) {
+            throw std::runtime_error("CAMB transfer file doesn't have a sensible number of rows and columns");
+        }
+
+
+        MyFloat ap=input[1]; //to normalise CAMB transfer function so T(0)= 1, doesn't matter if we normalise here in terms of accuracy, but feels more natural
+
+        for(j=0;j<input.size()/c;j++)
+        {
+          if(input[c*j]>0) {
+              // hard-coded to first two columns of CAMB file -
+              kcamb.push_back(MyFloat(input[c*j]));
+              Tcamb.push_back(MyFloat(input[c*j+1])/ap);
+          }
+          else continue;
+        }
+
+        size_t nCambLines = kcamb.size();
+
+        // extend high-k range using power law
+
+        MyFloat gradient = log(Tcamb[nCambLines-1]/Tcamb[nCambLines-2])/log(kcamb[nCambLines-1]/kcamb[nCambLines-2]);
+        std::cerr << "Extending CAMB transfer using powerlaw " << gradient << " from " << Tcamb[nCambLines-1] << std::endl;
+
+        MyFloat Tcamb_f = Tcamb.back(), kcamb_f = kcamb.back();
+
+        while(kcamb.back()<300)
+        {
+            kcamb.push_back(kcamb.back()+1.0);
+            Tcamb.push_back(exp(log(Tcamb_f) + gradient * (log(kcamb.back()/kcamb_f))));
+        }
+
+
+        assert(kcamb.size()==Tcamb.size());
+
+        acc = gsl_interp_accel_alloc ();
+        spline = gsl_spline_alloc(gsl_interp_cspline, kcamb.size());
+        gsl_spline_init(spline, kcamb.data(), Tcamb.data(), kcamb.size());
 
     }
 
-  gsl_spline_free (spline);
-  gsl_interp_accel_free (acc);
 
-  s=sqrt(s*amp*dk);
-  return s;
+    MyFloat sig(MyFloat R, MyFloat ns, MyFloat L, int res) {
 
-}
+      MyFloat s=0.,k,t;
+
+      MyFloat amp=9./2./M_PI/M_PI;
+      MyFloat kmax=kcamb.back();
+      MyFloat kmin=kcamb[0];
+
+      MyFloat dk=(kmax-kmin)/10000.;
+        for(k=kmin; k<kmax;k+=dk){
+
+        t=gsl_spline_eval (spline, k, acc);
+
+        s+= powf(k,ns+2.)*((sin(k*R)-k*R*cos(k*R))/((k*R)*(k*R)*(k*R)) ) *( (sin(k*R)-k*R*cos(k*R))/((k*R)*(k*R)*(k*R)) )*t*t;
+
+        }
+
+
+
+      s=sqrt(s*amp*dk);
+      return s;
+
+    }
+
+    void applyTransfer(int res,
+                            MyFloat kw, MyFloat ns, MyFloat norm_amp, std::complex<MyFloat> *ft,
+                            std::complex<MyFloat> *ftsc, std::complex<MyFloat> *P,
+                            std::function<MyFloat(MyFloat)> filter) {
+
+      std::complex<MyFloat> norm_iter (0.,0.);
+
+      assert(kcamb.size()==Tcamb.size());
+
+      gsl_interp_accel *acc = gsl_interp_accel_alloc ();
+      gsl_spline *spline = gsl_spline_alloc (gsl_interp_cspline, kcamb.size());
+      gsl_spline_init (spline, kcamb.data(), Tcamb.data(), kcamb.size());
+
+      MyFloat kk=0.;
+      long k1,k2,k3;
+      long ii,jj,ll;
+      long idk;
+
+      #pragma omp parallel for schedule(static) default(shared) private(k1,k2,k3,ii,jj,ll,idk,kk)
+      for(k1=-res/2; k1<res/2;k1++){
+          if(k1<0){ii=k1+res;}else{ii=k1;}
+         for(k2=-res/2;k2<res/2;k2++){
+           if(k2<0){jj=k2+res;}else{jj=k2;}
+           for(k3=-res/2;k3<res/2;k3++){
+         if(k3<0){ll=k3+res;}else{ll=k3;}
+
+
+         idk=(ii*(res)+jj)*(res)+ll;
+         if(idk==0){continue;}
+         kk=sqrt(k1*k1+k2*k2+k3*k3)*kw;
+
+         P[idk]=gsl_spline_eval (spline, kk, acc);
+         P[idk]*=(P[idk]* std::complex<MyFloat>(powf(kk,ns)) *norm_amp );
+         P[idk]*=filter(kk);
+
+         ftsc[idk]=sqrt(P[idk])*ft[idk];
+
+           }
+        }
+      }
+
+
+      gsl_spline_free (spline);
+      gsl_interp_accel_free (acc);
+
+    }
+};
+
 
 template<typename MyFloat>
 MyFloat D(MyFloat a, MyFloat Om, MyFloat Ol){
@@ -272,53 +395,5 @@ std::complex<MyFloat> *rev_poiss(std::complex<MyFloat> *out, std::complex<MyFloa
     out[0]=std::complex<MyFloat> (0.,0.);
 
    return out;
-
-}
-
-
-//faster than sorting, even though we interpolate more often
-template<typename MyFloat>
-void brute_interpol_new(int res, double *kcamb, double *Tcamb, int quoppa,
-                        MyFloat kw, MyFloat ns, MyFloat norm_amp, std::complex<MyFloat> *ft,
-                        std::complex<MyFloat> *ftsc, std::complex<MyFloat> *P,
-                        std::function<MyFloat(MyFloat)> filter) {
-
-  std::complex<MyFloat> norm_iter (0.,0.);
-
-  gsl_interp_accel *acc = gsl_interp_accel_alloc ();
-  gsl_spline *spline = gsl_spline_alloc (gsl_interp_cspline, quoppa);
-  gsl_spline_init (spline, kcamb, Tcamb, quoppa);
-
-  MyFloat kk=0.;
-  long k1,k2,k3;
-  long ii,jj,ll;
-  long idk;
-
-  #pragma omp parallel for schedule(static) default(shared) private(k1,k2,k3,ii,jj,ll,idk,kk)
-  for(k1=-res/2; k1<res/2;k1++){
-      if(k1<0){ii=k1+res;}else{ii=k1;}
-     for(k2=-res/2;k2<res/2;k2++){
-       if(k2<0){jj=k2+res;}else{jj=k2;}
-       for(k3=-res/2;k3<res/2;k3++){
-     if(k3<0){ll=k3+res;}else{ll=k3;}
-
-
-     idk=(ii*(res)+jj)*(res)+ll;
-     if(idk==0){continue;}
-     kk=sqrt(k1*k1+k2*k2+k3*k3)*kw;
-
-     P[idk]=gsl_spline_eval (spline, kk, acc);
-     P[idk]*=(P[idk]* std::complex<MyFloat>(powf(kk,ns)) *norm_amp );
-     P[idk]*=filter(kk);
-
-     ftsc[idk]=sqrt(P[idk])*ft[idk];
-
-       }
-    }
-  }
-
-
-  gsl_spline_free (spline);
-  gsl_interp_accel_free (acc);
 
 }
