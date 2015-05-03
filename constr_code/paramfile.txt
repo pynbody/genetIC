@@ -21,22 +21,6 @@ outdir	 ./output/
 gadgetformat 4
 
 
-centre 26 25 25
-select_nearest
-constrain overdensity absolute 1000
-
-centre 25 25 25
-select_nearest
-constrain overdensity absolute -1000
-
 
 
 done
-
-centre 25 25 25
-select_nearest
-calculate overdensity
-
-centre 10 25 25
-select_nearest
-calculate overdensity
