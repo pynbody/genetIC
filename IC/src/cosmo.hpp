@@ -32,7 +32,7 @@ public:
     {
         dealloc();
         const int c=7; // number of columns in transfer function
-        int j;
+        size_t j;
 
         std::vector<double> input;
 
