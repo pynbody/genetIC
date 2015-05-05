@@ -511,6 +511,7 @@ void SaveTipsy(const char *filename, long nPart, MyFloat* Pos1, MyFloat* Vel1,
 
 
 
+    ofstream photogenic_file;
 
     double pmass_tipsy = Om0/(nPart); // tipsy convention: sum(mass)=Om0
     double pos_factor  = 1./Boxlength;  //                   boxsize = 1
@@ -521,7 +522,11 @@ void SaveTipsy(const char *filename, long nPart, MyFloat* Pos1, MyFloat* Vel1,
 
     long n_gas = 0;
 
+    size_t iord=0;
+
     if(masses!=NULL) {
+        photogenic_file.open("photogenic.txt");
+
         for(long i=0; i<nPart; i++) {
             mass_factor+=masses[i];
             if(masses[i]<min_mass) {
@@ -581,10 +586,11 @@ void SaveTipsy(const char *filename, long nPart, MyFloat* Pos1, MyFloat* Vel1,
     dp.phi = 0.0;
 
 
-    gp.eps = eps;
+
     gp.temp = 2.73/ain;
     gp.metals = 0.0;
     gp.rho = 0.0;
+
 
 
 
@@ -600,11 +606,17 @@ void SaveTipsy(const char *filename, long nPart, MyFloat* Pos1, MyFloat* Vel1,
                 gp.vx = vel_factor*Vel1[i];
                 gp.vy = vel_factor*Vel2[i];
                 gp.vz = vel_factor*Vel3[i];
-                gp.mass = mass_factor*masses[i];
-                gp.mass*=(Ob0)/Om0;
+                if(masses!=NULL) {
+                    gp.mass = mass_factor*masses[i]*Ob0/Om0;
+                    gp.eps = eps*pow(masses[i]/max_mass,0.3333);
+                } else {
+                    gp.eps = eps;
+                    gp.mass = pmass_tipsy*Ob0/Om0;
+                }
 
                 fwrite(&gp, sizeof(io_tipsy_gas), 1, fd);
                 n_gas-=1;
+                iord++;
             }
 
         }
@@ -621,12 +633,17 @@ void SaveTipsy(const char *filename, long nPart, MyFloat* Pos1, MyFloat* Vel1,
         dp.vz = vel_factor*Vel3[i];
         if(masses!=NULL) {
             dp.mass = mass_factor*masses[i];
-	    dp.eps = eps*pow(masses[i]/max_mass,0.3333);
-	}
+            dp.eps = eps*pow(masses[i]/max_mass,0.3333);
+            if(masses[i]==min_mass) {
+                photogenic_file << iord << endl;
+            }
+        }
         if(Ob0>0.0 && masses[i]==min_mass) {
             dp.mass*=(Om0-Ob0)/Om0;
         }
+
         fwrite(&dp, sizeof(io_tipsy_dark), 1, fd);
+        iord++;
 
     }
     fclose(fd);
