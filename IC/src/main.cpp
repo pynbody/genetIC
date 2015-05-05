@@ -97,7 +97,7 @@ int main(int argc, char *argv[]) {
 
     if(argc!=2)
     {
-        cerr << "Usage: ./galaxylab paramfile" << endl;
+        cerr << "Usage: ./IC paramfile" << endl;
         return -1;
     }
 
