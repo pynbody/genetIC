@@ -206,7 +206,7 @@ public:
     template<typename... Args>
     void add_class_route(const std::string &name, Rtype (Ctype::*f)(Args...)) {
         // make a lambda that performs the call
-        auto call = [this,f](Args... input_args...) {(pC->*f)(input_args...);};
+        auto call = [this,f](Args... input_args) {(pC->*f)(input_args...);};
         // add it as the route
         this->add_route(name, std::function<Rtype(Args...)>(call));
     }
