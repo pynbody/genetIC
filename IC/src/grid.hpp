@@ -16,63 +16,22 @@ template<typename MyFloat>
 class Grid{
 public:
 
-    int size;
-    long size2;
-    long size3;
+    const MyFloat dx,x0,y0,z0;
+    const size_t size;
+    const size_t size2;
+    const size_t size3;
 
-    MyFloat dx,x0,y0,z0;
+    std::vector<size_t> particleArray;
+    // just a list of particles on this grid for one purpose or another
 
-    Grid(int n,MyFloat dx=1.0, MyFloat x0=0.0, MyFloat y0=0.0, MyFloat z0=0.0) : dx(dx), x0(x0), y0(y0), z0(z0)
+    std::vector<MyFloat*> particleProperties;
+    // a list of particle properties, e.g. position, velocity etc, for every
+    // particle on this grid
+
+    Grid(size_t n,MyFloat dx=1.0, MyFloat x0=0.0, MyFloat y0=0.0, MyFloat z0=0.0) :
+            dx(dx), x0(x0), y0(y0), z0(z0),
+            size(n), size2(n*n), size3(n*n*n)
     {
-        size=n;
-        size2 = (long)size*size;
-        size3 = size2*size;
-
-        /*
-        grid_struct<MyFloat> *cells=(grid_struct<MyFloat>*)calloc(size*size*size,sizeof(grid_struct<MyFloat>));
-        long g1,g2,g3, gg1,gg2,gg3, ind;
-        MyFloat absval;
-        for(g1=0;g1<n;g1++){
-            gg1=g1;
-            if(g1>n/2) gg1=g1-n;
-            for(g2=0;g2<n;g2++){
-                gg2=g2;
-                if(g2>n/2) gg2=g2-n;
-                for(g3=0;g3<n;g3++){
-                    gg3=g3;
-                    if(g3>n/2) gg3=g3-n;
-
-                    ind=(g1*n+g2)*n+g3;
-                    absval=sqrt(gg1*gg1+gg2*gg2+gg3*gg3);
-                    cells[ind].absval=absval;
-                    cells[ind].coords[0]=gg1;
-                    cells[ind].coords[1]=gg2;
-                    cells[ind].coords[2]=gg3;
-                    cells[ind].grid[0]=g1;
-                    cells[ind].grid[1]=g2;
-                    cells[ind].grid[2]=g3;
-                    //if(ind==0){cout<< "in builder "<< cells[0].grid[0] << " "<< cells[0].grid[1] << " "<<cells[0].grid[2]<< endl;} //correct here
-
-                    // added to test new routines:
-                    int x,y,z;
-                    get_coordinates(ind,x,y,z);
-                    assert(x==cells[ind].grid[0]);
-                    assert(y==cells[ind].grid[1]);
-                    assert(z==cells[ind].grid[2]);
-
-                    get_k_coordinates(ind,x,y,z);
-                    assert(x==cells[ind].coords[0]);
-                    assert(y==cells[ind].coords[1]);
-                    assert(z==cells[ind].coords[2]);
-
-                    assert(cells[ind].absval==get_abs_k_coordinates(ind));
-
-                }
-            }
-        }
-
-        this->cells=cells;
-        */
 
     }
 

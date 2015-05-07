@@ -12,17 +12,7 @@ hid_t hdf_double = H5Tcopy (H5T_NATIVE_DOUBLE);
 
 using namespace std;
 
-//stupid workaround because apparently pow() in C++ does not accept floats, only doubles...
-template<typename MyFloat, typename MyExp>
-MyFloat powf(MyFloat base, MyExp exp)
-{
 
-  double result;
-  result=pow(double(base), double(exp));
-
-  return MyFloat(result);
-
-}
 
 size_t my_fwrite(void *ptr, size_t size, size_t nmemb, FILE * stream) //stolen from Gadget
 {

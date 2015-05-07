@@ -7,6 +7,7 @@
 #include <cassert>
 #include <functional>
 #include <algorithm>
+#include <memory>
 
 #include "numpy.hpp"
 
@@ -21,12 +22,16 @@ protected:
 
     MyFloat Om0, Ol0, Ob0, hubble, zin, a, sigma8, ns;
 
-    // Everything about the main grid
-    MyFloat boxlen[2], dx[2];
-    int n[2]; // number of grid divisions along one axis
-    Grid<MyFloat> *pGrid[2]; // the object that helps us relate points on the grid
+    // Everything about the grids:
+    MyFloat boxlen[2], dx[2];      // the box length of each grid
+    int n[2];                      // number of grid divisions along one axis
+    std::vector<std::shared_ptr<Grid<MyFloat>>> pGrid;       // the objects that help us relate points on the grid
     complex<MyFloat> *pField_k[2]; // the field in k-space
     complex<MyFloat> *pField_x[2]; // the field in x-space
+
+
+
+
     complex<MyFloat> *P[2]; // the power spectrum for each k-space point
 
     complex<MyFloat> *pField_k_0_high; // high-k modes for level 0
@@ -45,7 +50,6 @@ protected:
     CAMB<MyFloat> spectrum;
 
     size_t nPartLevel[2];
-    size_t nPartTotal;
 
     string incamb, indir, inname, base;
 
@@ -56,23 +60,19 @@ protected:
 
 
 
-    std::vector<long> genericParticleArray;
-    std::vector<long> levelParticleArray[2];
-
-
-    std::vector<long> zoomParticleArray;
+    std::vector<size_t> genericParticleArray;
 
 
 
     MyFloat x0, y0, z0;
 
     MultiConstrainedField<MyFloat> *pConstrainer;
-
+    shared_ptr<ParticleMapper<MyFloat>> pMapper;
 
 
 public:
-    IC() {
-        pGrid[0]=pGrid[1]=NULL;
+    IC() : pMapper(new ParticleMapper<MyFloat>())
+    {
         pField_x[0]=pField_x[1]=NULL;
         pField_k[0]=pField_k[1]=NULL;
         pConstrainer=NULL;
@@ -80,16 +80,16 @@ public:
         hubble=0.701;   // old default
         Ob0=-1.0;
         ns = 0.96;      // old default
-        n[0]=0;
+        n[0]=-1;
         n[1]=-1; // no subgrid by default
+        boxlen[0]=-1;
         x_off[0]=y_off[0]=z_off[0]=0;
         x_off[1]=y_off[1]=z_off[1]=0;
         prepared = false;
     }
 
     ~IC() {
-        if(pGrid[0]!=NULL) delete pGrid[0];
-        if(pGrid[1]!=NULL) delete pGrid[1];
+
     }
 
     void setOmegaM0(MyFloat in) {
@@ -114,7 +114,7 @@ public:
 
     void setBoxLen(MyFloat in) {
         boxlen[0] = in;
-        dx[0] = boxlen[0]/n[0];
+        initGrid();
     }
 
     void setZ0(MyFloat in) {
@@ -124,8 +124,24 @@ public:
 
     void setn(int in) {
         n[0] = in;
-        nPartLevel[0] = ((long)n[0]*n[0])*n[0];
-        dx[0] = boxlen[0]/n[0];
+        initGrid();
+    }
+
+    void initGrid(int level=0) {
+        if(n[level]<0 || boxlen[level]<0)
+            return;
+
+        nPartLevel[level] = ((long)n[level]*n[level])*n[level];
+        dx[level] = boxlen[level]/n[level];
+
+        if(pGrid.size()!=level)
+            throw std::runtime_error("Trying to re-initialize a grid level");
+
+        pGrid.emplace_back(new Grid<MyFloat>(n[level], dx[level],
+                                             x_off[level], y_off[level], z_off[level]));
+
+        if(level==0)
+            pMapper = std::shared_ptr<ParticleMapper<MyFloat>>(new OneLevelParticleMapper<MyFloat>(pGrid.back()));
     }
 
     void setns(MyFloat in) {
@@ -152,9 +168,7 @@ public:
             throw(std::runtime_error("Set the zoom factor before specifying the zoom particles"));
 
         AllocAndGetBuffer_int(fname);
-        zoomParticleArray = genericParticleArray;
-
-        genericParticleArray.clear();
+        auto zoomParticleArray = pGrid[0]->particleArray;
 
         // Not strictly necessary for this function, but we rely on having the
         // particle IDs sorted later on (when writing)
@@ -212,22 +226,28 @@ public:
 
 
 
-        initZoom();
+        initZoom(zoomParticleArray);
 
     }
 
-    void initZoom() {
+    void initZoom(const std::vector<size_t> & zoomParticleArray) {
         zoomfac = (boxlen[0]/n[0])/(boxlen[1]/n[1]);
         dx[1] = boxlen[1]/n[1];
-        nPartTotal = nPartLevel[0]+(zoomfac*zoomfac*zoomfac-1)*zoomParticleArray.size();
         cout << "Initialized a zoom region:" << endl;
         cout << "  Subbox length   = " << boxlen[1] << " Mpc/h" << endl;
         cout << "  n[1]            = " << n[1] << endl;
         cout << "  dx[1]           = " << dx[1] << endl;
         cout << "  Zoom factor     = " << zoomfac << endl;
         cout << "  Low-left corner = " << x_off[1] << ", " << y_off[1] << ", " << z_off[1] << endl;
-        cout << "  Total particles = " << nPartTotal << endl;
 
+        initGrid(1);
+
+        auto pMapper1 = std::shared_ptr<ParticleMapper<MyFloat>>(new OneLevelParticleMapper<MyFloat>(pGrid.back()));
+
+        pMapper = std::shared_ptr<ParticleMapper<MyFloat>>(
+            new TwoLevelParticleMapper<MyFloat>(pMapper, pMapper1, zoomParticleArray, zoomfac*zoomfac*zoomfac));
+
+        cout << "  Total particles = " << pMapper->size() << endl;
     }
 
 
@@ -420,8 +440,8 @@ public:
         MyFloat dx_l = dx[level];
         MyFloat dx_p = dx[level-1];
 
-        Grid<MyFloat> *pGrid_l = pGrid[level];
-        Grid<MyFloat> *pGrid_p = pGrid[level-1];
+        auto pGrid_l = pGrid[level];
+        auto pGrid_p = pGrid[level-1];
 
 
         // get offsets of bottom-left of grids
@@ -846,37 +866,7 @@ public:
     // ZOOM particle management
     ///////////////////////////////////////////////
 
-    void deleteParticles(std::vector<MyFloat*> A) {
 
-        // delete the particles in the 'zoom' region.
-        // This involves just moving everything backwards
-        // in steps.
-
-        size_t write_ptcl=0;
-        size_t next_zoom=zoomParticleArray[0];
-        size_t next_zoom_i=0;
-
-        for(size_t read_ptcl=0; read_ptcl<nPartLevel[0]; read_ptcl++) {
-            if(read_ptcl!=next_zoom) {
-                if(read_ptcl!=write_ptcl) {
-                    for(auto ar=A.begin(); ar!=A.end(); ++ar) {
-                        (*ar)[write_ptcl]=(*ar)[read_ptcl];
-                    }
-                }
-                write_ptcl++;
-            } else {
-                // we've just hit a 'zoom' particle. Skip over it.
-                // Keep track of the next zoom particle
-                if(next_zoom_i+1<zoomParticleArray.size()) {
-                    next_zoom_i++;
-                    next_zoom = zoomParticleArray[next_zoom_i];
-                } else {
-                    // no more zoom particles
-                    next_zoom =-1;
-                }
-            }
-        }
-    }
 
     std::vector<size_t> mapid(size_t id0, size_t level0=0, size_t level1=1) {
         // Finds all the particles at level1 corresponding to the single
@@ -885,74 +875,11 @@ public:
         return pGrid[level1]->get_ids_in_cube(x0,y0,z0,dx[level0]);
     }
 
-    void insertParticles(std::vector<MyFloat*> A, std::vector<MyFloat*> B) {
-        // insert the particles from the zoom region
 
-
-        // the last 'low-res' particle is just before this address:
-        size_t i_write = nPartLevel[0]-zoomParticleArray.size();
-
-        size_t zoomfac3=zoomfac*zoomfac*zoomfac; // used for testing only
-
-        for(size_t i=0; i<zoomParticleArray.size(); i++) {
-            // get the list of zoomed particles corresponding to this one
-            std::vector<size_t> hr_particles = mapid(zoomParticleArray[i]);
-
-            assert(hr_particles.size()==zoomfac3);
-
-            for(auto i=hr_particles.begin(); i!=hr_particles.end(); i++) {
-                for(auto ar_to=A.begin(), ar_from=B.begin();
-                    ar_to!=A.end() && ar_from!=B.end();)
-                {
-                    (*ar_to)[i_write] = (*ar_from)[(*i)];
-                    ++ar_from;
-                    ++ar_to;
-                }
-                ++i_write;
-            }
-        }
-        assert(i_write==nPartTotal);
-    }
 
     void interpretParticleList() {
-
-        levelParticleArray[0].clear();
-        levelParticleArray[1].clear();
-
-        if(zoomParticleArray.size()==0) {
-            levelParticleArray[0] = genericParticleArray;
-        } else {
-
-            long i0 = nPartLevel[0]-zoomParticleArray.size();
-            long lr_particle;
-            size_t n_hr_per_lr = zoomfac*zoomfac*zoomfac;
-
-            for(auto i=genericParticleArray.begin(); i!=genericParticleArray.end(); ++i) {
-                if((*i)<i0)
-                    throw std::runtime_error("Constraining particle is in low-res region - not permitted");
-
-                if( ((*i)-i0)/n_hr_per_lr >= zoomParticleArray.size() )
-                    throw std::runtime_error("Particle ID out of range");
-
-                // find the low-res particle. Note that we push it onto the list
-                // even if it's already on there to get the weighting right and
-                // prevent the need for a costly search
-                lr_particle = zoomParticleArray[((*i)-i0)/n_hr_per_lr];
-
-                levelParticleArray[0].push_back(lr_particle);
-
-                // get all the HR particles
-                std::vector<size_t> hr_particles = mapid(lr_particle);
-                assert(hr_particles.size()==n_hr_per_lr);
-
-                // work out which of these this particle must be and push it onto
-                // the HR list
-                int offset = ((*i)-i0)%n_hr_per_lr;
-                levelParticleArray[1].push_back(hr_particles[offset]);
-
-            }
-
-        }
+        // copies the overall particle list into the relevant grid levels
+        pMapper->interpretParticleList(genericParticleArray);
     }
 
 
@@ -962,7 +889,7 @@ public:
             cerr << "***** WRITE - no zoom *****" << endl;
             writeLevel(0);
         } else {
-            cerr << "***** WRITE - zoom, total particles = "<< nPartTotal << " *****" << endl;
+            cerr << "***** WRITE - zoom, total particles = "<< pMapper->size() << " *****" << endl;
 
             MyFloat *Pos1, *Pos2, *Pos3, *Vel1, *Vel2, *Vel3, *Mass;
             MyFloat *Pos1z, *Pos2z, *Pos3z, *Vel1z, *Vel2z, *Vel3z;
@@ -1005,7 +932,7 @@ public:
 
             cerr << "done." << endl;
 
-            tie(Pos1,Pos2,Pos3,Vel1,Vel2,Vel3) = zeldovich(0, nPartTotal);
+            tie(Pos1,Pos2,Pos3,Vel1,Vel2,Vel3) = zeldovich(0, pMapper->size());
 
 
             cout << "Adding grid offsets to each particle...";
@@ -1023,19 +950,22 @@ public:
             cout << "Combining particles from different levels...";
             cout.flush();
 
-            // First, delete the low-res counterparts
-            deleteParticles({Pos1,Pos2,Pos3,Vel1,Vel2,Vel3});
+            // Associate our arrays onto the grids they belong to...
+            pGrid[0]->particleProperties = {Pos1,Pos2,Pos3,Vel1,Vel2,Vel3};
+            pGrid[1]->particleProperties = {Pos1z,Pos2z,Pos3z,Vel1z,Vel2z,Vel3z};
+
+            // ...then extend the array on level zero to include ALL particles
+            pMapper->gatherParticlesOnCoarsestGrid();
 
 
-            // Then, inject the high-res particles
-            insertParticles({Pos1,Pos2,Pos3,Vel1,Vel2,Vel3},{Pos1z,Pos2z,Pos3z,Vel1z,Vel2z,Vel3z});
             cout << "done." << endl;
 
+            size_t nPartTotal = pMapper->size();
 
             Mass = (MyFloat*)calloc(nPartTotal,sizeof(MyFloat));
 
             for(size_t i=0; i<nPartTotal; i++) {
-                if(i<nPartLevel[0]-zoomParticleArray.size())
+                if(i<nPartLevel[0]-dynamic_cast<TwoLevelParticleMapper<MyFloat>*>(&*pMapper)->zoomParticleArray.size())
                     Mass[i] = pmass1;
                 else
                     Mass[i] = pmass2;
@@ -1094,7 +1024,6 @@ public:
         pField = new UnderlyingField<MyFloat>(this->P[0], this->pField_k[0], this->nPartLevel[0]);
 
         for_each_level(level) {
-            pGrid[level] = new Grid<MyFloat>(n[level], dx[level], x_off[level], y_off[level], z_off[level]);
             if(level>0)
                 pField->add_component(this->P[level],this->pField_k[level],this->nPartLevel[level]);
         }
@@ -1113,7 +1042,7 @@ public:
 protected:
 
     int deepestLevelWithParticles() {
-        if(levelParticleArray[1].size()>0) return 1; else return 0;
+        if(pGrid[1]->particleArray.size()>0) return 1; else return 0;
     }
 
     MyFloat get_wrapped_delta(MyFloat x0, MyFloat x1) {
@@ -1134,17 +1063,17 @@ protected:
         int level = deepestLevelWithParticles();
 
         MyFloat xa,ya,za, xb, yb, zb;
-        pGrid[level]->get_centroid_location(levelParticleArray[level][0],xa,ya,za);
+        pGrid[level]->get_centroid_location(pGrid[level]->particleArray[0],xa,ya,za);
 
-        for(size_t i=0;i<levelParticleArray[level].size();i++) {
-            pGrid[level]->get_centroid_location(levelParticleArray[level][i],xb,yb,zb);
+        for(size_t i=0;i<pGrid[level]->particleArray.size();i++) {
+            pGrid[level]->get_centroid_location(pGrid[level]->particleArray[i],xb,yb,zb);
             x0+=get_wrapped_delta(xa,xb);
             y0+=get_wrapped_delta(ya,yb);
             z0+=get_wrapped_delta(za,zb);
         }
-        x0/=levelParticleArray[level].size();
-        y0/=levelParticleArray[level].size();
-        z0/=levelParticleArray[level].size();
+        x0/=pGrid[level]->particleArray.size();
+        y0/=pGrid[level]->particleArray.size();
+        z0/=pGrid[level]->particleArray.size();
         x0+=xa;
         y0+=ya;
         z0+=za;
@@ -1259,17 +1188,17 @@ protected:
         }
 
         if(strcasecmp(name,"overdensity")==0) {
-            MyFloat w = 1.0/levelParticleArray[level].size();
-            for(size_t i=0;i<levelParticleArray[level].size();i++) {
-                rval[levelParticleArray[level][i]]+=w;
+            MyFloat w = 1.0/pGrid[level]->particleArray.size();
+            for(size_t i=0;i<pGrid[level]->particleArray.size();i++) {
+                rval[pGrid[level]->particleArray[i]]+=w;
             }
 
             fft(rval_k, rval, this->n[level], 1);
         }
         else if(strcasecmp(name,"phi")==0) {
-            MyFloat w = 1.0/levelParticleArray[level].size();
-            for(size_t i=0;i<levelParticleArray[level].size();i++) {
-                rval[levelParticleArray[level][i]]+=w;
+            MyFloat w = 1.0/pGrid[level]->particleArray.size();
+            for(size_t i=0;i<pGrid[level]->particleArray.size();i++) {
+                rval[pGrid[level]->particleArray[i]]+=w;
             }
             complex<MyFloat> *rval_kX=(complex<MyFloat>*)calloc(this->nPartLevel[level],sizeof(complex<MyFloat>));
             fft(rval_kX, rval, this->n[level], 1);
@@ -1282,8 +1211,8 @@ protected:
 
             cerr << "Angmom centre is " <<x0 << " " <<y0 << " " << z0 << endl;
 
-            for(size_t i=0;i<levelParticleArray[level].size();i++) {
-                cen_deriv4_alpha(levelParticleArray[level][i], direction, rval, level);
+            for(size_t i=0;i<pGrid[level]->particleArray.size();i++) {
+                cen_deriv4_alpha(pGrid[level]->particleArray[i], direction, rval, level);
             }
             complex<MyFloat> *rval_kX=(complex<MyFloat>*)calloc(this->nPartLevel[level],sizeof(complex<MyFloat>));
             fft(rval_kX, rval, this->n[level], 1);
@@ -1375,7 +1304,7 @@ public:
 
             if(level==1) continue;
 
-            levelParticleArray[level].clear();
+            pGrid[level]->particleArray.clear();
 
             MyFloat r2_nearest = 1.0/0.0;
             long i_nearest;
@@ -1395,7 +1324,7 @@ public:
             }
 
             for(int q=0; q<repeat; q++)
-                levelParticleArray[level].push_back(i_nearest);
+                pGrid[level]->particleArray.push_back(i_nearest);
 
         }
 
@@ -1415,7 +1344,7 @@ public:
             }
 
 
-            levelParticleArray[level].clear();
+            pGrid[level]->particleArray.clear();
             for(size_t i=0;i<this->nPartLevel[level];i++) {
                 pGrid[level]->get_centroid_location(i,xp,yp,zp);
                 delta_x = get_wrapped_delta(xp,x0);
@@ -1424,7 +1353,7 @@ public:
                 r2_i = delta_x*delta_x+delta_y*delta_y+delta_z*delta_z;
                 if(r2_i<r2)
                     for(int q=0; q<repeat; q++)
-                        levelParticleArray[level].push_back(i);
+                        pGrid[level]->particleArray.push_back(i);
             }
         }
 
