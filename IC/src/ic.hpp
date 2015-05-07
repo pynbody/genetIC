@@ -170,9 +170,8 @@ public:
         AllocAndGetBuffer_int(fname);
         auto zoomParticleArray = pGrid[0]->particleArray;
 
-        // Not strictly necessary for this function, but we rely on having the
-        // particle IDs sorted later on (when writing)
-        std::sort(zoomParticleArray.begin(), zoomParticleArray.end());
+        // Sorting now happens inside mapper class
+        // std::sort(zoomParticleArray.begin(), zoomParticleArray.end());
 
 
 
@@ -964,12 +963,14 @@ public:
 
             Mass = (MyFloat*)calloc(nPartTotal,sizeof(MyFloat));
 
+            /*
             for(size_t i=0; i<nPartTotal; i++) {
                 if(i<nPartLevel[0]-dynamic_cast<TwoLevelParticleMapper<MyFloat>*>(&*pMapper)->zoomParticleArray.size())
                     Mass[i] = pmass1;
                 else
                     Mass[i] = pmass2;
             }
+            */
 
             if (gadgetformat==2){
                 SaveGadget2( (base+ ".gadget2").c_str(), nPartTotal,
