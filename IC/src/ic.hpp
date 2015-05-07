@@ -963,14 +963,21 @@ public:
 
             Mass = (MyFloat*)calloc(nPartTotal,sizeof(MyFloat));
 
-            /*
-            for(size_t i=0; i<nPartTotal; i++) {
-                if(i<nPartLevel[0]-dynamic_cast<TwoLevelParticleMapper<MyFloat>*>(&*pMapper)->zoomParticleArray.size())
-                    Mass[i] = pmass1;
+
+            size_t j=0;
+
+
+            cerr << "masses are " << pmass1 << " " << pmass2 << endl;
+            for(auto i=pMapper->begin(); i!=pMapper->end(); ++i) {
+                if((*i).first==pGrid[0])
+                    Mass[j] = pmass1;
                 else
-                    Mass[i] = pmass2;
+                    Mass[j] = pmass2;
+                ++j;
             }
-            */
+            cerr << "Wrote " << j << " masses!" << endl;
+
+
 
             if (gadgetformat==2){
                 SaveGadget2( (base+ ".gadget2").c_str(), nPartTotal,
@@ -994,9 +1001,7 @@ public:
             free(Vel2);
             free(Pos3);
             free(Vel3);
-
-            dumpGrid(0);
-            dumpGrid(1);
+            free(Mass);
 
         }
 

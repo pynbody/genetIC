@@ -25,33 +25,44 @@ protected:
     size_t i;
     std::vector<std::shared_ptr<MapperIterator<T>>> subIterators;
     std::vector<size_t> extraData;
-    ParticleMapper<T>* pMapper;
+    const ParticleMapper<T>* pMapper;
 
     using MapType = ParticleMapper<T>;
     using MapPtrType = std::shared_ptr<ParticleMapper<T>>;
     using GridType = Grid<T>;
-    using GridPtrType = std::shared_ptr<Grid<T>>;
+    using ConstGridPtrType = std::shared_ptr<const Grid<T>>;
+    using DereferenceType = std::pair<ConstGridPtrType, size_t>;
 
     friend class ParticleMapper<T>;
     friend class OneLevelParticleMapper<T>;
     friend class TwoLevelParticleMapper<T>;
 
-    MapperIterator(ParticleMapper<T>* pMapper) : pMapper(pMapper), i(0) {}
+    MapperIterator(const ParticleMapper<T>* pMapper) : pMapper(pMapper), i(0) {}
 
 public:
 
-    const MapperIterator & operator++() {
+    MapperIterator & operator++() {
         pMapper->incrementIterator(this);
         return (*this);
     }
 
-    const MapperIterator & operator+=(size_t i) {
+    MapperIterator operator++(int) {
+        MapperIterator R = (*this);
+        pMapper->incrementIterator(this);
+        return R;
+    }
+
+    MapperIterator & operator+=(size_t i) {
         pMapper->incrementIteratorBy(this, i);
         return (*this);
     }
 
-    std::pair<GridPtrType, size_t> operator*() const {
+    DereferenceType operator*() const {
         return pMapper->dereferenceIterator(this);
+    }
+
+    std::unique_ptr<DereferenceType> operator->() const {
+        return std::unique_ptr<DereferenceType>(new DereferenceType(pMapper->dereferenceIterator(this)));
     }
 
     friend bool operator==(const MapperIterator<T> & lhs, const MapperIterator<T> & rhs) {
@@ -72,7 +83,10 @@ public:
     using MapPtrType = std::shared_ptr<ParticleMapper<MyFloat>>;
     using GridType = Grid<MyFloat>;
     using GridPtrType = std::shared_ptr<Grid<MyFloat>>;
+    using ConstGridPtrType = std::shared_ptr<const Grid<MyFloat>>;
     using iterator = MapperIterator<MyFloat>;
+
+    friend class MapperIterator<MyFloat>;
 
 protected:
 
@@ -85,13 +99,13 @@ protected:
         pIterator->i+=increment;
     }
 
-    virtual std::pair<GridPtrType, size_t> dereferenceIterator(const iterator *pIterator) const {
+    virtual std::pair<ConstGridPtrType, size_t> dereferenceIterator(const iterator *pIterator) const {
         throw std::runtime_error("There is no grid associated with this particle mapper");
     }
 
 public:
 
-    virtual size_t size() {
+    virtual size_t size() const {
         return 0;
     }
 
@@ -113,12 +127,11 @@ public:
         throw std::runtime_error("There is no grid associated with this particle mapper");
     }
 
-    virtual iterator begin() {
-        iterator x(this);
-        return x;
+    virtual iterator begin() const {
+        return iterator(this);
     }
 
-    virtual iterator end() {
+    virtual iterator end() const {
         iterator x(this);
         x.i = size();
         return x;
@@ -138,6 +151,7 @@ private:
     using MapType = ParticleMapper<MyFloat>;
     using typename MapType::MapPtrType;
     using typename MapType::GridPtrType;
+    using typename MapType::ConstGridPtrType;
     using typename MapType::GridType;
     using typename MapType::iterator;
 
@@ -145,7 +159,7 @@ private:
 
 protected:
 
-    virtual std::pair<GridPtrType, size_t> dereferenceIterator(const iterator *pIterator) const override {
+    virtual std::pair<ConstGridPtrType, size_t> dereferenceIterator(const iterator *pIterator) const override {
         return std::make_pair(pGrid,pIterator->i);
     }
 
@@ -158,7 +172,7 @@ public:
 
     }
 
-    size_t size() override {
+    size_t size() const override {
         return pGrid->size3;
     }
 
@@ -194,7 +208,7 @@ private:
     using typename MapType::GridPtrType;
     using typename MapType::GridType;
     using typename MapType::iterator;
-
+    using typename MapType::ConstGridPtrType;
 
     MapPtrType pLevel1;
     MapPtrType pLevel2;
@@ -279,56 +293,44 @@ private:
     }
 
 protected:
+public:
     std::vector<size_t> zoomParticleArray; //< the particles on the coarse grid which we wish to replace with their zooms
+protected:
     std::vector<size_t> zoomParticleArrayZoomed; //< the particles on the fine grid that are therefore included
 
     virtual void incrementIterator(iterator *pIterator) const override {
 
         // set up some helpful shortcut references
         auto & extraData = pIterator->extraData;
-        iterator & level1iterator = pIterator->subIterators[0];
-        iterator & level2iterator = pIterator->subIterators[1];
+        iterator & level1iterator = *(pIterator->subIterators[0]);
+        iterator & level2iterator = *(pIterator->subIterators[1]);
         size_t & i = pIterator->i;
+
+        size_t & next_zoom = extraData[0];
+        size_t & next_zoom_index = extraData[1];
 
         if(i>=firstLevel2Particle) {
             // do zoom particles
-            if(i==firstLevel2Particle) {
-                // initialize the internal iterator structure for the zoom particles
-                extraData.clear();
-                extraData.push_back(0); // three zeros corresponding to quantities defined below
-                extraData.push_back(0);
-                extraData.push_back(n_hr_per_lr);
-            }
+            if(i==firstLevel2Particle)
+                next_zoom=0;
 
-            size_t & zoom_index = extraData[0];
-            size_t & buffer_index = extraData[1];
-            size_t & buffer_length = extraData[2];
-
-            if(buffer_index==buffer_length) {
-                // we have run out of particles to pump out.. get another one
-                pIterator->particleArray = mapid(zoomParticleArray[zoom_index]);
-                zoom_index++;
-                buffer_index = 0;
-                assert(zoomParticleArray.size()==n_hr_per_lr);
-            }
-
-            level2iterator+=pIterator->particleArray[buffer_index]-level2iterator.i;
-
+            level2iterator+=zoomParticleArrayZoomed[next_zoom]-level2iterator.i;
+            next_zoom++;
 
         } else {
             // do normal particles
             //
             // here is what the extra data means:
-            size_t & next_zoom = extraData[0];
-            size_t & next_zoom_index = extraData[1];
 
-            while(level1iterator->i==next_zoom_index) {
+            level1iterator++;
+
+            while(level1iterator.i==next_zoom_index) {
                 // we DON'T want to return this particle.... it will be 'zoomed'
                 // later on... ignore it
-                level1iterator++;
+                ++level1iterator;
 
                 // load the next zoom particle
-                next_zoom++;
+                ++next_zoom;
                 if(next_zoom<zoomParticleArray.size())
                     next_zoom_index = zoomParticleArray[next_zoom];
                 else
@@ -358,15 +360,20 @@ protected:
 
     }
 
-    virtual std::pair<GridPtrType, size_t> dereferenceIterator(const iterator *pIterator) const override {
-
+    virtual std::pair<ConstGridPtrType, size_t> dereferenceIterator(const iterator *pIterator) const override {
+        if(pIterator->i>=firstLevel2Particle)
+            return **(pIterator->subIterators[1]);
+        else
+            return **(pIterator->subIterators[0]);
     }
 
 public:
 
-    virtual iterator begin() override {
+    virtual iterator begin() const override {
         iterator x(this);
         x.extraData.push_back(0); // current position in zoom ID list
+        x.subIterators.emplace_back(new iterator(pLevel1->begin()));
+        x.subIterators.emplace_back(new iterator(pLevel2->begin()));
         return x;
     }
 
@@ -387,6 +394,7 @@ public:
         std::sort(zoomParticleArray.begin(), zoomParticleArray.end() );
 
         totalParticles = pLevel1->size()+(n_hr_per_lr-1)*zoomParticleArray.size();
+
         firstLevel2Particle = pLevel1->size()-zoomParticleArray.size();
 
         size_t level1_size = pLevel1->size();
@@ -455,7 +463,7 @@ public:
         return pGrid1;
     }
 
-    virtual size_t size() override {
+    virtual size_t size() const override {
         return totalParticles;
     }
 
