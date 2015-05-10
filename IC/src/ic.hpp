@@ -246,6 +246,11 @@ public:
         pMapper = std::shared_ptr<ParticleMapper<MyFloat>>(
             new TwoLevelParticleMapper<MyFloat>(pMapper, pMapper1, zoomParticleArray, zoomfac*zoomfac*zoomfac));
 
+
+        if(Ob0>0)
+            pMapper = std::shared_ptr<ParticleMapper<MyFloat>>(
+                new AddGasMapper<MyFloat>(pMapper, pMapper));
+
         cout << "  Total particles = " << pMapper->size() << endl;
     }
 
@@ -762,7 +767,10 @@ public:
 
     void write() {
 
+
+
         zeldovich();
+
 
         /*
         if (gadgetformat==2){

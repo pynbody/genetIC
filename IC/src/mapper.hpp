@@ -19,6 +19,7 @@
 template<typename T> class ParticleMapper;
 template<typename T> class OneLevelParticleMapper;
 template<typename T> class TwoLevelParticleMapper;
+template<typename T> class AddGasMapper;
 
 template<typename T>
 class MapperIterator {
@@ -39,6 +40,7 @@ protected:
     friend class ParticleMapper<T>;
     friend class OneLevelParticleMapper<T>;
     friend class TwoLevelParticleMapper<T>;
+    friend class AddGasMapper<T>;
 
     MapperIterator(const ParticleMapper<T>* pMapper) : pMapper(pMapper), i(0) {}
 
@@ -134,6 +136,14 @@ public:
 
     virtual size_t size() const {
         return 0;
+    }
+
+    virtual size_t size_gas() const {
+        return 0;
+    }
+
+    virtual size_t size_dm() const {
+        return size();
     }
 
     virtual void interpretParticleList(const std::vector<size_t> & genericParticleArray) {
@@ -271,69 +281,6 @@ private:
         return pGrid2->get_ids_in_cube(x0,y0,z0,pGrid1->dx);
     }
 
-    void deleteParticles(std::vector<MyFloat*> A) {
-
-        // delete the particles in the 'zoom' region.
-        // This involves just moving everything backwards
-        // in steps.
-
-        size_t write_ptcl=0;
-        size_t next_zoom=zoomParticleArray[0];
-        size_t next_zoom_i=0;
-
-        size_t level1_size = pLevel1->size();
-
-        for(size_t read_ptcl=0; read_ptcl<level1_size; read_ptcl++) {
-            if(read_ptcl!=next_zoom) {
-                if(read_ptcl!=write_ptcl) {
-                    for(auto ar=A.begin(); ar!=A.end(); ++ar) {
-                        (*ar)[write_ptcl]=(*ar)[read_ptcl];
-                    }
-                }
-                write_ptcl++;
-            } else {
-                // we've just hit a 'zoom' particle. Skip over it.
-                // Keep track of the next zoom particle
-                if(next_zoom_i+1<zoomParticleArray.size()) {
-                    next_zoom_i++;
-                    next_zoom = zoomParticleArray[next_zoom_i];
-                } else {
-                    // no more zoom particles
-                    next_zoom =-1;
-                }
-            }
-        }
-    }
-
-    void insertParticles(std::vector<MyFloat*> A, std::vector<MyFloat*> B) {
-        // insert the particles from the zoom region
-
-        size_t level1_size = pLevel1->size();
-
-        // the last 'low-res' particle is just before this address:
-        size_t i_write = level1_size-zoomParticleArray.size();
-
-
-        for(size_t i=0; i<zoomParticleArray.size(); i++) {
-            // get the list of zoomed particles corresponding to this one
-            std::vector<size_t> hr_particles = mapid(zoomParticleArray[i]);
-
-            assert(hr_particles.size()==n_hr_per_lr);
-
-            for(auto i=hr_particles.begin(); i!=hr_particles.end(); i++) {
-                for(auto ar_to=A.begin(), ar_from=B.begin();
-                    ar_to!=A.end() && ar_from!=B.end();)
-                {
-                    (*ar_to)[i_write] = (*ar_from)[(*i)];
-                    ++ar_from;
-                    ++ar_to;
-                }
-                ++i_write;
-            }
-        }
-        assert(i_write==size());
-    }
-
 protected:
 public:
     std::vector<size_t> zoomParticleArray; //< the particles on the coarse grid which we wish to replace with their zooms
@@ -397,11 +344,6 @@ protected:
 
 
         }
-
-
-
-
-
 
     }
 
@@ -530,16 +472,89 @@ public:
     }
 
 
-    void gatherParticlesOnCoarsestGrid() override {
-        pLevel1->gatherParticlesOnCoarsestGrid();
-        pLevel2->gatherParticlesOnCoarsestGrid();
-        deleteParticles(pGrid1->particleProperties);
-        insertParticles(pGrid1->particleProperties,pGrid2->particleProperties);
+
+
+
+
+};
+
+template<typename MyFloat>
+class AddGasMapper : public ParticleMapper<MyFloat>
+{
+public:
+    using MapType = ParticleMapper<MyFloat>;
+    using typename MapType::MapPtrType;
+    using typename MapType::GridPtrType;
+    using typename MapType::GridType;
+    using typename MapType::iterator;
+    using typename MapType::ConstGridPtrType;
+
+protected:
+    MapPtrType gasMap;
+    MapPtrType dmMap;
+
+    size_t dm0;
+    size_t ndm;
+    size_t ngas;
+
+    virtual void incrementIterator(iterator *pIterator) const {
+        pIterator->i++;
+        if(pIterator->i>ngas)
+            (*(pIterator->subIterators[0]))++;
+        else
+            (*(pIterator->subIterators[1]))++;
     }
 
 
+    virtual std::pair<ConstGridPtrType, size_t> dereferenceIterator(const iterator *pIterator) const {
+        if(pIterator->i>ngas)
+            return **(pIterator->subIterators[0]);
+        else
+            return **(pIterator->subIterators[1]);
+    }
 
 
+public:
+
+    virtual size_t size() const {
+        return ngas+ndm;
+    }
+
+    virtual size_t size_gas() const {
+        return ngas;
+    }
+
+    virtual size_t size_dm() const {
+        return ndm;
+    }
+
+    AddGasMapper( MapPtrType & pGas, MapPtrType &pDm ) : gasMap(pGas), dmMap(pDm), ngas(pGas->size()), ndm(pDm->size()) { };
+
+
+    virtual void interpretParticleList(const std::vector<size_t> & genericParticleArray) {
+        std::vector<size_t> gas;
+        std::vector<size_t> dm;
+
+        for(auto i: genericParticleArray) {
+            if(i<ngas)
+                gas.push_back(i);
+            else
+                dm.push_back(i-ngas);
+        }
+
+        if(gas.size()>0)
+            throw std::runtime_error("Currently supporting only DM constraints!");
+
+        dmMap->interpretParticleList(dm);
+
+    }
+
+    virtual iterator begin() const {
+        iterator i(this);
+        i.subIterators.emplace_back(new iterator(gasMap->begin()));
+        i.subIterators.emplace_back(new iterator(dmMap->begin()));
+
+    }
 
 };
 
