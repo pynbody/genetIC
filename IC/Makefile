@@ -1,7 +1,7 @@
 # Reasonably sensible defaults
 CC    	= g++
 C		= gcc
-CFLAGS	= -Wall -g -fopenmp -std=c++11   -fdiagnostics-color=auto
+CFLAGS	= -Wall -g -fopenmp -std=c++14   -fdiagnostics-color=auto
 CPATH 	= /opt/local/include/
 LPATH   = /opt/local/lib
 

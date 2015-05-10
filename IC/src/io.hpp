@@ -4,6 +4,8 @@
 #include <cassert>
 #include <vector>
 
+#include "mapper.hpp"
+
 #ifdef HAVE_HDF5
 hid_t hdf_float = H5Tcopy (H5T_NATIVE_DOUBLE);
 hid_t hdf_double = H5Tcopy (H5T_NATIVE_DOUBLE);
@@ -492,10 +494,9 @@ void SaveGadget3(const char *filename, long n, io_header_3 header1, MyFloat* Pos
 }
 
 template<typename MyFloat>
-void SaveTipsy(const char *filename, long nPart, MyFloat* Pos1, MyFloat* Vel1,
-              MyFloat* Pos2, MyFloat* Vel2, MyFloat* Pos3, MyFloat* Vel3,
-              double Boxlength, double Om0, double Ol0, double hubble, double ain,
-              double pmass, MyFloat *masses=NULL, double Ob0=-1.0, double eps=0.01) {
+void SaveTipsy(const std::string & filename,
+               double Boxlength, double Om0, double Ol0, double hubble, double ain,
+               shared_ptr<ParticleMapper<MyFloat>> pMapper) {
 
     // originally:
     // pmass in 1e10 h^-1 Msol
@@ -506,61 +507,48 @@ void SaveTipsy(const char *filename, long nPart, MyFloat* Pos1, MyFloat* Vel1,
 
     ofstream photogenic_file;
 
-    double pmass_tipsy = Om0/(nPart); // tipsy convention: sum(mass)=Om0
-    double pos_factor  = 1./Boxlength;  //                   boxsize = 1
+    double pos_factor  = 1./Boxlength;  // boxsize = 1
+    double vel_factor  = ain/(sqrt(3./(8.*M_PI))*100*Boxlength);
+    double mass_factor = 0.0; // calculated below shortly
 
-    double mass_factor = 0.0;
-    double min_mass=10000000;
+    double min_mass=1.0/0;
     double max_mass=0.0;
 
     long n_gas = 0;
 
     size_t iord=0;
 
-    if(masses!=NULL) {
-        photogenic_file.open("photogenic.txt");
+    MyFloat x,y,z,vx,vy,vz,mass,tot_mass=0.0,eps;
 
-        for(long i=0; i<nPart; i++) {
-            mass_factor+=masses[i];
-            if(masses[i]<min_mass) {
-                min_mass = masses[i];
-                n_gas = 0;
-            }
-            if(masses[i]==min_mass) {
-                n_gas+=1;
-            }
-	    if(masses[i]>max_mass) {
-	      max_mass = masses[i];
-	    }
-        }
-        mass_factor = (pmass_tipsy*nPart)/mass_factor;
+    for(auto i=pMapper->begin(); i!=pMapper->end(); ++i) {
+        i.getParticle(x,y,z,vx,vy,vz,mass,eps);
+        if(min_mass>mass) min_mass=mass;
+        if(max_mass<mass) max_mass=mass;
+        tot_mass+=mass;
     }
 
-    if(Ob0<0) n_gas=0;
+    if(min_mass!=max_mass) {
+        photogenic_file.open("photogenic.txt");
+    }
+
+    mass_factor = Om0/tot_mass; // tipsy convention: sum(mass)=Om0
 
 
     io_header_tipsy header;
 
     header.scalefactor = ain;
-    header.n = nPart;
+    header.n = pMapper->size();
     header.ndim = 3;
-    header.ngas = n_gas;
-    header.ndark = nPart;
+    header.ngas = 0;
+    header.ndark = pMapper->size(); // minus gas
     header.nstar = 0;
 
-    double vel_factor  = ain/(sqrt(3./(8.*M_PI))*100*Boxlength);
 
     cout << "TIPSY parameters:" << endl;
 
     double dKpcUnit  = Boxlength*1000/hubble;
-    double dMsolUnit = 1e10*pmass/pmass_tipsy/hubble;
-
+    double dMsolUnit = 1e10*mass_factor/hubble;
     double dKmsUnit  = sqrt(4.30211349e-6*dMsolUnit/(dKpcUnit));
-
-    // double dKmsUnit  = sqrt(4.30211349e-6*dMsolUnit/(dKpcUnit*ain));
-    // double vel_factor = sqrt(ain)/dKmsUnit;
-    cout << "vel conv ratio: " << vel_factor << endl;
-    // vel conv ratio= 3.47153355609e-05
 
     cout << "dKpcUnit: " <<  dKpcUnit << endl;
     cout << "dMsolUnit: " << dMsolUnit  << endl;
@@ -569,26 +557,18 @@ void SaveTipsy(const char *filename, long nPart, MyFloat* Pos1, MyFloat* Vel1,
     io_tipsy_dark dp;
     io_tipsy_gas gp;
 
-    FILE* fd = fopen(filename, "w");
+    FILE* fd = fopen(filename.c_str(), "w");
     if(!fd) throw std::runtime_error("Unable to open file for writing");
-    dp.mass = pmass_tipsy;
-
-
-    dp.eps = eps;
 
     dp.phi = 0.0;
-
-
-
     gp.temp = 2.73/ain;
     gp.metals = 0.0;
     gp.rho = 0.0;
 
 
-
-
     fwrite(&header, sizeof(io_header_tipsy), 1, fd);
 
+    /*
     if(Ob0>0) {
         for(long i=0; i<nPart; i++){
             if(masses[i]==min_mass) {
@@ -616,27 +596,22 @@ void SaveTipsy(const char *filename, long nPart, MyFloat* Pos1, MyFloat* Vel1,
     }
 
     assert(n_gas==0);
+    */
 
-    for(long i=0; i<nPart; i++){
-        dp.x = pos_factor*Pos1[i]-0.5;
-        dp.y = pos_factor*Pos2[i]-0.5;
-        dp.z = pos_factor*Pos3[i]-0.5;
-        dp.vx = vel_factor*Vel1[i];
-        dp.vy = vel_factor*Vel2[i];
-        dp.vz = vel_factor*Vel3[i];
-        if(masses!=NULL) {
-            dp.mass = mass_factor*masses[i];
-            dp.eps = eps*pow(masses[i]/max_mass,0.3333);
-            if(masses[i]==min_mass) {
-                photogenic_file << iord << endl;
-            }
-        }
-        if(Ob0>0.0 && masses[i]==min_mass) {
-            dp.mass*=(Om0-Ob0)/Om0;
-        }
+    for(auto i=pMapper->begin(); i!=pMapper->end(); ++i) {
+        i.getParticle(x,y,z,vx,vy,vz,mass,eps);
+
+        dp.x=x*pos_factor-0.5;
+        dp.y=y*pos_factor-0.5;
+        dp.z=z*pos_factor-0.5;
+
+        dp.eps=eps*pos_factor;
+        dp.vx=vx*vel_factor;
+        dp.vy=vy*vel_factor;
+        dp.vz=vz*vel_factor;
+        dp.mass = mass*mass_factor;
 
         fwrite(&dp, sizeof(io_tipsy_dark), 1, fd);
-        iord++;
 
     }
     fclose(fd);

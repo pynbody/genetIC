@@ -8,8 +8,11 @@
 // this complexity managable while also having a lot of flexibility to handle
 // different set-ups.
 
+#ifndef __MAPPER_HPP
+#define __MAPPER_HPP
 
 #include <memory>
+#include "grid.hpp"
 
 
 // forward declarations:
@@ -57,8 +60,18 @@ public:
         return (*this);
     }
 
+    MapperIterator & operator-=(size_t i) {
+        pMapper->decrementIteratorBy(this, i);
+        return (*this);
+    }
+
     DereferenceType operator*() const {
         return pMapper->dereferenceIterator(this);
+    }
+
+    template<typename... Args>
+    void getParticle(Args&&... args) {
+        pMapper->getParticleFromIterator(this, std::forward<Args>(args)...);
     }
 
     std::unique_ptr<DereferenceType> operator->() const {
@@ -72,6 +85,8 @@ public:
     friend bool operator!=(const MapperIterator<T> & lhs, const MapperIterator<T> & rhs) {
         return (lhs.i != rhs.i) || (lhs.pMapper != rhs.pMapper) ;
     }
+
+
 
 
 };
@@ -99,9 +114,21 @@ protected:
         pIterator->i+=increment;
     }
 
+    virtual void decrementIteratorBy(iterator *pIterator,size_t increment) const {
+        throw std::runtime_error("Attempting to reverse in a mapper that does not support random access");
+    }
+
     virtual std::pair<ConstGridPtrType, size_t> dereferenceIterator(const iterator *pIterator) const {
         throw std::runtime_error("There is no grid associated with this particle mapper");
     }
+
+    template<typename... Args>
+    void getParticleFromIterator(const iterator *pIterator, Args&&... args) const {
+        const auto q = **pIterator;
+        q.first->get_particle(q.second, std::forward<Args>(args)...);
+    }
+
+
 
 public:
 
@@ -134,9 +161,14 @@ public:
     virtual iterator end() const {
         iterator x(this);
         x.i = size();
-        
+
         return x;
     }
+
+    virtual bool supportsReverseIterator()  {
+        return false;
+    }
+
 
 
 
@@ -163,6 +195,11 @@ protected:
     virtual std::pair<ConstGridPtrType, size_t> dereferenceIterator(const iterator *pIterator) const override {
         return std::make_pair(pGrid,pIterator->i);
     }
+
+    virtual void decrementIteratorBy(iterator *pIterator,size_t increment) const override {
+        pIterator->i-=increment;
+    }
+
 
 public:
     OneLevelParticleMapper(std::shared_ptr<Grid<MyFloat>> &pGrid) : pGrid(pGrid) {
@@ -194,6 +231,10 @@ public:
         // null operation
     }
 
+    bool supportsReverseIterator() override {
+        return true;
+    }
+
 
 
 
@@ -222,7 +263,7 @@ private:
     size_t totalParticles;
     size_t firstLevel2Particle;
 
-    std::vector<size_t> mapid(size_t id0) {
+    std::vector<size_t> mapid(size_t id0) const {
         // Finds all the particles at level2 corresponding to the single
         // particle at level1
         MyFloat x0,y0,z0;
@@ -297,7 +338,7 @@ protected:
 public:
     std::vector<size_t> zoomParticleArray; //< the particles on the coarse grid which we wish to replace with their zooms
 protected:
-    std::vector<size_t> zoomParticleArrayZoomed; //< the particles on the fine grid that are therefore included
+    mutable std::vector<size_t> zoomParticleArrayZoomed; //< the particles on the fine grid that are therefore included
 
     virtual void incrementIterator(iterator *pIterator) const override {
 
@@ -310,12 +351,24 @@ protected:
         size_t & next_zoom = extraData[0];
         size_t & next_zoom_index = extraData[1];
 
+        // increment the boring-old-counter!
+        i++;
+        // now work out what it actually points to...
+
         if(i>=firstLevel2Particle) {
             // do zoom particles
             if(i==firstLevel2Particle)
                 next_zoom=0;
 
-            level2iterator+=zoomParticleArrayZoomed[next_zoom]-level2iterator.i;
+
+            if(zoomParticleArrayZoomed[next_zoom]>level2iterator.i) {
+                level2iterator+=zoomParticleArrayZoomed[next_zoom]-level2iterator.i;
+            } else {
+                level2iterator-=level2iterator.i-zoomParticleArrayZoomed[next_zoom];
+            }
+
+            assert(level2iterator.i==zoomParticleArrayZoomed[next_zoom]);
+
             next_zoom++;
 
         } else {
@@ -323,7 +376,7 @@ protected:
             //
             // here is what the extra data means:
 
-            level1iterator++;
+            ++level1iterator;
 
             while(level1iterator.i==next_zoom_index) {
                 // we DON'T want to return this particle.... it will be 'zoomed'
@@ -346,8 +399,7 @@ protected:
         }
 
 
-        // increment the boring-old-counter!
-        i++;
+
 
 
 
@@ -368,13 +420,38 @@ protected:
             return **(pIterator->subIterators[0]);
     }
 
+    void calculateHiresParticleList() const {
+
+        // the last 'low-res' particle is just before this address:
+        size_t i_write = pLevel1->size();-zoomParticleArray.size();
+
+
+        for(size_t i=0; i<zoomParticleArray.size(); i++) {
+            // get the list of zoomed particles corresponding to this one
+            std::vector<size_t> hr_particles = mapid(zoomParticleArray[i]);
+            assert(hr_particles.size()==n_hr_per_lr);
+            zoomParticleArrayZoomed.insert(zoomParticleArrayZoomed.end(),
+                                           hr_particles.begin(), hr_particles.end());
+
+        }
+
+        if(!pLevel2->supportsReverseIterator()) {
+            // underlying map can't cope with particles being out of order - sort them
+            std::sort(zoomParticleArrayZoomed.begin(), zoomParticleArrayZoomed.end() );
+        }
+
+    }
+
 public:
 
     virtual iterator begin() const override {
         iterator x(this);
         x.extraData.push_back(0); // current position in zoom ID list
+        x.extraData.push_back(zoomParticleArray[0]); // next entry in zoom ID list
         x.subIterators.emplace_back(new iterator(pLevel1->begin()));
         x.subIterators.emplace_back(new iterator(pLevel2->begin()));
+        if(zoomParticleArrayZoomed.size()==0)
+            calculateHiresParticleList();
         return x;
     }
 
@@ -399,22 +476,6 @@ public:
         firstLevel2Particle = pLevel1->size()-zoomParticleArray.size();
 
         size_t level1_size = pLevel1->size();
-
-        // the last 'low-res' particle is just before this address:
-        size_t i_write = level1_size-zoomParticleArray.size();
-
-
-        for(size_t i=0; i<zoomParticleArray.size(); i++) {
-            // get the list of zoomed particles corresponding to this one
-            std::vector<size_t> hr_particles = mapid(zoomParticleArray[i]);
-            assert(hr_particles.size()==n_hr_per_lr);
-            zoomParticleArrayZoomed.insert(zoomParticleArrayZoomed.end(),
-                                           hr_particles.begin(), hr_particles.end());
-
-        }
-
-        std::sort(zoomParticleArrayZoomed.begin(), zoomParticleArrayZoomed.end() );
-
 
     }
 
@@ -478,4 +539,8 @@ public:
 
 
 
+
+
 };
+
+#endif // __MAPPER_HPP

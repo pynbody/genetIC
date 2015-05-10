@@ -137,7 +137,7 @@ public:
         if(pGrid.size()!=level)
             throw std::runtime_error("Trying to re-initialize a grid level");
 
-        pGrid.emplace_back(new Grid<MyFloat>(n[level], dx[level],
+        pGrid.emplace_back(new Grid<MyFloat>(boxlen[0], n[level], dx[level],
                                              x_off[level], y_off[level], z_off[level]));
 
         if(level==0)
@@ -513,6 +513,15 @@ public:
         RefFieldType pField_x_p = pGrid[level-1]->get_field_real();
 
         interpolateLevel(level,pField_x_l.data(),pField_x_p.data());
+
+        auto offset_fields_l = pGrid[level]->get_offset_fields();
+        auto offset_fields_p = pGrid[level-1]->get_offset_fields();
+
+        if(std::get<0>(offset_fields_l)->size()>0 && std::get<0>(offset_fields_p)->size()>0) {
+            interpolateLevel(level,std::get<0>(offset_fields_l)->data(),std::get<0>(offset_fields_p)->data());
+            interpolateLevel(level,std::get<1>(offset_fields_l)->data(),std::get<1>(offset_fields_p)->data());
+            interpolateLevel(level,std::get<2>(offset_fields_l)->data(),std::get<2>(offset_fields_p)->data());
+        }
     }
 
 
@@ -692,167 +701,41 @@ public:
                      (base+"_"+((char)(level+'0'))+".ps").c_str(), boxlen[level]);
     }
 
-    std::tuple<MyFloat*, MyFloat*, MyFloat*, MyFloat*, MyFloat*, MyFloat*> zeldovich(int level=0, long nPartAllocate=-1) {
+    void zeldovich(int level) {
         //Zeldovich approx.
-
-        MyFloat gr=boxlen[level]/(MyFloat)n[level];
-
-        cout << "Applying Zeldovich approximation; grid cell size=" << gr << " Mpc/h...";
-        cout.flush();
-
-        if(nPartAllocate==-1)
-            nPartAllocate = nPartLevel[level];
-
-
-        complex<MyFloat>* psift1k=(complex<MyFloat>*)calloc(nPartLevel[level],sizeof(complex<MyFloat>));
-        complex<MyFloat>* psift2k=(complex<MyFloat>*)calloc(nPartLevel[level],sizeof(complex<MyFloat>));
-        complex<MyFloat>* psift3k=(complex<MyFloat>*)calloc(nPartLevel[level],sizeof(complex<MyFloat>));
-
-        int iix, iiy, iiz;
-        MyFloat kfft;
-        size_t idx;
-
-        MyFloat kw = 2.*M_PI/(MyFloat)boxlen[level];
-
-        auto & pField_k = pGrid[level]->get_field_fourier();
-
-        #pragma omp parallel for schedule(static) default(shared) private(iix, iiy, iiz, kfft, idx)
-        for(int ix=0; ix<n[level];ix++){
-            for(int iy=0;iy<n[level];iy++){
-                for(int iz=0;iz<n[level];iz++){
-
-
-                    idx = static_cast<size_t>((ix*n[level]+iy)*(n[level])+iz);
-
-                    if( ix>n[level]/2 ) iix = ix - n[level]; else iix = ix;
-                    if( iy>n[level]/2 ) iiy = iy - n[level]; else iiy = iy;
-                    if( iz>n[level]/2 ) iiz = iz - n[level]; else iiz = iz;
-
-                    kfft = sqrt(iix*iix+iiy*iiy+iiz*iiz);
-
-                    psift1k[idx].real(-pField_k[idx].imag()/(MyFloat)(kfft*kfft)*iix/kw);
-                    psift1k[idx].imag(pField_k[idx].real()/(MyFloat)(kfft*kfft)*iix/kw);
-                    psift2k[idx].real(-pField_k[idx].imag()/(MyFloat)(kfft*kfft)*iiy/kw);
-                    psift2k[idx].imag(pField_k[idx].real()/(MyFloat)(kfft*kfft)*iiy/kw);
-                    psift3k[idx].real(-pField_k[idx].imag()/(MyFloat)(kfft*kfft)*iiz/kw);
-                    psift3k[idx].imag(pField_k[idx].real()/(MyFloat)(kfft*kfft)*iiz/kw);
-                }
-            }
-        }
-
-
-        psift1k[0]=complex<MyFloat>(0.,0.);
-        psift2k[0]=complex<MyFloat>(0.,0.);
-        psift3k[0]=complex<MyFloat>(0.,0.);
-
-        complex<MyFloat>* psift1=psift1k;  // was malloc; use same space for efficiency savings
-        complex<MyFloat>* psift2=psift2k;
-        complex<MyFloat>* psift3=psift3k;
-
-        fft(psift1,psift1k,n[level],-1); //the output .imag() part is non-zero because of the Nyquist frequency, but this is not used anywhere else
-        fft(psift2,psift2k,n[level],-1); //same
-        fft(psift3,psift3k,n[level],-1); //same
-
-
-        MyFloat *Vel1=(MyFloat*)calloc(nPartAllocate,sizeof(MyFloat));
-        MyFloat *Vel2=(MyFloat*)calloc(nPartAllocate,sizeof(MyFloat));
-        MyFloat *Vel3=(MyFloat*)calloc(nPartAllocate,sizeof(MyFloat));
-        MyFloat *Pos1=(MyFloat*)calloc(nPartAllocate,sizeof(MyFloat));
-        MyFloat *Pos2=(MyFloat*)calloc(nPartAllocate,sizeof(MyFloat));
-        MyFloat *Pos3=(MyFloat*)calloc(nPartAllocate,sizeof(MyFloat));
 
         MyFloat hfac=1.*100.*sqrt(Om0/a/a/a+Ol0)*sqrt(a);
         //this should be f*H(t)*a, but gadget wants vel/sqrt(a), so we use H(t)*sqrt(a)
         //TODO: hardcoded value of f=1 is inaccurate, but fomega currently gives wrong nults
 
+        MyFloat pmass=27.78*Om0*powf(boxlen[level]/(MyFloat)(n[level]),3.0);
 
-
-
-
-        //apply ZA:
-        #pragma omp parallel for schedule(static) default(shared) private(iix, iiy, iiz, kfft, idx)
-        for(int ix=0;ix<n[level];ix++) {
-            for(int iy=0;iy<n[level];iy++) {
-                for(int iz=0;iz<n[level];iz++) {
-
-                    idx = static_cast<size_t>((ix*n[level]+iy)*(n[level])+iz);
-
-                    Vel1[idx] = psift1[idx].real()*hfac; //physical units
-                    Vel2[idx] = psift2[idx].real()*hfac;
-                    Vel3[idx] = psift3[idx].real()*hfac;
-
-                    // position OFFSET in physical coordinates
-                    // NB must work in offsets to support interpolation below
-                    Pos1[idx] = psift1[idx].real();
-                    Pos2[idx] = psift2[idx].real();
-                    Pos3[idx] = psift3[idx].real();
-
-
-                    /*
-                    // grid now added elsewhere...
-
-                    Pos1[idx] = fmod(Pos1[idx],boxlen[0]);
-                    if(Pos1[idx]<0) Pos1[idx]+=boxlen[0];
-                    Pos2[idx] = fmod(Pos2[idx],boxlen[0]);
-                    if(Pos2[idx]<0) Pos2[idx]+=boxlen[0];
-                    Pos3[idx] = fmod(Pos3[idx],boxlen[0]);
-                    if(Pos3[idx]<0) Pos3[idx]+=boxlen[0];
-
-
-                    Mean1+=Pos1[idx];
-                    Mean2+=Pos2[idx];
-                    Mean3+=Pos3[idx];
-                    */
-
-
-                }
-            }
-        }
-
-
-        free(psift1);
-        free(psift2);
-        free(psift3);
-        cout << "done."<<endl;
-
-        return make_tuple(Pos1,Pos2,Pos3,Vel1,Vel2,Vel3);
+        pGrid[level]->zeldovich(hfac,pmass);
 
     }
 
 
 
-    void writeLevel(int level=0) {
+    void zeldovich() {
+        if(n[1]<=0) {
+            cerr << "***** WRITE - no zoom *****" << endl;
+            zeldovich(0);
+        } else {
+            zeldovich(0);
+            zeldovich(1);
 
-        MyFloat *Pos1, *Pos2, *Pos3, *Vel1, *Vel2, *Vel3;
+            cerr << "Interpolating low-frequency information into zoom region...";
+            cerr.flush();
+            interpolateLevel(1);
+            cerr << "done." << endl;
 
-        tie(Pos1,Pos2,Pos3,Vel1,Vel2,Vel3) = zeldovich(level);
 
-        pGrid[level]->add_grid(Pos1,Pos2,Pos3,boxlen[0]); // last arg forces wrapping at BASE level always
+            cerr << "Re-introducing high-k modes into low-res region...";
+            recombineLevel0();
+            zeldovich(0);
+            cerr << "done." << endl;
 
-        MyFloat pmass=27.78*Om0*powf(boxlen[level]/(MyFloat)(n[level]),3.0); // in 10^10 M_sol
-        cout<< "Particle mass: " <<pmass <<" [10^10 M_sun]"<<endl;
-
-        if (gadgetformat==2){
-            SaveGadget2( (base+ "_gadget2.dat").c_str(), nPartLevel[level],
-            CreateGadget2Header<MyFloat>(nPartLevel[level], pmass, a, zin, boxlen[level], Om0, Ol0, hubble),
-            Pos1, Vel1, Pos2, Vel2, Pos3, Vel3);
         }
-        else if (gadgetformat==3){
-            SaveGadget3( (base+ "_gadget3.dat").c_str(), nPartLevel[level],
-            CreateGadget3Header<MyFloat>(nPartLevel[level], pmass, a, zin, boxlen[level], Om0, Ol0, hubble),
-            Pos1, Vel1, Pos2, Vel2, Pos3, Vel3);
-        }
-        else if (gadgetformat==4) {
-            SaveTipsy( (base+".tipsy").c_str(), nPartLevel[level], Pos1, Vel1, Pos2, Vel2, Pos3, Vel3,
-		       boxlen[level],  Om0,  Ol0,  hubble,  a, pmass, (MyFloat*)NULL, -1.0, 1.0/(140*n[level]));
-        }
-
-        free(Pos1);
-        free(Vel1);
-        free(Pos2);
-        free(Vel2);
-        free(Pos3);
-        free(Vel3);
     }
 
     ///////////////////////////////////////////////
@@ -878,132 +761,31 @@ public:
 
 
     void write() {
-        if(n[1]<=0) {
-            cerr << "***** WRITE - no zoom *****" << endl;
-            writeLevel(0);
-        } else {
-            cerr << "***** WRITE - zoom, total particles = "<< pMapper->size() << " *****" << endl;
 
-            MyFloat *Pos1, *Pos2, *Pos3, *Vel1, *Vel2, *Vel3, *Mass;
-            MyFloat *Pos1z, *Pos2z, *Pos3z, *Vel1z, *Vel2z, *Vel3z;
+        zeldovich();
 
-            tie(Pos1,Pos2,Pos3,Vel1,Vel2,Vel3) = zeldovich(0);
-
-            MyFloat pmass1=27.78*Om0*powf(boxlen[0]/(MyFloat)(n[0]),3.0); // in 10^10 M_sol
-            MyFloat pmass2 = 27.78*Om0*powf(boxlen[1]/(MyFloat)(n[1]),3.0); // in 10^10 M_sol
-
-            cerr<< "Main particle mass: " <<pmass1 <<" [10^10 M_sun]"<<endl;
-            cerr<< "Zoom particle mass: " <<pmass2 <<" [10^10 M_sun]"<<endl;
-
-            tie(Pos1z,Pos2z,Pos3z,Vel1z,Vel2z,Vel3z) = zeldovich(1);
-
-            cerr << "Interpolating low-frequency information into zoom region...";
-            cerr.flush();
-
-            // Interpolate the low-frequency information from level 0:
-            interpolateLevel(1,Pos1z,Pos1);
-            interpolateLevel(1,Pos2z,Pos2);
-            interpolateLevel(1,Pos3z,Pos3);
-            interpolateLevel(1,Vel1z,Vel1);
-            interpolateLevel(1,Vel2z,Vel2);
-            interpolateLevel(1,Vel3z,Vel3);
-
-            // This isn't strictly necessary but it can make for useful output:
-            // interpolate the density field
-            interpolateLevel(1);
-
-            cerr << "done." << endl;
-
-
-            cerr << "Re-introducing high-k modes into low-res region...";
-
-            // Now re-do level 0, but include the high-k modes which have
-            // earlier been filtered out
-            free(Pos1); free(Pos2); free(Pos3); free(Vel1); free(Vel2); free(Vel3);
-
-            recombineLevel0();
-
-            cerr << "done." << endl;
-
-            tie(Pos1,Pos2,Pos3,Vel1,Vel2,Vel3) = zeldovich(0, pMapper->size());
-
-
-            cout << "Adding grid offsets to each particle...";
-            cout.flush();
-
-            // add the grid offsets to each position:
-            pGrid[0]->add_grid(Pos1,Pos2,Pos3,boxlen[0]);
-            pGrid[1]->add_grid(Pos1z,Pos2z,Pos3z,boxlen[0]);
-            cout << "done." << endl;
-
-
-            // now we go through and populate the zoom particles into the
-            // output buffer
-
-            cout << "Combining particles from different levels...";
-            cout.flush();
-
-            // Associate our arrays onto the grids they belong to...
-            pGrid[0]->particleProperties = {Pos1,Pos2,Pos3,Vel1,Vel2,Vel3};
-            pGrid[1]->particleProperties = {Pos1z,Pos2z,Pos3z,Vel1z,Vel2z,Vel3z};
-
-            // ...then extend the array on level zero to include ALL particles
-            pMapper->gatherParticlesOnCoarsestGrid();
-
-
-            cout << "done." << endl;
-
-            size_t nPartTotal = pMapper->size();
-
-            Mass = (MyFloat*)calloc(nPartTotal,sizeof(MyFloat));
-
-
-            size_t j=0;
-
-
-            cerr << "masses are " << pmass1 << " " << pmass2 << endl;
-            for(auto i=pMapper->begin(); i!=pMapper->end(); ++i) {
-                if((*i).first==pGrid[0])
-                    Mass[j] = pmass1;
-                else
-                    Mass[j] = pmass2;
-                ++j;
-            }
-            cerr << "Wrote " << j << " masses!" << endl;
-
-
-
-            if (gadgetformat==2){
-                SaveGadget2( (base+ ".gadget2").c_str(), nPartTotal,
-                CreateGadget2Header<MyFloat>(nPartTotal, 0, a, zin, boxlen[0], Om0, Ol0, hubble),
-                Pos1, Vel1, Pos2, Vel2, Pos3, Vel3, Mass);
-            }
-            else if (gadgetformat==3){
-                SaveGadget3( (base+ ".gadget3").c_str(), nPartTotal,
-                CreateGadget3Header<MyFloat>(nPartTotal, 0, a, zin, boxlen[0], Om0, Ol0, hubble),
-                Pos1, Vel1, Pos2, Vel2, Pos3, Vel3, Mass);
-            }
-            else if (gadgetformat==4) {
-                SaveTipsy( (base+".tipsy").c_str(), nPartTotal, Pos1, Vel1, Pos2, Vel2, Pos3, Vel3,
-			   boxlen[0],  Om0,  Ol0,  hubble,  a, pmass1, Mass, Ob0, 1.0/(140*n[0]));
-            }
-
-
-            free(Pos1);
-            free(Vel1);
-            free(Pos2);
-            free(Vel2);
-            free(Pos3);
-            free(Vel3);
-            free(Mass);
-
+        /*
+        if (gadgetformat==2){
+            SaveGadget2( (base+ ".gadget2").c_str(), nPartTotal,
+            CreateGadget2Header<MyFloat>(nPartTotal, 0, a, zin, boxlen[0], Om0, Ol0, hubble),
+            Pos1, Vel1, Pos2, Vel2, Pos3, Vel3, Mass);
         }
+        else if (gadgetformat==3){
+            SaveGadget3( (base+ ".gadget3").c_str(), nPartTotal,
+            CreateGadget3Header<MyFloat>(nPartTotal, 0, a, zin, boxlen[0], Om0, Ol0, hubble),
+            Pos1, Vel1, Pos2, Vel2, Pos3, Vel3, Mass);
+        }
+        */
+        if (gadgetformat==4)
+            SaveTipsy(base+".tipsy", boxlen[0], Om0, Ol0, hubble, a, pMapper);
+
+
 
     }
 
     virtual void prepare() {
         if(prepared)
-            throw(std::runtime_error("Called prepare, but field is already prepared"));
+            throw(std::runtime_error("Called prepare, but grid is already prepared for constraints"));
 
         cerr << "***** PREPARE FIELD *****" << endl;
         prepared=true;
