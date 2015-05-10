@@ -18,7 +18,7 @@
 #include <gsl/gsl_errno.h>
 #include <gsl/gsl_spline.h>
 
-#include "constrainer.hpp"
+
 
 
 #include "float_types.hpp"
@@ -27,6 +27,7 @@
 #include "cosmo.hpp"
 #include "parser.hpp"
 #include "grid.hpp"
+#include "constrainer.hpp"
 #include "mapper.hpp"
 #include "io.hpp"
 #include "ic.hpp"
@@ -122,7 +123,7 @@ int main(int argc, char *argv[]) {
     dispatch.run_loop(inf);
 
     // All done - write out
-    generator.write();
+    // generator.write();
 
     // Finished
     return 0;

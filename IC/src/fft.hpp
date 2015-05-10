@@ -1,6 +1,10 @@
+#ifndef FFTH_INCLUDED
+#define FFTH_INCLUDED
+
 #ifdef FFTW3
 // FFTW3 VERSION
 
+#include <stdexcept>
 #include <fftw3.h>
 
 #ifdef _OPENMP
@@ -195,3 +199,5 @@ void fft(std::complex<MyFloat> *fto, std::complex<MyFloat> *ftin, const int res,
 }
 
 #endif
+
+#endif // FFTH_INCLUDED

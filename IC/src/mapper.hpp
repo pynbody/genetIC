@@ -134,6 +134,7 @@ public:
     virtual iterator end() const {
         iterator x(this);
         x.i = size();
+        
         return x;
     }
 

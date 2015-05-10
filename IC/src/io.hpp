@@ -1,6 +1,9 @@
 #ifndef _IO_INCLUDED
 #define _IO_INCLUDED
 
+#include <cassert>
+#include <vector>
+
 #ifdef HAVE_HDF5
 hid_t hdf_float = H5Tcopy (H5T_NATIVE_DOUBLE);
 hid_t hdf_double = H5Tcopy (H5T_NATIVE_DOUBLE);

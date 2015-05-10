@@ -16,6 +16,7 @@ n2 64
 zoom_IDfile zoomtest.txt
 
 
+
 camb	../camb_transfer_kmax40_z0.dat
 outdir	 ./
 gadgetformat 4
@@ -24,3 +25,5 @@ gadgetformat 4
 
 
 done
+dumpgrid 0
+dumpgrid 1

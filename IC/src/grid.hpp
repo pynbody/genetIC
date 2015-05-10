@@ -1,4 +1,5 @@
 #include <cassert>
+#include "fft.hpp"
 
 using namespace std;
 
@@ -14,6 +15,10 @@ struct grid_struct{
 
 template<typename MyFloat>
 class Grid{
+private:
+    std::shared_ptr<std::vector<std::complex<MyFloat>>> pField;
+    bool fieldFourier; //< is the field in k-space (true) or x-space (false)?
+
 public:
 
     const MyFloat dx,x0,y0,z0;
@@ -21,22 +26,47 @@ public:
     const size_t size2;
     const size_t size3;
 
-    std::vector<size_t> particleArray;
-    // just a list of particles on this grid for one purpose or another
+    std::vector<size_t> particleArray; // just a list of particles on this grid for one purpose or another
 
-    std::vector<MyFloat*> particleProperties;
-    // a list of particle properties, e.g. position, velocity etc, for every
-    // particle on this grid
+    std::vector<MyFloat*> particleProperties; // a list of particle properties
+
+
 
     Grid(size_t n,MyFloat dx=1.0, MyFloat x0=0.0, MyFloat y0=0.0, MyFloat z0=0.0) :
             dx(dx), x0(x0), y0(y0), z0(z0),
             size(n), size2(n*n), size3(n*n*n)
     {
-
+        pField = std::make_shared<std::vector<std::complex<MyFloat>>>(size3,0);
+        pField->shrink_to_fit();
     }
 
-    long find_next_ind(long index, const int step[3]){
+    std::vector<std::complex<MyFloat>> & get_field_fourier() {
+        if(!fieldFourier) {
+            fft(pField->data(),pField->data(),size,1);
+            fieldFourier=true;
+        }
+        return *pField;
+    }
 
+    std::vector<std::complex<MyFloat>> & get_field_real() {
+        if(fieldFourier) {
+            fft(pField->data(),pField->data(),size,-1);
+            fieldFourier=false;
+        }
+        return *pField;
+    }
+
+    std::vector<std::complex<MyFloat>> & get_field() {
+        return *pField;
+    }
+
+    bool is_field_fourier() {
+        return fieldFourier;
+    }
+
+
+    long find_next_ind(long index, const int step[3])
+    {
         int grid[3];
         std::tie(grid[0],grid[1],grid[2])=get_coordinates(index);
 
@@ -44,11 +74,11 @@ public:
         grid[1]+=step[1];
         grid[2]+=step[2];
 
-
         return this->get_index(grid); // N.B. does wrapping inside get_index
     }
 
-    long find_next_ind_no_wrap(long index, const int step[3]){
+    long find_next_ind_no_wrap(long index, const int step[3])
+    {
 
         int grid[3];
         std::tie(grid[0],grid[1],grid[2])=get_coordinates(index);

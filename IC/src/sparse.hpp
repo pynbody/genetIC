@@ -5,6 +5,16 @@ std::complex<MyFloat> dot(std::complex<MyFloat> *a, std::complex<MyFloat> *b, co
   return res;
 }
 
+/*
+template<typename MyFloat>
+std::complex<MyFloat> dot(std::vector<std::complex<MyFloat>> &a,
+                          std::vector<std::complex<MyFloat>> &b) {
+  assert(a.size()==b.size());
+  return dot(a.data(),b.data(),a.size());
+}
+*/
+
+
 template<typename MyFloat>
 std::complex<MyFloat> chi2(std::complex<MyFloat> *a, std::complex<MyFloat> *b, const long int n) {
     std::complex<MyFloat> res(0);
@@ -15,8 +25,20 @@ std::complex<MyFloat> chi2(std::complex<MyFloat> *a, std::complex<MyFloat> *b, c
     return res/((MyFloat)n);
 }
 
+/*
 template<typename MyFloat>
-void mat_diag(const std::complex<MyFloat> *C, const std::complex<MyFloat> *alpha, const long int n, const std::complex<MyFloat> p, std::complex<MyFloat> *result){
+std::complex<MyFloat> chi2(std::vector<std::complex<MyFloat>> &a,
+                          std::vector<std::complex<MyFloat>> &b) {
+  assert(a.size()==b.size());
+  return chi2(a.data(),b.data(),a.size());
+}
+*/
+
+template<typename MyFloat>
+void mat_diag(const std::complex<MyFloat> *C, const std::complex<MyFloat> *alpha,
+              const long int n, const std::complex<MyFloat> p,
+              std::complex<MyFloat> *result)
+{
   long int i;
   for(i=0;i<n;i++){ result[i]=C[i]*alpha[i]*p;}
 }

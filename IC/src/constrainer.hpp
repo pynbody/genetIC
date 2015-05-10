@@ -4,6 +4,8 @@
 #include <map>
 #include <vector>
 #include <cassert>
+#include <vector>
+
 //#include <Eigen/Dense>
 
 void progress(const char* message, float progress) {
@@ -27,7 +29,7 @@ void end_progress() {
 template<typename T>
 class UnderlyingField {
 private:
-    std::vector<std::complex<T> *> y0s;
+    std::vector<std::shared_ptr<Grid<T>>> pGrid;
     std::vector<std::complex<T> *> C0s;
 
 protected:
@@ -54,17 +56,17 @@ protected:
     }
 
 public:
-    UnderlyingField(std::complex<T> *C0,  std::complex<T> *y0, size_t N) {
+    UnderlyingField(std::complex<T> *C0,  std::shared_ptr<Grid<T>> pG, size_t N) {
         n_components=0;
         Ntot=0;
-        add_component(C0,y0,N);
+        add_component(C0,pG,N);
     }
 
     virtual ~UnderlyingField() { }
 
-    void add_component(std::complex<T> *C0,  std::complex<T> *y0, size_t N) {
+    void add_component(std::complex<T> *C0,  std::shared_ptr<Grid<T>> pG, size_t N) {
         C0s.push_back(C0);
-        y0s.push_back(y0);
+        pGrid.push_back(pG);
         Ns.push_back(N);
         cumu_Ns.push_back(Ntot);
         Ntot+=N;
@@ -105,9 +107,11 @@ public:
 
 
         for(size_t comp=0; comp<n_components; comp++) {
+            auto field = pGrid[comp]->get_field_fourier();
+
             #pragma omp parallel for reduction(+:res_real,res_imag)
             for(size_t i=0; i<Ns[comp]; i++) {
-                std::complex<T> res = conj(v1[i+cumu_Ns[comp]])*y0s[comp][i];
+                std::complex<T> res = conj(v1[i+cumu_Ns[comp]])*field[i];
                 // accumulate separately - OMP doesn't support complex number reduction :-(
                 res_real+=std::real(res);
                 res_imag+=std::imag(res);
@@ -140,8 +144,10 @@ public:
         // Get the realization and store it in the specified array
         size_t j=0;
         for(size_t comp=0; comp<n_components; comp++) {
+            auto field = pGrid[comp]->get_field_fourier();
+
             for(size_t i=0; i<Ns[comp]; i++) {
-                r[j]=y0s[comp][i];
+                r[j]=field[i];
                 j++;
             }
         }

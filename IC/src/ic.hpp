@@ -20,21 +20,21 @@ template<typename MyFloat>
 class IC {
 protected:
 
+
+
     MyFloat Om0, Ol0, Ob0, hubble, zin, a, sigma8, ns;
 
     // Everything about the grids:
     MyFloat boxlen[2], dx[2];      // the box length of each grid
     int n[2];                      // number of grid divisions along one axis
-    std::vector<std::shared_ptr<Grid<MyFloat>>> pGrid;       // the objects that help us relate points on the grid
-    complex<MyFloat> *pField_k[2]; // the field in k-space
-    complex<MyFloat> *pField_x[2]; // the field in x-space
 
+    std::vector<std::shared_ptr<Grid<MyFloat>>> pGrid;       // the objects that help us relate points on the grid
 
 
 
     complex<MyFloat> *P[2]; // the power spectrum for each k-space point
 
-    complex<MyFloat> *pField_k_0_high; // high-k modes for level 0
+    std::vector<complex<MyFloat>> pField_k_0_high; // high-k modes for level 0
 
     MyFloat x_off[2], y_off[2], z_off[2]; // x,y,z offsets for subgrids
 
@@ -69,12 +69,12 @@ protected:
     MultiConstrainedField<MyFloat> *pConstrainer;
     shared_ptr<ParticleMapper<MyFloat>> pMapper;
 
+    using RefFieldType = decltype(pGrid[0]->get_field());
+
 
 public:
     IC() : pMapper(new ParticleMapper<MyFloat>())
     {
-        pField_x[0]=pField_x[1]=NULL;
-        pField_k[0]=pField_k[1]=NULL;
         pConstrainer=NULL;
         whiteNoiseFourier=false;
         hubble=0.701;   // old default
@@ -319,7 +319,7 @@ public:
     }
 
     static void drawOneFourierMode(gsl_rng *r, int k1, int k2, int k3,
-                                  MyFloat norm, int n, complex<MyFloat> *pField_k) {
+                                  MyFloat norm, int n, RefFieldType pField_k) {
         long id_k, id_negk;
         id_k = kgridToIndex(k1,k2,k3,n);
         id_negk = kgridToIndex(-k1,-k2,-k3,n);
@@ -330,14 +330,13 @@ public:
     }
 
 
-    static void drawRandomForSpecifiedGrid(int n, complex<MyFloat> *& pField_x,
-                                           complex<MyFloat> *& pField_k,
+    static void drawRandomForSpecifiedGrid(int n,
+                                           RefFieldType pField_k,
                                            gsl_rng * r)
     {
         long nPartTotal = n;
         nPartTotal*=n*n;
 
-        pField_k=(complex<MyFloat>*)calloc(nPartTotal,sizeof(complex<MyFloat>));
         MyFloat sigma=sqrt((MyFloat)(nPartTotal));
 
         complex<MyFloat> *rnd=(complex<MyFloat>*)calloc(nPartTotal,sizeof(complex<MyFloat>));
@@ -350,9 +349,8 @@ public:
         for(i=0;i<nPartTotal;i++){rnd[i]=gsl_ran_gaussian_ziggurat(r,1.)*sigma;}// cout<< "rnd "<< rnd[i] << endl;}
 
 
-
         cout<< "First FFT..." <<endl;
-        fft(pField_k, rnd, n, 1);
+        fft(pField_k.data(), rnd, n, 1);
 
         free(rnd);
 
@@ -363,13 +361,12 @@ public:
     }
 
     static void drawRandomForSpecifiedGridFourier(int n,
-                                           complex<MyFloat> *& pField_k,
+                                           RefFieldType pField_k,
                                            gsl_rng * r) {
 
        long nPartTotal = n;
        nPartTotal*=n*n;
 
-       pField_k=(complex<MyFloat>*)calloc(nPartTotal,sizeof(complex<MyFloat>));
        MyFloat sigma=sqrt((MyFloat)(nPartTotal));
 
 
@@ -407,9 +404,9 @@ public:
         for_each_level(level) {
             cerr << "Generate random noise for level " << level <<endl;
             if(whiteNoiseFourier)
-                drawRandomForSpecifiedGridFourier(n[level], pField_k[level],r);
+                drawRandomForSpecifiedGridFourier(n[level], pGrid[level]->get_field_fourier(),r);
             else
-                drawRandomForSpecifiedGrid(n[level], pField_x[level], pField_k[level],r);
+                drawRandomForSpecifiedGrid(n[level], pGrid[level]->get_field_fourier(),r);
         }
 
         gsl_rng_free (r);
@@ -418,14 +415,10 @@ public:
     void zeroLevel(int level) {
         cerr << "*** Warning: your script calls zeroLevel("<<level <<"). This is intended for testing purposes only!" << endl;
         if(level==-1) {
-            if(pField_k_0_high) memset(pField_k_0_high,0,sizeof(MyFloat)*2*nPartLevel[0]);
+            std::fill(pField_k_0_high.begin(), pField_k_0_high.end(), 0);
         } else {
-            if(pField_x[level]!=NULL) {
-                memset(pField_x[level],0,sizeof(MyFloat)*2*nPartLevel[level]);
-            }
-            if(pField_k[level]!=NULL) {
-                memset(pField_k[level],0,sizeof(MyFloat)*2*nPartLevel[level]);
-            }
+            auto &field = pGrid[level]->get_field_real();
+            std::fill(field.begin(), field.end(), 0);
         }
     }
 
@@ -516,11 +509,10 @@ public:
     }
 
     void interpolateLevel(int level) {
-        operateInRealSpace(level);
-        operateInRealSpace(level-1);
-        complex<MyFloat> *pField_x_l = pField_x[level];
-        complex<MyFloat> *pField_x_p = pField_x[level-1];
-        interpolateLevel(level,pField_x_l,pField_x_p);
+        RefFieldType pField_x_l = pGrid[level]->get_field_real();
+        RefFieldType pField_x_p = pGrid[level-1]->get_field_real();
+
+        interpolateLevel(level,pField_x_l.data(),pField_x_p.data());
     }
 
 
@@ -575,26 +567,27 @@ public:
 
 
     void splitLevel0() {
-        operateInFourierSpace(0);
-        pField_k_0_high = (complex<MyFloat>*)calloc(this->nPartLevel[0],sizeof(complex<MyFloat>));
-        memcpy(pField_k_0_high,pField_k[0],sizeof(complex<MyFloat>)*this->nPartLevel[0]);
+        pField_k_0_high = pGrid[0]->get_field_fourier();
         cerr << "Apply transfer function for high-k part of level 0 field" << endl;
+        cerr << "  sizes = " << pGrid[0]->get_field_fourier().size() << " " <<pField_k_0_high.size() << endl;
+        cerr << "  first el = " << pField_k_0_high[10] << " " << pGrid[0]->get_field_fourier()[10] << endl;
         applyPowerSpecForLevel(0,true);
+        cerr << "  first el = " << pField_k_0_high[10] << " " << pGrid[0]->get_field_fourier()[10] << endl;
     }
 
     void recombineLevel0() {
 
-        operateInFourierSpace(0);
+        RefFieldType pField_k = pGrid[0]->get_field_fourier();
+
         for(size_t i=0; i<this->nPartLevel[0]; i++)
-            pField_k[0][i]+=pField_k_0_high[i];
-        free(pField_k_0_high);
+            pField_k[i]+=pField_k_0_high[i];
+
+        pField_k_0_high.clear();
 
     }
 
     void applyPowerSpecForLevel(int level, bool high_k=false) {
         //scale white-noise delta with initial PS
-
-        operateInFourierSpace(level);
 
         MyFloat grwfac;
 
@@ -644,9 +637,10 @@ public:
 
         MyFloat norm_amp=norm*amp;
 
-        complex<MyFloat> *pField_k_this = pField_k[level];
-        if(high_k)
-            pField_k_this = pField_k_0_high;
+        // TODO - fix up types here
+
+        auto & pField_k_this = high_k?pField_k_0_high:pGrid[level]->get_field_fourier();
+
 
         spectrum.applyTransfer(n[level], kw, ns, norm_amp,
                                pField_k_this, pField_k_this, P[level], filter);
@@ -672,13 +666,12 @@ public:
     }
 
     void dumpGrid(int level=0) {
-        ensureRealDelta(level);
 
         ostringstream filename;
         filename << indir << "/grid-" << level << ".npy";
 
         const int dim[3] = { n[level],n[level],n[level] };
-        numpy::SaveArrayAsNumpy(filename.str(), true, 3, dim, pField_x[level] );
+        numpy::SaveArrayAsNumpy(filename.str(), true, 3, dim, pGrid[level]->get_field_real().data() );
 
 
         filename.str("");
@@ -695,8 +688,8 @@ public:
     }
 
     void dumpPS(int level=0) {
-        operateInFourierSpace(level);
-        powsp_noJing(n[level], pField_k[level], (base+"_"+((char)(level+'0'))+".ps").c_str(), boxlen[level]);
+        powsp_noJing(n[level], pGrid[level]->get_field_real().data(),
+                     (base+"_"+((char)(level+'0'))+".ps").c_str(), boxlen[level]);
     }
 
     std::tuple<MyFloat*, MyFloat*, MyFloat*, MyFloat*, MyFloat*, MyFloat*> zeldovich(int level=0, long nPartAllocate=-1) {
@@ -710,7 +703,6 @@ public:
         if(nPartAllocate==-1)
             nPartAllocate = nPartLevel[level];
 
-        operateInFourierSpace(level);
 
         complex<MyFloat>* psift1k=(complex<MyFloat>*)calloc(nPartLevel[level],sizeof(complex<MyFloat>));
         complex<MyFloat>* psift2k=(complex<MyFloat>*)calloc(nPartLevel[level],sizeof(complex<MyFloat>));
@@ -721,6 +713,8 @@ public:
         size_t idx;
 
         MyFloat kw = 2.*M_PI/(MyFloat)boxlen[level];
+
+        auto & pField_k = pGrid[level]->get_field_fourier();
 
         #pragma omp parallel for schedule(static) default(shared) private(iix, iiy, iiz, kfft, idx)
         for(int ix=0; ix<n[level];ix++){
@@ -736,12 +730,12 @@ public:
 
                     kfft = sqrt(iix*iix+iiy*iiy+iiz*iiz);
 
-                    psift1k[idx].real(-pField_k[level][idx].imag()/(MyFloat)(kfft*kfft)*iix/kw);
-                    psift1k[idx].imag(pField_k[level][idx].real()/(MyFloat)(kfft*kfft)*iix/kw);
-                    psift2k[idx].real(-pField_k[level][idx].imag()/(MyFloat)(kfft*kfft)*iiy/kw);
-                    psift2k[idx].imag(pField_k[level][idx].real()/(MyFloat)(kfft*kfft)*iiy/kw);
-                    psift3k[idx].real(-pField_k[level][idx].imag()/(MyFloat)(kfft*kfft)*iiz/kw);
-                    psift3k[idx].imag(pField_k[level][idx].real()/(MyFloat)(kfft*kfft)*iiz/kw);
+                    psift1k[idx].real(-pField_k[idx].imag()/(MyFloat)(kfft*kfft)*iix/kw);
+                    psift1k[idx].imag(pField_k[idx].real()/(MyFloat)(kfft*kfft)*iix/kw);
+                    psift2k[idx].real(-pField_k[idx].imag()/(MyFloat)(kfft*kfft)*iiy/kw);
+                    psift2k[idx].imag(pField_k[idx].real()/(MyFloat)(kfft*kfft)*iiy/kw);
+                    psift3k[idx].real(-pField_k[idx].imag()/(MyFloat)(kfft*kfft)*iiz/kw);
+                    psift3k[idx].imag(pField_k[idx].real()/(MyFloat)(kfft*kfft)*iiz/kw);
                 }
             }
         }
@@ -1027,13 +1021,14 @@ public:
 
         applyPowerSpec();
 
-        pField = new UnderlyingField<MyFloat>(this->P[0], this->pField_k[0], this->nPartLevel[0]);
+        pField = new UnderlyingField<MyFloat>(this->P[0], this->pGrid[0], this->nPartLevel[0]);
 
         for_each_level(level) {
             if(level>0)
-                pField->add_component(this->P[level],this->pField_k[level],this->nPartLevel[level]);
+                pField->add_component(this->P[level],
+                                      this->pGrid[level],
+                                      this->nPartLevel[level]);
         }
-
 
         // TODO: actually combine the different levels before passing them to the constrainer
         pConstrainer = new MultiConstrainedField<MyFloat>(pField);
@@ -1232,50 +1227,13 @@ protected:
 
         }
 
-        if(pField_x[level]!=NULL) {
-            cout << " dot in real space = " << std::real(dot(pField_x[level], rval, this->nPartLevel[level])) << endl;
-        }
+
+        // cout << " dot in real space = " << std::real(dot(pField_x[level], rval, this->nPartLevel[level])) << endl;
+
 
         free(rval);
     }
 
-    void freeRealDelta(int level=0) {
-        if(pField_x[level]!=NULL) {
-            free(pField_x[level]);
-            pField_x[level]=NULL;
-        }
-    }
-
-    void freeFourierDelta(int level=0) {
-        if(pField_k[level]!=NULL) {
-            free(pField_k[level]);
-            pField_k[level]=NULL;
-        }
-    }
-
-    void ensureRealDelta(int level=0) {
-        if(pField_x[level]==NULL) {
-            pField_x[level] = (complex<MyFloat>*)calloc(this->nPartLevel[level],sizeof(complex<MyFloat>));
-            fft(pField_x[level],this->pField_k[level],this->n[level],-1);
-        }
-    }
-
-    void ensureFourierDelta(int level=0) {
-        if(pField_k[level]==NULL) {
-            pField_k[level] = (complex<MyFloat>*)calloc(this->nPartLevel[level],sizeof(complex<MyFloat>));
-            fft(pField_k[level],pField_x[level],n[level],1);
-        }
-    }
-
-    void operateInRealSpace(int level=0) {
-        ensureRealDelta(level);
-        freeFourierDelta(level);
-    }
-
-    void operateInFourierSpace(int level=0) {
-        ensureFourierDelta(level);
-        freeRealDelta(level);
-    }
 
 
 
@@ -1370,12 +1328,12 @@ public:
 
         float den_max=-1000;
         long index_max=0;
-        ensureRealDelta();
 
+        auto & pField_x = pGrid[0]->get_field_real();
         for(size_t i=0;i<genericParticleArray.size();i++) {
-            if(std::real(pField_x[0][genericParticleArray[i]])>den_max) {
+            if(std::real(pField_x[genericParticleArray[i]])>den_max) {
                 index_max=genericParticleArray[i];
-                den_max = std::real(pField_x[0][genericParticleArray[i]]);
+                den_max = std::real(pField_x[genericParticleArray[i]]);
                 pGrid[0]->get_centroid_location(i,x0,y0,z0);
             }
         }
@@ -1440,7 +1398,7 @@ public:
         float val=0.0;
         for_each_level(level) {
             complex<MyFloat> *vec = calcConstraintVector(name,level);
-            val+=std::real(dot(vec, this->pField_k[level], this->nPartLevel[level]));
+            val+=std::real(dot(vec, pGrid[level]->get_field_fourier().data(), this->nPartLevel[level]));
             cerr << val << " ";
             free(vec);
         }
@@ -1495,7 +1453,7 @@ public:
         long j=0;
         for_each_level(level) {
             for(size_t i=0; i<this->nPartLevel[level]; i++) {
-                this->pField_k[level][i]=y1[j];
+                this->pGrid[level]->get_field_fourier()[i]=y1[j];
                 j++;
             }
         }
@@ -1506,7 +1464,6 @@ public:
 
         delete pConstrainer;
         pConstrainer=NULL;
-
 
         /*
         // the following wants to come JUST before writing...
@@ -1521,6 +1478,11 @@ public:
         */
 
 
+        // All done - write out
+        write();
+
+
+
     }
 
     void reverse() {
@@ -1528,8 +1490,11 @@ public:
             throw runtime_error("Can only reverse field direction after a 'done' command finailises the constraints");
         }
 
-        for(size_t i=0; i<this->nPartLevel[0]; i++)
-            this->pField_k[0][i]=-this->pField_k[0][i];
+        for_each_level(level) {
+            auto & field = pGrid[level]->get_field();
+            for(size_t i=0; i<this->nPartLevel[0]; i++)
+                field[i]=-field[i];
+        }
     }
 
 
