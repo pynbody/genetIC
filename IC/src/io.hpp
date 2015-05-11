@@ -514,7 +514,7 @@ void SaveTipsy(const std::string & filename,
     double min_mass=1.0/0;
     double max_mass=0.0;
 
-    long n_gas = 0;
+    long n_gas = pMapper->size_gas();
 
     size_t iord=0;
 
@@ -540,7 +540,7 @@ void SaveTipsy(const std::string & filename,
     header.n = pMapper->size();
     header.ndim = 3;
     header.ngas = 0;
-    header.ndark = pMapper->size(); // minus gas
+    header.ndark = pMapper->size_dm();
     header.nstar = 0;
 
 
@@ -568,37 +568,25 @@ void SaveTipsy(const std::string & filename,
 
     fwrite(&header, sizeof(io_header_tipsy), 1, fd);
 
-    /*
-    if(Ob0>0) {
-        for(long i=0; i<nPart; i++){
-            if(masses[i]==min_mass) {
 
-                gp.x = pos_factor*Pos1[i]-0.5;
-                gp.y = pos_factor*Pos2[i]-0.5;
-                gp.z = pos_factor*Pos3[i]-0.5;
-                gp.vx = vel_factor*Vel1[i];
-                gp.vy = vel_factor*Vel2[i];
-                gp.vz = vel_factor*Vel3[i];
-                if(masses!=NULL) {
-                    gp.mass = mass_factor*masses[i]*Ob0/Om0;
-                    gp.eps = eps*pow(masses[i]/max_mass,0.3333);
-                } else {
-                    gp.eps = eps;
-                    gp.mass = pmass_tipsy*Ob0/Om0;
-                }
+    for(auto i=pMapper->beginGas(); i!=pMapper->endGas(); ++i) {
+        i.getParticle(x,y,z,vx,vy,vz,mass,eps);
 
-                fwrite(&gp, sizeof(io_tipsy_gas), 1, fd);
-                n_gas-=1;
-                iord++;
-            }
+        gp.x=x*pos_factor-0.5;
+        gp.y=y*pos_factor-0.5;
+        gp.z=z*pos_factor-0.5;
 
-        }
+        gp.eps=eps*pos_factor;
+        gp.vx=vx*vel_factor;
+        gp.vy=vy*vel_factor;
+        gp.vz=vz*vel_factor;
+        gp.mass = mass*mass_factor;
+
+        fwrite(&gp, sizeof(io_tipsy_gas), 1, fd);
+
     }
 
-    assert(n_gas==0);
-    */
-
-    for(auto i=pMapper->begin(); i!=pMapper->end(); ++i) {
+    for(auto i=pMapper->beginDm(); i!=pMapper->endDm(); ++i) {
         i.getParticle(x,y,z,vx,vy,vz,mass,eps);
 
         dp.x=x*pos_factor-0.5;

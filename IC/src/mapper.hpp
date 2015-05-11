@@ -175,6 +175,23 @@ public:
         return x;
     }
 
+    virtual iterator beginDm() const {
+        return begin();
+    }
+
+    virtual iterator endDm() const {
+        return end();
+    }
+
+    virtual iterator beginGas() const {
+        return end();
+    }
+
+    virtual iterator endGas() const {
+        return end();
+    }
+
+
     virtual bool supportsReverseIterator()  {
         return false;
     }
@@ -419,6 +436,9 @@ public:
 
         size_t level1_size = pLevel1->size();
 
+        assert(pLevel1->size_gas()==0);
+        assert(pLevel2->size_gas()==0);
+
     }
 
     void interpretParticleList(const std::vector<size_t> & genericParticleArray) override {
@@ -478,6 +498,71 @@ public:
 
 };
 
+
+template<typename MyFloat>
+class SubMapper : public ParticleMapper<MyFloat>
+{
+public:
+    using MapType = ParticleMapper<MyFloat>;
+    using typename MapType::MapPtrType;
+    using typename MapType::GridPtrType;
+    using typename MapType::GridType;
+    using typename MapType::iterator;
+    using typename MapType::ConstGridPtrType;
+
+protected:
+    size_t start;
+    size_t finish;
+    MapPtrType pUnderlying;
+
+    virtual void incrementIterator(iterator *pIterator) const {
+        pIterator->i++;
+        (*(pIterator->subIterators[0]))++;
+    }
+
+
+    virtual std::pair<ConstGridPtrType, size_t> dereferenceIterator(const iterator *pIterator) const {
+        return **(pIterator->subIterators[0]);
+    }
+
+
+public:
+
+    virtual size_t size() const {
+        return finish-start;
+    }
+
+
+    SubMapper( MapPtrType & pUnderlying, size_t start, size_t finish) :
+            pUnderlying(pUnderlying), start(start), finish(finish)
+    {
+        assert(pUnderlying->size_gas()==0);
+    }
+
+
+    virtual void interpretParticleList(const std::vector<size_t> & genericParticleArray) {
+        std::vector<size_t> result;
+
+        for(auto i: genericParticleArray) {
+            if(i+start>finish)
+            throw std::runtime_error("Out of range!");
+            result.push_back(i+start);
+        }
+        pUnderlying->interpretParticleList(result);
+
+    }
+
+    virtual iterator begin() const {
+        iterator i(this);
+        i.subIterators.emplace_back(new iterator(pUnderlying->begin()));
+        *(i.subIterators[0])+=start;
+        return i;
+    }
+
+};
+
+
+
 template<typename MyFloat>
 class AddGasMapper : public ParticleMapper<MyFloat>
 {
@@ -498,19 +583,21 @@ protected:
     size_t ngas;
 
     virtual void incrementIterator(iterator *pIterator) const {
-        pIterator->i++;
-        if(pIterator->i>ngas)
-            (*(pIterator->subIterators[0]))++;
-        else
+
+        if(pIterator->i>=ngas)
             (*(pIterator->subIterators[1]))++;
+        else
+            (*(pIterator->subIterators[0]))++;
+        pIterator->i++;
+
     }
 
 
     virtual std::pair<ConstGridPtrType, size_t> dereferenceIterator(const iterator *pIterator) const {
-        if(pIterator->i>ngas)
-            return **(pIterator->subIterators[0]);
-        else
+        if(pIterator->i>=ngas)
             return **(pIterator->subIterators[1]);
+        else
+            return **(pIterator->subIterators[0]);
     }
 
 
@@ -528,7 +615,11 @@ public:
         return ndm;
     }
 
-    AddGasMapper( MapPtrType & pGas, MapPtrType &pDm ) : gasMap(pGas), dmMap(pDm), ngas(pGas->size()), ndm(pDm->size()) { };
+    AddGasMapper( MapPtrType & pGas, MapPtrType &pDm ) : gasMap(pGas), dmMap(pDm), ngas(pGas->size()), ndm(pDm->size())
+    {
+        assert(pGas->size_gas()==0);
+        assert(pDm->size_gas()==0);
+    };
 
 
     virtual void interpretParticleList(const std::vector<size_t> & genericParticleArray) {
@@ -553,8 +644,25 @@ public:
         iterator i(this);
         i.subIterators.emplace_back(new iterator(gasMap->begin()));
         i.subIterators.emplace_back(new iterator(dmMap->begin()));
-
+        return i;
     }
+
+    virtual iterator beginDm() const {
+        return dmMap->begin();
+    }
+
+    virtual iterator endDm() const {
+        return dmMap->end();
+    }
+
+    virtual iterator beginGas() const {
+        return gasMap->begin();
+    }
+
+    virtual iterator endGas() const {
+        return gasMap->end();
+    }
+
 
 };
 

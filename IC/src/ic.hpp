@@ -247,10 +247,6 @@ public:
             new TwoLevelParticleMapper<MyFloat>(pMapper, pMapper1, zoomParticleArray, zoomfac*zoomfac*zoomfac));
 
 
-        if(Ob0>0)
-            pMapper = std::shared_ptr<ParticleMapper<MyFloat>>(
-                new AddGasMapper<MyFloat>(pMapper, pMapper));
-
         cout << "  Total particles = " << pMapper->size() << endl;
     }
 
@@ -771,6 +767,11 @@ public:
 
         zeldovich();
 
+        auto finalMapper=pMapper;
+
+        if(Ob0>0)
+            finalMapper = std::shared_ptr<ParticleMapper<MyFloat>>(
+                new AddGasMapper<MyFloat>(pMapper, pMapper));
 
         /*
         if (gadgetformat==2){
@@ -785,7 +786,7 @@ public:
         }
         */
         if (gadgetformat==4)
-            SaveTipsy(base+".tipsy", boxlen[0], Om0, Ol0, hubble, a, pMapper);
+            SaveTipsy(base+".tipsy", boxlen[0], Om0, Ol0, hubble, a, finalMapper);
 
 
 
