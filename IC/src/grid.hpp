@@ -28,7 +28,10 @@ private:
     std::shared_ptr<std::vector<MyFloat>> pOff_y;
     std::shared_ptr<std::vector<MyFloat>> pOff_z;
 
-    MyFloat hFactor, mass;
+    MyFloat hFactor, cellMass;
+
+protected:
+    MyFloat massFac;
 
 public:
 
@@ -46,13 +49,14 @@ public:
     Grid(MyFloat simsize, size_t n, MyFloat dx=1.0, MyFloat x0=0.0, MyFloat y0=0.0, MyFloat z0=0.0) :
             dx(dx), x0(x0), y0(y0), z0(z0),
             size(n), size2(n*n), size3(n*n*n),
-            boxsize(dx*n), simsize(simsize)
+            boxsize(dx*n), simsize(simsize),
+            massFac(1.0)
     {
         pField = std::make_shared<std::vector<std::complex<MyFloat>>>(size3,0);
         pField->shrink_to_fit();
     }
 
-    Grid(size_t n): size(n), size2(n*n), size3(n*n*n), dx(1.0), x0(0),y0(0),z0(0), boxsize(n), simsize(0) {
+    Grid(size_t n): size(n), size2(n*n), size3(n*n*n), dx(1.0), x0(0),y0(0),z0(0), boxsize(n), simsize(0), massFac(1.0) {
 
     }
 
@@ -171,7 +175,7 @@ public:
         y = (int) (id%size2)/size;
         z = (int) (id%size);
 
-        // following check should be removed in the end:
+        // TODO: optimization - following check should be removed at some point:
         if(get_index(x,y,z)!=id) {
             cerr << "ERROR in get_coordinates";
             cerr << "id=" << id << " x,y,z=" << x << "," << y << "," << z << endl;
@@ -218,18 +222,19 @@ public:
         zc = z0+z*dx+dx/2;
 
     }
+
     tuple<MyFloat, MyFloat, MyFloat> get_centroid_location(long id) const {
         MyFloat xc,yc,zc;
         get_centroid_location(id,xc,yc,zc);
         return std::make_tuple(xc,yc,zc);
     }
 
-
-
-
     vector<size_t> get_ids_in_cube(MyFloat x0c, MyFloat y0c, MyFloat z0c, MyFloat dxc) {
         // return all the grid IDs whose centres lie within the specified cube
         vector<size_t> ids;
+
+        // TODO: optimization, set the storage size of ids here.
+
         int xa=((int) floor((x0c-x0-dxc/2+dx/2)/dx));
         int ya=((int) floor((y0c-y0-dxc/2+dx/2)/dx));
         int za=((int) floor((z0c-z0-dxc/2+dx/2)/dx));
@@ -250,7 +255,7 @@ public:
 
     }
 
-    void get_particle(size_t id, MyFloat &x, MyFloat &y, MyFloat &z, MyFloat &vx, MyFloat &vy, MyFloat &vz, MyFloat &massi, MyFloat &eps) const
+    void get_particle(size_t id, MyFloat &x, MyFloat &y, MyFloat &z, MyFloat &vx, MyFloat &vy, MyFloat &vz, MyFloat &cellMassi, MyFloat &eps) const
     {
         get_centroid_location(id,x,y,z);
         x += (*pOff_x)[id];
@@ -271,14 +276,21 @@ public:
         vy = (*pOff_y)[id]*hFactor;
         vz = (*pOff_z)[id]*hFactor;
 
-        massi = mass;
+        cellMassi = cellMass*massFac;
         eps = dx*0.007143; // <-- arbitrary to coincide with normal UW resolution. TODO: Find a way to make this flexible.
     }
 
+    auto massSplit(MyFloat massRatio) {
+        massFac = massRatio;
+        auto gas = std::make_shared<Grid<MyFloat>>(*this);
+        gas->massFac=1.0-massRatio;
+        return gas;
+    }
 
-    void zeldovich(MyFloat hfac, MyFloat particleMass) {
+    void zeldovich(MyFloat hfac, MyFloat particlecellMass) {
+
         hFactor = hfac;
-        mass = particleMass;
+        cellMass = particlecellMass;
 
         cout << "Applying Zeldovich approximation; grid cell size=" << dx << " Mpc/h...";
         cout.flush();
@@ -354,6 +366,7 @@ public:
 
     }
 
+/*
     void add_grid(MyFloat *Pos1, MyFloat *Pos2, MyFloat *Pos3, MyFloat boxlen) {
         if(boxlen<0)
             boxlen = dx*size;
@@ -393,6 +406,7 @@ public:
         cout<< "Box/2="<< boxlen/2.<< " Mpc/h, Mean position x,y,z: "<< Mean1/(MyFloat(size*size*size))<<" "<< Mean2/(MyFloat(size*size*size))<<" "<<Mean3/(MyFloat(size*size*size))<< " Mpc/h"<<  endl;
 
     }
+    */
 
 
 };

@@ -539,7 +539,7 @@ void SaveTipsy(const std::string & filename,
     header.scalefactor = ain;
     header.n = pMapper->size();
     header.ndim = 3;
-    header.ngas = 0;
+    header.ngas = pMapper->size_gas();
     header.ndark = pMapper->size_dm();
     header.nstar = 0;
 

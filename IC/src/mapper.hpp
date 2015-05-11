@@ -160,10 +160,6 @@ public:
         throw std::runtime_error("There is no grid associated with this particle mapper");
     }
 
-    virtual void gatherParticlesOnCoarsestGrid() {
-        throw std::runtime_error("There is no grid associated with this particle mapper");
-    }
-
     virtual iterator begin() const {
         return iterator(this);
     }
@@ -194,6 +190,10 @@ public:
 
     virtual bool supportsReverseIterator()  {
         return false;
+    }
+
+    virtual MapPtrType addGas(MyFloat massRatio, const std::vector<GridPtrType> & toGrids) {
+        throw std::runtime_error("Don't know how to add gas in this context");
     }
 
 
@@ -254,12 +254,17 @@ public:
         return pGrid;
     }
 
-    void gatherParticlesOnCoarsestGrid() override {
-        // null operation
-    }
-
     bool supportsReverseIterator() override {
         return true;
+    }
+
+    MapPtrType addGas(MyFloat massRatio, const std::vector<GridPtrType> & toGrids) override
+    {
+        if(std::find(toGrids.begin(), toGrids.end(), pGrid)!=toGrids.end()) {
+            return std::make_shared<OneLevelParticleMapper<MyFloat>>(this->pGrid->massSplit(massRatio));
+        } else {
+            return nullptr;
+        }
     }
 
 
@@ -290,6 +295,8 @@ private:
     size_t totalParticles;
     size_t firstLevel2Particle;
 
+    friend class TwoLevelParticleMapper<MyFloat>;
+
     std::vector<size_t> mapid(size_t id0) const {
         // Finds all the particles at level2 corresponding to the single
         // particle at level1
@@ -298,11 +305,22 @@ private:
         return pGrid2->get_ids_in_cube(x0,y0,z0,pGrid1->dx);
     }
 
-protected:
+
 public:
     std::vector<size_t> zoomParticleArray; //< the particles on the coarse grid which we wish to replace with their zooms
 protected:
     mutable std::vector<size_t> zoomParticleArrayZoomed; //< the particles on the fine grid that are therefore included
+
+    void syncL2iterator(const size_t & next_zoom, iterator & level2iterator) const {
+
+        if(zoomParticleArrayZoomed[next_zoom]>level2iterator.i) {
+            level2iterator+=zoomParticleArrayZoomed[next_zoom]-level2iterator.i;
+        } else {
+            level2iterator-=level2iterator.i-zoomParticleArrayZoomed[next_zoom];
+        }
+
+        assert(level2iterator.i==zoomParticleArrayZoomed[next_zoom]);
+    }
 
     virtual void incrementIterator(iterator *pIterator) const override {
 
@@ -317,28 +335,26 @@ protected:
 
         // increment the boring-old-counter!
         i++;
+
         // now work out what it actually points to...
 
         if(i>=firstLevel2Particle) {
             // do zoom particles
+
             if(i==firstLevel2Particle)
                 next_zoom=0;
+            else
+                next_zoom++;
 
+            syncL2iterator(next_zoom,level2iterator);
 
-            if(zoomParticleArrayZoomed[next_zoom]>level2iterator.i) {
-                level2iterator+=zoomParticleArrayZoomed[next_zoom]-level2iterator.i;
-            } else {
-                level2iterator-=level2iterator.i-zoomParticleArrayZoomed[next_zoom];
-            }
-
-            assert(level2iterator.i==zoomParticleArrayZoomed[next_zoom]);
-
-            next_zoom++;
 
         } else {
             // do normal particles
             //
-            // here is what the extra data means:
+            // N.B. should never reach here if level1iterator is NULL
+
+            assert((&level1iterator)!=nullptr);
 
             ++level1iterator;
 
@@ -401,20 +417,63 @@ protected:
 
     }
 
+
+
+
+
 public:
 
     virtual iterator begin() const override {
         iterator x(this);
         x.extraData.push_back(0); // current position in zoom ID list
         x.extraData.push_back(zoomParticleArray[0]); // next entry in zoom ID list
-        x.subIterators.emplace_back(new iterator(pLevel1->begin()));
+
+        if(pLevel1!=nullptr)
+            x.subIterators.emplace_back(new iterator(pLevel1->begin()));
+        else
+            x.subIterators.emplace_back(nullptr);
+
         x.subIterators.emplace_back(new iterator(pLevel2->begin()));
-        if(zoomParticleArrayZoomed.size()==0)
-            calculateHiresParticleList();
+
+        syncL2iterator(0,*(x.subIterators.back()));
+
         return x;
     }
 
 
+    TwoLevelParticleMapper(  MapPtrType & pLevel1,
+                             MapPtrType & pLevel2,
+                             const std::vector<size_t> & zoomParticles,
+                             const std::vector<size_t> & zoomParticlesZoomed,
+                             int n_hr_per_lr) :
+                             pLevel1(pLevel1), pLevel2(pLevel2),
+                             zoomParticleArray(zoomParticles),
+                             n_hr_per_lr(n_hr_per_lr),
+                             zoomParticleArrayZoomed(zoomParticlesZoomed)
+    {
+
+        // Protected constructor that can deal with the case where we ONLY want to
+        // return the zoomed particles from level2
+
+        if(pLevel2==nullptr)
+            throw std::runtime_error("Cannot create two level particle mapper with nothing on the second level");
+
+        pGrid2 = pLevel2->getCoarsestGrid();
+
+        if(pLevel1!=nullptr) {
+            totalParticles = pLevel1->size()+(n_hr_per_lr-1)*zoomParticleArray.size();
+            firstLevel2Particle = pLevel1->size()-zoomParticleArray.size();
+            pGrid1 = pLevel1->getCoarsestGrid();
+            assert(pLevel1->size_gas()==0);
+        } else {
+            totalParticles = zoomParticlesZoomed.size();
+            firstLevel2Particle=0;
+        }
+
+        assert(pLevel2->size_gas()==0);
+
+
+    }
 
 
     TwoLevelParticleMapper(  MapPtrType & pLevel1,
@@ -438,6 +497,8 @@ public:
 
         assert(pLevel1->size_gas()==0);
         assert(pLevel2->size_gas()==0);
+
+        calculateHiresParticleList();
 
     }
 
@@ -491,6 +552,15 @@ public:
         return totalParticles;
     }
 
+    MapPtrType addGas(MyFloat massRatio, const std::vector<GridPtrType> & toGrids) override
+    {
+        auto gsub1 = pLevel1->addGas(massRatio, toGrids);
+        auto gsub2 = pLevel2->addGas(massRatio, toGrids);
+        return std::make_shared<TwoLevelParticleMapper<MyFloat>>(
+            gsub1, gsub2, zoomParticleArray, zoomParticleArrayZoomed,
+            n_hr_per_lr);
+    }
+
 
 
 
@@ -498,7 +568,7 @@ public:
 
 };
 
-
+/*
 template<typename MyFloat>
 class SubMapper : public ParticleMapper<MyFloat>
 {
@@ -560,6 +630,7 @@ public:
     }
 
 };
+*/
 
 
 
@@ -575,16 +646,18 @@ public:
     using typename MapType::ConstGridPtrType;
 
 protected:
-    MapPtrType gasMap;
-    MapPtrType dmMap;
+    MapPtrType firstMap;
+    MapPtrType secondMap;
+
+    bool gasFirst;
 
     size_t dm0;
-    size_t ndm;
-    size_t ngas;
+    size_t nSecond;
+    size_t nFirst;
 
     virtual void incrementIterator(iterator *pIterator) const {
 
-        if(pIterator->i>=ngas)
+        if(pIterator->i>=nFirst)
             (*(pIterator->subIterators[1]))++;
         else
             (*(pIterator->subIterators[0]))++;
@@ -594,7 +667,7 @@ protected:
 
 
     virtual std::pair<ConstGridPtrType, size_t> dereferenceIterator(const iterator *pIterator) const {
-        if(pIterator->i>=ngas)
+        if(pIterator->i>=nFirst)
             return **(pIterator->subIterators[1]);
         else
             return **(pIterator->subIterators[0]);
@@ -604,63 +677,62 @@ protected:
 public:
 
     virtual size_t size() const {
-        return ngas+ndm;
+        return nFirst+nSecond;
     }
 
     virtual size_t size_gas() const {
-        return ngas;
+        return gasFirst?nFirst:nSecond;
     }
 
     virtual size_t size_dm() const {
-        return ndm;
+        return gasFirst?nSecond:nFirst;
     }
 
-    AddGasMapper( MapPtrType & pGas, MapPtrType &pDm ) : gasMap(pGas), dmMap(pDm), ngas(pGas->size()), ndm(pDm->size())
+    AddGasMapper( MapPtrType & pFirst, MapPtrType &pSecond, bool gasFirst=true ) :
+    firstMap(pFirst), secondMap(pSecond), nFirst(pFirst->size()), nSecond(pSecond->size()), gasFirst(gasFirst)
     {
-        assert(pGas->size_gas()==0);
-        assert(pDm->size_gas()==0);
+        assert(pFirst->size_gas()==0);
+        assert(pSecond->size_gas()==0);
     };
 
 
     virtual void interpretParticleList(const std::vector<size_t> & genericParticleArray) {
-        std::vector<size_t> gas;
-        std::vector<size_t> dm;
+        std::vector<size_t> first;
+        std::vector<size_t> second;
 
         for(auto i: genericParticleArray) {
-            if(i<ngas)
-                gas.push_back(i);
+            if(i<nFirst)
+                first.push_back(i);
             else
-                dm.push_back(i-ngas);
+                second.push_back(i-nFirst);
         }
 
-        if(gas.size()>0)
-            throw std::runtime_error("Currently supporting only DM constraints!");
-
-        dmMap->interpretParticleList(dm);
+        firstMap->interpretParticleList(first);
+        secondMap->interpretParticleList(second);
 
     }
 
-    virtual iterator begin() const {
+    virtual iterator begin() const override {
         iterator i(this);
-        i.subIterators.emplace_back(new iterator(gasMap->begin()));
-        i.subIterators.emplace_back(new iterator(dmMap->begin()));
+        i.subIterators.emplace_back(new iterator(firstMap->begin()));
+        i.subIterators.emplace_back(new iterator(secondMap->begin()));
         return i;
     }
 
-    virtual iterator beginDm() const {
-        return dmMap->begin();
+    virtual iterator beginDm() const override {
+        return (gasFirst?secondMap:firstMap)->begin();
     }
 
-    virtual iterator endDm() const {
-        return dmMap->end();
+    virtual iterator endDm() const override {
+        return (gasFirst?secondMap:firstMap)->end();
     }
 
-    virtual iterator beginGas() const {
-        return gasMap->begin();
+    virtual iterator beginGas() const override {
+        return (gasFirst?firstMap:secondMap)->begin();
     }
 
-    virtual iterator endGas() const {
-        return gasMap->end();
+    virtual iterator endGas() const override {
+        return (gasFirst?firstMap:secondMap)->end();
     }
 
 

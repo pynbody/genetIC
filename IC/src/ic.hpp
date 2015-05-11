@@ -745,15 +745,6 @@ public:
 
 
 
-    std::vector<size_t> mapid(size_t id0, size_t level0=0, size_t level1=1) {
-        // Finds all the particles at level1 corresponding to the single
-        // particle at level0
-        std::tie(x0,y0,z0) = pGrid[level0]->get_centroid_location(id0);
-        return pGrid[level1]->get_ids_in_cube(x0,y0,z0,dx[level0]);
-    }
-
-
-
     void interpretParticleList() {
         // copies the overall particle list into the relevant grid levels
         pMapper->interpretParticleList(genericParticleArray);
@@ -763,15 +754,27 @@ public:
 
     void write() {
 
-
-
         zeldovich();
 
         auto finalMapper=pMapper;
 
-        if(Ob0>0)
-            finalMapper = std::shared_ptr<ParticleMapper<MyFloat>>(
-                new AddGasMapper<MyFloat>(pMapper, pMapper));
+        if(Ob0>0) {
+
+
+            // Add gas only to the deepest level. Pass the whole pGrid
+            // vector if you want to add gas to every level.
+            auto gasMapper = pMapper->addGas(Ob0/Om0,
+                                            {pGrid.back()});
+
+
+            // graft the gas particles onto the start of the map
+            finalMapper = std::make_shared<AddGasMapper<MyFloat>>(
+                gasMapper, pMapper, true);
+
+
+        }
+
+        cerr << "Write, ndm=" << finalMapper->size_dm() << ", ngas=" << finalMapper->size_gas() << endl;
 
         /*
         if (gadgetformat==2){
@@ -834,7 +837,7 @@ public:
 protected:
 
     int deepestLevelWithParticles() {
-        if(pGrid[1]->particleArray.size()>0) return 1; else return 0;
+        if(pGrid.size()>1 && pGrid[1]->particleArray.size()>0) return 1; else return 0;
     }
 
     MyFloat get_wrapped_delta(MyFloat x0, MyFloat x1) {
