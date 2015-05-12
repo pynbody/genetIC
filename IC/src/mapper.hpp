@@ -93,17 +93,17 @@ public:
 
 };
 
-template<typename MyFloat>
+template<typename T>
 class ParticleMapper {
 public:
-    using MapType = ParticleMapper<MyFloat>;
-    using MapPtrType = std::shared_ptr<ParticleMapper<MyFloat>>;
-    using GridType = Grid<MyFloat>;
-    using GridPtrType = std::shared_ptr<Grid<MyFloat>>;
-    using ConstGridPtrType = std::shared_ptr<const Grid<MyFloat>>;
-    using iterator = MapperIterator<MyFloat>;
+    using MapType = ParticleMapper<T>;
+    using MapPtrType = std::shared_ptr<ParticleMapper<T>>;
+    using GridType = Grid<T>;
+    using GridPtrType = std::shared_ptr<Grid<T>>;
+    using ConstGridPtrType = std::shared_ptr<const Grid<T>>;
+    using iterator = MapperIterator<T>;
 
-    friend class MapperIterator<MyFloat>;
+    friend class MapperIterator<T>;
 
 protected:
 
@@ -192,8 +192,12 @@ public:
         return false;
     }
 
-    virtual MapPtrType addGas(MyFloat massRatio, const std::vector<GridPtrType> & toGrids) {
+    virtual MapPtrType addGas(T massRatio, const std::vector<GridPtrType> & toGrids) {
         throw std::runtime_error("Don't know how to add gas in this context");
+    }
+
+    virtual MapPtrType superSample(int ratio, const std::vector<GridPtrType> & toGrids) {
+        throw std::runtime_error("Don't know how to supersample in this context");
     }
 
 
@@ -203,12 +207,12 @@ public:
 };
 
 
-template<typename MyFloat>
-class OneLevelParticleMapper : public ParticleMapper<MyFloat> {
+template<typename T>
+class OneLevelParticleMapper : public ParticleMapper<T> {
 
 private:
 
-    using MapType = ParticleMapper<MyFloat>;
+    using MapType = ParticleMapper<T>;
     using typename MapType::MapPtrType;
     using typename MapType::GridPtrType;
     using typename MapType::ConstGridPtrType;
@@ -229,11 +233,11 @@ protected:
 
 
 public:
-    OneLevelParticleMapper(std::shared_ptr<Grid<MyFloat>> &pGrid) : pGrid(pGrid) {
+    OneLevelParticleMapper(std::shared_ptr<Grid<T>> &pGrid) : pGrid(pGrid) {
 
     }
 
-    OneLevelParticleMapper(std::shared_ptr<Grid<MyFloat>> &&pGrid) : pGrid(pGrid) {
+    OneLevelParticleMapper(std::shared_ptr<Grid<T>> &&pGrid) : pGrid(pGrid) {
 
     }
 
@@ -258,12 +262,22 @@ public:
         return true;
     }
 
-    MapPtrType addGas(MyFloat massRatio, const std::vector<GridPtrType> & toGrids) override
+    MapPtrType addGas(T massRatio, const std::vector<GridPtrType> & toGrids) override
     {
         if(std::find(toGrids.begin(), toGrids.end(), pGrid)!=toGrids.end()) {
-            return std::make_shared<OneLevelParticleMapper<MyFloat>>(this->pGrid->massSplit(massRatio));
+            return std::make_shared<OneLevelParticleMapper<T>>(this->pGrid->massSplit(massRatio));
         } else {
             return nullptr;
+        }
+    }
+
+    MapPtrType superSample(int ratio, const std::vector<GridPtrType> & toGrids) override
+    {
+        if(std::find(toGrids.begin(), toGrids.end(), pGrid)!=toGrids.end()) {
+            auto newGrid = std::make_shared<SuperSampleGrid<T>>(this->pGrid, ratio);
+            return std::make_shared<OneLevelParticleMapper<T>>(newGrid);
+        } else {
+            return std::make_shared<OneLevelParticleMapper<T>>(this->pGrid);
         }
     }
 
@@ -273,11 +287,11 @@ public:
 
 };
 
-template<typename MyFloat>
-class TwoLevelParticleMapper : public ParticleMapper<MyFloat> {
+template<typename T>
+class TwoLevelParticleMapper : public ParticleMapper<T> {
 private:
 
-    using MapType = ParticleMapper<MyFloat>;
+    using MapType = ParticleMapper<T>;
     using typename MapType::MapPtrType;
     using typename MapType::GridPtrType;
     using typename MapType::GridType;
@@ -295,12 +309,12 @@ private:
     size_t totalParticles;
     size_t firstLevel2Particle;
 
-    friend class TwoLevelParticleMapper<MyFloat>;
+    friend class TwoLevelParticleMapper<T>;
 
     std::vector<size_t> mapid(size_t id0) const {
         // Finds all the particles at level2 corresponding to the single
         // particle at level1
-        MyFloat x0,y0,z0;
+        T x0,y0,z0;
         std::tie(x0,y0,z0) = pGrid1->get_centroid_location(id0);
         return pGrid2->get_ids_in_cube(x0,y0,z0,pGrid1->dx);
     }
@@ -552,28 +566,33 @@ public:
         return totalParticles;
     }
 
-    MapPtrType addGas(MyFloat massRatio, const std::vector<GridPtrType> & toGrids) override
+    MapPtrType addGas(T massRatio, const std::vector<GridPtrType> & toGrids) override
     {
         auto gsub1 = pLevel1->addGas(massRatio, toGrids);
         auto gsub2 = pLevel2->addGas(massRatio, toGrids);
-        return std::make_shared<TwoLevelParticleMapper<MyFloat>>(
+        return std::make_shared<TwoLevelParticleMapper<T>>(
             gsub1, gsub2, zoomParticleArray, zoomParticleArrayZoomed,
             n_hr_per_lr);
     }
 
-
-
-
-
+    MapPtrType superSample(int ratio, const std::vector<GridPtrType> & toGrids) override
+    {
+        auto ssub1 = pLevel1->superSample(ratio, toGrids);
+        auto ssub2 = pLevel2->superSample(ratio, toGrids);
+        return std::make_shared<TwoLevelParticleMapper<T>>(
+            ssub1, ssub2, zoomParticleArray,
+            n_hr_per_lr*(ssub2->size()/pLevel2->size())/(ssub1->size()/pLevel1->size())
+        );
+    }
 
 };
 
 /*
-template<typename MyFloat>
-class SubMapper : public ParticleMapper<MyFloat>
+template<typename T>
+class SubMapper : public ParticleMapper<T>
 {
 public:
-    using MapType = ParticleMapper<MyFloat>;
+    using MapType = ParticleMapper<T>;
     using typename MapType::MapPtrType;
     using typename MapType::GridPtrType;
     using typename MapType::GridType;
@@ -634,11 +653,11 @@ public:
 
 
 
-template<typename MyFloat>
-class AddGasMapper : public ParticleMapper<MyFloat>
+template<typename T>
+class AddGasMapper : public ParticleMapper<T>
 {
 public:
-    using MapType = ParticleMapper<MyFloat>;
+    using MapType = ParticleMapper<T>;
     using typename MapType::MapPtrType;
     using typename MapType::GridPtrType;
     using typename MapType::GridType;
@@ -733,6 +752,14 @@ public:
 
     virtual iterator endGas() const override {
         return (gasFirst?firstMap:secondMap)->end();
+    }
+
+    MapPtrType superSample(int ratio, const std::vector<GridPtrType> & toGrids) override
+    {
+        auto ssub1 = firstMap->superSample(ratio, toGrids);
+        auto ssub2 = secondMap->superSample(ratio, toGrids);
+        return std::make_shared<AddGasMapper<T>>(
+            firstMap, secondMap, gasFirst);
     }
 
 
