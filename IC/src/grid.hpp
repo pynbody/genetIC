@@ -100,6 +100,12 @@ public:
         return fieldFourier;
     }
 
+    virtual void getParticle(size_t id, T &x, T &y, T &z, T &vx, T &vy, T &vz, T &cellMassi, T &eps) const
+    {
+        getParticleNoOffset(id, x, y, z, vx, vy, vz, cellMassi, eps);
+        addCentroidLocation(id,x,y,z);
+    }
+
     virtual void getParticleNoOffset(size_t id, T &x, T &y, T &z, T &vx, T &vy, T &vz, T &cellMassi, T &eps) const
     {
 
@@ -112,7 +118,7 @@ public:
         vz = (*pOff_z)[id]*hFactor;
 
         cellMassi = cellMass*massFac;
-        eps = dx*2*0.007143; // <-- arbitrary to coincide with normal UW resolution. TODO: Find a way to make this flexible.
+        eps = dx*0.01075; // <-- arbitrary to coincide with normal UW resolution. TODO: Find a way to make this flexible.
     }
 
     virtual void getParticleFromOffset(T &x, T &y, T &z, T &vx, T &vy, T &vz, T &cellMassi, T &eps) const
@@ -124,12 +130,15 @@ public:
         x+=vx;
         y+=vy;
         z+=vz;
+
+        simWrap(x,y,z);
+
         vx*=hFactor;
         vy*=hFactor;
         vz*=hFactor;
 
         cellMassi = cellMass*massFac;
-        eps = dx*2*0.007143; // <-- arbitrary to coincide with normal UW resolution. TODO: Find a way to make this flexible.
+        eps = dx*0.01075; // <-- arbitrary to coincide with normal UW resolution. TODO: Find a way to make this flexible.
     }
 
 
@@ -194,11 +203,7 @@ public:
     }
 
 
-    virtual void getParticle(size_t id, T &x, T &y, T &z, T &vx, T &vy, T &vz, T &cellMassi, T &eps) const
-    {
-        getParticleNoOffset(id, x, y, z, vx, vy, vz, cellMassi, eps);
-        addCentroidLocation(id,x,y,z);
-    }
+
 
     virtual std::shared_ptr<Grid<T>> massSplit(T massRatio) {
         massFac = 1.0-massRatio;
@@ -328,6 +333,16 @@ public:
         if(z<0) z+=size;
     }
 
+    void simWrap(T &x, T &y, T &z) const
+    {
+        x = fmod(x,simsize);
+        if(x<0) x+=simsize;
+        y = fmod(y,simsize);
+        if(y<0) y+=simsize;
+        z = fmod(z,simsize);
+        if(z<0) z+=simsize;
+    }
+
     void wrap(int pos[3]) const
     {
         wrap(pos[0],pos[1],pos[2]);
@@ -434,12 +449,7 @@ public:
         zc += z0+z*dx+dx/2;
 
         // always wrap at the BASE level:
-        x = fmod(x,simsize);
-        if(x<0) x+=simsize;
-        y = fmod(y,simsize);
-        if(y<0) y+=simsize;
-        z = fmod(z,simsize);
-        if(z<0) z+=simsize;
+        simWrap(xc,yc,zc);
 
     }
 
