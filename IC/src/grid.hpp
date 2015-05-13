@@ -201,9 +201,9 @@ public:
     }
 
     virtual std::shared_ptr<Grid<T>> massSplit(T massRatio) {
-        massFac = massRatio;
+        massFac = 1.0-massRatio;
         auto gas = std::make_shared<Grid<T>>(*this);
-        gas->massFac=1.0-massRatio;
+        gas->massFac=massRatio;
         return gas;
     }
 
@@ -546,9 +546,9 @@ public:
 
     virtual std::shared_ptr<Grid<T>> massSplit(T massRatio) override {
         cerr << "WARNING: massSplit has been called on a supersampled grid. This is unlikely to be what you want...?" << endl;
-        this->massFac = massRatio;
+        this->massFac = 1.0-massRatio;
         auto gas = std::make_shared<SuperSampleGrid<T>>(this->pUnderlying, factor);
-        gas->massFac=1.0-massRatio;
+        gas->massFac=massRatio;
         return gas;
     }
 
