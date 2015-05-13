@@ -112,7 +112,7 @@ public:
         vz = (*pOff_z)[id]*hFactor;
 
         cellMassi = cellMass*massFac;
-        eps = dx*0.007143; // <-- arbitrary to coincide with normal UW resolution. TODO: Find a way to make this flexible.
+        eps = dx*2*0.007143; // <-- arbitrary to coincide with normal UW resolution. TODO: Find a way to make this flexible.
     }
 
     virtual void getParticleFromOffset(T &x, T &y, T &z, T &vx, T &vy, T &vz, T &cellMassi, T &eps) const
@@ -129,7 +129,7 @@ public:
         vz*=hFactor;
 
         cellMassi = cellMass*massFac;
-        eps = dx*0.007143; // <-- arbitrary to coincide with normal UW resolution. TODO: Find a way to make this flexible.
+        eps = dx*2*0.007143; // <-- arbitrary to coincide with normal UW resolution. TODO: Find a way to make this flexible.
     }
 
 
