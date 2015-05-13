@@ -107,7 +107,7 @@ public:
 
 
         for(size_t comp=0; comp<n_components; comp++) {
-            auto field = pGrid[comp]->get_field_fourier();
+            auto field = pGrid[comp]->getFieldFourier();
 
             #pragma omp parallel for reduction(+:res_real,res_imag)
             for(size_t i=0; i<Ns[comp]; i++) {
@@ -144,7 +144,7 @@ public:
         // Get the realization and store it in the specified array
         size_t j=0;
         for(size_t comp=0; comp<n_components; comp++) {
-            auto field = pGrid[comp]->get_field_fourier();
+            auto field = pGrid[comp]->getFieldFourier();
 
             for(size_t i=0; i<Ns[comp]; i++) {
                 r[j]=field[i];

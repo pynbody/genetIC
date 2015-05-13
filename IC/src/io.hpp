@@ -547,7 +547,7 @@ void SaveTipsy(const std::string & filename,
     cout << "TIPSY parameters:" << endl;
 
     double dKpcUnit  = Boxlength*1000/hubble;
-    double dMsolUnit = 1e10*mass_factor/hubble;
+    double dMsolUnit = 1e10/hubble/mass_factor;
     double dKmsUnit  = sqrt(4.30211349e-6*dMsolUnit/(dKpcUnit));
 
     cout << "dKpcUnit: " <<  dKpcUnit << endl;

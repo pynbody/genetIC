@@ -12,8 +12,16 @@
 #define __MAPPER_HPP
 
 #include <memory>
+#include <typeinfo>
 #include "grid.hpp"
 
+
+// helper function for our debug dumps
+void indent(std::ostream& s, int level=0) {
+    for(int i=0; i<level; i++) s << "| ";
+    s << "+ ";
+
+}
 
 // forward declarations:
 template<typename T> class ParticleMapper;
@@ -44,6 +52,7 @@ protected:
 
     MapperIterator(const ParticleMapper<T>* pMapper) : pMapper(pMapper), i(0) {}
 
+
 public:
 
     MapperIterator & operator++() {
@@ -57,13 +66,13 @@ public:
         return R;
     }
 
-    MapperIterator & operator+=(size_t i) {
-        pMapper->incrementIteratorBy(this, i);
+    MapperIterator & operator+=(size_t m) {
+        pMapper->incrementIteratorBy(this, m);
         return (*this);
     }
 
-    MapperIterator & operator-=(size_t i) {
-        pMapper->decrementIteratorBy(this, i);
+    MapperIterator & operator-=(size_t m) {
+        pMapper->decrementIteratorBy(this, m);
         return (*this);
     }
 
@@ -88,10 +97,31 @@ public:
         return (lhs.i != rhs.i) || (lhs.pMapper != rhs.pMapper) ;
     }
 
-
+    void debugInfo(int n=0) const {
+        indent(cerr,n);
+        cerr << "i=" << i << endl;
+        indent(cerr,n);
+        cerr << "type=" << typeid(*pMapper).name() << endl;
+        for(auto q: extraData) {
+            indent(cerr,n);
+            cerr << "data=" << q << endl;
+        }
+        for(auto q: subIterators) {
+            indent(cerr,n);
+            if(q!=nullptr) {
+                cerr << "subiterator: " << endl;
+                q->debugInfo(n+1);
+            } else {
+                cerr << "null subiterator" << endl;
+            }
+        }
+    }
 
 
 };
+
+
+
 
 template<typename T>
 class ParticleMapper {
@@ -127,12 +157,22 @@ protected:
     template<typename... Args>
     void getParticleFromIterator(const iterator *pIterator, Args&&... args) const {
         const auto q = **pIterator;
-        q.first->get_particle(q.second, std::forward<Args>(args)...);
+        q.first->getParticle(q.second, std::forward<Args>(args)...);
     }
 
 
 
 public:
+
+    virtual void debugInfo(std::ostream& s, int level=0) const {
+        indent(s,level);
+        s << "Unspecified MapperIterator (shouldn't be here)" << std::endl;
+    }
+
+    friend std::ostream& operator<< (std::ostream& stream, const ParticleMapper<T>& I) {
+        I.debugInfo(stream);
+    }
+
 
     virtual size_t size() const {
         return 0;
@@ -233,6 +273,11 @@ protected:
 
 
 public:
+    virtual void debugInfo(std::ostream& s, int level=0) const override {
+        indent(s,level);
+        s << "Grid of side " << pGrid->size << std::endl;
+    }
+
     OneLevelParticleMapper(std::shared_ptr<Grid<T>> &pGrid) : pGrid(pGrid) {
 
     }
@@ -311,12 +356,14 @@ private:
 
     friend class TwoLevelParticleMapper<T>;
 
+    bool skipLevel1;
+
     std::vector<size_t> mapid(size_t id0) const {
         // Finds all the particles at level2 corresponding to the single
         // particle at level1
         T x0,y0,z0;
-        std::tie(x0,y0,z0) = pGrid1->get_centroid_location(id0);
-        return pGrid2->get_ids_in_cube(x0,y0,z0,pGrid1->dx);
+        std::tie(x0,y0,z0) = pGrid1->getCentroidLocation(id0);
+        return pGrid2->getIdsInCube(x0,y0,z0,pGrid1->dx);
     }
 
 
@@ -411,10 +458,6 @@ protected:
 
     void calculateHiresParticleList() const {
 
-        // the last 'low-res' particle is just before this address:
-        size_t i_write = pLevel1->size();-zoomParticleArray.size();
-
-
         for(size_t i=0; i<zoomParticleArray.size(); i++) {
             // get the list of zoomed particles corresponding to this one
             std::vector<size_t> hr_particles = mapid(zoomParticleArray[i]);
@@ -442,7 +485,7 @@ public:
         x.extraData.push_back(0); // current position in zoom ID list
         x.extraData.push_back(zoomParticleArray[0]); // next entry in zoom ID list
 
-        if(pLevel1!=nullptr)
+        if(!skipLevel1)
             x.subIterators.emplace_back(new iterator(pLevel1->begin()));
         else
             x.subIterators.emplace_back(nullptr);
@@ -455,6 +498,7 @@ public:
     }
 
 
+    /*
     TwoLevelParticleMapper(  MapPtrType & pLevel1,
                              MapPtrType & pLevel2,
                              const std::vector<size_t> & zoomParticles,
@@ -486,19 +530,21 @@ public:
 
         assert(pLevel2->size_gas()==0);
 
-
     }
+    */
 
 
     TwoLevelParticleMapper(  MapPtrType & pLevel1,
                              MapPtrType & pLevel2,
                              const std::vector<size_t> & zoomParticles,
-                             int n_hr_per_lr) :
+                             int n_hr_per_lr,
+                             bool skipLevel1=false) :
                              pLevel1(pLevel1), pLevel2(pLevel2),
                              zoomParticleArray(zoomParticles),
                              n_hr_per_lr(n_hr_per_lr),
                              pGrid1(pLevel1->getCoarsestGrid()),
-                             pGrid2(pLevel2->getCoarsestGrid())
+                             pGrid2(pLevel2->getCoarsestGrid()),
+                             skipLevel1(skipLevel1)
     {
 
         std::sort(zoomParticleArray.begin(), zoomParticleArray.end() );
@@ -507,13 +553,34 @@ public:
 
         firstLevel2Particle = pLevel1->size()-zoomParticleArray.size();
 
-        size_t level1_size = pLevel1->size();
+        if(skipLevel1) {
+            firstLevel2Particle = 0;
+            totalParticles = n_hr_per_lr*zoomParticleArray.size();
+        }
 
         assert(pLevel1->size_gas()==0);
         assert(pLevel2->size_gas()==0);
 
         calculateHiresParticleList();
+        
 
+    }
+
+    virtual void debugInfo(std::ostream& s, int level=0) const override {
+        indent(s,level);
+        s << "TwoLevelParticleMapper, n_hr_per_lr=" << n_hr_per_lr << ", firstLevel2Particle=" << firstLevel2Particle << std::endl;
+        indent(s,level);
+        s << "                      , zoom.size=" << zoomParticleArray.size() << ", zoomed.size=" << zoomParticleArrayZoomed.size() << std::endl;
+        if(skipLevel1) {
+            indent(s,level);
+            s << "low-res part will be skipped but notionally is:" << endl;
+        }
+        pLevel1->debugInfo(s,level+1);
+        indent(s,level);
+        s << "TwoLevelParticleMapper continues with high-res particles:" << std::endl;
+        pLevel2->debugInfo(s,level+1);
+        indent(s,level);
+        s << "TwoLevelParticleMapper ends" << std::endl;
     }
 
     void interpretParticleList(const std::vector<size_t> & genericParticleArray) override {
@@ -568,21 +635,37 @@ public:
 
     MapPtrType addGas(T massRatio, const std::vector<GridPtrType> & toGrids) override
     {
+        bool newskip = skipLevel1;
+
         auto gsub1 = pLevel1->addGas(massRatio, toGrids);
         auto gsub2 = pLevel2->addGas(massRatio, toGrids);
-        return std::make_shared<TwoLevelParticleMapper<T>>(
-            gsub1, gsub2, zoomParticleArray, zoomParticleArrayZoomed,
-            n_hr_per_lr);
+
+        if(gsub1==nullptr) {
+            gsub1 = pLevel1;
+            newskip = true;
+        }
+
+        if(gsub2!=nullptr)
+            return std::make_shared<TwoLevelParticleMapper<T>>(
+                gsub1, gsub2, zoomParticleArray,
+                n_hr_per_lr, newskip);
+        else
+            return nullptr;
     }
 
     MapPtrType superSample(int ratio, const std::vector<GridPtrType> & toGrids) override
     {
+
         auto ssub1 = pLevel1->superSample(ratio, toGrids);
+        int upgrade1 = ssub1->size()/pLevel1->size();
+
         auto ssub2 = pLevel2->superSample(ratio, toGrids);
+        int upgrade2 = ssub2->size()/pLevel2->size();
+
         return std::make_shared<TwoLevelParticleMapper<T>>(
             ssub1, ssub2, zoomParticleArray,
-            n_hr_per_lr*(ssub2->size()/pLevel2->size())/(ssub1->size()/pLevel1->size())
-        );
+            n_hr_per_lr*upgrade2/upgrade1,
+            skipLevel1);
     }
 
 };
@@ -695,6 +778,30 @@ protected:
 
 public:
 
+    virtual void debugInfo(std::ostream& s, int level=0) const override {
+        indent(s,level);
+        s << "AddGasMapper";
+        if(gasFirst)
+            s << ", gas first:" << std::endl;
+        else
+            s << ", DM first:" << std::endl;
+
+        firstMap->debugInfo(s,level+1);
+
+        indent(s,level);
+
+        s << "AddGasMapper";
+        if(gasFirst)
+            s << ", DM second:" << std::endl;
+        else
+            s << ", gas second:" << std::endl;
+
+        secondMap->debugInfo(s,level+1);
+
+        indent(s,level);
+        s << "AddGasMapper ends" << std::endl;
+    }
+
     virtual size_t size() const {
         return nFirst+nSecond;
     }
@@ -758,11 +865,14 @@ public:
     {
         auto ssub1 = firstMap->superSample(ratio, toGrids);
         auto ssub2 = secondMap->superSample(ratio, toGrids);
+        cerr << "GAS CONSTRUCT SUPERSAMPLE " << ssub1->size() <<  " " << ssub2->size() << endl;
         return std::make_shared<AddGasMapper<T>>(
-            firstMap, secondMap, gasFirst);
+            ssub1, ssub2, gasFirst);
     }
 
 
 };
+
+template class MapperIterator<double>;
 
 #endif // __MAPPER_HPP

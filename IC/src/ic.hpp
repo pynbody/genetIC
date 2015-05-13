@@ -28,6 +28,8 @@ protected:
     MyFloat boxlen[2], dx[2];      // the box length of each grid
     int n[2];                      // number of grid divisions along one axis
 
+    int supersample;               // DM supersampling to perform on root grid
+
     std::vector<std::shared_ptr<Grid<MyFloat>>> pGrid;       // the objects that help us relate points on the grid
 
 
@@ -69,7 +71,7 @@ protected:
     MultiConstrainedField<MyFloat> *pConstrainer;
     shared_ptr<ParticleMapper<MyFloat>> pMapper;
 
-    using RefFieldType = decltype(pGrid[0]->get_field());
+    using RefFieldType = decltype(pGrid[0]->getField());
 
 
 public:
@@ -86,6 +88,7 @@ public:
         x_off[0]=y_off[0]=z_off[0]=0;
         x_off[1]=y_off[1]=z_off[1]=0;
         prepared = false;
+        supersample = 1;
     }
 
     ~IC() {
@@ -110,6 +113,10 @@ public:
 
     void setSigma8(MyFloat in) {
         sigma8 = in;
+    }
+
+    void setSupersample(int in) {
+        supersample = in;
     }
 
     void setBoxLen(MyFloat in) {
@@ -186,7 +193,7 @@ public:
         // TO DO: wrap the box sensibly
 
         for(size_t i=0; i<zoomParticleArray.size(); i++) {
-            g.get_coordinates(zoomParticleArray[i],x,y,z);
+            g.getCoordinates(zoomParticleArray[i],x,y,z);
             if(x<x0) x0=x;
             if(y<y0) y0=y;
             if(z<z0) z0=z;
@@ -405,9 +412,9 @@ public:
         for_each_level(level) {
             cerr << "Generate random noise for level " << level <<endl;
             if(whiteNoiseFourier)
-                drawRandomForSpecifiedGridFourier(n[level], pGrid[level]->get_field_fourier(),r);
+                drawRandomForSpecifiedGridFourier(n[level], pGrid[level]->getFieldFourier(),r);
             else
-                drawRandomForSpecifiedGrid(n[level], pGrid[level]->get_field_fourier(),r);
+                drawRandomForSpecifiedGrid(n[level], pGrid[level]->getFieldFourier(),r);
         }
 
         gsl_rng_free (r);
@@ -418,13 +425,13 @@ public:
         if(level==-1) {
             std::fill(pField_k_0_high.begin(), pField_k_0_high.end(), 0);
         } else {
-            auto &field = pGrid[level]->get_field_real();
+            auto &field = pGrid[level]->getFieldReal();
             std::fill(field.begin(), field.end(), 0);
         }
     }
 
     template<typename T>
-    void interpolateLevel(int level, T* pField_x_l, T* pField_x_p) {
+    void interpolateLevel(int level, T& pField_x_l, T& pField_x_p) {
 
         if(level<=0)
             throw std::runtime_error("Trying to interpolate onto the top-level grid");
@@ -436,92 +443,32 @@ public:
         auto pGrid_l = pGrid[level];
         auto pGrid_p = pGrid[level-1];
 
-
-        // get offsets of bottom-left of grids
-        MyFloat x_off_l = x_off[level], y_off_l = y_off[level], z_off_l = z_off[level];
-        MyFloat x_off_p = x_off[level-1], y_off_p = y_off[level-1], z_off_p = z_off[level-1];
+        assert(pField_x_l.size()==pGrid_l->size3);
+        assert(pField_x_p.size()==pGrid_p->size3);
 
 
         #pragma omp parallel for schedule(static)
-        for(int x_l=0; x_l<n_l; x_l++) {
-
-            // private variables used in calculation:
-
-            MyFloat x,y,z; // coordinates
-            int x_p_0, y_p_0, z_p_0, x_p_1, y_p_1, z_p_1; // parent grid locations
-            MyFloat xw0,yw0,zw0; // weights for lower-left parent grid contribution
-            MyFloat xw1,yw1,zw1; // weights for upper-right parent grid contribution
-
-
-            for(int y_l=0; y_l<n_l; y_l++){
-                for(int z_l=0; z_l<n_l; z_l++) {
-                    // find centre point of current cell:
-                    x = ((MyFloat) x_l+0.5)*dx_l+x_off_l;
-                    y = ((MyFloat) y_l+0.5)*dx_l+y_off_l;
-                    z = ((MyFloat) z_l+0.5)*dx_l+z_off_l;
-
-                    // grid coordinates of parent cell starting to bottom-left
-                    // of our current point
-                    x_p_0 = (int) floor(((x-x_off_p)/dx_p - 0.5));
-                    y_p_0 = (int) floor(((y-y_off_p)/dx_p - 0.5));
-                    z_p_0 = (int) floor(((z-z_off_p)/dx_p - 0.5));
-
-                    // grid coordinates of top-right
-                    x_p_1 = x_p_0+1;
-                    y_p_1 = y_p_0+1;
-                    z_p_1 = z_p_0+1;
-
-
-                    // weights, which are the distance to the centre point of the
-                    // upper-right cell, in grid units (-> maximum 1)
-
-                    xw0 = ((MyFloat) x_p_1 + 0.5) - ((x-x_off_p)/dx_p);
-                    yw0 = ((MyFloat) y_p_1 + 0.5) - ((y-y_off_p)/dx_p);
-                    zw0 = ((MyFloat) z_p_1 + 0.5) - ((z-z_off_p)/dx_p);
-
-                    xw1 = 1.-xw0;
-                    yw1 = 1.-yw0;
-                    zw1 = 1.-zw0;
-
-                    assert(xw0<=1.0 && xw0>=0.0);
-
-                    /*
-                    cerr << "  " << x_l << " " << y_l << " " << z_l << endl;
-                    cerr << "->" << x_p_0 << " " << y_p_0 << " " << z_p_0 << endl;
-                    cerr << " w" << xw0 << " " << yw0 << " " << zw0;
-                    */
-
-                    long ind_l = pGrid_l->get_index(x_l,y_l,z_l);
-
-                    pField_x_l[ind_l]+= xw0*yw0*zw1*pField_x_p[pGrid_p->get_index(x_p_0,y_p_0,z_p_1)] +
-                                        xw1*yw0*zw1*pField_x_p[pGrid_p->get_index(x_p_1,y_p_0,z_p_1)] +
-                                        xw0*yw1*zw1*pField_x_p[pGrid_p->get_index(x_p_0,y_p_1,z_p_1)] +
-                                        xw1*yw1*zw1*pField_x_p[pGrid_p->get_index(x_p_1,y_p_1,z_p_1)] +
-                                        xw0*yw0*zw0*pField_x_p[pGrid_p->get_index(x_p_0,y_p_0,z_p_0)] +
-                                        xw1*yw0*zw0*pField_x_p[pGrid_p->get_index(x_p_1,y_p_0,z_p_0)] +
-                                        xw0*yw1*zw0*pField_x_p[pGrid_p->get_index(x_p_0,y_p_1,z_p_0)] +
-                                        xw1*yw1*zw0*pField_x_p[pGrid_p->get_index(x_p_1,y_p_1,z_p_0)];
-
-
-                }
-            }
+        for(size_t ind_l=0; ind_l<pGrid_l->size3; ind_l++) {
+            MyFloat x,y,z;
+            pGrid_l->getCentroidLocation(ind_l,x,y,z);
+            pField_x_l[ind_l]+=pGrid_p->getFieldInterpolated(x,y,z,pField_x_p);
         }
 
     }
 
     void interpolateLevel(int level) {
-        RefFieldType pField_x_l = pGrid[level]->get_field_real();
-        RefFieldType pField_x_p = pGrid[level-1]->get_field_real();
+        RefFieldType pField_x_l = pGrid[level]->getFieldReal();
+        RefFieldType pField_x_p = pGrid[level-1]->getFieldReal();
 
-        interpolateLevel(level,pField_x_l.data(),pField_x_p.data());
+        interpolateLevel(level,pField_x_l,pField_x_p);
 
-        auto offset_fields_l = pGrid[level]->get_offset_fields();
-        auto offset_fields_p = pGrid[level-1]->get_offset_fields();
+        auto offset_fields_l = pGrid[level]->getOffsetFields();
+        auto offset_fields_p = pGrid[level-1]->getOffsetFields();
 
         if(std::get<0>(offset_fields_l)->size()>0 && std::get<0>(offset_fields_p)->size()>0) {
-            interpolateLevel(level,std::get<0>(offset_fields_l)->data(),std::get<0>(offset_fields_p)->data());
-            interpolateLevel(level,std::get<1>(offset_fields_l)->data(),std::get<1>(offset_fields_p)->data());
-            interpolateLevel(level,std::get<2>(offset_fields_l)->data(),std::get<2>(offset_fields_p)->data());
+            interpolateLevel(level,*std::get<0>(offset_fields_l),*std::get<0>(offset_fields_p));
+            interpolateLevel(level,*std::get<1>(offset_fields_l),*std::get<1>(offset_fields_p));
+            interpolateLevel(level,*std::get<2>(offset_fields_l),*std::get<2>(offset_fields_p));
         }
     }
 
@@ -577,17 +524,17 @@ public:
 
 
     void splitLevel0() {
-        pField_k_0_high = pGrid[0]->get_field_fourier();
+        pField_k_0_high = pGrid[0]->getFieldFourier();
         cerr << "Apply transfer function for high-k part of level 0 field" << endl;
-        cerr << "  sizes = " << pGrid[0]->get_field_fourier().size() << " " <<pField_k_0_high.size() << endl;
-        cerr << "  first el = " << pField_k_0_high[10] << " " << pGrid[0]->get_field_fourier()[10] << endl;
+        cerr << "  sizes = " << pGrid[0]->getFieldFourier().size() << " " <<pField_k_0_high.size() << endl;
+        cerr << "  first el = " << pField_k_0_high[10] << " " << pGrid[0]->getFieldFourier()[10] << endl;
         applyPowerSpecForLevel(0,true);
-        cerr << "  first el = " << pField_k_0_high[10] << " " << pGrid[0]->get_field_fourier()[10] << endl;
+        cerr << "  first el = " << pField_k_0_high[10] << " " << pGrid[0]->getFieldFourier()[10] << endl;
     }
 
     void recombineLevel0() {
 
-        RefFieldType pField_k = pGrid[0]->get_field_fourier();
+        RefFieldType pField_k = pGrid[0]->getFieldFourier();
 
         for(size_t i=0; i<this->nPartLevel[0]; i++)
             pField_k[i]+=pField_k_0_high[i];
@@ -649,7 +596,7 @@ public:
 
         // TODO - fix up types here
 
-        auto & pField_k_this = high_k?pField_k_0_high:pGrid[level]->get_field_fourier();
+        auto & pField_k_this = high_k?pField_k_0_high:pGrid[level]->getFieldFourier();
 
 
         spectrum.applyTransfer(n[level], kw, ns, norm_amp,
@@ -681,7 +628,7 @@ public:
         filename << indir << "/grid-" << level << ".npy";
 
         const int dim[3] = { n[level],n[level],n[level] };
-        numpy::SaveArrayAsNumpy(filename.str(), true, 3, dim, pGrid[level]->get_field_real().data() );
+        numpy::SaveArrayAsNumpy(filename.str(), true, 3, dim, pGrid[level]->getFieldReal().data() );
 
 
         filename.str("");
@@ -698,7 +645,7 @@ public:
     }
 
     void dumpPS(int level=0) {
-        powsp_noJing(n[level], pGrid[level]->get_field_real().data(),
+        powsp_noJing(n[level], pGrid[level]->getFieldReal().data(),
                      (base+"_"+((char)(level+'0'))+".ps").c_str(), boxlen[level]);
     }
 
@@ -774,7 +721,13 @@ public:
 
         }
 
+        // potentially resample the lowest-level DM grid. Again, this is theoretically
+        // more flexible if you pass in other grid pointers.
+        if(supersample>1)
+            finalMapper = finalMapper->superSample(supersample, {pGrid.back()});
+
         cerr << "Write, ndm=" << finalMapper->size_dm() << ", ngas=" << finalMapper->size_gas() << endl;
+        cerr << (*finalMapper);
 
         /*
         if (gadgetformat==2){
@@ -858,10 +811,10 @@ protected:
         int level = deepestLevelWithParticles();
 
         MyFloat xa,ya,za, xb, yb, zb;
-        pGrid[level]->get_centroid_location(pGrid[level]->particleArray[0],xa,ya,za);
+        pGrid[level]->getCentroidLocation(pGrid[level]->particleArray[0],xa,ya,za);
 
         for(size_t i=0;i<pGrid[level]->particleArray.size();i++) {
-            pGrid[level]->get_centroid_location(pGrid[level]->particleArray[i],xb,yb,zb);
+            pGrid[level]->getCentroidLocation(pGrid[level]->particleArray[i],xb,yb,zb);
             x0+=get_wrapped_delta(xa,xb);
             y0+=get_wrapped_delta(ya,yb);
             z0+=get_wrapped_delta(za,zb);
@@ -900,7 +853,7 @@ protected:
     {//4th order central difference
 
       MyFloat xp, yp, zp;//, zm2, zm1, zp2, zp1;
-      pGrid[level]->get_centroid_location(index, xp, yp, zp);
+      pGrid[level]->getCentroidLocation(index, xp, yp, zp);
       xp=get_wrapped_delta(xp,x0);
       yp=get_wrapped_delta(yp,y0);
       zp=get_wrapped_delta(zp,z0);
@@ -933,10 +886,10 @@ protected:
 
           // N.B. can't wrap - might be on subgrid
 
-          ind_m1=pGrid[level]->find_next_ind_no_wrap(index, neg_step1);
-          ind_p1=pGrid[level]->find_next_ind_no_wrap(index, step1);
-          ind_m2=pGrid[level]->find_next_ind_no_wrap(ind_m1, neg_step1);
-          ind_p2=pGrid[level]->find_next_ind_no_wrap(ind_p1, step1);
+          ind_m1=pGrid[level]->findNextIndNoWrap(index, neg_step1);
+          ind_p1=pGrid[level]->findNextIndNoWrap(index, step1);
+          ind_m2=pGrid[level]->findNextIndNoWrap(ind_m1, neg_step1);
+          ind_p2=pGrid[level]->findNextIndNoWrap(ind_p1, step1);
 
           MyFloat a=-1./12./dx[0], b=2./3./dx[0];  //the signs here so that L ~ - Nabla Phi
 
@@ -1045,7 +998,7 @@ public:
     }
 
     void centreParticle(long id) {
-        pGrid[0]->get_centroid_location(id,x0,y0,z0);
+        pGrid[0]->getCentroidLocation(id,x0,y0,z0);
     }
 
     void selectNearest() {
@@ -1068,7 +1021,7 @@ public:
             long i_nearest;
 
             for(size_t i=0;i<this->nPartLevel[level];i++) {
-                pGrid[level]->get_centroid_location(i,xp,yp,zp);
+                pGrid[level]->getCentroidLocation(i,xp,yp,zp);
                 delta_x = get_wrapped_delta(xp,x0);
                 delta_y = get_wrapped_delta(yp,y0);
                 delta_z = get_wrapped_delta(zp,z0);
@@ -1104,7 +1057,7 @@ public:
 
             pGrid[level]->particleArray.clear();
             for(size_t i=0;i<this->nPartLevel[level];i++) {
-                pGrid[level]->get_centroid_location(i,xp,yp,zp);
+                pGrid[level]->getCentroidLocation(i,xp,yp,zp);
                 delta_x = get_wrapped_delta(xp,x0);
                 delta_y = get_wrapped_delta(yp,y0);
                 delta_z = get_wrapped_delta(zp,z0);
@@ -1123,12 +1076,12 @@ public:
         float den_max=-1000;
         long index_max=0;
 
-        auto & pField_x = pGrid[0]->get_field_real();
+        auto & pField_x = pGrid[0]->getFieldReal();
         for(size_t i=0;i<genericParticleArray.size();i++) {
             if(std::real(pField_x[genericParticleArray[i]])>den_max) {
                 index_max=genericParticleArray[i];
                 den_max = std::real(pField_x[genericParticleArray[i]]);
-                pGrid[0]->get_centroid_location(i,x0,y0,z0);
+                pGrid[0]->getCentroidLocation(i,x0,y0,z0);
             }
         }
 
@@ -1153,7 +1106,7 @@ public:
         std::vector<size_t> index(genericParticleArray.size());
 
         for(size_t i=0;i<genericParticleArray.size();i++) {
-            pGrid[0]->get_centroid_location(i,delta_x, delta_y, delta_z);
+            pGrid[0]->getCentroidLocation(i,delta_x, delta_y, delta_z);
             delta_x = get_wrapped_delta(delta_x,x0);
             delta_y = get_wrapped_delta(delta_y,y0);
             delta_z = get_wrapped_delta(delta_z,z0);
@@ -1192,7 +1145,7 @@ public:
         float val=0.0;
         for_each_level(level) {
             complex<MyFloat> *vec = calcConstraintVector(name,level);
-            val+=std::real(dot(vec, pGrid[level]->get_field_fourier().data(), this->nPartLevel[level]));
+            val+=std::real(dot(vec, pGrid[level]->getFieldFourier().data(), this->nPartLevel[level]));
             cerr << val << " ";
             free(vec);
         }
@@ -1247,7 +1200,7 @@ public:
         long j=0;
         for_each_level(level) {
             for(size_t i=0; i<this->nPartLevel[level]; i++) {
-                this->pGrid[level]->get_field_fourier()[i]=y1[j];
+                this->pGrid[level]->getFieldFourier()[i]=y1[j];
                 j++;
             }
         }
@@ -1285,7 +1238,7 @@ public:
         }
 
         for_each_level(level) {
-            auto & field = pGrid[level]->get_field();
+            auto & field = pGrid[level]->getField();
             for(size_t i=0; i<this->nPartLevel[0]; i++)
                 field[i]=-field[i];
         }

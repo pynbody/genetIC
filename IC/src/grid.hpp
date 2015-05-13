@@ -49,24 +49,19 @@ public:
 
 
 
-    Grid(T simsize, size_t n, T dx=1.0, T x0=0.0, T y0=0.0, T z0=0.0) :
+    Grid(T simsize, size_t n, T dx=1.0, T x0=0.0, T y0=0.0, T z0=0.0, bool withField=true) :
             dx(dx), x0(x0), y0(y0), z0(z0),
             size(n), size2(n*n), size3(n*n*n),
             boxsize(dx*n), simsize(simsize),
             massFac(1.0)
     {
-        pField = std::make_shared<std::vector<std::complex<T>>>(size3,0);
-        pField->shrink_to_fit();
+        if(withField) {
+            pField = std::make_shared<std::vector<std::complex<T>>>(size3,0);
+            pField->shrink_to_fit();
+        }
     }
 
-    Grid(std::true_type no_fields, T simsize, size_t n, T dx=1.0, T x0=0.0, T y0=0.0, T z0=0.0) :
-            dx(dx), x0(x0), y0(y0), z0(z0),
-            size(n), size2(n*n), size3(n*n*n),
-            boxsize(dx*n), simsize(simsize),
-            massFac(1.0)
-    {
 
-    }
 
 
     Grid(size_t n): size(n), size2(n*n), size3(n*n*n), dx(1.0), x0(0),y0(0),z0(0), boxsize(n), simsize(0), massFac(1.0) {
@@ -77,7 +72,7 @@ public:
     //  Field manipulation routines
     ///////////////////////////////////////
 
-    virtual TField & get_field_fourier() {
+    virtual TField & getFieldFourier() {
         if(!fieldFourier) {
             fft(pField->data(),pField->data(),size,1);
             fieldFourier=true;
@@ -85,7 +80,7 @@ public:
         return *pField;
     }
 
-    virtual TField & get_field_real() {
+    virtual TField & getFieldReal() {
         if(fieldFourier) {
             fft(pField->data(),pField->data(),size,-1);
             fieldFourier=false;
@@ -93,19 +88,19 @@ public:
         return *pField;
     }
 
-    virtual TField & get_field() {
+    virtual TField & getField() {
         return *pField;
     }
 
-    auto get_offset_fields() {
+    auto getOffsetFields() {
         return std::make_tuple(pOff_x, pOff_y, pOff_z);
     }
 
-    virtual bool is_field_fourier()  const {
+    virtual bool isFieldFourier()  const {
         return fieldFourier;
     }
 
-    virtual void get_particle_no_offset(size_t id, T &x, T &y, T &z, T &vx, T &vy, T &vz, T &cellMassi, T &eps) const
+    virtual void getParticleNoOffset(size_t id, T &x, T &y, T &z, T &vx, T &vy, T &vz, T &cellMassi, T &eps) const
     {
 
         x = (*pOff_x)[id];
@@ -120,10 +115,89 @@ public:
         eps = dx*0.007143; // <-- arbitrary to coincide with normal UW resolution. TODO: Find a way to make this flexible.
     }
 
-    virtual void get_particle(size_t id, T &x, T &y, T &z, T &vx, T &vy, T &vz, T &cellMassi, T &eps) const
+    virtual void getParticleFromOffset(T &x, T &y, T &z, T &vx, T &vy, T &vz, T &cellMassi, T &eps) const
     {
-        get_particle_no_offset(id, x, y, z, vx, vy, vz, cellMassi, eps);
-        add_centroid_location(id,x,y,z);
+
+        vx=getFieldInterpolated(x,y,z,*pOff_x);
+        vy=getFieldInterpolated(x,y,z,*pOff_y);
+        vz=getFieldInterpolated(x,y,z,*pOff_z);
+        x+=vx;
+        y+=vy;
+        z+=vz;
+        vx*=hFactor;
+        vy*=hFactor;
+        vz*=hFactor;
+
+        cellMassi = cellMass*massFac;
+        eps = dx*0.007143; // <-- arbitrary to coincide with normal UW resolution. TODO: Find a way to make this flexible.
+    }
+
+
+    template<typename TField>
+    typename TField::value_type getFieldInterpolated(const T &x, const T &y, const T &z, const TField & pField) const {
+
+        int x_p_0, y_p_0, z_p_0, x_p_1, y_p_1, z_p_1;
+
+        // grid coordinates of parent cell starting to bottom-left
+        // of our current point
+        x_p_0 = (int) floor(((x-x0)/dx - 0.5));
+        y_p_0 = (int) floor(((y-y0)/dx - 0.5));
+        z_p_0 = (int) floor(((z-z0)/dx - 0.5));
+
+        // grid coordinates of top-right
+        x_p_1 = x_p_0+1;
+        y_p_1 = y_p_0+1;
+        z_p_1 = z_p_0+1;
+
+        // weights, which are the distance to the centre point of the
+        // upper-right cell, in grid units (-> maximum 1)
+
+        T xw0,yw0,zw0,xw1,yw1,zw1;
+        xw0 = ((T) x_p_1 + 0.5) - ((x-x0)/dx);
+        yw0 = ((T) y_p_1 + 0.5) - ((y-y0)/dx);
+        zw0 = ((T) z_p_1 + 0.5) - ((z-z0)/dx);
+
+        xw1 = 1.-xw0;
+        yw1 = 1.-yw0;
+        zw1 = 1.-zw0;
+
+        assert(xw0<=1.0 && xw0>=0.0);
+
+        // allow things on the boundary to 'saturate' value, but beyond boundary
+        // is not acceptable
+        //
+        // TODO - in some circumstances we may wish to replace this with wrapping
+        // but not all circumstances!
+        assert(x_p_1<=size);
+        if(x_p_1==size) x_p_1=size-1;
+        assert(y_p_1<=size);
+        if(y_p_1==size) y_p_1=size-1;
+        assert(z_p_1<=size);
+        if(z_p_1==size) z_p_1=size-1;
+
+        assert(x_p_0>=-1);
+        if(x_p_0==-1) x_p_1=0;
+        assert(y_p_0>=-1);
+        if(y_p_0==-1) y_p_1=0;
+        assert(z_p_0>=-1);
+        if(z_p_0==-1) z_p_1=0;
+
+
+        return xw0*yw0*zw1*pField[getIndex(x_p_0,y_p_0,z_p_1)] +
+               xw1*yw0*zw1*pField[getIndex(x_p_1,y_p_0,z_p_1)] +
+               xw0*yw1*zw1*pField[getIndex(x_p_0,y_p_1,z_p_1)] +
+               xw1*yw1*zw1*pField[getIndex(x_p_1,y_p_1,z_p_1)] +
+               xw0*yw0*zw0*pField[getIndex(x_p_0,y_p_0,z_p_0)] +
+               xw1*yw0*zw0*pField[getIndex(x_p_1,y_p_0,z_p_0)] +
+               xw0*yw1*zw0*pField[getIndex(x_p_0,y_p_1,z_p_0)] +
+               xw1*yw1*zw0*pField[getIndex(x_p_1,y_p_1,z_p_0)] ;
+    }
+
+
+    virtual void getParticle(size_t id, T &x, T &y, T &z, T &vx, T &vy, T &vz, T &cellMassi, T &eps) const
+    {
+        getParticleNoOffset(id, x, y, z, vx, vy, vz, cellMassi, eps);
+        addCentroidLocation(id,x,y,z);
     }
 
     virtual std::shared_ptr<Grid<T>> massSplit(T massRatio) {
@@ -148,7 +222,7 @@ public:
         auto psift3k = std::vector<std::complex<T>>(size3,0);
 
         // get a reference to the density field in fourier space
-        auto & pField_k = get_field_fourier();
+        auto & pField_k = getFieldFourier();
 
         int iix, iiy, iiz;
         T kfft;
@@ -218,30 +292,30 @@ public:
     //  Index manipulation routines
     ///////////////////////////////////////
 
-    long find_next_ind(long index, const int step[3]) const
+    long findNextInd(long index, const int step[3]) const
     {
         int grid[3];
-        std::tie(grid[0],grid[1],grid[2])=get_coordinates(index);
+        std::tie(grid[0],grid[1],grid[2])=getCoordinates(index);
 
         grid[0]+=step[0];
         grid[1]+=step[1];
         grid[2]+=step[2];
 
-        return this->get_index(grid); // N.B. does wrapping inside get_index
+        return this->getIndex(grid); // N.B. does wrapping inside getIndex
     }
 
-    long find_next_ind_no_wrap(long index, const int step[3]) const
+    long findNextIndNoWrap(long index, const int step[3]) const
     {
 
         int grid[3];
-        std::tie(grid[0],grid[1],grid[2])=get_coordinates(index);
+        std::tie(grid[0],grid[1],grid[2])=getCoordinates(index);
 
         grid[0]+=step[0];
         grid[1]+=step[1];
         grid[2]+=step[2];
 
 
-        return this->get_index_no_wrap(grid);
+        return this->getIndexNoWrap(grid);
     }
 
     void wrap(int &x, int &y, int &z) const
@@ -260,7 +334,7 @@ public:
     }
 
 
-    long get_index(int x, int y, int z) const
+    long getIndex(int x, int y, int z) const
     {
 
         long size=this->size;
@@ -275,13 +349,13 @@ public:
 
     }
 
-    long get_index_no_wrap(int x, int y, int z) const
+    long getIndexNoWrap(int x, int y, int z) const
     {
 
         long size=this->size;
 
         if(x<0 || x>=size || y<0 || y>=size || z<0 || z>=size)
-            throw std::runtime_error("Grid index out of range in get_index_no_wrap");
+            throw std::runtime_error("Grid index out of range in getIndexNoWrap");
 
         long index=(x*size+y);
         index*=size;
@@ -291,70 +365,70 @@ public:
 
     }
 
-    long get_index(const int pos[3]) const {
-        return get_index(pos[0], pos[1], pos[2]);
+    long getIndex(const int pos[3]) const {
+        return getIndex(pos[0], pos[1], pos[2]);
     }
 
-    long get_index_no_wrap(const int pos[3]) const {
-        return get_index_no_wrap(pos[0], pos[1], pos[2]);
+    long getIndexNoWrap(const int pos[3]) const {
+        return getIndexNoWrap(pos[0], pos[1], pos[2]);
     }
 
-    void get_coordinates(long id, int &x, int &y, int &z) const {
+    void getCoordinates(long id, int &x, int &y, int &z) const {
         x = (int) (id/size2);
         y = (int) (id%size2)/size;
         z = (int) (id%size);
 
         // TODO: optimization - following check should be removed at some point:
-        if(get_index(x,y,z)!=id) {
-            cerr << "ERROR in get_coordinates";
+        if(getIndex(x,y,z)!=id) {
+            cerr << "ERROR in getCoordinates";
             cerr << "id=" << id << " x,y,z=" << x << "," << y << "," << z << endl;
-            cerr << "which gives " << get_index(x,y,z) << endl;
+            cerr << "which gives " << getIndex(x,y,z) << endl;
             assert(false);
         }
     }
 
-    tuple<int, int, int> get_coordinates(long id) const {
+    tuple<int, int, int> getCoordinates(long id) const {
         int x, y, z;
 
-        get_coordinates(id, x,y,z);
+        getCoordinates(id, x,y,z);
 
         return std::make_tuple(x,y,z);
     }
 
-    void get_k_coordinates(long id, int &x, int &y, int &z) const {
-        get_coordinates(id,x,y,z);
+    void getKCoordinates(long id, int &x, int &y, int &z) const {
+        getCoordinates(id,x,y,z);
         if(x>size/2) x=x-size;
         if(y>size/2) y=y-size;
         if(z>size/2) z=z-size;
     }
 
-    tuple<int, int, int> get_k_coordinates(long id) const {
+    tuple<int, int, int> getKCoordinates(long id) const {
         int x, y, z;
 
-        get_k_coordinates(id, x,y,z);
+        getKCoordinates(id, x,y,z);
 
         return std::make_tuple(x,y,z);
     }
 
-    T get_abs_k_coordinates(long id) const {
+    T getAbsKCoordinates(long id) const {
         int x,y,z;
-        get_k_coordinates(id,x,y,z);
+        getKCoordinates(id,x,y,z);
         return sqrt(x*x+y*y+z*z);
     }
 
 
-    void get_centroid_location(size_t id, T &xc, T &yc, T &zc) const {
+    void getCentroidLocation(size_t id, T &xc, T &yc, T &zc) const {
         int x, y, z;
-        get_coordinates(id,x,y,z);
+        getCoordinates(id,x,y,z);
         xc = x0+x*dx+dx/2;
         yc = y0+y*dx+dx/2;
         zc = z0+z*dx+dx/2;
 
     }
 
-    void add_centroid_location(size_t id, T &xc, T &yc, T &zc) const {
+    void addCentroidLocation(size_t id, T &xc, T &yc, T &zc) const {
         int x, y, z;
-        get_coordinates(id,x,y,z);
+        getCoordinates(id,x,y,z);
         xc += x0+x*dx+dx/2;
         yc += y0+y*dx+dx/2;
         zc += z0+z*dx+dx/2;
@@ -369,13 +443,13 @@ public:
 
     }
 
-    tuple<T, T, T> get_centroid_location(long id) const {
+    tuple<T, T, T> getCentroidLocation(long id) const {
         T xc,yc,zc;
-        get_centroid_location(id,xc,yc,zc);
+        getCentroidLocation(id,xc,yc,zc);
         return std::make_tuple(xc,yc,zc);
     }
 
-    vector<size_t> get_ids_in_cube(T x0c, T y0c, T z0c, T dxc) {
+    vector<size_t> getIdsInCube(T x0c, T y0c, T z0c, T dxc) {
         // return all the grid IDs whose centres lie within the specified cube
         vector<size_t> ids;
 
@@ -392,7 +466,7 @@ public:
         for(int x=xa; x<=xb; x++) {
             for(int y=ya; y<=yb; y++) {
                 for(int z=za; z<=zb; z++) {
-                    ids.push_back(get_index(x,y,z));
+                    ids.push_back(getIndex(x,y,z));
                 }
             }
         }
@@ -423,8 +497,9 @@ public:
     SuperSampleGrid(std::shared_ptr<Grid<T>> pUnderlying, int factor):
             Grid<T>(
                     pUnderlying->simsize, pUnderlying->size*factor,
-                    pUnderlying->dx, pUnderlying->x0, pUnderlying->y0,
-                    pUnderlying->z0)
+                    pUnderlying->dx/factor, pUnderlying->x0, pUnderlying->y0,
+                    pUnderlying->z0, false),
+            pUnderlying(pUnderlying), factor(factor)
     {
 
         this->massFac = 1.0;
@@ -433,36 +508,38 @@ public:
 
     // all the field manipulation routines MUST NOT be called, since we are
     // going to interpolate on the fly
-    virtual TField & get_field_fourier() override {
+    virtual TField & getFieldFourier() override {
         throw std::runtime_error("SuperSampleGrid - does not contain an actual field in memory");
     }
 
-    virtual TField & get_field_real() override {
+    virtual TField & getFieldReal() override {
         throw std::runtime_error("SuperSampleGrid - does not contain an actual field in memory");
     }
 
-    virtual TField & get_field() override {
+    virtual TField & getField() override {
         throw std::runtime_error("SuperSampleGrid - does not contain an actual field in memory");
     }
 
     /*
-    virtual std::tuple<TRealField &, TRealField &, TRealField &> get_offset_fields() override {
+    virtual std::tuple<TRealField &, TRealField &, TRealField &> getOffsetFields() override {
         throw std::runtime_error("SuperSampleGrid - does not contain an actual field in memory");
     }
     */
 
-    virtual bool is_field_fourier()  const override  {
+    virtual bool isFieldFourier()  const override  {
         throw std::runtime_error("SuperSampleGrid - does not contain an actual field in memory");
     }
 
 
-    virtual void get_particle(size_t id, T &x, T &y, T &z, T &vx, T &vy, T &vz, T &cellMassi, T &eps) const
+    virtual void getParticle(size_t id, T &x, T &y, T &z, T &vx, T &vy, T &vz, T &cellMassi, T &eps) const
     {
-        size_t id_underlying = id/factor3;
+        // get location
+        this->getCentroidLocation(id,x,y,z);
 
-        pUnderlying->get_particle_no_offset(id_underlying, x, y, z, vx, vy, vz, cellMassi, eps);
-        this->add_centroid_location(id,x,y,z);
+        // interpolate from underlying grid
+        pUnderlying->getParticleFromOffset(x, y, z, vx, vy, vz, cellMassi, eps);
 
+        // adjust mass
         cellMassi*=this->massFac/factor3;
 
     }
