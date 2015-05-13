@@ -582,8 +582,12 @@ void SaveTipsy(const std::string & filename,
         gp.vz=vz*vel_factor;
         gp.mass = mass*mass_factor;
 
-        fwrite(&gp, sizeof(io_tipsy_gas), 1, fd);
+        if(mass==min_mass) {
+            photogenic_file << iord << endl;
+        }
 
+        fwrite(&gp, sizeof(io_tipsy_gas), 1, fd);
+        ++iord;
     }
 
     for(auto i=pMapper->beginDm(); i!=pMapper->endDm(); ++i) {
@@ -599,7 +603,12 @@ void SaveTipsy(const std::string & filename,
         dp.vz=vz*vel_factor;
         dp.mass = mass*mass_factor;
 
+        if(mass==min_mass) {
+            photogenic_file << iord << endl;
+        }
+
         fwrite(&dp, sizeof(io_tipsy_dark), 1, fd);
+        ++iord;
 
     }
     fclose(fd);
