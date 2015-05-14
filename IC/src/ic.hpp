@@ -134,7 +134,8 @@ public:
         initGrid();
     }
 
-    void initGrid(int level=0) {
+    void initGrid(unsigned int level=0) {
+
         if(n[level]<0 || boxlen[level]<0)
             return;
 
@@ -435,10 +436,6 @@ public:
 
         if(level<=0)
             throw std::runtime_error("Trying to interpolate onto the top-level grid");
-
-        int n_l = n[level];
-        MyFloat dx_l = dx[level];
-        MyFloat dx_p = dx[level-1];
 
         auto pGrid_l = pGrid[level];
         auto pGrid_p = pGrid[level-1];

@@ -3,6 +3,7 @@
 
 #include <cassert>
 #include <vector>
+#include <limits>
 
 #include "mapper.hpp"
 
@@ -511,10 +512,8 @@ void SaveTipsy(const std::string & filename,
     double vel_factor  = ain/(sqrt(3./(8.*M_PI))*100*Boxlength);
     double mass_factor = 0.0; // calculated below shortly
 
-    double min_mass=1.0/0;
+    double min_mass=std::numeric_limits<double>::max();
     double max_mass=0.0;
-
-    long n_gas = pMapper->size_gas();
 
     size_t iord=0;
 

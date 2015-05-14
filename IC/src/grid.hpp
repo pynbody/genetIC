@@ -50,10 +50,10 @@ public:
 
 
     Grid(T simsize, size_t n, T dx=1.0, T x0=0.0, T y0=0.0, T z0=0.0, bool withField=true) :
+            massFac(1.0),
+            simsize(simsize), boxsize(dx*n),
             dx(dx), x0(x0), y0(y0), z0(z0),
-            size(n), size2(n*n), size3(n*n*n),
-            boxsize(dx*n), simsize(simsize),
-            massFac(1.0)
+            size(n), size2(n*n), size3(n*n*n)
     {
         if(withField) {
             pField = std::make_shared<std::vector<std::complex<T>>>(size3,0);
@@ -64,7 +64,9 @@ public:
 
 
 
-    Grid(size_t n): size(n), size2(n*n), size3(n*n*n), dx(1.0), x0(0),y0(0),z0(0), boxsize(n), simsize(0), massFac(1.0) {
+    Grid(size_t n): massFac(1.0),  simsize(0), boxsize(n),
+                    dx(1.0), x0(0),y0(0),z0(0), size(n), size2(n*n), size3(n*n*n)
+    {
 
     }
 
@@ -73,6 +75,7 @@ public:
     ///////////////////////////////////////
 
     virtual TField & getFieldFourier() {
+        assert(pField!=nullptr);
         if(!fieldFourier) {
             fft(pField->data(),pField->data(),size,1);
             fieldFourier=true;
@@ -81,6 +84,7 @@ public:
     }
 
     virtual TField & getFieldReal() {
+        assert(pField!=nullptr);
         if(fieldFourier) {
             fft(pField->data(),pField->data(),size,-1);
             fieldFourier=false;
@@ -89,6 +93,7 @@ public:
     }
 
     virtual TField & getField() {
+        assert(pField!=nullptr);
         return *pField;
     }
 
@@ -177,12 +182,13 @@ public:
         //
         // TODO - in some circumstances we may wish to replace this with wrapping
         // but not all circumstances!
-        assert(x_p_1<=size);
-        if(x_p_1==size) x_p_1=size-1;
-        assert(y_p_1<=size);
-        if(y_p_1==size) y_p_1=size-1;
-        assert(z_p_1<=size);
-        if(z_p_1==size) z_p_1=size-1;
+        int size_i = static_cast<int>(size);
+        assert(x_p_1<=size_i);
+        if(x_p_1==size_i) x_p_1=size_i-1;
+        assert(y_p_1<=size_i);
+        if(y_p_1==size_i) y_p_1=size_i-1;
+        assert(z_p_1<=size_i);
+        if(z_p_1==size_i) z_p_1=size_i-1;
 
         assert(x_p_0>=-1);
         if(x_p_0==-1) x_p_1=0;
@@ -236,15 +242,15 @@ public:
         T kw = 2.*M_PI/boxsize;
 
         #pragma omp parallel for schedule(static) default(shared) private(iix, iiy, iiz, kfft, idx)
-        for(int ix=0; ix<size;ix++){
-            for(int iy=0;iy<size;iy++){
-                for(int iz=0;iz<size;iz++){
+        for(size_t ix=0; ix<size;ix++){
+            for(size_t iy=0;iy<size;iy++){
+                for(size_t iz=0;iz<size;iz++){
 
-                    idx = static_cast<size_t>((ix*size+iy)*(size)+iz);
+                    idx = (ix*size+iy)*size+iz;
 
-                    if( ix>size/2 ) iix = ix - size; else iix = ix;
-                    if( iy>size/2 ) iiy = iy - size; else iiy = iy;
-                    if( iz>size/2 ) iiz = iz - size; else iiz = iz;
+                    if( ix>size/2 ) iix = static_cast<int>(ix) - size; else iix = ix;
+                    if( iy>size/2 ) iiy = static_cast<int>(iy) - size; else iiy = iy;
+                    if( iz>size/2 ) iiz = static_cast<int>(iz) - size; else iiz = iz;
 
                     kfft = sqrt(iix*iix+iiy*iiy+iiz*iiz);
 
@@ -273,11 +279,11 @@ public:
 
         //apply ZA:
         #pragma omp parallel for schedule(static) default(shared) private(iix, iiy, iiz, kfft, idx)
-        for(int ix=0;ix<size;ix++) {
-            for(int iy=0;iy<size;iy++) {
-                for(int iz=0;iz<size;iz++) {
+        for(size_t ix=0;ix<size;ix++) {
+            for(size_t iy=0;iy<size;iy++) {
+                for(size_t iz=0;iz<size;iz++) {
 
-                    idx = static_cast<size_t>((ix*size+iy)*(size)+iz);
+                    idx = (ix*size+iy)*size+iz;
 
                     // position offset in physical coordinates
                     (*pOff_x)[idx] = psift1k[idx].real();

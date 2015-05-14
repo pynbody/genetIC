@@ -50,7 +50,7 @@ protected:
     friend class TwoLevelParticleMapper<T>;
     friend class AddGasMapper<T>;
 
-    MapperIterator(const ParticleMapper<T>* pMapper) : pMapper(pMapper), i(0) {}
+    MapperIterator(const ParticleMapper<T>* pMapper) : i(0), pMapper(pMapper) {}
 
 
 public:
@@ -171,6 +171,7 @@ public:
 
     friend std::ostream& operator<< (std::ostream& stream, const ParticleMapper<T>& I) {
         I.debugInfo(stream);
+        return stream;
     }
 
 
@@ -349,12 +350,10 @@ private:
     GridPtrType pGrid1;
     GridPtrType pGrid2;
 
-    int n_hr_per_lr;
+    unsigned int n_hr_per_lr;
 
     size_t totalParticles;
     size_t firstLevel2Particle;
-
-    friend class TwoLevelParticleMapper<T>;
 
     bool skipLevel1;
 
@@ -498,53 +497,17 @@ public:
     }
 
 
-    /*
-    TwoLevelParticleMapper(  MapPtrType & pLevel1,
-                             MapPtrType & pLevel2,
-                             const std::vector<size_t> & zoomParticles,
-                             const std::vector<size_t> & zoomParticlesZoomed,
-                             int n_hr_per_lr) :
-                             pLevel1(pLevel1), pLevel2(pLevel2),
-                             zoomParticleArray(zoomParticles),
-                             n_hr_per_lr(n_hr_per_lr),
-                             zoomParticleArrayZoomed(zoomParticlesZoomed)
-    {
-
-        // Protected constructor that can deal with the case where we ONLY want to
-        // return the zoomed particles from level2
-
-        if(pLevel2==nullptr)
-            throw std::runtime_error("Cannot create two level particle mapper with nothing on the second level");
-
-        pGrid2 = pLevel2->getCoarsestGrid();
-
-        if(pLevel1!=nullptr) {
-            totalParticles = pLevel1->size()+(n_hr_per_lr-1)*zoomParticleArray.size();
-            firstLevel2Particle = pLevel1->size()-zoomParticleArray.size();
-            pGrid1 = pLevel1->getCoarsestGrid();
-            assert(pLevel1->size_gas()==0);
-        } else {
-            totalParticles = zoomParticlesZoomed.size();
-            firstLevel2Particle=0;
-        }
-
-        assert(pLevel2->size_gas()==0);
-
-    }
-    */
-
-
     TwoLevelParticleMapper(  MapPtrType & pLevel1,
                              MapPtrType & pLevel2,
                              const std::vector<size_t> & zoomParticles,
                              int n_hr_per_lr,
                              bool skipLevel1=false) :
-                             pLevel1(pLevel1), pLevel2(pLevel2),
-                             zoomParticleArray(zoomParticles),
-                             n_hr_per_lr(n_hr_per_lr),
-                             pGrid1(pLevel1->getCoarsestGrid()),
-                             pGrid2(pLevel2->getCoarsestGrid()),
-                             skipLevel1(skipLevel1)
+             pLevel1(pLevel1), pLevel2(pLevel2),
+             pGrid1(pLevel1->getCoarsestGrid()),
+             pGrid2(pLevel2->getCoarsestGrid()),
+             n_hr_per_lr(n_hr_per_lr),
+             skipLevel1(skipLevel1),
+             zoomParticleArray(zoomParticles)
     {
 
         std::sort(zoomParticleArray.begin(), zoomParticleArray.end() );
@@ -562,7 +525,7 @@ public:
         assert(pLevel2->size_gas()==0);
 
         calculateHiresParticleList();
-        
+
 
     }
 
@@ -588,8 +551,11 @@ public:
         std::vector<size_t> grid1particles;
         std::vector<size_t> grid2particles;
 
-        long i0 = pLevel1->size()-zoomParticleArray.size();
-        long lr_particle;
+        if(pLevel1->size()<zoomParticleArray.size())
+            throw std::runtime_error("Zoom particle list is longer than the grid it refers to");
+
+        size_t i0 = pLevel1->size()-zoomParticleArray.size();
+        size_t lr_particle;
 
 
         for(auto i=genericParticleArray.begin(); i!=genericParticleArray.end(); ++i) {
@@ -750,12 +716,10 @@ public:
 protected:
     MapPtrType firstMap;
     MapPtrType secondMap;
-
     bool gasFirst;
-
     size_t dm0;
-    size_t nSecond;
-    size_t nFirst;
+    size_t nFirst, nSecond;
+
 
     virtual void incrementIterator(iterator *pIterator) const {
 
@@ -815,7 +779,7 @@ public:
     }
 
     AddGasMapper( MapPtrType & pFirst, MapPtrType &pSecond, bool gasFirst=true ) :
-    firstMap(pFirst), secondMap(pSecond), nFirst(pFirst->size()), nSecond(pSecond->size()), gasFirst(gasFirst)
+    firstMap(pFirst), secondMap(pSecond), gasFirst(gasFirst), nFirst(pFirst->size()), nSecond(pSecond->size())
     {
         assert(pFirst->size_gas()==0);
         assert(pSecond->size_gas()==0);
