@@ -208,14 +208,14 @@ public:
         if(z_p_0==-1) z_p_1=0;
 
 
-        return xw0*yw0*zw1*pField[getIndex(x_p_0,y_p_0,z_p_1)] +
-               xw1*yw0*zw1*pField[getIndex(x_p_1,y_p_0,z_p_1)] +
-               xw0*yw1*zw1*pField[getIndex(x_p_0,y_p_1,z_p_1)] +
-               xw1*yw1*zw1*pField[getIndex(x_p_1,y_p_1,z_p_1)] +
-               xw0*yw0*zw0*pField[getIndex(x_p_0,y_p_0,z_p_0)] +
-               xw1*yw0*zw0*pField[getIndex(x_p_1,y_p_0,z_p_0)] +
-               xw0*yw1*zw0*pField[getIndex(x_p_0,y_p_1,z_p_0)] +
-               xw1*yw1*zw0*pField[getIndex(x_p_1,y_p_1,z_p_0)] ;
+        return xw0*yw0*zw1*pField[getIndexNoWrap(x_p_0,y_p_0,z_p_1)] +
+               xw1*yw0*zw1*pField[getIndexNoWrap(x_p_1,y_p_0,z_p_1)] +
+               xw0*yw1*zw1*pField[getIndexNoWrap(x_p_0,y_p_1,z_p_1)] +
+               xw1*yw1*zw1*pField[getIndexNoWrap(x_p_1,y_p_1,z_p_1)] +
+               xw0*yw0*zw0*pField[getIndexNoWrap(x_p_0,y_p_0,z_p_0)] +
+               xw1*yw0*zw0*pField[getIndexNoWrap(x_p_1,y_p_0,z_p_0)] +
+               xw0*yw1*zw0*pField[getIndexNoWrap(x_p_0,y_p_1,z_p_0)] +
+               xw1*yw1*zw0*pField[getIndexNoWrap(x_p_1,y_p_1,z_p_0)] ;
     }
 
 
@@ -341,9 +341,15 @@ public:
 
     void wrap(int &x, int &y, int &z) const
     {
+#ifdef SAFE_SLOWER
         x = x%size;
         y = y%size;
         z = z%size;
+#else
+        if(x>size) x-=size;
+        if(y>size) y-=size;
+        if(z>size) z-=size;
+#endif
         if(x<0) x+=size;
         if(y<0) y+=size;
         if(z<0) z+=size;
