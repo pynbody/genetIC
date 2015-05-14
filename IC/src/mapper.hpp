@@ -82,7 +82,13 @@ public:
 
     template<typename... Args>
     void getParticle(Args&&... args) {
-        pMapper->getParticleFromIterator(this, std::forward<Args>(args)...);
+        const auto q = **this;
+        q.first->getParticle(q.second, std::forward<Args>(args)...);
+    }
+
+    T getMass() {
+        const auto q = **this;
+        return q.first->getMass();
     }
 
     std::unique_ptr<DereferenceType> operator->() const {
@@ -156,11 +162,12 @@ protected:
 
     template<typename... Args>
     void getParticleFromIterator(const iterator *pIterator, Args&&... args) const {
-        const auto q = **pIterator;
-        q.first->getParticle(q.second, std::forward<Args>(args)...);
+
     }
 
-
+    T getMassFromIterator(const iterator *pIterator) {
+        return (*pIterator)->first->getMass();
+    }
 
 public:
 

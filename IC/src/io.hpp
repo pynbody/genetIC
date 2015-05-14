@@ -520,7 +520,7 @@ void SaveTipsy(const std::string & filename,
     MyFloat x,y,z,vx,vy,vz,mass,tot_mass=0.0,eps;
 
     for(auto i=pMapper->begin(); i!=pMapper->end(); ++i) {
-        i.getParticle(x,y,z,vx,vy,vz,mass,eps);
+        mass = i.getMass(); // sometimes can be MUCH faster than getParticle
         if(min_mass>mass) min_mass=mass;
         if(max_mass<mass) max_mass=mass;
         tot_mass+=mass;

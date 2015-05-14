@@ -111,6 +111,14 @@ public:
         addCentroidLocation(id,x,y,z);
     }
 
+    virtual T getMass() const {
+        return cellMass*massFac;
+    }
+
+    virtual T getEps() const {
+        return dx*0.01075; // <-- arbitrary to coincide with normal UW resolution. TODO: Find a way to make this flexible.
+    }
+
     virtual void getParticleNoOffset(size_t id, T &x, T &y, T &z, T &vx, T &vy, T &vz, T &cellMassi, T &eps) const
     {
 
@@ -122,8 +130,8 @@ public:
         vy = (*pOff_y)[id]*hFactor;
         vz = (*pOff_z)[id]*hFactor;
 
-        cellMassi = cellMass*massFac;
-        eps = dx*0.01075; // <-- arbitrary to coincide with normal UW resolution. TODO: Find a way to make this flexible.
+        cellMassi = getMass();
+        eps = getEps();
     }
 
     virtual void getParticleFromOffset(T &x, T &y, T &z, T &vx, T &vy, T &vz, T &cellMassi, T &eps) const
@@ -142,9 +150,11 @@ public:
         vy*=hFactor;
         vz*=hFactor;
 
-        cellMassi = cellMass*massFac;
-        eps = dx*0.01075; // <-- arbitrary to coincide with normal UW resolution. TODO: Find a way to make this flexible.
+        cellMassi = getMass();
+        eps = getEps();
     }
+
+
 
 
     template<typename TField>
@@ -544,6 +554,10 @@ public:
 
     virtual bool isFieldFourier()  const override  {
         throw std::runtime_error("SuperSampleGrid - does not contain an actual field in memory");
+    }
+
+    virtual T getMass() const override {
+        return pUnderlying->getMass()*this->massFac/factor3;
     }
 
 

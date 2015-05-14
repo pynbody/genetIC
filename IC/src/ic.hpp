@@ -8,6 +8,7 @@
 #include <functional>
 #include <algorithm>
 #include <memory>
+#include <limits>
 
 #include "numpy.hpp"
 
@@ -1014,8 +1015,8 @@ public:
 
             pGrid[level]->particleArray.clear();
 
-            MyFloat r2_nearest = 1.0/0.0;
-            long i_nearest;
+            MyFloat r2_nearest = std::numeric_limits<MyFloat>::max();
+            size_t i_nearest = 0;
 
             for(size_t i=0;i<this->nPartLevel[level];i++) {
                 pGrid[level]->getCentroidLocation(i,xp,yp,zp);
