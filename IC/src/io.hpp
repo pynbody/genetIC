@@ -521,14 +521,14 @@ void SaveTipsy(const std::string & filename,
     MyFloat x,y,z,vx,vy,vz,mass,tot_mass=0.0,eps;
 
     for(auto i=pMapper->begin(); i!=pMapper->end(); ++i) {
-        progress("Pre-write scan file",iord, totlen);
+      // progress("Pre-write scan file",iord, totlen);
         mass = i.getMass(); // sometimes can be MUCH faster than getParticle
         if(min_mass>mass) min_mass=mass;
         if(max_mass<mass) max_mass=mass;
         tot_mass+=mass;
     }
 
-    end_progress();
+    // end_progress();
 
     if(min_mass!=max_mass) {
         photogenic_file.open("photogenic.txt");
@@ -575,7 +575,7 @@ void SaveTipsy(const std::string & filename,
     for(auto i=pMapper->beginGas(); i!=pMapper->endGas(); ++i) {
         i.getParticle(x,y,z,vx,vy,vz,mass,eps);
 
-        progress("Writing file",iord, totlen);
+        // progress("Writing file",iord, totlen);
         gp.x=x*pos_factor-0.5;
         gp.y=y*pos_factor-0.5;
         gp.z=z*pos_factor-0.5;
@@ -597,7 +597,7 @@ void SaveTipsy(const std::string & filename,
     for(auto i=pMapper->beginDm(); i!=pMapper->endDm(); ++i) {
         i.getParticle(x,y,z,vx,vy,vz,mass,eps);
 
-        progress("Writing file",iord, totlen);
+        // progress("Writing file",iord, totlen);
 
         dp.x=x*pos_factor-0.5;
         dp.y=y*pos_factor-0.5;
@@ -617,7 +617,7 @@ void SaveTipsy(const std::string & filename,
         ++iord;
 
     }
-    end_progress();
+    //end_progress();
     fclose(fd);
 
 

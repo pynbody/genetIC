@@ -41,7 +41,7 @@ typedef float MyFloat;
 
 
 inline void progress(const std::string & message, size_t i, size_t len) {
-    if((i%8192)==0)
+    if((i%100000)==0)
         progress(message, static_cast<float>(i)/len);
 }
 

@@ -16,7 +16,7 @@ LPATH   = /opt/local/lib
 # Note you have to link to fftw3 and fftw3_threads (or fftw3_omp)
 # if you are using threads
 
-FFTW = -DFFTW3 -DFFTW_THREADS
+FFTW = -DFFTW3 -DFFTW_THREADS 
 FFTWLIB = -lfftw3 -lfftw3_threads
 
 # Example for FFTW2:
@@ -37,8 +37,16 @@ FFTWLIB = -lfftw3 -lfftw3_threads
 
 # Some customizations for known systems
 
-HOST	= $(shell if [ `which scutil` ]; then scutil --get ComputerName | cut -c1-5; else hostname | cut -c1-5 ; fi )
+HOST	= $(shell if [ `which scutil 2>/dev/null` ]; then scutil --get ComputerName | cut -c1-5; else hostname | cut -c1-5 ; fi )
 
+
+ifeq ($(HOST), bridg)
+	CC = /nasa/pkgsrc/2015Q1/gcc49/bin/gcc
+	CPATH = /nasa/gsl/1.14/include/:/nasa/intel/Compiler/2015.0.090/composer_xe_2015.0.090/mkl/include/fftw/:/nasa/intel/Compiler/2015.0.090/composer_xe_2015.0.090/mkl/include/
+	LPATH =  /nasa/gsl/1.14/lib/:/nasa/intel/Compiler/2015.0.090/composer_xe_2015.0.090/mkl/lib/intel64/
+	FFTWLIB = -lmkl_intel_lp64 -lmkl_core -lmkl_gnu_thread -ldl -lpthread -lm -lstdc++ -lgfortran -lfftw3xc_intel
+	FFTW = -DFFTW3 # not working with threads for some reason :-(
+endif
 
 ifeq ($(HOST), Piann)
 	CPATH = /sw/include/

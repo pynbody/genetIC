@@ -11,6 +11,7 @@
 #include <omp.h>
 #endif
 
+
 void init_fftw_threads() {
     #ifdef FFTW_THREADS
         if(fftw_init_threads()==0)
