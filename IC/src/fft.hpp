@@ -18,7 +18,7 @@ void init_fftw_threads() {
     #ifndef _OPENMP
         fftw_plan_with_nthreads(FFTW_THREADS);
     #else
-        fftw_plan_with_nthreads(omp_get_num_threads());
+        fftw_plan_with_nthreads(omp_get_num_procs());
     #endif
     #endif
 }

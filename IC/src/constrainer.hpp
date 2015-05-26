@@ -8,23 +8,6 @@
 
 //#include <Eigen/Dense>
 
-void progress(const char* message, float progress) {
-    int barWidth = 70;
-
-    std::cout << message << " [";
-    int pos = barWidth * progress;
-    for (int i = 0; i < barWidth; ++i) {
-        if (i < pos) std::cout << "=";
-        else if (i == pos) std::cout << ">";
-        else std::cout << " ";
-    }
-    std::cout << "] " << int(progress * 100.0) << " %         \r";
-    std::cout.flush();
-}
-
-void end_progress() {
-    std::cout << "                                                                                                                " << std::endl;
-}
 
 template<typename T>
 class UnderlyingField {

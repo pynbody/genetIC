@@ -37,6 +37,9 @@ protected:
     size_t i;
     std::vector<std::shared_ptr<MapperIterator<T>>> subIterators;
     std::vector<size_t> extraData;
+
+    std::vector<std::shared_ptr<std::vector<T>>> particleCache;
+
     const ParticleMapper<T>* pMapper;
 
     using MapType = ParticleMapper<T>;
@@ -84,6 +87,15 @@ public:
     void getParticle(Args&&... args) {
         const auto q = **this;
         q.first->getParticle(q.second, std::forward<Args>(args)...);
+    }
+
+    void precacheParticles() {
+
+    }
+
+    void getNextNParticles(size_t n, std::vector<T> &xAr, std::vector<T> &yAr, std::vector<T> &zAr,
+                                     std::vector<T> &vxAr, std::vector<T> &vyAr, std::vector<T> &vzAr) {
+
     }
 
     T getMass() {

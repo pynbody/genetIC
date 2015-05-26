@@ -341,7 +341,7 @@ public:
 
     void wrap(int &x, int &y, int &z) const
     {
-#ifdef SAFE_SLOWER
+#ifdef SAFER_SLOWER
         x = x%size;
         y = y%size;
         z = z%size;
@@ -386,20 +386,14 @@ public:
 
     }
 
-    long getIndexNoWrap(int x, int y, int z) const
+    size_t getIndexNoWrap(size_t x, size_t y, size_t z) const
     {
 
-        long size=this->size;
-
+#ifdef SAFER_SLOWER
         if(x<0 || x>=size || y<0 || y>=size || z<0 || z>=size)
             throw std::runtime_error("Grid index out of range in getIndexNoWrap");
-
-        long index=(x*size+y);
-        index*=size;
-        index+=z;
-
-        return index;
-
+#endif
+        return (x*size+y)*size+z;
     }
 
     long getIndex(const int pos[3]) const {

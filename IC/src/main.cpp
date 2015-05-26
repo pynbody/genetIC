@@ -20,7 +20,7 @@
 
 
 
-
+#include "progress.hpp"
 #include "float_types.hpp"
 #include "sparse.hpp"
 #include "fft.hpp"
@@ -33,16 +33,39 @@
 #include "ic.hpp"
 
 
-
-
-
 #ifdef DOUBLEPRECISION
 typedef double MyFloat;
 #else
 typedef float MyFloat;
 #endif
 
+
+inline void progress(const std::string & message, size_t i, size_t len) {
+    if((i%8192)==0)
+        progress(message, static_cast<float>(i)/len);
+}
+
+void progress(const std::string & message, float progress) {
+    int barWidth = 70;
+
+    std::cout << message << " [";
+    int pos = barWidth * progress;
+    for (int i = 0; i < barWidth; ++i) {
+        if (i < pos) std::cout << "=";
+        else if (i == pos) std::cout << ">";
+        else std::cout << " ";
+    }
+    std::cout << "] " << int(progress * 100.0) << " %         \r";
+    std::cout.flush();
+}
+
+void end_progress() {
+    std::cout << "                                                                                                                " << std::endl;
+}
+
+
 typedef IC<MyFloat> ICf ;
+
 
 void setup_parser(ClassDispatch<ICf,void> &dispatch) {
 
