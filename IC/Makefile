@@ -1,7 +1,7 @@
 # Reasonably sensible defaults
 CC    	= g++
 C		= gcc
-CFLAGS	= -Wall -O2 -g -fopenmp -std=c++14   -fdiagnostics-color=auto
+CFLAGS	= -Wall -g -fopenmp -std=c++14   -fdiagnostics-color=auto
 CPATH 	= /opt/local/include/
 LPATH   = /opt/local/lib
 
@@ -16,7 +16,7 @@ LPATH   = /opt/local/lib
 # Note you have to link to fftw3 and fftw3_threads (or fftw3_omp)
 # if you are using threads
 
-FFTW = -DFFTW3 -DFFTW_THREADS 
+FFTW = -DFFTW3 -DFFTW_THREADS
 FFTWLIB = -lfftw3 -lfftw3_threads
 
 # Example for FFTW2:
@@ -38,7 +38,9 @@ FFTWLIB = -lfftw3 -lfftw3_threads
 # Some customizations for known systems
 
 HOST	= $(shell if [ `which scutil 2>/dev/null` ]; then scutil --get ComputerName | cut -c1-5; else hostname | cut -c1-5 ; fi )
-
+GIT_VERSION = $(shell git rev-parse --short HEAD)
+GIT_MODIFIED = $(shell git ls-files -m | tr "\n" " ")
+GIT_VARIABLES = -DGIT_VERSION='"$(GIT_VERSION)"' -DGIT_MODIFIED='"$(GIT_MODIFIED)"'
 
 ifeq ($(HOST), bridg)
 	CC = /nasa/pkgsrc/2015Q1/gcc49/bin/gcc
@@ -78,6 +80,6 @@ all: IC
 
 
 IC: src/main.cpp src/HDF_IO.hh src/ic.hpp src/constrainer.hpp src/cosmo.hpp src/fft.hpp src/float_types.hpp src/grid.hpp src/io.hpp src/parser.hpp src/sparse.hpp src/mapper.hpp Makefile
-	$(CC) $(CFLAGS) -o IC -I$(CPATH) $(FFTW) src/main.cpp -L$(LPATH) -lm $(FFTWLIB) -lgsl -lgslcblas $(HDF5_FLAGS) -DDOUBLEPRECISION -DOUTPUT_IN_DOUBLEPRECISION
+	$(CC) $(CFLAGS) -o IC $(GIT_VARIABLES) -I$(CPATH) $(FFTW) src/main.cpp -L$(LPATH) -lm $(FFTWLIB) -lgsl -lgslcblas $(HDF5_FLAGS) -DDOUBLEPRECISION -DOUTPUT_IN_DOUBLEPRECISION
 clean:
 	rm -rf IC

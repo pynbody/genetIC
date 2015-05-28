@@ -256,7 +256,7 @@ public:
         throw std::runtime_error("Don't know how to add gas in this context");
     }
 
-    virtual MapPtrType superSample(int ratio, const std::vector<GridPtrType> & toGrids) {
+    virtual MapPtrType superOrSubSample(int ratio, const std::vector<GridPtrType> & toGrids, bool super=true) {
         throw std::runtime_error("Don't know how to supersample in this context");
     }
 
@@ -336,10 +336,14 @@ public:
         }
     }
 
-    MapPtrType superSample(int ratio, const std::vector<GridPtrType> & toGrids) override
+    MapPtrType superOrSubSample(int ratio, const std::vector<GridPtrType> & toGrids, bool super) override
     {
         if(std::find(toGrids.begin(), toGrids.end(), pGrid)!=toGrids.end()) {
-            auto newGrid = std::make_shared<SuperSampleGrid<T>>(this->pGrid, ratio);
+            GridPtrType newGrid;
+            if(super)
+              newGrid = std::make_shared<SuperSampleGrid<T>>(this->pGrid, ratio);
+            else
+              newGrid = std::make_shared<SubSampleGrid<T>>(this->pGrid, ratio);
             return std::make_shared<OneLevelParticleMapper<T>>(newGrid);
         } else {
             return std::make_shared<OneLevelParticleMapper<T>>(this->pGrid);
@@ -499,6 +503,9 @@ protected:
 public:
 
     virtual iterator begin() const override {
+        if(zoomParticleArray.size()==0)
+          return this->end();
+
         iterator x(this);
         x.extraData.push_back(0); // current position in zoom ID list
         x.extraData.push_back(zoomParticleArray[0]); // next entry in zoom ID list
@@ -638,17 +645,17 @@ public:
             return nullptr;
     }
 
-    MapPtrType superSample(int ratio, const std::vector<GridPtrType> & toGrids) override
+    MapPtrType superOrSubSample(int ratio, const std::vector<GridPtrType> & toGrids, bool super) override
     {
 
-        auto ssub1 = pLevel1->superSample(ratio, toGrids);
-        int upgrade1 = ssub1->size()/pLevel1->size();
+        auto ssub1 = pLevel1->superOrSubSample(ratio, toGrids, super);
+        int upgrade1 = ssub1->size()/pLevel1->size(); // <--- ARGH! WRONG WRONG WRONG - COULD COME OUT ZERO
 
-        auto ssub2 = pLevel2->superSample(ratio, toGrids);
+        auto ssub2 = pLevel2->superOrSubSample(ratio, toGrids, super);
         int upgrade2 = ssub2->size()/pLevel2->size();
 
         return std::make_shared<TwoLevelParticleMapper<T>>(
-            ssub1, ssub2, zoomParticleArray,
+            ssub1, ssub2, zoomParticleArray, // <-- WRONG WRONG WRONG! zoomParticleArray not adjusted
             n_hr_per_lr*upgrade2/upgrade1,
             skipLevel1);
     }
@@ -844,11 +851,10 @@ public:
         return (gasFirst?firstMap:secondMap)->end();
     }
 
-    MapPtrType superSample(int ratio, const std::vector<GridPtrType> & toGrids) override
+    MapPtrType superOrSubSample(int ratio, const std::vector<GridPtrType> & toGrids, bool super) override
     {
-        auto ssub1 = firstMap->superSample(ratio, toGrids);
-        auto ssub2 = secondMap->superSample(ratio, toGrids);
-        cerr << "GAS CONSTRUCT SUPERSAMPLE " << ssub1->size() <<  " " << ssub2->size() << endl;
+        auto ssub1 = firstMap->superOrSubSample(ratio, toGrids, super);
+        auto ssub2 = secondMap->superOrSubSample(ratio, toGrids, super);
         return std::make_shared<AddGasMapper<T>>(
             ssub1, ssub2, gasFirst);
     }

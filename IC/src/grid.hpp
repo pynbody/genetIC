@@ -13,6 +13,9 @@ template<typename T>
 class SuperSampleGrid;
 
 template<typename T>
+class SubSampleGrid;
+
+template<typename T>
 class Grid{
 public:
 
@@ -201,11 +204,11 @@ public:
         if(z_p_1==size_i) z_p_1=size_i-1;
 
         assert(x_p_0>=-1);
-        if(x_p_0==-1) x_p_1=0;
+        if(x_p_0==-1) x_p_0=0;
         assert(y_p_0>=-1);
-        if(y_p_0==-1) y_p_1=0;
+        if(y_p_0==-1) y_p_0=0;
         assert(z_p_0>=-1);
-        if(z_p_0==-1) z_p_1=0;
+        if(z_p_0==-1) z_p_0=0;
 
 
         return xw0*yw0*zw1*pField[getIndexNoWrap(x_p_0,y_p_0,z_p_1)] +
@@ -588,6 +591,116 @@ public:
 
 };
 
+
+
+template<typename T>
+class SubSampleGrid : public Grid<T> {
+private:
+    std::shared_ptr<Grid<T>> pUnderlying;
+    int factor;
+    int factor3;
+
+protected:
+    using typename Grid<T>::TField;
+    using typename Grid<T>::TRealField;
+    using typename Grid<T>::PtrTField;
+
+public:
+    SubSampleGrid(std::shared_ptr<Grid<T>> pUnderlying, int factor):
+            Grid<T>(
+                    pUnderlying->simsize, pUnderlying->size/factor,
+                    pUnderlying->dx*factor, pUnderlying->x0, pUnderlying->y0,
+                    pUnderlying->z0, false),
+            pUnderlying(pUnderlying), factor(factor)
+    {
+        if(pUnderlying->size%factor!=0)
+          throw std::runtime_error("SubSampleGrid - factor must be a divisor of the original grid size");
+
+        this->massFac = 1.0;
+        factor3=factor*factor*factor;
+    }
+
+    // all the field manipulation routines MUST NOT be called, since we are
+    // going to interpolate on the fly
+    virtual TField & getFieldFourier() override {
+        throw std::runtime_error("SubSampleGrid - does not contain an actual field in memory");
+    }
+
+    virtual TField & getFieldReal() override {
+        throw std::runtime_error("SubSampleGrid - does not contain an actual field in memory");
+    }
+
+    virtual TField & getField() override {
+        throw std::runtime_error("SubSampleGrid - does not contain an actual field in memory");
+    }
+
+    /*
+    virtual std::tuple<TRealField &, TRealField &, TRealField &> getOffsetFields() override {
+        throw std::runtime_error("SubSampleGrid - does not contain an actual field in memory");
+    }
+    */
+
+    virtual bool isFieldFourier()  const override  {
+        throw std::runtime_error("SubSampleGrid - does not contain an actual field in memory");
+    }
+
+    virtual T getMass() const override {
+        return pUnderlying->getMass()*this->massFac/factor3;
+    }
+
+
+    virtual void getParticle(size_t id, T &x, T &y, T &z, T &vx, T &vy, T &vz, T &cellMassi, T &eps) const
+    {
+      int x0,y0,z0;
+      this->getCoordinates(id, x0, y0, z0);
+      auto x1=x0+factor, y1=y0+factor, z1=z0+factor;
+
+      T xt,yt,zt,vxt,vyt,vzt,cellMassit,epst;
+
+      x=0;
+      y=0;
+      z=0;
+      vx=0;
+      vy=0;
+      vz=0;
+      cellMassi=0;
+      eps=0;
+
+      // construct our virtual values from average over the underlying cells
+      for(auto xi=x0; xi<x1; ++xi) {
+        for (auto yi=y0; yi<y1; ++yi) {
+          for (auto zi=z0; zi<z1; ++zi) {
+            pUnderlying->getParticle(pUnderlying->getIndexNoWrap(xi,yi,zi),
+                                     xt,yt,zt,vxt,vyt,vzt,cellMassit,epst);
+            x+=xt/factor3;
+            y+=yt/factor3;
+            z+=zt/factor3;
+            vx+=vxt/factor3;
+            vy+=vyt/factor3;
+            vz+=vzt/factor3;
+            eps+=epst/factor3;
+
+            // accumulate, don't average the mass!
+            cellMassi+=cellMassit;
+          }
+        }
+      }
+
+    }
+
+    virtual std::shared_ptr<Grid<T>> massSplit(T massRatio) override {
+        cerr << "WARNING: massSplit has been called on a subsampled grid. This is unlikely to be what you want...?" << endl;
+        this->massFac = 1.0-massRatio;
+        auto gas = std::make_shared<SubSampleGrid<T>>(this->pUnderlying, factor);
+        gas->massFac=massRatio;
+        return gas;
+    }
+
+    virtual void zeldovich(T hfac, T particlecellMass) override {
+        throw std::runtime_error("SubSampleGrid - does not contain an actual field in memory");
+    }
+
+};
 
 
 

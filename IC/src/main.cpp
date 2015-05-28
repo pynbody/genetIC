@@ -11,7 +11,7 @@
 #include <complex>
 #include <algorithm>
 #include <iterator>
-
+#include <sys/resource.h>
 
 #include <gsl/gsl_rng.h> //link -lgsl and -lgslcblas at the very end
 #include <gsl/gsl_randist.h> //for the gaussian (and other) distributions
@@ -110,6 +110,7 @@ void setup_parser(ClassDispatch<ICf,void> &dispatch) {
     dispatch.add_class_route("zoom", &ICf::setZoom);
     dispatch.add_class_route("n2", &ICf::setn2);
     dispatch.add_class_route("zoom_IDfile",&ICf::setZoomParticles);
+    dispatch.add_class_route("dozoom",&ICf::doZoom);
     // dispatch.add_class_route("writeLevel", &ICf::writeLevel);
 
     dispatch.add_class_route("zeroLevel", &ICf::zeroLevel);
@@ -142,6 +143,17 @@ int main(int argc, char *argv[]) {
     ClassDispatch<ICf,void> dispatch(generator);
 
     setup_parser(dispatch);
+
+
+
+    cerr << "GM ICs code, compiled " << __DATE__ << " " << __TIME__ <<endl;
+    cerr << "git HEAD:" << GIT_VERSION << endl;
+    if(sizeof(GIT_MODIFIED)!=0) {
+      cerr << "However, the following files are modified:" << endl;
+      cerr << "  " << GIT_MODIFIED << endl;
+    }
+
+
 
     // Read and act on the commands
     dispatch.run_loop(inf);

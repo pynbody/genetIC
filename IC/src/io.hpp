@@ -516,7 +516,6 @@ void SaveTipsy(const std::string & filename,
     double max_mass=0.0;
 
     size_t iord=0;
-    size_t totlen = pMapper->size();
 
     MyFloat x,y,z,vx,vy,vz,mass,tot_mass=0.0,eps;
 

@@ -170,19 +170,19 @@ public:
     }
 
     void setZoomParticles(string fname) {
+      AllocAndGetBuffer_int(fname);
+      doZoom();
+    }
+
+    void doZoom() {
         if(n[1]==0)
             throw(std::runtime_error("Set n2 before specifying the zoom particles"));
 
         if(boxlen[1]==0)
             throw(std::runtime_error("Set the zoom factor before specifying the zoom particles"));
 
-        AllocAndGetBuffer_int(fname);
+
         auto zoomParticleArray = pGrid[0]->particleArray;
-
-        // Sorting now happens inside mapper class
-        // std::sort(zoomParticleArray.begin(), zoomParticleArray.end());
-
-
 
         // find boundaries
         int x0, x1, y0, y1, z0, z1;
@@ -722,7 +722,7 @@ public:
         // potentially resample the lowest-level DM grid. Again, this is theoretically
         // more flexible if you pass in other grid pointers.
         if(supersample>1)
-            finalMapper = finalMapper->superSample(supersample, {pGrid.back()});
+            finalMapper = finalMapper->superOrSubSample(supersample, {pGrid.back()},true);
 
         cerr << "Write, ndm=" << finalMapper->size_dm() << ", ngas=" << finalMapper->size_gas() << endl;
         cerr << (*finalMapper);
