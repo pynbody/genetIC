@@ -1,4 +1,5 @@
-%do not change the order of these values! output:(0 HDF5, 1 Gadget, 2 both); trailing / for directory important! (TODO add flag for single/double to be checked against compile flags)
+# Test adding baryons to a uniform resolution run
+
 Om  0.279
 Ol  0.721
 Ob  0.04
