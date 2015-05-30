@@ -2,6 +2,7 @@
 #define __GRID_HPP
 
 #include <cassert>
+#include <set>
 #include "fft.hpp"
 
 using namespace std;
@@ -16,12 +17,16 @@ template<typename T>
 class SubSampleGrid;
 
 template<typename T>
-class Grid{
+class MassScaledGrid;
+
+template<typename T>
+class Grid : public std::enable_shared_from_this<Grid<T>>  {
 public:
 
     using TField = std::vector<std::complex<T>>;
     using TRealField = std::vector<T>;
     using PtrTField = std::shared_ptr<std::vector<std::complex<T>>>;
+    using GridPtrType = std::shared_ptr<Grid<T>>;
 
 private:
     std::shared_ptr<std::vector<std::complex<T>>> pField;
@@ -35,8 +40,60 @@ private:
 
     T hFactor, cellMass;
 
+    std::vector<size_t> particleArray; // just a list of particles on this grid for one purpose or another
+    std::vector<T*> particleProperties; // a list of particle properties
+
 protected:
-    T massFac;
+
+    static void upscaleParticleList(const std::vector<size_t> sourceArray,
+                                    std::vector<size_t> & targetArray,
+                                    const Grid<T> *source,
+                                    const Grid<T> *target) {
+      int x0,y0,z0,x1,y1,z1,x,y,z;
+
+      assert(target->size>=source->size);
+      assert((target->size)%(source->size)==0);
+      size_t factor = target->size/source->size;
+      targetArray.clear();
+
+      for(auto id: sourceArray) {
+        source->getCoordinates(id,x0,y0,z0);
+        x0*=factor;
+        y0*=factor;
+        z0*=factor;
+        x1 = x0+factor;
+        y1 = y0+factor;
+        z1 = z0+factor;
+        for(x=x0;x<x1;++x) {
+          for(y=y0;y<y1;++y) {
+            for(z=z0;z<z1;++z) {
+              targetArray.push_back(target->getIndexNoWrap(x,y,z));
+            }
+          }
+        }
+      }
+    }
+
+    static void downscaleParticleList(const std::vector<size_t> sourceArray,
+                                    std::vector<size_t> & targetArray,
+                                    const Grid<T> *source,
+                                    const Grid<T> *target) {
+
+
+      std::set<size_t> targetSet;
+      int x,y,z;
+
+      assert(source->size>=target->size);
+      assert((source->size)%(target->size)==0);
+      size_t factor = source->size/target->size;
+
+      for(auto id: sourceArray) {
+        source->getCoordinates(id,x,y,z);
+        targetSet.insert(target->getIndexNoWrap(x/factor, y/factor, z/factor));
+      }
+      targetArray.clear();
+      targetArray.insert(targetArray.end(), targetSet.begin(), targetSet.end());
+    }
 
 public:
 
@@ -46,18 +103,16 @@ public:
     const size_t size3;
 
 
-    std::vector<size_t> particleArray; // just a list of particles on this grid for one purpose or another
 
-    std::vector<T*> particleProperties; // a list of particle properties
 
 
 
     Grid(T simsize, size_t n, T dx=1.0, T x0=0.0, T y0=0.0, T z0=0.0, bool withField=true) :
-            massFac(1.0),
             simsize(simsize), boxsize(dx*n),
             dx(dx), x0(x0), y0(y0), z0(z0),
             size(n), size2(n*n), size3(n*n*n)
     {
+        // cerr << "Grid ctor " << this <<  endl;
         if(withField) {
             pField = std::make_shared<std::vector<std::complex<T>>>(size3,0);
             pField->shrink_to_fit();
@@ -67,10 +122,50 @@ public:
 
 
 
-    Grid(size_t n): massFac(1.0),  simsize(0), boxsize(n),
+    Grid(size_t n): simsize(0), boxsize(n),
                     dx(1.0), x0(0),y0(0),z0(0), size(n), size2(n*n), size3(n*n*n)
     {
+      // cerr << "Grid ctor size-only" << endl;
+      pField=nullptr;
+    }
 
+    virtual ~Grid() {
+      // cerr << "~Grid " << this << endl;
+    }
+
+
+    virtual void debugInfo(std::ostream& s) const {
+        s << "Grid of side " << size << " address " << this;
+    }
+
+
+    virtual void gatherParticleList(std::vector<size_t> & targetArray) const {
+      targetArray.insert(targetArray.end(), particleArray.begin(), particleArray.end());
+    }
+
+    virtual void distributeParticleList(const std::vector<size_t> & sourceArray) {
+      particleArray.insert(particleArray.end(), sourceArray.begin(), sourceArray.end());
+    }
+
+    virtual void clearParticleList() {
+      particleArray.clear();
+    }
+
+    virtual size_t estimateParticleListSize() {
+      return particleArray.size();
+    }
+
+
+    virtual bool pointsToGrid(Grid<T> *pOther) {
+      return this==pOther;
+    }
+
+    bool pointsToAnyGrid(std::vector<std::shared_ptr<Grid<T>>> grids) {
+      for(auto g: grids) {
+        if(pointsToGrid(g.get()))
+          return true;
+      }
+      return false;
     }
 
     ///////////////////////////////////////
@@ -115,7 +210,7 @@ public:
     }
 
     virtual T getMass() const {
-        return cellMass*massFac;
+        return cellMass;
     }
 
     virtual T getEps() const {
@@ -224,11 +319,8 @@ public:
 
 
 
-    virtual std::shared_ptr<Grid<T>> massSplit(T massRatio) {
-        massFac = 1.0-massRatio;
-        auto gas = std::make_shared<Grid<T>>(*this);
-        gas->massFac=massRatio;
-        return gas;
+    virtual std::shared_ptr<Grid<T>> makeScaledMassVersion(T massRatio) {
+        return std::make_shared<MassScaledGrid<T>>(this->shared_from_this(), massRatio);
     }
 
 
@@ -478,6 +570,14 @@ public:
         return std::make_tuple(xc,yc,zc);
     }
 
+    size_t getClosestIdNoWrap(T x0c, T y0c, T z0c) {
+      int xa=((int) floor((x0c-x0+dx/2)/dx));
+      int ya=((int) floor((y0c-y0+dx/2)/dx));
+      int za=((int) floor((z0c-z0+dx/2)/dx));
+      return getIndexNoWrap(xa,ya,za);
+
+    }
+
     vector<size_t> getIdsInCube(T x0c, T y0c, T z0c, T dxc) {
         // return all the grid IDs whose centres lie within the specified cube
         vector<size_t> ids;
@@ -511,9 +611,104 @@ public:
 
 
 template<typename T>
-class SuperSampleGrid : public Grid<T> {
+class VirtualGrid : public Grid<T> {
+protected:
+    using typename Grid<T>::TField;
+    using typename Grid<T>::TRealField;
+    using typename Grid<T>::PtrTField;
+    using typename Grid<T>::GridPtrType;
+    GridPtrType pUnderlying;
+
+public:
+    VirtualGrid(GridPtrType pUnderlying):
+            Grid<T>(
+                    pUnderlying->simsize, pUnderlying->size,
+                    pUnderlying->dx, pUnderlying->x0, pUnderlying->y0,
+                    pUnderlying->z0, false),
+            pUnderlying(pUnderlying)
+    {
+
+    }
+
+
+    VirtualGrid(GridPtrType pUnderlying, T simsize, T gridsize,
+                T dx, T x0, T y0, T z0, bool withField):
+            Grid<T>(simsize,gridsize,dx,x0,y0,z0,withField),
+            pUnderlying(pUnderlying)
+    {
+
+    }
+
+    virtual void debugName(std::ostream &s) const {
+        s << "VirtualGrid";
+    }
+
+    virtual void debugInfo(std::ostream& s) const override  {
+        debugName(s);
+        s << " of side " << this->size << " address " << this << " referencing ";
+        pUnderlying->debugInfo(s);
+    }
+
+    bool pointsToGrid(Grid<T> *pOther) override {
+      return pUnderlying.get()==pOther;
+    }
+
+    void gatherParticleList(std::vector<size_t> & targetArray) const override {
+      pUnderlying->gatherParticleList(targetArray);
+    }
+
+    void distributeParticleList(const std::vector<size_t> & sourceArray) override {
+      pUnderlying->distributeParticleList(sourceArray);
+    }
+
+    void clearParticleList() override {
+      pUnderlying->clearParticleList();
+    }
+
+    size_t estimateParticleListSize() override {
+      return pUnderlying->estimateParticleListSize();
+    }
+
+    virtual TField & getFieldFourier() override {
+        throw std::runtime_error("VirtualGrid - does not contain an actual field in memory");
+    }
+
+    virtual TField & getFieldReal() override {
+        throw std::runtime_error("VirtualGrid - does not contain an actual field in memory");
+    }
+
+    virtual TField & getField() override {
+        throw std::runtime_error("VirtualGrid - does not contain an actual field in memory");
+    }
+
+    virtual bool isFieldFourier()  const override  {
+        throw std::runtime_error("VirtualGrid - does not contain an actual field in memory");
+    }
+
+    virtual void zeldovich(T hfac, T particlecellMass) override {
+        throw std::runtime_error("VirtualGrid - does not contain an actual field in memory");
+    }
+
+
+    virtual T getMass() const override {
+        return pUnderlying->getMass();
+    }
+
+    void getParticle(size_t id, T &x, T &y, T &z, T &vx, T &vy, T &vz, T &cellMassi, T &eps) const override
+    {
+      pUnderlying->getParticle(id,x,y,z,vx,vy,vz,cellMassi,eps);
+    }
+
+    void getParticleFromOffset(T &x, T &y, T &z, T &vx, T &vy, T &vz, T &cellMassi, T &eps) const override
+    {
+      pUnderlying->getParticleFromOffset(x,y,z,vx,vy,vz,cellMassi,eps);
+    }
+
+};
+
+template<typename T>
+class SuperSampleGrid : public VirtualGrid<T> {
 private:
-    std::shared_ptr<Grid<T>> pUnderlying;
     int factor;
     int factor3;
 
@@ -521,82 +716,65 @@ protected:
     using typename Grid<T>::TField;
     using typename Grid<T>::TRealField;
     using typename Grid<T>::PtrTField;
+    using typename Grid<T>::GridPtrType;
 
 public:
-    SuperSampleGrid(std::shared_ptr<Grid<T>> pUnderlying, int factor):
-            Grid<T>(
+    SuperSampleGrid(GridPtrType pUnderlying, int factor):
+            VirtualGrid<T>(pUnderlying,
                     pUnderlying->simsize, pUnderlying->size*factor,
                     pUnderlying->dx/factor, pUnderlying->x0, pUnderlying->y0,
                     pUnderlying->z0, false),
-            pUnderlying(pUnderlying), factor(factor)
+            factor(factor)
     {
 
-        this->massFac = 1.0;
         factor3=factor*factor*factor;
     }
 
-    // all the field manipulation routines MUST NOT be called, since we are
-    // going to interpolate on the fly
-    virtual TField & getFieldFourier() override {
-        throw std::runtime_error("SuperSampleGrid - does not contain an actual field in memory");
-    }
-
-    virtual TField & getFieldReal() override {
-        throw std::runtime_error("SuperSampleGrid - does not contain an actual field in memory");
-    }
-
-    virtual TField & getField() override {
-        throw std::runtime_error("SuperSampleGrid - does not contain an actual field in memory");
-    }
-
-    /*
-    virtual std::tuple<TRealField &, TRealField &, TRealField &> getOffsetFields() override {
-        throw std::runtime_error("SuperSampleGrid - does not contain an actual field in memory");
-    }
-    */
-
-    virtual bool isFieldFourier()  const override  {
-        throw std::runtime_error("SuperSampleGrid - does not contain an actual field in memory");
-    }
-
     virtual T getMass() const override {
-        return pUnderlying->getMass()*this->massFac/factor3;
+        return this->pUnderlying->getMass()/factor3;
     }
 
+    virtual void debugName(std::ostream &s) const override {
+        s << "SuperSampleGrid";
+    }
+
+    void gatherParticleList(std::vector<size_t> & targetArray) const override {
+      std::vector<size_t> underlyingArray;
+      this->pUnderlying->gatherParticleList(underlyingArray);
+      Grid<T>::upscaleParticleList(underlyingArray, targetArray, this->pUnderlying.get(), this);
+    }
+
+    void distributeParticleList(const std::vector<size_t> & sourceArray) override {
+      std::vector<size_t> targetArray;
+      Grid<T>::downscaleParticleList(sourceArray, targetArray, this, this->pUnderlying.get());
+      this->pUnderlying->distributeParticleList(targetArray);
+    }
+
+    size_t estimateParticleListSize() override {
+      return this->pUnderlying->estimateParticleListSize()*factor3;
+    }
 
     virtual void getParticle(size_t id, T &x, T &y, T &z, T &vx, T &vy, T &vz, T &cellMassi, T &eps) const
     {
-        // get location
         this->getCentroidLocation(id,x,y,z);
-
-        // interpolate from underlying grid
-        pUnderlying->getParticleFromOffset(x, y, z, vx, vy, vz, cellMassi, eps);
-
-        // adjust mass
-        cellMassi*=this->massFac/factor3;
-
+        getParticleFromOffset(x, y, z, vx, vy, vz, cellMassi, eps);
     }
 
-    virtual std::shared_ptr<Grid<T>> massSplit(T massRatio) override {
-        cerr << "WARNING: massSplit has been called on a supersampled grid. This is unlikely to be what you want...?" << endl;
-        this->massFac = 1.0-massRatio;
-        auto gas = std::make_shared<SuperSampleGrid<T>>(this->pUnderlying, factor);
-        gas->massFac=massRatio;
-        return gas;
+    void getParticleFromOffset(T &x, T &y, T &z, T &vx, T &vy, T &vz, T &cellMassi, T &eps) const override
+    {
+      this->pUnderlying->getParticleFromOffset(x,y,z,vx,vy,vz,cellMassi,eps);
+      // adjust mass
+      cellMassi/=factor3;
     }
 
-    virtual void zeldovich(T hfac, T particlecellMass) override {
-        throw std::runtime_error("SuperSampleGrid - does not contain an actual field in memory");
-    }
 
 };
 
 
 
 template<typename T>
-class SubSampleGrid : public Grid<T> {
+class SubSampleGrid : public VirtualGrid<T> {
 private:
-    std::shared_ptr<Grid<T>> pUnderlying;
     int factor;
     int factor3;
 
@@ -607,45 +785,43 @@ protected:
 
 public:
     SubSampleGrid(std::shared_ptr<Grid<T>> pUnderlying, int factor):
-            Grid<T>(
+            VirtualGrid<T>(pUnderlying,
                     pUnderlying->simsize, pUnderlying->size/factor,
                     pUnderlying->dx*factor, pUnderlying->x0, pUnderlying->y0,
                     pUnderlying->z0, false),
-            pUnderlying(pUnderlying), factor(factor)
+            factor(factor)
     {
-        if(pUnderlying->size%factor!=0)
+        if(this->pUnderlying->size%factor!=0)
           throw std::runtime_error("SubSampleGrid - factor must be a divisor of the original grid size");
 
-        this->massFac = 1.0;
         factor3=factor*factor*factor;
     }
 
-    // all the field manipulation routines MUST NOT be called, since we are
-    // going to interpolate on the fly
-    virtual TField & getFieldFourier() override {
-        throw std::runtime_error("SubSampleGrid - does not contain an actual field in memory");
+    virtual void debugName(std::ostream &s) const override {
+        s << "SubSampleGrid";
     }
 
-    virtual TField & getFieldReal() override {
-        throw std::runtime_error("SubSampleGrid - does not contain an actual field in memory");
+    void gatherParticleList(std::vector<size_t> & targetArray) const override {
+      std::vector<size_t> underlyingArray;
+      this->pUnderlying->gatherParticleList(underlyingArray);
+      Grid<T>::downscaleParticleList(underlyingArray, targetArray, this->pUnderlying.get(), this);
+      cerr << "SubSample gatherParticleList - underlying = " << underlyingArray.size() << " transformed = " <<targetArray.size() << endl;
     }
 
-    virtual TField & getField() override {
-        throw std::runtime_error("SubSampleGrid - does not contain an actual field in memory");
+    void distributeParticleList(const std::vector<size_t> & sourceArray) override {
+      std::vector<size_t> targetArray;
+      Grid<T>::upscaleParticleList(sourceArray, targetArray, this, this->pUnderlying.get());
+      this->pUnderlying->distributeParticleList(targetArray);
+      cerr << "SubSample distributeParticleList - source = " << sourceArray.size() << " transformed = " <<targetArray.size() << endl;
     }
 
-    /*
-    virtual std::tuple<TRealField &, TRealField &, TRealField &> getOffsetFields() override {
-        throw std::runtime_error("SubSampleGrid - does not contain an actual field in memory");
+    size_t estimateParticleListSize() override {
+      return this->pUnderlying->estimateParticleListSize()/factor3;
     }
-    */
 
-    virtual bool isFieldFourier()  const override  {
-        throw std::runtime_error("SubSampleGrid - does not contain an actual field in memory");
-    }
 
     virtual T getMass() const override {
-        return pUnderlying->getMass()*this->massFac/factor3;
+        return this->pUnderlying->getMass()*factor3;
     }
 
 
@@ -653,6 +829,7 @@ public:
     {
       int x0,y0,z0;
       this->getCoordinates(id, x0, y0, z0);
+      x0*=factor; y0*=factor; z0*=factor;
       auto x1=x0+factor, y1=y0+factor, z1=z0+factor;
 
       T xt,yt,zt,vxt,vyt,vzt,cellMassit,epst;
@@ -670,8 +847,8 @@ public:
       for(auto xi=x0; xi<x1; ++xi) {
         for (auto yi=y0; yi<y1; ++yi) {
           for (auto zi=z0; zi<z1; ++zi) {
-            pUnderlying->getParticle(pUnderlying->getIndexNoWrap(xi,yi,zi),
-                                     xt,yt,zt,vxt,vyt,vzt,cellMassit,epst);
+            this->pUnderlying->getParticle(this->pUnderlying->getIndexNoWrap(xi,yi,zi),
+                                           xt,yt,zt,vxt,vyt,vzt,cellMassit,epst);
             x+=xt/factor3;
             y+=yt/factor3;
             z+=zt/factor3;
@@ -688,16 +865,53 @@ public:
 
     }
 
-    virtual std::shared_ptr<Grid<T>> massSplit(T massRatio) override {
-        cerr << "WARNING: massSplit has been called on a subsampled grid. This is unlikely to be what you want...?" << endl;
-        this->massFac = 1.0-massRatio;
-        auto gas = std::make_shared<SubSampleGrid<T>>(this->pUnderlying, factor);
-        gas->massFac=massRatio;
-        return gas;
+    void getParticleFromOffset(T &x, T &y, T &z, T &vx, T &vy, T &vz, T &cellMassi, T &eps) const override
+    {
+      this->pUnderlying->getParticleFromOffset(x,y,z,vx,vy,vz,cellMassi,eps);
+      cellMassi*=factor3;
     }
 
-    virtual void zeldovich(T hfac, T particlecellMass) override {
-        throw std::runtime_error("SubSampleGrid - does not contain an actual field in memory");
+};
+
+
+template<typename T>
+class MassScaledGrid : public VirtualGrid<T> {
+protected:
+    using typename Grid<T>::TField;
+    using typename Grid<T>::TRealField;
+    using typename Grid<T>::PtrTField;
+    using typename Grid<T>::GridPtrType;
+
+    T massFac;
+
+public:
+    MassScaledGrid(GridPtrType pUnderlying, T massFac):
+            VirtualGrid<T>(pUnderlying,
+                    pUnderlying->simsize, pUnderlying->size,
+                    pUnderlying->dx, pUnderlying->x0, pUnderlying->y0,
+                    pUnderlying->z0, false),
+            massFac(massFac)
+    {
+    }
+
+    virtual void debugName(std::ostream &s) const override {
+        s << "MassScaledGrid";
+    }
+
+    virtual T getMass() const override {
+        return this->pUnderlying->getMass()*massFac;
+    }
+
+    virtual void getParticle(size_t id, T &x, T &y, T &z, T &vx, T &vy, T &vz, T &cellMassi, T &eps) const
+    {
+      this->pUnderlying->getParticle(id,x,y,z,vx,vy,vz,cellMassi,eps);
+      cellMassi*=massFac;
+    }
+
+    void getParticleFromOffset(T &x, T &y, T &z, T &vx, T &vy, T &vz, T &cellMassi, T &eps) const override
+    {
+      this->pUnderlying->getParticleFromOffset(x,y,z,vx,vy,vz,cellMassi,eps);
+      cellMassi*=massFac;
     }
 
 };

@@ -31,6 +31,7 @@
 #include "mapper.hpp"
 #include "io.hpp"
 #include "ic.hpp"
+#include "dummyic.hpp"
 
 
 #ifdef DOUBLEPRECISION
@@ -80,6 +81,7 @@ void setup_parser(ClassDispatch<ICf,void> &dispatch) {
     dispatch.add_class_route("zin",&ICf::setZ0);
     dispatch.add_class_route("n",&ICf::setn);
     dispatch.add_class_route("supersample",&ICf::setSupersample);
+    dispatch.add_class_route("subsample",&ICf::setSubsample);
     dispatch.add_class_route("ns",&ICf::setns);
     dispatch.add_class_route("output",&ICf::setOutputMode);
     dispatch.add_class_route("seed",&ICf::setSeed);
@@ -92,6 +94,7 @@ void setup_parser(ClassDispatch<ICf,void> &dispatch) {
 
     dispatch.add_class_route("IDfile",&ICf::loadID);
     dispatch.add_class_route("append_IDfile",&ICf::appendID);
+    dispatch.add_class_route("dump_IDfile",&ICf::dumpID);
     dispatch.add_class_route("select_sphere",&ICf::selectSphere);
     dispatch.add_class_route("select_nearest",&ICf::selectNearest);
     dispatch.add_class_route("centre_max",&ICf::centreDenmax);
@@ -107,6 +110,7 @@ void setup_parser(ClassDispatch<ICf,void> &dispatch) {
     dispatch.add_class_route("dumpgrid",&ICf::dumpGrid);
     dispatch.add_class_route("dumpps",&ICf::dumpPS);
 
+    dispatch.add_class_route("relative_to", &ICf::setInputMapper);
     dispatch.add_class_route("zoom", &ICf::setZoom);
     dispatch.add_class_route("n2", &ICf::setn2);
     dispatch.add_class_route("zoom_IDfile",&ICf::setZoomParticles);
@@ -114,7 +118,6 @@ void setup_parser(ClassDispatch<ICf,void> &dispatch) {
     // dispatch.add_class_route("writeLevel", &ICf::writeLevel);
 
     dispatch.add_class_route("zeroLevel", &ICf::zeroLevel);
-
 
 }
 
@@ -136,13 +139,18 @@ int main(int argc, char *argv[]) {
         exit(1);
     }
 
-    // The main program is contained in this class:
-    ICf generator;
-
     // Set up the command interpreter to issue commands to main_generator
-    ClassDispatch<ICf,void> dispatch(generator);
+    ClassDispatch<ICf,void> dispatch_generator;
+    setup_parser(dispatch_generator);
 
-    setup_parser(dispatch);
+    // The main program is contained in this class:
+    ICf generator(dispatch_generator);
+
+
+
+    auto dispatch = dispatch_generator.specify_instance(generator);
+
+
 
 
 

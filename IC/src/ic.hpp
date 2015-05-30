@@ -1,3 +1,6 @@
+#ifndef _IC_HPP_INCLUDED
+#define _IC_HPP_INCLUDED
+
 #include <string>
 #include <tuple>
 #include <gsl/gsl_rng.h> //link -lgsl and -lgslcblas at the very end
@@ -16,12 +19,15 @@
 
 using namespace std;
 
+template<typename MyFloat>
+class DummyIC;
 
 template<typename MyFloat>
 class IC {
 protected:
 
 
+    friend class DummyIC<MyFloat>;
 
     MyFloat Om0, Ol0, Ob0, hubble, zin, a, sigma8, ns;
 
@@ -29,7 +35,7 @@ protected:
     MyFloat boxlen[2], dx[2];      // the box length of each grid
     int n[2];                      // number of grid divisions along one axis
 
-    int supersample;               // DM supersampling to perform on root grid
+    int supersample, subsample;               // DM supersampling to perform on zoom grid, and subsampling on base grid
 
     std::vector<std::shared_ptr<Grid<MyFloat>>> pGrid;       // the objects that help us relate points on the grid
 
@@ -64,21 +70,25 @@ protected:
 
 
     std::vector<size_t> genericParticleArray;
-
+    std::vector<size_t> zoomParticleArray;
 
 
     MyFloat x0, y0, z0;
 
     MultiConstrainedField<MyFloat> *pConstrainer;
     shared_ptr<ParticleMapper<MyFloat>> pMapper;
+    shared_ptr<ParticleMapper<MyFloat>> pInputMapper;
 
     using RefFieldType = decltype(pGrid[0]->getField());
 
+    ClassDispatch<IC<MyFloat>, void> &interpreter;
+
 
 public:
-    IC() : pMapper(new ParticleMapper<MyFloat>())
+    IC(ClassDispatch<IC<MyFloat>, void> &interpreter) : interpreter(interpreter), pMapper(new ParticleMapper<MyFloat>())
     {
-        pConstrainer=NULL;
+        pConstrainer=nullptr;
+        pInputMapper = nullptr;
         whiteNoiseFourier=false;
         hubble=0.701;   // old default
         Ob0=-1.0;
@@ -90,6 +100,7 @@ public:
         x_off[1]=y_off[1]=z_off[1]=0;
         prepared = false;
         supersample = 1;
+        subsample = 1;
     }
 
     ~IC() {
@@ -102,6 +113,8 @@ public:
 
     void setOmegaB0(MyFloat in) {
         Ob0=in;
+        // now that we have gas, mapper may have changed:
+        initMapper();
     }
 
     void setOmegaLambda0(MyFloat in) {
@@ -118,6 +131,12 @@ public:
 
     void setSupersample(int in) {
         supersample = in;
+        initMapper();
+    }
+
+    void setSubsample(int in) {
+        subsample = in;
+        initMapper();
     }
 
     void setBoxLen(MyFloat in) {
@@ -135,7 +154,7 @@ public:
         initGrid();
     }
 
-    void initGrid(unsigned int level=0) {
+    virtual void initGrid(unsigned int level=0) {
 
         if(n[level]<0 || boxlen[level]<0)
             return;
@@ -146,11 +165,12 @@ public:
         if(pGrid.size()!=level)
             throw std::runtime_error("Trying to re-initialize a grid level");
 
-        pGrid.emplace_back(new Grid<MyFloat>(boxlen[0], n[level], dx[level],
+        pGrid.push_back(std::make_shared<Grid<MyFloat>>(boxlen[0], n[level], dx[level],
                                              x_off[level], y_off[level], z_off[level]));
 
-        if(level==0)
-            pMapper = std::shared_ptr<ParticleMapper<MyFloat>>(new OneLevelParticleMapper<MyFloat>(pGrid.back()));
+        // new level, particle mapper has changed:
+        initMapper();
+
     }
 
     void setns(MyFloat in) {
@@ -181,8 +201,7 @@ public:
         if(boxlen[1]==0)
             throw(std::runtime_error("Set the zoom factor before specifying the zoom particles"));
 
-
-        auto zoomParticleArray = pGrid[0]->particleArray;
+        pGrid[0]->gatherParticleList(zoomParticleArray);
 
         // find boundaries
         int x0, x1, y0, y1, z0, z1;
@@ -234,11 +253,11 @@ public:
 
 
 
-        initZoom(zoomParticleArray);
+        initZoom();
 
     }
 
-    void initZoom(const std::vector<size_t> & zoomParticleArray) {
+    void initZoom() {
         zoomfac = (boxlen[0]/n[0])/(boxlen[1]/n[1]);
         dx[1] = boxlen[1]/n[1];
         cout << "Initialized a zoom region:" << endl;
@@ -247,14 +266,8 @@ public:
         cout << "  dx[1]           = " << dx[1] << endl;
         cout << "  Zoom factor     = " << zoomfac << endl;
         cout << "  Low-left corner = " << x_off[1] << ", " << y_off[1] << ", " << z_off[1] << endl;
-
+        cout << "  Num particles   = " << zoomParticleArray.size() << endl;
         initGrid(1);
-
-        auto pMapper1 = std::shared_ptr<ParticleMapper<MyFloat>>(new OneLevelParticleMapper<MyFloat>(pGrid.back()));
-
-        pMapper = std::shared_ptr<ParticleMapper<MyFloat>>(
-            new TwoLevelParticleMapper<MyFloat>(pMapper, pMapper1, zoomParticleArray, zoomfac*zoomfac*zoomfac));
-
 
         cout << "  Total particles = " << pMapper->size() << endl;
     }
@@ -403,7 +416,7 @@ public:
 
     }
 
-    void drawRandom() {
+    virtual void drawRandom() {
         gsl_rng * r;
         const gsl_rng_type * T; //generator type variable
 
@@ -422,7 +435,7 @@ public:
         gsl_rng_free (r);
     }
 
-    void zeroLevel(int level) {
+    virtual void zeroLevel(int level) {
         cerr << "*** Warning: your script calls zeroLevel("<<level <<"). This is intended for testing purposes only!" << endl;
         if(level==-1) {
             std::fill(pField_k_0_high.begin(), pField_k_0_high.end(), 0);
@@ -433,7 +446,7 @@ public:
     }
 
     template<typename T>
-    void interpolateLevel(int level, T& pField_x_l, T& pField_x_p) {
+    void interpolateIntoLevel(int level, T& pField_x_l, T& pField_x_p) {
 
         if(level<=0)
             throw std::runtime_error("Trying to interpolate onto the top-level grid");
@@ -454,19 +467,19 @@ public:
 
     }
 
-    void interpolateLevel(int level) {
+    virtual void interpolateIntoLevel(int level) {
         RefFieldType pField_x_l = pGrid[level]->getFieldReal();
         RefFieldType pField_x_p = pGrid[level-1]->getFieldReal();
 
-        interpolateLevel(level,pField_x_l,pField_x_p);
+        interpolateIntoLevel(level,pField_x_l,pField_x_p);
 
         auto offset_fields_l = pGrid[level]->getOffsetFields();
         auto offset_fields_p = pGrid[level-1]->getOffsetFields();
 
         if(std::get<0>(offset_fields_l)->size()>0 && std::get<0>(offset_fields_p)->size()>0) {
-            interpolateLevel(level,*std::get<0>(offset_fields_l),*std::get<0>(offset_fields_p));
-            interpolateLevel(level,*std::get<1>(offset_fields_l),*std::get<1>(offset_fields_p));
-            interpolateLevel(level,*std::get<2>(offset_fields_l),*std::get<2>(offset_fields_p));
+            interpolateIntoLevel(level,*std::get<0>(offset_fields_l),*std::get<0>(offset_fields_p));
+            interpolateIntoLevel(level,*std::get<1>(offset_fields_l),*std::get<1>(offset_fields_p));
+            interpolateIntoLevel(level,*std::get<2>(offset_fields_l),*std::get<2>(offset_fields_p));
         }
     }
 
@@ -521,7 +534,7 @@ public:
     }
 
 
-    void splitLevel0() {
+    virtual void splitLevel0() {
         pField_k_0_high = pGrid[0]->getFieldFourier();
         cerr << "Apply transfer function for high-k part of level 0 field" << endl;
         cerr << "  sizes = " << pGrid[0]->getFieldFourier().size() << " " <<pField_k_0_high.size() << endl;
@@ -530,7 +543,7 @@ public:
         cerr << "  first el = " << pField_k_0_high[10] << " " << pGrid[0]->getFieldFourier()[10] << endl;
     }
 
-    void recombineLevel0() {
+    virtual void recombineLevel0() {
 
         RefFieldType pField_k = pGrid[0]->getFieldFourier();
 
@@ -541,7 +554,7 @@ public:
 
     }
 
-    void applyPowerSpecForLevel(int level, bool high_k=false) {
+    virtual void applyPowerSpecForLevel(int level, bool high_k=false) {
         //scale white-noise delta with initial PS
 
         MyFloat grwfac;
@@ -613,14 +626,14 @@ public:
 
     }
 
-    void applyPowerSpec() {
+    virtual void applyPowerSpec() {
         for_each_level(level) {
             cerr << "Apply transfer function for level " << level <<endl;
             applyPowerSpecForLevel(level);
         }
     }
 
-    void dumpGrid(int level=0) {
+    virtual void dumpGrid(int level=0) {
 
         ostringstream filename;
         filename << indir << "/grid-" << level << ".npy";
@@ -642,12 +655,12 @@ public:
         ifile.close();
     }
 
-    void dumpPS(int level=0) {
+    virtual void dumpPS(int level=0) {
         powsp_noJing(n[level], pGrid[level]->getFieldReal().data(),
                      (base+"_"+((char)(level+'0'))+".ps").c_str(), boxlen[level]);
     }
 
-    void zeldovich(int level) {
+    virtual void zeldovichForLevel(int level) {
         //Zeldovich approx.
 
         MyFloat hfac=1.*100.*sqrt(Om0/a/a/a+Ol0)*sqrt(a);
@@ -662,23 +675,24 @@ public:
 
 
 
-    void zeldovich() {
-        if(n[1]<=0) {
-            cerr << "***** WRITE - no zoom *****" << endl;
-            zeldovich(0);
+    virtual void zeldovich() {
+        if(pGrid.size()==0) {
+          throw std::runtime_error("Trying to apply zeldovich approximation, but no grids have been created");
+        } else if(pGrid.size()==1) {
+            zeldovichForLevel(0);
         } else {
-            zeldovich(0);
-            zeldovich(1);
+            zeldovichForLevel(0);
+            zeldovichForLevel(1);
 
             cerr << "Interpolating low-frequency information into zoom region...";
             cerr.flush();
-            interpolateLevel(1);
+            interpolateIntoLevel(1);
             cerr << "done." << endl;
 
 
             cerr << "Re-introducing high-k modes into low-res region...";
             recombineLevel0();
-            zeldovich(0);
+            zeldovichForLevel(0);
             cerr << "done." << endl;
 
         }
@@ -688,44 +702,90 @@ public:
     // ZOOM particle management
     ///////////////////////////////////////////////
 
+    void setInputMapper(std::string fname) {
+      DummyIC<MyFloat> pseudoICs(this);
+      auto dispatch = interpreter.specify_instance(pseudoICs);
+      ifstream inf;
+      inf.open(fname);
 
 
-    void interpretParticleList() {
-        // copies the overall particle list into the relevant grid levels
-        pMapper->interpretParticleList(genericParticleArray);
+      if(!inf.is_open())
+        throw std::runtime_error("Cannot open IC paramfile for relative_to command");
+      cerr << "******** Running commands in" << fname << " to work out relationship ***********" << endl;
+      dispatch.run_loop(inf);
+      cerr << *(pseudoICs.pMapper) << endl;
+      cerr << "******** Finished with" << fname << " ***********" << endl;
+      pInputMapper = pseudoICs.pMapper;
+
+    }
+
+    void initMapper() {
+
+      if(pGrid.size()==0)
+        return;
+
+      // make a basic mapper for the base level grid
+      pMapper = std::shared_ptr<ParticleMapper<MyFloat>>(new OneLevelParticleMapper<MyFloat>(pGrid[0]));
+
+      if(pGrid.size()>=3) {
+        // possible future enhancement, but for now...
+        throw runtime_error("Don't know how to set up a mapper for more than one level of refinement");
+      }
+
+      if(pGrid.size()==2) {
+        // it's a zoom!
+        auto pMapperLevel1 = std::shared_ptr<ParticleMapper<MyFloat>>(new OneLevelParticleMapper<MyFloat>(pGrid.back()));
+
+        pMapper = std::shared_ptr<ParticleMapper<MyFloat>>(
+            new TwoLevelParticleMapper<MyFloat>(pMapper, pMapperLevel1, zoomParticleArray, zoomfac*zoomfac*zoomfac));
+      }
+
+      if(Ob0>0) {
+
+          // Add gas only to the deepest level. Pass the whole pGrid
+          // vector if you want to add gas to every level.
+          auto gasMapper = pMapper->addGas(Ob0/Om0,
+                                          {pGrid.back()});
+
+
+          // graft the gas particles onto the start of the map
+          pMapper = std::make_shared<AddGasMapper<MyFloat>>(
+              gasMapper.first, gasMapper.second, true);
+
+
+      }
+
+      // potentially resample the lowest-level DM grid. Again, this is theoretically
+      // more flexible if you pass in other grid pointers.
+      if(supersample>1)
+          pMapper = pMapper->superOrSubSampleDM(supersample, {pGrid.back()},true);
+
+      if(subsample>1)
+        pMapper = pMapper->superOrSubSampleDM(subsample, {pGrid[0]}, false);
+
+    }
+
+    void clearAndDistributeParticleList() {
+
+        if(pInputMapper!=nullptr) {
+          pInputMapper->clearParticleList();
+          pInputMapper->distributeParticleList(genericParticleArray);
+        }
+        else
+        {
+          pMapper->clearParticleList();
+          pMapper->distributeParticleList(genericParticleArray);
+        }
     }
 
 
 
-    void write() {
+    virtual void write() {
 
         zeldovich();
 
-        auto finalMapper=pMapper;
-
-        if(Ob0>0) {
-
-
-            // Add gas only to the deepest level. Pass the whole pGrid
-            // vector if you want to add gas to every level.
-            auto gasMapper = pMapper->addGas(Ob0/Om0,
-                                            {pGrid.back()});
-
-
-            // graft the gas particles onto the start of the map
-            finalMapper = std::make_shared<AddGasMapper<MyFloat>>(
-                gasMapper, pMapper, true);
-
-
-        }
-
-        // potentially resample the lowest-level DM grid. Again, this is theoretically
-        // more flexible if you pass in other grid pointers.
-        if(supersample>1)
-            finalMapper = finalMapper->superOrSubSample(supersample, {pGrid.back()},true);
-
-        cerr << "Write, ndm=" << finalMapper->size_dm() << ", ngas=" << finalMapper->size_gas() << endl;
-        cerr << (*finalMapper);
+        cerr << "Write, ndm=" << pMapper->size_dm() << ", ngas=" << pMapper->size_gas() << endl;
+        cerr << (*pMapper);
 
         /*
         if (gadgetformat==2){
@@ -740,9 +800,7 @@ public:
         }
         */
         if (gadgetformat==4)
-            SaveTipsy(base+".tipsy", boxlen[0], Om0, Ol0, hubble, a, finalMapper);
-
-
+            SaveTipsy(base+".tipsy", boxlen[0], Om0, Ol0, hubble, a, pMapper);
 
     }
 
@@ -787,8 +845,8 @@ public:
 
 protected:
 
-    int deepestLevelWithParticles() {
-        if(pGrid.size()>1 && pGrid[1]->particleArray.size()>0) return 1; else return 0;
+    int deepestLevelWithParticlesSelected() {
+        if(pGrid.size()>1 && pGrid[1]->estimateParticleListSize()>0) return 1; else return 0;
     }
 
     MyFloat get_wrapped_delta(MyFloat x0, MyFloat x1) {
@@ -806,20 +864,24 @@ protected:
     void getCentre() {
         x0 = 0; y0 = 0; z0 =0;
 
-        int level = deepestLevelWithParticles();
+        int level = deepestLevelWithParticlesSelected();
 
         MyFloat xa,ya,za, xb, yb, zb;
-        pGrid[level]->getCentroidLocation(pGrid[level]->particleArray[0],xa,ya,za);
 
-        for(size_t i=0;i<pGrid[level]->particleArray.size();i++) {
-            pGrid[level]->getCentroidLocation(pGrid[level]->particleArray[i],xb,yb,zb);
+        std::vector<size_t> particleArray;
+        pGrid[level]->gatherParticleList(particleArray);
+
+        pGrid[level]->getCentroidLocation(particleArray[0],xa,ya,za);
+
+        for(size_t i=0;i<particleArray.size();i++) {
+            pGrid[level]->getCentroidLocation(particleArray[i],xb,yb,zb);
             x0+=get_wrapped_delta(xa,xb);
             y0+=get_wrapped_delta(ya,yb);
             z0+=get_wrapped_delta(za,zb);
         }
-        x0/=pGrid[level]->particleArray.size();
-        y0/=pGrid[level]->particleArray.size();
-        z0/=pGrid[level]->particleArray.size();
+        x0/=particleArray.size();
+        y0/=particleArray.size();
+        z0/=particleArray.size();
         x0+=xa;
         y0+=ya;
         z0+=za;
@@ -842,7 +904,7 @@ protected:
 
         cerr << "  -> total number of particles is " << genericParticleArray.size() << " " << genericParticleArray[0] << " " << genericParticleArray.back() << endl;
 
-        interpretParticleList();
+        clearAndDistributeParticleList();
     }
 
 
@@ -922,6 +984,9 @@ protected:
         complex<MyFloat> *rval=(complex<MyFloat>*)calloc(this->nPartLevel[level],sizeof(complex<MyFloat>));
         complex<MyFloat> *rval_k;
 
+        std::vector<size_t> particleArray;
+        pGrid[level]->gatherParticleList(particleArray);
+
         if(offset) {
             long offset_amount = 0;
             for(int l=0; l<level; l++) {
@@ -934,17 +999,17 @@ protected:
         }
 
         if(strcasecmp(name,"overdensity")==0) {
-            MyFloat w = 1.0/pGrid[level]->particleArray.size();
-            for(size_t i=0;i<pGrid[level]->particleArray.size();i++) {
-                rval[pGrid[level]->particleArray[i]]+=w;
+            MyFloat w = 1.0/particleArray.size();
+            for(size_t i=0;i<particleArray.size();i++) {
+                rval[particleArray[i]]+=w;
             }
 
             fft(rval_k, rval, this->n[level], 1);
         }
         else if(strcasecmp(name,"phi")==0) {
-            MyFloat w = 1.0/pGrid[level]->particleArray.size();
-            for(size_t i=0;i<pGrid[level]->particleArray.size();i++) {
-                rval[pGrid[level]->particleArray[i]]+=w;
+            MyFloat w = 1.0/particleArray.size();
+            for(size_t i=0;i<particleArray.size();i++) {
+                rval[particleArray[i]]+=w;
             }
             complex<MyFloat> *rval_kX=(complex<MyFloat>*)calloc(this->nPartLevel[level],sizeof(complex<MyFloat>));
             fft(rval_kX, rval, this->n[level], 1);
@@ -957,8 +1022,8 @@ protected:
 
             cerr << "Angmom centre is " <<x0 << " " <<y0 << " " << z0 << endl;
 
-            for(size_t i=0;i<pGrid[level]->particleArray.size();i++) {
-                cen_deriv4_alpha(pGrid[level]->particleArray[i], direction, rval, level);
+            for(size_t i=0;i<particleArray.size();i++) {
+                cen_deriv4_alpha(particleArray[i], direction, rval, level);
             }
             complex<MyFloat> *rval_kX=(complex<MyFloat>*)calloc(this->nPartLevel[level],sizeof(complex<MyFloat>));
             fft(rval_kX, rval, this->n[level], 1);
@@ -995,47 +1060,18 @@ public:
         getCentre();
     }
 
+    void dumpID(string fname) {
+        std::vector<size_t> results;
+        pMapper->gatherParticleList(results);
+        dumpBuffer(results, fname);
+    }
+
     void centreParticle(long id) {
         pGrid[0]->getCentroidLocation(id,x0,y0,z0);
     }
 
     void selectNearest() {
-        MyFloat delta_x, delta_y, delta_z, r2_i;
-        MyFloat xp,yp,zp;
-
-        genericParticleArray.clear();
-
-        for_each_level(level) {
-            int repeat=1;
-            if(level==0 && zoomfac>1) {
-                repeat = zoomfac*zoomfac*zoomfac;
-            }
-
-            if(level==1) continue;
-
-            pGrid[level]->particleArray.clear();
-
-            MyFloat r2_nearest = std::numeric_limits<MyFloat>::max();
-            size_t i_nearest = 0;
-
-            for(size_t i=0;i<this->nPartLevel[level];i++) {
-                pGrid[level]->getCentroidLocation(i,xp,yp,zp);
-                delta_x = get_wrapped_delta(xp,x0);
-                delta_y = get_wrapped_delta(yp,y0);
-                delta_z = get_wrapped_delta(zp,z0);
-                r2_i = delta_x*delta_x+delta_y*delta_y+delta_z*delta_z;
-
-                if(r2_i<r2_nearest) {
-                    r2_nearest = r2_i;
-                    i_nearest = i;
-                }
-
-            }
-
-            for(int q=0; q<repeat; q++)
-                pGrid[level]->particleArray.push_back(i_nearest);
-
-        }
+        throw std::runtime_error("selectNearest not implemented");
 
     }
 
@@ -1047,13 +1083,8 @@ public:
         genericParticleArray.clear();
 
         for_each_level(level) {
-            int repeat=1;
-            if(level==0 && zoomfac>1) {
-                repeat = zoomfac*zoomfac*zoomfac;
-            }
+            std::vector<size_t> particleArray;
 
-
-            pGrid[level]->particleArray.clear();
             for(size_t i=0;i<this->nPartLevel[level];i++) {
                 pGrid[level]->getCentroidLocation(i,xp,yp,zp);
                 delta_x = get_wrapped_delta(xp,x0);
@@ -1061,9 +1092,12 @@ public:
                 delta_z = get_wrapped_delta(zp,z0);
                 r2_i = delta_x*delta_x+delta_y*delta_y+delta_z*delta_z;
                 if(r2_i<r2)
-                    for(int q=0; q<repeat; q++)
-                        pGrid[level]->particleArray.push_back(i);
+                  particleArray.push_back(i);
             }
+
+            pGrid[level]->clearParticleList();
+            pGrid[level]->distributeParticleList(particleArray);
+
         }
 
     }
@@ -1151,7 +1185,7 @@ public:
         cout << name << ": calculated value = " <<  val << endl;
     }
 
-    void constrain(string name, string type, float value) {
+    virtual void constrain(string name, string type, float value) {
         if(pConstrainer==NULL) {
             throw runtime_error("No constraint information is available. Is your done command too early, or repeated?");
         }
@@ -1183,7 +1217,7 @@ public:
     }
 
 
-    void done() {
+    virtual void done() {
         if(pConstrainer==NULL) {
             throw runtime_error("No constraint information is available. Is your done command too early, or repeated?");
         }
@@ -1216,12 +1250,11 @@ public:
         // directional offsets (that's where it can currently be found)
         for_each_level(level) {
             if(level>0)
-                interpolateLevel(level); // copy in the underlying field
+                interpolateIntoLevel(level); // copy in the underlying field
         }
 
         recombineLevel0();
         */
-
 
         // All done - write out
         write();
@@ -1244,3 +1277,4 @@ public:
 
 
 };
+#endif

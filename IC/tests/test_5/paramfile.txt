@@ -13,6 +13,7 @@ output	1
 seed	8896131
 outname test_5
 
+relative_to ../test_1/paramfile.txt
 
 zoom 3
 n2 64

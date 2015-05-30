@@ -23,6 +23,8 @@ gadgetformat 4
 
 
 IDfile constrtest.txt
+dump_IDfile check_constr.txt
+
 calculate overdensity
 constrain overdensity absolute 10.0
 

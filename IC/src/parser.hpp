@@ -129,7 +129,9 @@ private:
     }
 
 public:
-    Dispatch() {}
+    bool ignoreUnknownCommand;
+
+    Dispatch(bool ignoreUnknownCommand=false) : ignoreUnknownCommand(ignoreUnknownCommand) {}
 
     template<typename... Args>
     void add_route(const std::string &name,
@@ -166,7 +168,8 @@ public:
             function = _map.at(s).first.get();
             caller = _map.at(s).second;
         } catch (std::out_of_range &e) {
-            throw DispatchError("Unknown command");
+            if(!ignoreUnknownCommand)
+              throw DispatchError("Unknown command");
         }
 
         // do it!
@@ -196,12 +199,46 @@ public:
 };
 
 template <typename Ctype, typename Rtype>
-class ClassDispatch: public Dispatch<Rtype>
+class InstanceDispatch;
+
+template <typename Ctype, typename Rtype>
+class ClassDispatch
+{
+private:
+  std::vector<std::function<void(InstanceDispatch<Ctype, Rtype> &)>> adderFunctions;
+public:
+  ClassDispatch() { }
+
+  template<typename... Args>
+  void add_class_route(const std::string &name, Rtype (Ctype::*f)(Args...)) {
+    auto addcall = std::function<void(InstanceDispatch<Ctype, Rtype> &)>(
+      [name, f](InstanceDispatch<Ctype, Rtype> & pDispatchObj) {
+      pDispatchObj.add_class_route(name, f);
+    });
+
+
+    // make a lambda that adds the route to a specific object
+    adderFunctions.emplace_back(addcall);
+  }
+
+  InstanceDispatch<Ctype, Rtype> specify_instance(Ctype &c) {
+    auto id= InstanceDispatch<Ctype, Rtype>(c);
+    for(auto fn : adderFunctions)
+      fn(id);
+    return id;
+
+  }
+};
+
+template <typename Ctype, typename Rtype>
+class InstanceDispatch: public Dispatch<Rtype>
 {
 private:
     Ctype *pC;
+    ClassDispatch<Ctype, Rtype> prototype;
+
 public:
-    ClassDispatch(Ctype &c) : pC(&c){}
+    InstanceDispatch(Ctype &c) : pC(&c){}
 
     template<typename... Args>
     void add_class_route(const std::string &name, Rtype (Ctype::*f)(Args...)) {
@@ -210,6 +247,8 @@ public:
         // add it as the route
         this->add_route(name, std::function<Rtype(Args...)>(call));
     }
+
+
 };
 
 
@@ -235,7 +274,7 @@ public:
 int main() {
 
     Stateful x;
-    ClassDispatch<Stateful, void> dp(x);
+    InstanceDispatch<Stateful, void> dp(x);
 
     dp.add_class_route("printout", &Stateful::printout);
     dp.add_class_route("add", &Stateful::add);

@@ -4,6 +4,7 @@ for i in test_*
 do
     rm $i/*.tipsy 2>/dev/null
     echo "Running test on $i"
+    head -1 $i/paramfile.txt
     cd $i
     time ../../IC paramfile.txt > IC_output.txt 2>&1
     if [ $? -ne 0 ]

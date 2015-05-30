@@ -14,7 +14,7 @@
 #include <memory>
 #include <typeinfo>
 #include "grid.hpp"
-
+#include "argsort.hpp"
 
 // helper function for our debug dumps
 void indent(std::ostream& s, int level=0) {
@@ -115,24 +115,11 @@ public:
         return (lhs.i != rhs.i) || (lhs.pMapper != rhs.pMapper) ;
     }
 
-    void debugInfo(int n=0) const {
-        indent(cerr,n);
-        cerr << "i=" << i << endl;
-        indent(cerr,n);
-        cerr << "type=" << typeid(*pMapper).name() << endl;
-        for(auto q: extraData) {
-            indent(cerr,n);
-            cerr << "data=" << q << endl;
-        }
-        for(auto q: subIterators) {
-            indent(cerr,n);
-            if(q!=nullptr) {
-                cerr << "subiterator: " << endl;
-                q->debugInfo(n+1);
-            } else {
-                cerr << "null subiterator" << endl;
-            }
-        }
+    void debugInfo() const {
+      debugInfo(cerr, 0);
+    }
+    void debugInfo(std::ostream& s, int n=0) const {
+      pMapper->debugInfoForIterator(s, n, this);
     }
 
 
@@ -185,7 +172,25 @@ public:
 
     virtual void debugInfo(std::ostream& s, int level=0) const {
         indent(s,level);
-        s << "Unspecified MapperIterator (shouldn't be here)" << std::endl;
+        s << "Abstract MapperIterator (shouldn't be here)" << std::endl;
+    }
+
+    virtual void debugInfoForIterator(std::ostream& s, int n, const iterator *pIterator) const {
+      indent(s,n);
+      s << "i=" << pIterator->i << " into abstract MapperIterator (\?\?)" << endl;
+      for(auto q: pIterator->extraData) {
+          indent(s,n);
+          s << "data=" << q << endl;
+      }
+      for(auto q: pIterator->subIterators) {
+          indent(s,n);
+          if(q!=nullptr) {
+              s << "subiterator: " << endl;
+              q->debugInfo(s, n+1);
+          } else {
+              s << "null subiterator" << endl;
+          }
+      }
     }
 
     friend std::ostream& operator<< (std::ostream& stream, const ParticleMapper<T>& I) {
@@ -206,14 +211,22 @@ public:
         return size();
     }
 
-    virtual void interpretParticleList(const std::vector<size_t> & genericParticleArray) {
-        throw std::runtime_error("Cannot interpret particles yet; no particle->grid mapper has been set up");
+    virtual void clearParticleList() {
+
     }
 
-    virtual void interpretParticleList(std::vector<size_t> && genericParticleArray) {
+    virtual void distributeParticleList(const std::vector<size_t> & genericParticleArray) {
+        throw std::runtime_error("Cannot interpret particles yet; no particle->grid mapper available");
+    }
+
+    virtual void distributeParticleList(std::vector<size_t> && genericParticleArray) {
         // Sometimes it's helpful to have move semantics, but in general just call
         // the normal implementation
-        this->interpretParticleList(genericParticleArray);
+        this->distributeParticleList(genericParticleArray);
+    }
+
+    virtual void gatherParticleList(std::vector<size_t> & particleArray) const {
+      throw std::runtime_error("Cannot get particles; no particle->grid mapper available");
     }
 
     virtual GridPtrType getCoarsestGrid() {
@@ -252,11 +265,11 @@ public:
         return false;
     }
 
-    virtual MapPtrType addGas(T massRatio, const std::vector<GridPtrType> & toGrids) {
+    virtual std::pair<MapPtrType, MapPtrType> addGas(T massRatio, const std::vector<GridPtrType> & toGrids) {
         throw std::runtime_error("Don't know how to add gas in this context");
     }
 
-    virtual MapPtrType superOrSubSample(int ratio, const std::vector<GridPtrType> & toGrids, bool super=true) {
+    virtual MapPtrType superOrSubSampleDM(int ratio, const std::vector<GridPtrType> & toGrids, bool super=true) {
         throw std::runtime_error("Don't know how to supersample in this context");
     }
 
@@ -295,7 +308,13 @@ protected:
 public:
     virtual void debugInfo(std::ostream& s, int level=0) const override {
         indent(s,level);
-        s << "Grid of side " << pGrid->size << std::endl;
+        pGrid->debugInfo(s);
+        s << std::endl;
+    }
+
+    void debugInfoForIterator(std::ostream& s, int n, const iterator *pIterator) const override {
+      indent(s,n);
+      s << "i=" << pIterator->i << " into iterator for grid " << pGrid << endl;
     }
 
     OneLevelParticleMapper(std::shared_ptr<Grid<T>> &pGrid) : pGrid(pGrid) {
@@ -310,13 +329,16 @@ public:
         return pGrid->size3;
     }
 
-    void interpretParticleList(const std::vector<size_t> & genericParticleArray) override {
-        pGrid->particleArray = genericParticleArray;
+    virtual void clearParticleList() override {
+        pGrid->clearParticleList();
     }
 
-    void interpretParticleList(std::vector<size_t> && genericParticleArray) override {
-        // genericParticleArray is an rvalue - move it instead of copying it
-        pGrid->particleArray = std::move(genericParticleArray);
+    void distributeParticleList(const std::vector<size_t> & genericParticleArray) override {
+        pGrid->distributeParticleList(genericParticleArray);
+    }
+
+    void gatherParticleList(std::vector<size_t> & particleArray) const override {
+        pGrid->gatherParticleList(particleArray);
     }
 
     GridPtrType getCoarsestGrid() override {
@@ -327,18 +349,20 @@ public:
         return true;
     }
 
-    MapPtrType addGas(T massRatio, const std::vector<GridPtrType> & toGrids) override
+    std::pair<MapPtrType, MapPtrType> addGas(T massRatio, const std::vector<GridPtrType> & toGrids) override
     {
-        if(std::find(toGrids.begin(), toGrids.end(), pGrid)!=toGrids.end()) {
-            return std::make_shared<OneLevelParticleMapper<T>>(this->pGrid->massSplit(massRatio));
+        if(pGrid->pointsToAnyGrid(toGrids)) {
+            return std::make_pair(std::make_shared<OneLevelParticleMapper<T>>(this->pGrid->makeScaledMassVersion(massRatio)),
+                                  std::make_shared<OneLevelParticleMapper<T>>(this->pGrid->makeScaledMassVersion(1.0-massRatio)));
         } else {
-            return nullptr;
+            return std::make_pair(std::shared_ptr<OneLevelParticleMapper<T>>(nullptr),
+                                  std::make_shared<OneLevelParticleMapper<T>>(this->pGrid));
         }
     }
 
-    MapPtrType superOrSubSample(int ratio, const std::vector<GridPtrType> & toGrids, bool super) override
+    MapPtrType superOrSubSampleDM(int ratio, const std::vector<GridPtrType> & toGrids, bool super) override
     {
-        if(std::find(toGrids.begin(), toGrids.end(), pGrid)!=toGrids.end()) {
+        if(pGrid->pointsToAnyGrid(toGrids)) {
             GridPtrType newGrid;
             if(super)
               newGrid = std::make_shared<SuperSampleGrid<T>>(this->pGrid, ratio);
@@ -380,7 +404,7 @@ private:
 
     bool skipLevel1;
 
-    std::vector<size_t> mapid(size_t id0) const {
+    std::vector<size_t> mapId(size_t id0) const {
         // Finds all the particles at level2 corresponding to the single
         // particle at level1
         T x0,y0,z0;
@@ -388,21 +412,49 @@ private:
         return pGrid2->getIdsInCube(x0,y0,z0,pGrid1->dx);
     }
 
+    size_t reverseMapId(size_t id2) const {
+      T x0,y0,z0;
+      pGrid2->getCentroidLocation(id2,x0,y0,z0);
+      return pGrid1->getClosestIdNoWrap(x0,y0,z0);
+    }
+
 
 public:
     std::vector<size_t> zoomParticleArray; //< the particles on the coarse grid which we wish to replace with their zooms
 protected:
-    mutable std::vector<size_t> zoomParticleArrayZoomed; //< the particles on the fine grid that are therefore included
+    mutable std::vector<size_t> zoomParticleArrayHiresUnsorted; //< the particles on the fine grid that are therefore included
 
     void syncL2iterator(const size_t & next_zoom, iterator & level2iterator) const {
 
-        if(zoomParticleArrayZoomed[next_zoom]>level2iterator.i) {
-            level2iterator+=zoomParticleArrayZoomed[next_zoom]-level2iterator.i;
+        if(zoomParticleArrayHiresUnsorted[next_zoom]>level2iterator.i) {
+            level2iterator+=zoomParticleArrayHiresUnsorted[next_zoom]-level2iterator.i;
         } else {
-            level2iterator-=level2iterator.i-zoomParticleArrayZoomed[next_zoom];
+            level2iterator-=level2iterator.i-zoomParticleArrayHiresUnsorted[next_zoom];
         }
 
-        assert(level2iterator.i==zoomParticleArrayZoomed[next_zoom]);
+        assert(level2iterator.i==zoomParticleArrayHiresUnsorted[next_zoom]);
+    }
+
+    void debugInfoForIterator(std::ostream& s, int n, const iterator *pIterator) const override {
+      indent(s,n);
+      s << "i=" << pIterator->i << " into iterator for TwoLevelParticleMapper " << endl;
+      iterator & level1iterator = *(pIterator->subIterators[0]);
+      iterator & level2iterator = *(pIterator->subIterators[1]);
+      const size_t & i = pIterator->i;
+      const size_t & next_zoom = pIterator->extraData[0];
+      const size_t & next_zoom_index = pIterator->extraData[1];
+
+      if(i>=firstLevel2Particle) {
+        indent(s,n);
+        s << "Inside level 2 particles" << endl;
+        level2iterator.debugInfo(s,n+1);
+      } else {
+        indent(s,n);
+        s << "Inside level 1 particles" << endl;
+        indent(s,n);
+        s << "next_zoom = " << next_zoom << "; next_zoom_index = " <<next_zoom_index << endl;
+        level1iterator.debugInfo(s,n+1);
+      }
     }
 
     virtual void incrementIterator(iterator *pIterator) const override {
@@ -482,16 +534,16 @@ protected:
 
         for(size_t i=0; i<zoomParticleArray.size(); i++) {
             // get the list of zoomed particles corresponding to this one
-            std::vector<size_t> hr_particles = mapid(zoomParticleArray[i]);
+            std::vector<size_t> hr_particles = mapId(zoomParticleArray[i]);
             assert(hr_particles.size()==n_hr_per_lr);
-            zoomParticleArrayZoomed.insert(zoomParticleArrayZoomed.end(),
+            zoomParticleArrayHiresUnsorted.insert(zoomParticleArrayHiresUnsorted.end(),
                                            hr_particles.begin(), hr_particles.end());
 
         }
 
         if(!pLevel2->supportsReverseIterator()) {
             // underlying map can't cope with particles being out of order - sort them
-            std::sort(zoomParticleArrayZoomed.begin(), zoomParticleArrayZoomed.end() );
+            std::sort(zoomParticleArrayHiresUnsorted.begin(), zoomParticleArrayHiresUnsorted.end() );
         }
 
     }
@@ -536,6 +588,8 @@ public:
              zoomParticleArray(zoomParticles)
     {
 
+        assert(zoomParticleArray.size()>0);
+
         std::sort(zoomParticleArray.begin(), zoomParticleArray.end() );
 
         totalParticles = pLevel1->size()+(n_hr_per_lr-1)*zoomParticleArray.size();
@@ -559,7 +613,7 @@ public:
         indent(s,level);
         s << "TwoLevelParticleMapper, n_hr_per_lr=" << n_hr_per_lr << ", firstLevel2Particle=" << firstLevel2Particle << std::endl;
         indent(s,level);
-        s << "                      , zoom.size=" << zoomParticleArray.size() << ", zoomed.size=" << zoomParticleArrayZoomed.size() << std::endl;
+        s << "                      , zoom.size=" << zoomParticleArray.size() << ", zoomed.size=" << zoomParticleArrayHiresUnsorted.size() << std::endl;
         if(skipLevel1) {
             indent(s,level);
             s << "low-res part will be skipped but notionally is:" << endl;
@@ -572,7 +626,12 @@ public:
         s << "TwoLevelParticleMapper ends" << std::endl;
     }
 
-    void interpretParticleList(const std::vector<size_t> & genericParticleArray) override {
+    virtual void clearParticleList() override {
+        pLevel1->clearParticleList();
+        pLevel2->clearParticleList();
+    }
+
+    void distributeParticleList(const std::vector<size_t> & genericParticleArray) override {
 
         std::vector<size_t> grid1particles;
         std::vector<size_t> grid2particles;
@@ -583,37 +642,113 @@ public:
         size_t i0 = pLevel1->size()-zoomParticleArray.size();
         size_t lr_particle;
 
+        size_t last_val = 0;
+        size_t numSkippedParticlesLR = 0;
+        size_t nZoomParticles = zoomParticleArray.size();
 
         for(auto i=genericParticleArray.begin(); i!=genericParticleArray.end(); ++i) {
-            if((*i)<i0)
-                throw std::runtime_error("Constraining particle is in low-res region - not permitted");
+            if(*i<last_val)
+              throw std::runtime_error("The particle list must be in ascending order");
+            last_val = (*i);
 
-            if( ((*i)-i0)/n_hr_per_lr >= zoomParticleArray.size() )
-                throw std::runtime_error("Particle ID out of range");
+            if((*i)<i0) {
+              // particle in low res region. We need to count how many skipped
+              // particles there are to work out the address in the original
+              // file ordering
+              while(numSkippedParticlesLR<nZoomParticles && zoomParticleArray[numSkippedParticlesLR]<=(*i)+numSkippedParticlesLR)
+                ++numSkippedParticlesLR;
 
-            // find the low-res particle. Note that we push it onto the list
-            // even if it's already on there to get the weighting right and
-            // prevent the need for a costly search
-            lr_particle = zoomParticleArray[((*i)-i0)/n_hr_per_lr];
+              grid1particles.push_back(*i + numSkippedParticlesLR);
 
-            grid1particles.push_back(lr_particle);
+              cerr << "ADD_LR:" << *i << " -> " << *i + numSkippedParticlesLR << endl;
 
-            // get all the HR particles
-            std::vector<size_t> hr_particles = mapid(lr_particle);
-            assert(hr_particles.size()==n_hr_per_lr);
+            } else {
+              // particle in high res region
 
-            // work out which of these this particle must be and push it onto
-            // the HR list
-            int offset = ((*i)-i0)%n_hr_per_lr;
-            grid2particles.push_back(hr_particles[offset]);
+              if( ((*i)-i0)/n_hr_per_lr >= zoomParticleArray.size() )
+                  throw std::runtime_error("Particle ID out of range");
+
+              // find the low-res particle. Note that we push it onto the list
+              // even if it's already on there to get the weighting right and
+              // prevent the need for a costly search
+              lr_particle = zoomParticleArray[((*i)-i0)/n_hr_per_lr];
+
+              grid1particles.push_back(lr_particle);
+
+              // get all the HR particles
+              std::vector<size_t> hr_particles = mapId(lr_particle);
+              assert(hr_particles.size()==n_hr_per_lr);
+
+              // work out which of these this particle must be and push it onto
+              // the HR list
+              int offset = ((*i)-i0)%n_hr_per_lr;
+              grid2particles.push_back(hr_particles[offset]);
+            }
 
         }
 
+        // Some routines need these lists to be sorted (e.g. gatherParticleList below,
+        // or in principle there could be an underlying further processing step.
+        // So it's time to do it...
+        std::sort(grid1particles.begin(), grid1particles.end() );
+        std::sort(grid2particles.begin(), grid2particles.end() );
+
         // Get the grids to interpret their own particles. This almost
-        // certainly just involves making a copy of our list. In fact, we're
+        // certainly just involves making a copy of our list (notwithstanding
+        // point made above about a possible underlying processing step). In fact, we're
         // done with our list so they might as well steal the data.
-        pLevel1->interpretParticleList(std::move(grid1particles));
-        pLevel2->interpretParticleList(std::move(grid2particles));
+        pLevel1->distributeParticleList(std::move(grid1particles));
+        pLevel2->distributeParticleList(std::move(grid2particles));
+
+    }
+
+
+    void gatherParticleList(std::vector<size_t> & particleArray) const override {
+
+        // translate level 1 particles - just need to exclude the zoomed particles
+        std::vector<size_t> grid1particles;
+        pLevel1->gatherParticleList(grid1particles);
+
+        size_t zoom_i=0;
+        size_t len_zoom = zoomParticleArray.size();
+        for(const size_t & i_lr : grid1particles) {
+          while(zoom_i<len_zoom && zoomParticleArray[zoom_i]<i_lr)
+            ++zoom_i;
+
+          if(zoom_i==len_zoom || zoomParticleArray[zoom_i]!=i_lr) {
+            // not a zoom particle: record it in the low res region
+            cerr << i_lr << "-> " << i_lr-zoom_i << endl;
+            particleArray.push_back(i_lr-zoom_i);
+          } else {
+            cerr << i_lr << "-> " << "NONE" << endl;
+          }
+        }
+
+        std::vector<size_t> grid2particles;
+        pLevel2->gatherParticleList(grid2particles);
+
+        // get the ordering of the level 2 particles
+        std::vector<size_t> sortIndex = argsort(zoomParticleArrayHiresUnsorted);
+
+
+        size_t zoomed_i=0;
+        size_t len_zoomed = zoomParticleArrayHiresUnsorted.size();
+        for(const size_t & i_hr : grid2particles) {
+          // find the i_hr in the zoomed particle list
+          while(zoomed_i<len_zoomed && zoomParticleArrayHiresUnsorted[sortIndex[zoomed_i]]<i_hr)
+            ++zoomed_i;
+
+          // If the marked particle is not actually in the output list, kick up a fuss.
+          // This does not HAVE to be a total failure - could just exclude this particle
+          // - but for now we expect all particles that are marked to be part of our output
+          // target
+          if(zoomed_i==len_zoomed || zoomParticleArrayHiresUnsorted[sortIndex[zoomed_i]]!=i_hr)
+            throw std::runtime_error("A marked particle is not in high-resolution region");
+
+          particleArray.push_back(sortIndex[zoomed_i]+firstLevel2Particle);
+        }
+
+        std::sort(particleArray.begin(), particleArray.end());
 
     }
 
@@ -625,106 +760,83 @@ public:
         return totalParticles;
     }
 
-    MapPtrType addGas(T massRatio, const std::vector<GridPtrType> & toGrids) override
+    std::pair<MapPtrType, MapPtrType> addGas(T massRatio, const std::vector<GridPtrType> & toGrids) override
     {
         bool newskip = skipLevel1;
 
-        auto gsub1 = pLevel1->addGas(massRatio, toGrids);
-        auto gsub2 = pLevel2->addGas(massRatio, toGrids);
+        auto newLevel1 = pLevel1->addGas(massRatio, toGrids);
+        auto newLevel2 = pLevel2->addGas(massRatio, toGrids);
 
-        if(gsub1==nullptr) {
-            gsub1 = pLevel1;
+        auto gasSubLevel1 = newLevel1.first;
+        auto gasSubLevel2 = newLevel2.first;
+        auto dmSubLevel1 = newLevel1.second;
+        auto dmSubLevel2 = newLevel2.second;
+
+        decltype(gasSubLevel1) newGasMap;
+        decltype(gasSubLevel1) newDmMap;
+
+        if(gasSubLevel1==nullptr) {
+            gasSubLevel1 = pLevel1;
             newskip = true;
         }
 
-        if(gsub2!=nullptr)
-            return std::make_shared<TwoLevelParticleMapper<T>>(
-                gsub1, gsub2, zoomParticleArray,
+        if(gasSubLevel2!=nullptr)
+            newGasMap = std::make_shared<TwoLevelParticleMapper<T>>(
+                gasSubLevel1, gasSubLevel2, zoomParticleArray,
                 n_hr_per_lr, newskip);
         else
-            return nullptr;
+            newGasMap = nullptr;
+
+        newDmMap = std::make_shared<TwoLevelParticleMapper<T>>(
+            dmSubLevel1, dmSubLevel2, zoomParticleArray,
+            n_hr_per_lr, skipLevel1);
+
+        return std::make_pair(newGasMap, newDmMap);
+
+
     }
 
-    MapPtrType superOrSubSample(int ratio, const std::vector<GridPtrType> & toGrids, bool super) override
+    MapPtrType superOrSubSampleDM(int ratio, const std::vector<GridPtrType> & toGrids, bool super) override
     {
 
-        auto ssub1 = pLevel1->superOrSubSample(ratio, toGrids, super);
-        int upgrade1 = ssub1->size()/pLevel1->size(); // <--- ARGH! WRONG WRONG WRONG - COULD COME OUT ZERO
+        auto ssub1 = pLevel1->superOrSubSampleDM(ratio, toGrids, super);
+        auto ssub2 = pLevel2->superOrSubSampleDM(ratio, toGrids, super);
 
-        auto ssub2 = pLevel2->superOrSubSample(ratio, toGrids, super);
-        int upgrade2 = ssub2->size()/pLevel2->size();
+        // Work out the new list of particles to zoom on
+        decltype(zoomParticleArray) newZoomParticles;
+        ssub1->clearParticleList();
+        pLevel1->distributeParticleList(zoomParticleArray);
+        ssub1->gatherParticleList(newZoomParticles);
+
+        size_t new_n_hr_per_lr = n_hr_per_lr;
+
+        // Work out the new number of high res particles per low res
+        if(super && ssub2.get()!=pLevel2.get()) {
+          // super-sampling changed high-res grid
+          new_n_hr_per_lr = n_hr_per_lr * ratio*ratio*ratio;
+        } else if (!super && ssub1.get()!=pLevel1.get())
+        {
+          // sub-sampling changed low-res grid
+          new_n_hr_per_lr = n_hr_per_lr * (ratio*ratio*ratio);
+        } else if(ssub1.get()!=pLevel1.get() || ssub2.get()!=pLevel2.get()) {
+          // For more general changes, n_hr_per_lr might not be calculable.
+          // In the most general map, n_hr_per_lr might vary from particle to particle
+          // (e.g. if we start allowing multi-level zooms). This would require
+          // re-implementation of the entire mapping class to remove the explicit
+          // requirement to know n_hr_per_lr. Work for the future...
+          throw runtime_error("Supersampling/subsampling error. The change is in a regime which can't be calculated.");
+        }
+
 
         return std::make_shared<TwoLevelParticleMapper<T>>(
-            ssub1, ssub2, zoomParticleArray, // <-- WRONG WRONG WRONG! zoomParticleArray not adjusted
-            n_hr_per_lr*upgrade2/upgrade1,
+            ssub1, ssub2, newZoomParticles,
+            new_n_hr_per_lr,
             skipLevel1);
     }
 
 };
 
-/*
-template<typename T>
-class SubMapper : public ParticleMapper<T>
-{
-public:
-    using MapType = ParticleMapper<T>;
-    using typename MapType::MapPtrType;
-    using typename MapType::GridPtrType;
-    using typename MapType::GridType;
-    using typename MapType::iterator;
-    using typename MapType::ConstGridPtrType;
-
-protected:
-    size_t start;
-    size_t finish;
-    MapPtrType pUnderlying;
-
-    virtual void incrementIterator(iterator *pIterator) const {
-        pIterator->i++;
-        (*(pIterator->subIterators[0]))++;
-    }
-
-
-    virtual std::pair<ConstGridPtrType, size_t> dereferenceIterator(const iterator *pIterator) const {
-        return **(pIterator->subIterators[0]);
-    }
-
-
-public:
-
-    virtual size_t size() const {
-        return finish-start;
-    }
-
-
-    SubMapper( MapPtrType & pUnderlying, size_t start, size_t finish) :
-            pUnderlying(pUnderlying), start(start), finish(finish)
-    {
-        assert(pUnderlying->size_gas()==0);
-    }
-
-
-    virtual void interpretParticleList(const std::vector<size_t> & genericParticleArray) {
-        std::vector<size_t> result;
-
-        for(auto i: genericParticleArray) {
-            if(i+start>finish)
-            throw std::runtime_error("Out of range!");
-            result.push_back(i+start);
-        }
-        pUnderlying->interpretParticleList(result);
-
-    }
-
-    virtual iterator begin() const {
-        iterator i(this);
-        i.subIterators.emplace_back(new iterator(pUnderlying->begin()));
-        *(i.subIterators[0])+=start;
-        return i;
-    }
-
-};
-*/
+template class std::vector<size_t>;
 
 
 
@@ -812,7 +924,7 @@ public:
     };
 
 
-    virtual void interpretParticleList(const std::vector<size_t> & genericParticleArray) {
+    virtual void distributeParticleList(const std::vector<size_t> & genericParticleArray) {
         std::vector<size_t> first;
         std::vector<size_t> second;
 
@@ -823,9 +935,32 @@ public:
                 second.push_back(i-nFirst);
         }
 
-        firstMap->interpretParticleList(first);
-        secondMap->interpretParticleList(second);
+        // At present we ONLY distribute particles onto the DM grids
+        if(gasFirst)
+          secondMap->distributeParticleList(second);
+        else
+          firstMap->distributeParticleList(first);
 
+    }
+
+    virtual void clearParticleList() override {
+        firstMap->clearParticleList();
+        secondMap->clearParticleList();
+    }
+
+    void gatherParticleList(std::vector<size_t> & particleArray) const override {
+      // At present we ONLY gather particles from the DM grids, to make
+      // this the inverse operation to distributeParticleList.
+      if(gasFirst) {
+        secondMap->gatherParticleList(particleArray);
+
+        // perform offset
+        for(size_t & i : particleArray)
+          i+=nFirst;
+
+      } else {
+        firstMap->gatherParticleList(particleArray);
+      }
     }
 
     virtual iterator begin() const override {
@@ -851,10 +986,16 @@ public:
         return (gasFirst?firstMap:secondMap)->end();
     }
 
-    MapPtrType superOrSubSample(int ratio, const std::vector<GridPtrType> & toGrids, bool super) override
+    MapPtrType superOrSubSampleDM(int ratio, const std::vector<GridPtrType> & toGrids, bool super) override
     {
-        auto ssub1 = firstMap->superOrSubSample(ratio, toGrids, super);
-        auto ssub2 = secondMap->superOrSubSample(ratio, toGrids, super);
+        auto ssub1 = firstMap;
+        auto ssub2 = secondMap;
+
+        if(gasFirst)
+          ssub2 = ssub2->superOrSubSampleDM(ratio, toGrids, super);
+        else
+          ssub1 = ssub1->superOrSubSampleDM(ratio, toGrids, super);
+
         return std::make_shared<AddGasMapper<T>>(
             ssub1, ssub2, gasFirst);
     }

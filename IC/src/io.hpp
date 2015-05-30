@@ -535,7 +535,6 @@ void SaveTipsy(const std::string & filename,
 
     mass_factor = Om0/tot_mass; // tipsy convention: sum(mass)=Om0
 
-
     io_header_tipsy header;
 
     header.scalefactor = ain;
@@ -719,6 +718,16 @@ void getBuffer(std::vector<T> &store, std::string filename) {
         T temp;
         if(f >> temp)
             store.push_back(temp);
+    }
+}
+
+template<typename T>
+void dumpBuffer(const std::vector<T> &store, std::string filename) {
+    std::ofstream f(filename);
+    if(!f.is_open())
+        throw std::runtime_error("Can't open file "+filename);
+    for(const T & item : store) {
+      f << item << std::endl;
     }
 }
 
