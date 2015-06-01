@@ -42,6 +42,7 @@ GIT_VERSION = $(shell git rev-parse --short HEAD)
 GIT_MODIFIED = $(shell git ls-files -m | tr "\n" " ")
 GIT_VARIABLES = -DGIT_VERSION='"$(GIT_VERSION)"' -DGIT_MODIFIED='"$(GIT_MODIFIED)"'
 
+
 ifeq ($(HOST), bridg)
 	CC = /nasa/pkgsrc/2015Q1/gcc49/bin/gcc
 	CPATH = /nasa/gsl/1.14/include/:/nasa/intel/Compiler/2015.0.090/composer_xe_2015.0.090/mkl/include/fftw/:/nasa/intel/Compiler/2015.0.090/composer_xe_2015.0.090/mkl/include/

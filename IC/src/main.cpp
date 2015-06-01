@@ -156,7 +156,7 @@ int main(int argc, char *argv[]) {
 
     cerr << "GM ICs code, compiled " << __DATE__ << " " << __TIME__ <<endl;
     cerr << "git HEAD:" << GIT_VERSION << endl;
-    if(sizeof(GIT_MODIFIED)!=0) {
+    if(sizeof(GIT_MODIFIED)>1) {
       cerr << "However, the following files are modified:" << endl;
       cerr << "  " << GIT_MODIFIED << endl;
     }
