@@ -42,7 +42,7 @@ private:
         std::function<R(Args...)> f;
     };
 
-    typedef std::function<Rtype(const Base*, std::istream&) > callerfn;
+    typedef std::function<Rtype(const Base*, std::istream&, std::ostream*) > callerfn;
 
     std::map<std::string,
              std::pair<std::shared_ptr<Base>, callerfn> > _map;
@@ -63,26 +63,34 @@ private:
 
     template<typename... Args>
     static Rtype call_function(const std::function<Rtype()> &f,
-                                       std::istream & input_stream) {
+                                       std::istream & input_stream,
+                                       std::ostream * output_stream) {
        consume_comments(input_stream);
        return f();
     }
 
     template<typename T1>
     static Rtype call_function(const std::function<Rtype(T1)> &f,
-                               std::istream & input_stream) {
+                               std::istream & input_stream,
+                               std::ostream * output_stream) {
         T1 t1;
 
         if(input_stream.eof())
             throw DispatchError("Insufficient arugments (expected 1, got 0)");
         input_stream >> t1;
+
         consume_comments(input_stream);
+
+        if(output_stream!=nullptr)
+            (*output_stream) << t1 << std::endl;
+
         return f(t1);
     }
 
     template<typename T1, typename T2>
     static Rtype call_function(const std::function<Rtype(T1,T2)> &f,
-                               std::istream & input_stream) {
+                               std::istream & input_stream,
+                               std::ostream * output_stream) {
 
         if(input_stream.eof())
            throw DispatchError("Insufficient arugments (expected 2, got 0)");
@@ -92,12 +100,15 @@ private:
         T2 t2;
         input_stream >> t1 >> t2;
         consume_comments(input_stream);
+        if(output_stream!=nullptr)
+            (*output_stream) << t1 << " " << t2 << std::endl;
         return f(t1,t2);
     }
 
     template<typename T1, typename T2, typename T3>
     static Rtype call_function(const std::function<Rtype(T1,T2,T3)> &f,
-                               std::istream & input_stream) {
+                               std::istream & input_stream,
+                               std::ostream * output_stream) {
 
         if(input_stream.eof())
            throw DispatchError("Insufficient arugments (expected 3, got 0)");
@@ -110,12 +121,15 @@ private:
         T3 t3;
         input_stream >> t1 >> t2 >> t3;
         consume_comments(input_stream);
+        if(output_stream!=nullptr)
+            (*output_stream) << t1 << " " << t2 << " " << t3 << std::endl;
         return f(t1,t2,t3);
     }
 
     template<typename... Args>
     static Rtype unpack_and_call_function(const Base *fobj,
-                               std::istream & input_stream) {
+                               std::istream & input_stream,
+                               std::ostream * output_stream) {
 
         // Turn the function back into the correct type (with argument information)
         // and call it using arguments on the input_stream
@@ -123,33 +137,12 @@ private:
        auto pfunc = dynamic_cast<const Func<Rtype, Args...>*>(fobj);
 
        if(pfunc)
-           return call_function<Args...>(pfunc->f, input_stream);
+           return call_function<Args...>(pfunc->f, input_stream, output_stream);
        else
            throw DispatchError("Wrong type");
     }
 
-public:
-    bool ignoreUnknownCommand;
-
-    Dispatch(bool ignoreUnknownCommand=false) : ignoreUnknownCommand(ignoreUnknownCommand) {}
-
-    template<typename... Args>
-    void add_route(const std::string &name,
-              const std::function<Rtype(Args...)> &function) {
-        // Define a route that calls the given function
-
-        auto pfunc = std::make_shared<Func<Rtype, Args...>>();
-        auto pcaller = std::function<Rtype(const Base*, std::istream&) >(&unpack_and_call_function<Args...>);
-        pfunc->f = function;
-
-        std::string lname(name);
-
-        std::transform(lname.begin(), lname.end(), lname.begin(), ::tolower);
-        _map.insert(std::make_pair(lname, std::make_pair(pfunc, pcaller)));
-    }
-
-
-    Rtype run(std::istream & input_stream) {
+    Rtype run(std::istream & input_stream, std::ostream * output_stream) {
         // Take a single line out of the input stream and try to execute it
 
         std::string s;
@@ -172,11 +165,14 @@ public:
               throw DispatchError("Unknown command");
         }
 
+        if(output_stream!=nullptr)
+            (*output_stream) << s << " ";
+
         // do it!
-        return caller(function, input_stream);
+        return caller(function, input_stream, output_stream);
     }
 
-    void run_loop(std::istream & input_stream) {
+    void run_loop(std::istream & input_stream, std::ostream * output_stream) {
         std::string str;
         std::stringstream ss;
 
@@ -186,7 +182,7 @@ public:
             ss.str(str);
             line+=1;
             try {
-                run(ss);
+                run(ss, output_stream);
             } catch(std::exception &e) {
                 std::cerr << "Error \"" << e.what() << "\" on line " << line << " (\"" << str << "\")" << std::endl;
                 exit(1);
@@ -194,6 +190,43 @@ public:
             ss.clear();
         }
 
+    }
+
+public:
+    bool ignoreUnknownCommand;
+
+    Dispatch(bool ignoreUnknownCommand=false) : ignoreUnknownCommand(ignoreUnknownCommand) {}
+
+    template<typename... Args>
+    void add_route(const std::string &name,
+              const std::function<Rtype(Args...)> &function) {
+        // Define a route that calls the given function
+
+        auto pfunc = std::make_shared<Func<Rtype, Args...>>();
+        auto pcaller = std::function<Rtype(const Base*, std::istream&, std::ostream*) >(&unpack_and_call_function<Args...>);
+        pfunc->f = function;
+
+        std::string lname(name);
+
+        std::transform(lname.begin(), lname.end(), lname.begin(), ::tolower);
+        _map.insert(std::make_pair(lname, std::make_pair(pfunc, pcaller)));
+    }
+
+
+    void run(std::istream & input_stream) {
+        run(input_stream, nullptr);
+    }
+
+    void run(std::istream & input_stream, std::ostream & output_stream) {
+        run(input_stream, &output_stream);
+    }
+
+    void run_loop(std::istream & input_stream) {
+        run_loop(input_stream, nullptr);
+    }
+
+    void run_loop(std::istream & input_stream, std::ostream & output_stream) {
+        run_loop(input_stream, &output_stream);
     }
 
 };

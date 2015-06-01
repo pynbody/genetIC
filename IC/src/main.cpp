@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <sstream>
 #include <cmath>
+#include <ctime>
 #include <fstream>
 #include <iostream>
 #include <iomanip>
@@ -123,6 +124,21 @@ void setup_parser(ClassDispatch<ICf,void> &dispatch) {
 
 }
 
+void header(ostream &outf) {
+    time_t now = time(0);
+    struct tm tstruct;
+    char buf[80];
+    tstruct = *localtime(&now);
+    strftime(buf, sizeof(buf), "%Y-%m-%d.%X", &tstruct);
+
+    outf << "# GM ICs code, compiled " << __DATE__ << " " << __TIME__ <<endl;
+    outf << "# git HEAD:" << GIT_VERSION << endl;
+    if(sizeof(GIT_MODIFIED)>1) {
+      outf << "# However, the following files are modified:" << endl;
+      outf << "#  " << GIT_MODIFIED << endl;
+    }
+    outf << "# Runtime: " << buf << endl << endl;
+}
 
 int main(int argc, char *argv[]) {
     using namespace std;
@@ -141,6 +157,17 @@ int main(int argc, char *argv[]) {
         exit(1);
     }
 
+    ofstream outf;
+    outf.open("IC_output.params");
+
+    if(!outf.is_open()) {
+        cerr << "Error: could not open output file" << endl;
+        exit(1);
+    }
+
+    header(outf);
+    header(cerr);
+
     // Set up the command interpreter to issue commands to main_generator
     ClassDispatch<ICf,void> dispatch_generator;
     setup_parser(dispatch_generator);
@@ -156,17 +183,11 @@ int main(int argc, char *argv[]) {
 
 
 
-    cerr << "GM ICs code, compiled " << __DATE__ << " " << __TIME__ <<endl;
-    cerr << "git HEAD:" << GIT_VERSION << endl;
-    if(sizeof(GIT_MODIFIED)>1) {
-      cerr << "However, the following files are modified:" << endl;
-      cerr << "  " << GIT_MODIFIED << endl;
-    }
 
 
 
     // Read and act on the commands
-    dispatch.run_loop(inf);
+    dispatch.run_loop(inf, outf);
 
     // All done - write out
     // generator.write();
