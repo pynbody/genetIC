@@ -1,4 +1,4 @@
-# Test basic uniform volume
+# Test shifted uniform volume
 
 Om  0.279
 Ol  0.721
