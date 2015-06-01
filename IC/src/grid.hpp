@@ -39,6 +39,7 @@ private:
     std::shared_ptr<TRealField> pOff_z;
 
     T hFactor, cellMass;
+    T kMin, kMinSquared;
 
     std::vector<size_t> particleArray; // just a list of particles on this grid for one purpose or another
     std::vector<T*> particleProperties; // a list of particle properties
@@ -95,6 +96,11 @@ protected:
       targetArray.insert(targetArray.end(), targetSet.begin(), targetSet.end());
     }
 
+    void setKmin() {
+        kMin = 2.*M_PI/boxsize;
+        kMinSquared = kMin*kMin;
+    }
+
 public:
 
     const T simsize,boxsize,dx,x0,y0,z0;
@@ -117,6 +123,7 @@ public:
             pField = std::make_shared<std::vector<std::complex<T>>>(size3,0);
             pField->shrink_to_fit();
         }
+        setKmin();
     }
 
 
@@ -127,6 +134,7 @@ public:
     {
       // cerr << "Grid ctor size-only" << endl;
       pField=nullptr;
+      setKmin();
     }
 
     virtual ~Grid() {
@@ -521,14 +529,14 @@ public:
         return std::make_tuple(x,y,z);
     }
 
-    void getKCoordinates(long id, int &x, int &y, int &z) const {
+    void getKCoordinates(size_t id, int &x, int &y, int &z) const {
         getCoordinates(id,x,y,z);
         if(x>size/2) x=x-size;
         if(y>size/2) y=y-size;
         if(z>size/2) z=z-size;
     }
 
-    tuple<int, int, int> getKCoordinates(long id) const {
+    tuple<int, int, int> getKCoordinates(size_t id) const {
         int x, y, z;
 
         getKCoordinates(id, x,y,z);
@@ -536,10 +544,13 @@ public:
         return std::make_tuple(x,y,z);
     }
 
-    T getAbsKCoordinates(long id) const {
+    T getKSquared(size_t id) const {
         int x,y,z;
+        T res;
         getKCoordinates(id,x,y,z);
-        return sqrt(x*x+y*y+z*z);
+        res = x*x+y*y+z*z;
+        res*=kMinSquared;
+        return res;
     }
 
 

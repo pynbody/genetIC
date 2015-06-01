@@ -1216,8 +1216,8 @@ public:
     }
 
 
-    virtual void done() {
-        if(pConstrainer==NULL) {
+    virtual void fixConstraints() {
+        if(pConstrainer==nullptr) {
             throw runtime_error("No constraint information is available. Is your done command too early, or repeated?");
         }
 
@@ -1241,36 +1241,42 @@ public:
         cout << "Expected Delta chi^2=" << pConstrainer->get_delta_chi2() << endl;
 
         delete pConstrainer;
-        pConstrainer=NULL;
+        pConstrainer=nullptr;
+    }
 
-        /*
-        // the following wants to come JUST before writing...
-        // and perhaps should be performed after k-filtering to get the
-        // directional offsets (that's where it can currently be found)
-        for_each_level(level) {
-            if(level>0)
-                interpolateIntoLevel(level); // copy in the underlying field
-        }
-
-        recombineLevel0();
-        */
-
-        // All done - write out
+    virtual void done() {
+        if(pConstrainer!=nullptr) fixConstraints();
         write();
-
-
-
     }
 
     void reverse() {
-        if(pConstrainer!=NULL) {
-            throw runtime_error("Can only reverse field direction after a 'done' command finailises the constraints");
+        if(pConstrainer!=nullptr) {
+            throw runtime_error("Can only reverse field direction after a 'fixconstraints' or 'done' command finailises the constraints");
         }
 
         for_each_level(level) {
             auto & field = pGrid[level]->getField();
-            for(size_t i=0; i<this->nPartLevel[0]; i++)
+            for(size_t i=0; i<this->nPartLevel[level]; i++)
                 field[i]=-field[i];
+        }
+    }
+
+    void reverseSmallK(MyFloat kmin) {
+        if(pConstrainer!=nullptr) {
+            throw runtime_error("Can only reverse field direction after a 'fixconstraints' or 'done' command finailises the constraints");
+        }
+
+        MyFloat k2min = kmin*kmin;
+
+        for_each_level(level) {
+            auto & field = pGrid[level]->getFieldFourier();
+            const auto & grid = *(this->pGrid[level]);
+            MyFloat k2;
+            for(size_t i=0; i<this->nPartLevel[level]; i++) {
+                k2 = grid.getKSquared(i);
+                if(k2<k2min)
+                    field[i]=-field[i];
+            }
         }
     }
 
