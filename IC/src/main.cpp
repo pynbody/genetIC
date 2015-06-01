@@ -108,6 +108,7 @@ void setup_parser(ClassDispatch<ICf,void> &dispatch) {
     dispatch.add_class_route("cov",&ICf::cov);
     dispatch.add_class_route("done",&ICf::done);
     dispatch.add_class_route("fix_constraints",&ICf::fixConstraints);
+    dispatch.add_class_route("offset_output",&ICf::offsetOutput);
     dispatch.add_class_route("reverse",&ICf::reverse);
     dispatch.add_class_route("reverse_small_k",&ICf::reverseSmallK);
     dispatch.add_class_route("dumpgrid",&ICf::dumpGrid);

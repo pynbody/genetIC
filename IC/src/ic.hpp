@@ -47,6 +47,8 @@ protected:
 
     MyFloat x_off[2], y_off[2], z_off[2]; // x,y,z offsets for subgrids
 
+    MyFloat xOffOutput, yOffOutput, zOffOutput;
+
     int zoomfac; // the zoom factor, i.e. the ratio dx/dx[1]
     MyFloat k_cut;   // the cut-off k for low-scale power
 
@@ -101,6 +103,9 @@ public:
         prepared = false;
         supersample = 1;
         subsample = 1;
+        xOffOutput = 0;
+        yOffOutput = 0;
+        zOffOutput = 0;
     }
 
     ~IC() {
@@ -123,6 +128,13 @@ public:
 
     void setHubble(MyFloat in) {
         hubble=in;
+    }
+
+    void offsetOutput(MyFloat x, MyFloat y, MyFloat z) {
+        xOffOutput = x;
+        yOffOutput = y;
+        zOffOutput = z;
+        initMapper();
     }
 
     void setSigma8(MyFloat in) {
@@ -719,13 +731,25 @@ public:
 
     }
 
+    std::shared_ptr<Grid<MyFloat>> getGridWithOutputOffset(int level=0) {
+        auto gridForOutput = pGrid[level];
+
+        if(xOffOutput!=0 || yOffOutput!=0 || zOffOutput!=0) {
+            gridForOutput = std::make_shared<OffsetGrid<MyFloat>>(pGrid[0],xOffOutput,yOffOutput,zOffOutput);
+        }
+        return gridForOutput;
+    }
+
     void initMapper() {
 
       if(pGrid.size()==0)
         return;
 
       // make a basic mapper for the base level grid
-      pMapper = std::shared_ptr<ParticleMapper<MyFloat>>(new OneLevelParticleMapper<MyFloat>(pGrid[0]));
+      pMapper = std::shared_ptr<ParticleMapper<MyFloat>>(new OneLevelParticleMapper<MyFloat>(
+            getGridWithOutputOffset(0)
+      ));
+
 
       if(pGrid.size()>=3) {
         // possible future enhancement, but for now...
@@ -734,7 +758,7 @@ public:
 
       if(pGrid.size()==2) {
         // it's a zoom!
-        auto pMapperLevel1 = std::shared_ptr<ParticleMapper<MyFloat>>(new OneLevelParticleMapper<MyFloat>(pGrid.back()));
+        auto pMapperLevel1 = std::shared_ptr<ParticleMapper<MyFloat>>(new OneLevelParticleMapper<MyFloat>(getGridWithOutputOffset(1)));
 
         pMapper = std::shared_ptr<ParticleMapper<MyFloat>>(
             new TwoLevelParticleMapper<MyFloat>(pMapper, pMapperLevel1, zoomParticleArray, zoomfac*zoomfac*zoomfac));

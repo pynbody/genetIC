@@ -781,6 +781,55 @@ public:
 
 };
 
+template<typename T>
+class OffsetGrid : public VirtualGrid<T> {
+private:
+    T xOffset,yOffset,zOffset;
+
+protected:
+    using typename Grid<T>::TField;
+    using typename Grid<T>::TRealField;
+    using typename Grid<T>::PtrTField;
+    using typename Grid<T>::GridPtrType;
+
+public:
+    OffsetGrid(GridPtrType pUnderlying, T dx, T dy, T dz):
+            VirtualGrid<T>(pUnderlying),
+            xOffset(dx), yOffset(dy), zOffset(dz)
+    {
+
+    }
+
+
+    virtual void debugName(std::ostream &s) const override {
+        s << "OffsetGrid";
+    }
+
+    virtual void getParticle(size_t id, T &x, T &y, T &z, T &vx, T &vy, T &vz, T &cellMassi, T &eps) const
+    {
+        this->pUnderlying->getParticle(id,x,y,z,vx,vy,vz,cellMassi,eps);
+        x+=xOffset;
+        y+=yOffset;
+        z+=zOffset;
+        this->simWrap(x,y,z);
+    }
+
+    void getParticleFromOffset(T &x, T &y, T &z, T &vx, T &vy, T &vz, T &cellMassi, T &eps) const override
+    {
+        x-=xOffset;
+        y-=yOffset;
+        z-=zOffset;
+        this->simWrap(x,y,z);
+        this->pUnderlying->getParticleFromOffset(x,y,z,vx,vy,vz,cellMassi,eps);
+        x+=xOffset;
+        y+=yOffset;
+        z+=zOffset;
+        this->simWrap(x,y,z);
+    }
+
+
+};
+
 
 
 template<typename T>
