@@ -358,10 +358,14 @@ public:
         long id_k, id_negk;
         id_k = kgridToIndex(k1,k2,k3,n);
         id_negk = kgridToIndex(-k1,-k2,-k3,n);
+
         pField_k[id_k]=std::complex<MyFloat>(norm*gsl_ran_gaussian_ziggurat(r,1.),norm*gsl_ran_gaussian_ziggurat(r,1.));
 
         // reality condition:
         pField_k[id_negk]=std::conj(pField_k[id_k]);
+
+        if(k1==1 && k2==1)
+          cerr << "check " <<pField_k[id_k] << " " << pField_k[id_negk] << endl;
     }
 
 
