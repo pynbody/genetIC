@@ -1299,16 +1299,30 @@ public:
 
         MyFloat k2min = kmin*kmin;
 
+
         for_each_level(level) {
-            auto & field = pGrid[level]->getFieldFourier();
-            const auto & grid = *(this->pGrid[level]);
-            MyFloat k2;
-            for(size_t i=0; i<this->nPartLevel[level]; i++) {
-                k2 = grid.getKSquared(i);
-                if(k2<k2min)
-                    field[i]=-field[i];
-            }
+	  MyFloat k2_g_min=std::numeric_limits<MyFloat>::max();
+	  MyFloat k2_g_max=0.0;
+	  size_t modes_reversed=0;
+	  size_t tot_modes =pGrid[level]->size3;
+	  auto & field = pGrid[level]->getFieldFourier();
+	  const auto & grid = *(this->pGrid[level]);
+	  MyFloat k2;
+	  for(size_t i=0; i<this->nPartLevel[level]; i++) {
+	    k2 = grid.getKSquared(i);
+	    if(k2<k2min && k2!=0) {
+	      field[i]=-field[i];
+	      modes_reversed++;
+	    }
+	    if(k2<k2_g_min && k2!=0)
+	      k2_g_min = k2;
+	    if(k2>k2_g_max)
+	      k2_g_max = k2;
+	  }
+	  cerr << "reverseSmallK: k reversal at " << sqrt(k2min) << "; grid was in range " << sqrt(k2_g_min) << " to " << sqrt (k2_g_max) << endl;
+	  cerr << "               modes reversed = " << modes_reversed << " of " << tot_modes << endl;
         }
+		
     }
 
 
