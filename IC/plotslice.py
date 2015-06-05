@@ -1,12 +1,63 @@
 import numpy as np
 import pylab as p
 
-def plotslice(prefix="output/",slice=0.0,plot_b=True,vmin=-0.15,vmax=0.15):
+def plot1dslice(prefix="output/",ps="-",slice_z=None,slice_y=None,plot_b=True,vmin=-0.15,vmax=0.15):
     a = np.load(prefix+"grid-0.npy")
-    b = np.load(prefix+"grid-1.npy")
+    if plot_b:
+        b = np.load(prefix+"grid-1.npy")
 
     ax,ay,az,aL = [float(x) for x in open(prefix+"grid-info-0.txt").readline().split()]
-    bx,by,bz,bL = [float(x) for x in open(prefix+"grid-info-1.txt").readline().split()]
+
+    if slice_z is None:
+        slice_z = aL/2
+
+    if slice_y is None:
+        slice_y = aL/2
+
+    if plot_b:
+        bx,by,bz,bL = [float(x) for x in open(prefix+"grid-info-1.txt").readline().split()]
+
+    a_sl_z = int(len(a)*((slice_z-az)/aL))
+    a_sl_y = int(len(a)*((slice_y-ay)/aL))
+
+    print "a_sl_z,a_sl_y=",a_sl_z,a_sl_y
+
+    dx = aL/len(a)
+
+    a_vals = np.linspace(ax+dx/2,ax+aL-dx/2,len(a))
+
+
+
+    if plot_b:
+        b_sl_z = int(len(b)*((slice_z-bz)/bL))
+        b_sl_y = int(len(b)*((slice_y-by)/bL))
+        print "b_sl_z,b_sl_y=",b_sl_z,b_sl_y
+        dx = bL/len(b)
+        b_vals = np.linspace(bx+dx/2,bx+bL-dx/2,len(b))
+        a[(a_vals>b_vals.min()) * (a_vals<b_vals.max())] = np.nan
+        p.plot(a_vals,a[:,a_sl_y,a_sl_z].real,ps)
+        p.plot(b_vals,b[:,b_sl_y,b_sl_z].real,ps)
+
+
+
+    else :
+        p.plot(a_vals,a[:,a_sl_y,a_sl_z].real,ps)
+
+    p.xlim(0,aL)
+
+
+
+def plotslice(prefix="output/",slice=None,plot_b=True,vmin=-0.15,vmax=0.15):
+    a = np.load(prefix+"grid-0.npy")
+    if plot_b:
+        b = np.load(prefix+"grid-1.npy")
+
+    ax,ay,az,aL = [float(x) for x in open(prefix+"grid-info-0.txt").readline().split()]
+    if slice is None:
+        slice = aL/2
+
+    if plot_b:
+        bx,by,bz,bL = [float(x) for x in open(prefix+"grid-info-1.txt").readline().split()]
 
     a_sl = int(len(a)*((slice-az)/aL))
 

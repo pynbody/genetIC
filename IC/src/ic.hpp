@@ -233,7 +233,6 @@ public:
             if(x>x1) x1=x;
             if(y>y1) y1=y;
             if(z>z1) z1=z;
-            // cerr << i << " " << zoomParticleArray[i] << " " << x << " " << y << " " << z << endl;
         }
 
         // Now see if the zoom the user chose is OK
@@ -658,8 +657,7 @@ public:
         filename << indir << "/grid-" << level << ".npy";
 
         const int dim[3] = { n[level],n[level],n[level] };
-        numpy::SaveArrayAsNumpy(filename.str(), true, 3, dim, pGrid[level]->getFieldReal().data() );
-
+        numpy::SaveArrayAsNumpy(filename.str(), false, 3, dim, pGrid[level]->getFieldReal().data() );
 
         filename.str("");
         filename << indir << "/grid-info-" << level << ".txt";
@@ -1322,7 +1320,7 @@ public:
 	  cerr << "reverseSmallK: k reversal at " << sqrt(k2min) << "; grid was in range " << sqrt(k2_g_min) << " to " << sqrt (k2_g_max) << endl;
 	  cerr << "               modes reversed = " << modes_reversed << " of " << tot_modes << endl;
         }
-		
+
     }
 
 

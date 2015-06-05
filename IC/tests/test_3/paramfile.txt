@@ -4,12 +4,12 @@ Om  0.279
 Ol  0.721
 #Ob  0.04
 s8  0.817
-Boxl	50
+Boxl	64
 zin	99
 n       64
 output	1
 seed	8896131
-outname test_2
+outname test_3
 
 
 zoom 3
@@ -21,12 +21,19 @@ camb	../camb_transfer_kmax40_z0.dat
 outdir	 ./
 gadgetformat 4
 
+zerolevel -1
+zerolevel 0
+zerolevel 1
 
 IDfile constrtest.txt
 dump_IDfile check_constr.txt
 
 calculate overdensity
-constrain overdensity absolute 10.0
+constrain overdensity absolute 1.0
+
 
 
 done
+
+dumpgrid 0
+dumpgrid 1
