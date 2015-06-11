@@ -65,7 +65,7 @@ protected:
     string incamb, indir, inname, base;
 
     bool whiteNoiseFourier;
-
+    bool reverseFourierRandomDrawOrder;
     bool prepared;
 
 
@@ -304,6 +304,13 @@ public:
     void setSeedFourier(int in) {
         seed = in;
         whiteNoiseFourier = true;
+	reverseFourierRandomDrawOrder = false;
+    }
+
+    void setSeedFourierReverseOrder(int in) {
+        seed = in;
+        whiteNoiseFourier = true;
+	reverseFourierRandomDrawOrder = true;
     }
 
     void setCambDat(std::string in) {
@@ -353,7 +360,7 @@ public:
     }
 
     static void drawOneFourierMode(gsl_rng *r, int k1, int k2, int k3,
-                                  MyFloat norm, int n, RefFieldType pField_k) {
+				   MyFloat norm, int n, RefFieldType pField_k, bool reverseRandomDrawOrder) {
         long id_k, id_negk;
         id_k = kgridToIndex(k1,k2,k3,n);
         id_negk = kgridToIndex(-k1,-k2,-k3,n);
@@ -363,7 +370,10 @@ public:
         MyFloat a = norm*gsl_ran_gaussian_ziggurat(r,1.);
         MyFloat b = norm*gsl_ran_gaussian_ziggurat(r,1.);
 
-        pField_k[id_k]=std::complex<MyFloat>(a,b);
+	if(reverseRandomDrawOrder)
+	  pField_k[id_k]=std::complex<MyFloat>(b,a);
+	else
+	  pField_k[id_k]=std::complex<MyFloat>(a,b);
 
         // reality condition:
         pField_k[id_negk]=std::conj(pField_k[id_k]);
@@ -403,7 +413,7 @@ public:
 
     static void drawRandomForSpecifiedGridFourier(int n,
                                            RefFieldType pField_k,
-                                           gsl_rng * r) {
+						  gsl_rng * r, bool reverseRandomDrawOrder) {
 
        long nPartTotal = n;
        nPartTotal*=n*n;
@@ -425,9 +435,9 @@ public:
        for(ks=0; ks<n/2;ks++) {
            for(k1=-ks; k1<ks; k1++) {
                for(k2=-ks; k2<ks; k2++) {
-                   drawOneFourierMode(r,ks,k1,k2,sigma,n,pField_k);
-                   drawOneFourierMode(r,k1,ks,k2,sigma,n,pField_k);
-                   drawOneFourierMode(r,k1,k2,ks,sigma,n,pField_k);
+		 drawOneFourierMode(r,ks,k1,k2,sigma,n,pField_k,reverseRandomDrawOrder);
+		 drawOneFourierMode(r,k1,ks,k2,sigma,n,pField_k,reverseRandomDrawOrder);
+		 drawOneFourierMode(r,k1,k2,ks,sigma,n,pField_k,reverseRandomDrawOrder);
                }
            }
         }
@@ -444,10 +454,11 @@ public:
 
         for_each_level(level) {
             cerr << "Generate random noise for level " << level <<endl;
-            if(whiteNoiseFourier)
-                drawRandomForSpecifiedGridFourier(n[level], pGrid[level]->getFieldFourier(),r);
-            else
+            if(whiteNoiseFourier) {
+	      drawRandomForSpecifiedGridFourier(n[level], pGrid[level]->getFieldFourier(),r,reverseFourierRandomDrawOrder);
+            } else {
                 drawRandomForSpecifiedGrid(n[level], pGrid[level]->getFieldFourier(),r);
+	    }
         }
 
         gsl_rng_free (r);

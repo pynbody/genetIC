@@ -87,6 +87,7 @@ void setup_parser(ClassDispatch<ICf,void> &dispatch) {
     dispatch.add_class_route("output",&ICf::setOutputMode);
     dispatch.add_class_route("seed",&ICf::setSeed);
     dispatch.add_class_route("seedfourier",&ICf::setSeedFourier);
+    dispatch.add_class_route("seedfourier_old",&ICf::setSeedFourierReverseOrder);
     dispatch.add_class_route("camb",&ICf::setCambDat);
     dispatch.add_class_route("outdir",&ICf::setOutDir);
     dispatch.add_class_route("outname",&ICf::setOutName);
