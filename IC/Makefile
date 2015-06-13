@@ -59,8 +59,8 @@ ifeq ($(HOST), Piann)
 endif
 
 ifeq ($(HOST), Rhodo)
-	C = clang
-	CC = clang -lstdc++ -O0 -g
+	C = /usr/bin/g++
+	CC = /usr/bin/g++ -lstdc++ -O3 -g -L/usr/local/lib/
 endif
 
 ifeq ($(HOST), dirac)

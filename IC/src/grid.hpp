@@ -211,7 +211,13 @@ public:
         return fieldFourier;
     }
 
-    virtual void getParticle(size_t id, T &x, T &y, T &z, T &vx, T &vy, T &vz, T &cellMassi, T &eps) const
+    void getParticle(size_t id, T &x, T &y, T &z, T &vx, T &vy, T &vz, T &cellMassi, T &eps) const
+    {
+        getParticleNoWrap(id,x,y,z,vx,vy,vz,cellMassi,eps);
+        simWrap(x,y,z);
+    }
+
+    virtual void getParticleNoWrap(size_t id, T &x, T &y, T &z, T &vx, T &vy, T &vz, T &cellMassi, T &eps) const
     {
         getParticleNoOffset(id, x, y, z, vx, vy, vz, cellMassi, eps);
         addCentroidLocation(id,x,y,z);
@@ -225,7 +231,7 @@ public:
         return dx*0.01075; // <-- arbitrary to coincide with normal UW resolution. TODO: Find a way to make this flexible.
     }
 
-    virtual void getParticleNoOffset(size_t id, T &x, T &y, T &z, T &vx, T &vy, T &vz, T &cellMassi, T &eps) const
+    void getParticleNoOffset(size_t id, T &x, T &y, T &z, T &vx, T &vy, T &vz, T &cellMassi, T &eps) const
     {
 
         x = (*pOff_x)[id];
@@ -570,9 +576,6 @@ public:
         yc += y0+y*dx+dx/2;
         zc += z0+z*dx+dx/2;
 
-        // always wrap at the BASE level:
-        simWrap(xc,yc,zc);
-
     }
 
     tuple<T, T, T> getCentroidLocation(long id) const {
@@ -705,9 +708,9 @@ public:
         return pUnderlying->getMass();
     }
 
-    void getParticle(size_t id, T &x, T &y, T &z, T &vx, T &vy, T &vz, T &cellMassi, T &eps) const override
+    void getParticleNoWrap(size_t id, T &x, T &y, T &z, T &vx, T &vy, T &vz, T &cellMassi, T &eps) const override
     {
-      pUnderlying->getParticle(id,x,y,z,vx,vy,vz,cellMassi,eps);
+      pUnderlying->getParticleNoWrap(id,x,y,z,vx,vy,vz,cellMassi,eps);
     }
 
     void getParticleFromOffset(T &x, T &y, T &z, T &vx, T &vy, T &vz, T &cellMassi, T &eps) const override
@@ -765,7 +768,7 @@ public:
       return this->pUnderlying->estimateParticleListSize()*factor3;
     }
 
-    virtual void getParticle(size_t id, T &x, T &y, T &z, T &vx, T &vy, T &vz, T &cellMassi, T &eps) const
+    virtual void getParticleNoWrap(size_t id, T &x, T &y, T &z, T &vx, T &vy, T &vz, T &cellMassi, T &eps) const
     {
         this->getCentroidLocation(id,x,y,z);
         getParticleFromOffset(x, y, z, vx, vy, vz, cellMassi, eps);
@@ -805,9 +808,9 @@ public:
         s << "OffsetGrid";
     }
 
-    virtual void getParticle(size_t id, T &x, T &y, T &z, T &vx, T &vy, T &vz, T &cellMassi, T &eps) const
+    virtual void getParticleNoWrap(size_t id, T &x, T &y, T &z, T &vx, T &vy, T &vz, T &cellMassi, T &eps) const
     {
-        this->pUnderlying->getParticle(id,x,y,z,vx,vy,vz,cellMassi,eps);
+        this->pUnderlying->getParticleNoWrap(id,x,y,z,vx,vy,vz,cellMassi,eps);
         x+=xOffset;
         y+=yOffset;
         z+=zOffset;
@@ -885,7 +888,7 @@ public:
     }
 
 
-    virtual void getParticle(size_t id, T &x, T &y, T &z, T &vx, T &vy, T &vz, T &cellMassi, T &eps) const
+    virtual void getParticleNoWrap(size_t id, T &x, T &y, T &z, T &vx, T &vy, T &vz, T &cellMassi, T &eps) const
     {
       int x0,y0,z0;
       this->getCoordinates(id, x0, y0, z0);
@@ -902,13 +905,19 @@ public:
       vz=0;
       cellMassi=0;
       eps=0;
-
+        
+        /*
+      this->pUnderlying->getParticle(this->pUnderlying->getIndexNoWrap(x0,y0,z0),
+                                       x,y,z,vx,vy,vz,cellMassi,eps);
+      cellMassi*=factor3;
+      */
+        
       // construct our virtual values from average over the underlying cells
       for(auto xi=x0; xi<x1; ++xi) {
         for (auto yi=y0; yi<y1; ++yi) {
           for (auto zi=z0; zi<z1; ++zi) {
-            this->pUnderlying->getParticle(this->pUnderlying->getIndexNoWrap(xi,yi,zi),
-                                           xt,yt,zt,vxt,vyt,vzt,cellMassit,epst);
+            this->pUnderlying->getParticleNoWrap(this->pUnderlying->getIndexNoWrap(xi,yi,zi),
+                                                 xt,yt,zt,vxt,vyt,vzt,cellMassit,epst);
             x+=xt/factor3;
             y+=yt/factor3;
             z+=zt/factor3;
@@ -922,6 +931,7 @@ public:
           }
         }
       }
+
 
     }
 
@@ -962,9 +972,9 @@ public:
         return this->pUnderlying->getMass()*massFac;
     }
 
-    virtual void getParticle(size_t id, T &x, T &y, T &z, T &vx, T &vy, T &vz, T &cellMassi, T &eps) const
+    virtual void getParticleNoWrap(size_t id, T &x, T &y, T &z, T &vx, T &vy, T &vz, T &cellMassi, T &eps) const
     {
-      this->pUnderlying->getParticle(id,x,y,z,vx,vy,vz,cellMassi,eps);
+      this->pUnderlying->getParticleNoWrap(id,x,y,z,vx,vy,vz,cellMassi,eps);
       cellMassi*=massFac;
     }
 

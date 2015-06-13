@@ -22,6 +22,9 @@ using namespace std;
 template<typename MyFloat>
 class DummyIC;
 
+
+
+
 template<typename MyFloat>
 class IC {
 protected:
@@ -171,7 +174,7 @@ public:
         if(n[level]<0 || boxlen[level]<0)
             return;
 
-        nPartLevel[level] = ((long)n[level]*n[level])*n[level];
+        nPartLevel[level] = ((size_t) n[level]*n[level])*n[level];
         dx[level] = boxlen[level]/n[level];
 
         if(pGrid.size()!=level)
@@ -191,7 +194,7 @@ public:
 
     void setn2(int in) {
         n[1] = in;
-        nPartLevel[1] = ((long)n[1]*n[1])*n[1];
+        nPartLevel[1] = ((size_t)n[1]*n[1])*n[1];
     }
 
     void setZoom(int in) {
