@@ -228,8 +228,18 @@ def pixel_to_harmonic_matrix(length=500) :
 def powerlaw_covariance(power_index=-0.5, length=500, cutoff=None) :
     """Generate a covariance matrix for a given power law spectrum"""
     M = pixel_to_harmonic_matrix(length)
-    pspec = np.arange(0.,length)**power_index
+    # old method:
+    #pspec = np.arange(0.,length)**power_index
+
+    pspec = np.zeros(length)
+
+    k_vals = np.arange(0.0,length)
+    k_vals[k_vals>length/2]=length-k_vals[k_vals>length/2]
+
+    pspec = k_vals**power_index
     pspec[0]=0
+
+    print pspec[:10]
 
     if cutoff:
         pspec*=1./(np.exp((np.arange(0.,length)-cutoff)/(50))+1)

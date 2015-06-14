@@ -64,7 +64,7 @@ class ZoomConstrained(object):
         self.k_high = scipy.fftpack.rfftfreq(self.n2,d=self.delta_high)
         self.C_low = self.get_cov(self.k_low)
         self.C_high = self.get_cov(self.k_high)
-        self.zoom_fac = self.scale*(self.n2/self.n1)
+        self.zoom_fac = (self.scale*self.n2)/self.n1
         self.constraints =[]
         self.constraints_val = []
         self.constraints_real = []
@@ -206,7 +206,6 @@ class ZoomConstrained(object):
 
 
 
-
         delta_low, delta_high = self.harmonic_to_pixel(delta_low_k,
                                                        delta_high_k)
 
@@ -326,7 +325,7 @@ class ZoomConstrained(object):
 
 
     def harmonic_to_pixel(self, f_low_k, f_high_k):
-        delta_low = Uifft(f_low_k*self.filter_low(self.k_low))
+        delta_low = Uifft(f_low_k) #*self.filter_low(self.k_low))
         if f_high_k is not None:
             delta_high = Uifft(f_high_k)
         else:
@@ -337,21 +336,48 @@ class ZoomConstrained(object):
         # interpolate the low frequency contribution into the high-res window
         # prepare the data range just around the window ...
 
-        delta_low_window = delta_low[self.offset-1:self.offset+self.n1/self.scale+1]
-        delta_lowhigh = np.zeros(self.n2+self.zoom_fac)
+        if self.zoom_fac==1:
+            # special (testing) case where resolution is the same!
+            delta_lowhigh = delta_low[self.offset:self.offset+self.n2]
+        else:
+            start_point = self.offset-1
+            end_point = self.offset+self.n1/self.scale+1
 
-        #  ... and interpolate linearly ...
+            if start_point<0:
+                assert(start_point==-1)
+                start_point = 0
+                dupl_start = True
+            else:
+                dupl_start = False
 
-        for i in range(self.zoom_fac):
-            weight_hi = self.weights[i]
-            weight_lo = self.weights[self.zoom_fac-i]
-            delta_lowhigh[i::self.zoom_fac] = weight_lo*delta_low_window[:-1] +\
-                weight_hi*delta_low_window[1:]
+            if end_point>len(delta_low):
+                assert(end_point==len(delta_low)+1)
+                end_point = len(delta_low)
+                dupl_end=True
+            else:
+                dupl_end = False
 
-        # trim to size
-        upper = -self.zoom_fac/2+1
-        if upper==0: upper = None
-        delta_lowhigh = delta_lowhigh[self.zoom_fac/2+1:upper]
+            delta_low_window = delta_low[start_point:end_point]
+
+            if dupl_start:
+                delta_low_window = np.concatenate([delta_low_window[-1:],delta_low_window])
+            if dupl_end:
+                delta_low_window = np.concatenate([delta_low_window,delta_low_window[:1]])
+
+            delta_lowhigh = np.zeros(self.n2+self.zoom_fac)
+
+            #  ... and interpolate linearly ...
+
+            for i in range(self.zoom_fac):
+                weight_hi = self.weights[i]
+                weight_lo = self.weights[self.zoom_fac-i]
+                delta_lowhigh[i::self.zoom_fac] = weight_lo*delta_low_window[:-1] +\
+                    weight_hi*delta_low_window[1:]
+
+            # trim to size
+            upper = -self.zoom_fac/2+1
+            if upper==0: upper = None
+            delta_lowhigh = delta_lowhigh[self.zoom_fac/2+1:upper]
 
         return delta_low, delta_lowhigh+delta_high
 
@@ -376,6 +402,7 @@ class ZoomConstrained(object):
         # FB . vec
 
     def norm(self, low, high):
+        # in principle this is missing a low.C.high term :-/
         return self.zoom_fac*complex_dot(low,low*self.C_low)+complex_dot(high,high*self.C_high)
 
     def xCy(self, low1, high1, low2, high2):
@@ -420,7 +447,7 @@ def constraint_vector(scale=100,length=768,position=None) :
     constraint/=constraint.sum()
     return constraint
 
-def deriv_constraint_vector(ignore=0,length=768,position=None) :
+def deriv_constraint_vector(smooth=None,length=768,position=None) :
     """Constraint derivative at given position. First arg is ignored
     but could later define smoothing scale"""
     if position is None :
@@ -429,6 +456,13 @@ def deriv_constraint_vector(ignore=0,length=768,position=None) :
     constraint = np.zeros(length)
     constraint[position+1]=0.5
     constraint[position-1]=-0.5
+    if smooth is not None:
+        X = Ufft(constraint)
+        k = scipy.fftpack.rfftfreq(length,d=1.0)
+        X*=np.exp(-k**2*smooth)
+        constraint = Uifft(X)
+
+    constraint/=np.sqrt(np.dot(constraint,constraint))
     return constraint
 
 def display_cov(G, cov, downgrade=False):
@@ -555,26 +589,35 @@ def WC_vs_CW(plaw=0.0, k_cut = 0.2, part='lo', log=False):
     p.imshow(cv_W-cv_noW,vmin=vmin_diff,vmax=vmax_diff)
 
 
-def demo(val=2.0,seed=1,plaw=-1.5, deriv=False):
+def demo(val=2.0,seed=1,plaw=-1.5, deriv=False, n1=1024, n2=256, k_cut=0.2, scale=4, smooth=10):
     cv_gen = deriv_constraint_vector if deriv else constraint_vector
     cov_this = functools.partial(cov,plaw=plaw)
     if seed is not None:
         np.random.seed(seed)
-    G = ZoomConstrained(cov_this, n2=256, n1=256, scale=4, offset=96)
-    G.add_constraint(val,cv_gen(10,256))
-    #G.add_constraint(-val,constraint_vector(500))
-    x0, x1 = G.xs()
-    r0, r1 = G.realization(test=True)
-    p.plot(x0,r0,':')
-    p.plot(x1,r1,'.')
-    #p.plot([42.05,42.05],[-20,20])
-    import gaussian
+    G = ZoomConstrained(cov_this, k_cut=k_cut, n2=n2, n1=n1, scale=scale, offset=(n1*(scale-1))/(2*scale))
 
-    G = gaussian.Gaussian(gaussian.powerlaw_covariance(plaw,1024))
-    G = G.projection_constrained(cv_gen(10,1024),val)
-    r0 = G.realization()
-    x0 = (np.arange(1024)+0.5)/4
-    p.plot(x0,r0)
+    G.add_constraint(val,cv_gen(smooth,n2))
+
+    x0, x1 = G.xs()
+    r0, r1 = G.realization(test=False)
+    p.plot(x0,r0,':')
+    p.plot(x1,r1,'-')
+
+
+    n1_eff = n2*scale
+    cst_width = (n1_eff/n1)*smooth
+    print "n1_eff=",n1_eff
+    print "cst_width=",cst_width
+
+    Gs = ZoomConstrained(cov_this, k_cut=10000,n2=n1_eff,n1=n1_eff,scale=1,offset=0)
+    Gs.add_constraint(val,cv_gen(cst_width,n1_eff))
+    r0, r1 = Gs.realization()
+    x0 = (np.arange(n1_eff)+0.5)/(n1_eff/n1)
+
+    p.plot(x0,r1,linewidth=4,alpha=0.2)
+
+
+    return G, Gs
 
 def cov_demo(downgrade_view=False,plaw=-1.5):
     cov_this = functools.partial(globals()['cov'],plaw=plaw)
