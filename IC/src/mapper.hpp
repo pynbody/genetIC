@@ -991,9 +991,12 @@ public:
         auto ssub1 = firstMap;
         auto ssub2 = secondMap;
 
-        if(gasFirst)
+	bool applyTo2 = gasFirst || (!super);
+	bool applyTo1 = (!gasFirst) || (!super);
+
+        if(applyTo2)
           ssub2 = ssub2->superOrSubSampleDM(ratio, toGrids, super);
-        else
+        if(applyTo1)
           ssub1 = ssub1->superOrSubSampleDM(ratio, toGrids, super);
 
         return std::make_shared<AddGasMapper<T>>(
