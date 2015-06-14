@@ -18,7 +18,6 @@ class Gaussian(object) :
         assert C.shape[0]==C.shape[1]==len(x0), "Length of x0 and shape of C do not match"
 
 
-
         vals, vecs = np.linalg.eigh(C)
         # sometimes numerical errors give negative eigenvalue that should really just be zero.
         # Fix it within some tolerance
@@ -230,7 +229,7 @@ def powerlaw_covariance(power_index=-0.5, length=500, cutoff=None) :
     """Generate a covariance matrix for a given power law spectrum"""
     M = pixel_to_harmonic_matrix(length)
     pspec = np.arange(0.,length)**power_index
-    pspec[0]=pspec[1]
+    pspec[0]=0
 
     if cutoff:
         pspec*=1./(np.exp((np.arange(0.,length)-cutoff)/(50))+1)

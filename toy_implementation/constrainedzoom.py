@@ -420,6 +420,16 @@ def constraint_vector(scale=100,length=768,position=None) :
     constraint/=constraint.sum()
     return constraint
 
+def deriv_constraint_vector(ignore=0,length=768,position=None) :
+    """Constraint derivative at given position. First arg is ignored
+    but could later define smoothing scale"""
+    if position is None :
+        position = length/2
+
+    constraint = np.zeros(length)
+    constraint[position+1]=0.5
+    constraint[position-1]=-0.5
+    return constraint
 
 def display_cov(G, cov, downgrade=False):
     vmin = np.min(cov)
@@ -545,19 +555,26 @@ def WC_vs_CW(plaw=0.0, k_cut = 0.2, part='lo', log=False):
     p.imshow(cv_W-cv_noW,vmin=vmin_diff,vmax=vmax_diff)
 
 
-def demo(val=2.0,seed=1,plaw=-1.5):
+def demo(val=2.0,seed=1,plaw=-1.5, deriv=False):
+    cv_gen = deriv_constraint_vector if deriv else constraint_vector
     cov_this = functools.partial(cov,plaw=plaw)
     if seed is not None:
         np.random.seed(seed)
-    G = ZoomConstrained(cov_this)
-    G.add_constraint(val,constraint_vector())
+    G = ZoomConstrained(cov_this, n2=256, n1=256, scale=4, offset=96)
+    G.add_constraint(val,cv_gen(10,256))
     #G.add_constraint(-val,constraint_vector(500))
     x0, x1 = G.xs()
-    r0, r1 = G.realization()
+    r0, r1 = G.realization(test=True)
     p.plot(x0,r0,':')
     p.plot(x1,r1,'.')
     #p.plot([42.05,42.05],[-20,20])
+    import gaussian
 
+    G = gaussian.Gaussian(gaussian.powerlaw_covariance(plaw,1024))
+    G = G.projection_constrained(cv_gen(10,1024),val)
+    r0 = G.realization()
+    x0 = (np.arange(1024)+0.5)/4
+    p.plot(x0,r0)
 
 def cov_demo(downgrade_view=False,plaw=-1.5):
     cov_this = functools.partial(globals()['cov'],plaw=plaw)
