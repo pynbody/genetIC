@@ -1,10 +1,9 @@
 import numpy as np
-import numpy.linalg
 import math
 import scipy.fftpack
 import scipy.integrate
+import scipy.interpolate
 import pylab as p
-import copy
 import functools
 
 """
@@ -37,12 +36,10 @@ def cov(x,plaw = -1.5):
 
     return cv
 
-def Ufft(x):
-    """Unitary FFT"""
+def unitary_fft(x):
     return scipy.fftpack.rfft(x)/math.sqrt(float(len(x)))
 
-def Uifft(x):
-    """Unitary inverse FFT"""
+def unitary_inverse_fft(x):
     return scipy.fftpack.irfft(x)*math.sqrt(float(len(x)))
 
 def complex_dot(x,y):
@@ -50,11 +47,14 @@ def complex_dot(x,y):
     return np.dot(x,y) + np.dot(x[1:],y[1:]) # counts +ve and -ve modes
 
 class ZoomConstrained(object):
-    def __init__(self, cov_fn = cov, k_cut=0.2, n1=256, n2=768, scale=4, offset = 10):
+    def __init__(self, cov_fn = cov, k_cut=0.2, n1=256, n2=768, hires_window_scale=4, offset = 10):
+
         self.cov_fn = cov_fn
+        assert n1%hires_window_scale==0, "Scale must divide n1 to fit pixels exactly"
+        assert n2%hires_window_scale==0, "Scale must divide n2 to fit pixels exactly"
         self.n1 = n1
         self.n2 = n2
-        self.scale = scale
+        self.scale = hires_window_scale
         self.offset = offset
         self.k_cut = self.n1*k_cut
         self.weights = self.interpolation_coeffs()
@@ -62,9 +62,17 @@ class ZoomConstrained(object):
         self.delta_high = 1./(self.n2*self.scale)
         self.k_low = scipy.fftpack.rfftfreq(self.n1,d=self.delta_low)
         self.k_high = scipy.fftpack.rfftfreq(self.n2,d=self.delta_high)
+
+        # The covariances have a pixel size dependence that is automatically
+        # included in get_cov, which integrates over the relevant part of the
+        # power spectrum. They also have a window size dependence, because
+        # <x_W x_W^dagger> = <x x^dagger> * W, where W is the fractional length
+        # of the window. This can be most easily seen by thinking in real space.
+        # So, only C_high picks up any explicit dependence here.
         self.C_low = self.get_cov(self.k_low)
-        self.C_high = self.get_cov(self.k_high)
-        self.zoom_fac = (self.scale*self.n2)/self.n1
+        self.C_high = self.get_cov(self.k_high)/hires_window_scale
+
+        self.pixel_size_ratio = (self.scale*self.n2)/self.n1
         self.constraints =[]
         self.constraints_val = []
         self.constraints_real = []
@@ -102,10 +110,9 @@ class ZoomConstrained(object):
         return r
 
     def xs(self):
-        delta_fine = float(self.n1)/(self.scale*self.n2)
         return np.arange(self.n1)+0.5, \
-               np.linspace(self.offset+delta_fine,
-                           self.offset+self.n1/self.scale-delta_fine,self.n2)
+               self.offset + (np.arange(self.n2)+0.5)/self.pixel_size_ratio
+
 
 
     def lowres_covariance(self):
@@ -119,8 +126,8 @@ class ZoomConstrained(object):
         pa[0]=1
         pb[1]=1
 
-        pa_k = Ufft(pa)
-        pb_k = Ufft(pb)
+        pa_k = unitary_fft(pa)
+        pb_k = unitary_fft(pb)
 
         covm = np.zeros((2,2))
 
@@ -156,47 +163,36 @@ class ZoomConstrained(object):
         """
 
 
-    def realization(self,test=False):
+    def realization(self,test=False,no_random=False):
 
-        grid_scalefactor = (self.scale*self.n2)/self.n1
+        pixel_dx_low = 1./self.n1
+        pixel_dx_high = 1./(self.n2*self.scale)
+        k_low = scipy.fftpack.rfftfreq(self.n1,d=pixel_dx_low)
+        k_high = scipy.fftpack.rfftfreq(self.n2,d=pixel_dx_high)
 
-
-        delta_low = 1./self.n1
-        delta_high = 1./(self.n2*self.scale)
-        k_low = scipy.fftpack.rfftfreq(self.n1,d=delta_low)
-        k_high = scipy.fftpack.rfftfreq(self.n2,d=delta_high)
-
-
-        delta_low_k = self.randoms(k_low)
-        delta_high_k = self.randoms(k_high)
+        if no_random:
+            delta_low_k = np.zeros_like(k_low)
+            delta_high_k = np.zeros_like(k_high)
+        else:
+            delta_low_k = self.randoms(k_low)
+            delta_high_k = self.randoms(k_high)
 
         delta_high_k*=np.sqrt(1.-self.filter_low(k_high)**2) # keep original power spectrum
         delta_low_k_plus = delta_low_k*self.filter_high(k_low) # store the filtered-out components of the low-res field
         delta_low_k*=self.filter_low(k_low)
 
-        # TEST - no low-k component
-        # delta_low_k[:]=0
-
-        # THIS SHOULD GO ultimately to save time:
-        if test:
-            delta_low, delta_high = self.harmonic_to_pixel(delta_low_k,
-                                                           delta_high_k)
-
-
 
 
         for (al_low_k,al_high_k), d in zip(self.constraints, self.constraints_val):
-            #al_low_k[:]=0
-
             if test:
-                print "lowdot=",complex_dot(al_low_k,delta_low_k)*self.zoom_fac
+                print "lowdot=",complex_dot(al_low_k,delta_low_k)*self.pixel_size_ratio
                 print "highdot=", complex_dot(al_high_k, delta_high_k)
-                print "sum=",complex_dot(al_low_k,delta_low_k)*self.zoom_fac+complex_dot(al_high_k, delta_high_k)
+                print "sum=",complex_dot(al_low_k,delta_low_k)*self.pixel_size_ratio+complex_dot(al_high_k, delta_high_k)
                 al_low, al_high = self.harmonic_to_pixel(al_low_k,al_high_k)
-                print "RS simple dot=",np.dot(Uifft(al_high_k),Uifft(delta_high_k))
+                print "RS simple dot=",np.dot(unitary_inverse_fft(al_high_k),unitary_inverse_fft(delta_high_k))
                 print "RS dot=",np.dot(al_high,delta_high)
 
-            scale = d - complex_dot(al_low_k,delta_low_k)*grid_scalefactor - complex_dot(al_high_k, delta_high_k)
+            scale = d - complex_dot(al_low_k,delta_low_k)*self.pixel_size_ratio - complex_dot(al_high_k, delta_high_k)
 
             if test:
                 print "scale=",scale
@@ -204,16 +200,11 @@ class ZoomConstrained(object):
             delta_low_k += self.C_low*al_low_k * scale
             delta_high_k += self.C_high*al_high_k  * scale
 
-
-
         delta_low, delta_high = self.harmonic_to_pixel(delta_low_k,
                                                        delta_high_k)
 
-
-        # not sure how good this is - but add in the high-k power into the low-res region
-        delta_low2 = Uifft(delta_low_k_plus)
-
-        return delta_low2+delta_low, delta_high
+        return unitary_inverse_fft(delta_low_k_plus)+delta_low, \
+               delta_high
 
     def estimate_cov(self, Ntrials=2000, with_means=False):
         cov = np.zeros((self.n1+self.n2,self.n1+self.n2))
@@ -223,7 +214,7 @@ class ZoomConstrained(object):
             r1,r2 = self.realization()
             cov[:self.n1,:self.n1]+=np.outer(r1,r1)
             cov[:self.n1,self.n1:]+=np.outer(r1,r2)
-            cov[self.n1:,self.n1:]+=np.outer(r2,r2)
+            cov[self.n1:,self.n1:]+np.outer(r2,r2)
             cstr_means+=[np.dot(cstr,r2) for cstr in self.constraints_real]
             cstr_vars+=[np.dot(cstr,r2)**2 for cstr in self.constraints_real]
 
@@ -275,7 +266,7 @@ class ZoomConstrained(object):
         for i,Ci in enumerate(Cs):
             T = np.zeros(self.n2)
             T[i]=1.0
-            T = Uifft(T)
+            T = unitary_inverse_fft(T)
             if white:
                 Ci = 1.0
             C+=Ci*np.outer(T,T)
@@ -289,26 +280,26 @@ class ZoomConstrained(object):
         extract a small segment)
 
         Constraints are ignored."""
-        C = np.zeros((self.n2*self.zoom_fac,self.n2*self.zoom_fac))
+        C = np.zeros((self.n2*self.pixel_size_ratio,self.n2*self.pixel_size_ratio))
 
-        super_k = scipy.fftpack.rfftfreq(self.n2*self.zoom_fac,d=self.delta_high)
+        super_k = scipy.fftpack.rfftfreq(self.n2*self.pixel_size_ratio,d=self.delta_high)
         if lo:
             Cs = self.get_cov(super_k,self.C_filter_low)
         else:
             Cs = self.get_cov(super_k,self.C_filter_high)
 
         for i,Ci in enumerate(Cs):
-            T = np.zeros(self.n2*self.zoom_fac)
+            T = np.zeros(self.n2*self.pixel_size_ratio)
             T[i]=1.0
-            T = Uifft(T)
+            T = unitary_inverse_fft(T)
             if white:
                 Ci = 1.0
             else:
-                Ci*=self.zoom_fac
+                Ci*=self.pixel_size_ratio
             C+=Ci*np.outer(T,T)
 
-        return C[self.offset*self.zoom_fac:self.offset*self.zoom_fac+self.n2,
-                 self.offset*self.zoom_fac:self.offset*self.zoom_fac+self.n2]
+        return C[self.offset*self.pixel_size_ratio:self.offset*self.pixel_size_ratio+self.n2,
+                 self.offset*self.pixel_size_ratio:self.offset*self.pixel_size_ratio+self.n2]
 
     def hi_U(self):
         """Return the unitary matrix mapping pixel to harmonic space"""
@@ -316,7 +307,6 @@ class ZoomConstrained(object):
         U = np.zeros((self.n2,self.n2))
 
         U_cplx = np.exp(- 1.j * 2 * np.outer(np.arange(self.n2/2+1),np.arange(self.n2)) * math.pi/self.n2)/np.sqrt(self.n2/2+1)
-        print U_cplx.shape
         U[2::2] = np.imag(U_cplx[1:-1])
         U[1::2] = np.real(U_cplx[1:])
         U[0] = np.real(U_cplx[0])
@@ -325,9 +315,9 @@ class ZoomConstrained(object):
 
 
     def harmonic_to_pixel(self, f_low_k, f_high_k):
-        delta_low = Uifft(f_low_k) #*self.filter_low(self.k_low))
+        delta_low = unitary_inverse_fft(f_low_k) #*self.filter_low(self.k_low))
         if f_high_k is not None:
-            delta_high = Uifft(f_high_k)
+            delta_high = unitary_inverse_fft(f_high_k)
         else:
             delta_high = np.zeros(self.n2)
 
@@ -335,51 +325,88 @@ class ZoomConstrained(object):
 
         # interpolate the low frequency contribution into the high-res window
         # prepare the data range just around the window ...
-
-        if self.zoom_fac==1:
-            # special (testing) case where resolution is the same!
-            delta_lowhigh = delta_low[self.offset:self.offset+self.n2]
-        else:
-            start_point = self.offset-1
-            end_point = self.offset+self.n1/self.scale+1
-
-            if start_point<0:
-                assert(start_point==-1)
-                start_point = 0
-                dupl_start = True
-            else:
-                dupl_start = False
-
-            if end_point>len(delta_low):
-                assert(end_point==len(delta_low)+1)
-                end_point = len(delta_low)
-                dupl_end=True
-            else:
-                dupl_end = False
-
-            delta_low_window = delta_low[start_point:end_point]
-
-            if dupl_start:
-                delta_low_window = np.concatenate([delta_low_window[-1:],delta_low_window])
-            if dupl_end:
-                delta_low_window = np.concatenate([delta_low_window,delta_low_window[:1]])
-
-            delta_lowhigh = np.zeros(self.n2+self.zoom_fac)
-
-            #  ... and interpolate linearly ...
-
-            for i in range(self.zoom_fac):
-                weight_hi = self.weights[i]
-                weight_lo = self.weights[self.zoom_fac-i]
-                delta_lowhigh[i::self.zoom_fac] = weight_lo*delta_low_window[:-1] +\
-                    weight_hi*delta_low_window[1:]
-
-            # trim to size
-            upper = -self.zoom_fac/2+1
-            if upper==0: upper = None
-            delta_lowhigh = delta_lowhigh[self.zoom_fac/2+1:upper]
+        delta_lowhigh = self.upsample(delta_low)
 
         return delta_low, delta_lowhigh+delta_high
+
+    def upsample(self, delta_low):
+        """Take a low-res vector and interpolate it into the high-res region"""
+
+        delta_highres = np.zeros(self.n1*self.pixel_size_ratio)
+        delta_low_left = np.roll(delta_low,1)
+        delta_low_right = np.roll(delta_low,-1)
+
+        for i in range(self.pixel_size_ratio):
+            sub_offset = (float(i)+0.5)/self.pixel_size_ratio
+            weight_cen = 1-abs(sub_offset-0.5)
+            weight_left = 0.5-sub_offset
+            if weight_left<0 : weight_left = 0
+            weight_right = sub_offset-0.5
+            if weight_right<0: weight_right = 0
+
+            delta_highres[i::self.pixel_size_ratio] = delta_low * weight_cen
+            delta_highres[i::self.pixel_size_ratio] += delta_low_left * weight_left
+            delta_highres[i::self.pixel_size_ratio] += delta_low_right * weight_right
+
+
+
+        print self.offset
+        return delta_highres[self.offset*self.pixel_size_ratio:self.offset*self.pixel_size_ratio+self.n2]
+
+
+        """
+        start_point = self.offset-1
+        end_point = self.offset+self.n1/self.scale+1
+
+        if start_point<0:
+            assert(start_point==-1)
+            start_point = 0
+            dupl_start = True
+        else:
+            dupl_start = False
+
+        if end_point>len(delta_low):
+            assert(end_point==len(delta_low)+1)
+            end_point = len(delta_low)
+            dupl_end=True
+        else:
+            dupl_end = False
+
+        delta_low_window = delta_low[start_point:end_point]
+
+        if dupl_start:
+            delta_low_window = np.concatenate([delta_low_window[-1:],delta_low_window])
+        if dupl_end:
+            delta_low_window = np.concatenate([delta_low_window,delta_low_window[:1]])
+
+        delta_lowhigh = np.zeros(self.n2+self.pixel_size_ratio)
+
+        #  ... and interpolate linearly ...
+
+        for i in range(self.pixel_size_ratio):
+            weight_hi = self.weights[i]
+            weight_lo = self.weights[self.pixel_size_ratio-i]
+            delta_lowhigh[i::self.pixel_size_ratio] = weight_lo*delta_low_window[:-1] +\
+                weight_hi*delta_low_window[1:]
+
+        # trim to size
+        upper = -self.pixel_size_ratio/2+1
+        if upper==0: upper = None
+        delta_lowhigh = delta_lowhigh[self.pixel_size_ratio/2+1:upper]
+        return delta_lowhigh
+        """
+
+
+    def downsample(self, hires_vector):
+        """Take a high-res region vector and downsample it onto the low-res grid"""
+        vec_lr = np.zeros(self.n1)
+        vec_lr[self.offset:self.offset+self.n2/self.pixel_size_ratio] = \
+              hires_vector.reshape((self.n2/self.pixel_size_ratio,self.pixel_size_ratio)).mean(axis=1)
+        return vec_lr
+
+    def high_k_vector_from_low_k_vector(self, low_harmonics):
+        pixelized_highres = self.harmonic_to_pixel(low_harmonics,None)[1]
+        return unitary_fft(pixelized_highres)
 
     def hr_pixel_to_harmonic(self, vec=None):
         if vec is None:
@@ -387,26 +414,39 @@ class ZoomConstrained(object):
             vec[self.n2/2]=1.0
 
         # FA . vec
-        vec_k_high = Ufft(vec)
+        vec_k_high = unitary_fft(vec)*self.filter_high(self.k_high)
 
-        # down-sample
-        vec_lr = np.zeros(self.n1)
-        vec_lr[self.offset:self.offset+self.n2/self.zoom_fac] = \
-              vec.reshape((self.n2/self.zoom_fac,self.zoom_fac)).mean(axis=1)
+        vec_lr = self.downsample(vec-unitary_inverse_fft(vec_k_high))
 
-        vec_k_low = Ufft(vec_lr)
+        vec_k_low = unitary_fft(vec_lr)
 
-        return vec_k_low*self.filter_low(self.k_low), \
-               vec_k_high*self.filter_high(self.k_high)
+        return vec_k_low, vec_k_high
 
-        # FB . vec
 
     def norm(self, low, high):
-        # in principle this is missing a low.C.high term :-/
-        return self.zoom_fac*complex_dot(low,low*self.C_low)+complex_dot(high,high*self.C_high)
+        return self.C_weighted_inner_product(low,high,low,high)
 
-    def xCy(self, low1, high1, low2, high2):
-        return self.zoom_fac*complex_dot(low1,low2*self.C_low)+complex_dot(high1,high2*self.C_high)
+    def inner_product(self, low1, high1, low2, high2, more_accurate=True):
+
+        # The low.low part picks up a pixel_size_ratio factor. We can see this as follows.
+        # Take the ideal case where low1 = f_low v1, high1 = f_high v1, f_low+f_high=1 and f_low f_high = 0.
+        # Without varying pixel sizes, v1 = (low1+high1), and v1.v2 = (low1.low1)+(high1.high1), exactly.
+        # Now, let's downsample the low1 pixel scale. The convention we've adopted is that the big
+        # low1 pixels take on the mean value of the original, finer low1 pixels. So, the new dot product
+        # in real space has been multiplied by 1/pixel_size_ratio. (Because FFTs are unitary, this
+        # applies also to the harmonic space dot product). We need to multiply by pixel_size_ratio to
+        # cancel out this change.
+        product = self.pixel_size_ratio*complex_dot(low1,low2)+complex_dot(high1,high2)
+        if more_accurate:
+            # add in the low1^dagger C high2 + high1 C low2^dagger terms
+            low1_as_high = self.high_k_vector_from_low_k_vector(low1)
+            low2_as_high = self.high_k_vector_from_low_k_vector(low2)
+            product+=complex_dot(low1_as_high,high2) + complex_dot(high1, low2_as_high)
+        return product
+
+
+    def C_weighted_inner_product(self, low1, high1, low2, high2):
+        return self.inner_product(low1,high1,low2*self.C_low,high2*self.C_high)
 
     def add_constraint(self, val=0.0, hr_vec=None):
 
@@ -417,8 +457,7 @@ class ZoomConstrained(object):
         low, high = self.hr_pixel_to_harmonic(hr_vec)
 
 
-        # perform G-S
-
+        # perform Gram-Schmidt orthogonalization
         for (la, ha),va in zip(self.constraints,self.constraints_val):
             dotprod = self.xCy(la,ha,low,high)
             low-=dotprod*la
@@ -453,7 +492,9 @@ def deriv_constraint_vector(smooth=None,length=768,position=None) :
     if position is None :
         position = length/2
 
+
     constraint = np.zeros(length)
+    """
     constraint[position+1]=0.5
     constraint[position-1]=-0.5
     if smooth is not None:
@@ -461,6 +502,13 @@ def deriv_constraint_vector(smooth=None,length=768,position=None) :
         k = scipy.fftpack.rfftfreq(length,d=1.0)
         X*=np.exp(-k**2*smooth)
         constraint = Uifft(X)
+    """
+
+    if smooth is None:
+        smooth = 1
+
+    constraint[position+smooth]=0.5
+    constraint[position-smooth]=-0.5
 
     constraint/=np.sqrt(np.dot(constraint,constraint))
     return constraint
@@ -592,31 +640,41 @@ def WC_vs_CW(plaw=0.0, k_cut = 0.2, part='lo', log=False):
 def demo(val=2.0,seed=1,plaw=-1.5, deriv=False, n1=1024, n2=256, k_cut=0.2, scale=4, smooth=10):
     cv_gen = deriv_constraint_vector if deriv else constraint_vector
     cov_this = functools.partial(cov,plaw=plaw)
+
+    # set up zoom solution
     if seed is not None:
         np.random.seed(seed)
-    G = ZoomConstrained(cov_this, k_cut=k_cut, n2=n2, n1=n1, scale=scale, offset=(n1*(scale-1))/(2*scale))
+    G = ZoomConstrained(cov_this, k_cut=k_cut, n2=n2, n1=n1, hires_window_scale=scale, offset=(n1*(scale-1))/(2*scale))
 
     G.add_constraint(val,cv_gen(smooth,n2))
 
-    x0, x1 = G.xs()
-    r0, r1 = G.realization(test=False)
-    p.plot(x0,r0,':')
-    p.plot(x1,r1,'-')
-
-
+    # set up ideal (uniform) solution
     n1_eff = n2*scale
-    cst_width = (n1_eff/n1)*smooth
     print "n1_eff=",n1_eff
-    print "cst_width=",cst_width
 
-    Gs = ZoomConstrained(cov_this, k_cut=10000,n2=n1_eff,n1=n1_eff,scale=1,offset=0)
-    Gs.add_constraint(val,cv_gen(cst_width,n1_eff))
-    r0, r1 = Gs.realization()
-    x0 = (np.arange(n1_eff)+0.5)/(n1_eff/n1)
+    Gs = ZoomConstrained(cov_this, k_cut=10000,n2=n1_eff,n1=n1_eff, hires_window_scale=1,offset=0)
+    Gs.add_constraint(val,cv_gen(smooth,n1_eff))
+    _, r_ideal = Gs.realization(no_random=True)
+    x_ideal = (np.arange(n1_eff)+0.5)/(n1_eff/n1)
 
-    p.plot(x0,r1,linewidth=4,alpha=0.2)
+    # make plots
+    p.clf()
+    p.subplot(211)
+    p.plot(x_ideal,r_ideal,linewidth=4,color="#ffdddd")
+    x0, x1 = G.xs()
+    r0, r1 = G.realization(no_random=True)
+    p.plot(x0,r0,'k:')
+    p.plot(x1,r1,'k-')
+    p.ylabel("Solution")
 
-
+    p.subplot(212)
+    ideal_sln = scipy.interpolate.interp1d(x_ideal,r_ideal)
+    x0_max = max(abs(ideal_sln(x0)))
+    x1_max = max(abs(ideal_sln(x1)))
+    p.plot(x0,(r0-ideal_sln(x0))/x0_max,'k:')
+    p.plot(x1,(r1-ideal_sln(x1))/x1_max,'k')
+    p.ylim(-0.05,0.05)
+    p.ylabel("$\Delta$ solution / max |solution|")
     return G, Gs
 
 def cov_demo(downgrade_view=False,plaw=-1.5):
