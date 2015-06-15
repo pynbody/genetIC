@@ -1,5 +1,14 @@
+#ifndef _COSMO_HPP_INCLUDED
+#define _COSMO_HPP_INCLUDED
+
 #include <functional>
 #include "io.hpp"
+
+template<typename MyFloat>
+struct CosmologicalParameters {
+    MyFloat OmegaM0, OmegaLambda0, OmegaBaryons0, hubble, redshift;
+    MyFloat scalefactor, sigma8, ns;
+};
 
 template<typename MyFloat>
 class CAMB
@@ -399,3 +408,5 @@ std::complex<MyFloat> *rev_poiss(std::complex<MyFloat> *out, std::complex<MyFloa
    return out;
 
 }
+
+#endif

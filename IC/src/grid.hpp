@@ -141,6 +141,16 @@ public:
       // cerr << "~Grid " << this << endl;
     }
 
+    T getWrappedDelta(T x0, T x1) const {
+        T result = x0-x1;
+        if(result>simsize/2) {
+            result-=simsize;
+        }
+        if(result<-simsize/2) {
+            result+=simsize;
+        }
+        return result;
+    }
 
     virtual void debugInfo(std::ostream& s) const {
         s << "Grid of side " << size << " address " << this;

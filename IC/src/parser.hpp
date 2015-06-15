@@ -172,6 +172,8 @@ private:
         return caller(function, input_stream, output_stream);
     }
 
+
+
     void run_loop(std::istream & input_stream, std::ostream * output_stream) {
         std::string str;
         std::stringstream ss;
@@ -212,6 +214,10 @@ public:
         _map.insert(std::make_pair(lname, std::make_pair(pfunc, pcaller)));
     }
 
+    Rtype run(std::string input) {
+        std::istringstream ss(input);
+        run(ss);
+    }
 
     void run(std::istream & input_stream) {
         run(input_stream, nullptr);

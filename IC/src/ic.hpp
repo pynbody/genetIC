@@ -12,8 +12,10 @@
 #include <algorithm>
 #include <memory>
 #include <limits>
+#include <iostream>
 
 #include "numpy.hpp"
+#include "constraint.hpp"
 
 #define for_each_level(level) for(int level=0; level<2 && n[level]>0; level++)
 
@@ -32,7 +34,7 @@ protected:
 
     friend class DummyIC<MyFloat>;
 
-    MyFloat Om0, Ol0, Ob0, hubble, zin, a, sigma8, ns;
+    CosmologicalParameters<MyFloat> cosmology;
 
     // Everything about the grids:
     MyFloat boxlen[2], dx[2];      // the box length of each grid
@@ -95,9 +97,9 @@ public:
         pConstrainer=nullptr;
         pInputMapper = nullptr;
         whiteNoiseFourier=false;
-        hubble=0.701;   // old default
-        Ob0=-1.0;
-        ns = 0.96;      // old default
+        cosmology.hubble =0.701;   // old default
+        cosmology.OmegaBaryons0 =-1.0;
+        cosmology.ns = 0.96;      // old default
         n[0]=-1;
         n[1]=-1; // no subgrid by default
         boxlen[0]=-1;
@@ -116,21 +118,21 @@ public:
     }
 
     void setOmegaM0(MyFloat in) {
-        Om0=in;
+        cosmology.OmegaM0 =in;
     }
 
     void setOmegaB0(MyFloat in) {
-        Ob0=in;
+        cosmology.OmegaBaryons0 =in;
         // now that we have gas, mapper may have changed:
         initMapper();
     }
 
     void setOmegaLambda0(MyFloat in) {
-        Ol0=in;
+        cosmology.OmegaLambda0 =in;
     }
 
     void setHubble(MyFloat in) {
-        hubble=in;
+        cosmology.hubble =in;
     }
 
     void offsetOutput(MyFloat x, MyFloat y, MyFloat z) {
@@ -141,7 +143,7 @@ public:
     }
 
     void setSigma8(MyFloat in) {
-        sigma8 = in;
+        cosmology.sigma8 = in;
     }
 
     void setSupersample(int in) {
@@ -160,8 +162,8 @@ public:
     }
 
     void setZ0(MyFloat in) {
-        zin = in;
-        a=1./(zin+1.);
+        cosmology.redshift = in;
+        cosmology.scalefactor =1./(cosmology.redshift +1.);
     }
 
     void setn(int in) {
@@ -189,7 +191,7 @@ public:
     }
 
     void setns(MyFloat in) {
-        ns = in;
+        cosmology.ns = in;
     }
 
     void setn2(int in) {
@@ -337,7 +339,7 @@ public:
     string make_base( string basename, int level=0){
         ostringstream nult;
         if(inname.size()==0) {
-            nult << basename<<"IC_iter_" << floatinfo<MyFloat>::name << "_z"<<zin<<"_"<<n[level]<<"_L" << boxlen[level];
+            nult << basename<<"IC_iter_" << floatinfo<MyFloat>::name << "_z"<< cosmology.redshift <<"_"<<n[level]<<"_L" << boxlen[level];
 
         } else {
             if (level==0)
@@ -592,19 +594,19 @@ public:
         MyFloat grwfac;
 
         //growth factor normalised to 1 today:
-        grwfac=D(a, Om0, Ol0)/D(1., Om0, Ol0);
+        grwfac=D(cosmology.scalefactor, cosmology.OmegaM0, cosmology.OmegaLambda0)/D(1., cosmology.OmegaM0, cosmology.OmegaLambda0);
 
         cout<< "Growth factor " << grwfac << endl;
         MyFloat sg8;
 
-        sg8=spectrum.sig(8., ns, boxlen[level], n[level]);
+        sg8=spectrum.sig(8., cosmology.ns, boxlen[level], n[level]);
         std::cout <<"Sigma_8 "<< sg8 << std::endl;
 
         MyFloat kw = 2.*M_PI/(MyFloat)boxlen[level];
 
         // TODO: link sigma8 from the top level down
 
-        MyFloat amp=(sigma8/sg8)*(sigma8/sg8)*grwfac*grwfac; //norm. for sigma8 and linear growth factor
+        MyFloat amp=(cosmology.sigma8 /sg8)*(cosmology.sigma8 /sg8)*grwfac*grwfac; //norm. for sigma8 and linear growth factor
         MyFloat norm=kw*kw*kw/powf(2.*M_PI,3.); //since kw=2pi/L, this is just 1/V_box
 
         P[level]=(complex<MyFloat>*)calloc(nPartLevel[level],sizeof(complex<MyFloat>));
@@ -642,7 +644,7 @@ public:
         auto & pField_k_this = high_k?pField_k_0_high:pGrid[level]->getFieldFourier();
 
 
-        spectrum.applyTransfer(n[level], kw, ns, norm_amp,
+        spectrum.applyTransfer(n[level], kw, cosmology.ns, norm_amp,
                                pField_k_this, pField_k_this, P[level], filter);
 
         //assert(abs(real(norm_iter)) >1e-12); //norm!=0
@@ -694,11 +696,12 @@ public:
     virtual void zeldovichForLevel(int level) {
         //Zeldovich approx.
 
-        MyFloat hfac=1.*100.*sqrt(Om0/a/a/a+Ol0)*sqrt(a);
+        MyFloat hfac=1.*100.*sqrt(cosmology.OmegaM0 / cosmology.scalefactor / cosmology.scalefactor / cosmology.scalefactor + cosmology.OmegaLambda0)*sqrt(
+                cosmology.scalefactor);
         //this should be f*H(t)*a, but gadget wants vel/sqrt(a), so we use H(t)*sqrt(a)
         //TODO: hardcoded value of f=1 is inaccurate, but fomega currently gives wrong nults
 
-        MyFloat pmass=27.78*Om0*powf(boxlen[level]/(MyFloat)(n[level]),3.0);
+        MyFloat pmass=27.78* cosmology.OmegaM0 *powf(boxlen[level]/(MyFloat)(n[level]),3.0);
 
         pGrid[level]->zeldovich(hfac,pmass);
 
@@ -783,11 +786,11 @@ public:
             new TwoLevelParticleMapper<MyFloat>(pMapper, pMapperLevel1, zoomParticleArray, zoomfac*zoomfac*zoomfac));
       }
 
-      if(Ob0>0) {
+      if(cosmology.OmegaBaryons0 >0) {
 
           // Add gas only to the deepest level. Pass the whole pGrid
           // vector if you want to add gas to every level.
-          auto gasMapper = pMapper->addGas(Ob0/Om0,
+          auto gasMapper = pMapper->addGas(cosmology.OmegaBaryons0 / cosmology.OmegaM0,
                                           {pGrid.back()});
 
 
@@ -838,22 +841,16 @@ public:
         }
         */
         if (gadgetformat==3){
-            SaveGadget3( (base+ ".gadget3").c_str(), boxlen[0], Om0, Ol0, hubble, a, pMapper );
+            SaveGadget3( (base+ ".gadget3").c_str(), boxlen[0], cosmology.OmegaM0, cosmology.OmegaLambda0, cosmology.hubble,
+                         cosmology.scalefactor, pMapper );
         }
 
         else if (gadgetformat==4)
-            SaveTipsy(base+".tipsy", boxlen[0], Om0, Ol0, hubble, a, pMapper);
+            SaveTipsy(base+".tipsy", boxlen[0], cosmology.OmegaM0, cosmology.OmegaLambda0, cosmology.hubble, cosmology.scalefactor, pMapper);
 
     }
 
-    virtual void prepare() {
-        if(prepared)
-            throw(std::runtime_error("Called prepare, but grid is already prepared for constraints"));
-
-        cerr << "***** PREPARE FIELD *****" << endl;
-        prepared=true;
-        UnderlyingField<MyFloat> *pField;
-
+    void makeInitialRealizationWithoutConstraints() {
         for_each_level(level) nPartLevel[level] = ((long)n[level]*n[level])*n[level];
 
         base = make_base(indir);
@@ -865,6 +862,10 @@ public:
             splitLevel0();
 
         applyPowerSpec();
+    }
+
+    void prepareToAcceptConstraints() {
+        UnderlyingField<MyFloat> *pField;
 
         pField = new UnderlyingField<MyFloat>(this->P[0], this->pGrid[0], this->nPartLevel[0]);
 
@@ -877,6 +878,17 @@ public:
 
         // TODO: actually combine the different levels before passing them to the constrainer
         pConstrainer = new MultiConstrainedField<MyFloat>(pField);
+    }
+
+    virtual void prepare() {
+        if(prepared)
+            throw(std::runtime_error("Called prepare, but grid is already prepared for constraints"));
+
+        makeInitialRealizationWithoutConstraints();
+        prepareToAcceptConstraints();
+
+        prepared=true;
+
     }
 
     ///////////////////////
@@ -892,14 +904,7 @@ protected:
     }
 
     MyFloat get_wrapped_delta(MyFloat x0, MyFloat x1) {
-        MyFloat result = x0-x1;
-        if(result>this->boxlen[0]/2) {
-            result-=this->boxlen[0];
-        }
-        if(result<-this->boxlen[0]/2) {
-            result+=this->boxlen[0];
-        }
-        return result;
+        return pGrid[0]->getWrappedDelta(x0,x1);
     }
 
 
@@ -950,58 +955,6 @@ protected:
     }
 
 
-    void cen_deriv4_alpha(long index, int direc, complex<MyFloat> *alpha, int level)
-
-    {//4th order central difference
-
-      MyFloat xp, yp, zp;//, zm2, zm1, zp2, zp1;
-      pGrid[level]->getCentroidLocation(index, xp, yp, zp);
-      xp=get_wrapped_delta(xp,x0);
-      yp=get_wrapped_delta(yp,y0);
-      zp=get_wrapped_delta(zp,z0);
-
-
-      //do the epsilon
-      MyFloat c[3]={0,0,0};
-      if(direc==0){c[2]=y0; c[1]=-z0;}
-      else if(direc==1){c[0]=z0; c[2]=-x0;}
-      else if(direc==2){c[1]=x0; c[0]=-y0;}
-      else if(direc==3){
-          MyFloat r0 = std::sqrt((x0*x0)+(y0*y0)+(z0*z0));
-          if(r0!=0) {
-              c[0]=x0/r0;
-              c[1]=y0/r0;
-              c[2]=z0/r0;
-          }
-      } // radial velocity
-
-      else{cerr<< "Wrong value for parameter 'direc' in function 'cen_deriv4_alpha'."<< endl; exit(1);}
-
-
-      for(int di=0; di<3; di++) {
-          long ind_p1, ind_m1, ind_p2, ind_m2;
-          //first step in rho direction
-          int step1[3]={0,0,0};
-          int neg_step1[3]={0,0,0};
-          step1[di]=1;
-          neg_step1[di]=-1;
-
-          // N.B. can't wrap - might be on subgrid
-
-          ind_m1=pGrid[level]->findNextIndNoWrap(index, neg_step1);
-          ind_p1=pGrid[level]->findNextIndNoWrap(index, step1);
-          ind_m2=pGrid[level]->findNextIndNoWrap(ind_m1, neg_step1);
-          ind_p2=pGrid[level]->findNextIndNoWrap(ind_p1, step1);
-
-          MyFloat a=-1./12./dx[0], b=2./3./dx[0];  //the signs here so that L ~ - Nabla Phi
-
-          alpha[ind_m2]+=(c[di]*a);
-          alpha[ind_m1]+=(c[di]*b);
-          alpha[ind_p1]+=(-c[di]*b);
-          alpha[ind_p2]+=(-c[di]*a);
-       }
-
-    }
 
     complex<MyFloat> *calcConstraintVectorAllLevels(string name_in) {
         long nall = 0;
@@ -1011,79 +964,33 @@ protected:
         return rval_k;
     }
 
-    complex<MyFloat> *calcConstraintVector(string name_in, int level) {
-        complex<MyFloat> *rval_k=(complex<MyFloat>*)calloc(this->nPartLevel[level],sizeof(complex<MyFloat>));
-        calcConstraintVector(name_in, level, rval_k, false);
-        return rval_k;
-
-    }
 
     void calcConstraintVector(string name_in, int level, complex<MyFloat> *ar, bool offset=true) {
         //
         // If offset is true, offset the storage to take account relative to the
         // start of ar, to take account of the other levels
-        const char* name = name_in.c_str();
-        complex<MyFloat> *rval=(complex<MyFloat>*)calloc(this->nPartLevel[level],sizeof(complex<MyFloat>));
-        complex<MyFloat> *rval_k;
 
-        std::vector<size_t> particleArray;
-        pGrid[level]->gatherParticleList(particleArray);
+        vector<complex<MyFloat>> ar2;
+        calcConstraint(name_in, *pGrid[level], cosmology, ar2);
+
+        size_t offset_amount=0;
 
         if(offset) {
-            long offset_amount = 0;
             for(int l=0; l<level; l++) {
                 offset_amount+=nPartLevel[l];
             }
             cerr << "Note level = " << level << " offset = " << offset_amount << endl;
-            rval_k = &ar[offset_amount];
-        } else {
-            rval_k = ar;
         }
 
-        if(strcasecmp(name,"overdensity")==0) {
-            MyFloat w = 1.0/particleArray.size();
-            for(size_t i=0;i<particleArray.size();i++) {
-                rval[particleArray[i]]+=w;
-            }
+        for(size_t i=0;i<pGrid[level]->size3;i++)
+            ar[offset_amount+i]=ar2[i];
 
-            fft(rval_k, rval, this->n[level], 1);
-        }
-        else if(strcasecmp(name,"phi")==0) {
-            MyFloat w = 1.0/particleArray.size();
-            for(size_t i=0;i<particleArray.size();i++) {
-                rval[particleArray[i]]+=w;
-            }
-            complex<MyFloat> *rval_kX=(complex<MyFloat>*)calloc(this->nPartLevel[level],sizeof(complex<MyFloat>));
-            fft(rval_kX, rval, this->n[level], 1);
-            poiss(rval_k, rval_kX, this->n[level], this->boxlen[level], this->a, this->Om0);
-            free(rval_kX);
-        }
-        else if(name[0]=='L' || name[0]=='l') {
-            // angular momentum
-            int direction=atoi(&name[1]);
+    }
 
-            cerr << "Angmom centre is " <<x0 << " " <<y0 << " " << z0 << endl;
-
-            for(size_t i=0;i<particleArray.size();i++) {
-                cen_deriv4_alpha(particleArray[i], direction, rval, level);
-            }
-            complex<MyFloat> *rval_kX=(complex<MyFloat>*)calloc(this->nPartLevel[level],sizeof(complex<MyFloat>));
-            fft(rval_kX, rval, this->n[level], 1);
-            // The constraint as derived is on the potential. By considering
-            // unitarity of FT, we can FT the constraint to get the constraint
-            // on the density.
-            poiss(rval_k, rval_kX, this->n[level], this->boxlen[level], this->a, this->Om0);
-            free(rval_kX);
-        } else {
-            cout << "  -> UNKNOWN constraint vector type, returning zeros [this is bad]" << endl;
-
-        }
-
-
-        // cout << " dot in real space = " << std::real(dot(pField_x[level], rval, this->nPartLevel[level])) << endl;
-
-
-        free(rval);
+    complex<MyFloat> *calcConstraintVector(string name_in, int level) {
+        complex<MyFloat> *rval_k=(complex<MyFloat>*)calloc(this->nPartLevel[level],sizeof(complex<MyFloat>));
+        calcConstraintVector(name_in, level, rval_k, false);
+        return rval_k;
     }
 
 
