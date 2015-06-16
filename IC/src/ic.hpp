@@ -842,7 +842,9 @@ public:
         */
         if (gadgetformat==3){
             SaveGadget3( (base+ ".gadget3").c_str(), boxlen[0], cosmology.OmegaM0, cosmology.OmegaLambda0, cosmology.hubble,
-                         cosmology.scalefactor, pMapper );
+                         cosmology.scalefactor, pMapper);
+            //SaveGadget3( (base+ ".gadget3").c_str(), boxlen[0], cosmology.OmegaM0, cosmology.OmegaLambda0, cosmology.hubble,
+              //           cosmology.scalefactor, pMapper );
         }
 
         else if (gadgetformat==4)
