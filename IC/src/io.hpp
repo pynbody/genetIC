@@ -77,7 +77,7 @@ struct io_header_2 //header for gadget2
   double   OmegaLambda;
   double   HubbleParam;
   char     fill[256- 6*4- 6*8- 2*8- 2*4- 6*4- 2*4 - 4*8];  /* fills to 256 Bytes */
-} header2;
+};
 
 
 struct io_header_3 //header for gadget3
@@ -119,42 +119,51 @@ struct io_header_3 //header for gadget3
 
   char fill[48];		/*!< fills to 256 Bytes */
 
-} header3;				/*!< holds header for snapshot files */
+};				/*!< holds header for snapshot files */
 
 
 
 template<typename MyFloat>
-io_header_2 CreateGadget2Header(long nPartTotal, double pmass, double ain, double zin, double Boxlength, double Om0, double Ol0, double hubble)
+io_header_2 CreateGadget2Header(MyFloat *masses, long *npart, double Boxlength, double Om0, double Ol0, double hubble, double a)
 {
+    //types 2,3,4 are currently unused (only one zoom level)
     io_header_2 header2;
-    header2.npart[0]=0;
-    header2.npart[1]=nPartTotal;
-    header2.npart[2]=0;
-    header2.npart[3]=0;
-    header2.npart[4]=0;
-    header2.npart[5]=0;
-    header2.mass[0]=0;
-    header2.mass[1]=pmass;
-    header2.mass[2]=0;
-    header2.mass[3]=0;
-    header2.mass[4]=0;
-    header2.mass[5]=0;
-    header2.time=ain;
-    header2.redshift=zin;
+    header2.npart[0]=npart[0]; //gas 
+    header2.npart[1]=npart[1]; //higres
+    header2.npart[2]=npart[2];
+    header2.npart[3]=npart[3];
+    header2.npart[4]=npart[4];
+    header2.npart[5]=npart[5]; //lowres
+    header2.mass[0]=masses[0];
+    header2.mass[1]=masses[1];
+    header2.mass[2]=masses[2];
+    header2.mass[3]=masses[3];
+    header2.mass[4]=masses[4];
+    header2.mass[5]=masses[5];
+    header2.time=a;
+    header2.redshift=1./a-1.;
     header2.flag_sfr=0;
     header2.flag_feedback=0;
-    header2.nPartTotal[0]=0;
-    header2.nPartTotal[1]=nPartTotal;
-    header2.nPartTotal[2]=0;
-    header2.nPartTotal[3]=0;
-    header2.nPartTotal[4]=0;
-    header2.nPartTotal[5]=0;
+    header2.nPartTotal[0]=npart[0];
+    header2.nPartTotal[1]=npart[1];
+    header2.nPartTotal[2]=npart[2];
+    header2.nPartTotal[3]=npart[3];
+    header2.nPartTotal[4]=npart[4];
+    header2.nPartTotal[5]=npart[5];
     header2.flag_cooling=0;
     header2.num_files=1;
     header2.BoxSize=Boxlength;
     header2.Omega0=Om0;
     header2.OmegaLambda=Ol0;
     header2.HubbleParam=hubble;
+
+    if (npart[0] > 0) { //options for baryons 
+      header2.flag_sfr=1;
+      header2.flag_feedback=1;
+      header2.flag_cooling=1;
+    }
+
+
     return header2;
 }
 
@@ -162,35 +171,31 @@ template<typename MyFloat>
 io_header_3 CreateGadget3Header(MyFloat *masses, long *npart, double Boxlength, double Om0, double Ol0, double hubble, double a)
 {
 
-    long nPartTotal_gas=npart[0];//finalMapper->size_gas();
-    long nPartTotal_DMhigh=npart[1];//finalMapper->size_gas();
-    long nPartTotal_DMlow=npart[5];//finalMapper->size_dm()-finalMapper->size_gas();
-      //if (nPartTotal_gas == 0) {nPartTotal_DMlow=0; nPartTotal_DMlow=finalMapper->size_dm();} //case of no baryons
-    double pmass_gas=masses[0], pmass_DMhigh=masses[1], pmass_DMlow=masses[5]; //FIX
+    //types 2,3,4 are currently unused (only one zoom level)
 
     io_header_3 header3;
-    header3.npart[0]=(unsigned int)(nPartTotal_gas);
-    header3.npart[1]=(unsigned int)(nPartTotal_DMhigh);
-    header3.npart[2]=0;
-    header3.npart[3]=0;
-    header3.npart[4]=0;
-    header3.npart[5]=(unsigned int)(nPartTotal_DMlow); //common convention: ptype[5] for low-res particles
-    header3.mass[0]=pmass_gas;
-    header3.mass[1]=pmass_DMhigh;
-    header3.mass[2]=0;
-    header3.mass[3]=0;
-    header3.mass[4]=0;
-    header3.mass[5]=pmass_DMlow;
+    header3.npart[0]=(unsigned int)(npart[0]); //gas
+    header3.npart[1]=(unsigned int)(npart[1]); //highres
+    header3.npart[2]=(unsigned int)(npart[2]);
+    header3.npart[3]=(unsigned int)(npart[3]);
+    header3.npart[4]=(unsigned int)(npart[4]);
+    header3.npart[5]=(unsigned int)(npart[5]); //lowres
+    header3.mass[0]=(double)(masses[0]);
+    header3.mass[1]=(double)(masses[1]);
+    header3.mass[2]=(double)(masses[2]);
+    header3.mass[3]=(double)(masses[3]);
+    header3.mass[4]=(double)(masses[4]);
+    header3.mass[5]=(double)(masses[5]);
     header3.time=a;
     header3.redshift=1./a-1.;
     header3.flag_sfr=0;
     header3.flag_feedback=0;
-    header3.nPartTotal[0]=(unsigned int)(nPartTotal_gas);
-    header3.nPartTotal[1]=(unsigned int)(nPartTotal_DMhigh);
-    header3.nPartTotal[2]=0;
-    header3.nPartTotal[3]=0;
-    header3.nPartTotal[4]=0;
-    header3.nPartTotal[5]=(unsigned int)(nPartTotal_DMlow);
+    header3.nPartTotal[0]=(unsigned int)(npart[0]);
+    header3.nPartTotal[1]=(unsigned int)(npart[1]);
+    header3.nPartTotal[2]=(unsigned int)(npart[2]);
+    header3.nPartTotal[3]=(unsigned int)(npart[3]);
+    header3.nPartTotal[4]=(unsigned int)(npart[4]);
+    header3.nPartTotal[5]=(unsigned int)(npart[5]);
     header3.flag_cooling=0;
     header3.num_files=1;
     header3.BoxSize=Boxlength;
@@ -199,17 +204,17 @@ io_header_3 CreateGadget3Header(MyFloat *masses, long *npart, double Boxlength, 
     header3.HubbleParam=hubble;
     header3.flag_stellarage=0;  /*!< flags whether the file contains formation times of star particles */
     header3.flag_metals=0;    /*!< flags whether the file contains metallicity values for gas and star  particles */
-    header3.nPartTotalHighWord[0]=(unsigned int) (nPartTotal_gas >> 32);
-    header3.nPartTotalHighWord[1]=(unsigned int) (nPartTotal_DMhigh >> 32); //copied from Gadget3
-    header3.nPartTotalHighWord[2]=0;
-    header3.nPartTotalHighWord[3]=0;
-    header3.nPartTotalHighWord[4]=0;
-    header3.nPartTotalHighWord[5]=(unsigned int) (nPartTotal_DMlow >> 32);
+    header3.nPartTotalHighWord[0]=(unsigned int) (npart[0] >> 32);
+    header3.nPartTotalHighWord[1]=(unsigned int) (npart[1] >> 32); //copied from Gadget3
+    header3.nPartTotalHighWord[2]=(unsigned int) (npart[2] >> 32);
+    header3.nPartTotalHighWord[3]=(unsigned int) (npart[3] >> 32);
+    header3.nPartTotalHighWord[4]=(unsigned int) (npart[4] >> 32);
+    header3.nPartTotalHighWord[5]=(unsigned int) (npart[5] >> 32);
     header3.flag_entropy_instead_u=0; /*!< flags that IC-file contains entropy instead of u */
     header3.flag_doubleprecision=floatinfo<MyFloat>::doubleprecision;
     header3.flag_ic_info=1;
 
-    if (nPartTotal_gas > 0) { //options for baryons & special behavior
+    if (npart[0] > 0) { //options for baryons & special behavior
       header3.flag_sfr=1;
       header3.flag_feedback=1;
       header3.flag_cooling=1;
@@ -295,9 +300,9 @@ void SaveHDF(const char* Filename, int n, io_header_3 header, MyFloat *p_Data1, 
    H5Awrite( hdset_id, H5T_NATIVE_UINT, boxu);
    H5Aclose(hdset_id);
 
-//    hdset_id = H5Acreate( gidh, "NumPart_ThisFile", H5T_NATIVE_UINT, mt, H5P_DEFAULT );
-//    H5Awrite( hdset_id, H5T_NATIVE_UINT, boxu);
-//    H5Aclose(hdset_id);
+   //hdset_id = H5Acreate( gidh, "NumPart_ThisFile", H5T_NATIVE_UINT, mt, H5P_DEFAULT );
+   //H5Awrite( hdset_id, H5T_NATIVE_UINT, boxu);
+   //H5Aclose(hdset_id);
 
    boxu[1]=header.nPartTotalHighWord[1];
    hdset_id = H5Acreate( gidh, "NumPart_Total_HighWord", H5T_NATIVE_UINT, mt, H5P_DEFAULT );
@@ -314,10 +319,10 @@ void SaveHDF(const char* Filename, int n, io_header_3 header, MyFloat *p_Data1, 
    H5Awrite( hdset_id, H5T_NATIVE_INT, boxi);
    H5Aclose(hdset_id);
 
-//    boxi[0]=header.num_files;
-//    hdset_id = H5Acreate( gidh, "NumFilesPerSnapshot", H5T_NATIVE_INT, hboxfs, H5P_DEFAULT );
-//    H5Awrite( hdset_id, H5T_NATIVE_INT, boxi);
-//    H5Aclose(hdset_id);
+   //boxi[0]=header.num_files;
+   //hdset_id = H5Acreate( gidh, "NumFilesPerSnapshot", H5T_NATIVE_INT, hboxfs, H5P_DEFAULT );
+   //H5Awrite( hdset_id, H5T_NATIVE_INT, boxi);
+   //H5Aclose(hdset_id);
 
 
    H5Sclose(mt);
@@ -427,9 +432,9 @@ void SaveHDF(const char* Filename, int n, io_header_3 header, MyFloat *p_Data1, 
 template<typename MyFloat>
 int save_phases(complex<MyFloat> *phk, MyFloat* ph, complex<MyFloat> *delta, int n, const char *name){
 
-      MyFloat *helper=(MyFloat*)calloc(n*n*n, sizeof(MyFloat));
-      int i;
-      for(i=0;i<n*n*n;i++){helper[i]=delta[i].real();}
+    MyFloat *helper=(MyFloat*)calloc(n*n*n, sizeof(MyFloat));
+    int i;
+    for(i=0;i<n*n*n;i++){helper[i]=delta[i].real();}
 
     hid_t     idfilespace,  file_id, gid, iddset_id,IDmemspace,iddataspace_id ;
     hsize_t idcount[2];
@@ -480,8 +485,8 @@ int save_phases(complex<MyFloat> *phk, MyFloat* ph, complex<MyFloat> *delta, int
     //close "particle" group
     H5Gclose(gid);
 
-        //close overall file
-        H5Fclose(file_id);
+    //close overall file
+    H5Fclose(file_id);
 
     return 0;
 }
@@ -545,16 +550,9 @@ void SaveGadget2(const char *filename, long nPart, io_header_2 header1, MyFloat*
 }
 
 template<typename MyFloat>
-void SaveGadget3(const char *filename, double Boxlength, double Om0, double Ol0, double hubble, double a, shared_ptr<ParticleMapper<MyFloat>> pMapper) {
+void SaveGadget(const std::string &name, double Boxlength, double Om0, double Ol0, double hubble, double a, double Ob0, shared_ptr<ParticleMapper<MyFloat>> pMapper, int gadgetformat) {
 
-    std::cout<< "Hello from Gadget3!"<< std::endl;
-
-    FILE* fd = fopen(filename, "w");
-    if(!fd) throw std::runtime_error("Unable to open file for writing");
-    int dummy;
-
-    io_gadget_dark dp;
-    io_gadget_gas gp;
+    std::cout<< "Hello from Gadget output!"<< std::endl;
 
     MyFloat x,y,z,vx,vy,vz,mass,tot_mass=0.0,eps;
     double min_mass=std::numeric_limits<double>::max();
@@ -564,44 +562,71 @@ void SaveGadget3(const char *filename, double Boxlength, double Om0, double Ol0,
     unsigned int ngas=0;
     unsigned int nhigh=0;
 
+    // input units [Gadget default]::
+    // pmass in 1e10 h^-1 Msol
+    // pos in Mpc h^-1
+    // vel in km s^-1 a^1/2
+
+    MyFloat pos_factor=1.; //change if other units needed in output
+    MyFloat vel_factor=1.;
+    MyFloat mass_factor=1.;
+
     particle_info(pMapper, min_mass, max_mass, tot_mass, gas_mass, ngas, nlow, nhigh);
 
     cout << "min and max particle mass : "<< min_mass << " " << max_mass <<endl;
-    cout << "particles numbers : "<< ngas << " " << nhigh << " "<< nlow <<endl;
+    cout << "particle numbers (gas, high, low) : "<< ngas << " " << nhigh << " "<< nlow <<endl;
 
     MyFloat* masses=(MyFloat*)calloc(6,sizeof(MyFloat));
     long* npart=(long*)calloc(6,sizeof(long));
 
-    masses[0]=gas_mass;
-    masses[1]=min_mass;
-    masses[5]=max_mass;
-
+    //extend these arrays when additional particle types are added:
+    masses[0]=gas_mass*mass_factor;
+    masses[1]=min_mass*mass_factor;
+    masses[5]=max_mass*mass_factor;
     npart[0]=ngas;
     npart[1]=nhigh;
     npart[5]=nlow;
+    
+    std::stringstream filename;
+    filename << name << gadgetformat;
+    FILE* fd;
+    fd=fopen(filename.str().c_str(), "w");
+    if(!fd) throw std::runtime_error("Unable to open file for writing");    
 
-    io_header_3 header1=CreateGadget3Header(masses, npart, Boxlength, Om0, Ol0, hubble, a);
 
-    cout << "header number "<< header1.nPartTotal[1] << " " << header1.nPartTotal[5] << endl;
-    cout << "header mass "<< header1.mass[1] << " " << header1.mass[5] << endl;
 
-    MyFloat pos_factor=1., vel_factor=1.; //TODO: FIX THIS to proper gadget units
 
     //total particle number:
-    long n=header1.nPartTotal[0] + header1.nPartTotal[1] + header1.nPartTotal[5]; //what happens if this gets too large?
+    long n=npart[0]+npart[1]+npart[2]+npart[3]+npart[4]+npart[5]; //what happens if this gets too large?
 
-    //header block
-    dummy= sizeof(header1);
-    //cout << "dummy before header " << dummy << ", " << sizeof(dummy)<<  endl;
-    my_fwrite(&dummy, sizeof(dummy), 1, fd);
-    my_fwrite(&header1, sizeof(header1), 1, fd);
-    my_fwrite(&dummy, sizeof(dummy), 1, fd);
+    int dummy;
 
+    if (gadgetformat==3) { 
+      io_header_3 header1=CreateGadget3Header(masses, npart, Boxlength, Om0, Ol0, hubble, a); 
+      cout << "Hello from Gadget3 header!"<< endl;
+      //header block
+      dummy= sizeof(header1);
+      my_fwrite(&dummy, sizeof(dummy), 1, fd);
+      my_fwrite(&header1, sizeof(header1), 1, fd);
+      my_fwrite(&dummy, sizeof(dummy), 1, fd);      
+    }
+    else if (gadgetformat==2) { 
+      io_header_2 header1=CreateGadget2Header(masses, npart, Boxlength, Om0, Ol0, hubble, a); 
+      cout << "Hello from Gadget2 header!"<< endl;
+      dummy= sizeof(header1);
+      my_fwrite(&dummy, sizeof(dummy), 1, fd);
+      my_fwrite(&header1, sizeof(header1), 1, fd);
+      my_fwrite(&dummy, sizeof(dummy), 1, fd); 
+    }
+    else {cerr << "Wrong format for Gadget output!" << endl; exit(1);}
+
+    
+    //long counter=0; //for debugging
+    io_gadget_dark dp;
+    io_gadget_gas gp;
+    
     dummy=sizeof(gp.x)*(long)(n)*3; //this will be 0 or some strange number for n>563; BUT: gagdget does not actually use this value; it gets the number of particles from the header
-    my_fwrite(&dummy, sizeof(dummy), 1, fd);
-
-    //long counter=0;
-
+    my_fwrite(&dummy, sizeof(dummy), 1, fd); //start of position block
     //the following bunch of for loops are a bit redundant but that's the best we can do for now
     //gas particles positions
     for(auto i=pMapper->beginGas(); i!=pMapper->endGas(); ++i) {
@@ -622,7 +647,6 @@ void SaveGadget3(const char *filename, double Boxlength, double Om0, double Ol0,
 
     }
 
-
     //cout<< "counter after gas: "<< counter << endl;
    
     //DM particles positions
@@ -641,12 +665,12 @@ void SaveGadget3(const char *filename, double Boxlength, double Om0, double Ol0,
         //counter+=1;
 
     }
-    my_fwrite(&dummy, sizeof(dummy), 1, fd);
+    my_fwrite(&dummy, sizeof(dummy), 1, fd); //end of position block
 
     //cout<< "counter after DM: "<< counter << endl;
 
     //gas particles velocities
-    my_fwrite(&dummy, sizeof(dummy), 1, fd);
+    my_fwrite(&dummy, sizeof(dummy), 1, fd); //beginning of velocity block
     for(auto i=pMapper->beginGas(); i!=pMapper->endGas(); ++i) {
         i.getParticle(x,y,z,vx,vy,vz,mass,eps); //what is eps? softening I assume
 
@@ -679,7 +703,7 @@ void SaveGadget3(const char *filename, double Boxlength, double Om0, double Ol0,
         //counter+=1;
 
     }
-    my_fwrite(&dummy, sizeof(dummy), 1, fd);
+    my_fwrite(&dummy, sizeof(dummy), 1, fd); //end of velocity block
     
     //cout<< "counter after DM vel: "<< counter << endl;
 
@@ -698,17 +722,30 @@ void SaveGadget3(const char *filename, double Boxlength, double Om0, double Ol0,
     //IFF we want to save individual particle masses, they would go here, before the gas particle energies
 
 
-    //gas particles energies: FIX the prop. constant and reactivate this for baryon simulations
-    // dummy=sizeof(MyFloat)*(long)(n);
-    // my_fwrite(&dummy, sizeof(dummy), 1, fd);
-    // for(auto i=pMapper->beginGas(); i!=pMapper->endGas(); ++i) {
+    //gas particles energies: TODO TEST the prop. constant (especially unitv), (include YHe_ and gamma_ in the paramfile for baryons?)
+    if (npart[0] >0) {
+        dummy=sizeof(MyFloat)*(long)(n); //energy block
+        my_fwrite(&dummy, sizeof(dummy), 1, fd);
 
-    //     gp.erg=1.0; //TODO fix this to an actual value (e.g using what MUSIC does in /plugins/output_gadget2.cc, line 666)
-   
-    //     my_fwrite(&gp.erg,sizeof(MyFloat),1,fd);
+        const MyFloat YHe=0.248; //helium fraction, using default from MUSIC
+        const MyFloat gamma=5.0/3.0; //adiabatic gas index, using default from MUSIC
 
-    // }
-    // my_fwrite(&dummy, sizeof(dummy), 1, fd);
+        const MyFloat npol  = (fabs(1.0-gamma)>1e-7)? 1.0/(gamma-1.) : 1.0;
+        const MyFloat unitv = 1e5; //this is probably a unit transformation
+        const MyFloat h2    = hubble*hubble*0.0001;
+        const MyFloat adec  = 1.0/(160.*pow(Ob0*h2/0.022,2.0/5.0));
+        const MyFloat Tcmb0 = 2.726;
+        const MyFloat Tini  = a<adec? Tcmb0/a : Tcmb0/a/a*adec;
+        const MyFloat mu    = (Tini>1.e4) ? 4.0/(8.-5.*YHe) : 4.0/(1.+3.*(1.-YHe));
+        MyFloat ceint = 1.3806e-16/1.6726e-24 * Tini * npol / mu / unitv / unitv;
+
+        cout << "gas internal energy " << ceint << endl;
+
+        for(auto i=pMapper->beginGas(); i!=pMapper->endGas(); ++i)
+            my_fwrite(&ceint,sizeof(MyFloat),1,fd);
+
+        my_fwrite(&dummy, sizeof(dummy), 1, fd); //end of energy block
+    }
 
 
 
@@ -729,7 +766,8 @@ void particle_info(const shared_ptr<ParticleMapper<MyFloat>> &pMapper, double &m
         tot_mass+=mass;
     }
 
-    //gas_mass=pMapper->beginGas().getMass();
+      // end_progress();
+
     ngas=pMapper->size_gas();
     if (ngas > 0) gas_mass=pMapper->beginGas().getMass();
 
@@ -742,104 +780,10 @@ void particle_info(const shared_ptr<ParticleMapper<MyFloat>> &pMapper, double &m
         if (mass == min_mass) nhigh+=1;
         else if (mass == max_mass) nlow+=1;
         else {cout << "else in mass " << endl; continue;} 
-        //if(min_mass>mass) min_mass=mass;
-        //if(max_mass<mass) max_mass=mass;
-        //tot_mass+=mass;
+
     }
+      // end_progress();
 }
-
-// template<typename MyFloat>
-// void SaveGadget3(const char *filename, double Boxlength, double Om0, double Ol0, double hubble, double ain, shared_ptr<ParticleMapper<MyFloat>> pMapper) {
-
-//     // AP hack to get gadget writing working again. Expecting nicer version from NR soon ;-)
-
-//     MyFloat min_mass, max_mass, tot_mass, x, y, z, vx, vy, vz, mass, eps;
-
-//     min_mass=std::numeric_limits<double>::max();
-//     max_mass=0.0;
-//     tot_mass = 0.0;
-
-//     for(auto i=pMapper->begin(); i!=pMapper->end(); ++i) {
-//       // progress("Pre-write scan file",iord, totlen);
-//         mass = i.getMass(); // sometimes can be MUCH faster than getParticle
-//         if(min_mass>mass) min_mass=mass;
-//         if(max_mass<mass) max_mass=mass;
-//         tot_mass+=mass;
-//     }
-
-//     // Can't have multimass. Can't have gas.
-//     assert(min_mass==max_mass);
-//     assert(pMapper->size_gas()==0);
-
-
-//     MyFloat zin = 1./ain - 1.0;
-//     size_t n = pMapper->size();
-//     io_header_3 header1 = CreateGadget3Header<MyFloat>(n, mass, ain, zin, Boxlength, Om0, Ol0, hubble);
-
-
-
-
-
-//     FILE* fd = fopen(filename, "w");
-//     if(!fd) throw std::runtime_error("Unable to open file for writing");
-//     MyFloat* Pos=(MyFloat*)calloc(3,sizeof(MyFloat));
-//     int dummy;
-
-//     //header block
-//     dummy= sizeof(header1);
-//     my_fwrite(&dummy, sizeof(dummy), 1, fd);
-//     my_fwrite(&header1, sizeof(header1), 1, fd);
-//     my_fwrite(&dummy, sizeof(dummy), 1, fd);
-
-//     //position block
-//     dummy=sizeof(MyFloat)*(long)(n)*3; //this will be 0 or some strange number for n>563; BUT: gagdget does not actually use this value; it gets the number of particles from the header
-//     my_fwrite(&dummy, sizeof(dummy), 1, fd);
-//     for(auto i=pMapper->begin(); i!=pMapper->end(); ++i) {
-//         i.getParticle(x,y,z,vx,vy,vz,mass,eps);
-//         Pos[0]=x;
-//         Pos[1]=y;
-//         Pos[2]=z;
-//         my_fwrite(Pos,sizeof(MyFloat),3,fd);
-//     }
-//     my_fwrite(&dummy, sizeof(dummy), 1, fd);
-
-
-//     //velocity block
-//     my_fwrite(&dummy, sizeof(dummy), 1, fd);
-//     for(auto i=pMapper->begin(); i!=pMapper->end(); ++i) {
-//         i.getParticle(x,y,z,vx,vy,vz,mass,eps);
-//         Pos[0]=vx;
-//         Pos[1]=vy;
-//         Pos[2]=vz;
-//         my_fwrite(Pos,sizeof(MyFloat),3,fd);
-//     }
-//     my_fwrite(&dummy, sizeof(dummy), 1, fd);
-
-
-
-//     //particle block
-//     //long long ido;
-//     dummy = sizeof(long) * n; //here: gadget just checks if the IDs are ints or long longs; still the number of particles is read from the header file
-//     my_fwrite(&dummy, sizeof(dummy), 1, fd);
-//     for(long i=0;i<n;i++){
-//          my_fwrite(&i, sizeof(long), 1, fd);
-//     }
-//     my_fwrite(&dummy, sizeof(dummy), 1, fd);
-
-
-//     /*
-//     if(Mass!=NULL) {
-//         dummy = sizeof(MyFloat)*n;
-//         my_fwrite(&dummy, sizeof(dummy), 1, fd);
-//         my_fwrite(Mass,sizeof(MyFloat),  n, fd);
-//         my_fwrite(&dummy, sizeof(dummy), 1, fd);
-//     }
-//     */
-
-//     fclose(fd);
-//     free(Pos);
-
-// }
 
 template<typename MyFloat>
 void SaveTipsy(const std::string & filename,
@@ -850,8 +794,6 @@ void SaveTipsy(const std::string & filename,
     // pmass in 1e10 h^-1 Msol
     // pos in Mpc h^-1
     // vel in km s^-1 a^1/2
-
-
 
     ofstream photogenic_file;
 
@@ -865,8 +807,6 @@ void SaveTipsy(const std::string & filename,
     size_t iord=0;
 
     MyFloat x,y,z,vx,vy,vz,mass,tot_mass=0.0,eps;
-
-    //particle_info(pMapper, min_mass, max_mass, tot_mass);
 
     for(auto i=pMapper->begin(); i!=pMapper->end(); ++i) {
       // progress("Pre-write scan file",iord, totlen);

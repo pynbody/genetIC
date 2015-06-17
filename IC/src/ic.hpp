@@ -833,23 +833,14 @@ public:
         cerr << "Write, ndm=" << pMapper->size_dm() << ", ngas=" << pMapper->size_gas() << endl;
         cerr << (*pMapper);
 
-        /*
-        if (gadgetformat==2){
-            SaveGadget2( (base+ ".gadget2").c_str(), nPartTotal,
-            CreateGadget2Header<MyFloat>(nPartTotal, 0, a, zin, boxlen[0], Om0, Ol0, hubble),
-            Pos1, Vel1, Pos2, Vel2, Pos3, Vel3, Mass);
-        }
-        */
-        if (gadgetformat==3){
-            SaveGadget3( (base+ ".gadget3").c_str(), boxlen[0], cosmology.OmegaM0, cosmology.OmegaLambda0, cosmology.hubble,
-                         cosmology.scalefactor, pMapper);
-            //SaveGadget3( (base+ ".gadget3").c_str(), boxlen[0], cosmology.OmegaM0, cosmology.OmegaLambda0, cosmology.hubble,
-              //           cosmology.scalefactor, pMapper );
-        }
+        if (gadgetformat==3 || gadgetformat==2)
+            SaveGadget( base+ ".gadget", boxlen[0], cosmology.OmegaM0, cosmology.OmegaLambda0, cosmology.hubble,
+                         cosmology.scalefactor, cosmology.OmegaBaryons0, pMapper, gadgetformat);
 
         else if (gadgetformat==4)
             SaveTipsy(base+".tipsy", boxlen[0], cosmology.OmegaM0, cosmology.OmegaLambda0, cosmology.hubble, cosmology.scalefactor, pMapper);
 
+        else{ throw std::runtime_error("Invalid value for gadgetformat!");}
     }
 
     void makeInitialRealizationWithoutConstraints() {
