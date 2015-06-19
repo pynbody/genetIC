@@ -51,15 +51,25 @@ struct io_tipsy_gas
     float mass,x,y,z,vx,vy,vz,rho,temp,eps,metals,phi;
 };
 
-struct io_gadget_dark
+template<typename MyFloat> struct io_gadget_dark
 {
-  float x,y,z,vx,vy,vz; 
+  MyFloat x,y,z,vx,vy,vz; 
 };
 
-struct io_gadget_gas
+template<typename MyFloat> struct io_gadget_gas
 {
-  float x,y,z,vx,vy,vz,erg; 
+  MyFloat x,y,z,vx,vy,vz,erg; 
 };
+
+//struct io_gadget_dark
+//{
+//  float x,y,z,vx,vy,vz; 
+//};
+
+//struct io_gadget_gas
+//{
+//  float x,y,z,vx,vy,vz,erg; 
+//};
 
 struct io_header_2 //header for gadget2
 {
@@ -622,8 +632,8 @@ void SaveGadget(const std::string &name, double Boxlength, double Om0, double Ol
 
     
     //long counter=0; //for debugging
-    io_gadget_dark dp;
-    io_gadget_gas gp;
+    io_gadget_dark<MyFloat> dp;
+    io_gadget_gas<MyFloat> gp;
     
     dummy=sizeof(gp.x)*(long)(n)*3; //this will be 0 or some strange number for n>563; BUT: gagdget does not actually use this value; it gets the number of particles from the header
     my_fwrite(&dummy, sizeof(dummy), 1, fd); //start of position block
@@ -723,29 +733,29 @@ void SaveGadget(const std::string &name, double Boxlength, double Om0, double Ol
 
 
     //gas particles energies: TODO TEST the prop. constant (especially unitv), (include YHe_ and gamma_ in the paramfile for baryons?)
-    if (npart[0] >0) {
-        dummy=sizeof(MyFloat)*(long)(n); //energy block
-        my_fwrite(&dummy, sizeof(dummy), 1, fd);
+    // if (npart[0] >0) {
+    //     dummy=sizeof(MyFloat)*(long)(n); //energy block
+    //     my_fwrite(&dummy, sizeof(dummy), 1, fd);
 
-        const MyFloat YHe=0.248; //helium fraction, using default from MUSIC
-        const MyFloat gamma=5.0/3.0; //adiabatic gas index, using default from MUSIC
+    //     const MyFloat YHe=0.248; //helium fraction, using default from MUSIC
+    //     const MyFloat gamma=5.0/3.0; //adiabatic gas index, using default from MUSIC
 
-        const MyFloat npol  = (fabs(1.0-gamma)>1e-7)? 1.0/(gamma-1.) : 1.0;
-        const MyFloat unitv = 1e5; //this is probably a unit transformation
-        const MyFloat h2    = hubble*hubble*0.0001;
-        const MyFloat adec  = 1.0/(160.*pow(Ob0*h2/0.022,2.0/5.0));
-        const MyFloat Tcmb0 = 2.726;
-        const MyFloat Tini  = a<adec? Tcmb0/a : Tcmb0/a/a*adec;
-        const MyFloat mu    = (Tini>1.e4) ? 4.0/(8.-5.*YHe) : 4.0/(1.+3.*(1.-YHe));
-        MyFloat ceint = 1.3806e-16/1.6726e-24 * Tini * npol / mu / unitv / unitv;
+    //     const MyFloat npol  = (fabs(1.0-gamma)>1e-7)? 1.0/(gamma-1.) : 1.0;
+    //     const MyFloat unitv = 1e5; //this is probably a unit transformation
+    //     const MyFloat h2    = hubble*hubble*0.0001;
+    //     const MyFloat adec  = 1.0/(160.*pow(Ob0*h2/0.022,2.0/5.0));
+    //     const MyFloat Tcmb0 = 2.726;
+    //     const MyFloat Tini  = a<adec? Tcmb0/a : Tcmb0/a/a*adec;
+    //     const MyFloat mu    = (Tini>1.e4) ? 4.0/(8.-5.*YHe) : 4.0/(1.+3.*(1.-YHe));
+    //     MyFloat ceint = 1.3806e-16/1.6726e-24 * Tini * npol / mu / unitv / unitv;
 
-        cout << "gas internal energy " << ceint << endl;
+    //     cout << "gas internal energy " << ceint << endl;
 
-        for(auto i=pMapper->beginGas(); i!=pMapper->endGas(); ++i)
-            my_fwrite(&ceint,sizeof(MyFloat),1,fd);
+    //     for(auto i=pMapper->beginGas(); i!=pMapper->endGas(); ++i)
+    //         my_fwrite(&ceint,sizeof(MyFloat),1,fd);
 
-        my_fwrite(&dummy, sizeof(dummy), 1, fd); //end of energy block
-    }
+    //     my_fwrite(&dummy, sizeof(dummy), 1, fd); //end of energy block
+    // }
 
 
 
