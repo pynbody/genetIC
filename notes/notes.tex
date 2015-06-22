@@ -198,7 +198,7 @@ problem. Let $\vec{y}_0$ be a realization from the original system and
 $\vec{y}_1$ a realization from the constrained system. Then the
 assumption is:
 \begin{equation}
-\vec{y}_1 = (\mathsf{I} + \mathsf{A}) (\vec{y}_0-\vec{x}_0) + \vec{x}_1\textrm{,}
+\vec{y}_1 = (\mathsf{I} + \mathsf{A}) (\vec{y}_0-\vec{x}_0) + \vec{x}_1\textrm{,}\label{eq:y1}
 \end{equation}
 where by definition $\langle \vec{y}_0 - \vec{x}_0\rangle=0$, so we get the new
 mean $\langle \vec{y}_1 \rangle = \vec{x}_1$ which is defined by
@@ -218,7 +218,7 @@ using equation \eqref{eq:C1} above.
 
 To solve this, we can just set
 \begin{equation}
-\mathsf{A} = - \mathsf{C}_0 \alpha_1 \alpha_1^{\dagger}\textrm{,}
+\mathsf{A} = - \mathsf{C}_0 \alpha_1 \alpha_1^{\dagger}\textrm{,}\label{eq:A}
 \end{equation}
 which gives
 \begin{align}
@@ -457,6 +457,38 @@ Let's split up the problem into the three issues:
 \item the pixellization
 \end{itemize}
 
+For clarity of notation, we need to be able to express a field in many
+different ways.
+
+\begin{itemize}
+    \item $\vec{\delta}$ is the real-space vector. In many cases, this only
+    exists in a theoretical sense and is too large to realize inside the computer.
+    \item $\tilde{\vec{\delta}}$ is the $k$-space vector
+    \item $\tilde{\vec{\delta}}^{\low}$ is the $k$-space vector which contains
+    only low$-k$ modes.
+    \item ${\vec{\delta}}^{\low}$ is the real-space vector one gets from
+    inverse fourier transforming the $\tilde{\vec{\delta}}^{\low}$. It can be
+    sampled on a coarser grid of points than the original $\vec{\delta}$
+    \item  $\tilde{\vec{\delta}}^{\high}$ is the $k$-space vector which contains
+    only high$-k$ modes, such that $\tilde{\vec{\delta}}^{\high}+\tilde{\vec{\delta}}^{\low}=\tilde{\vec{\delta}}$.
+    \item $\vec{\delta}^{\high}$ is the inverse fourier transform of $\tilde{\vec{\delta}}^{\high}$
+    \item Anything with a $W$ in it is windowed, i.e. is sampled only in the `zoom' region. For example,
+    $\vec{\delta}^{\high,W}$ is the windowed, high-$k$ modes. These must be stored on a `fine' grid but
+    that's OK as it only exists inside the windowed region.
+\end{itemize}
+
+I will try hard to stick to these notations.
+
+\boxme{{\bf The key point:} We cannot store $\vec{\delta}$, which is the full resolution
+overdensity vector across the full box at high resolution. However, we can store $\vec{\delta}^{\low}$ which is the
+low-resolution vector across the full box; we can also store $\vec{\delta}^{\high,W}$
+which is the high-k part of the vector in the subbox; finally, we can also store
+$\vec{\delta}^{W}$ which is the final density field in the subbox.
+
+It sometimes helps to come back to this -- the target of all algorithms is
+ultimately to express everything in terms of ``low", ``high,W" or ``W" quantities.
+The final output consists of the ``low" (unzoomed particles) and the ``W" (zoom particles) vectors.}
+
 The resolution split is relatively straight-forward to deal with in
 the absence of windowing and pixelization. We can imagine our final
 field $\vec{\delta}$ is made up of two parts with low- and high-
@@ -478,73 +510,78 @@ with the $\vec{\delta}^{\low}$ tailing off as the $\vec{\delta}^{\high}$ picks
 up. Unfortunately this in itself leads to some extra complications,
 but they are surmountable. Let's take a look at the first complication.
 
-How would we get a realization of $\delta^{\low}$ and $\delta^{\high}$? There
+How would we get a realization of $\tilde{\delta}^{\low}$ and $\tilde{\delta}^{\high}$? There
 are two clear possibilities. First, if it's possible to get a realization
-of $\vec{\delta}$, we simply need to define
+of $\tilde{\vec{\delta}}$, we simply need to define
 \begin{equation}
-  \delta^{\low} = \mathsf{F}^{\low} \delta \hspace{1cm} \delta^{\high} = (1 - \mathsf{F}^{\low}) \delta\label{eq:decompose-delta}
+  \delta^{\low} = \mathsf{F}^{\low} \tilde{\delta} \hspace{1cm} \tilde{\delta}^{\high} = (1 - \mathsf{F}^{\low}) \tilde{\delta}\label{eq:decompose-delta}
 \end{equation}
 The sum of $\delta^{\low}$ and $\delta^{\high}$ gives us back
 the correct field.
 
 Alternatively, we can start with two independent vectors of white noise
 \begin{equation}
-\vec{\delta}^R = \mathsf{F}^{\low} \mathsf{C}^{1/2} \vec{q}^{\low} \hspace{1cm} \delta^{\high} = \mathsf{F}^{\high} \mathsf{C}^{1/2} \vec{q}^{\high}
+\vec{\delta}^R = \tilde{\mathsf{F}}^{\low} \tilde{\mathsf{C}}^{1/2} \tilde{\vec{q}}^{\low} \hspace{1cm} \delta^{\high} = \tilde{\mathsf{F}}^{\high} \tilde{\mathsf{C}}^{1/2} \tilde{\vec{q}}^{\high}
 \end{equation}
-where $\vec{q}$ are Gaussian white
+where $\tilde{\vec{q}}$ are Gaussian white
 noise. This is, for most (but not all) purposes, what we will adopt in practice -- since
-we can't actually draw from the full summed field $\delta$ (that's the whole point in the first place).
-But what should $\mathsf{F}^{\high}$ be? To check, we need to
-get $\mathsf{C}^{\low}$ and $\mathsf{C}^{\high}$:
+we can't actually draw from the full summed field $\tilde{\delta}$ (that's the whole point in the first place).
+But what should $\tilde{\mathsf{F}}^{\high}$ be? To check, we need to
+get $\tilde{\mathsf{C}}^{\low}$ and $\tilde{\mathsf{C}}^{\high}$:
 \begin{equation}
-\mathsf{C}^R = \mathsf{F}^R \mathsf{C} \mathsf{F}^{R\dagger}
+\tilde{\mathsf{C}}^R = \tilde{\mathsf{F}}^R \tilde{\mathsf{C}} \tilde{\mathsf{F}}^{R\dagger}
 \end{equation}
 where $R=\low$ or $\high$.
 
  \textbf{Potential for confusion --} from the above we see that, in harmonic space (where $\mathsf{C}$ is
 diagonal) the filters must satisfy
 \begin{equation}
-(\mathsf{F}^{\low})^2+ (\mathsf{F}^{\high})^2 = \mathsf{I}\textrm{,}
+(\tilde{\mathsf{F}}^{\low})^2+ (\tilde{\mathsf{F}}^{\high})^2 = \mathsf{I}\textrm{,}
 \end{equation}
-to recover the original covariance matrix $\mathsf{C}$ for the full
+to recover the original covariance matrix $\tilde{\mathsf{C}}$ for the full
 field. Thus, unlike method \eqref{eq:decompose-delta}, the high pass filter
 is not one minus the low pass filter.
 
 {\it Because we use a mixture of these
 approaches, it's critical to be very clear about which filter is being
 applied at what time.} In both the toy and the production codes, I've used
-a Fermi function for $\mathsf{F}^{\low}$,
+a Fermi function for $\tilde{\mathsf{F}}^{\low}$,
 \begin{equation}
-  \mathsf{F}^{\low}=\frac{1}{1+\exp\left(\frac{k-k_{\mathrm{cut}}}{T}\right)}
+  \tilde{\mathsf{F}}^{\low}_{k_1, k_2}=\frac{\delta_{k_1,k_2}}{1+\exp\left(\frac{k_1-k_{\mathrm{cut}}}{T}\right)}
 \end{equation}
 where the `temperature' $T$ defines the harshness of the cut-off - I am typically
 taking it to be $k_{\mathrm{cut}}/10$ just from playing around.\footnote{In principle
 we could do an investigation of what is an optimal trade-off between
 suppressing ringing effects and yet keeping the switch-over point well-defined.}
 
-With $\mathsf{F}^{\low}$ fixed, there isn't a unique $\mathsf{F}^{\high}$ because
+With $\tilde{\mathsf{F}}^{\low}$ fixed, there isn't a unique $\tilde{\mathsf{F}}^{\high}$ because
 it depends on which of the above techniques we're using. For the toy code,
-{\tt filter\_low} and {\tt filter\_high} implement $\mathsf{F}^{\low}$ and $1-\mathsf{F}^{\low}$
-whereas the {\tt C\_filter\_low} and {\tt C\_filter\_high} implement $(\mathsf{F}^{\low})^2$ and $1-(\mathsf{F}^{\low})^2$.
+{\tt filter\_low} and {\tt filter\_high} implement $\tilde{\mathsf{F}}^{\low}$ and $1-\tilde{\mathsf{F}}^{\low}$
+whereas the {\tt C\_filter\_low} and {\tt C\_filter\_high} implement $(\tilde{\mathsf{F}}^{\low})^2$ and $1-(\tilde{\mathsf{F}}^{\low})^2$.
 These functions are also named the same in the production code, and can be found in the
 {\tt IC} class.
 
 \subsection{Introducing the window}
 
-Now we also have to window the high-resolution part, i.e.
+Now we also have to window the high-resolution part. I am going to switch to
+real space to do this.
 \begin{align}
-\vec{\delta}^{\high} & = \mathsf{W} \mathsf{F}^{\high} \mathsf{C}^{1/2}
+\vec{\delta}^{\high,W} & = \mathsf{W} \mathsf{F}^{\high} \mathsf{C}^{1/2}
 \vec{q}^{\high}\\
 & \equiv \mathsf{WC_{\high}^{1/2}} \vec{q}^{\high} \label{eq:deltaII-ideal}
 \end{align}
 where $\mathsf{W}$ is the window function which is
 diagonal {\it in pixel space} and $\mathsf{C}_{\high}^{1/2} \equiv
-\mathsf{F}^{\high} \mathsf{C}^{1/2}$ .  Then within the window, we have the
-best possible representation of the power spectrum, but outside the
-window we have only the low-frequency part.
+\mathsf{F}^{\high} \mathsf{C}^{1/2}$ .  Note in practice, while I'm quite happy to write
+things like $\mathsf{W} \mathsf{F}^{\high} \mathsf{C}^{1/2} \vec{q}^{\high}$ to simplify
+the equations, the actual
+computations involve switching between real and harmonic space, i.e. if you do this in
+actual code, you calculate
+$\tilde{\mathsf{F}}^{\high} \tilde{\mathsf{C}}^{1/2} \tilde{\vec{q}}^{\high}$ then transform to real space to
+do the windowing part.
 
-The first approximation comes because we cannot actually calculate
-equation \eqref{eq:deltaII-ideal}. It would involve making a high
+So far, this could all be done exactly in principle. But we actually need an approximation to replace \eqref{eq:deltaII-ideal}.
+Taken literally, eq  \eqref{eq:deltaII-ideal} would involve making a high
 resolution data vector covering the entire region, $\vec{q}^{\high}$ ,
 which is precisely what computational requirements prevent us from
 doing. Instead we want to start from $q^{\high}_W \equiv
@@ -552,10 +589,10 @@ doing. Instead we want to start from $q^{\high}_W \equiv
 contains only information from inside the high-res window. In this
 case, we actually lack some of the information we technically need,
 but we can still do a maximum-likelihood estimate of
-$\vec{\delta}^{\high}$, subject to knowing only $\vec{q}^{\high}_W$, which
+$\vec{\delta}^{\high}$, subject to knowing only $\vec{q}^{\high,W}$, which
 gives us
 \begin{equation}
-\vec{\delta}^{\high} = \mathsf{WC_{\high}^{1/2}W}^{\top} (\mathsf{WW}^{\top})^{-1} \vec{q}^{II}_W \textrm{.}
+\vec{\delta}^{\high} = \mathsf{WC_{\high}^{1/2}W}^{\top} (\mathsf{WW}^{\top})^{-1} \vec{q}^{\high,W} \textrm{.}
 \end{equation}
 Note that $(\mathsf{WW}^{\top})^{-1}$ is just the identity in the
 restricted region (it's small x small since $\mathsf{W}$ is small x large).
@@ -643,11 +680,38 @@ the field has been decomposed into high-frequency and low-frequency parts and
 all vector manipulations are applied to both parts.
 
 Let's assume the constraint vector is zero outside the high-resolution region.
-Then we are starting with a vector $\vec{\alpha}$ defined inside the window.
+Then we are starting with a vector $\vec{\alpha}_1^W$ defined only inside the window.
 If the constraint vector is specified purely within real space, the complications
 are fairly minimal\footnote{Note I haven't attempted to look at constraints which must
 be built with reference to fourier space, which means constraints on the potential for
-example could be more problematic.}
+example could be more problematic.}. The steps are as follows:
+\begin{enumerate}
+    \item We need a way to decompose the Fourier-space constraint vector
+ $\vec{\alpha}_1^W$ into $\vec{\alpha}_1^{\low}$ and $\vec{\alpha}_1^{\high,W}$.
+    \item We then need to be able
+to solve equations \ref{eq:x1}, \ref{eq:y1} and \ref{eq:A} to get $\vec{\delta}_1^{\low}$ and
+$\vec{\delta}_1^{\high,W}$ from $\vec{\delta}_0^{\low}$,
+$\vec{\delta}_0^{\high,W}$, $\vec{\alpha}_1^{\low}$ and
+$\vec{\alpha}_1^{\high,W}$.
+\end{enumerate}
+Step 1 is accomplished in the toy implementation as {\tt hr\_pixel\_to\_harmonic}.
+This is what it does:
+\begin{enumerate}[(a)]
+    \item Fourier transforms the pixel-space, high-res, in-window $\vec{\alpha}^W_1$.
+    \item High-pass filters the Fourier transformed component, using the filter $1-\tilde{\mathsf{F}}^{\low,W}$:
+      $\tilde{\vec{\alpha}}^{\high,W} = (1-\tilde{\mathsf{F}}^{\low,W}) \tilde{\vec{\alpha}}^W$
+    \item In real space, finds the low frequency part of $\vec{\alpha}_1$, essentially
+      $\vec{\alpha}_1^{\low,W} = \mathcal{F}^{-1}(\tilde{\mathsf{F}}^{\low,W}\mathcal{F}(\vec{\alpha}_1))$.
+    Interpolates down the low-frequency part onto the low resolution pixelization,
+        and inserts it in the appropriate place in a full box, giving us
+        $\vec{\alpha}_1^{\low}$.
+
+    \item Finally, Fourier transform the low-res vector from the above step.
+     We now have $\tilde{\vec{\alpha}}_1^{\high,W}$ and
+        $\tilde{\vec{\alpha}}_1^{\low}$, which are suitable for working with to produce
+        the constraining code.
+\end{enumerate}
+
 
 
 \section{Program structure overview}
