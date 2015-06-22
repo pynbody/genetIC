@@ -9,9 +9,10 @@
 \usepackage{color}
 \usepackage{soul}
 
-
+\usepackage[linewidth=1pt]{mdframed}
 \usepackage[left=3cm,right=3cm,top=3cm,bottom=3.5cm]{geometry}
-
+\newcommand{\low}{\mathrm{low}}
+\newcommand{\high}{\mathrm{high}}
 \newcommand{\kms}{\mathrm{km}\textrm{ }\mathrm{s}^{-1}}
 \newcommand{\kpc}{\mathrm{kpc}}
 \newcommand{\Mpc}{\mathrm{Mpc}}
@@ -388,8 +389,8 @@ that is quite hard to understand.
 
 The Bertschinger approach is to generate white noise, using the
 Hoffman-Ribak algorithm to constrain the long-wavelength modes in the
-high-res subbox (I'm going to call this region II) to match those of
-the low-res superbox (region I). Normally this matching would be very
+high-res subbox to match those of
+the low-res superbox. Normally this matching would be very
 intensive, requiring a new constraint for every 'pixel' in the low res
 box, but because the spectrum is initially completely white, the HR
 algorithm becomes trivial (the covariance matrix is just the identity
@@ -432,7 +433,7 @@ high-resolution grid
 
 The problem comes that the subgrid is not only higher resolution but
 also {\it smaller} than the original grid. {\it This means that
-  Region-II does not in itself have periodic boundary conditions and
+  the subbox does not in itself have periodic boundary conditions and
   therefore must have an inhomogeneous correlation function}. This
 inhomogeneous correlation function corresponds to a non-trivial
 aliasing of power between different Fourier modes coming from the
@@ -463,53 +464,98 @@ frequencies respectively.  At present we imagine the whole problem is
 band-limited and over-pixellized so there are no issues of
 pixelization to think of. Then we can just write
 \begin{equation}
-\vec{\delta} = \vec{\delta}^I + \vec{\delta}^{II}
+\vec{\delta} = \vec{\delta}^{\low} + \vec{\delta}^{\high}
 \end{equation}
 
-These can be made out of separate Gaussian random fields with
-covariance matrices $\mathsf{C}^I$ and $\mathsf{C}^{II}$
+where $\vec{\delta}^{\low}$ and $\vec{\delta}^{\high}$ contain
+respectively low and high $k$ modes only. It would be easiest if
+there is a particular $k$ scale, $k_0$, where the switch between
+fields occurs. However, it turns out this introduces nasty
+artefacts when we come to practical implementations later. Basically,
+the sharp edges in harmonic space lead to ringing in real space.
+So, we have to allow for some $k$ range of overlap between the fields,
+with the $\vec{\delta}^{\low}$ tailing off as the $\vec{\delta}^{\high}$ picks
+up. Unfortunately this in itself leads to some extra complications,
+but they are surmountable. Let's take a look at the first complication.
+
+How would we get a realization of $\delta^{\low}$ and $\delta^{\high}$? There
+are two clear possibilities. First, if it's possible to get a realization
+of $\vec{\delta}$, we simply need to define
+\begin{equation}
+  \delta^{\low} = \mathsf{F}^{\low} \delta \hspace{1cm} \delta^{\high} = (1 - \mathsf{F}^{\low}) \delta\label{eq:decompose-delta}
+\end{equation}
+The sum of $\delta^{\low}$ and $\delta^{\high}$ gives us back
+the correct field.
+
+Alternatively, we can start with two independent vectors of white noise
+\begin{equation}
+\vec{\delta}^R = \mathsf{F}^{\low} \mathsf{C}^{1/2} \vec{q}^{\low} \hspace{1cm} \delta^{\high} = \mathsf{F}^{\high} \mathsf{C}^{1/2} \vec{q}^{\high}
+\end{equation}
+where $\vec{q}$ are Gaussian white
+noise. This is, for most (but not all) purposes, what we will adopt in practice -- since
+we can't actually draw from the full summed field $\delta$ (that's the whole point in the first place).
+But what should $\mathsf{F}^{\high}$ be? To check, we need to
+get $\mathsf{C}^{\low}$ and $\mathsf{C}^{\high}$:
 \begin{equation}
 \mathsf{C}^R = \mathsf{F}^R \mathsf{C} \mathsf{F}^{R\dagger}
 \end{equation}
-where $R=I$ or $II$. A single realization can be made by setting
+where $R=\low$ or $\high$.
+
+ \textbf{Potential for confusion --} from the above we see that, in harmonic space (where $\mathsf{C}$ is
+diagonal) the filters must satisfy
 \begin{equation}
-\vec{\delta}^R = \mathsf{F}^R \mathsf{C}^{1/2} \vec{q}^R
-\end{equation}
-where $\vec{q}^R$ are two independent vectors of Gaussian white
-noise.
- In harmonic space, where $\mathsf{C}$ is
-diagonal, the filters must satisfy
-\begin{equation}
-(\mathsf{F}^{I})^2+ (\mathsf{F}^{II})^2 = \mathsf{I}\textrm{,}
+(\mathsf{F}^{\low})^2+ (\mathsf{F}^{\high})^2 = \mathsf{I}\textrm{,}
 \end{equation}
 to recover the original covariance matrix $\mathsf{C}$ for the full
-field.
+field. Thus, unlike method \eqref{eq:decompose-delta}, the high pass filter
+is not one minus the low pass filter.
 
-Now we also have to window the high-resolution part II, i.e.
+{\it Because we use a mixture of these
+approaches, it's critical to be very clear about which filter is being
+applied at what time.} In both the toy and the production codes, I've used
+a Fermi function for $\mathsf{F}^{\low}$,
+\begin{equation}
+  \mathsf{F}^{\low}=\frac{1}{1+\exp\left(\frac{k-k_{\mathrm{cut}}}{T}\right)}
+\end{equation}
+where the `temperature' $T$ defines the harshness of the cut-off - I am typically
+taking it to be $k_{\mathrm{cut}}/10$ just from playing around.\footnote{In principle
+we could do an investigation of what is an optimal trade-off between
+suppressing ringing effects and yet keeping the switch-over point well-defined.}
+
+With $\mathsf{F}^{\low}$ fixed, there isn't a unique $\mathsf{F}^{\high}$ because
+it depends on which of the above techniques we're using. For the toy code,
+{\tt filter\_low} and {\tt filter\_high} implement $\mathsf{F}^{\low}$ and $1-\mathsf{F}^{\low}$
+whereas the {\tt C\_filter\_low} and {\tt C\_filter\_high} implement $(\mathsf{F}^{\low})^2$ and $1-(\mathsf{F}^{\low})^2$.
+These functions are also named the same in the production code, and can be found in the
+{\tt IC} class.
+
+\subsection{Introducing the window}
+
+Now we also have to window the high-resolution part, i.e.
 \begin{align}
-\vec{\delta}^{II} & = \mathsf{W} \mathsf{F}^{II} \mathsf{C}^{1/2}
-\vec{q}^{II}\\
-& \equiv \mathsf{WC_{II}^{1/2}} \vec{q}^{II} \label{eq:deltaII-ideal}
+\vec{\delta}^{\high} & = \mathsf{W} \mathsf{F}^{\high} \mathsf{C}^{1/2}
+\vec{q}^{\high}\\
+& \equiv \mathsf{WC_{\high}^{1/2}} \vec{q}^{\high} \label{eq:deltaII-ideal}
 \end{align}
 where $\mathsf{W}$ is the window function which is
-diagonal {\it in pixel space} and $\mathsf{C}_{II}^{1/2} \equiv
-\mathsf{F}^{II} \mathsf{C}^{1/2}$ .  Then within the window, we have the
+diagonal {\it in pixel space} and $\mathsf{C}_{\high}^{1/2} \equiv
+\mathsf{F}^{\high} \mathsf{C}^{1/2}$ .  Then within the window, we have the
 best possible representation of the power spectrum, but outside the
 window we have only the low-frequency part.
 
 The first approximation comes because we cannot actually calculate
 equation \eqref{eq:deltaII-ideal}. It would involve making a high
-resolution data vector covering the entire region, $\vec{q}^{II}$ ,
+resolution data vector covering the entire region, $\vec{q}^{\high}$ ,
 which is precisely what computational requirements prevent us from
-doing. Instead we want to start from $q^{II}_W \equiv
-\mathsf{W}\vec{q}^{II}$ -- a shorter, pre-windowed vector that
+doing. Instead we want to start from $q^{\high}_W \equiv
+\mathsf{W}\vec{q}^{\high}$ -- a shorter, pre-windowed vector that
 contains only information from inside the high-res window. In this
 case, we actually lack some of the information we technically need,
 but we can still do a maximum-likelihood estimate of
-$\vec{\delta}^{II}$, subject to knowing only $\vec{q}^{II}_W$, which
+$\vec{\delta}^{\high}$, subject to knowing only $\vec{q}^{\high}_W$, which
 gives us
 \begin{equation}
-\vec{\delta}^{II} = \mathsf{WC_{II}^{1/2}W}^{\top} (\mathsf{WW}^{\top})^{-1} \vec{q}^{II}_W \textrm{.}
+\vec{\delta}^{\high} = \mathsf{WC_{\high}^{1/2}W}^{\top} (\mathsf{WW}^{\top})^{-1} \vec{q}^{II}_W \textrm{.}
 \end{equation}
 Note that $(\mathsf{WW}^{\top})^{-1}$ is just the identity in the
 restricted region (it's small x small since $\mathsf{W}$ is small x large).
@@ -562,7 +608,7 @@ edges.  The above were generated using code version {\tt 7806264b}
 calling as {\tt cz.WC\_vs\_CW(plaw=-1.0,k\_cut=0.001)}, {\tt
   cz.WC\_vs\_CW(plaw=-1.0,k\_cut=0.1)} and {\tt
   cz.WC\_vs\_CW(plaw=-1.0,k\_cut=0.5)} respectively\footnote{In more recent
-  versions, you need to add the keywords {\tt part='hi'}}. 
+  versions, you need to add the keywords {\tt part='hi'}}.
 
 This is a very complex problem, dependent on the power spectrum, the
 cut-off scale and the severity of the cut-off. (The last point is not
@@ -589,6 +635,27 @@ we can do more-or-less any sensible interpolation -- the one
 implemented is linear interpolation. {\bf TO DO: } Again, a formal
 demonstration looking at how errors decline if there is no power near
 the pixel scale would be nice.
+
+\section{Adding constraints}
+
+When adding constraints, we use the same trick as above i.e. we just assume
+the field has been decomposed into high-frequency and low-frequency parts and
+all vector manipulations are applied to both parts.
+
+Let's assume the constraint vector is zero outside the high-resolution region.
+Then we are starting with a vector $\vec{\alpha}$ defined inside the window.
+If the constraint vector is specified purely within real space, the complications
+are fairly minimal\footnote{Note I haven't attempted to look at constraints which must
+be built with reference to fourier space, which means constraints on the potential for
+example could be more problematic.}
+
+
+\section{Program structure overview}
+
+This section contains an overview of how the IC generator is structured.
+
+
+
 
 
 
