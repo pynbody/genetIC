@@ -467,8 +467,11 @@ different ways.
     \item $\tilde{\vec{\delta}}^{\low}$ is the $k$-space vector which contains
     only low$-k$ modes.
     \item ${\vec{\delta}}^{\low}$ is the real-space vector one gets from
-    inverse fourier transforming the $\tilde{\vec{\delta}}^{\low}$. It can be
-    sampled on a coarser grid of points than the original $\vec{\delta}$
+    inverse fourier transforming the $\tilde{\vec{\delta}}^{\low}$. It is still
+    sampled on the same grid of points as the original $\vec{\delta}$ and so still
+    can't be fitted inside the computer for our cases of interest
+    \item $\vec{\delta}^{\low,P}$ is the re-pixelized vector of low-$k$ modes -- it's
+    pixelized at lower resolution
     \item  $\tilde{\vec{\delta}}^{\high}$ is the $k$-space vector which contains
     only high$-k$ modes, such that $\tilde{\vec{\delta}}^{\high}+\tilde{\vec{\delta}}^{\low}=\tilde{\vec{\delta}}$.
     \item $\vec{\delta}^{\high}$ is the inverse fourier transform of $\tilde{\vec{\delta}}^{\high}$
@@ -477,17 +480,22 @@ different ways.
     that's OK as it only exists inside the windowed region.
 \end{itemize}
 
-I will try hard to stick to these notations.
+I will try hard to stick to these notations. I don't guarantee it
+though since this is a complex document to write and I don't have much
+time. If something doesn't make sense it may because I'm being
+inconsistent with the notation.
 
-\boxme{{\bf The key point:} We cannot store $\vec{\delta}$, which is the full resolution
-overdensity vector across the full box at high resolution. However, we can store $\vec{\delta}^{\low}$ which is the
-low-resolution vector across the full box; we can also store $\vec{\delta}^{\high,W}$
-which is the high-k part of the vector in the subbox; finally, we can also store
-$\vec{\delta}^{W}$ which is the final density field in the subbox.
+\boxme{{\bf The key point:} We cannot store $\vec{\delta}$, which is
+  the overdensity vector across the full box at high
+  resolution. However, we can store $\vec{\delta}^{\low,P}$ which is
+  the low-resolution vector across the full box sampled at low
+  resolution; we can also store $\vec{\delta}^{\high,W}$ which is the
+  high-k part of the vector in the subbox; finally, we can also store
+  $\vec{\delta}^{W}$ which is the final density field in the subbox.
 
 It sometimes helps to come back to this -- the target of all algorithms is
-ultimately to express everything in terms of ``low", ``high,W" or ``W" quantities.
-The final output consists of the ``low" (unzoomed particles) and the ``W" (zoom particles) vectors.}
+ultimately to express everything in terms of $^P$ or $^W$ quantities.
+The final output consists of the $^{\low,P}$ (unzoomed particles) and the $^{W}$ (zoom particles) vectors.}
 
 The resolution split is relatively straight-forward to deal with in
 the absence of windowing and pixelization. We can imagine our final
@@ -514,14 +522,14 @@ How would we get a realization of $\tilde{\delta}^{\low}$ and $\tilde{\delta}^{\
 are two clear possibilities. First, if it's possible to get a realization
 of $\tilde{\vec{\delta}}$, we simply need to define
 \begin{equation}
-  \delta^{\low} = \mathsf{F}^{\low} \tilde{\delta} \hspace{1cm} \tilde{\delta}^{\high} = (1 - \mathsf{F}^{\low}) \tilde{\delta}\label{eq:decompose-delta}
+  \tilde{\delta}^{\low} = \mathsf{F}^{\low} \tilde{\delta} \hspace{1cm} \tilde{\delta}^{\high} = (1 - \mathsf{F}^{\low}) \tilde{\delta}\label{eq:decompose-delta}
 \end{equation}
 The sum of $\delta^{\low}$ and $\delta^{\high}$ gives us back
 the correct field.
 
 Alternatively, we can start with two independent vectors of white noise
 \begin{equation}
-\vec{\delta}^R = \tilde{\mathsf{F}}^{\low} \tilde{\mathsf{C}}^{1/2} \tilde{\vec{q}}^{\low} \hspace{1cm} \delta^{\high} = \tilde{\mathsf{F}}^{\high} \tilde{\mathsf{C}}^{1/2} \tilde{\vec{q}}^{\high}
+\vec{\delta}^R = \tilde{\mathsf{F}}^{\low} \tilde{\mathsf{C}}^{1/2} \tilde{\vec{q}}^{\low} \hspace{1cm} \delta^{\high} = \tilde{\mathsf{F}}^{\high} \tilde{\mathsf{C}}^{1/2} \tilde{\vec{q}}^{\high}\label{eq:gen-low-high}
 \end{equation}
 where $\tilde{\vec{q}}$ are Gaussian white
 noise. This is, for most (but not all) purposes, what we will adopt in practice -- since
@@ -531,16 +539,21 @@ get $\tilde{\mathsf{C}}^{\low}$ and $\tilde{\mathsf{C}}^{\high}$:
 \begin{equation}
 \tilde{\mathsf{C}}^R = \tilde{\mathsf{F}}^R \tilde{\mathsf{C}} \tilde{\mathsf{F}}^{R\dagger}
 \end{equation}
-where $R=\low$ or $\high$.
-
- \textbf{Potential for confusion --} from the above we see that, in harmonic space (where $\mathsf{C}$ is
-diagonal) the filters must satisfy
+where $R=\low$ or $\high$. Then, since $\tilde{\delta} = \tilde{\delta}^{\low} + \tilde{\delta}^{\high}$,
+and assuming $\langle \tilde{\delta}^{\low} \tilde{\delta}^{\high}\rangle = 0$ (this is true if we start
+from two {\it independent} realizations of noise), we can conclude the filters must satisfy
 \begin{equation}
 (\tilde{\mathsf{F}}^{\low})^2+ (\tilde{\mathsf{F}}^{\high})^2 = \mathsf{I}\textrm{,}
 \end{equation}
 to recover the original covariance matrix $\tilde{\mathsf{C}}$ for the full
-field. Thus, unlike method \eqref{eq:decompose-delta}, the high pass filter
-is not one minus the low pass filter.
+field. {\bf There is  potential for a lot of confusion here: } unlike method \eqref{eq:decompose-delta},
+in equation \eqref{eq:gen-low-high}  the high pass filter
+is not one minus the low pass filter. The difference is that in the first case
+we were decomposing an existing vector into low and high parts which therefore end
+up being correlated, $\langle \tilde{\delta}^{\low} \tilde{\delta}^{\high} \rangle \ne 0$ whereas in the
+new case we start off with two separate random noise vectors which therefore are
+uncorrelated  $\langle \tilde{\delta}^{\low} \tilde{\delta}^{\high} \rangle = 0$  -- the appropriate
+filters are different in these two cases.
 
 {\it Because we use a mixture of these
 approaches, it's critical to be very clear about which filter is being
@@ -561,7 +574,25 @@ whereas the {\tt C\_filter\_low} and {\tt C\_filter\_high} implement $(\tilde{\m
 These functions are also named the same in the production code, and can be found in the
 {\tt IC} class.
 
-\subsection{Introducing the window}
+\subsection{Introducing the window and pixelization}
+
+Let's talk about pixelization first. The idea is supposed to be that
+the low-pass filter retains $k$ modes that are well sampled even on a
+sparse grid. If the window function of the coarse pixels kicks in at
+high enough $k$ compared to $k_{\mathrm{cut}}$, we can basically
+upsample and downsample between the fine and coarse pixel resolution
+without penalty. I experimented with a number of ways of doing this,
+but settled on simply linear interpolation to up-sample, and linear
+averaging to down-sample. Note that one can cook up much more complex
+schemes with apparently desirable properties, but they normally come
+with other problems and in practice the only thing that works is to
+separate  $k_{\mathrm{cut}}$ and the window scale
+sufficiently. Numerical experiments will be shown in Section
+\ref{sec:low-res-pixelization}. 
+
+For now, I just want to focus on one source of
+confusion/complication. This is the alignment of pixels. Since a pixel
+covers a finite volume, what do we mean by the field in 
 
 Now we also have to window the high-resolution part. I am going to switch to
 real space to do this.
@@ -605,6 +636,7 @@ covariance matrix for the appropriate $k$ in the small-scale, high-$k$
 limit when the window is basically irrelevant. The question is, how
 different is $\mathsf{WC_{II}^{1/2}W}^{\top}$ from $C_{II,W}^{1/2}$
 where the latter is just evaluated directly within the window?
+At this point, let's switch to numerics to answer the question....
 
 
 \section{Applying the transfer function -- demos}
@@ -662,7 +694,7 @@ at sufficiently large $k$.
 
 
 
-\section{Adding the low-res part -- demos}
+\section{Low-res pixelization -- demos}\label{sec:low-res-pixelization}
 
 Finally, we have the pixel window functions to worry about. To make
 these worries irrelevant for interpolating the low-res part I into the
@@ -712,6 +744,22 @@ This is what it does:
         the constraining code.
 \end{enumerate}
 
+The algorithms for generating constrained realizations now follow in exactly the normal way, just
+making the following replacements. In what follows, $\vec{a}$ and $\vec{b}$ are two generic
+vectors, $\tilde{\vec{a}}$ and $\tilde{\vec{b}}$ are their Fourier transforms,
+$\tilde{\vec{a}}^{\low}$ and $\tilde{\vec{b}}^{\low}$ represent the low-$k$ parts, and so on. We now
+consider every operation that is involved in generating a constrained realization.
+\subsection{Inner products}
+
+We need to be able to calculate $\vec{a}^{\dagger} \vec{b}$. If one of $\vec{a}$ and $\vec{b}$ are
+entirely localized within the high-res region $W$, this can be rewritten as
+
+\begin{equation}
+    \vec{a}^{\dagger} \vec{b} = \vec{a}^{\low\dagger,P}
+    \vec{b}^{\low,P} + \vec{a}^{\high,W\dagger} \vec{b}^{\high,W} +
+    \vec{a}^{\low,W\dagger} \vec{b}^{\high,W} +
+    \vec{a}^{\high,W\dagger} \vec{b}^{\low,W\dagger}
+\end{equation}
 
 
 \section{Program structure overview}
