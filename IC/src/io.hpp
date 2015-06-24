@@ -936,6 +936,8 @@ void getBuffer(std::vector<T> &store, std::string filename) {
         T temp;
         if(f >> temp)
             store.push_back(temp);
+	if(f.fail() && !f.eof())
+	  throw std::runtime_error("Error reading file "+filename);
     }
 }
 
