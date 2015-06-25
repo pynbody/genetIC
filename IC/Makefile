@@ -56,6 +56,8 @@ ifeq ($(HOST), Piann)
 	LPATH = /sw/lib/
 	C = gcc-4
 	CC = g++-4
+	FFTW    =
+	FFTWLIB =  -lfftw -lrfftw
 endif
 
 ifeq ($(HOST), Rhodo)
