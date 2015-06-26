@@ -3,6 +3,7 @@
 
 #include <cassert>
 #include <set>
+#include <type_traits>
 #include "fft.hpp"
 
 using namespace std;
@@ -17,6 +18,12 @@ template<typename T>
 class SubSampleGrid;
 
 template<typename T>
+class OffsetGrid;
+
+template<typename T>
+class SectionOfGrid;
+
+template<typename T>
 class MassScaledGrid;
 
 template<typename T>
@@ -27,6 +34,7 @@ public:
     using TRealField = std::vector<T>;
     using PtrTField = std::shared_ptr<std::vector<std::complex<T>>>;
     using GridPtrType = std::shared_ptr<Grid<T>>;
+    using ConstGridPtrType = std::shared_ptr<const Grid<T>>;
 
 private:
     std::shared_ptr<std::vector<std::complex<T>>> pField;
@@ -104,9 +112,7 @@ protected:
 public:
 
     const T simsize,boxsize,dx,x0,y0,z0;
-    const size_t size;
-    const size_t size2;
-    const size_t size3;
+    const size_t size,size2,size3;
 
 
 
@@ -150,6 +156,82 @@ public:
             result+=simsize;
         }
         return result;
+    }
+
+    static int getRatioAndAssertInteger(T p, T q) {
+        const T tolerance = 1e-6;
+        T ratio = p/q;
+        int rounded_ratio = int(round(ratio));
+        assert(abs(T(rounded_ratio)-ratio)<tolerance);
+        return rounded_ratio;
+    }
+
+    GridPtrType makeProxyGridToMatch(const Grid<T> &target) const
+    {
+        GridPtrType proxy = std::const_pointer_cast<Grid<T>>(this->shared_from_this());
+        if(target.dx>dx) {
+            int ratio = getRatioAndAssertInteger(target.dx,dx);
+            proxy = std::make_shared<SubSampleGrid<T>>(proxy, ratio);
+        } else if(target.dx<dx) {
+            int ratio = getRatioAndAssertInteger(dx,target.dx);
+            proxy = std::make_shared<SuperSampleGrid<T>>(proxy, ratio);
+        }
+
+        if(target.x0!=x0 || target.y0!=y0 || target.z0!=z0 || target.size!=proxy->size) {
+            proxy = std::make_shared<SectionOfGrid<T>>(proxy,
+                                                       getRatioAndAssertInteger(target.x0-x0, proxy->dx),
+                                                       getRatioAndAssertInteger(target.y0-y0, proxy->dx),
+                                                       getRatioAndAssertInteger(target.z0-z0, proxy->dx),
+                                                       target.size);
+        }
+
+
+
+        return proxy;
+    }
+
+    template<typename TArray>
+    void addFieldFromDifferentGrid(TArray &pField_x_src,
+                                   Grid<T> &grid_src,
+                                   TArray &pField_x_dest) {
+
+        // TODO: make signature above const-correct
+
+        GridPtrType pSourceProxyGrid = grid_src.makeProxyGridToMatch(*this);
+
+        assert(pSourceProxyGrid->fieldIsSuitableSize(pField_x_src));
+        assert(fieldIsSuitableSize(pField_x_dest));
+        assert(pSourceProxyGrid->size3 == size3);
+
+
+        #pragma omp parallel for schedule(static)
+        for(size_t ind_l=0; ind_l< size3; ind_l++) {
+            T x,y,z;
+            // pGrid_dest->getCentroidLocation(ind_l,x,y,z);
+            // pField_x_dest[ind_l]+= pGrid_src->getFieldInterpolated(x,y,z, pField_x_src);
+
+            pField_x_dest[ind_l]+=pSourceProxyGrid->getFieldAt(ind_l, pField_x_src);
+        }
+    }
+
+    void addFieldFromDifferentGrid(Grid<T> &grid_src) {
+        TField pField_dest = getFieldReal();
+        TField pField_src = grid_src.getFieldReal();
+        addFieldFromDifferentGrid(pField_src, grid_src, pField_dest);
+
+        auto offset_fields_src = grid_src.getOffsetFields();
+        auto offset_fields_dest = getOffsetFields();
+
+        if(std::get<0>(offset_fields_src)->size()>0 && std::get<0>(offset_fields_dest)->size()>0) {
+            addFieldFromDifferentGrid(*std::get<0>(offset_fields_src), grid_src,
+                                      *std::get<0>(offset_fields_dest));
+
+            addFieldFromDifferentGrid(*std::get<1>(offset_fields_src), grid_src,
+                                      *std::get<1>(offset_fields_dest));
+
+            addFieldFromDifferentGrid(*std::get<2>(offset_fields_src), grid_src,
+                                      *std::get<2>(offset_fields_dest));
+        }
     }
 
     virtual void debugInfo(std::ostream& s) const {
@@ -212,6 +294,27 @@ public:
         assert(pField!=nullptr);
         return *pField;
     }
+
+    virtual bool fieldIsSuitableSize(const TField & field) {
+        return field.size()==size3;
+    }
+
+    virtual bool fieldIsSuitableSize(const TRealField & field) {
+        return field.size()==size3;
+    }
+
+    virtual complex<T> getFieldAt(size_t i, const TField & field) {
+        return field[i];
+    }
+
+    virtual T getFieldAt(size_t i, const TRealField & field) {
+        return field[i];
+    }
+
+    complex<T> getFieldAt(size_t i) {
+        return getFieldAt(i, getFieldReal());
+    }
+
 
     auto getOffsetFields() {
         return std::make_tuple(pOff_x, pOff_y, pOff_z);
@@ -281,7 +384,6 @@ public:
 
     template<typename TField>
     typename TField::value_type getFieldInterpolated(const T &x, const T &y, const T &z, const TField & pField) const {
-
         int x_p_0, y_p_0, z_p_0, x_p_1, y_p_1, z_p_1;
 
         // grid coordinates of parent cell starting to bottom-left
@@ -644,22 +746,20 @@ protected:
     GridPtrType pUnderlying;
 
 public:
-    VirtualGrid(GridPtrType pUnderlying):
+    VirtualGrid(GridPtrType pUnderlying) :
             Grid<T>(
                     pUnderlying->simsize, pUnderlying->size,
                     pUnderlying->dx, pUnderlying->x0, pUnderlying->y0,
                     pUnderlying->z0, false),
-            pUnderlying(pUnderlying)
-    {
+            pUnderlying(pUnderlying) {
 
     }
 
 
     VirtualGrid(GridPtrType pUnderlying, T simsize, T gridsize,
-                T dx, T x0, T y0, T z0, bool withField):
-            Grid<T>(simsize,gridsize,dx,x0,y0,z0,withField),
-            pUnderlying(pUnderlying)
-    {
+                T dx, T x0, T y0, T z0, bool withField) :
+            Grid<T>(simsize, gridsize, dx, x0, y0, z0, withField),
+            pUnderlying(pUnderlying) {
 
     }
 
@@ -667,14 +767,30 @@ public:
         s << "VirtualGrid";
     }
 
-    virtual void debugInfo(std::ostream& s) const override  {
+    virtual void debugInfo(std::ostream &s) const override {
         debugName(s);
         s << " of side " << this->size << " address " << this << " referencing ";
         pUnderlying->debugInfo(s);
     }
 
     bool pointsToGrid(Grid<T> *pOther) override {
-      return pUnderlying.get()==pOther;
+        return pUnderlying.get() == pOther;
+    }
+
+    virtual bool fieldIsSuitableSize(const TRealField &field) override {
+        return pUnderlying->fieldIsSuitableSize(field);
+    }
+
+    virtual bool fieldIsSuitableSize(const TField &field) override {
+        return pUnderlying->fieldIsSuitableSize(field);
+    }
+
+    virtual T getFieldAt(size_t i, const TRealField &field) override {
+        throw std::runtime_error("getFieldAt is not implemented for this type of VirtualGrid");
+    }
+
+    virtual complex<T> getFieldAt(size_t i, const TField &field) override {
+        throw std::runtime_error("getFieldAt is not implemented for this type of VirtualGrid");
     }
 
     void gatherParticleList(std::vector<size_t> & targetArray) const override {
@@ -791,6 +907,18 @@ public:
       cellMassi/=factor3;
     }
 
+    virtual T getFieldAt(size_t i, const TRealField &field) override {
+        T x,y,z;
+        this->getCentroidLocation(i,x,y,z);
+        return this->pUnderlying->getFieldInterpolated(x,y,z,field);
+    }
+
+    virtual complex<T> getFieldAt(size_t i, const TField &field) override {
+        T x,y,z;
+        this->getCentroidLocation(i,x,y,z);
+        return this->pUnderlying->getFieldInterpolated(x,y,z,field);
+    }
+
 
 };
 
@@ -798,12 +926,14 @@ template<typename T>
 class OffsetGrid : public VirtualGrid<T> {
 private:
     T xOffset,yOffset,zOffset;
+    int xOffset_i, yOffset_i, zOffset_i;
 
 protected:
     using typename Grid<T>::TField;
     using typename Grid<T>::TRealField;
     using typename Grid<T>::PtrTField;
     using typename Grid<T>::GridPtrType;
+
 
 public:
     OffsetGrid(GridPtrType pUnderlying, T dx, T dy, T dz):
@@ -843,6 +973,70 @@ public:
 
 };
 
+
+template<typename T>
+class SectionOfGrid : public VirtualGrid<T> {
+private:
+    int xOffset_i, yOffset_i, zOffset_i;
+    T xOffset, yOffset, zOffset;
+
+protected:
+    using typename Grid<T>::TField;
+    using typename Grid<T>::TRealField;
+    using typename Grid<T>::PtrTField;
+    using typename Grid<T>::GridPtrType;
+
+    size_t mapIndex(size_t sec_id) const {
+        int x,y,z;
+        this->getCoordinates(sec_id,x,y,z);
+        x+=xOffset_i;
+        y+=yOffset_i;
+        z+=zOffset_i;
+        return this->pUnderlying->getIndex(x,y,z);
+    }
+
+public:
+    SectionOfGrid(GridPtrType pUnderlying, int deltax, int deltay, int deltaz, size_t size):
+            VirtualGrid<T>(pUnderlying,
+                           pUnderlying->simsize, size,
+                           pUnderlying->dx, pUnderlying->x0+deltax*pUnderlying->dx,
+                           pUnderlying->y0+deltay*pUnderlying->dx,
+                           pUnderlying->z0+deltaz*pUnderlying->dx, false),
+            xOffset_i(deltax), yOffset_i(deltay), zOffset_i(deltaz),
+            xOffset(deltax*this->dx), yOffset(deltay*this->dx), zOffset(deltaz*this->dx)
+    {
+        cerr << "sectionOfGrid" << xOffset_i << " " << yOffset_i << " " << zOffset_i << " " << this->size;
+    }
+
+
+
+    virtual void debugName(std::ostream &s) const override {
+        s << "SectionOfGrid";
+    }
+
+    virtual void getParticleNoWrap(size_t id, T &x, T &y, T &z, T &vx, T &vy, T &vz, T &cellMassi, T &eps) const
+    {
+        this->pUnderlying->getParticleNoWrap(mapIndex(id),x,y,z,vx,vy,vz,cellMassi,eps);
+    }
+
+    void getParticleFromOffset(T &x, T &y, T &z, T &vx, T &vy, T &vz, T &cellMassi, T &eps) const override
+    {
+
+        this->pUnderlying->getParticleFromOffset(x,y,z,vx,vy,vz,cellMassi,eps);
+
+    }
+
+    virtual T getFieldAt(size_t i, const TRealField &field) override {
+        return this->pUnderlying->getFieldAt(mapIndex(i), field);
+    }
+
+    virtual complex<T> getFieldAt(size_t i, const TField &field) override {
+        return this->pUnderlying->getFieldAt(mapIndex(i), field);
+    }
+
+
+
+};
 
 
 template<typename T>
@@ -915,13 +1109,13 @@ public:
       vz=0;
       cellMassi=0;
       eps=0;
-        
+
         /*
       this->pUnderlying->getParticle(this->pUnderlying->getIndexNoWrap(x0,y0,z0),
                                        x,y,z,vx,vy,vz,cellMassi,eps);
       cellMassi*=factor3;
       */
-        
+
       // construct our virtual values from average over the underlying cells
       for(auto xi=x0; xi<x1; ++xi) {
         for (auto yi=y0; yi<y1; ++yi) {

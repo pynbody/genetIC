@@ -6,6 +6,7 @@
 #include <limits>
 
 #include "mapper.hpp"
+#include "cosmo.hpp"
 
 #ifdef HAVE_HDF5
 hid_t hdf_float = H5Tcopy (H5T_NATIVE_DOUBLE);
@@ -14,7 +15,8 @@ hid_t hdf_double = H5Tcopy (H5T_NATIVE_DOUBLE);
 
 // #endif
 
-
+template<typename MyFloat>
+struct CosmologicalParameters;
 
 using namespace std;
 
@@ -134,7 +136,8 @@ struct io_header_3 //header for gadget3
 
 
 template<typename MyFloat>
-io_header_2 CreateGadget2Header(MyFloat *masses, long *npart, double Boxlength, double Om0, double Ol0, double hubble, double a)
+io_header_2 CreateGadget2Header(MyFloat *masses, long *npart, double Boxlength,
+                                const CosmologicalParameters<MyFloat> &cosmology)
 {
     //types 2,3,4 are currently unused (only one zoom level)
     io_header_2 header2;
@@ -150,8 +153,8 @@ io_header_2 CreateGadget2Header(MyFloat *masses, long *npart, double Boxlength, 
     header2.mass[3]=masses[3];
     header2.mass[4]=masses[4];
     header2.mass[5]=masses[5];
-    header2.time=a;
-    header2.redshift=1./a-1.;
+    header2.time=cosmology.scalefactor;
+    header2.redshift=cosmology.redshift;
     header2.flag_sfr=0;
     header2.flag_feedback=0;
     header2.nPartTotal[0]=npart[0];
@@ -163,9 +166,9 @@ io_header_2 CreateGadget2Header(MyFloat *masses, long *npart, double Boxlength, 
     header2.flag_cooling=0;
     header2.num_files=1;
     header2.BoxSize=Boxlength;
-    header2.Omega0=Om0;
-    header2.OmegaLambda=Ol0;
-    header2.HubbleParam=hubble;
+    header2.Omega0=cosmology.OmegaM0;
+    header2.OmegaLambda=cosmology.OmegaLambda0;
+    header2.HubbleParam=cosmology.hubble;
 
     if (npart[0] > 0) { //options for baryons 
       header2.flag_sfr=1;
@@ -178,7 +181,8 @@ io_header_2 CreateGadget2Header(MyFloat *masses, long *npart, double Boxlength, 
 }
 
 template<typename MyFloat>
-io_header_3 CreateGadget3Header(MyFloat *masses, long *npart, double Boxlength, double Om0, double Ol0, double hubble, double a)
+io_header_3 CreateGadget3Header(MyFloat *masses, long *npart, double Boxlength,
+                                const CosmologicalParameters<MyFloat> &cosmology)
 {
 
     //types 2,3,4 are currently unused (only one zoom level)
@@ -196,8 +200,8 @@ io_header_3 CreateGadget3Header(MyFloat *masses, long *npart, double Boxlength, 
     header3.mass[3]=(double)(masses[3]);
     header3.mass[4]=(double)(masses[4]);
     header3.mass[5]=(double)(masses[5]);
-    header3.time=a;
-    header3.redshift=1./a-1.;
+    header3.time=cosmology.scalefactor;
+    header3.redshift=cosmology.redshift;
     header3.flag_sfr=0;
     header3.flag_feedback=0;
     header3.nPartTotal[0]=(unsigned int)(npart[0]);
@@ -209,9 +213,9 @@ io_header_3 CreateGadget3Header(MyFloat *masses, long *npart, double Boxlength, 
     header3.flag_cooling=0;
     header3.num_files=1;
     header3.BoxSize=Boxlength;
-    header3.Omega0=Om0;
-    header3.OmegaLambda=Ol0;
-    header3.HubbleParam=hubble;
+    header3.Omega0=cosmology.OmegaM0;
+    header3.OmegaLambda=cosmology.OmegaLambda0;
+    header3.HubbleParam=cosmology.hubble;
     header3.flag_stellarage=0;  /*!< flags whether the file contains formation times of star particles */
     header3.flag_metals=0;    /*!< flags whether the file contains metallicity values for gas and star  particles */
     header3.nPartTotalHighWord[0]=(unsigned int) (npart[0] >> 32);
@@ -560,17 +564,14 @@ void SaveGadget2(const char *filename, long nPart, io_header_2 header1, MyFloat*
 }
 
 template<typename MyFloat>
-void SaveGadget(const std::string &name, double Boxlength, double Om0, double Ol0, double hubble, double a, double Ob0, shared_ptr<ParticleMapper<MyFloat>> pMapper, int gadgetformat) {
+void SaveGadget(const std::string &name, double Boxlength, shared_ptr<ParticleMapper<MyFloat>> pMapper,
+                const CosmologicalParameters<MyFloat> &cosmology, int gadgetformat) {
 
     std::cout<< "Hello from Gadget output!"<< std::endl;
 
     MyFloat x,y,z,vx,vy,vz,mass,tot_mass=0.0,eps;
-    double min_mass=std::numeric_limits<double>::max();
-    double max_mass=0.;
-    double gas_mass=0.;
-    unsigned int nlow=0;
-    unsigned int ngas=0;
-    unsigned int nhigh=0;
+    MyFloat min_mass, max_mass,gas_mass;
+    size_t nlow,ngas,nhigh;
 
     // input units [Gadget default]::
     // pmass in 1e10 h^-1 Msol
@@ -581,7 +582,7 @@ void SaveGadget(const std::string &name, double Boxlength, double Om0, double Ol
     MyFloat vel_factor=1.;
     MyFloat mass_factor=1.;
 
-    particle_info(pMapper, min_mass, max_mass, tot_mass, gas_mass, ngas, nlow, nhigh);
+    getParticleInfo(pMapper, min_mass, max_mass, tot_mass, gas_mass, ngas, nlow, nhigh);
 
     cout << "min and max particle mass : "<< min_mass << " " << max_mass <<endl;
     cout << "particle numbers (gas, high, low) : "<< ngas << " " << nhigh << " "<< nlow <<endl;
@@ -612,7 +613,7 @@ void SaveGadget(const std::string &name, double Boxlength, double Om0, double Ol
     int dummy;
 
     if (gadgetformat==3) { 
-      io_header_3 header1=CreateGadget3Header(masses, npart, Boxlength, Om0, Ol0, hubble, a); 
+      io_header_3 header1= CreateGadget3Header(masses, npart, Boxlength, cosmology);
       cout << "Hello from Gadget3 header!"<< endl;
       //header block
       dummy= sizeof(header1);
@@ -621,7 +622,7 @@ void SaveGadget(const std::string &name, double Boxlength, double Om0, double Ol
       my_fwrite(&dummy, sizeof(dummy), 1, fd);      
     }
     else if (gadgetformat==2) { 
-      io_header_2 header1=CreateGadget2Header(masses, npart, Boxlength, Om0, Ol0, hubble, a); 
+      io_header_2 header1= CreateGadget2Header(masses, npart, Boxlength, cosmology);
       cout << "Hello from Gadget2 header!"<< endl;
       dummy= sizeof(header1);
       my_fwrite(&dummy, sizeof(dummy), 1, fd);
@@ -765,8 +766,17 @@ void SaveGadget(const std::string &name, double Boxlength, double Om0, double Ol
 }
 
 template<typename MyFloat>
-void particle_info(const shared_ptr<ParticleMapper<MyFloat>> &pMapper, double &min_mass, double &max_mass,
-                   MyFloat &tot_mass, MyFloat &gas_mass, unsigned int &ngas, unsigned int &nlow, unsigned int&nhigh){ //, unsigned int &nlow) {
+void getParticleInfo(const shared_ptr<ParticleMapper<MyFloat>> &pMapper, MyFloat &min_mass, MyFloat &max_mass,
+                     MyFloat &tot_mass, MyFloat &gas_mass, size_t &ngas, size_t &nlow, size_t &nhigh){
+
+    min_mass = 0;
+    max_mass = std::numeric_limits<MyFloat>::max();
+    gas_mass = 0;
+    tot_mass = 0;
+    ngas = 0;
+    nlow = 0;
+    nhigh = 0;
+
     MyFloat mass;
     for(auto i=pMapper->begin(); i!=pMapper->end(); ++i) {
       // progress("Pre-write scan file",iord, totlen);
@@ -796,9 +806,9 @@ void particle_info(const shared_ptr<ParticleMapper<MyFloat>> &pMapper, double &m
 }
 
 template<typename MyFloat>
-void SaveTipsy(const std::string & filename,
-               double Boxlength, double Om0, double Ol0, double hubble, double ain,
-               shared_ptr<ParticleMapper<MyFloat>> pMapper) {
+void SaveTipsy(const std::string &filename, double Boxlength,
+               shared_ptr<ParticleMapper<MyFloat>> pMapper,
+               const CosmologicalParameters<MyFloat> &cosmology) {
 
     // originally:
     // pmass in 1e10 h^-1 Msol
@@ -808,7 +818,7 @@ void SaveTipsy(const std::string & filename,
     ofstream photogenic_file;
 
     double pos_factor  = 1./Boxlength;  // boxsize = 1
-    double vel_factor  = ain/(sqrt(3./(8.*M_PI))*100*Boxlength);
+    double vel_factor  = cosmology.scalefactor/(sqrt(3./(8.*M_PI))*100*Boxlength);
     double mass_factor = 0.0; // calculated below shortly
 
     double min_mass=std::numeric_limits<double>::max();
@@ -832,11 +842,11 @@ void SaveTipsy(const std::string & filename,
         photogenic_file.open("photogenic.txt");
     }
 
-    mass_factor = Om0/tot_mass; // tipsy convention: sum(mass)=Om0
+    mass_factor = cosmology.OmegaM0/tot_mass; // tipsy convention: sum(mass)=Om0
 
     io_header_tipsy header;
 
-    header.scalefactor = ain;
+    header.scalefactor = cosmology.scalefactor;
     header.n = pMapper->size();
     header.ndim = 3;
     header.ngas = pMapper->size_gas();
@@ -846,13 +856,13 @@ void SaveTipsy(const std::string & filename,
 
     cout << "TIPSY parameters:" << endl;
 
-    double dKpcUnit  = Boxlength*1000/hubble;
-    double dMsolUnit = 1e10/hubble/mass_factor;
+    double dKpcUnit  = Boxlength*1000/cosmology.hubble;
+    double dMsolUnit = 1e10/cosmology.hubble/mass_factor;
     double dKmsUnit  = sqrt(4.30211349e-6*dMsolUnit/(dKpcUnit));
 
     cout << "dKpcUnit: " <<  dKpcUnit << endl;
     cout << "dMsolUnit: " << dMsolUnit  << endl;
-    cout << "hubble0: " << 0.1*hubble * dKpcUnit / dKmsUnit << endl;
+    cout << "hubble0: " << 0.1*cosmology.hubble * dKpcUnit / dKmsUnit << endl;
 
     io_tipsy_dark dp;
     io_tipsy_gas gp;
@@ -861,7 +871,7 @@ void SaveTipsy(const std::string & filename,
     if(!fd) throw std::runtime_error("Unable to open file for writing");
 
     dp.phi = 0.0;
-    gp.temp = 2.73/ain;
+    gp.temp = 2.73/cosmology.scalefactor;
     gp.metals = 0.0;
     gp.rho = 0.0;
 

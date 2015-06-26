@@ -31,7 +31,7 @@ template<typename MyFloat>
 class IC {
 protected:
 
-
+    using GridPtrType = std::shared_ptr<Grid<MyFloat>>;
     friend class DummyIC<MyFloat>;
 
     CosmologicalParameters<MyFloat> cosmology;
@@ -42,7 +42,7 @@ protected:
 
     int supersample, subsample;               // DM supersampling to perform on zoom grid, and subsampling on base grid
 
-    std::vector<std::shared_ptr<Grid<MyFloat>>> pGrid;       // the objects that help us relate points on the grid
+    std::vector<GridPtrType> pGrid;       // the objects that help us relate points on the grid
 
 
 
@@ -480,41 +480,33 @@ public:
     }
 
     template<typename T>
-    void interpolateIntoLevel(int level, T& pField_x_l, T& pField_x_p) {
+    void interpolateIntoLevel(const GridPtrType &pGrid_dest, const GridPtrType &pGrid_src,
+                              T &pField_x_dest, T &pField_x_src) {
 
+        assert(pField_x_dest.size()== pGrid_dest->size3);
+        assert(pField_x_src.size()== pGrid_src->size3);
+
+        GridPtrType pSourceProxyGrid = pGrid_src->makeProxyGridToMatch(*pGrid_dest);
+
+        // #pragma omp parallel for schedule(static)
+        for(size_t ind_l=0; ind_l< pGrid_dest->size3; ind_l++) {
+            MyFloat x,y,z;
+            // pGrid_dest->getCentroidLocation(ind_l,x,y,z);
+            // pField_x_dest[ind_l]+= pGrid_src->getFieldInterpolated(x,y,z, pField_x_src);
+
+            pField_x_dest[ind_l]+=pSourceProxyGrid->getFieldAt(ind_l, pField_x_src);
+        }
+    }
+
+    virtual void interpolateIntoLevel(int level) {
         if(level<=0)
             throw std::runtime_error("Trying to interpolate onto the top-level grid");
 
         auto pGrid_l = pGrid[level];
         auto pGrid_p = pGrid[level-1];
 
-        assert(pField_x_l.size()==pGrid_l->size3);
-        assert(pField_x_p.size()==pGrid_p->size3);
+        pGrid_l->addFieldFromDifferentGrid(*pGrid_p);
 
-
-        #pragma omp parallel for schedule(static)
-        for(size_t ind_l=0; ind_l<pGrid_l->size3; ind_l++) {
-            MyFloat x,y,z;
-            pGrid_l->getCentroidLocation(ind_l,x,y,z);
-            pField_x_l[ind_l]+=pGrid_p->getFieldInterpolated(x,y,z,pField_x_p);
-        }
-
-    }
-
-    virtual void interpolateIntoLevel(int level) {
-        RefFieldType pField_x_l = pGrid[level]->getFieldReal();
-        RefFieldType pField_x_p = pGrid[level-1]->getFieldReal();
-
-        interpolateIntoLevel(level,pField_x_l,pField_x_p);
-
-        auto offset_fields_l = pGrid[level]->getOffsetFields();
-        auto offset_fields_p = pGrid[level-1]->getOffsetFields();
-
-        if(std::get<0>(offset_fields_l)->size()>0 && std::get<0>(offset_fields_p)->size()>0) {
-            interpolateIntoLevel(level,*std::get<0>(offset_fields_l),*std::get<0>(offset_fields_p));
-            interpolateIntoLevel(level,*std::get<1>(offset_fields_l),*std::get<1>(offset_fields_p));
-            interpolateIntoLevel(level,*std::get<2>(offset_fields_l),*std::get<2>(offset_fields_p));
-        }
     }
 
 
@@ -834,11 +826,10 @@ public:
         cerr << (*pMapper);
 
         if (gadgetformat==3 || gadgetformat==2)
-            SaveGadget( base+ ".gadget", boxlen[0], cosmology.OmegaM0, cosmology.OmegaLambda0, cosmology.hubble,
-                         cosmology.scalefactor, cosmology.OmegaBaryons0, pMapper, gadgetformat);
+            SaveGadget(base + ".gadget", boxlen[0], pMapper, cosmology, gadgetformat);
 
         else if (gadgetformat==4)
-            SaveTipsy(base+".tipsy", boxlen[0], cosmology.OmegaM0, cosmology.OmegaLambda0, cosmology.hubble, cosmology.scalefactor, pMapper);
+            SaveTipsy(base + ".tipsy", boxlen[0], pMapper, cosmology);
 
         else{ throw std::runtime_error("Invalid value for gadgetformat!");}
     }

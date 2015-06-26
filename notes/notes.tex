@@ -9,7 +9,7 @@
 \usepackage{color}
 \usepackage{soul}
 
-\usepackage[linewidth=1pt]{mdframed}
+%\usepackage[linewidth=1pt]{mdframed}
 \usepackage[left=3cm,right=3cm,top=3cm,bottom=3.5cm]{geometry}
 \newcommand{\low}{\mathrm{low}}
 \newcommand{\high}{\mathrm{high}}
@@ -560,7 +560,7 @@ approaches, it's critical to be very clear about which filter is being
 applied at what time.} In both the toy and the production codes, I've used
 a Fermi function for $\tilde{\mathsf{F}}^{\low}$,
 \begin{equation}
-  \tilde{\mathsf{F}}^{\low}_{k_1, k_2}=\frac{\delta_{k_1,k_2}}{1+\exp\left(\frac{k_1-k_{\mathrm{cut}}}{T}\right)}
+  \tilde{\mathsf{F}}^{\low}_{k_1, k_2}=\frac{\delta_{k_1,k_2}}{1+\exp\left(\frac{k_1-k_{\mathrm{cut}}}{T}\right)}\label{eq:fermi}
 \end{equation}
 where the `temperature' $T$ defines the harshness of the cut-off - I am typically
 taking it to be $k_{\mathrm{cut}}/10$ just from playing around.\footnote{In principle
@@ -696,14 +696,45 @@ at sufficiently large $k$.
 
 \section{Low-res pixelization -- demos}\label{sec:low-res-pixelization}
 
-Finally, we have the pixel window functions to worry about. To make
-these worries irrelevant for interpolating the low-res part I into the
-box II, the transition scale must be at sufficiently small $k$,
-i.e. on scales much larger than the scale of a low-res pixel.  Then,
-we can do more-or-less any sensible interpolation -- the one
-implemented is linear interpolation. {\bf TO DO: } Again, a formal
+Finally, we have the pixel window functions to worry about.  To
+prevent aliasing problems, the transition scale must be at
+sufficiently small $k$, i.e. on scales much larger than that of a
+low-res pixel.  Then, we can do more-or-less any sensible
+interpolation -- the one implemented is linear interpolation.
+
+To be clear, we regard the value of a given pixel as sampling the 
+function at the centre of that pixel. In both the demo and the IC
+code, when setting up zooms, it's enforced that the high
+resolution is an integer multiple of the low resolution (i.e. a
+fixed number of high-res pixels fit inside one low-res pixel); and
+that the grids are aligned. Then, any field defined on the
+high resolution grid can be ``sub-sampled'' onto low resolution grid by
+an averaging procedure. Or, a field defined on the low resolution
+grid can be ``super-sampled'' onto the high resolution grid
+by interpolating. One slightly unfortunate feature is that these
+two operations are not exact inverses of each other. However,
+they become inverses in the limit that there is only power in
+long wavelength modes (compared to the low-res pixel size).
+This emphasizes, as above, that $k_{cut}$ needs to be sufficiently large that
+the power is kept well away from the pixel scale. Note this 
+limitation pushes in the opposite direction to the one imposed
+by the windowing (which requires $k_{cut}$ to be sufficiently 
+{\it small}). 
+
+\includegraphics[width=1.0\textwidth]{figs/pixelization-figure.pdf}
+
+{\bf TO DO: } Again, a formal
 demonstration looking at how errors decline if there is no power near
 the pixel scale would be nice.
+
+The sub/super-sampling code is implemented as {\tt downsample}
+and {\tt upsample} in the toy implementation. In the IC code,
+upsampling is implemented as {\tt IC::interpolateIntoLevel}.
+However, it can also be achieved by constructing a
+{\tt SuperSampleGrid} referencing the low resolution {\tt Grid}.
+Downsampling can be achieved by constructing a 
+{\tt SubSampleGrid} referencing the high resolution {\tt Grid}.
+
 
 \section{Adding constraints}
 
@@ -751,15 +782,31 @@ $\tilde{\vec{a}}^{\low}$ and $\tilde{\vec{b}}^{\low}$ represent the low-$k$ part
 consider every operation that is involved in generating a constrained realization.
 \subsection{Inner products}
 
-We need to be able to calculate $\vec{a}^{\dagger} \vec{b}$. If one of $\vec{a}$ and $\vec{b}$ are
-entirely localized within the high-res region $W$, this can be rewritten as
+We need to be able to calculate $\vec{a}^{\dagger} \vec{b}$. This can
+be rewritten as 
 
 \begin{equation}
-    \vec{a}^{\dagger} \vec{b} = \vec{a}^{\low\dagger,P}
-    \vec{b}^{\low,P} + \vec{a}^{\high,W\dagger} \vec{b}^{\high,W} +
-    \vec{a}^{\low,W\dagger} \vec{b}^{\high,W} +
-    \vec{a}^{\high,W\dagger} \vec{b}^{\low,W\dagger}
+    \vec{a}^{\dagger} \vec{b} = \vec{a}^{\low\dagger}
+    \vec{b}^{\low} + \vec{a}^{\high\dagger} \vec{b}^{\high} +
+    \vec{a}^{\low\dagger}\vec{b}^{\high} + \vec{a}^{\high\dagger} \vec{b}^{\low}
 \end{equation}
+In practical circumstances, the low parts are stored as $P$-vectors
+and the high parts are stored as $W$-vectors. The easiest thing to do
+is therefore to throw away the last two terms, and approximate
+\begin{equation}
+  \vec{a}^{\dagger} \vec{b} \simeq r \vec{a}^{\low,P\dagger}
+    \vec{b}^{\low,P} + \vec{a}^{\high,W\dagger} \vec{b}^{\high,W}
+\end{equation}
+where $r$ is the number of high-res pixels per low-res pixel.
+As the filters become sufficiently sharp, this expression becomes
+exact. For the Fermi filter, equation \eqref{eq:fermi}, the
+approximation is typically accurate to within a percent or two. This
+can be verified in the toy code, since the {\tt inner\_product} function
+implements a {\tt more\_accurate} kwarg: when set to {\tt True}, an
+approximation of the high-low crossterm is added (using interpolation
+into the W region). 
+
+In the IC code, the equation 
 
 
 \section{Program structure overview}
