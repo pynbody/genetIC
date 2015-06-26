@@ -191,9 +191,7 @@ public:
     }
 
     template<typename TArray>
-    void addFieldFromDifferentGrid(TArray &pField_x_src,
-                                   Grid<T> &grid_src,
-                                   TArray &pField_x_dest) {
+    void addFieldFromDifferentGrid(Grid<T> &grid_src, TArray &pField_x_src, TArray &pField_x_dest) {
 
         // TODO: make signature above const-correct
 
@@ -206,10 +204,6 @@ public:
 
         #pragma omp parallel for schedule(static)
         for(size_t ind_l=0; ind_l< size3; ind_l++) {
-            T x,y,z;
-            // pGrid_dest->getCentroidLocation(ind_l,x,y,z);
-            // pField_x_dest[ind_l]+= pGrid_src->getFieldInterpolated(x,y,z, pField_x_src);
-
             pField_x_dest[ind_l]+=pSourceProxyGrid->getFieldAt(ind_l, pField_x_src);
         }
     }
@@ -217,20 +211,15 @@ public:
     void addFieldFromDifferentGrid(Grid<T> &grid_src) {
         TField pField_dest = getFieldReal();
         TField pField_src = grid_src.getFieldReal();
-        addFieldFromDifferentGrid(pField_src, grid_src, pField_dest);
+        addFieldFromDifferentGrid(grid_src, pField_src, pField_dest);
 
         auto offset_fields_src = grid_src.getOffsetFields();
         auto offset_fields_dest = getOffsetFields();
 
         if(std::get<0>(offset_fields_src)->size()>0 && std::get<0>(offset_fields_dest)->size()>0) {
-            addFieldFromDifferentGrid(*std::get<0>(offset_fields_src), grid_src,
-                                      *std::get<0>(offset_fields_dest));
-
-            addFieldFromDifferentGrid(*std::get<1>(offset_fields_src), grid_src,
-                                      *std::get<1>(offset_fields_dest));
-
-            addFieldFromDifferentGrid(*std::get<2>(offset_fields_src), grid_src,
-                                      *std::get<2>(offset_fields_dest));
+            addFieldFromDifferentGrid(grid_src, *std::get<0>(offset_fields_src), *std::get<0>(offset_fields_dest));
+            addFieldFromDifferentGrid(grid_src, *std::get<1>(offset_fields_src), *std::get<1>(offset_fields_dest));
+            addFieldFromDifferentGrid(grid_src, *std::get<2>(offset_fields_src), *std::get<2>(offset_fields_dest));
         }
     }
 
@@ -534,7 +523,7 @@ public:
     //  Index manipulation routines
     ///////////////////////////////////////
 
-    long findNextInd(long index, const int step[3]) const
+    size_t findNextInd(size_t index, const int step[3]) const
     {
         int grid[3];
         std::tie(grid[0],grid[1],grid[2])=getCoordinates(index);
@@ -546,7 +535,7 @@ public:
         return this->getIndex(grid); // N.B. does wrapping inside getIndex
     }
 
-    long findNextIndNoWrap(long index, const int step[3]) const
+    size_t findNextIndNoWrap(size_t index, const int step[3]) const
     {
 
         int grid[3];
@@ -567,9 +556,9 @@ public:
         y = y%size;
         z = z%size;
 #else
-        if(x>size) x-=size;
-        if(y>size) y-=size;
-        if(z>size) z-=size;
+        if(x>(signed) size) x-=size;
+        if(y>(signed) size) y-=size;
+        if(z>(signed) size) z-=size;
 #endif
         if(x<0) x+=size;
         if(y<0) y+=size;
@@ -592,14 +581,14 @@ public:
     }
 
 
-    long getIndex(int x, int y, int z) const
+    size_t getIndex(int x, int y, int z) const
     {
 
-        long size=this->size;
+        size_t size=this->size;
 
         wrap(x,y,z);
 
-        long index=(x*size+y);
+        size_t index=(x*size+y);
         index*=size;
         index+=z;
 
@@ -607,25 +596,25 @@ public:
 
     }
 
-    size_t getIndexNoWrap(size_t x, size_t y, size_t z) const
+    size_t getIndexNoWrap(int x, int y, int z) const
     {
 
 #ifdef SAFER_SLOWER
         if(x<0 || x>=size || y<0 || y>=size || z<0 || z>=size)
             throw std::runtime_error("Grid index out of range in getIndexNoWrap");
 #endif
-        return (x*size+y)*size+z;
+        return size_t(x*size+y)*size+z;
     }
 
-    long getIndex(const int pos[3]) const {
+    size_t getIndex(const int pos[3]) const {
         return getIndex(pos[0], pos[1], pos[2]);
     }
 
-    long getIndexNoWrap(const int pos[3]) const {
+    size_t getIndexNoWrap(const int pos[3]) const {
         return getIndexNoWrap(pos[0], pos[1], pos[2]);
     }
 
-    void getCoordinates(long id, int &x, int &y, int &z) const {
+    void getCoordinates(size_t id, int &x, int &y, int &z) const {
         x = (int) (id/size2);
         y = (int) (id%size2)/size;
         z = (int) (id%size);
@@ -639,7 +628,7 @@ public:
         }
     }
 
-    tuple<int, int, int> getCoordinates(long id) const {
+    tuple<int, int, int> getCoordinates(size_t id) const {
         int x, y, z;
 
         getCoordinates(id, x,y,z);
@@ -649,9 +638,9 @@ public:
 
     void getKCoordinates(size_t id, int &x, int &y, int &z) const {
         getCoordinates(id,x,y,z);
-        if(x>size/2) x=x-size;
-        if(y>size/2) y=y-size;
-        if(z>size/2) z=z-size;
+        if(x>(signed) size/2) x=x-size;
+        if(y>(signed) size/2) y=y-size;
+        if(z>(signed) size/2) z=z-size;
     }
 
     tuple<int, int, int> getKCoordinates(size_t id) const {
@@ -690,7 +679,7 @@ public:
 
     }
 
-    tuple<T, T, T> getCentroidLocation(long id) const {
+    tuple<T, T, T> getCentroidLocation(size_t id) const {
         T xc,yc,zc;
         getCentroidLocation(id,xc,yc,zc);
         return std::make_tuple(xc,yc,zc);
@@ -1005,7 +994,7 @@ public:
             xOffset_i(deltax), yOffset_i(deltay), zOffset_i(deltaz),
             xOffset(deltax*this->dx), yOffset(deltay*this->dx), zOffset(deltaz*this->dx)
     {
-        cerr << "sectionOfGrid" << xOffset_i << " " << yOffset_i << " " << zOffset_i << " " << this->size;
+
     }
 
 
