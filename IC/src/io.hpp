@@ -644,9 +644,9 @@ void SaveGadget(const std::string &name, double Boxlength, shared_ptr<ParticleMa
         i.getParticle(x,y,z,vx,vy,vz,mass,eps); //what is eps? softening I assume
 
         // progress("Writing file",iord, totlen);
-        gp.x=x*pos_factor-0.5; //centering needed? I think Gadget can deal with that automagically
-        gp.y=y*pos_factor-0.5;
-        gp.z=z*pos_factor-0.5;
+        gp.x=x*pos_factor;
+        gp.y=y*pos_factor;
+        gp.z=z*pos_factor;
 
         //cout << "gas mass " << mass << endl;
 
@@ -665,9 +665,9 @@ void SaveGadget(const std::string &name, double Boxlength, shared_ptr<ParticleMa
         i.getParticle(x,y,z,vx,vy,vz,mass,eps); 
 
         // progress("Writing file",iord, totlen);
-        dp.x=x*pos_factor-0.5; //centering needed? I think Gadget can deal with that automatically
-        dp.y=y*pos_factor-0.5;
-        dp.z=z*pos_factor-0.5;
+        dp.x=x*pos_factor;
+        dp.y=y*pos_factor;
+        dp.z=z*pos_factor;
 
         my_fwrite(&dp.x,sizeof(dp.x),1,fd);
         my_fwrite(&dp.y,sizeof(dp.y),1,fd);
