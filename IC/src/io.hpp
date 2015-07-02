@@ -769,8 +769,8 @@ template<typename MyFloat>
 void getParticleInfo(const shared_ptr<ParticleMapper<MyFloat>> &pMapper, MyFloat &min_mass, MyFloat &max_mass,
                      MyFloat &tot_mass, MyFloat &gas_mass, size_t &ngas, size_t &nlow, size_t &nhigh){
 
-    min_mass = 0;
-    max_mass = std::numeric_limits<MyFloat>::max();
+    min_mass = std::numeric_limits<MyFloat>::max();
+    max_mass = 0;
     gas_mass = 0;
     tot_mass = 0;
     ngas = 0;
@@ -778,7 +778,7 @@ void getParticleInfo(const shared_ptr<ParticleMapper<MyFloat>> &pMapper, MyFloat
     nhigh = 0;
 
     MyFloat mass;
-    for(auto i=pMapper->begin(); i!=pMapper->end(); ++i) {
+    for(auto i=pMapper->beginDm(); i!=pMapper->endDm(); ++i) {
       // progress("Pre-write scan file",iord, totlen);
         mass = i.getMass(); // sometimes can be MUCH faster than getParticle
         if(min_mass>mass) min_mass=mass;
@@ -799,7 +799,7 @@ void getParticleInfo(const shared_ptr<ParticleMapper<MyFloat>> &pMapper, MyFloat
         mass = i.getMass(); // sometimes can be MUCH faster than getParticle
         if (mass == min_mass) nhigh+=1;
         else if (mass == max_mass) nlow+=1;
-        else {cout << "else in mass " << endl; continue;} 
+        else {cout << "else in mass " << min_mass << " " << max_mass << " " << mass << endl; continue;} 
 
     }
       // end_progress();
