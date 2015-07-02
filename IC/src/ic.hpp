@@ -87,6 +87,7 @@ protected:
     shared_ptr<ParticleMapper<MyFloat>> pInputMapper;
 
     using RefFieldType = decltype(pGrid[0]->getField());
+    using FieldType = std::remove_reference_t<decltype(pGrid[0]->getField())>;
 
     ClassDispatch<IC<MyFloat>, void> &interpreter;
 
@@ -309,7 +310,7 @@ public:
     void setSeedFourier(int in) {
         seed = in;
         whiteNoiseFourier = true;
-	reverseFourierRandomDrawOrder = false;
+	    reverseFourierRandomDrawOrder = false;
     }
 
     void setSeedFourierReverseOrder(int in) {
@@ -460,10 +461,10 @@ public:
         for_each_level(level) {
             cerr << "Generate random noise for level " << level <<endl;
             if(whiteNoiseFourier) {
-	      drawRandomForSpecifiedGridFourier(n[level], pGrid[level]->getFieldFourier(),r,reverseFourierRandomDrawOrder);
+                drawRandomForSpecifiedGridFourier(n[level], pGrid[level]->getFieldFourier(),r,reverseFourierRandomDrawOrder);
             } else {
                 drawRandomForSpecifiedGrid(n[level], pGrid[level]->getFieldFourier(),r);
-	    }
+            }
         }
 
         gsl_rng_free (r);
@@ -627,7 +628,7 @@ public:
             cerr << "No filter" << endl;
         }
 
-        std::cout<<"Interpolation: kmin: "<< kw <<" Mpc/h, kmax: "<< (MyFloat)( kw*n[level]/2.*sqrt(3.)) <<" Mpc/h"<<std::endl;
+        std::cout<<"Interpolation: kmax: "<< kw <<" Mpc/h, kmax: "<< (MyFloat)( kw*n[level]/2.*sqrt(3.)) <<" Mpc/h"<<std::endl;
 
         MyFloat norm_amp=norm*amp;
 
@@ -1195,38 +1196,70 @@ public:
         }
     }
 
-    void reverseSmallK(MyFloat kmin) {
+    void rerealizeSmallK(MyFloat kmax, int seed) {
+        if(pConstrainer!=nullptr) {
+            throw runtime_error("Can only re-realize field after a 'fixconstraints' or 'done' command finailises the constraints");
+        }
+
+        MyFloat k2max = kmax*kmax;
+        
+        // take a copy of all the fields
+        std::vector<FieldType> fieldCopies;
+        for_each_level(level) fieldCopies.emplace_back(pGrid[level]->getFieldFourier());
+
+        // remake the fields with the new seed
+        this->seed = seed;
+        makeInitialRealizationWithoutConstraints();
+
+        // copy back the old field
+        for_each_level(level) {
+            auto & fieldOriginal = fieldCopies[level];
+            auto & field = pGrid[level]->getFieldFourier();
+            const auto & grid = *(this->pGrid[level]);
+            MyFloat k2;
+            for(size_t i=0; i<this->nPartLevel[level]; i++) {
+                k2 = grid.getKSquared(i);
+                if(k2>k2max && k2!=0) {
+                    field[i]=fieldOriginal[i];
+                }
+            }
+        }
+
+    }
+
+    void reverseSmallK(MyFloat kmax) {
         if(pConstrainer!=nullptr) {
             throw runtime_error("Can only reverse field direction after a 'fixconstraints' or 'done' command finailises the constraints");
         }
 
-        MyFloat k2min = kmin*kmin;
+        MyFloat k2max = kmax*kmax;
 
 
         for_each_level(level) {
-	  MyFloat k2_g_min=std::numeric_limits<MyFloat>::max();
-	  MyFloat k2_g_max=0.0;
-	  size_t modes_reversed=0;
-	  size_t tot_modes =pGrid[level]->size3;
-	  auto & field = pGrid[level]->getFieldFourier();
-	  const auto & grid = *(this->pGrid[level]);
-	  MyFloat k2;
-	  for(size_t i=0; i<this->nPartLevel[level]; i++) {
-	    k2 = grid.getKSquared(i);
-	    if(k2<k2min && k2!=0) {
-	      field[i]=-field[i];
-	      modes_reversed++;
-	    }
-	    if(k2<k2_g_min && k2!=0)
-	      k2_g_min = k2;
-	    if(k2>k2_g_max)
-	      k2_g_max = k2;
-	  }
-	  cerr << "reverseSmallK: k reversal at " << sqrt(k2min) << "; grid was in range " << sqrt(k2_g_min) << " to " << sqrt (k2_g_max) << endl;
-	  cerr << "               modes reversed = " << modes_reversed << " of " << tot_modes << endl;
+            MyFloat k2_g_min=std::numeric_limits<MyFloat>::max();
+            MyFloat k2_g_max=0.0;
+            size_t modes_reversed=0;
+            size_t tot_modes =pGrid[level]->size3;
+            auto & field = pGrid[level]->getFieldFourier();
+            const auto & grid = *(this->pGrid[level]);
+            MyFloat k2;
+            for(size_t i=0; i<this->nPartLevel[level]; i++) {
+                k2 = grid.getKSquared(i);
+                if(k2<k2max && k2!=0) {
+                    field[i]=-field[i];
+                    modes_reversed++;
+                }
+                if(k2<k2_g_min && k2!=0)
+                    k2_g_min = k2;
+                if(k2>k2_g_max)
+                    k2_g_max = k2;
+            }
+            cerr << "reverseSmallK: k reversal at " << sqrt(k2max) << "; grid was in range " << sqrt(k2_g_min) << " to " << sqrt (k2_g_max) << endl;
+            cerr << "               modes reversed = " << modes_reversed << " of " << tot_modes << endl;
         }
 
     }
+
 
 
 };

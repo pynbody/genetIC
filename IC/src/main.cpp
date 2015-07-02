@@ -112,6 +112,7 @@ void setup_parser(ClassDispatch<ICf,void> &dispatch) {
     dispatch.add_class_route("offset_output",&ICf::offsetOutput);
     dispatch.add_class_route("reverse",&ICf::reverse);
     dispatch.add_class_route("reverse_small_k",&ICf::reverseSmallK);
+    dispatch.add_class_route("rerealize_small_k",&ICf::rerealizeSmallK);
     dispatch.add_class_route("dumpgrid",&ICf::dumpGrid);
     dispatch.add_class_route("dumpps",&ICf::dumpPS);
 
