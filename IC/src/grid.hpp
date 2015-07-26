@@ -5,6 +5,7 @@
 #include <set>
 #include <type_traits>
 #include "fft.hpp"
+#include "filter.hpp"
 
 using namespace std;
 
@@ -300,7 +301,7 @@ public:
         return const_cast<TField &>(const_cast<const Grid *>(this)->getField());
     }
 
-    void applyFilter(function<T(T)> filter, TField & fieldFourier) {
+    void applyFilter(Filter<T> & filter, TField & fieldFourier) {
         assert(fieldFourier.size()==size3);
         for(size_t i=0; i<size3; ++i) {
             fieldFourier[i]*=filter(sqrt(getKSquared(i)));

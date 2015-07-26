@@ -17,6 +17,7 @@
 
 #include "numpy.hpp"
 #include "constraint.hpp"
+#include "filter.hpp"
 
 #define for_each_level(level) for(int level=0; level<2 && n[level]>0; level++)
 
@@ -45,7 +46,7 @@ protected:
 
     std::vector<GridPtrType> pGrid;       // the objects that help us relate points on the grid
 
-
+    std::shared_ptr<FilterFamily<MyFloat>> pFilters;
 
     complex<MyFloat> *P[2]; // the power spectrum for each k-space point
 
@@ -98,6 +99,7 @@ public:
     {
         pConstrainer=nullptr;
         pInputMapper = nullptr;
+        pFilters = std::make_shared<FilterFamily<MyFloat>>();
         whiteNoiseFourier=false;
         cosmology.hubble =0.701;   // old default
         cosmology.OmegaBaryons0 =-1.0;
@@ -286,6 +288,11 @@ public:
         cout << "  Num particles   = " << zoomParticleArray.size() << endl;
         initGrid(1);
 
+        const MyFloat FRACTIONAL_K_SPLIT = 0.3;
+        pFilters = std::make_shared<TwoLevelFilterFamily<MyFloat>>(
+                ((MyFloat)n[0])*FRACTIONAL_K_SPLIT *2.*M_PI / boxlen[0]
+        );
+
         cout << "  Total particles = " << pMapper->size() << endl;
     }
 
@@ -376,10 +383,10 @@ public:
         MyFloat a = norm*gsl_ran_gaussian_ziggurat(r,1.);
         MyFloat b = norm*gsl_ran_gaussian_ziggurat(r,1.);
 
-	if(reverseRandomDrawOrder)
-	  pField_k[id_k]=std::complex<MyFloat>(b,a);
-	else
-	  pField_k[id_k]=std::complex<MyFloat>(a,b);
+        if(reverseRandomDrawOrder)
+          pField_k[id_k]=std::complex<MyFloat>(b,a);
+        else
+          pField_k[id_k]=std::complex<MyFloat>(a,b);
 
         // reality condition:
         pField_k[id_negk]=std::conj(pField_k[id_k]);
@@ -489,71 +496,6 @@ public:
         pGrid_l->addFieldFromDifferentGrid(*pGrid_p);
     }
 
-
-    /*
-    Much of the griding code is generic and could support 'nested' zoom
-    regions. However the following parts are specific to a 2-level system
-    */
-    MyFloat filter_low(MyFloat k) {
-        // Return filter for low-res part of field
-        MyFloat k_cut = ((MyFloat) n[0]) * 0.3 * 2.*M_PI/boxlen[0];
-        MyFloat T = k_cut/10; // arbitrary
-        return 1./(1.+exp((k-k_cut)/T));
-    }
-
-    MyFloat filter_high(MyFloat k) {
-        // Return filter for high-res part of field
-        return 1.-filter_low(k);
-    }
-
-    std::function<MyFloat(MyFloat)> D_filter_low() {
-        return [this](MyFloat k){
-            MyFloat p = this->filter_low(k);
-            return p;
-        };
-    }
-
-    std::function<MyFloat(MyFloat)> D_filter_high() {
-        return [this](MyFloat k){
-            MyFloat p = this->filter_high(k);
-            return p;
-        };
-    }
-
-    std::function<MyFloat(MyFloat)> C_filter_low() {
-        // Return filter for low-res part of covariance
-        return [this](MyFloat k){
-            MyFloat p = this->filter_low(k);
-            return p*p;
-        };
-    }
-
-    std::function<MyFloat(MyFloat)> C_filter_lowhigh() {
-        // Return filter for high-k contribution to low-res part of covariance
-        // NB this is sampled from the same original low-res field so the sqrt of
-        // the filter needs to sum to one, not the filter itself
-        return [this](MyFloat k){
-            MyFloat p= this->filter_high(k);
-            return p*p;
-        };
-    }
-
-    std::function<MyFloat(MyFloat)> C_filter_high() {
-        // Return filter for high-res part of covariance
-        return [this](MyFloat k){
-            MyFloat p = this->filter_low(k);
-            return MyFloat(1.0)-p*p;
-        };
-    }
-
-    std::function<MyFloat(MyFloat)> C_filter_default() {
-        return
-            [](MyFloat k) {
-                return MyFloat(1.0);
-            };
-    }
-
-
     virtual void splitLevel0() {
         pField_k_0_high = pGrid[0]->getFieldFourier();
         applyPowerSpecForLevel(0,true);
@@ -570,7 +512,7 @@ public:
 
     }
 
-    virtual void applyPowerSpecForLevel(int level, bool high_k=false) {
+    virtual void applyPowerSpecForLevel(int level, bool high_k_residuals=false) {
         //scale white-noise delta with initial PS
 
         MyFloat growthFactor=D(cosmology.scalefactor, cosmology.OmegaM0, cosmology.OmegaLambda0);
@@ -588,29 +530,13 @@ public:
 
         P[level]=(complex<MyFloat>*)calloc(nPartLevel[level],sizeof(complex<MyFloat>));
 
-        std::function<MyFloat(MyFloat)> filter;
+        Filter<MyFloat> & filter = high_k_residuals?pFilters->getFilterForCovarianceResidualOnLevel(level)
+                                          :pFilters->getFilterForCovarianceOnLevel(level);
 
-        if(level==0 && n[1]>0)
-        {
-            if(high_k) {
-                filter = C_filter_lowhigh();
-            } else {
-                filter = C_filter_low();
-            }
-        }
-
-        else if(level==1)
-        {
-            filter = C_filter_high();
-        }
-        else
-        {
-            filter = C_filter_default();
-        }
 
         MyFloat norm_amp=norm*amp;
 
-        auto & pField_k_this = high_k?pField_k_0_high:pGrid[level]->getFieldFourier();
+        auto & pField_k_this = high_k_residuals?pField_k_0_high:pGrid[level]->getFieldFourier();
 
         spectrum.applyTransfer(n[level], kw, cosmology.ns, norm_amp,
                                pField_k_this, pField_k_this, P[level], filter);
@@ -930,11 +856,12 @@ protected:
                                      dataOnLevels[level], dataOnLevels[levelmax]);
 
                 fft(dataOnLevels[level], dataOnLevels[level], 1);
-
-                pGrid[level]->applyFilter(D_filter_low(),dataOnLevels[level]);
+                pGrid[level]->applyFilter(pFilters->getFilterForDensityOnLevel(level),
+                                          dataOnLevels[level]);
             }
             fft(dataOnLevels.back(), dataOnLevels.back(), 1);
-            pGrid[levelmax]->applyFilter(D_filter_high(),dataOnLevels[levelmax]);
+            pGrid[levelmax]->applyFilter(pFilters->getFilterForDensityOnLevel(levelmax),
+                                         dataOnLevels[levelmax]);
         }
 
         if(!kspace) {

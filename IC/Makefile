@@ -82,7 +82,7 @@ endif
 all: IC
 
 
-IC: src/main.cpp src/HDF_IO.hh src/ic.hpp src/constraint.hpp src/constrainer.hpp src/cosmo.hpp src/fft.hpp src/float_types.hpp src/grid.hpp src/io.hpp src/parser.hpp src/sparse.hpp src/mapper.hpp Makefile
+IC: src/main.cpp src/HDF_IO.hh src/ic.hpp src/constraint.hpp src/constrainer.hpp src/cosmo.hpp src/fft.hpp src/float_types.hpp src/grid.hpp src/io.hpp src/parser.hpp src/sparse.hpp src/mapper.hpp src/filter.hpp Makefile
 	$(CC) $(CFLAGS) -o IC $(GIT_VARIABLES) -I$(CPATH) $(FFTW) src/main.cpp -L$(LPATH) -lm $(FFTWLIB) -lgsl -lgslcblas $(HDF5_FLAGS) -DDOUBLEPRECISION -DOUTPUT_IN_DOUBLEPRECISION
 clean:
 	rm -rf IC

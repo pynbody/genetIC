@@ -119,7 +119,7 @@ public:
                             std::vector<std::complex<MyFloat>> & ft,
                             std::vector<std::complex<MyFloat>> & ftsc,
                             std::complex<MyFloat> *P,
-                            std::function<MyFloat(MyFloat)> filter) {
+                            Filter<MyFloat> & filter) {
 
       std::complex<MyFloat> norm_iter (0.,0.);
 
