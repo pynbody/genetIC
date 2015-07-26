@@ -34,7 +34,7 @@ public:
 
       this->pGrid.push_back(this->pUnderlying->pGrid[level]);
 
-      this->initMapper();
+      this->updateParticleMapper();
 
   }
 
@@ -49,13 +49,6 @@ public:
   void interpolateIntoLevel(int level) override {
 
   }
-
-  void splitLevel0() override { }
-
-
-  void recombineLevel0() override { }
-
-  void applyPowerSpecForLevel(int level, bool high_k) override { }
 
   void applyPowerSpec() override { }
 

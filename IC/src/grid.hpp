@@ -304,7 +304,7 @@ public:
     void applyFilter(Filter<T> & filter, TField & fieldFourier) {
         assert(fieldFourier.size()==size3);
         for(size_t i=0; i<size3; ++i) {
-            fieldFourier[i]*=filter(sqrt(getKSquared(i)));
+            fieldFourier[i]*=filter(getAbsK(i));
         }
     }
 
@@ -687,6 +687,10 @@ public:
         res = x*x+y*y+z*z;
         res*=kMinSquared;
         return res;
+    }
+
+    T getAbsK(size_t id) const {
+        return sqrt(getKSquared(id));
     }
 
 

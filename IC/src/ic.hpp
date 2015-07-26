@@ -18,6 +18,7 @@
 #include "numpy.hpp"
 #include "constraint.hpp"
 #include "filter.hpp"
+#include "constraintapplicator.hpp"
 
 #define for_each_level(level) for(int level=0; level<2 && n[level]>0; level++)
 
@@ -37,6 +38,8 @@ protected:
     friend class DummyIC<MyFloat>;
 
     CosmologicalParameters<MyFloat> cosmology;
+    MultiLevelFieldManager<MyFloat> fieldManager;
+    ConstraintApplicator<MyFloat> constraintApplicator;
 
     // Everything about the grids:
     MyFloat boxlen[2], dx[2];      // the box length of each grid
@@ -50,7 +53,7 @@ protected:
 
     complex<MyFloat> *P[2]; // the power spectrum for each k-space point
 
-    std::vector<complex<MyFloat>> pField_k_0_high; // high-k modes for level 0
+
 
     MyFloat x_off[2], y_off[2], z_off[2]; // x,y,z offsets for subgrids
 
@@ -84,7 +87,6 @@ protected:
 
     MyFloat x0, y0, z0;
 
-    shared_ptr<MultiConstrainedField<MyFloat>> pConstrainer;
     shared_ptr<ParticleMapper<MyFloat>> pMapper;
     shared_ptr<ParticleMapper<MyFloat>> pInputMapper;
 
@@ -95,9 +97,8 @@ protected:
 
 
 public:
-    IC(ClassDispatch<IC<MyFloat>, void> &interpreter) : interpreter(interpreter), pMapper(new ParticleMapper<MyFloat>())
+    IC(ClassDispatch<IC<MyFloat>, void> &interpreter) : interpreter(interpreter), pMapper(new ParticleMapper<MyFloat>()), constraintApplicator(&fieldManager)
     {
-        pConstrainer=nullptr;
         pInputMapper = nullptr;
         pFilters = std::make_shared<FilterFamily<MyFloat>>();
         whiteNoiseFourier=false;
@@ -128,7 +129,7 @@ public:
     void setOmegaB0(MyFloat in) {
         cosmology.OmegaBaryons0 =in;
         // now that we have gas, mapper may have changed:
-        initMapper();
+        updateParticleMapper();
     }
 
     void setOmegaLambda0(MyFloat in) {
@@ -143,7 +144,7 @@ public:
         xOffOutput = x;
         yOffOutput = y;
         zOffOutput = z;
-        initMapper();
+        updateParticleMapper();
     }
 
     void setSigma8(MyFloat in) {
@@ -152,12 +153,12 @@ public:
 
     void setSupersample(int in) {
         supersample = in;
-        initMapper();
+        updateParticleMapper();
     }
 
     void setSubsample(int in) {
         subsample = in;
-        initMapper();
+        updateParticleMapper();
     }
 
     void setBoxLen(MyFloat in) {
@@ -189,8 +190,9 @@ public:
         pGrid.push_back(std::make_shared<Grid<MyFloat>>(boxlen[0], n[level], dx[level],
                                              x_off[level], y_off[level], z_off[level]));
 
-        // new level, particle mapper has changed:
-        initMapper();
+
+        updateParticleMapper();
+        updateFieldManager();
 
     }
 
@@ -288,10 +290,13 @@ public:
         cout << "  Num particles   = " << zoomParticleArray.size() << endl;
         initGrid(1);
 
+        // TODO: remove duplication with MultiLevelFieldManager - IC class should not
+        // have to know about TwoLevelFilterFamily...
         const MyFloat FRACTIONAL_K_SPLIT = 0.3;
         pFilters = std::make_shared<TwoLevelFilterFamily<MyFloat>>(
-                ((MyFloat)n[0])*FRACTIONAL_K_SPLIT *2.*M_PI / boxlen[0]
-        );
+                ((MyFloat)n[0])*FRACTIONAL_K_SPLIT *2.*M_PI / boxlen[0]);
+
+        updateParticleMapper();
 
         cout << "  Total particles = " << pMapper->size() << endl;
     }
@@ -360,8 +365,19 @@ public:
 
     void readCamb() {
         spectrum.read(incamb);
+        updateFieldManager();
     }
 
+    void updateFieldManager() {
+        if(spectrum.isUsable()) {
+            for_each_level(level) {
+                if(fieldManager.getNumLevels()<=level)
+                    fieldManager.addLevel(spectrum.getPowerSpectrumForGrid(this->cosmology, *(this->pGrid[level])),
+                                          this->pGrid[level],
+                                          this->nPartLevel[level]);
+            }
+        }
+    }
 
     static long kgridToIndex(int k1, int k2, int k3, int n)  {
         long ii,jj,ll,idk;
@@ -472,12 +488,7 @@ public:
 
     virtual void zeroLevel(int level) {
         cerr << "*** Warning: your script calls zeroLevel("<<level <<"). This is intended for testing purposes only!" << endl;
-        if(level==-1) {
-            std::fill(pField_k_0_high.begin(), pField_k_0_high.end(), 0);
-        } else {
-            auto &field = pGrid[level]->getFieldReal();
-            std::fill(field.begin(), field.end(), 0);
-        }
+        fieldManager.zeroLevel(level);
     }
 
     template<typename T>
@@ -496,60 +507,12 @@ public:
         pGrid_l->addFieldFromDifferentGrid(*pGrid_p);
     }
 
-    virtual void splitLevel0() {
-        pField_k_0_high = pGrid[0]->getFieldFourier();
-        applyPowerSpecForLevel(0,true);
-    }
-
-    virtual void recombineLevel0() {
-
-        RefFieldType pField_k = pGrid[0]->getFieldFourier();
-
-        for(size_t i=0; i<this->nPartLevel[0]; i++)
-            pField_k[i]+=pField_k_0_high[i];
-
-        pField_k_0_high.clear();
-
-    }
-
-    virtual void applyPowerSpecForLevel(int level, bool high_k_residuals=false) {
-        //scale white-noise delta with initial PS
-
-        MyFloat growthFactor=D(cosmology.scalefactor, cosmology.OmegaM0, cosmology.OmegaLambda0);
-
-        MyFloat growthFactorNormalized=growthFactor/D(1., cosmology.OmegaM0, cosmology.OmegaLambda0);
-
-        MyFloat sigma8PreNormalization=spectrum.sig(8., cosmology.ns);
-
-        MyFloat linearRenormFactor = (cosmology.sigma8 /sigma8PreNormalization) * growthFactorNormalized;
-
-        MyFloat kw = 2.*M_PI/(MyFloat)boxlen[level];
-
-        MyFloat amp=linearRenormFactor*linearRenormFactor;
-        MyFloat norm=kw*kw*kw/powf(2.*M_PI,3.); //since kw=2pi/L, this is just 1/V_box
-
-        P[level]=(complex<MyFloat>*)calloc(nPartLevel[level],sizeof(complex<MyFloat>));
-
-        Filter<MyFloat> & filter = high_k_residuals?pFilters->getFilterForCovarianceResidualOnLevel(level)
-                                          :pFilters->getFilterForCovarianceOnLevel(level);
 
 
-        MyFloat norm_amp=norm*amp;
 
-        auto & pField_k_this = high_k_residuals?pField_k_0_high:pGrid[level]->getFieldFourier();
-
-        spectrum.applyTransfer(n[level], kw, cosmology.ns, norm_amp,
-                               pField_k_this, pField_k_this, P[level], filter);
-
-
-    }
 
     virtual void applyPowerSpec() {
-        for_each_level(level) {
-            cerr << "Apply transfer function for level " << level << "...";
-            applyPowerSpecForLevel(level);
-            cerr << "done" << endl;
-        }
+        fieldManager.applyCovarianceToWhiteNoiseField();
     }
 
     template<typename T>
@@ -580,7 +543,8 @@ public:
 
 
     virtual void dumpPS(int level=0) {
-        powsp_noJing(n[level], pGrid[level]->getFieldReal().data(),
+        powsp_noJing(n[level], pGrid[level]->getFieldFourier(),
+                     fieldManager.getCovariance(level),
                      (base+"_"+((char)(level+'0'))+".ps").c_str(), boxlen[level]);
     }
 
@@ -616,16 +580,12 @@ public:
             cerr << "done." << endl;
 
             cerr << "Re-introducing high-k modes into low-res region...";
-            recombineLevel0();
+            fieldManager.recombineLevel0();
             zeldovichForLevel(0);
             cerr << "done." << endl;
 
         }
     }
-
-    ///////////////////////////////////////////////
-    // ZOOM particle management
-    ///////////////////////////////////////////////
 
     void setInputMapper(std::string fname) {
       DummyIC<MyFloat> pseudoICs(this);
@@ -653,7 +613,7 @@ public:
         return gridForOutput;
     }
 
-    void initMapper() {
+    void updateParticleMapper() {
 
       if(pGrid.size()==0)
         return;
@@ -741,34 +701,15 @@ public:
         readCamb();
         drawRandom();
 
-        if(n[1]>0)
-            splitLevel0();
-
         applyPowerSpec();
     }
 
-    void prepareToAcceptConstraints() {
-        UnderlyingField<MyFloat> *pField;
-
-        pField = new UnderlyingField<MyFloat>(this->P[0], this->pGrid[0], this->nPartLevel[0]);
-
-        for_each_level(level) {
-            if(level>0)
-                pField->add_component(this->P[level],
-                                      this->pGrid[level],
-                                      this->nPartLevel[level]);
-        }
-
-        // TODO: actually combine the different levels before passing them to the constrainer
-        pConstrainer = std::make_shared<MultiConstrainedField<MyFloat>>(pField);
-    }
 
     virtual void prepare() {
         if(prepared)
             throw(std::runtime_error("Called prepare, but grid is already prepared for constraints"));
 
         makeInitialRealizationWithoutConstraints();
-        prepareToAcceptConstraints();
 
         prepared=true;
 
@@ -1028,22 +969,11 @@ public:
 
     void calculate(string name) {
         auto vecs = calcConstraintVectorAllLevels(name);
-        float val = float((pConstrainer->v1_dot_y(vecs)).real());
+        float val = float((fieldManager.v1_dot_y(vecs)).real());
         cout << name << ": calculated value = " <<  val << endl;
-
-        if(pConstrainer->alphas.size()>0) {
-            cout << "normalization should be " << 1./sqrt((pConstrainer->v_cov_v(vecs)).real()) << endl;
-            // cout << "pConstrainer first constraint " << pConstrainer->v_cov_v(pConstrainer->alphas[0]) << endl;
-            cout << "pConstrainer first constraint " << pConstrainer->v1_dot_y(pConstrainer->alphas[0]) << endl;
-            cout << "pConstrainer target " << pConstrainer->values[0] << endl;
-        }
     }
 
     virtual void constrain(string name, string type, float value) {
-        if(pConstrainer==nullptr) {
-            throw runtime_error("No constraint information is available. Is your done command too early, or repeated?");
-        }
-
         bool relative=false;
         if (strcasecmp(type.c_str(),"relative")==0) {
             relative=true;
@@ -1053,34 +983,28 @@ public:
 
         std::complex<MyFloat> constraint = value;
         auto vec = calcConstraintVectorAllLevels(name);
-        std::complex<MyFloat> initv = pConstrainer->underlying->v1_dot_y(vec);
+        std::complex<MyFloat> initv = fieldManager.v1_dot_y(vec);
 
         if(relative) constraint*=initv;
 
         cout << name << ": initial value = " << initv << ", constraining to " << constraint << endl;
-        pConstrainer->add_constraint(std::move(vec), constraint, initv);
+        constraintApplicator.add_constraint(std::move(vec), constraint, initv);
 
     }
 
     void cov() {
-        if(pConstrainer==NULL) {
-            throw runtime_error("No constraint information is available. Is your done command too early, or repeated?");
-        }
-        pConstrainer->print_covariance();
+        constraintApplicator.print_covariance();
     }
 
 
     virtual void fixConstraints() {
-        if(pConstrainer==nullptr) {
-            throw runtime_error("No constraint information is available. Is your done command too early, or repeated?");
-        }
 
         long nall = 0;
         for_each_level(level) nall+=nPartLevel[level];
         complex<MyFloat> *y1=(complex<MyFloat>*)calloc(nall,sizeof(complex<MyFloat>));
 
-        pConstrainer->prepare();
-        pConstrainer->get_realization(y1);
+        constraintApplicator.prepare();
+        constraintApplicator.get_realization(y1);
 
         long j=0;
         for_each_level(level) {
@@ -1094,15 +1018,11 @@ public:
     }
 
     virtual void done() {
-        if(pConstrainer!=nullptr) fixConstraints();
+        fixConstraints();
         write();
     }
 
     void reverse() {
-        if(pConstrainer!=nullptr) {
-            throw runtime_error("Can only reverse field direction after a 'fixconstraints' or 'done' command finailises the constraints");
-        }
-
         for_each_level(level) {
             auto & field = pGrid[level]->getField();
             for(size_t i=0; i<this->nPartLevel[level]; i++)
@@ -1111,9 +1031,6 @@ public:
     }
 
     void reseedSmallK(MyFloat kmax, int seed) {
-        if(pConstrainer!=nullptr) {
-            throw runtime_error("Can only re-realize field after a 'fixconstraints' or 'done' command finailises the constraints");
-        }
 
         MyFloat k2max = kmax*kmax;
 
@@ -1142,9 +1059,6 @@ public:
     }
 
     void reverseSmallK(MyFloat kmax) {
-        if(pConstrainer!=nullptr) {
-            throw runtime_error("Can only reverse field direction after a 'fixconstraints' or 'done' command finailises the constraints");
-        }
 
         MyFloat k2max = kmax*kmax;
 

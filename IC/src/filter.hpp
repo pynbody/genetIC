@@ -14,7 +14,7 @@ class Filter {
 public:
     virtual ~Filter() {}
     
-    virtual T operator()(T x) {
+    virtual T operator()(T x) const {
         return 1.0;
     }
 };
@@ -42,7 +42,7 @@ public:
         temperature = kcut/10;
     };
 
-    T operator()(T k) override {
+    T operator()(T k) const override {
         return 1./(1.+exp((k-kcut)/temperature));
     }
 };
@@ -53,7 +53,7 @@ private:
     Filter<T> *pUnderlying;
 public:
     CovarianceFilterAdaptor(Filter<T> *pOriginal) : pUnderlying(pOriginal) { };
-    T operator()(T k) override {
+    T operator()(T k) const override {
         T denFilter = (*pUnderlying)(k);
         return denFilter*denFilter;
     }
@@ -65,7 +65,7 @@ private:
     Filter<T> *pUnderlying;
 public:
     ComplementaryFilterAdaptor(Filter<T> *pOriginal) : pUnderlying(pOriginal) { };
-    T operator()(T k) override {
+    T operator()(T k) const override {
         return 1.-(*pUnderlying)(k);
     }
 };

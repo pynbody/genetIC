@@ -11,6 +11,9 @@ struct CosmologicalParameters {
 };
 
 template<typename MyFloat>
+extern MyFloat D(MyFloat a, MyFloat Om, MyFloat Ol);
+
+template<typename MyFloat>
 class CAMB
 {
 protected:
@@ -37,10 +40,14 @@ public:
         dealloc();
     }
 
+    bool isUsable() {
+        return(kcamb.size()>0);
+    }
+
     void read(std::string incamb)
     {
         kcamb.clear();
-	Tcamb.clear();
+	    Tcamb.clear();
         dealloc();
         const int c=7; // number of columns in transfer function
         size_t j;
@@ -89,6 +96,59 @@ public:
 
     }
 
+    MyFloat getPowerSpectrumNormalizationForGrid(const CosmologicalParameters<MyFloat> &cosmology,
+                                                              const Grid<MyFloat> &grid) {
+        MyFloat growthFactor = D(cosmology.scalefactor, cosmology.OmegaM0, cosmology.OmegaLambda0);
+
+        MyFloat growthFactorNormalized = growthFactor / D(1., cosmology.OmegaM0, cosmology.OmegaLambda0);
+
+        MyFloat sigma8PreNormalization = sig(8., cosmology.ns);
+
+        MyFloat linearRenormFactor = (cosmology.sigma8 / sigma8PreNormalization) * growthFactorNormalized;
+
+        MyFloat kw = 2. * M_PI / grid.boxsize;
+
+        MyFloat amp = linearRenormFactor * linearRenormFactor;
+        MyFloat norm = kw * kw * kw / powf(2. * M_PI, 3.); //since kw=2pi/L, this is just 1/V_box
+
+        return norm*amp;
+    }
+
+    std::vector<MyFloat> getPowerSpectrumForGrid(const CosmologicalParameters<MyFloat> &cosmology,
+                                                 const Grid<MyFloat> &grid)
+    {
+        assert(kcamb.size()==Tcamb.size());
+
+        MyFloat norm = getPowerSpectrumNormalizationForGrid(cosmology, grid);
+
+        gsl_interp_accel *acc = gsl_interp_accel_alloc ();
+        gsl_spline *spline = gsl_spline_alloc (gsl_interp_cspline, kcamb.size());
+        gsl_spline_init (spline, kcamb.data(), Tcamb.data(), kcamb.size());
+
+        std::vector<MyFloat> P(grid.size3);
+
+        for(size_t i=0; i<grid.size3; ++i) {
+            MyFloat k = grid.getAbsK(i);
+            MyFloat linearTransfer;
+            if(k!=0)
+                linearTransfer = gsl_spline_eval(spline, k, acc);
+            else
+                linearTransfer = 0.0;
+
+
+            P[i] = powf(k,cosmology.ns)* linearTransfer* linearTransfer* norm;
+
+        }
+
+        gsl_spline_free (spline);
+        gsl_interp_accel_free (acc);
+
+        return P;
+
+    }
+
+
+
 
     MyFloat sig(MyFloat R, MyFloat ns) {
 
@@ -120,8 +180,6 @@ public:
                             std::vector<std::complex<MyFloat>> & ftsc,
                             std::complex<MyFloat> *P,
                             Filter<MyFloat> & filter) {
-
-      std::complex<MyFloat> norm_iter (0.,0.);
 
       assert(kcamb.size()==Tcamb.size());
 
@@ -267,81 +325,84 @@ void powsp(int n, std::complex<MyFloat>* ft, const char *out, MyFloat Boxlength)
 }
 
 template<typename MyFloat>
-void powsp_noJing(int n, std::complex<MyFloat>* ft, const char *out, MyFloat Boxlength){
+void powsp_noJing(int n, const std::vector<std::complex<MyFloat>> &ft,
+                  const std::vector<MyFloat> &P0, const char *out, MyFloat Boxlength) {
 
- int res=n;
- int nBins=100;
- MyFloat *inBin = new MyFloat[nBins];
- MyFloat *Gx = new MyFloat[nBins];
- MyFloat *kbin = new MyFloat[nBins];
- MyFloat kmax = M_PI/Boxlength*(MyFloat)res, kmin = 2.0f*M_PI/(MyFloat)Boxlength, dklog = log10(kmax/kmin)/nBins, kw = 2.0f*M_PI/(MyFloat)Boxlength;
+    int res = n;
+    int nBins = 100;
+    std::vector<MyFloat> inBin(nBins);
+    std::vector<MyFloat> kbin(nBins);
+    std::vector<MyFloat> Gx(nBins);
+    std::vector<MyFloat> Px(nBins);
 
-      int ix,iy,iz,idx,idx2;
-      MyFloat kfft;
+    MyFloat kmax = M_PI / Boxlength * (MyFloat) res, kmin = 2.0f * M_PI / (MyFloat) Boxlength, dklog =
+            log10(kmax / kmin) / nBins, kw = 2.0f * M_PI / (MyFloat) Boxlength;
 
-      for( ix=0; ix<nBins; ix++ ){
-    inBin[ix] = 0;
-    Gx[ix] = 0.0f;
-    kbin[ix] = 0.0f;
-      }
+    int ix, iy, iz, idx, idx2;
+    MyFloat kfft;
 
-
-   for(ix=0; ix<res;ix++)
-    for(iy=0;iy<res;iy++)
-      for(iz=0;iz<res;iz++){
-        idx = (ix*res+iy)*(res)+iz;
-
-        // determine mode modulus
-
-    MyFloat vabs = ft[idx].real()*ft[idx].real()+ft[idx].imag()*ft[idx].imag();
-
-    int iix, iiy, iiz;
-
-        if( ix>res/2 ) iix = ix - res; else iix = ix;
-        if( iy>res/2 ) iiy = iy - res; else iiy = iy;
-        if( iz>res/2 ) iiz = iz - res; else iiz = iz;
-
-        kfft = sqrt(iix*iix+iiy*iiy+iiz*iiz);
-       MyFloat k = kfft*kw;
-
-        //.. logarithmic spacing in k
-          idx2 = (int)(( 1.0f/dklog * log10(k/kmin) ));
-
-        if(k>=kmin&&k<kmax){
-
-            Gx[idx2] += vabs/(MyFloat)(res*res*res); //because FFT is now normalised with 1/sqrt(Ntot)
-            kbin[idx2] += k;
-            inBin[idx2]++;
-
-        }else{continue;}
-
-      }
-
-
-  //... convert to physical units ...
-  std::ofstream ofs(out);
-
-
-    MyFloat psnorm=powf(Boxlength/(2.0*M_PI),3.0);
-
-  for(ix=0; ix<nBins; ix++){
-
-    if(inBin[ix]>0){
-
-
-    ofs << std::setw(16) << pow (10., log10 (kmin) + dklog * (ix + 0.5) )
-    << std::setw(16) <<  kbin[ix]/inBin[ix]
-        << std::setw(16) << (MyFloat)(Gx[ix]/inBin[ix])*psnorm
-        << std::setw(16) << inBin[ix]
-        << std::endl;
-
+    for (ix = 0; ix < nBins; ix++) {
+        inBin[ix] = 0;
+        Gx[ix] = 0.0f;
+        kbin[ix] = 0.0f;
     }
-  }
-  ofs.close();
 
-  free(inBin);
-  free(kbin);
-  free(Gx);
+
+    for (ix = 0; ix < res; ix++)
+        for (iy = 0; iy < res; iy++)
+            for (iz = 0; iz < res; iz++) {
+                idx = (ix * res + iy) * (res) + iz;
+
+                // determine mode modulus
+
+                MyFloat vabs = ft[idx].real() * ft[idx].real() + ft[idx].imag() * ft[idx].imag();
+
+                int iix, iiy, iiz;
+
+                if (ix > res / 2) iix = ix - res; else iix = ix;
+                if (iy > res / 2) iiy = iy - res; else iiy = iy;
+                if (iz > res / 2) iiz = iz - res; else iiz = iz;
+
+                kfft = sqrt(iix * iix + iiy * iiy + iiz * iiz);
+                MyFloat k = kfft * kw;
+
+                //.. logarithmic spacing in k
+                idx2 = (int) ((1.0f / dklog * log10(k / kmin)));
+
+                if (k >= kmin && k < kmax) {
+
+                    Gx[idx2] += vabs / (MyFloat) (res * res * res); //because FFT is now normalised with 1/sqrt(Ntot)
+                    Px[idx2] += P0[idx];
+                    kbin[idx2] += k;
+                    inBin[idx2]++;
+
+                } else { continue; }
+
+            }
+
+
+    //... convert to physical units ...
+    std::ofstream ofs(out);
+
+
+    MyFloat psnorm = powf(Boxlength / (2.0 * M_PI), 3.0);
+
+    for (ix = 0; ix < nBins; ix++) {
+
+        if (inBin[ix] > 0) {
+
+
+            ofs << std::setw(16) << pow(10., log10(kmin) + dklog * (ix + 0.5))
+            << std::setw(16) << kbin[ix] / inBin[ix]
+            << std::setw(16) << (MyFloat) (Px[ix] / inBin[ix]) * psnorm
+            << std::setw(16) << (MyFloat) (Gx[ix] / inBin[ix]) * psnorm
+            << std::setw(16) << inBin[ix]
+            << std::endl;
+
+        }
+    }
+    ofs.close();
+
 
 }
 
