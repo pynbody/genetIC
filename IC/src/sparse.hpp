@@ -1,4 +1,5 @@
 #include <cassert>
+#include <vector>
 
 template<typename MyFloat>
 std::complex<MyFloat> dot(const std::complex<MyFloat> *a, const std::complex<MyFloat> *b, const long int n) {
