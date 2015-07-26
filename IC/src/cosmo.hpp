@@ -45,7 +45,6 @@ public:
 
         std::vector<double> input;
 
-        std::cerr << "Reading transfer file "<< incamb << "..." << std::endl;
         getBuffer(input, incamb);
 
         if(input.size()<c || input.size()%c!=0) {
@@ -70,7 +69,6 @@ public:
         // extend high-k range using power law
 
         MyFloat gradient = log(Tcamb[nCambLines-1]/Tcamb[nCambLines-2])/log(kcamb[nCambLines-1]/kcamb[nCambLines-2]);
-        std::cerr << "Extending CAMB transfer using powerlaw " << gradient << " from " << Tcamb[nCambLines-1] << std::endl;
 
         MyFloat Tcamb_f = Tcamb.back(), kcamb_f = kcamb.back();
 
@@ -90,7 +88,7 @@ public:
     }
 
 
-    MyFloat sig(MyFloat R, MyFloat ns, MyFloat L, int res) {
+    MyFloat sig(MyFloat R, MyFloat ns) {
 
       MyFloat s=0.,k,t;
 
@@ -149,9 +147,9 @@ public:
 
          P[idk]=gsl_spline_eval (spline, kk, acc);
          P[idk]*=(P[idk]* std::complex<MyFloat>(powf(kk,ns)) *norm_amp );
-         P[idk]*=filter(kk);
+         // P[idk]*=filter(kk);
 
-         ftsc[idk]=sqrt(P[idk])*ft[idk];
+         ftsc[idk]=sqrt(P[idk]*filter(kk))*ft[idk];
 
            }
         }

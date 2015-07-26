@@ -14,6 +14,7 @@ class UnderlyingField {
 private:
     std::vector<std::shared_ptr<Grid<T>>> pGrid;
     std::vector<std::complex<T> *> C0s;
+    std::vector<T> weights;
 
 protected:
     std::vector<size_t> Ns;
@@ -49,6 +50,11 @@ public:
 
     void add_component(std::complex<T> *C0,  std::shared_ptr<Grid<T>> pG, size_t N) {
         C0s.push_back(C0);
+        if(pGrid.size()==0) {
+            weights.push_back(1.0);
+        } else {
+            weights.push_back(pow(pG->dx/pGrid[0]->dx,3.0));
+        }
         pGrid.push_back(pG);
         Ns.push_back(N);
         cumu_Ns.push_back(Ntot);
@@ -65,36 +71,39 @@ public:
     // SPECIFIC calculations for the underlying field
     //
 
-    virtual std::complex<T> cov(std::complex<T> *vec, size_t i) {
+    virtual std::complex<T> cov(const std::vector<std::complex<T>> &vec, size_t i) {
         // returns Sum_j C[i,j] vec[j]
         // Here, though, C0 is diagonal
         size_t comp;
         size_t j;
         id_to_component_id(i,comp,j);
-        return C0s[comp][j]*vec[i];
+        return vec[i]*C0s[comp][j]*weights[comp];
     }
 
-    virtual std::complex<T> cov(std::complex<T> *vec, size_t comp, size_t j) {
-        // returns Sum_j C[i,j] vec[j]
+    virtual std::complex<T> cov(const std::vector<std::complex<T>> &vec, size_t comp, size_t j) {
+        // returns Sum_i C[j,i] vec[i]
         // Here, though, C0 is diagonal
-        return C0s[comp][j]*vec[j+cumu_Ns[comp]];
+        size_t overall_j = j+cumu_Ns[comp];
+        return C0s[comp][j]*vec[overall_j]*weights[comp];
     }
 
     //
     // GENERAL calculations that can run on constrained fields too
     //
 
-    virtual std::complex<T> v1_dot_y(std::complex<T> *v1){
+    virtual std::complex<T> v1_dot_y(const std::vector<std::complex<T>> &v1, bool fourier=true){
         // Calculate v1^{\dagger} y where y is the underlying realization
         T res_real(0), res_imag(0);
 
 
         for(size_t comp=0; comp<n_components; comp++) {
-            auto field = pGrid[comp]->getFieldFourier();
+            const auto & field = fourier?pGrid[comp]->getFieldFourier():pGrid[comp]->getFieldReal();
+
+            T weight = weights[comp];
 
             #pragma omp parallel for reduction(+:res_real,res_imag)
             for(size_t i=0; i<Ns[comp]; i++) {
-                std::complex<T> res = conj(v1[i+cumu_Ns[comp]])*field[i];
+                std::complex<T> res = conj(v1[i+cumu_Ns[comp]])*field[i]*weight;
                 // accumulate separately - OMP doesn't support complex number reduction :-(
                 res_real+=std::real(res);
                 res_imag+=std::imag(res);
@@ -103,13 +112,34 @@ public:
         return std::complex<T>(res_real,res_imag);
     }
 
-    virtual std::complex<T> v1_cov_v2(std::complex<T> *v1, std::complex<T> *v2){
+    virtual std::complex<T> v1_dot_v2(const std::vector<std::complex<T>> &v1,
+                                      const std::vector<std::complex<T>> &v2){
+        // Calculate v1^{\dagger} v2
+        T res_real(0), res_imag(0);
+
+        for(size_t comp=0; comp<n_components; comp++) {
+            T weight = weights[comp];
+            // #pragma omp parallel for reduction(+:res_real,res_imag)
+            for(size_t i=0; i<Ns[comp]; i++) {
+
+                std::complex<T> res = conj(v1[i+cumu_Ns[comp]])*v2[i+cumu_Ns[comp]]*weight;
+                // accumulate separately - OMP doesn't support complex number reduction :-(
+                res_real+=std::real(res);
+                res_imag+=std::imag(res);
+            }
+        }
+        return std::complex<T>(res_real,res_imag);
+    }
+
+    virtual std::complex<T> v1_cov_v2(const std::vector<std::complex<T>> &v1,
+                                      const std::vector<std::complex<T>> &v2){
         // Calculate v1^{\dagger} C v2
         T res_real(0), res_imag(0);
         for(size_t comp=0; comp<n_components; comp++) {
+            T weight = weights[comp];
             #pragma omp parallel for reduction(+:res_real,res_imag)
             for(size_t i=0; i<Ns[comp]; i++) {
-                std::complex<T> res = conj(v1[i+cumu_Ns[comp]])*cov(v2,comp,i);
+                std::complex<T> res = conj(v1[i+cumu_Ns[comp]])*cov(v2,comp,i)*weight;
                 // accumulate separately - OMP doesn't support complex number reduction :-(
                 res_real+=std::real(res);
                 res_imag+=std::imag(res);
@@ -118,12 +148,12 @@ public:
         return std::complex<T>(res_real,res_imag);
     }
 
-    virtual std::complex<T> v_cov_v(std::complex<T> *v){
+    virtual std::complex<T> v_cov_v(const std::vector<std::complex<T>> &v){
         return v1_cov_v2(v,v);
     }
 
 
-    void get_realization(std::complex<T> *r) {
+    virtual void get_realization(std::complex<T> *r) {
         // Get the realization and store it in the specified array
         size_t j=0;
         for(size_t comp=0; comp<n_components; comp++) {
@@ -137,7 +167,7 @@ public:
         assert(j==Ntot);
     }
 
-    void get_mean(std::complex<T> *r) {
+    virtual void get_mean(std::complex<T> *r) {
         // Get the mean of all realizations and store it in the specified array
         for(size_t i=0; i<Ntot; i++) {
             if(i%1000==0) progress("get mean x", float(i)/Ntot);
@@ -146,7 +176,7 @@ public:
         end_progress();
     }
 
-    T get_delta_chi2() {
+    virtual T get_delta_chi2() {
         return 0;
     }
 
@@ -157,10 +187,12 @@ class MultiConstrainedField: public UnderlyingField<T>
 {
 private:
 
-    std::vector<std::complex<T>* > alphas;
+
+public:
+    std::vector<std::vector<std::complex<T>>> alphas;
     std::vector<std::complex<T> > values;
     std::vector<std::complex<T> > existing_values;
-public:
+
     UnderlyingField<T>* underlying;
 
     MultiConstrainedField(UnderlyingField<T>* underlying_) : UnderlyingField<T>(underlying_->get_ntot()),
@@ -169,9 +201,9 @@ public:
 
     }
 
-    void add_constraint(std::complex<T>* alpha, std::complex<T> value, std::complex<T> existing) {
+    void add_constraint(std::vector<std::complex<T>> && alpha, std::complex<T> value, std::complex<T> existing) {
 
-        alphas.push_back(alpha);
+        alphas.push_back(std::move(alpha));
         values.push_back(value);
         existing_values.push_back(existing);
     }
@@ -183,9 +215,9 @@ public:
 
         // Gram-Schmidt orthogonalization in-place
         for(size_t i=0; i<n; i++) {
-            std::complex<T>* alpha_i=alphas[i];
+            auto & alpha_i=alphas[i];
             for(size_t j=0; j<=i; j++) {
-                std::complex<T>* alpha_j=alphas[j];
+                auto & alpha_j=alphas[j];
                 progress("calculating covariance", ((float)done*2)/(n*(1+n)));
                 c_matrix[i][j]=underlying->v1_cov_v2(alpha_j,alpha_i);
                 c_matrix[j][i]=c_matrix[i][j];
@@ -242,9 +274,9 @@ public:
 
         // Gram-Schmidt orthogonalization in-place
         for(size_t i=0; i<n; i++) {
-            std::complex<T>* alpha_i=alphas[i];
+            auto & alpha_i=alphas[i];
             for(size_t j=0; j<i; j++) {
-                std::complex<T>* alpha_j=alphas[j];
+                auto & alpha_j=alphas[j];
                 progress("orthogonalizing constraints", ((float)done*2)/(n*(1+n)));
                 std::complex<T> result = underlying->v1_cov_v2(alpha_j,alpha_i);
 
@@ -265,11 +297,14 @@ public:
 
             // normalize
             std::complex<T> norm = sqrt(underlying->v_cov_v(alpha_i));
+
             #pragma omp parallel for
             for(size_t k=0; k<this->Ntot; k++) {
                 alpha_i[k]/=norm;
             }
             values[i]/=norm;
+
+
 
             for(size_t j=0;j<n; j++) {
                 t_matrix[i][j]/=norm;
@@ -287,7 +322,7 @@ public:
 
         existing_values.clear();
         for(size_t i=0; i<n; i++) {
-            std::complex<T>* alpha_i=alphas[i];
+            auto & alpha_i=alphas[i];
             progress("calculating existing means",((float)i)/n);
             existing_values.push_back(underlying->v1_dot_y(alpha_i));
         }
@@ -317,7 +352,7 @@ public:
 
     }
 
-    T get_delta_chi2() {
+    T get_delta_chi2() override {
         T rval=0.0, v0, v1;
         for(size_t i=0; i<alphas.size(); i++) {
             v0 = std::abs(existing_values[i]);
@@ -326,20 +361,32 @@ public:
         }
         return rval/this->Ntot;
     }
-    void get_realization(std::complex<T> *r) {
+
+    std::complex<T> v1_dot_y(const std::vector<std::complex<T>> &v1, bool fourier=true) override {
+        return underlying->v1_dot_y(v1, fourier);
+    }
+
+    std::complex<T> v1_cov_v2(const std::vector<std::complex<T>> &v1, const std::vector<std::complex<T>> &v2) override {
+        return underlying->v1_cov_v2(v1,v2);
+    }
+
+    void get_realization(std::complex<T> *r) override {
         size_t n=alphas.size();
         underlying->get_realization(r);
 
+
+
         for(size_t i=0; i<n; i++) {
-            std::complex<T>* alpha_i=alphas[i];
+            auto & alpha_i=alphas[i];
             std::complex<T> dval_i = values[i]-existing_values[i];
-            // std::cerr << "constraint " << i <<  values[i] << existing_values[i] << std::endl;
             progress("get constrained y", float(i)/n);
+
             #pragma omp parallel for
             for(size_t j=0; j<this->Ntot; j++) {
                 r[j]+=dval_i*underlying->cov(alpha_i,j);
             }
         }
+
         end_progress();
     }
 };

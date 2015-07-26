@@ -1,19 +1,24 @@
+#include <cassert>
+
 template<typename MyFloat>
-std::complex<MyFloat> dot(std::complex<MyFloat> *a, std::complex<MyFloat> *b, const long int n) {
+std::complex<MyFloat> dot(const std::complex<MyFloat> *a, const std::complex<MyFloat> *b, const long int n) {
   std::complex<MyFloat> res(0);
   for(long int i=0; i<n; i++) res+=conj(a[i])*b[i];
   return res;
 }
 
-/*
 template<typename MyFloat>
-std::complex<MyFloat> dot(std::vector<std::complex<MyFloat>> &a,
-                          std::vector<std::complex<MyFloat>> &b) {
+std::complex<MyFloat> dot(const std::vector<std::complex<MyFloat>> & a, const std::vector<std::complex<MyFloat>> & b) {
   assert(a.size()==b.size());
-  return dot(a.data(),b.data(),a.size());
+  return dot(a.data(), b.data(), a.size());
 }
-*/
 
+template<typename T, typename S>
+void inPlaceMultiply(std::vector<T> & a, S b) {
+  for(size_t i=0; i<a.size(); ++i) {
+      a[i]*=b;
+  }
+}
 
 template<typename MyFloat>
 std::complex<MyFloat> chi2(std::complex<MyFloat> *a, std::complex<MyFloat> *b, const long int n) {

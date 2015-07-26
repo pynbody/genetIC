@@ -201,4 +201,29 @@ void fft(std::complex<MyFloat> *fto, std::complex<MyFloat> *ftin, const int res,
 
 #endif
 
+unsigned int integerCubeRoot(unsigned long x) {
+  int s;
+  unsigned int y;
+  unsigned long b;
+
+  y = 0;
+  for (s = 63; s >= 0; s -= 3) {
+    y += y;
+    b = 3*y*((unsigned long) y + 1) + 1;
+    if ((x >> s) >= b) {
+      x -= b << s;
+      y++;
+    }
+  }
+  return y;
+}
+
+template<typename T>
+void fft(std::vector<T> &fto, std::vector<T> &ftin, const int dir) {
+    assert(fto.size()==ftin.size());
+    int res = integerCubeRoot(fto.size());
+    assert(res*res*res==fto.size());
+    fft(fto.data(),ftin.data(), res, dir);
+}
+
 #endif // FFTH_INCLUDED

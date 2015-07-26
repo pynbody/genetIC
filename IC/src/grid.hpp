@@ -191,7 +191,7 @@ public:
     }
 
     template<typename TArray>
-    void addFieldFromDifferentGrid(Grid<T> &grid_src, TArray &pField_x_src, TArray &pField_x_dest) {
+    void addFieldFromDifferentGrid(const Grid<T> &grid_src, const TArray &pField_x_src, TArray &pField_x_dest) {
 
         // TODO: make signature above const-correct
 
@@ -204,13 +204,20 @@ public:
 
         #pragma omp parallel for schedule(static)
         for(size_t ind_l=0; ind_l< size3; ind_l++) {
-            pField_x_dest[ind_l]+=pSourceProxyGrid->getFieldAt(ind_l, pField_x_src);
+            try {
+                pField_x_dest[ind_l]+=pSourceProxyGrid->getFieldAt(ind_l, pField_x_src);
+            } catch (std::out_of_range &e) {
+                // if out of range, consider as zero
+            }
+            // pField_x_dest[ind_l]+=pSourceProxyGrid->getFieldAt(ind_l, pField_x_src);
         }
     }
 
-    void addFieldFromDifferentGrid(Grid<T> &grid_src) {
-        TField pField_dest = getFieldReal();
-        TField pField_src = grid_src.getFieldReal();
+    void addFieldFromDifferentGrid(const Grid<T> &grid_src) {
+        TField & pField_dest = getFieldReal();
+        assert(!grid_src.isFieldFourier());
+        const TField & pField_src = grid_src.getField();
+
         addFieldFromDifferentGrid(grid_src, pField_src, pField_dest);
 
         auto offset_fields_src = grid_src.getOffsetFields();
@@ -221,6 +228,11 @@ public:
             addFieldFromDifferentGrid(grid_src, *std::get<1>(offset_fields_src), *std::get<1>(offset_fields_dest));
             addFieldFromDifferentGrid(grid_src, *std::get<2>(offset_fields_src), *std::get<2>(offset_fields_dest));
         }
+    }
+
+    void addFieldFromDifferentGrid(Grid<T> &grid_src) {
+        grid_src.getFieldReal();
+        addFieldFromDifferentGrid(const_cast<const Grid<T> &>(grid_src));
     }
 
     virtual void debugInfo(std::ostream& s) const {
@@ -261,7 +273,7 @@ public:
     //  Field manipulation routines
     ///////////////////////////////////////
 
-    virtual TField & getFieldFourier() {
+    virtual  TField & getFieldFourier()  {
         assert(pField!=nullptr);
         if(!fieldFourier) {
             fft(pField->data(),pField->data(),size,1);
@@ -270,7 +282,7 @@ public:
         return *pField;
     }
 
-    virtual TField & getFieldReal() {
+    virtual  TField & getFieldReal()  {
         assert(pField!=nullptr);
         if(fieldFourier) {
             fft(pField->data(),pField->data(),size,-1);
@@ -279,10 +291,22 @@ public:
         return *pField;
     }
 
-    virtual TField & getField() {
+    virtual const TField & getField() const {
         assert(pField!=nullptr);
         return *pField;
     }
+
+    TField & getField() {
+        return const_cast<TField &>(const_cast<const Grid *>(this)->getField());
+    }
+
+    void applyFilter(function<T(T)> filter, TField & fieldFourier) {
+        assert(fieldFourier.size()==size3);
+        for(size_t i=0; i<size3; ++i) {
+            fieldFourier[i]*=filter(sqrt(getKSquared(i)));
+        }
+    }
+
 
     virtual bool fieldIsSuitableSize(const TField & field) {
         return field.size()==size3;
@@ -300,12 +324,16 @@ public:
         return field[i];
     }
 
-    complex<T> getFieldAt(size_t i) {
+    virtual complex<T> getFieldAt(size_t i) {
         return getFieldAt(i, getFieldReal());
     }
 
 
     auto getOffsetFields() {
+        return std::make_tuple(pOff_x, pOff_y, pOff_z);
+    }
+
+    auto getOffsetFields() const {
         return std::make_tuple(pOff_x, pOff_y, pOff_z);
     }
 
@@ -686,9 +714,9 @@ public:
     }
 
     size_t getClosestIdNoWrap(T x0c, T y0c, T z0c) {
-      int xa=((int) floor((x0c-x0+dx/2)/dx));
-      int ya=((int) floor((y0c-y0+dx/2)/dx));
-      int za=((int) floor((z0c-z0+dx/2)/dx));
+      int xa=((int) floor((x0c-x0-dx/2)/dx));
+      int ya=((int) floor((y0c-y0-dx/2)/dx));
+      int za=((int) floor((z0c-z0-dx/2)/dx));
       return getIndexNoWrap(xa,ya,za);
 
     }
@@ -799,19 +827,19 @@ public:
     }
 
     virtual TField & getFieldFourier() override {
-        throw std::runtime_error("VirtualGrid - does not contain an actual field in memory");
+        return pUnderlying->getFieldFourier();
     }
 
     virtual TField & getFieldReal() override {
-        throw std::runtime_error("VirtualGrid - does not contain an actual field in memory");
+        return pUnderlying->getFieldReal();
     }
 
-    virtual TField & getField() override {
-        throw std::runtime_error("VirtualGrid - does not contain an actual field in memory");
+    virtual const TField & getField() const override {
+        return pUnderlying->getField();
     }
 
     virtual bool isFieldFourier()  const override  {
-        throw std::runtime_error("VirtualGrid - does not contain an actual field in memory");
+        return pUnderlying->isFieldFourier();
     }
 
     virtual void zeldovich(T hfac, T particlecellMass) override {
@@ -831,6 +859,10 @@ public:
     void getParticleFromOffset(T &x, T &y, T &z, T &vx, T &vy, T &vz, T &cellMassi, T &eps) const override
     {
       pUnderlying->getParticleFromOffset(x,y,z,vx,vy,vz,cellMassi,eps);
+    }
+
+    complex<T> getFieldAt(size_t i) override {
+        return this->getFieldAt(i, this->pUnderlying->getFieldReal());
     }
 
 };
@@ -908,7 +940,6 @@ public:
         return this->pUnderlying->getFieldInterpolated(x,y,z,field);
     }
 
-
 };
 
 template<typename T>
@@ -981,6 +1012,10 @@ protected:
         x+=xOffset_i;
         y+=yOffset_i;
         z+=zOffset_i;
+        const size_t underlyingSize = this->pUnderlying->size;
+
+        if(x<0 || x>=underlyingSize || y<0 || y>=underlyingSize || z<0 || z>=underlyingSize)
+            throw std::out_of_range("Out of range in SectionOfGrid");
         return this->pUnderlying->getIndex(x,y,z);
     }
 
@@ -1047,8 +1082,8 @@ public:
                     pUnderlying->z0, false),
             factor(factor)
     {
-        if(this->pUnderlying->size%factor!=0)
-          throw std::runtime_error("SubSampleGrid - factor must be a divisor of the original grid size");
+        //if(this->pUnderlying->size%factor!=0)
+        //  throw std::runtime_error("SubSampleGrid - factor must be a divisor of the original grid size");
 
         factor3=factor*factor*factor;
     }
@@ -1080,14 +1115,38 @@ public:
         return this->pUnderlying->getMass()*factor3;
     }
 
+    int forEachSubcell(size_t id, std::function<void(size_t)> callback) const {
+        int x0,y0,z0;
+        this->getCoordinates(id, x0, y0, z0);
+        x0*=factor; y0*=factor; z0*=factor;
+        auto x1=x0+factor, y1=y0+factor, z1=z0+factor;
+
+        // In case the edge of the last cell in the fine grid (this->pUnderlying)
+        // is not aligned with the edge of any cell in the coarse grid (this),
+        // we need to be able to do an average over fewer than factor^3 cells.
+        //
+        // This is a situation we might, in retrospect, wish to avoid. However,
+        // since early tests and simulations were conducted without obeying
+        // this 'end-alignment' condition, we need to support it.
+        if(x1>this->pUnderlying->size) x1=this->pUnderlying->size;
+        if(y1>this->pUnderlying->size) y1=this->pUnderlying->size;
+        if(z1>this->pUnderlying->size) z1=this->pUnderlying->size;
+
+        int localFactor3 = (x1-x0)*(y1-y0)*(z1-z0);
+
+        for(auto xi=x0; xi<x1; ++xi) {
+            for (auto yi=y0; yi<y1; ++yi) {
+                for (auto zi=z0; zi<z1; ++zi) {
+                    callback(this->pUnderlying->getIndexNoWrap(xi,yi,zi));
+                }
+
+            }
+        }
+        return localFactor3;
+    }
 
     virtual void getParticleNoWrap(size_t id, T &x, T &y, T &z, T &vx, T &vy, T &vz, T &cellMassi, T &eps) const
     {
-      int x0,y0,z0;
-      this->getCoordinates(id, x0, y0, z0);
-      x0*=factor; y0*=factor; z0*=factor;
-      auto x1=x0+factor, y1=y0+factor, z1=z0+factor;
-
       T xt,yt,zt,vxt,vyt,vzt,cellMassit,epst;
 
       x=0;
@@ -1099,34 +1158,51 @@ public:
       cellMassi=0;
       eps=0;
 
-        /*
-      this->pUnderlying->getParticle(this->pUnderlying->getIndexNoWrap(x0,y0,z0),
-                                       x,y,z,vx,vy,vz,cellMassi,eps);
-      cellMassi*=factor3;
-      */
+      int localFactor3 = forEachSubcell(id, [&](size_t sub_id) {
+          this->pUnderlying->getParticleNoWrap(sub_id,
+                                               xt,yt,zt,vxt,vyt,vzt,cellMassit,epst);
+          x+=xt;
+          y+=yt;
+          z+=zt;
+          vx+=vxt;
+          vy+=vyt;
+          vz+=vzt;
+          eps+=epst;
+          cellMassi+=cellMassit;
+      });
 
-      // construct our virtual values from average over the underlying cells
-      for(auto xi=x0; xi<x1; ++xi) {
-        for (auto yi=y0; yi<y1; ++yi) {
-          for (auto zi=z0; zi<z1; ++zi) {
-            this->pUnderlying->getParticleNoWrap(this->pUnderlying->getIndexNoWrap(xi,yi,zi),
-                                                 xt,yt,zt,vxt,vyt,vzt,cellMassit,epst);
-            x+=xt/factor3;
-            y+=yt/factor3;
-            z+=zt/factor3;
-            vx+=vxt/factor3;
-            vy+=vyt/factor3;
-            vz+=vzt/factor3;
-            eps+=epst/factor3;
+      // most variables want an average, not a sum:
+      x/=localFactor3;
+      y/=localFactor3;
+      z/=localFactor3;
+      vx/=localFactor3;
+      vy/=localFactor3;
+      vz/=localFactor3;
+      eps/=localFactor3;
 
-            // accumulate, don't average the mass!
-            cellMassi+=cellMassit;
-          }
-        }
-      }
-
+      // cell mass wants to be a sum over the *entire* cell (even if
+      // some subcells are missing):
+      cellMassi*=factor3/localFactor3;
 
     }
+
+    virtual complex<T> getFieldAt(size_t i, const TField & field) {
+        complex<T> returnVal(0);
+        int localFactor3 = forEachSubcell(i, [this, &returnVal, &field](size_t local_id){
+            returnVal+=field[local_id];
+        });
+        return returnVal/T(localFactor3);
+    }
+
+    virtual T getFieldAt(size_t i, const TRealField & field) {
+        T returnVal(0);
+        int localFactor3 = forEachSubcell(i, [this, &returnVal, &field](size_t local_id){
+            returnVal+=field[local_id];
+        });
+        return returnVal/localFactor3;
+    }
+
+
 
     void getParticleFromOffset(T &x, T &y, T &z, T &vx, T &vy, T &vz, T &cellMassi, T &eps) const override
     {

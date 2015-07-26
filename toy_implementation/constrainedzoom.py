@@ -350,7 +350,6 @@ class ZoomConstrained(object):
 
 
 
-        print self.offset
         return delta_highres[self.offset*self.pixel_size_ratio:self.offset*self.pixel_size_ratio+self.n2]
 
 

@@ -25,15 +25,19 @@ zerolevel -1
 zerolevel 0
 zerolevel 1
 
-IDfile constrtest.txt
+#IDfile constrtest.txt
+centre 32.5 32.5 32.5
+select_nearest
 dump_IDfile check_constr.txt
 
+
 calculate overdensity
-constrain overdensity absolute 1.0
+constrain overdensity absolute 0.950824283
+
 
 
 
 done
-
+#calculate overdensity
 dumpgrid 0
 dumpgrid 1

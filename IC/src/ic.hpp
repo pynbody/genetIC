@@ -13,6 +13,7 @@
 #include <memory>
 #include <limits>
 #include <iostream>
+#include <list>
 
 #include "numpy.hpp"
 #include "constraint.hpp"
@@ -82,7 +83,7 @@ protected:
 
     MyFloat x0, y0, z0;
 
-    MultiConstrainedField<MyFloat> *pConstrainer;
+    shared_ptr<MultiConstrainedField<MyFloat>> pConstrainer;
     shared_ptr<ParticleMapper<MyFloat>> pMapper;
     shared_ptr<ParticleMapper<MyFloat>> pInputMapper;
 
@@ -244,7 +245,6 @@ public:
         // Now see if the zoom the user chose is OK
         int n_user = n[0]/zoomfac;
         if((x1-x0)>n_user || (y1-y0)>n_user || (z1-z0)>n_user) {
-            cerr << x1 << " " << x0 << " " << n_user << endl;
             throw(std::runtime_error("Zoom particles do not fit in specified sub-box. Decrease zoom, or choose different particles. (NB wrapping not yet implemented)"));
         }
         // At this point we know things fit. All we need to do is choose
@@ -391,62 +391,55 @@ public:
                                            RefFieldType pField_k,
                                            gsl_rng * r)
     {
-        long nPartTotal = n;
+        size_t nPartTotal = n;
         nPartTotal*=n*n;
 
         MyFloat sigma=sqrt((MyFloat)(nPartTotal));
 
-        complex<MyFloat> *rnd=(complex<MyFloat>*)calloc(nPartTotal,sizeof(complex<MyFloat>));
-
-        cerr << "Drawing random numbers..."<< endl;
-
-        long i;
+        cerr << "Drawing random numbers...";
 
         // N.B. DO NOT PARALLELIZE this loop - want things to be done in a reliable order
-        for(i=0;i<nPartTotal;i++){rnd[i]=gsl_ran_gaussian_ziggurat(r,1.)*sigma;}// cout<< "rnd "<< rnd[i] << endl;}
+        for(size_t i=0;i<nPartTotal;i++) {
+            pField_k[i]=gsl_ran_gaussian_ziggurat(r,1.)*sigma;
+        }
 
+        // this FFT is kept for historical compatibility, even though it could be made
+        // unnecessary by picking random phases directly in fourier space
+        fft(pField_k, pField_k, 1);
 
-        cout<< "First FFT..." <<endl;
-        fft(pField_k.data(), rnd, n, 1);
-
-        free(rnd);
-
-        pField_k[0]=complex<MyFloat>(0.,0.); //assure mean==0
-
-
-
+        pField_k[0]=complex<MyFloat>(0.,0.); // ensure mean==0
+        cerr << "done" << endl;
     }
 
     static void drawRandomForSpecifiedGridFourier(int n,
                                            RefFieldType pField_k,
 						  gsl_rng * r, bool reverseRandomDrawOrder) {
 
-       long nPartTotal = n;
-       nPartTotal*=n*n;
+        size_t nPartTotal = n;
+        nPartTotal*=n*n;
 
-       MyFloat sigma=sqrt((MyFloat)(nPartTotal));
+        MyFloat sigma=sqrt((MyFloat)(nPartTotal));
 
+        cerr << "Drawing random numbers in fourier space...";
+        int ks,k1,k2;
 
-       // do it in fourier space, in order of increasing |k|, so that
-       // resolution can be scaled by factors of 2 and we still get
-       // the 'same' field
+        sigma/=sqrt(2.0);
 
-       cerr << "Drawing random numbers in fourier space..."<< endl;
-       int ks,k1,k2;
-
-       sigma/=sqrt(2.0);
-
-       // N.B. DO NOT PARALLELIZE this loop - want things to be done in a reliable order
-       // Do it in square k-shells
-       for(ks=0; ks<n/2;ks++) {
+        // N.B. DO NOT PARALLELIZE this loop - want things to be done in a reliable order
+        // Do it in square k-shells, in order of increasing |k|, so that
+        // resolution can be scaled by factors of 2 and we still get
+        // the 'same' field
+        for(ks=0; ks<n/2;ks++) {
            for(k1=-ks; k1<ks; k1++) {
                for(k2=-ks; k2<ks; k2++) {
-		 drawOneFourierMode(r,ks,k1,k2,sigma,n,pField_k,reverseRandomDrawOrder);
-		 drawOneFourierMode(r,k1,ks,k2,sigma,n,pField_k,reverseRandomDrawOrder);
-		 drawOneFourierMode(r,k1,k2,ks,sigma,n,pField_k,reverseRandomDrawOrder);
+                   drawOneFourierMode(r,ks,k1,k2,sigma,n,pField_k,reverseRandomDrawOrder);
+                   drawOneFourierMode(r,k1,ks,k2,sigma,n,pField_k,reverseRandomDrawOrder);
+                   drawOneFourierMode(r,k1,k2,ks,sigma,n,pField_k,reverseRandomDrawOrder);
                }
            }
         }
+
+        cerr << "done" << endl;
 
     }
 
@@ -483,20 +476,7 @@ public:
     template<typename T>
     void interpolateIntoLevel(const GridPtrType &pGrid_dest, const GridPtrType &pGrid_src,
                               T &pField_x_dest, T &pField_x_src) {
-
-        assert(pField_x_dest.size()== pGrid_dest->size3);
-        assert(pField_x_src.size()== pGrid_src->size3);
-
-        GridPtrType pSourceProxyGrid = pGrid_src->makeProxyGridToMatch(*pGrid_dest);
-
-        // #pragma omp parallel for schedule(static)
-        for(size_t ind_l=0; ind_l< pGrid_dest->size3; ind_l++) {
-            MyFloat x,y,z;
-            // pGrid_dest->getCentroidLocation(ind_l,x,y,z);
-            // pField_x_dest[ind_l]+= pGrid_src->getFieldInterpolated(x,y,z, pField_x_src);
-
-            pField_x_dest[ind_l]+=pSourceProxyGrid->getFieldAt(ind_l, pField_x_src);
-        }
+        pGrid_dest->addFieldFromDifferentGrid(*pGrid_src, pField_x_src, pField_x_dest);
     }
 
     virtual void interpolateIntoLevel(int level) {
@@ -507,7 +487,6 @@ public:
         auto pGrid_p = pGrid[level-1];
 
         pGrid_l->addFieldFromDifferentGrid(*pGrid_p);
-
     }
 
 
@@ -525,6 +504,20 @@ public:
     MyFloat filter_high(MyFloat k) {
         // Return filter for high-res part of field
         return 1.-filter_low(k);
+    }
+
+    std::function<MyFloat(MyFloat)> D_filter_low() {
+        return [this](MyFloat k){
+            MyFloat p = this->filter_low(k);
+            return p;
+        };
+    }
+
+    std::function<MyFloat(MyFloat)> D_filter_high() {
+        return [this](MyFloat k){
+            MyFloat p = this->filter_high(k);
+            return p;
+        };
     }
 
     std::function<MyFloat(MyFloat)> C_filter_low() {
@@ -563,11 +556,7 @@ public:
 
     virtual void splitLevel0() {
         pField_k_0_high = pGrid[0]->getFieldFourier();
-        cerr << "Apply transfer function for high-k part of level 0 field" << endl;
-        cerr << "  sizes = " << pGrid[0]->getFieldFourier().size() << " " <<pField_k_0_high.size() << endl;
-        cerr << "  first el = " << pField_k_0_high[10] << " " << pGrid[0]->getFieldFourier()[10] << endl;
         applyPowerSpecForLevel(0,true);
-        cerr << "  first el = " << pField_k_0_high[10] << " " << pGrid[0]->getFieldFourier()[10] << endl;
     }
 
     virtual void recombineLevel0() {
@@ -584,22 +573,17 @@ public:
     virtual void applyPowerSpecForLevel(int level, bool high_k=false) {
         //scale white-noise delta with initial PS
 
-        MyFloat grwfac;
+        MyFloat growthFactor=D(cosmology.scalefactor, cosmology.OmegaM0, cosmology.OmegaLambda0);
 
-        //growth factor normalised to 1 today:
-        grwfac=D(cosmology.scalefactor, cosmology.OmegaM0, cosmology.OmegaLambda0)/D(1., cosmology.OmegaM0, cosmology.OmegaLambda0);
+        MyFloat growthFactorNormalized=growthFactor/D(1., cosmology.OmegaM0, cosmology.OmegaLambda0);
 
-        cout<< "Growth factor " << grwfac << endl;
-        MyFloat sg8;
+        MyFloat sigma8PreNormalization=spectrum.sig(8., cosmology.ns);
 
-        sg8=spectrum.sig(8., cosmology.ns, boxlen[level], n[level]);
-        std::cout <<"Sigma_8 "<< sg8 << std::endl;
+        MyFloat linearRenormFactor = (cosmology.sigma8 /sigma8PreNormalization) * growthFactorNormalized;
 
         MyFloat kw = 2.*M_PI/(MyFloat)boxlen[level];
 
-        // TODO: link sigma8 from the top level down
-
-        MyFloat amp=(cosmology.sigma8 /sg8)*(cosmology.sigma8 /sg8)*grwfac*grwfac; //norm. for sigma8 and linear growth factor
+        MyFloat amp=linearRenormFactor*linearRenormFactor;
         MyFloat norm=kw*kw*kw/powf(2.*M_PI,3.); //since kw=2pi/L, this is just 1/V_box
 
         P[level]=(complex<MyFloat>*)calloc(nPartLevel[level],sizeof(complex<MyFloat>));
@@ -609,64 +593,47 @@ public:
         if(level==0 && n[1]>0)
         {
             if(high_k) {
-                cerr << "Select C_filter_lowhigh" << endl;
                 filter = C_filter_lowhigh();
             } else {
-                cerr << "Select C_filter_low" << endl;
                 filter = C_filter_low();
             }
         }
 
         else if(level==1)
         {
-            cerr << "Select C_filter_high" << endl;
             filter = C_filter_high();
         }
         else
         {
             filter = C_filter_default();
-            cerr << "No filter" << endl;
         }
-
-        std::cout<<"Interpolation: kmax: "<< kw <<" Mpc/h, kmax: "<< (MyFloat)( kw*n[level]/2.*sqrt(3.)) <<" Mpc/h"<<std::endl;
 
         MyFloat norm_amp=norm*amp;
 
-        // TODO - fix up types here
-
         auto & pField_k_this = high_k?pField_k_0_high:pGrid[level]->getFieldFourier();
-
 
         spectrum.applyTransfer(n[level], kw, cosmology.ns, norm_amp,
                                pField_k_this, pField_k_this, P[level], filter);
-
-        //assert(abs(real(norm_iter)) >1e-12); //norm!=0
-        //assert(abs(imag(norm_iter)) <1e-12); //because there shouldn't be an imaginary part since we assume d is purely real
-        //TODO think about this (it fails more often than it should?)
-
-        cout<<"Transfer applied!"<<endl;
-        // cout<< "Power spectrum sample: " << P[level][0] << " " << P[level][1] <<" " << P[level][nPartTotal-1] <<endl;
-
-        // std::cout<<"Initial chi^2 (white noise, fourier space) = " << chi2(pField_k[level],P[level],nPartTotal) << std::endl;
-
 
 
     }
 
     virtual void applyPowerSpec() {
         for_each_level(level) {
-            cerr << "Apply transfer function for level " << level <<endl;
+            cerr << "Apply transfer function for level " << level << "...";
             applyPowerSpecForLevel(level);
+            cerr << "done" << endl;
         }
     }
 
-    virtual void dumpGrid(int level=0) {
-
+    template<typename T>
+    void dumpGridData(int level, const T & data) {
+        assert(data.size()==pGrid[level]->size3);
         ostringstream filename;
         filename << indir << "/grid-" << level << ".npy";
 
         const int dim[3] = { n[level],n[level],n[level] };
-        numpy::SaveArrayAsNumpy(filename.str(), false, 3, dim, pGrid[level]->getFieldReal().data() );
+        numpy::SaveArrayAsNumpy(filename.str(), false, 3, dim, data.data());
 
         filename.str("");
         filename << indir << "/grid-info-" << level << ".txt";
@@ -680,6 +647,11 @@ public:
         ifile << "It gives the x-offset, y-offset and z-offset of the low-left corner and also the box length" << endl;
         ifile.close();
     }
+
+    virtual void dumpGrid(int level=0) {
+        dumpGridData(level, pGrid[level]->getFieldReal());
+    }
+
 
     virtual void dumpPS(int level=0) {
         powsp_noJing(n[level], pGrid[level]->getFieldReal().data(),
@@ -708,14 +680,14 @@ public:
         } else if(pGrid.size()==1) {
             zeldovichForLevel(0);
         } else {
+            cerr << "Zeldovich approximation on successive levels...";
             zeldovichForLevel(0);
             zeldovichForLevel(1);
-
-            cerr << "Interpolating low-frequency information into zoom region...";
-            cerr.flush();
-            interpolateIntoLevel(1);
             cerr << "done." << endl;
 
+            cerr << "Interpolating low-frequency information into zoom region...";
+            interpolateIntoLevel(1);
+            cerr << "done." << endl;
 
             cerr << "Re-introducing high-k modes into low-res region...";
             recombineLevel0();
@@ -862,7 +834,7 @@ public:
         }
 
         // TODO: actually combine the different levels before passing them to the constrainer
-        pConstrainer = new MultiConstrainedField<MyFloat>(pField);
+        pConstrainer = std::make_shared<MultiConstrainedField<MyFloat>>(pField);
     }
 
     virtual void prepare() {
@@ -886,6 +858,10 @@ protected:
 
     int deepestLevelWithParticlesSelected() {
         if(pGrid.size()>1 && pGrid[1]->estimateParticleListSize()>0) return 1; else return 0;
+    }
+
+    int deepestLevel() {
+        if(pGrid.size()>1) return 1; else return 0;
     }
 
     MyFloat get_wrapped_delta(MyFloat x0, MyFloat x1) {
@@ -941,41 +917,72 @@ protected:
 
 
 
-    complex<MyFloat> *calcConstraintVectorAllLevels(string name_in) {
-        long nall = 0;
-        for_each_level(level) nall+=nPartLevel[level];
-        complex<MyFloat> *rval_k=(complex<MyFloat>*)calloc(nall,sizeof(complex<MyFloat>));
-        for_each_level(level) calcConstraintVector(name_in, level, rval_k);
-        return rval_k;
+    vector<vector<complex<MyFloat>>> calcConstraintVectorForEachLevel(string name_in, bool kspace=true) {
+        vector<vector<complex<MyFloat>>> dataOnLevels;
+        for_each_level(level) dataOnLevels.emplace_back(nPartLevel[level],0.0);
+        size_t levelmax = deepestLevel();
+        calcConstraintVector(name_in, levelmax, dataOnLevels[levelmax]);
+        if(levelmax>0) {
+            fft(dataOnLevels.back(), dataOnLevels.back(), -1);
+            for(int level=levelmax-1; level>=0; --level) {
+
+                interpolateIntoLevel(pGrid[level], pGrid[levelmax],
+                                     dataOnLevels[level], dataOnLevels[levelmax]);
+
+                fft(dataOnLevels[level], dataOnLevels[level], 1);
+
+                pGrid[level]->applyFilter(D_filter_low(),dataOnLevels[level]);
+            }
+            fft(dataOnLevels.back(), dataOnLevels.back(), 1);
+            pGrid[levelmax]->applyFilter(D_filter_high(),dataOnLevels[levelmax]);
+        }
+
+        if(!kspace) {
+            for(int level=0; level<=levelmax; ++level) {
+                fft(dataOnLevels[level], dataOnLevels[level], -1);
+            }
+        }
+
+        return dataOnLevels;
     }
 
+    vector<complex<MyFloat>> calcConstraintVectorAllLevels(string name_in, bool kspace=true) {
+        auto dataOnLevels = calcConstraintVectorForEachLevel(name_in, kspace);
+        return combineDataOnLevelsIntoOneVector(dataOnLevels);
+    }
 
-    void calcConstraintVector(string name_in, int level, complex<MyFloat> *ar, bool offset=true) {
+    vector<complex<MyFloat>> combineDataOnLevelsIntoOneVector(vector<vector<complex<MyFloat>>> &dataOnLevel) {
+        size_t nall = 0;
+        for_each_level(level) nall+=nPartLevel[level];
+        vector<complex<MyFloat>> returnValue(nall);
+
+        size_t offset=0;
+
+        for_each_level(level) {
+            assert(dataOnLevel[level].size()==nPartLevel[level]);
+            auto &dataOnThisLevel = dataOnLevel[level];
+            for(size_t i=0; i<nPartLevel[level]; i++) {
+                returnValue[i+offset] = dataOnThisLevel[i];
+            }
+            offset+=nPartLevel[level];
+        }
+        return returnValue;
+    }
+
+    void calcConstraintVector(string name_in, int level, vector<complex<MyFloat>> &ar) {
         //
         // If offset is true, offset the storage to take account relative to the
         // start of ar, to take account of the other levels
-
-        vector<complex<MyFloat>> ar2;
-        calcConstraint(name_in, *pGrid[level], cosmology, ar2);
-
-        size_t offset_amount=0;
-
-        if(offset) {
-            for(int l=0; l<level; l++) {
-                offset_amount+=nPartLevel[l];
-            }
-            cerr << "Note level = " << level << " offset = " << offset_amount << endl;
-        }
-
-        for(size_t i=0;i<pGrid[level]->size3;i++)
-            ar[offset_amount+i]=ar2[i];
-
+        calcConstraint(name_in, *pGrid[level], cosmology, ar);
+        if(level!=0)
+            inPlaceMultiply(ar, pow(pGrid[level]->dx/pGrid[0]->dx,-3.0));
     }
 
-    complex<MyFloat> *calcConstraintVector(string name_in, int level) {
-        complex<MyFloat> *rval_k=(complex<MyFloat>*)calloc(this->nPartLevel[level],sizeof(complex<MyFloat>));
-        calcConstraintVector(name_in, level, rval_k, false);
-        return rval_k;
+
+    vector<complex<MyFloat>> calcConstraintVector(string name_in, int level) {
+        vector<complex<MyFloat>> retVal(this->nPartLevel[level]);
+        calcConstraintVector(name_in, level, retVal);
+        return retVal;
     }
 
 
@@ -1005,7 +1012,10 @@ public:
     }
 
     void selectNearest() {
-        throw std::runtime_error("selectNearest not implemented");
+        auto grid = pGrid[deepestLevel()];
+        pMapper->clearParticleList();
+        size_t id = grid->getClosestIdNoWrap(x0,y0,z0);
+        grid->distributeParticleList({id});
 
     }
 
@@ -1036,24 +1046,6 @@ public:
 
     }
 
-
-    void centreDenmax() {
-
-        float den_max=-1000;
-        long index_max=0;
-
-        auto & pField_x = pGrid[0]->getFieldReal();
-        for(size_t i=0;i<genericParticleArray.size();i++) {
-            if(std::real(pField_x[genericParticleArray[i]])>den_max) {
-                index_max=genericParticleArray[i];
-                den_max = std::real(pField_x[genericParticleArray[i]]);
-                pGrid[0]->getCentroidLocation(i,x0,y0,z0);
-            }
-        }
-
-        cerr << "Denmax = " << den_max <<", index=" << index_max << " coords=" << x0 << " " << y0 << " " << z0 << endl;
-
-    }
 
     void setCentre(MyFloat xin, MyFloat yin, MyFloat zin) {
             x0=xin;
@@ -1108,19 +1100,20 @@ public:
     }
 
     void calculate(string name) {
-        float val=0.0;
-        for_each_level(level) {
-            complex<MyFloat> *vec = calcConstraintVector(name,level);
-            val+=std::real(dot(vec, pGrid[level]->getFieldFourier().data(), this->nPartLevel[level]));
-            cerr << val << " ";
-            free(vec);
-        }
-        cerr << endl;
+        auto vecs = calcConstraintVectorAllLevels(name);
+        float val = float((pConstrainer->v1_dot_y(vecs)).real());
         cout << name << ": calculated value = " <<  val << endl;
+
+        if(pConstrainer->alphas.size()>0) {
+            cout << "normalization should be " << 1./sqrt((pConstrainer->v_cov_v(vecs)).real()) << endl;
+            // cout << "pConstrainer first constraint " << pConstrainer->v_cov_v(pConstrainer->alphas[0]) << endl;
+            cout << "pConstrainer first constraint " << pConstrainer->v1_dot_y(pConstrainer->alphas[0]) << endl;
+            cout << "pConstrainer target " << pConstrainer->values[0] << endl;
+        }
     }
 
     virtual void constrain(string name, string type, float value) {
-        if(pConstrainer==NULL) {
+        if(pConstrainer==nullptr) {
             throw runtime_error("No constraint information is available. Is your done command too early, or repeated?");
         }
 
@@ -1128,18 +1121,17 @@ public:
         if (strcasecmp(type.c_str(),"relative")==0) {
             relative=true;
         } else if (strcasecmp(type.c_str(),"absolute")!=0) {
-            cerr << "Constraints must state either relative or absolute" << endl;
-            exit(0);
+            throw runtime_error("Constraint type must be either 'relative' or 'absolute'");
         }
 
         std::complex<MyFloat> constraint = value;
-        complex<MyFloat> *vec = calcConstraintVectorAllLevels(name);
+        auto vec = calcConstraintVectorAllLevels(name);
         std::complex<MyFloat> initv = pConstrainer->underlying->v1_dot_y(vec);
 
         if(relative) constraint*=initv;
 
         cout << name << ": initial value = " << initv << ", constraining to " << constraint << endl;
-        pConstrainer->add_constraint(vec, constraint, initv);
+        pConstrainer->add_constraint(std::move(vec), constraint, initv);
 
     }
 
@@ -1165,18 +1157,13 @@ public:
 
         long j=0;
         for_each_level(level) {
-            for(size_t i=0; i<this->nPartLevel[level]; i++) {
+            for(size_t i=0; i<this->pGrid[level]->size3; i++) {
                 this->pGrid[level]->getFieldFourier()[i]=y1[j];
                 j++;
             }
         }
 
         free(y1);
-
-        cout << "Expected Delta chi^2=" << pConstrainer->get_delta_chi2() << endl;
-
-        delete pConstrainer;
-        pConstrainer=nullptr;
     }
 
     virtual void done() {
@@ -1202,7 +1189,7 @@ public:
         }
 
         MyFloat k2max = kmax*kmax;
-        
+
         // take a copy of all the fields
         std::vector<FieldType> fieldCopies;
         for_each_level(level) fieldCopies.emplace_back(pGrid[level]->getFieldFourier());

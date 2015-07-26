@@ -660,8 +660,6 @@ public:
 
               grid1particles.push_back(*i + numSkippedParticlesLR);
 
-              cerr << "ADD_LR:" << *i << " -> " << *i + numSkippedParticlesLR << endl;
-
             } else {
               // particle in high res region
 
@@ -717,10 +715,7 @@ public:
 
           if(zoom_i==len_zoom || zoomParticleArray[zoom_i]!=i_lr) {
             // not a zoom particle: record it in the low res region
-            cerr << i_lr << "-> " << i_lr-zoom_i << endl;
             particleArray.push_back(i_lr-zoom_i);
-          } else {
-            cerr << i_lr << "-> " << "NONE" << endl;
           }
         }
 

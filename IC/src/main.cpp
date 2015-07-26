@@ -99,7 +99,6 @@ void setup_parser(ClassDispatch<ICf,void> &dispatch) {
     dispatch.add_class_route("dump_IDfile",&ICf::dumpID);
     dispatch.add_class_route("select_sphere",&ICf::selectSphere);
     dispatch.add_class_route("select_nearest",&ICf::selectNearest);
-    dispatch.add_class_route("centre_max",&ICf::centreDenmax);
     dispatch.add_class_route("centre_on",&ICf::centreParticle);
     dispatch.add_class_route("centre", &ICf::setCentre);
     dispatch.add_class_route("order",&ICf::reorderBuffer);
@@ -198,3 +197,6 @@ int main(int argc, char *argv[]) {
     // Finished
     return 0;
 }
+
+std::vector<std::complex<double>> x;
+std::vector<std::vector<std::complex<double>>> y;

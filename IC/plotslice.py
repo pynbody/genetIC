@@ -1,7 +1,7 @@
 import numpy as np
 import pylab as p
 
-def plot1dslice(prefix="output/",ps="-",slice_z=None,slice_y=None,plot_b=True,vmin=-0.15,vmax=0.15):
+def plot1dslice(prefix="output/",ps="-",slice_z=None,slice_y=None,plot_b=True,scale_b=1.0,vmin=-0.15,vmax=0.15):
     a = np.load(prefix+"grid-0.npy")
     if plot_b:
         b = np.load(prefix+"grid-1.npy")
@@ -36,7 +36,7 @@ def plot1dslice(prefix="output/",ps="-",slice_z=None,slice_y=None,plot_b=True,vm
         b_vals = np.linspace(bx+dx/2,bx+bL-dx/2,len(b))
         a[(a_vals>b_vals.min()) * (a_vals<b_vals.max())] = np.nan
         p.plot(a_vals,a[:,a_sl_y,a_sl_z].real,ps)
-        p.plot(b_vals,b[:,b_sl_y,b_sl_z].real,ps)
+        p.plot(b_vals,b[:,b_sl_y,b_sl_z].real*scale_b,ps)
 
 
 
