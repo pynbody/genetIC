@@ -1183,7 +1183,7 @@ public:
         }
     }
 
-    void rerealizeSmallK(MyFloat kmax, int seed) {
+    void reseedSmallK(MyFloat kmax, int seed) {
         if(pConstrainer!=nullptr) {
             throw runtime_error("Can only re-realize field after a 'fixconstraints' or 'done' command finailises the constraints");
         }

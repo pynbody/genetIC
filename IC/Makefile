@@ -66,7 +66,7 @@ ifeq ($(HOST), Rhodo)
 endif
 
 ifeq ($(HOST), dirac)
-	CC 	= icc
+	CC 	= g++ -O3 -g
 	FFTW    = -I$(GSL_INC_DIR)
 	FFTWLIB = -L$(FFTWDIR) -I$(FFTWINCLUDE)  -lfftw -lrfftw
 endif

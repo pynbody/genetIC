@@ -39,6 +39,8 @@ public:
 
     void read(std::string incamb)
     {
+        kcamb.clear();
+	Tcamb.clear();
         dealloc();
         const int c=7; // number of columns in transfer function
         size_t j;
