@@ -152,12 +152,16 @@ int main(int argc, char *argv[]) {
     }
 
     ifstream inf;
-    inf.open(argv[1]);
+    string fname(argv[1]);
+
+    inf.open(fname);
 
     if(!inf.is_open()) {
         cerr << "Error: could not open parameter file " << argv[1] << endl;
         exit(1);
     }
+
+    ChangeCwdWhileInScope temporary(getDirectoryName(fname));
 
     ofstream outf;
     outf.open("IC_output.params");
@@ -178,23 +182,10 @@ int main(int argc, char *argv[]) {
     ICf generator(dispatch_generator);
 
 
-
     auto dispatch = dispatch_generator.specify_instance(generator);
 
-
-
-
-
-
-
-
-    // Read and act on the commands
     dispatch.run_loop(inf, outf);
 
-    // All done - write out
-    // generator.write();
-
-    // Finished
     return 0;
 }
 

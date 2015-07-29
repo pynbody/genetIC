@@ -1,0 +1,29 @@
+//
+// Created by Andrew Pontzen on 29/07/15.
+//
+
+#include "filesystem.h"
+#include <unistd.h>
+#include <stdlib.h>
+#include <libgen.h>
+#include <iostream>
+
+std::string getDirectoryName(std::string full) {
+    char * fullCopy = new char[full.size()+1];
+    std::copy(full.begin(), full.end(), fullCopy);
+    std::string rVal = dirname(fullCopy);
+    delete[] fullCopy;
+    return rVal;
+}
+
+
+ChangeCwdWhileInScope::ChangeCwdWhileInScope(std::string newFolder) {
+    char buffer[1000];
+    getcwd(buffer, 1000);
+    old = buffer;
+    chdir(newFolder.c_str());
+}
+
+ChangeCwdWhileInScope::~ChangeCwdWhileInScope() {
+    chdir(old.c_str());
+}

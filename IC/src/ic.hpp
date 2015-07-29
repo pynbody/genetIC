@@ -19,6 +19,7 @@
 #include "constraint.hpp"
 #include "filter.hpp"
 #include "constraintapplicator.hpp"
+#include "filesystem.h"
 
 #define for_each_level(level) for(int level=0; level<2 && n[level]>0; level++)
 
@@ -588,19 +589,22 @@ public:
     }
 
     void setInputMapper(std::string fname) {
-      DummyIC<MyFloat> pseudoICs(this);
-      auto dispatch = interpreter.specify_instance(pseudoICs);
-      ifstream inf;
-      inf.open(fname);
+        DummyIC<MyFloat> pseudoICs(this);
+        auto dispatch = interpreter.specify_instance(pseudoICs);
+        ifstream inf;
+        inf.open(fname);
 
 
-      if(!inf.is_open())
+        if(!inf.is_open())
         throw std::runtime_error("Cannot open IC paramfile for relative_to command");
-      cerr << "******** Running commands in" << fname << " to work out relationship ***********" << endl;
-      dispatch.run_loop(inf);
-      cerr << *(pseudoICs.pMapper) << endl;
-      cerr << "******** Finished with" << fname << " ***********" << endl;
-      pInputMapper = pseudoICs.pMapper;
+        cerr << "******** Running commands in" << fname << " to work out relationship ***********" << endl;
+
+        ChangeCwdWhileInScope temporary(getDirectoryName(fname));
+
+        dispatch.run_loop(inf);
+        cerr << *(pseudoICs.pMapper) << endl;
+        cerr << "******** Finished with" << fname << " ***********" << endl;
+        pInputMapper = pseudoICs.pMapper;
 
     }
 
