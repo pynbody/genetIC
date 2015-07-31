@@ -314,6 +314,8 @@ public:
             throw runtime_error("Not compiled with HDF5. Only output=1 is allowed in this case!");
 #endif
 
+        updateParticleMapper();
+
     }
 
     void setSeed(int in) {
@@ -350,6 +352,7 @@ public:
 
     void setGadgetFormat(int in) {
         gadgetformat = in;
+        updateParticleMapper();
         if(!prepared)
             prepare(); //compatibility with old paramfiles
     }
@@ -654,11 +657,13 @@ public:
 
           bool gasFirst = gadgetformat==4;
 
-
           // graft the gas particles onto the start of the map
-          pMapper = std::make_shared<AddGasMapper<MyFloat>>(
-              gasMapper.first, gasMapper.second, gasFirst);
-
+          if(gasFirst)
+              pMapper = std::make_shared<AddGasMapper<MyFloat>>(
+                      gasMapper.first, gasMapper.second, true);
+          else
+              pMapper = std::make_shared<AddGasMapper<MyFloat>>(
+                      gasMapper.second, gasMapper.first, false);
 
       }
 

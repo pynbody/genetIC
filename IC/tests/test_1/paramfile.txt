@@ -26,4 +26,3 @@ gadgetformat 4
 
 
 done
-dumpPS test.powerspec
