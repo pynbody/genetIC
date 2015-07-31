@@ -114,6 +114,7 @@ void setup_parser(ClassDispatch<ICf,void> &dispatch) {
     dispatch.add_class_route("reseed_small_k",&ICf::reseedSmallK);
     dispatch.add_class_route("dumpgrid",&ICf::dumpGrid);
     dispatch.add_class_route("dumpps",&ICf::dumpPS);
+    dispatch.add_class_route("exact_power_spectrum_enforcement", &ICf::setExactPowerSpectrumEnforcement);
 
     dispatch.add_class_route("relative_to", &ICf::setInputMapper);
     dispatch.add_class_route("zoom", &ICf::setZoom);

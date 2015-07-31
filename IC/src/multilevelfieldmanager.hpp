@@ -25,6 +25,7 @@ protected:
     std::vector<size_t> cumu_Ns;
     size_t Ntot;
     size_t nLevels;
+    bool enforceExactPowerSpectrum;
 
     void mapIdToLevelId(size_t i, size_t &level, size_t &level_id) {
         level =0;
@@ -59,6 +60,7 @@ public:
     MultiLevelFieldManager() {
         nLevels =0;
         Ntot=0;
+        enforceExactPowerSpectrum = false;
     }
 
     virtual ~MultiLevelFieldManager() { }
@@ -76,6 +78,10 @@ public:
         Ntot+=N;
         nLevels +=1;
         setupFilters();
+    }
+
+    void setExactPowerSpectrumEnforcement(bool value) {
+        enforceExactPowerSpectrum = true;
     }
 
     size_t getNumCells() const {
@@ -132,10 +138,17 @@ public:
                                 const std::vector<T> &spectrum,
                                 const Filter<T> &filter,
                                 const Grid<T> &grid ) {
+        T white_noise_norm = sqrt(T(grid.size3));
+
         #pragma omp parallel for
         for(size_t i=0; i<grid.size3; i++) {
             T k = grid.getAbsK(i);
-            field[i]*=sqrt(spectrum[i]*filter(k));
+            if(enforceExactPowerSpectrum) {
+                T existing_norm = abs(field[i]);
+                field[i] *= sqrt(spectrum[i] * filter(k)) * white_noise_norm/existing_norm;
+            } else {
+                field[i] *= sqrt(spectrum[i] * filter(k));
+            }
         }
     }
 

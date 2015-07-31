@@ -332,6 +332,10 @@ public:
 	reverseFourierRandomDrawOrder = true;
     }
 
+    void setExactPowerSpectrumEnforcement() {
+        fieldManager.setExactPowerSpectrumEnforcement(true);
+    }
+
     void setCambDat(std::string in) {
         incamb = in;
     }
@@ -648,10 +652,12 @@ public:
           auto gasMapper = pMapper->addGas(cosmology.OmegaBaryons0 / cosmology.OmegaM0,
                                           {pGrid.back()});
 
+          bool gasFirst = gadgetformat==4;
+
 
           // graft the gas particles onto the start of the map
           pMapper = std::make_shared<AddGasMapper<MyFloat>>(
-              gasMapper.first, gasMapper.second, true);
+              gasMapper.first, gasMapper.second, gasFirst);
 
 
       }
