@@ -3,10 +3,6 @@
 
 #include <string>
 #include <tuple>
-#include <gsl/gsl_rng.h> //link -lgsl and -lgslcblas at the very end
-#include <gsl/gsl_randist.h> //for the gaussian (and other) distributions
-#include <gsl/gsl_errno.h>
-#include <gsl/gsl_spline.h>
 #include <cassert>
 #include <functional>
 #include <algorithm>
@@ -20,6 +16,7 @@
 #include "filter.hpp"
 #include "constraintapplicator.hpp"
 #include "filesystem.h"
+#include "randomfieldgenerator.hpp"
 
 #define for_each_level(level) for(int level=0; level<2 && n[level]>0; level++)
 
@@ -41,6 +38,7 @@ protected:
     CosmologicalParameters<MyFloat> cosmology;
     MultiLevelFieldManager<MyFloat> fieldManager;
     ConstraintApplicator<MyFloat> constraintApplicator;
+    RandomFieldGenerator<MyFloat> randomFieldGenerator;
 
     // Everything about the grids:
     MyFloat boxlen[2], dx[2];      // the box length of each grid
@@ -64,7 +62,7 @@ protected:
     MyFloat k_cut;   // the cut-off k for low-scale power
 
 
-    int out, gadgetformat, seed;
+    int out, gadgetformat;
 
 
     int nCambLines;
@@ -75,8 +73,7 @@ protected:
 
     string incamb, indir, inname, base;
 
-    bool whiteNoiseFourier;
-    bool reverseFourierRandomDrawOrder;
+
     bool prepared;
 
 
@@ -98,11 +95,13 @@ protected:
 
 
 public:
-    IC(ClassDispatch<IC<MyFloat>, void> &interpreter) : interpreter(interpreter), pMapper(new ParticleMapper<MyFloat>()), constraintApplicator(&fieldManager)
+    IC(ClassDispatch<IC<MyFloat>, void> &interpreter) : interpreter(interpreter),
+                                                        pMapper(new ParticleMapper<MyFloat>()),
+                                                        constraintApplicator(&fieldManager),
+                                                        randomFieldGenerator(fieldManager)
     {
         pInputMapper = nullptr;
         pFilters = std::make_shared<FilterFamily<MyFloat>>();
-        whiteNoiseFourier=false;
         cosmology.hubble =0.701;   // old default
         cosmology.OmegaBaryons0 =-1.0;
         cosmology.ns = 0.96;      // old default
@@ -319,19 +318,19 @@ public:
     }
 
     void setSeed(int in) {
-        seed = in;
+        randomFieldGenerator.seed(in);
     }
 
     void setSeedFourier(int in) {
-        seed = in;
-        whiteNoiseFourier = true;
-	    reverseFourierRandomDrawOrder = false;
+        randomFieldGenerator.seed(in);
+        randomFieldGenerator.setDrawInFourierSpace(true);
+        randomFieldGenerator.setReverseRandomDrawOrder(false);
     }
 
     void setSeedFourierReverseOrder(int in) {
-        seed = in;
-        whiteNoiseFourier = true;
-	reverseFourierRandomDrawOrder = true;
+        randomFieldGenerator.seed(in);
+        randomFieldGenerator.setDrawInFourierSpace(true);
+        randomFieldGenerator.setReverseRandomDrawOrder(true);
     }
 
     void setExactPowerSpectrumEnforcement() {
@@ -387,111 +386,9 @@ public:
         }
     }
 
-    static long kgridToIndex(int k1, int k2, int k3, int n)  {
-        long ii,jj,ll,idk;
-        if(k1<0) ii=k1+n; else ii=k1;
-        if(k2<0) jj=k2+n; else jj=k2;
-        if(k3<0) ll=k3+n; else ll=k3;
-        idk=(ii*(n)+jj)*(n)+ll;
-        return idk;
-    }
-
-    static void drawOneFourierMode(gsl_rng *r, int k1, int k2, int k3,
-				   MyFloat norm, int n, RefFieldType pField_k, bool reverseRandomDrawOrder) {
-        long id_k, id_negk;
-        id_k = kgridToIndex(k1,k2,k3,n);
-        id_negk = kgridToIndex(-k1,-k2,-k3,n);
-
-        // these need to be initialized in explicit order - can't leave it to compilers
-        // to choose as they choose differently...
-        MyFloat a = norm*gsl_ran_gaussian_ziggurat(r,1.);
-        MyFloat b = norm*gsl_ran_gaussian_ziggurat(r,1.);
-
-        if(reverseRandomDrawOrder)
-          pField_k[id_k]=std::complex<MyFloat>(b,a);
-        else
-          pField_k[id_k]=std::complex<MyFloat>(a,b);
-
-        // reality condition:
-        pField_k[id_negk]=std::conj(pField_k[id_k]);
-
-    }
-
-
-    static void drawRandomForSpecifiedGrid(int n,
-                                           RefFieldType pField_k,
-                                           gsl_rng * r)
-    {
-        size_t nPartTotal = n;
-        nPartTotal*=n*n;
-
-        MyFloat sigma=sqrt((MyFloat)(nPartTotal));
-
-        cerr << "Drawing random numbers...";
-
-        // N.B. DO NOT PARALLELIZE this loop - want things to be done in a reliable order
-        for(size_t i=0;i<nPartTotal;i++) {
-            pField_k[i]=gsl_ran_gaussian_ziggurat(r,1.)*sigma;
-        }
-
-        // this FFT is kept for historical compatibility, even though it could be made
-        // unnecessary by picking random phases directly in fourier space
-        fft(pField_k, pField_k, 1);
-
-        pField_k[0]=complex<MyFloat>(0.,0.); // ensure mean==0
-        cerr << "done" << endl;
-    }
-
-    static void drawRandomForSpecifiedGridFourier(int n,
-                                           RefFieldType pField_k,
-						  gsl_rng * r, bool reverseRandomDrawOrder) {
-
-        size_t nPartTotal = n;
-        nPartTotal*=n*n;
-
-        MyFloat sigma=sqrt((MyFloat)(nPartTotal));
-
-        cerr << "Drawing random numbers in fourier space...";
-        int ks,k1,k2;
-
-        sigma/=sqrt(2.0);
-
-        // N.B. DO NOT PARALLELIZE this loop - want things to be done in a reliable order
-        // Do it in square k-shells, in order of increasing |k|, so that
-        // resolution can be scaled by factors of 2 and we still get
-        // the 'same' field
-        for(ks=0; ks<n/2;ks++) {
-           for(k1=-ks; k1<ks; k1++) {
-               for(k2=-ks; k2<ks; k2++) {
-                   drawOneFourierMode(r,ks,k1,k2,sigma,n,pField_k,reverseRandomDrawOrder);
-                   drawOneFourierMode(r,k1,ks,k2,sigma,n,pField_k,reverseRandomDrawOrder);
-                   drawOneFourierMode(r,k1,k2,ks,sigma,n,pField_k,reverseRandomDrawOrder);
-               }
-           }
-        }
-
-        cerr << "done" << endl;
-
-    }
 
     virtual void drawRandom() {
-        gsl_rng * r;
-        const gsl_rng_type * T; //generator type variable
-
-        T = gsl_rng_ranlxs2; // shouldn't this be gsl_rng_ranlxd2 for MyFloat = double?
-        r = gsl_rng_alloc (T); //this allocates memory for the generator with type T
-        gsl_rng_set(r,seed);
-
-        for_each_level(level) {
-            cerr << "Generate random noise for level " << level <<endl;
-            if(whiteNoiseFourier) {
-                drawRandomForSpecifiedGridFourier(n[level], pGrid[level]->getFieldFourier(),r,reverseFourierRandomDrawOrder);
-            } else {
-                drawRandomForSpecifiedGrid(n[level], pGrid[level]->getFieldFourier(),r);
-            }
-        }
-
-        gsl_rng_free (r);
+        randomFieldGenerator.draw();
     }
 
     virtual void zeroLevel(int level) {
@@ -1054,7 +951,7 @@ public:
         for_each_level(level) fieldCopies.emplace_back(pGrid[level]->getFieldFourier());
 
         // remake the fields with the new seed
-        this->seed = seed;
+        randomFieldGenerator.seed(seed);
         makeInitialRealizationWithoutConstraints();
 
         // copy back the old field

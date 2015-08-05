@@ -174,24 +174,12 @@ public:
         }
     }
 
-    void forEachCellOfEachLevel(std::function<void(size_t)> newLevelCallback,
-                                std::function<void(size_t,size_t,size_t)> newCellCallback) {
-
-
-        for(size_t level =0; level < nLevels; level++) {
-
-            newLevelCallback(level);
-            size_t level_base = cumu_Ns[level];
-
-            #pragma omp parallel for
-            for(size_t i=0; i<Ns[level]; i++) {
-                size_t i_all_levels = level_base + i;
-                newCellCallback(level, i, i_all_levels);
-            }
+    void forEachLevel(std::function<void(Grid<T> &)> newLevelCallback) {
+        for(size_t level=0; level<nLevels; level++) {
+            newLevelCallback(*pGrid[level]);
         }
-
-
     }
+
 
     std::complex<T> accumulateOverEachCellOfEachLevel(
             std::function<void(size_t)> newLevelCallback,
@@ -199,7 +187,7 @@ public:
     {
 
         T res_real(0), res_imag(0);
-        
+
 
         for(size_t level =0; level < nLevels; level++) {
 
