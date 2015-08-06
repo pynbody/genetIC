@@ -12,11 +12,11 @@
 #include <list>
 
 #include "numpy.hpp"
-#include "constraint.hpp"
-#include "filter.hpp"
+#include "onelevelconstraint.hpp"
 #include "constraintapplicator.hpp"
 #include "filesystem.h"
 #include "randomfieldgenerator.hpp"
+#include "MultiLevelConstraintGenerator.h"
 
 #define for_each_level(level) for(int level=0; level<2 && n[level]>0; level++)
 
@@ -38,7 +38,9 @@ protected:
     CosmologicalParameters<MyFloat> cosmology;
     MultiLevelFieldManager<MyFloat> fieldManager;
     ConstraintApplicator<MyFloat> constraintApplicator;
+    MultiLevelConstraintGenerator<MyFloat> constraintGenerator;
     RandomFieldGenerator<MyFloat> randomFieldGenerator;
+    CAMB<MyFloat> spectrum;
 
     // Everything about the grids:
     MyFloat boxlen[2], dx[2];      // the box length of each grid
@@ -48,26 +50,16 @@ protected:
 
     std::vector<GridPtrType> pGrid;       // the objects that help us relate points on the grid
 
-    std::shared_ptr<FilterFamily<MyFloat>> pFilters;
-
-    complex<MyFloat> *P[2]; // the power spectrum for each k-space point
-
-
 
     MyFloat x_off[2], y_off[2], z_off[2]; // x,y,z offsets for subgrids
 
     MyFloat xOffOutput, yOffOutput, zOffOutput;
 
     int zoomfac; // the zoom factor, i.e. the ratio dx/dx[1]
-    MyFloat k_cut;   // the cut-off k for low-scale power
+
 
 
     int out, gadgetformat;
-
-
-    int nCambLines;
-
-    CAMB<MyFloat> spectrum;
 
     size_t nPartLevel[2];
 
@@ -98,10 +90,10 @@ public:
     IC(ClassDispatch<IC<MyFloat>, void> &interpreter) : interpreter(interpreter),
                                                         pMapper(new ParticleMapper<MyFloat>()),
                                                         constraintApplicator(&fieldManager),
-                                                        randomFieldGenerator(fieldManager)
+                                                        randomFieldGenerator(fieldManager),
+                                                        constraintGenerator(fieldManager, cosmology)
     {
         pInputMapper = nullptr;
-        pFilters = std::make_shared<FilterFamily<MyFloat>>();
         cosmology.hubble =0.701;   // old default
         cosmology.OmegaBaryons0 =-1.0;
         cosmology.ns = 0.96;      // old default
@@ -213,7 +205,7 @@ public:
     }
 
     void setZoomParticles(string fname) {
-      AllocAndGetBuffer_int(fname);
+      appendParticleIdFile(fname);
       doZoom();
     }
 
@@ -289,12 +281,6 @@ public:
         cout << "  Low-left corner = " << x_off[1] << ", " << y_off[1] << ", " << z_off[1] << endl;
         cout << "  Num particles   = " << zoomParticleArray.size() << endl;
         initGrid(1);
-
-        // TODO: remove duplication with MultiLevelFieldManager - IC class should not
-        // have to know about TwoLevelFilterFamily...
-        const MyFloat FRACTIONAL_K_SPLIT = 0.3;
-        pFilters = std::make_shared<TwoLevelFilterFamily<MyFloat>>(
-                ((MyFloat)n[0])*FRACTIONAL_K_SPLIT *2.*M_PI / boxlen[0]);
 
         updateParticleMapper();
 
@@ -627,10 +613,6 @@ public:
 
     }
 
-    ///////////////////////
-    // CONSTRAING CODE //
-    ///////////////////////
-
 
 
 protected:
@@ -678,93 +660,26 @@ protected:
 
 
 
-    void AllocAndGetBuffer_int(std::string IDfile, bool append=false) {
+    void appendParticleIdFile(std::string filename) {
 
-        cerr << "Loading " << IDfile << endl;
+        cerr << "Loading " << filename << endl;
 
-        if(!append)
-            genericParticleArray.clear();
-        else
-            cerr << " -> append: starts with " << genericParticleArray.size() << " existing particles" << endl;
+        getBuffer(genericParticleArray, filename);
 
-        getBuffer(genericParticleArray, IDfile);
-
-        cerr << "  -> total number of particles is " << genericParticleArray.size() << " " << genericParticleArray[0] << " " << genericParticleArray.back() << endl;
+        cerr << "  -> total number of particles is " << genericParticleArray.size() << endl;
 
         clearAndDistributeParticleList();
     }
 
-
-
-    vector<vector<complex<MyFloat>>> calcConstraintVectorForEachLevel(string name_in, bool kspace=true) {
-        vector<vector<complex<MyFloat>>> dataOnLevels;
-        for_each_level(level) dataOnLevels.emplace_back(nPartLevel[level],0.0);
-        size_t levelmax = deepestLevel();
-        calcConstraintVector(name_in, levelmax, dataOnLevels[levelmax]);
-        if(levelmax>0) {
-            fft(dataOnLevels.back(), dataOnLevels.back(), -1);
-            for(int level=levelmax-1; level>=0; --level) {
-
-                interpolateIntoLevel(pGrid[level], pGrid[levelmax],
-                                     dataOnLevels[level], dataOnLevels[levelmax]);
-
-                fft(dataOnLevels[level], dataOnLevels[level], 1);
-                pGrid[level]->applyFilter(pFilters->getFilterForDensityOnLevel(level),
-                                          dataOnLevels[level]);
-            }
-            fft(dataOnLevels.back(), dataOnLevels.back(), 1);
-            pGrid[levelmax]->applyFilter(pFilters->getFilterForDensityOnLevel(levelmax),
-                                         dataOnLevels[levelmax]);
-        }
-
-        if(!kspace) {
-            for(int level=0; level<=levelmax; ++level) {
-                fft(dataOnLevels[level], dataOnLevels[level], -1);
-            }
-        }
-
-        return dataOnLevels;
-    }
-
-    vector<complex<MyFloat>> calcConstraintVectorAllLevels(string name_in, bool kspace=true) {
-        auto dataOnLevels = calcConstraintVectorForEachLevel(name_in, kspace);
-        return combineDataOnLevelsIntoOneVector(dataOnLevels);
-    }
-
-    vector<complex<MyFloat>> combineDataOnLevelsIntoOneVector(vector<vector<complex<MyFloat>>> &dataOnLevel) {
-        size_t nall = 0;
-        for_each_level(level) nall+=nPartLevel[level];
-        vector<complex<MyFloat>> returnValue(nall);
-
-        size_t offset=0;
-
-        for_each_level(level) {
-            assert(dataOnLevel[level].size()==nPartLevel[level]);
-            auto &dataOnThisLevel = dataOnLevel[level];
-            for(size_t i=0; i<nPartLevel[level]; i++) {
-                returnValue[i+offset] = dataOnThisLevel[i];
-            }
-            offset+=nPartLevel[level];
-        }
-        return returnValue;
-    }
-
-    void calcConstraintVector(string name_in, int level, vector<complex<MyFloat>> &ar) {
-        //
-        // If offset is true, offset the storage to take account relative to the
-        // start of ar, to take account of the other levels
-        calcConstraint(name_in, *pGrid[level], cosmology, ar);
-        if(level!=0)
-            inPlaceMultiply(ar, pow(pGrid[level]->dx/pGrid[0]->dx,-3.0));
+    void loadParticleIdFile(std::string filename) {
+        genericParticleArray.clear();
+        appendParticleIdFile(filename);
     }
 
 
-    vector<complex<MyFloat>> calcConstraintVector(string name_in, int level) {
-        vector<complex<MyFloat>> retVal(this->nPartLevel[level]);
-        calcConstraintVector(name_in, level, retVal);
-        return retVal;
+    vector<complex<MyFloat>> calcConstraint(string name_in, bool kspace = true) {
+        return constraintGenerator.calcConstraintForAllLevels(name_in, kspace);
     }
-
 
 
 
@@ -772,12 +687,12 @@ public:
 
 
     void loadID(string fname) {
-        AllocAndGetBuffer_int(fname);
+        appendParticleIdFile(fname);
         getCentre();
     }
 
     void appendID(string fname) {
-        AllocAndGetBuffer_int(fname, true);
+        appendParticleIdFile(fname);
         getCentre();
     }
 
@@ -880,7 +795,7 @@ public:
     }
 
     void calculate(string name) {
-        auto vecs = calcConstraintVectorAllLevels(name);
+        auto vecs = calcConstraint(name);
         float val = float((fieldManager.v1_dot_y(vecs)).real());
         cout << name << ": calculated value = " <<  val << endl;
     }
@@ -894,7 +809,7 @@ public:
         }
 
         std::complex<MyFloat> constraint = value;
-        auto vec = calcConstraintVectorAllLevels(name);
+        auto vec = calcConstraint(name);
         std::complex<MyFloat> initv = fieldManager.v1_dot_y(vec);
 
         if(relative) constraint*=initv;
@@ -910,23 +825,8 @@ public:
 
 
     virtual void fixConstraints() {
-
-        long nall = 0;
-        for_each_level(level) nall+=nPartLevel[level];
-        complex<MyFloat> *y1=(complex<MyFloat>*)calloc(nall,sizeof(complex<MyFloat>));
-
         constraintApplicator.prepare();
-        constraintApplicator.get_realization(y1);
-
-        long j=0;
-        for_each_level(level) {
-            for(size_t i=0; i<this->pGrid[level]->size3; i++) {
-                this->pGrid[level]->getFieldFourier()[i]=y1[j];
-                j++;
-            }
-        }
-
-        free(y1);
+        constraintApplicator.applyConstraints();
     }
 
     virtual void done() {

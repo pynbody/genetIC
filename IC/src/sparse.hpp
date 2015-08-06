@@ -1,3 +1,6 @@
+#ifndef _SPARSE_HPP_INCLUDED
+#define _SPARSE_HPP_INCLUDED
+
 #include <cassert>
 #include <vector>
 
@@ -70,3 +73,6 @@ void mat_sum(const std::complex<MyFloat> *C1, const std::complex<MyFloat> *C2, c
   }
 
 }
+
+
+#endif

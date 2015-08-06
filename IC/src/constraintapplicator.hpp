@@ -187,6 +187,17 @@ public:
 
     void applyConstraints() {
 
+        for(size_t i=0; i<alphas.size(); i++) {
+            auto & alpha_i = alphas[i];
+            auto dval_i = values[i] - existing_values[i];
+
+            underlying->forEachCellOfEachLevel([dval_i, &alpha_i,this](size_t level, size_t j,
+                                                                  size_t overall_field_j,
+                                                                  std::vector<std::complex<T>> &field) {
+                field[j]+=dval_i*underlying->cov(alpha_i,overall_field_j);
+
+            });
+        }
     }
 
     void get_realization(std::complex<T> *r) {

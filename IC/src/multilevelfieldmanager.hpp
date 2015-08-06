@@ -92,6 +92,10 @@ public:
         return nLevels;
     }
 
+    Grid<T> &getGridForLevel(size_t level) {
+        return *pGrid[level];
+    }
+
     std::vector<T> &getCovariance(size_t level) {
         return C0s[level];
     }
@@ -131,6 +135,68 @@ public:
             pField_k[i]+=pField_k_0_high[i];
 
         pField_k_0_high.clear();
+
+    }
+
+    vector<complex<T>> createEmptyFieldForLevel(size_t level) const {
+        vector<complex<T>> ar(pGrid[level]->size3);
+        return ar;
+    }
+
+    vector<complex<T>> combineDataOnLevelsIntoOneVector(const vector<vector<complex<T>>> &dataOnLevel) const {
+        size_t nall = 0;
+
+        assert(dataOnLevel.size()==pGrid.size());
+
+        for(size_t i=0; i<pGrid.size(); ++i) {
+            assert(dataOnLevel[i].size()==pGrid[i]->size3);
+        }
+
+        vector<complex<T>> returnValue(getNumCells());
+
+        size_t return_i=0;
+
+        for(size_t level=0; level<pGrid.size(); ++level) {
+            const size_t levelSize = dataOnLevel[level].size();
+            const auto & dataOnThisLevel = dataOnLevel[level];
+            for(size_t i=0; i<levelSize; ++i) {
+                returnValue[return_i]=dataOnThisLevel[i];
+                return_i++;
+            }
+        }
+
+        return returnValue;
+    }
+
+    vector<vector<complex<T>>> generateMultilevelFromHighResField(vector<complex<T>> &&data) {
+        assert(data.size()==pGrid.back()->size3);
+        vector<vector<complex<T>>> dataOnLevels;
+        for(size_t level=0; level<pGrid.size(); level++) {
+            if(level==pGrid.size()-1) {
+                dataOnLevels.emplace_back(std::move(data));
+            } else {
+                dataOnLevels.emplace_back(pGrid[level]->size3,0.0);
+            }
+        }
+        size_t levelmax = dataOnLevels.size()-1;
+        if(levelmax>0) {
+            fft(dataOnLevels.back(), dataOnLevels.back(), -1);
+            for(int level=levelmax-1; level>=0; --level) {
+
+                pGrid[level]->addFieldFromDifferentGrid(*pGrid[levelmax], dataOnLevels[levelmax],
+                                                        dataOnLevels[level]);
+
+
+                fft(dataOnLevels[level], dataOnLevels[level], 1);
+                pGrid[level]->applyFilter(pFilters->getFilterForDensityOnLevel(level),
+                                          dataOnLevels[level]);
+            }
+            fft(dataOnLevels.back(), dataOnLevels.back(), 1);
+            pGrid[levelmax]->applyFilter(pFilters->getFilterForDensityOnLevel(levelmax),
+                                         dataOnLevels[levelmax]);
+        }
+
+        return dataOnLevels;
 
     }
 
@@ -179,6 +245,36 @@ public:
             newLevelCallback(*pGrid[level]);
         }
     }
+
+    void forEachCellOfEachLevel(
+            std::function<void(size_t)> levelCallback,
+            std::function<void(size_t, size_t, size_t, std::vector<std::complex<T>> &)> cellCallback,
+            bool kspace=true)
+    {
+
+
+        for(size_t level =0; level < nLevels; level++) {
+
+            levelCallback(level);
+            size_t level_base = cumu_Ns[level];
+            auto & field = kspace?pGrid[level]->getFieldFourier():pGrid[level]->getField();
+
+            #pragma omp parallel for
+            for(size_t i=0; i<Ns[level]; i++) {
+                size_t i_all_levels = level_base + i;
+                cellCallback(level, i, i_all_levels, field);
+            }
+        }
+
+    }
+
+    void forEachCellOfEachLevel(
+            std::function<void(size_t, size_t, size_t, std::vector<std::complex<T>> &)> cellCallback,
+            bool kspace=true) {
+
+        forEachCellOfEachLevel([](size_t i){},cellCallback);
+    }
+
 
 
     std::complex<T> accumulateOverEachCellOfEachLevel(
