@@ -410,8 +410,21 @@ public:
         end_progress();
     }
 
-    virtual T get_delta_chi2() {
-        return 0;
+    T get_field_chi2() {
+
+        T chi2=0;
+
+        for(size_t i=0; i<getNumLevels(); ++i) {
+            auto & field = pGrid[i]->getFieldFourier();
+            const auto & spectrum = C0s[i];
+            T norm = pow(T(pGrid[i]->size3), 3.0);
+            for(size_t i=0; i<field.size(); ++i) {
+                chi2+=pow(abs(field[i]),2.0)/(spectrum[i]*norm);
+            }
+        }
+
+        return chi2;
+
     }
 
 };

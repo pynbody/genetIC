@@ -830,7 +830,9 @@ public:
     }
 
     virtual void done() {
+        cerr << "BEFORE constraints: chi^2=" << fieldManager.get_field_chi2() << endl;
         fixConstraints();
+        cerr << "AFTER  constraints: chi^2=" << fieldManager.get_field_chi2() << endl;
         write();
     }
 

@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <libgen.h>
 #include <iostream>
+#include <stdexcept>
 
 std::string getDirectoryName(std::string full) {
     char * fullCopy = new char[full.size()+1];
