@@ -691,7 +691,7 @@ public:
 
 
     void loadID(string fname) {
-        appendParticleIdFile(fname);
+        loadParticleIdFile(fname);
         getCentre();
     }
 
