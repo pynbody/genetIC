@@ -428,6 +428,10 @@ public:
         ifile.close();
     }
 
+    virtual void saveTipsyArray(string fname) {
+        saveFieldTipsyArray(fname, pMapper);
+    }
+
     virtual void dumpGrid(int level=0) {
         dumpGridData(level, pGrid[level]->getFieldReal());
     }

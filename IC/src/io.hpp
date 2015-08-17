@@ -805,6 +805,19 @@ void getParticleInfo(const shared_ptr<ParticleMapper<MyFloat>> &pMapper, MyFloat
       // end_progress();
 }
 
+template <typename MyFloat>
+void saveFieldTipsyArray(const std::string &filename,
+                                shared_ptr<ParticleMapper<MyFloat>> pMapper) {
+    ofstream outfile(filename.c_str(), ofstream::binary);
+    int lengthField = pMapper->size();
+    outfile.write(reinterpret_cast<char*>(&lengthField),4);
+
+    for(auto i=pMapper->begin(); i!=pMapper->end(); ++i) {
+        float data = float(i.getField().real());
+        outfile.write(reinterpret_cast<char*>(&data),4);
+    }
+}
+
 template<typename MyFloat>
 void SaveTipsy(const std::string &filename, double Boxlength,
                shared_ptr<ParticleMapper<MyFloat>> pMapper,

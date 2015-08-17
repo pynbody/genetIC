@@ -89,6 +89,11 @@ public:
         q.first->getParticle(q.second, std::forward<Args>(args)...);
     }
 
+    auto getField() const {
+        const auto q = **this;
+        return const_cast<Grid<T> &>(*q.first).getFieldAt(q.second);
+    }
+
     void precacheParticles() {
 
     }
