@@ -205,12 +205,9 @@ public:
 
         #pragma omp parallel for schedule(static)
         for(size_t ind_l=0; ind_l< size3; ind_l++) {
-            try {
+            if (pSourceProxyGrid->isInDomain(ind_l))
                 pField_x_dest[ind_l]+=pSourceProxyGrid->getFieldAt(ind_l, pField_x_src);
-            } catch (std::out_of_range &e) {
-                // if out of range, consider as zero
-            }
-            // pField_x_dest[ind_l]+=pSourceProxyGrid->getFieldAt(ind_l, pField_x_src);
+
         }
     }
 
@@ -315,6 +312,14 @@ public:
 
     virtual bool fieldIsSuitableSize(const TRealField & field) {
         return field.size()==size3;
+    }
+
+    virtual bool isInDomain(size_t i) {
+        return i<size3;
+    }
+
+    virtual bool isInDomain(int x, int y, int z) {
+        return x>=0 && y>=0 && z>=0 && x<size && y<size && z<size;
     }
 
     virtual complex<T> getFieldAt(size_t i, const TField & field) {
@@ -1037,6 +1042,21 @@ public:
 
     }
 
+    virtual bool isInDomain(size_t i) override {
+        int x,y,z;
+        this->getCoordinates(i, x,y,z);
+        return isInDomain(x,y,z);
+    }
+
+    virtual bool isInDomain(int x, int y, int z) override {
+        x += xOffset_i;
+        y += yOffset_i;
+        z += zOffset_i;
+        const size_t underlyingSize = this->pUnderlying->size;
+
+        return x >= 0 && y >= 0 && z >= 0 && x < underlyingSize && y < underlyingSize && z < underlyingSize;
+
+    }
 
 
     virtual void debugName(std::ostream &s) const override {
@@ -1263,3 +1283,4 @@ public:
 
 
 #endif
+
