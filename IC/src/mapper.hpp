@@ -738,12 +738,11 @@ public:
           while(zoomed_i<len_zoomed && zoomParticleArrayHiresUnsorted[sortIndex[zoomed_i]]<i_hr)
             ++zoomed_i;
 
-          // If the marked particle is not actually in the output list, kick up a fuss.
-          // This does not HAVE to be a total failure - could just exclude this particle
-          // - but for now we expect all particles that are marked to be part of our output
-          // target
+          // If the marked particle is not actually in the output list, ignore it.
+	  // 
+	  // Older versions of the code throw an exception instead
           if(zoomed_i==len_zoomed || zoomParticleArrayHiresUnsorted[sortIndex[zoomed_i]]!=i_hr)
-            throw std::runtime_error("A marked particle is not in high-resolution region");
+            continue;
 
           particleArray.push_back(sortIndex[zoomed_i]+firstLevel2Particle);
         }
