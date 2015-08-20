@@ -205,7 +205,7 @@ public:
                                 const Filter<T> &filter,
                                 const Grid<T> &grid ) {
         T white_noise_norm = sqrt(T(grid.size3));
-
+	
         #pragma omp parallel for
         for(size_t i=0; i<grid.size3; i++) {
             T k = grid.getAbsK(i);
@@ -215,6 +215,7 @@ public:
             } else {
                 field[i] *= sqrt(spectrum[i] * filter(k));
             }
+
         }
     }
 
@@ -415,11 +416,14 @@ public:
         T chi2=0;
 
         for(size_t i=0; i<getNumLevels(); ++i) {
+
             auto & field = pGrid[i]->getFieldFourier();
             const auto & spectrum = C0s[i];
-            T norm = pow(T(pGrid[i]->size3), 3.0);
-            for(size_t i=0; i<field.size(); ++i) {
-                chi2+=pow(abs(field[i]),2.0)/(spectrum[i]*norm);
+            T norm = T(pGrid[i]->size3);
+
+            for(size_t j=0; j<field.size(); ++j) {
+	      if (spectrum[j]!=0)
+                chi2+=pow(abs(field[j]),2.0)/(spectrum[j]*norm);
             }
         }
 
