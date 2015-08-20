@@ -121,6 +121,7 @@ void setup_parser(ClassDispatch<ICf,void> &dispatch) {
     dispatch.add_class_route("n2", &ICf::setn2);
     dispatch.add_class_route("zoom_IDfile",&ICf::setZoomParticles);
     dispatch.add_class_route("dozoom",&ICf::doZoom);
+    dispatch.add_class_route("dump",&ICf::saveTipsyArray);
     // dispatch.add_class_route("writeLevel", &ICf::writeLevel);
 
     dispatch.add_class_route("zeroLevel", &ICf::zeroLevel);
