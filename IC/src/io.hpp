@@ -828,7 +828,51 @@ protected:
 
 
     template<typename ParticleType>
+    void saveTipsyParticlesFromBlock(std::vector<MyFloat> &xAr, std::vector<MyFloat> &yAr, std::vector<MyFloat> &zAr,
+                                     std::vector<MyFloat> &vxAr, std::vector<MyFloat> &vyAr, std::vector<MyFloat> &vzAr,
+                                     std::vector<MyFloat> &massAr, std::vector<MyFloat> &epsAr) {
+
+        const size_t n = xAr.size();
+        ParticleType p;
+        for(auto &q: {xAr,yAr,zAr,vxAr,vyAr,vzAr,massAr,epsAr}) {
+            assert(q.size()==n);
+        }
+        for(size_t i=0; i<n; i++) {
+            p.x=xAr[i]*pos_factor-0.5;
+            p.y=yAr[i]*pos_factor-0.5;
+            p.z=zAr[i]*pos_factor-0.5;
+            p.eps=epsAr[i]*pos_factor;
+
+            p.vx=vxAr[i]*vel_factor;
+            p.vy=vyAr[i]*vel_factor;
+            p.vz=vzAr[i]*vel_factor;
+
+            p.mass = massAr[i]*mass_factor;
+
+            fwrite(&p, sizeof(ParticleType), 1, fd);
+
+            if(massAr[i]==min_mass) {
+                photogenic_file << iord << endl;
+            }
+
+            ++iord;
+        }
+    }
+
+    template<typename ParticleType>
     void saveTipsyParticles(MapperIterator<MyFloat> &&begin, MapperIterator<MyFloat> &&end) {
+
+        ParticleType p;
+        std::vector<MyFloat> xAr,yAr,zAr,vxAr,vyAr,vzAr,massAr,epsAr;
+        auto i=begin;
+        while(i!=end) {
+            i.getNextNParticles(xAr, yAr, zAr, vxAr, vyAr, vzAr, massAr, epsAr);
+            saveTipsyParticlesFromBlock<ParticleType>(xAr,yAr,zAr,vxAr,vyAr,vzAr,massAr,epsAr);
+        }
+    }
+
+    template<typename ParticleType>
+    void saveTipsyParticlesSingleThread(MapperIterator<MyFloat> &&begin, MapperIterator<MyFloat> &&end) {
 
         ParticleType p;
         MyFloat x,y,z,vx,vy,vz,mass,eps;

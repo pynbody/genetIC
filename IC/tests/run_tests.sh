@@ -9,7 +9,9 @@ do
     time ../../IC paramfile.txt > IC_output.txt 2>&1
     if [ $? -ne 0 ]
     then
+        echo "--> TEST ERRORED"
         cat $i/IC_output.txt
+        exit
     fi
     cd ..
     echo "Testing output"

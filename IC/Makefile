@@ -61,8 +61,8 @@ ifeq ($(HOST), Piann)
 endif
 
 ifeq ($(HOST), Rhodo)
-	C = /usr/bin/g++
-	CC = /usr/bin/g++ -lstdc++ -O3 -g -L/usr/local/lib/
+	C = /usr/local/bin/g++
+	CC = /usr/local/bin/g++ -lstdc++ -fopenmp -O3 -g -L/usr/local/lib/
 endif
 
 ifeq ($(HOST), dirac)

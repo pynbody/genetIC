@@ -13,6 +13,7 @@
 
 #include <memory>
 #include <typeinfo>
+#include <omp.h>
 #include "grid.hpp"
 #include "argsort.hpp"
 
@@ -38,8 +39,6 @@ protected:
     std::vector<std::shared_ptr<MapperIterator<T>>> subIterators;
     std::vector<size_t> extraData;
 
-    std::vector<std::shared_ptr<std::vector<T>>> particleCache;
-
     const ParticleMapper<T>* pMapper;
 
     using MapType = ParticleMapper<T>;
@@ -57,6 +56,17 @@ protected:
 
 
 public:
+
+    MapperIterator(const MapperIterator<T> &source) : i(source.i), extraData(source.extraData), pMapper(source.pMapper) {
+        for(const auto & subIterator: source.subIterators) {
+            if(subIterator==nullptr)
+                subIterators.push_back(nullptr);
+            else
+                subIterators.push_back(std::make_shared<MapperIterator<T>>(*subIterator));
+        }
+
+
+    }
 
     MapperIterator & operator++() {
         pMapper->incrementIterator(this);
@@ -86,6 +96,7 @@ public:
         return std::make_pair(gp,i);
     }
 
+
     void deReference(ConstGridPtrType &gp, size_t &id) const {
         pMapper->dereferenceIterator(this,gp,id);
     }
@@ -107,9 +118,13 @@ public:
     size_t getNextNParticles(std::vector<T> &xAr, std::vector<T> &yAr, std::vector<T> &zAr,
                                      std::vector<T> &vxAr, std::vector<T> &vyAr, std::vector<T> &vzAr,
                                      std::vector<T> &massAr, std::vector<T> &epsAr) {
-        size_t n = 1024*1024;
-        if(n+i>pMapper->size())
-            n = pMapper->size()-i;
+        size_t n = 1024 * 256;
+        if (n + i > pMapper->size())
+            n = pMapper->size() - i;
+
+        size_t final = n+i;
+
+        cerr << i << " " << n << " " << pMapper->size() << endl;
 
         xAr.resize(n);
         yAr.resize(n);
@@ -119,10 +134,36 @@ public:
         vzAr.resize(n);
         massAr.resize(n);
         epsAr.resize(n);
-        for(size_t i=0; i<n; i++) {
-            getParticle(xAr[i],yAr[i],zAr[i],vxAr[i],vyAr[i],vzAr[i],massAr[i],epsAr[i]);
-            (*this)++;
+
+
+
+#pragma omp parallel
+        {
+            MapperIterator *pThreadLocalIterator;
+            int thread_num = omp_get_thread_num();
+            int num_threads = omp_get_num_threads();
+
+            if(thread_num==0)
+                pThreadLocalIterator = this;
+            else
+                pThreadLocalIterator = new MapperIterator(*this);
+
+#pragma omp barrier
+            (*pThreadLocalIterator)+=thread_num;
+
+
+            for (size_t i = thread_num; i < n; i+=num_threads) {
+                pThreadLocalIterator->getParticle(xAr[i], yAr[i], zAr[i], vxAr[i], vyAr[i], vzAr[i], massAr[i], epsAr[i]);
+                if(i+num_threads<n) (*pThreadLocalIterator)+=num_threads;
+            }
+
+            if(thread_num!=0)
+                delete pThreadLocalIterator;
+
         }
+        if(final>i)
+            (*this)+=final-i;
+        cerr << "R" << i << " " << pMapper->end().i << endl;
         return n;
 
     }
