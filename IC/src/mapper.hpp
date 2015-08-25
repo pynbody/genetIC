@@ -80,13 +80,22 @@ public:
     }
 
     DereferenceType operator*() const {
-        return pMapper->dereferenceIterator(this);
+        ConstGridPtrType gp;
+        size_t i;
+        deReference(gp,i);
+        return std::make_pair(gp,i);
+    }
+
+    void deReference(ConstGridPtrType &gp, size_t &id) const {
+        pMapper->dereferenceIterator(this,gp,id);
     }
 
     template<typename... Args>
     void getParticle(Args&&... args) {
-        const auto q = **this;
-        q.first->getParticle(q.second, std::forward<Args>(args)...);
+        ConstGridPtrType pGrid;
+        size_t id;
+        deReference(pGrid,id);
+        pGrid->getParticle(id, std::forward<Args>(args)...);
     }
 
     auto getField() const {
@@ -94,12 +103,27 @@ public:
         return const_cast<Grid<T> &>(*q.first).getFieldAt(q.second);
     }
 
-    void precacheParticles() {
 
-    }
+    size_t getNextNParticles(std::vector<T> &xAr, std::vector<T> &yAr, std::vector<T> &zAr,
+                                     std::vector<T> &vxAr, std::vector<T> &vyAr, std::vector<T> &vzAr,
+                                     std::vector<T> &massAr, std::vector<T> &epsAr) {
+        size_t n = 1024*1024;
+        if(n+i>pMapper->size())
+            n = pMapper->size()-i;
 
-    void getNextNParticles(size_t n, std::vector<T> &xAr, std::vector<T> &yAr, std::vector<T> &zAr,
-                                     std::vector<T> &vxAr, std::vector<T> &vyAr, std::vector<T> &vzAr) {
+        xAr.resize(n);
+        yAr.resize(n);
+        zAr.resize(n);
+        vxAr.resize(n);
+        vyAr.resize(n);
+        vzAr.resize(n);
+        massAr.resize(n);
+        epsAr.resize(n);
+        for(size_t i=0; i<n; i++) {
+            getParticle(xAr[i],yAr[i],zAr[i],vxAr[i],vyAr[i],vzAr[i],massAr[i],epsAr[i]);
+            (*this)++;
+        }
+        return n;
 
     }
 
@@ -109,7 +133,7 @@ public:
     }
 
     std::unique_ptr<DereferenceType> operator->() const {
-        return std::unique_ptr<DereferenceType>(new DereferenceType(pMapper->dereferenceIterator(this)));
+        return std::unique_ptr<DereferenceType>(new DereferenceType(**this));
     }
 
     friend bool operator==(const MapperIterator<T> & lhs, const MapperIterator<T> & rhs) {
@@ -149,7 +173,7 @@ protected:
 
 
     virtual void incrementIterator(iterator *pIterator) const {
-        pIterator->i++;
+        ++(pIterator->i);
     }
 
     virtual void incrementIteratorBy(iterator *pIterator,size_t increment) const {
@@ -160,7 +184,7 @@ protected:
         throw std::runtime_error("Attempting to reverse in a mapper that does not support random access");
     }
 
-    virtual std::pair<ConstGridPtrType, size_t> dereferenceIterator(const iterator *pIterator) const {
+    virtual void dereferenceIterator(const iterator *pIterator, ConstGridPtrType &, size_t &) const {
         throw std::runtime_error("There is no grid associated with this particle mapper");
     }
 
@@ -301,8 +325,9 @@ private:
 
 protected:
 
-    virtual std::pair<ConstGridPtrType, size_t> dereferenceIterator(const iterator *pIterator) const override {
-        return std::make_pair(pGrid,pIterator->i);
+    virtual void dereferenceIterator(const iterator *pIterator, ConstGridPtrType &gp, size_t &i) const override {
+        gp = pGrid;
+        i = pIterator->i;
     }
 
     virtual void decrementIteratorBy(iterator *pIterator,size_t increment) const override {
@@ -474,7 +499,7 @@ protected:
         size_t & next_zoom_index = extraData[1];
 
         // increment the boring-old-counter!
-        i++;
+        ++i;
 
         // now work out what it actually points to...
 
@@ -484,7 +509,7 @@ protected:
             if(i==firstLevel2Particle)
                 next_zoom=0;
             else
-                next_zoom++;
+                ++next_zoom;
 
             syncL2iterator(next_zoom,level2iterator);
 
@@ -523,21 +548,21 @@ protected:
 
     virtual void incrementIteratorBy(iterator *pIterator,size_t increment) const {
         // could be optimized:
-        for(size_t i =0; i<increment; i++)
+        for(size_t i =0; i<increment; ++i)
             incrementIterator(pIterator);
 
     }
 
-    virtual std::pair<ConstGridPtrType, size_t> dereferenceIterator(const iterator *pIterator) const override {
+    virtual void dereferenceIterator(const iterator *pIterator, ConstGridPtrType &gp, size_t &i) const override {
         if(pIterator->i>=firstLevel2Particle)
-            return **(pIterator->subIterators[1]);
+            pIterator->subIterators[1]->deReference(gp,i);
         else
-            return **(pIterator->subIterators[0]);
+            pIterator->subIterators[0]->deReference(gp,i);
     }
 
     void calculateHiresParticleList() const {
 
-        for(size_t i=0; i<zoomParticleArray.size(); i++) {
+        for(size_t i=0; i<zoomParticleArray.size(); ++i) {
             // get the list of zoomed particles corresponding to this one
             std::vector<size_t> hr_particles = mapId(zoomParticleArray[i]);
             assert(hr_particles.size()==n_hr_per_lr);
@@ -739,7 +764,7 @@ public:
             ++zoomed_i;
 
           // If the marked particle is not actually in the output list, ignore it.
-	  // 
+	  //
 	  // Older versions of the code throw an exception instead
           if(zoomed_i==len_zoomed || zoomParticleArrayHiresUnsorted[sortIndex[zoomed_i]]!=i_hr)
             continue;
@@ -861,19 +886,19 @@ protected:
     virtual void incrementIterator(iterator *pIterator) const {
 
         if(pIterator->i>=nFirst)
-            (*(pIterator->subIterators[1]))++;
+            ++(*(pIterator->subIterators[1]));
         else
-            (*(pIterator->subIterators[0]))++;
-        pIterator->i++;
+            ++(*(pIterator->subIterators[0]));
+        ++(pIterator->i);
 
     }
 
 
-    virtual std::pair<ConstGridPtrType, size_t> dereferenceIterator(const iterator *pIterator) const {
+    virtual void dereferenceIterator(const iterator *pIterator, ConstGridPtrType &gp, size_t &i ) const override {
         if(pIterator->i>=nFirst)
-            return **(pIterator->subIterators[1]);
+            pIterator->subIterators[1]->deReference(gp,i);
         else
-            return **(pIterator->subIterators[0]);
+            pIterator->subIterators[0]->deReference(gp,i);
     }
 
 

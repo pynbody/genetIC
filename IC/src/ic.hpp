@@ -589,9 +589,9 @@ public:
         if (gadgetformat==3 || gadgetformat==2)
             SaveGadget(base + ".gadget", boxlen[0], pMapper, cosmology, gadgetformat);
 
-        else if (gadgetformat==4)
-            SaveTipsy(base + ".tipsy", boxlen[0], pMapper, cosmology);
-
+        else if (gadgetformat==4) {
+            saveTipsy(base + ".tipsy", boxlen[0], pMapper, cosmology);
+        }
         else{ throw std::runtime_error("Invalid value for gadgetformat!");}
     }
 

@@ -55,22 +55,22 @@ struct io_tipsy_gas
 
 template<typename MyFloat> struct io_gadget_dark
 {
-  MyFloat x,y,z,vx,vy,vz; 
+  MyFloat x,y,z,vx,vy,vz;
 };
 
 template<typename MyFloat> struct io_gadget_gas
 {
-  MyFloat x,y,z,vx,vy,vz,erg; 
+  MyFloat x,y,z,vx,vy,vz,erg;
 };
 
 //struct io_gadget_dark
 //{
-//  float x,y,z,vx,vy,vz; 
+//  float x,y,z,vx,vy,vz;
 //};
 
 //struct io_gadget_gas
 //{
-//  float x,y,z,vx,vy,vz,erg; 
+//  float x,y,z,vx,vy,vz,erg;
 //};
 
 struct io_header_2 //header for gadget2
@@ -141,7 +141,7 @@ io_header_2 CreateGadget2Header(MyFloat *masses, long *npart, double Boxlength,
 {
     //types 2,3,4 are currently unused (only one zoom level)
     io_header_2 header2;
-    header2.npart[0]=npart[0]; //gas 
+    header2.npart[0]=npart[0]; //gas
     header2.npart[1]=npart[1]; //higres
     header2.npart[2]=npart[2];
     header2.npart[3]=npart[3];
@@ -170,7 +170,7 @@ io_header_2 CreateGadget2Header(MyFloat *masses, long *npart, double Boxlength,
     header2.OmegaLambda=cosmology.OmegaLambda0;
     header2.HubbleParam=cosmology.hubble;
 
-    if (npart[0] > 0) { //options for baryons 
+    if (npart[0] > 0) { //options for baryons
       header2.flag_sfr=1;
       header2.flag_feedback=1;
       header2.flag_cooling=1;
@@ -597,12 +597,12 @@ void SaveGadget(const std::string &name, double Boxlength, shared_ptr<ParticleMa
     npart[0]=ngas;
     npart[1]=nhigh;
     npart[5]=nlow;
-    
+
     std::stringstream filename;
     filename << name << gadgetformat;
     FILE* fd;
     fd=fopen(filename.str().c_str(), "w");
-    if(!fd) throw std::runtime_error("Unable to open file for writing");    
+    if(!fd) throw std::runtime_error("Unable to open file for writing");
 
 
 
@@ -612,30 +612,30 @@ void SaveGadget(const std::string &name, double Boxlength, shared_ptr<ParticleMa
 
     int dummy;
 
-    if (gadgetformat==3) { 
+    if (gadgetformat==3) {
       io_header_3 header1= CreateGadget3Header(masses, npart, Boxlength, cosmology);
       cout << "Hello from Gadget3 header!"<< endl;
       //header block
       dummy= sizeof(header1);
       my_fwrite(&dummy, sizeof(dummy), 1, fd);
       my_fwrite(&header1, sizeof(header1), 1, fd);
-      my_fwrite(&dummy, sizeof(dummy), 1, fd);      
+      my_fwrite(&dummy, sizeof(dummy), 1, fd);
     }
-    else if (gadgetformat==2) { 
+    else if (gadgetformat==2) {
       io_header_2 header1= CreateGadget2Header(masses, npart, Boxlength, cosmology);
       cout << "Hello from Gadget2 header!"<< endl;
       dummy= sizeof(header1);
       my_fwrite(&dummy, sizeof(dummy), 1, fd);
       my_fwrite(&header1, sizeof(header1), 1, fd);
-      my_fwrite(&dummy, sizeof(dummy), 1, fd); 
+      my_fwrite(&dummy, sizeof(dummy), 1, fd);
     }
     else {cerr << "Wrong format for Gadget output!" << endl; exit(1);}
 
-    
+
     //long counter=0; //for debugging
     io_gadget_dark<MyFloat> dp;
     io_gadget_gas<MyFloat> gp;
-    
+
     dummy=sizeof(gp.x)*(long)(n)*3; //this will be 0 or some strange number for n>563; BUT: gagdget does not actually use this value; it gets the number of particles from the header
     my_fwrite(&dummy, sizeof(dummy), 1, fd); //start of position block
     //the following bunch of for loops are a bit redundant but that's the best we can do for now
@@ -659,10 +659,10 @@ void SaveGadget(const std::string &name, double Boxlength, shared_ptr<ParticleMa
     }
 
     //cout<< "counter after gas: "<< counter << endl;
-   
+
     //DM particles positions
     for(auto i=pMapper->beginDm(); i!=pMapper->endDm(); ++i) {
-        i.getParticle(x,y,z,vx,vy,vz,mass,eps); 
+        i.getParticle(x,y,z,vx,vy,vz,mass,eps);
 
         // progress("Writing file",iord, totlen);
         dp.x=x*pos_factor;
@@ -715,7 +715,7 @@ void SaveGadget(const std::string &name, double Boxlength, shared_ptr<ParticleMa
 
     }
     my_fwrite(&dummy, sizeof(dummy), 1, fd); //end of velocity block
-    
+
     //cout<< "counter after DM vel: "<< counter << endl;
 
     //particle IDs (one for each gas, high res and low res particle)
@@ -727,7 +727,7 @@ void SaveGadget(const std::string &name, double Boxlength, shared_ptr<ParticleMa
          //counter+=1;
     }
     my_fwrite(&dummy, sizeof(dummy), 1, fd);
-    
+
     //cout<< "counter after IDs: "<< counter << endl;
 
     //IFF we want to save individual particle masses, they would go here, before the gas particle energies
@@ -792,14 +792,14 @@ void getParticleInfo(const shared_ptr<ParticleMapper<MyFloat>> &pMapper, MyFloat
     if (ngas > 0) gas_mass=pMapper->beginGas().getMass();
 
     cout << "gas mass and number of particles in info "<< gas_mass << " " << ngas << endl;
-    
+
 
     for(auto i=pMapper->beginDm(); i!=pMapper->endDm(); ++i) {
       // progress("Pre-write scan file",iord, totlen);
         mass = i.getMass(); // sometimes can be MUCH faster than getParticle
         if (mass == min_mass) nhigh+=1;
         else if (mass == max_mass) nlow+=1;
-        else {cout << "else in mass " << min_mass << " " << max_mass << " " << mass << endl; continue;} 
+        else {cout << "else in mass " << min_mass << " " << max_mass << " " << mass << endl; continue;}
 
     }
       // end_progress();
@@ -819,128 +819,131 @@ void saveFieldTipsyArray(const std::string &filename,
 }
 
 template<typename MyFloat>
-void SaveTipsy(const std::string &filename, double Boxlength,
-               shared_ptr<ParticleMapper<MyFloat>> pMapper,
-               const CosmologicalParameters<MyFloat> &cosmology) {
-
-    // originally:
-    // pmass in 1e10 h^-1 Msol
-    // pos in Mpc h^-1
-    // vel in km s^-1 a^1/2
-
+class TipsyOutput {
+protected:
+    FILE *fd;
     ofstream photogenic_file;
+    size_t iord;
+    double pos_factor, vel_factor, mass_factor, min_mass, max_mass;
 
-    double pos_factor  = 1./Boxlength;  // boxsize = 1
-    double vel_factor  = cosmology.scalefactor/(sqrt(3./(8.*M_PI))*100*Boxlength);
-    double mass_factor = 0.0; // calculated below shortly
 
-    double min_mass=std::numeric_limits<double>::max();
-    double max_mass=0.0;
+    template<typename ParticleType>
+    void saveTipsyParticles(MapperIterator<MyFloat> &&begin, MapperIterator<MyFloat> &&end) {
 
-    size_t iord=0;
+        ParticleType p;
+        MyFloat x,y,z,vx,vy,vz,mass,eps;
 
-    MyFloat x,y,z,vx,vy,vz,mass,tot_mass=0.0,eps;
+        for(auto i=begin; i!=end; ++i) {
+            i.getParticle(x,y,z,vx,vy,vz,mass,eps);
 
-    for(auto i=pMapper->begin(); i!=pMapper->end(); ++i) {
-      // progress("Pre-write scan file",iord, totlen);
-        mass = i.getMass(); // sometimes can be MUCH faster than getParticle
-        if(min_mass>mass) min_mass=mass;
-        if(max_mass<mass) max_mass=mass;
-        tot_mass+=mass;
+            p.x=x*pos_factor-0.5;
+            p.y=y*pos_factor-0.5;
+            p.z=z*pos_factor-0.5;
+            p.eps=eps*pos_factor;
+
+            p.vx=vx*vel_factor;
+            p.vy=vy*vel_factor;
+            p.vz=vz*vel_factor;
+
+            p.mass = mass*mass_factor;
+
+            fwrite(&p, sizeof(ParticleType), 1, fd);
+
+            if(mass==min_mass) {
+                photogenic_file << iord << endl;
+            }
+
+            ++iord;
+        }
     }
 
-    // end_progress();
 
-    if(min_mass!=max_mass) {
-        photogenic_file.open("photogenic.txt");
-    }
+public:
 
-    mass_factor = cosmology.OmegaM0/tot_mass; // tipsy convention: sum(mass)=Om0
+    void operator()(const std::string &filename, double Boxlength,
+                   shared_ptr<ParticleMapper<MyFloat>> pMapper,
+                   const CosmologicalParameters<MyFloat> &cosmology) {
 
-    io_header_tipsy header;
-
-    header.scalefactor = cosmology.scalefactor;
-    header.n = pMapper->size();
-    header.ndim = 3;
-    header.ngas = pMapper->size_gas();
-    header.ndark = pMapper->size_dm();
-    header.nstar = 0;
+        // originally:
+        // pmass in 1e10 h^-1 Msol
+        // pos in Mpc h^-1
+        // vel in km s^-1 a^1/2
 
 
-    cout << "TIPSY parameters:" << endl;
+        pos_factor  = 1./Boxlength;  // boxsize = 1
+        vel_factor  = cosmology.scalefactor/(sqrt(3./(8.*M_PI))*100*Boxlength);
+        mass_factor = 0.0; // calculated below shortly
 
-    double dKpcUnit  = Boxlength*1000/cosmology.hubble;
-    double dMsolUnit = 1e10/cosmology.hubble/mass_factor;
-    double dKmsUnit  = sqrt(4.30211349e-6*dMsolUnit/(dKpcUnit));
+        min_mass=std::numeric_limits<double>::max();
+        max_mass=0.0;
 
-    cout << "dKpcUnit: " <<  dKpcUnit << endl;
-    cout << "dMsolUnit: " << dMsolUnit  << endl;
-    cout << "hubble0: " << 0.1*cosmology.hubble * dKpcUnit / dKmsUnit << endl;
+        size_t iord=0;
 
-    io_tipsy_dark dp;
-    io_tipsy_gas gp;
+        MyFloat x,y,z,vx,vy,vz,mass,tot_mass=0.0,eps;
 
-    FILE* fd = fopen(filename.c_str(), "w");
-    if(!fd) throw std::runtime_error("Unable to open file for writing");
-
-    dp.phi = 0.0;
-    gp.temp = 2.73/cosmology.scalefactor;
-    gp.metals = 0.0;
-    gp.rho = 0.0;
-
-
-    fwrite(&header, sizeof(io_header_tipsy), 1, fd);
-
-
-    for(auto i=pMapper->beginGas(); i!=pMapper->endGas(); ++i) {
-        i.getParticle(x,y,z,vx,vy,vz,mass,eps);
-
-        // progress("Writing file",iord, totlen);
-        gp.x=x*pos_factor-0.5;
-        gp.y=y*pos_factor-0.5;
-        gp.z=z*pos_factor-0.5;
-
-        gp.eps=eps*pos_factor;
-        gp.vx=vx*vel_factor;
-        gp.vy=vy*vel_factor;
-        gp.vz=vz*vel_factor;
-        gp.mass = mass*mass_factor;
-
-        if(mass==min_mass) {
-            photogenic_file << iord << endl;
+        for(auto i=pMapper->begin(); i!=pMapper->end(); ++i) {
+          // progress("Pre-write scan file",iord, totlen);
+            mass = i.getMass(); // sometimes can be MUCH faster than getParticle
+            if(min_mass>mass) min_mass=mass;
+            if(max_mass<mass) max_mass=mass;
+            tot_mass+=mass;
         }
 
-        fwrite(&gp, sizeof(io_tipsy_gas), 1, fd);
-        ++iord;
-    }
+        // end_progress();
 
-    for(auto i=pMapper->beginDm(); i!=pMapper->endDm(); ++i) {
-        i.getParticle(x,y,z,vx,vy,vz,mass,eps);
-
-        // progress("Writing file",iord, totlen);
-
-        dp.x=x*pos_factor-0.5;
-        dp.y=y*pos_factor-0.5;
-        dp.z=z*pos_factor-0.5;
-
-        dp.eps=eps*pos_factor;
-        dp.vx=vx*vel_factor;
-        dp.vy=vy*vel_factor;
-        dp.vz=vz*vel_factor;
-        dp.mass = mass*mass_factor;
-
-        if(mass==min_mass) {
-            photogenic_file << iord << endl;
+        if(min_mass!=max_mass) {
+            photogenic_file.open("photogenic.txt");
         }
 
-        fwrite(&dp, sizeof(io_tipsy_dark), 1, fd);
-        ++iord;
+        mass_factor = cosmology.OmegaM0/tot_mass; // tipsy convention: sum(mass)=Om0
+
+        io_header_tipsy header;
+
+        header.scalefactor = cosmology.scalefactor;
+        header.n = pMapper->size();
+        header.ndim = 3;
+        header.ngas = pMapper->size_gas();
+        header.ndark = pMapper->size_dm();
+        header.nstar = 0;
+
+
+        cout << "TIPSY parameters:" << endl;
+
+        double dKpcUnit  = Boxlength*1000/cosmology.hubble;
+        double dMsolUnit = 1e10/cosmology.hubble/mass_factor;
+        double dKmsUnit  = sqrt(4.30211349e-6*dMsolUnit/(dKpcUnit));
+
+        cout << "dKpcUnit: " <<  dKpcUnit << endl;
+        cout << "dMsolUnit: " << dMsolUnit  << endl;
+        cout << "hubble0: " << 0.1*cosmology.hubble * dKpcUnit / dKmsUnit << endl;
+
+        io_tipsy_dark dp;
+        io_tipsy_gas gp;
+
+        fd = fopen(filename.c_str(), "w");
+        if(!fd) throw std::runtime_error("Unable to open file for writing");
+
+        dp.phi = 0.0;
+        gp.temp = 2.73/cosmology.scalefactor;
+        gp.metals = 0.0;
+        gp.rho = 0.0;
+
+
+        fwrite(&header, sizeof(io_header_tipsy), 1, fd);
+
+        saveTipsyParticles<io_tipsy_gas>(pMapper->beginGas(), pMapper->endGas());
+        saveTipsyParticles<io_tipsy_dark>(pMapper->beginDm(), pMapper->endDm());
 
     }
-    //end_progress();
-    fclose(fd);
+};
 
+template<typename T>
+void saveTipsy(const std::string &filename, double Boxlength,
+               shared_ptr<ParticleMapper<T>> pMapper,
+               const CosmologicalParameters<T> &cosmology) {
 
+    TipsyOutput<T> output;
+    output(filename, Boxlength, pMapper, cosmology);
 }
 
 
