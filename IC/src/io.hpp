@@ -833,30 +833,36 @@ protected:
                                      std::vector<MyFloat> &massAr, std::vector<MyFloat> &epsAr) {
 
         const size_t n = xAr.size();
-        ParticleType p;
+
+        /*
         for(auto &q: {xAr,yAr,zAr,vxAr,vyAr,vzAr,massAr,epsAr}) {
             assert(q.size()==n);
         }
+        */
+
+        std::vector<ParticleType> p(n);
+
+        #pragma omp parallel for
         for(size_t i=0; i<n; i++) {
-            p.x=xAr[i]*pos_factor-0.5;
-            p.y=yAr[i]*pos_factor-0.5;
-            p.z=zAr[i]*pos_factor-0.5;
-            p.eps=epsAr[i]*pos_factor;
+            p[i].x=xAr[i]*pos_factor-0.5;
+            p[i].y=yAr[i]*pos_factor-0.5;
+            p[i].z=zAr[i]*pos_factor-0.5;
+            p[i].eps=epsAr[i]*pos_factor;
 
-            p.vx=vxAr[i]*vel_factor;
-            p.vy=vyAr[i]*vel_factor;
-            p.vz=vzAr[i]*vel_factor;
+            p[i].vx=vxAr[i]*vel_factor;
+            p[i].vy=vyAr[i]*vel_factor;
+            p[i].vz=vzAr[i]*vel_factor;
 
-            p.mass = massAr[i]*mass_factor;
+            p[i].mass = massAr[i]*mass_factor;
 
-            fwrite(&p, sizeof(ParticleType), 1, fd);
-
-            if(massAr[i]==min_mass) {
+            if(massAr[i]==min_mass && omp_get_thread_num()==0) {
                 photogenic_file << iord << endl;
             }
 
             ++iord;
         }
+
+        fwrite(p.data(), sizeof(ParticleType), n, fd);
     }
 
     template<typename ParticleType>
