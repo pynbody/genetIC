@@ -29,11 +29,11 @@ protected:
 
     void mapIdToLevelId(size_t i, size_t &level, size_t &level_id) {
         level =0;
-        while(level < nLevels && i>Ns[level]) {
+        while(level < nLevels && i>=Ns[level]) {
             i-=Ns[level];
             level++;
         }
-        if(i>Ns[level])
+        if(i>=Ns[level])
             throw std::runtime_error("ID out of range when mapping into underlying fields in mapIdToLevelId");
         level_id = i;
     }

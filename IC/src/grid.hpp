@@ -298,8 +298,10 @@ public:
         return const_cast<TField &>(const_cast<const Grid *>(this)->getField());
     }
 
-    void applyFilter(Filter<T> & filter, TField & fieldFourier) {
+    void applyFilter(const Filter<T> & filter, TField & fieldFourier) {
         assert(fieldFourier.size()==size3);
+
+        #pragma omp parallel for
         for(size_t i=0; i<size3; ++i) {
             fieldFourier[i]*=filter(getAbsK(i));
         }
@@ -649,7 +651,7 @@ public:
     }
 
     void getCoordinates(size_t id, int &x, int &y, int &z) const {
-        if(id>=size3) throw std::runtime_error("Index out of range");
+        // if(id>=size3) throw std::runtime_error("Index out of range");
 
         // The following implementation is a little faster than using the
         // modulo operator.
@@ -731,9 +733,8 @@ public:
 
     }
 
-    vector<size_t> getIdsInCube(T x0c, T y0c, T z0c, T dxc) {
+    void appendIdsInCubeToVector(T x0c, T y0c, T z0c, T dxc, vector<size_t> &ids) {
         // return all the grid IDs whose centres lie within the specified cube
-        vector<size_t> ids;
 
         // TODO: optimization, set the storage size of ids here.
 
@@ -748,13 +749,16 @@ public:
         for(int x=xa; x<=xb; x++) {
             for(int y=ya; y<=yb; y++) {
                 for(int z=za; z<=zb; z++) {
-                    ids.push_back(getIndex(x,y,z));
+                    ids.emplace_back(getIndex(x,y,z));
                 }
             }
         }
+    }
 
+    vector<size_t> getIdsInCube(T x0c, T y0c, T z0c, T dxc) {
+        vector<size_t> ids;
+        appendIdsInCubeToVector(x0c, y0c, z0c, dxc, ids);
         return ids;
-
     }
 
 
@@ -1121,14 +1125,14 @@ public:
       std::vector<size_t> underlyingArray;
       this->pUnderlying->gatherParticleList(underlyingArray);
       Grid<T>::downscaleParticleList(underlyingArray, targetArray, this->pUnderlying.get(), this);
-      cerr << "SubSample gatherParticleList - underlying = " << underlyingArray.size() << " transformed = " <<targetArray.size() << endl;
+      // err << "SubSample gatherParticleList - underlying = " << underlyingArray.size() << " transformed = " <<targetArray.size() << endl;
     }
 
     void distributeParticleList(const std::vector<size_t> & sourceArray) override {
       std::vector<size_t> targetArray;
       Grid<T>::upscaleParticleList(sourceArray, targetArray, this, this->pUnderlying.get());
       this->pUnderlying->distributeParticleList(targetArray);
-      cerr << "SubSample distributeParticleList - source = " << sourceArray.size() << " transformed = " <<targetArray.size() << endl;
+      // cerr << "SubSample distributeParticleList - source = " << sourceArray.size() << " transformed = " <<targetArray.size() << endl;
     }
 
     size_t estimateParticleListSize() override {

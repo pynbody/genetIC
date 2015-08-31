@@ -488,12 +488,18 @@ private:
 
     bool skipLevel1;
 
-    std::vector<size_t> mapId(size_t id0) const {
+    void appendMappedIdsToVector(size_t id0, std::vector<size_t> &ids) const {
         // Finds all the particles at level2 corresponding to the single
         // particle at level1
         T x0,y0,z0;
-        std::tie(x0,y0,z0) = pGrid1->getCentroidLocation(id0);
-        return pGrid2->getIdsInCube(x0,y0,z0,pGrid1->dx);
+        pGrid1->getCentroidLocation(id0, x0, y0, z0);
+        pGrid2->appendIdsInCubeToVector(x0, y0, z0, pGrid1->dx, ids);
+    }
+
+    std::vector<size_t> getMappedIds(size_t id0) const {
+        std::vector<size_t> ids;
+        appendMappedIdsToVector(id0, ids);
+        return ids;
     }
 
     size_t reverseMapId(size_t id2) const {
@@ -616,12 +622,10 @@ protected:
 
     void calculateHiresParticleList() const {
 
+        zoomParticleArrayHiresUnsorted.reserve(zoomParticleArray.size()*n_hr_per_lr);
+
         for(size_t i=0; i<zoomParticleArray.size(); ++i) {
-            // get the list of zoomed particles corresponding to this one
-            std::vector<size_t> hr_particles = mapId(zoomParticleArray[i]);
-            assert(hr_particles.size()==n_hr_per_lr);
-            zoomParticleArrayHiresUnsorted.insert(zoomParticleArrayHiresUnsorted.end(),
-                                           hr_particles.begin(), hr_particles.end());
+            appendMappedIdsToVector(zoomParticleArray[i], zoomParticleArrayHiresUnsorted);
 
         }
 
@@ -758,7 +762,7 @@ public:
               grid1particles.push_back(lr_particle);
 
               // get all the HR particles
-              std::vector<size_t> hr_particles = mapId(lr_particle);
+              std::vector<size_t> hr_particles = getMappedIds(lr_particle);
               assert(hr_particles.size()==n_hr_per_lr);
 
               // work out which of these this particle must be and push it onto
