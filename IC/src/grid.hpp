@@ -649,17 +649,17 @@ public:
     }
 
     void getCoordinates(size_t id, int &x, int &y, int &z) const {
-        x = (int) (id/size2);
-        y = (int) (id%size2)/size;
-        z = (int) (id%size);
+        if(id>=size3) throw std::runtime_error("Index out of range");
 
-        // TODO: optimization - following check should be removed at some point:
-        if(getIndex(x,y,z)!=id) {
-            cerr << "ERROR in getCoordinates";
-            cerr << "id=" << id << " x,y,z=" << x << "," << y << "," << z << endl;
-            cerr << "which gives " << getIndex(x,y,z) << endl;
-            assert(false);
-        }
+        // The following implementation is a little faster than using the
+        // modulo operator.
+        x = int(id/size2);
+        id-=size_t(x)*size2;
+        y = int(id/size);
+        id-=size_t(y)*size;
+        z = int(id);
+
+
     }
 
     tuple<int, int, int> getCoordinates(size_t id) const {

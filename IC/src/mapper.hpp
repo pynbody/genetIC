@@ -102,7 +102,7 @@ public:
     }
 
     template<typename... Args>
-    void getParticle(Args&&... args) {
+    void getParticle(Args&&... args) const {
         ConstGridPtrType pGrid;
         size_t id;
         deReference(pGrid,id);
@@ -124,8 +124,6 @@ public:
 
         size_t final = n+i;
 
-        cerr << i << " " << n << " " << pMapper->size() << endl;
-
         xAr.resize(n);
         yAr.resize(n);
         zAr.resize(n);
@@ -135,6 +133,18 @@ public:
         massAr.resize(n);
         epsAr.resize(n);
 
+        n = parallelIterate([&](size_t local_i, const MapperIterator &localIterator) {
+            localIterator.getParticle(xAr[local_i], yAr[local_i], zAr[local_i], vxAr[local_i],
+                                      vyAr[local_i], vzAr[local_i], massAr[local_i], epsAr[local_i]);
+        },n);
+
+        return n;
+    }
+
+protected:
+    size_t parallelIterate(std::function<void(size_t, const MapperIterator &)> callback,  size_t nMax) {
+        size_t n = std::min(pMapper->size()-i,nMax);
+        size_t final_i = i+n;
 
 
 #pragma omp parallel
@@ -152,25 +162,28 @@ public:
             (*pThreadLocalIterator)+=thread_num;
 
 
-            for (size_t i = thread_num; i < n; i+=num_threads) {
-                pThreadLocalIterator->getParticle(xAr[i], yAr[i], zAr[i], vxAr[i], vyAr[i], vzAr[i], massAr[i], epsAr[i]);
-                if(i+num_threads<n) (*pThreadLocalIterator)+=num_threads;
+            for (size_t local_i = thread_num; local_i < n; local_i +=num_threads) {
+                callback(local_i, *pThreadLocalIterator);
+                if(local_i +num_threads<n) (*pThreadLocalIterator)+=num_threads;
             }
 
             if(thread_num!=0)
                 delete pThreadLocalIterator;
 
         }
-        if(final>i)
-            (*this)+=final-i;
-        cerr << "R" << i << " " << pMapper->end().i << endl;
+        if(final_i>i)
+            (*this)+=final_i-i;
         return n;
-
     }
 
+
+public:
+
     T getMass() {
-        const auto q = **this;
-        return q.first->getMass();
+        ConstGridPtrType pGrid;
+        size_t id;
+        deReference(pGrid,id);
+        return pGrid->getMass();
     }
 
     std::unique_ptr<DereferenceType> operator->() const {
