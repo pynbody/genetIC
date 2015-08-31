@@ -221,7 +221,7 @@ unsigned int integerCubeRoot(unsigned long x) {
 template<typename T>
 void fft(std::vector<T> &fto, std::vector<T> &ftin, const int dir) {
     assert(fto.size()==ftin.size());
-    int res = integerCubeRoot(fto.size());
+    size_t res = integerCubeRoot(fto.size());
     assert(res*res*res==fto.size());
     fft(fto.data(),ftin.data(), res, dir);
 }

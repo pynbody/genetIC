@@ -43,15 +43,6 @@ struct io_header_tipsy
     int nstar;
 } header_tipsy;
 
-struct io_tipsy_dark
-{
-    float mass,x,y,z,vx,vy,vz,eps,phi;
-};
-
-struct io_tipsy_gas
-{
-    float mass,x,y,z,vx,vy,vz,rho,temp,eps,metals,phi;
-};
 
 template<typename MyFloat> struct io_gadget_dark
 {
@@ -818,6 +809,32 @@ void saveFieldTipsyArray(const std::string &filename,
     }
 }
 
+namespace TipsyParticle {
+
+    struct dark
+    {
+        float mass,x,y,z,vx,vy,vz,eps,phi;
+    };
+
+    struct gas
+    {
+        float mass,x,y,z,vx,vy,vz,rho,temp,eps,metals,phi;
+    };
+
+    template<typename T>
+    void initialise(dark &p, const CosmologicalParameters<T> &cosmo) {
+        p.phi = 0.0;
+    }
+
+    template<typename T>
+    void initialise(gas &p, const CosmologicalParameters<T> &cosmo) {
+        p.temp = 2.73 / cosmo.scalefactor;
+        p.metals = 0.0;
+        p.rho = 0.0;
+    }
+}
+
+
 template<typename MyFloat>
 class TipsyOutput {
 protected:
@@ -825,6 +842,9 @@ protected:
     ofstream photogenic_file;
     size_t iord;
     double pos_factor, vel_factor, mass_factor, min_mass, max_mass;
+    double boxLength;
+    shared_ptr<ParticleMapper<MyFloat>> pMapper;
+    const CosmologicalParameters<MyFloat> &cosmology;
 
 
     template<typename ParticleType>
@@ -869,6 +889,7 @@ protected:
     void saveTipsyParticles(MapperIterator<MyFloat> &&begin, MapperIterator<MyFloat> &&end) {
 
         ParticleType p;
+        TipsyParticle::initialise(p, cosmology);
         std::vector<MyFloat> xAr,yAr,zAr,vxAr,vyAr,vzAr,massAr,epsAr;
         auto i=begin;
         while(i!=end) {
@@ -876,6 +897,12 @@ protected:
             saveTipsyParticlesFromBlock<ParticleType>(xAr,yAr,zAr,vxAr,vyAr,vzAr,massAr,epsAr);
         }
     }
+
+    template<typename ParticleType>
+    void initTipsyParticle(ParticleType &p) {
+
+    }
+
 
     template<typename ParticleType>
     void saveTipsyParticlesSingleThread(MapperIterator<MyFloat> &&begin, MapperIterator<MyFloat> &&end) {
@@ -910,9 +937,14 @@ protected:
 
 public:
 
-    void operator()(const std::string &filename, double Boxlength,
-                   shared_ptr<ParticleMapper<MyFloat>> pMapper,
-                   const CosmologicalParameters<MyFloat> &cosmology) {
+    TipsyOutput(double boxLength,
+                shared_ptr<ParticleMapper<MyFloat>> pMapper,
+                const CosmologicalParameters<MyFloat> &cosmology) : boxLength(boxLength), pMapper(pMapper), cosmology(cosmology)
+    {
+
+    }
+
+    void operator()(const std::string &filename) {
 
         // originally:
         // pmass in 1e10 h^-1 Msol
@@ -920,16 +952,14 @@ public:
         // vel in km s^-1 a^1/2
 
 
-        pos_factor  = 1./Boxlength;  // boxsize = 1
-        vel_factor  = cosmology.scalefactor/(sqrt(3./(8.*M_PI))*100*Boxlength);
+        pos_factor  = 1./ boxLength;  // boxsize = 1
+        vel_factor  = cosmology.scalefactor/(sqrt(3./(8.*M_PI))*100* boxLength);
         mass_factor = 0.0; // calculated below shortly
 
         min_mass=std::numeric_limits<double>::max();
         max_mass=0.0;
 
-        size_t iord=0;
-
-        MyFloat x,y,z,vx,vy,vz,mass,tot_mass=0.0,eps;
+        MyFloat mass,tot_mass=0.0;
 
         for(auto i=pMapper->begin(); i!=pMapper->end(); ++i) {
           // progress("Pre-write scan file",iord, totlen);
@@ -959,7 +989,7 @@ public:
 
         cout << "TIPSY parameters:" << endl;
 
-        double dKpcUnit  = Boxlength*1000/cosmology.hubble;
+        double dKpcUnit  = boxLength *1000/cosmology.hubble;
         double dMsolUnit = 1e10/cosmology.hubble/mass_factor;
         double dKmsUnit  = sqrt(4.30211349e-6*dMsolUnit/(dKpcUnit));
 
@@ -967,33 +997,28 @@ public:
         cout << "dMsolUnit: " << dMsolUnit  << endl;
         cout << "hubble0: " << 0.1*cosmology.hubble * dKpcUnit / dKmsUnit << endl;
 
-        io_tipsy_dark dp;
-        io_tipsy_gas gp;
 
         fd = fopen(filename.c_str(), "w");
         if(!fd) throw std::runtime_error("Unable to open file for writing");
 
-        dp.phi = 0.0;
-        gp.temp = 2.73/cosmology.scalefactor;
-        gp.metals = 0.0;
-        gp.rho = 0.0;
-
 
         fwrite(&header, sizeof(io_header_tipsy), 1, fd);
 
-        saveTipsyParticles<io_tipsy_gas>(pMapper->beginGas(), pMapper->endGas());
-        saveTipsyParticles<io_tipsy_dark>(pMapper->beginDm(), pMapper->endDm());
+        saveTipsyParticles<TipsyParticle::gas>(pMapper->beginGas(), pMapper->endGas());
+        saveTipsyParticles<TipsyParticle::dark>(pMapper->beginDm(), pMapper->endDm());
 
     }
 };
+
+
 
 template<typename T>
 void saveTipsy(const std::string &filename, double Boxlength,
                shared_ptr<ParticleMapper<T>> pMapper,
                const CosmologicalParameters<T> &cosmology) {
 
-    TipsyOutput<T> output;
-    output(filename, Boxlength, pMapper, cosmology);
+    TipsyOutput<T> output(Boxlength, pMapper, cosmology);
+    output(filename);
 }
 
 

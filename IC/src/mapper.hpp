@@ -122,8 +122,6 @@ public:
         if (n + i > pMapper->size())
             n = pMapper->size() - i;
 
-        size_t final = n+i;
-
         xAr.resize(n);
         yAr.resize(n);
         zAr.resize(n);

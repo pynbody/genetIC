@@ -122,7 +122,7 @@ protected:
         // Do it in square k-shells, in order of increasing |k|, so that
         // resolution can be scaled by factors of 2 and we still get
         // the 'same' field
-        for (ks = 0; ks < g.size / 2; ks++) {
+        for (ks = 0; ks < int(g.size / 2); ks++) {
             for (k1 = -ks; k1 < ks; k1++) {
                 for (k2 = -ks; k2 < ks; k2++) {
                     drawOneFourierMode(g, ks, k1, k2, sigma, pField_k);

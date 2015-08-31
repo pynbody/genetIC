@@ -144,7 +144,6 @@ public:
     }
 
     vector<complex<T>> combineDataOnLevelsIntoOneVector(const vector<vector<complex<T>>> &dataOnLevel) const {
-        size_t nall = 0;
 
         assert(dataOnLevel.size()==pGrid.size());
 

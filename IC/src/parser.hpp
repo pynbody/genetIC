@@ -161,8 +161,10 @@ private:
             function = _map.at(s).first.get();
             caller = _map.at(s).second;
         } catch (std::out_of_range &e) {
-            if(!ignoreUnknownCommand)
-              throw DispatchError("Unknown command");
+            if(ignoreUnknownCommand)
+                return Rtype();
+            else
+                throw DispatchError("Unknown command");
         }
 
         if(output_stream!=nullptr)

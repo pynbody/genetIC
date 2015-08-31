@@ -18,7 +18,7 @@
 #include "randomfieldgenerator.hpp"
 #include "MultiLevelConstraintGenerator.h"
 
-#define for_each_level(level) for(int level=0; level<2 && n[level]>0; level++)
+#define for_each_level(level) for(size_t level=0; level<2 && n[level]>0; level++)
 
 using namespace std;
 
@@ -87,11 +87,11 @@ protected:
 
 
 public:
-    IC(ClassDispatch<IC<MyFloat>, void> &interpreter) : interpreter(interpreter),
-                                                        pMapper(new ParticleMapper<MyFloat>()),
-                                                        constraintApplicator(&fieldManager),
+    IC(ClassDispatch<IC<MyFloat>, void> &interpreter) : constraintApplicator(&fieldManager),
+                                                        constraintGenerator(fieldManager, cosmology),
                                                         randomFieldGenerator(fieldManager),
-                                                        constraintGenerator(fieldManager, cosmology)
+                                                        pMapper(new ParticleMapper<MyFloat>()),
+                                                        interpreter(interpreter)
     {
         pInputMapper = nullptr;
         cosmology.hubble =0.701;   // old default

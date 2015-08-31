@@ -321,7 +321,8 @@ public:
     }
 
     virtual bool isInDomain(int x, int y, int z) {
-        return x>=0 && y>=0 && z>=0 && x<size && y<size && z<size;
+        const int intsize = int(size);
+        return x>=0 && y>=0 && z>=0 && x<intsize && y<intsize && z<intsize;
     }
 
     virtual complex<T> getFieldAt(size_t i, const TField & field) {
@@ -1026,7 +1027,7 @@ protected:
         x+=xOffset_i;
         y+=yOffset_i;
         z+=zOffset_i;
-        const size_t underlyingSize = this->pUnderlying->size;
+        const int underlyingSize = int(this->pUnderlying->size);
 
         if(x<0 || x>=underlyingSize || y<0 || y>=underlyingSize || z<0 || z>=underlyingSize)
             throw std::out_of_range("Out of range in SectionOfGrid");
@@ -1056,7 +1057,7 @@ public:
         x += xOffset_i;
         y += yOffset_i;
         z += zOffset_i;
-        const size_t underlyingSize = this->pUnderlying->size;
+        const int underlyingSize = int(this->pUnderlying->size);
 
         return x >= 0 && y >= 0 && z >= 0 && x < underlyingSize && y < underlyingSize && z < underlyingSize;
 
@@ -1157,9 +1158,10 @@ public:
         // This is a situation we might, in retrospect, wish to avoid. However,
         // since early tests and simulations were conducted without obeying
         // this 'end-alignment' condition, we need to support it.
-        if(x1>this->pUnderlying->size) x1=this->pUnderlying->size;
-        if(y1>this->pUnderlying->size) y1=this->pUnderlying->size;
-        if(z1>this->pUnderlying->size) z1=this->pUnderlying->size;
+        const int underlyingSize = int(this->pUnderlying->size);
+        if(x1>underlyingSize) x1=underlyingSize;
+        if(y1>underlyingSize) y1=underlyingSize;
+        if(z1>underlyingSize) z1=underlyingSize;
 
         int localFactor3 = (x1-x0)*(y1-y0)*(z1-z0);
 
