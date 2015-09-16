@@ -48,7 +48,7 @@ ifeq ($(HOST), bridg)
 	CPATH = /nasa/gsl/1.14/include/:/nasa/intel/Compiler/2015.0.090/composer_xe_2015.0.090/mkl/include/fftw/:/nasa/intel/Compiler/2015.0.090/composer_xe_2015.0.090/mkl/include/
 	LPATH =  /nasa/gsl/1.14/lib/:/nasa/intel/Compiler/2015.0.090/composer_xe_2015.0.090/mkl/lib/intel64/
 	FFTWLIB = -lmkl_intel_lp64 -lmkl_core -lmkl_gnu_thread -ldl -lpthread -lm -lstdc++ -lgfortran -lfftw3xc_intel
-	FFTW = -DFFTW3 # not working with threads for some reason :-(
+	FFTW = -DFFTW3 # intel MKL has its own threading scheme
 endif
 
 ifeq ($(HOST), Piann)
