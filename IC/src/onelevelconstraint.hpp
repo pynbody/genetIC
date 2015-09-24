@@ -19,13 +19,13 @@ protected:
     std::vector<complex<MyFloat>> &output;
     std::vector<size_t> particleArray;
     const CosmologicalParameters<MyFloat> &cosmology;
-    MyFloat x0, y0, z0;
+    MyFloat x0=0., y0=0., z0=0.; //centre coordinates needed for angmom; set in getCentre()
 
-    void cen_deriv4_alpha(long index, int direc)
+    void cen_deriv4_alpha(long index, int direc, MyFloat x0, MyFloat y0, MyFloat z0)
 
     {   //4th order central difference
 
-        MyFloat xp, yp, zp;//, zm2, zm1, zp2, zp1;
+        MyFloat xp, yp, zp;
         grid.getCentroidLocation(index, xp, yp, zp);
 
         xp=grid.getWrappedDelta(xp,x0);
@@ -82,6 +82,38 @@ public:
     {
         grid.gatherParticleList(particleArray);
         output.resize(grid.size3);
+        getCentre();    
+    }    
+
+    void getCentre() {
+        
+        MyFloat xa,ya,za, xb, yb, zb, x0=0., y0=0., z0=0.;
+
+        std::vector<size_t> particleArray;
+        grid.gatherParticleList(particleArray);
+
+        grid.getCentroidLocation(particleArray[0],xa,ya,za);
+
+        for(size_t i=0;i<particleArray.size();i++) {
+            grid.getCentroidLocation(particleArray[i],xb,yb,zb);
+            x0+=grid.getWrappedDelta(xa,xb);
+            y0+=grid.getWrappedDelta(ya,yb);
+            z0+=grid.getWrappedDelta(za,zb);
+        }
+
+        x0/=particleArray.size();
+        y0/=particleArray.size();
+        z0/=particleArray.size();
+        x0+=xa;
+        y0+=ya;
+        z0+=za;
+
+        //cerr << "Inside CC: Centre of region is " << x0 << " " << y0 << " " << z0 << endl;
+
+        this->x0=x0;
+        this->y0=y0;
+        this->z0=z0;
+
     }
 
     void overdensity() {
@@ -116,12 +148,81 @@ public:
         poiss(output.data(), output.data(), grid.size, grid.boxsize, cosmology.scalefactor, cosmology.OmegaM0);
     }
 
+//old angular momentum class, temporary fix below:
     void angmom(int direction) {
-        throw std::runtime_error("Angmom cannot run - x0,y0,z0 coordinates not yet passed to new constraint class");
+        //throw std::runtime_error("Angmom cannot run - x0,y0,z0 coordinates not yet passed to new constraint class");
+        //cerr << "Angmom centre is " <<x0 << " " <<y0 << " " << z0 << endl;
+
+        for(size_t i=0;i<particleArray.size();i++) {
+            cen_deriv4_alpha(particleArray[i], direction, x0, y0, z0);
+        }
+
+        fft(output.data(), output.data(), grid.size, 1);
+        // The constraint as derived is on the potential. By considering
+        // unitarity of FT, we can FT the constraint to get the constraint
+        // on the density.
+        poiss(output.data(), output.data(), grid.size, grid.boxsize,
+              cosmology.scalefactor, cosmology.OmegaM0);
+
+    }
+
+    void angmom0() {
+
+        MyFloat x0, y0, z0;
+        x0=this->x0;
+        y0=this->y0;
+        z0=this->z0;
+
+        cerr << "Angmom centre is " <<x0 << " " <<y0 << " " << z0 << endl;
+        
+        for(size_t i=0;i<particleArray.size();i++) {
+            cen_deriv4_alpha(particleArray[i], 0, x0, y0, z0);
+        }
+
+        fft(output.data(), output.data(), grid.size, 1);
+        // The constraint as derived is on the potential. By considering
+        // unitarity of FT, we can FT the constraint to get the constraint
+        // on the density.
+        poiss(output.data(), output.data(), grid.size, grid.boxsize,
+              cosmology.scalefactor, cosmology.OmegaM0);
+
+    }
+
+    void angmom1() {
+        
+        MyFloat x0, y0, z0;
+        x0=this->x0;
+        y0=this->y0;
+        z0=this->z0;
+
+        cerr << "Angmom centre is " <<x0 << " " <<y0 << " " << z0 << endl;
+
+        //for(size_t i=0;i<10;i++) {cout<< "part arr, derivative1: " <<  particleArray[i] << " "<< endl;}//cen_deriv4_alpha(particleArray[i], 1)<< endl;}
+
+        for(size_t i=0;i<particleArray.size();i++) {
+            cen_deriv4_alpha(particleArray[i], 1, x0, y0, z0);
+        }
+
+        fft(output.data(), output.data(), grid.size, 1);
+        // The constraint as derived is on the potential. By considering
+        // unitarity of FT, we can FT the constraint to get the constraint
+        // on the density.
+        poiss(output.data(), output.data(), grid.size, grid.boxsize,
+              cosmology.scalefactor, cosmology.OmegaM0);
+
+    }
+
+    void angmom2() {
+        
+        MyFloat x0, y0, z0;
+        x0=this->x0;
+        y0=this->y0;
+        z0=this->z0;
+
         cerr << "Angmom centre is " <<x0 << " " <<y0 << " " << z0 << endl;
 
         for(size_t i=0;i<particleArray.size();i++) {
-            cen_deriv4_alpha(particleArray[i], direction);
+            cen_deriv4_alpha(particleArray[i], 2, x0, y0, z0);
         }
 
         fft(output.data(), output.data(), grid.size, 1);
@@ -144,11 +245,16 @@ void calcConstraint(const std::string &name, const Grid<MyFloat>& grid,
     typedef ConstraintCalculator<MyFloat> CC;
 
     CC calc(grid,output,cosmology);
-    InstanceDispatch<CC,void> dispatch(calc);
+
+    
+    InstanceDispatch<CC,void> dispatch(calc);    
 
     dispatch.add_class_route("overdensity",&CC::overdensity);
     dispatch.add_class_route("phi",&CC::phi);
-    dispatch.add_class_route("L",&CC::angmom);
+    //temporary and dirty fix to calculate angular momentum (by Nina):
+    dispatch.add_class_route("L0",&CC::angmom0);
+    dispatch.add_class_route("L1",&CC::angmom1);
+    dispatch.add_class_route("L2",&CC::angmom2);
 
     dispatch.run(name);
 

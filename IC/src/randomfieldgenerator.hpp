@@ -26,7 +26,7 @@ public:
     RandomFieldGenerator(MultiLevelFieldManager<MyFloat> &fieldManager_, int seed=0) :
             fieldManager(fieldManager_)
     {
-        T = gsl_rng_ranlxs2; // shouldn't this be gsl_rng_ranlxd2 for MyFloat = double?
+        T = gsl_rng_ranlxs2; // shouldn't this be gsl_rng_ranlxd2 for MyFloat = double? -> it's single precision for compatibility with previous versions!
         randomState = gsl_rng_alloc (T); //this allocates memory for the generator with type T
         gsl_rng_set(randomState,seed);
         drawInFourierSpace=false;
