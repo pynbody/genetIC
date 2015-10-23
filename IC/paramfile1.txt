@@ -1,0 +1,26 @@
+%do not change the order of these values! output:(0 HDF5, 1 Gadget, 2 both); trailing / for directory important! (TODO add flag for single/double to be checked against compile flags)
+Om	0.279
+Ol	0.721
+s8	0.817
+Boxl	50
+zin	99
+n       256
+output	1
+seed	8896131
+camb	camb_transfer_kmax40_z0.dat
+outdir	 ./output/
+gadgetformat 3
+IDfile h40.txt
+#calculate overdensity
+calculate L0
+calculate L1
+calculate L2
+IDfile h40.txt
+constrain L0 relative 1
+constrain L1 relative 1
+constrain L2 relative 1
+done
+IDfile h40.txt
+calculate L0
+calculate L1
+calculate L2
