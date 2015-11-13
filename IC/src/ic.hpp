@@ -449,7 +449,7 @@ public:
         MyFloat hfac=1.*100.*sqrt(cosmology.OmegaM0 / cosmology.scalefactor / cosmology.scalefactor / cosmology.scalefactor + cosmology.OmegaLambda0)*sqrt(
                 cosmology.scalefactor);
         //this should be f*H(t)*a, but gadget wants vel/sqrt(a), so we use H(t)*sqrt(a)
-        //TODO: hardcoded value of f=1 is inaccurate, but fomega currently gives wrong nults
+        //TODO: hardcoded value of f=1 is inaccurate, but fomega currently gives wrong results
 
         MyFloat pmass=27.78* cosmology.OmegaM0 *powf(boxlen[level]/(MyFloat)(n[level]),3.0);
 
