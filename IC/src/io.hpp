@@ -995,7 +995,8 @@ public:
 
         cout << "dKpcUnit: " <<  dKpcUnit << endl;
         cout << "dMsolUnit: " << dMsolUnit  << endl;
-        cout << "hubble0: " << 0.1*cosmology.hubble * dKpcUnit / dKmsUnit << endl;
+        cout << "dHubble0: " << 0.1*cosmology.hubble * dKpcUnit / dKmsUnit << endl;
+        //TODO: write a skeleton parameter file for tipsy output
 
 
         fd = fopen(filename.c_str(), "w");
