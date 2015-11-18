@@ -952,10 +952,6 @@ public:
         // vel in km s^-1 a^1/2
 
 
-        pos_factor  = 1./ boxLength;  // boxsize = 1
-        vel_factor  = cosmology.scalefactor/(sqrt(3./(8.*M_PI))*100* boxLength);
-        mass_factor = 0.0; // calculated below shortly
-
         min_mass=std::numeric_limits<double>::max();
         max_mass=0.0;
 
@@ -976,6 +972,14 @@ public:
         }
 
         mass_factor = cosmology.OmegaM0/tot_mass; // tipsy convention: sum(mass)=Om0
+        pos_factor  = 1./ boxLength;              // boxsize = 1
+
+        double dKpcUnit  = boxLength *1000/cosmology.hubble;
+        double dMsolUnit = 1e10/cosmology.hubble/mass_factor;
+        double dKmsUnit  = sqrt(4.30211349e-6*dMsolUnit/(dKpcUnit));
+
+        vel_factor  = std::pow(cosmology.scalefactor,-0.5)/dKmsUnit;
+
 
         io_header_tipsy header;
 
@@ -989,15 +993,16 @@ public:
 
         cout << "TIPSY parameters:" << endl;
 
-        double dKpcUnit  = boxLength *1000/cosmology.hubble;
-        double dMsolUnit = 1e10/cosmology.hubble/mass_factor;
-        double dKmsUnit  = sqrt(4.30211349e-6*dMsolUnit/(dKpcUnit));
 
-        cout << "dKpcUnit: " <<  dKpcUnit << endl;
-        cout << "dMsolUnit: " << dMsolUnit  << endl;
-        cout << "dHubble0: " << 0.1*cosmology.hubble * dKpcUnit / dKmsUnit << endl;
-        //TODO: write a skeleton parameter file for tipsy output
+        ofstream paramfile;
+        paramfile.open("tipsy.param");
 
+        paramfile << "dKpcUnit = " <<  dKpcUnit << endl;
+        paramfile << "dMsolUnit = " << dMsolUnit  << endl;
+        paramfile << "dHubble0 = " << 0.1*cosmology.hubble * dKpcUnit / dKmsUnit << endl;
+        paramfile << "bComove = 1 " << endl;
+
+        paramfile.close();
 
         fd = fopen(filename.c_str(), "w");
         if(!fd) throw std::runtime_error("Unable to open file for writing");
