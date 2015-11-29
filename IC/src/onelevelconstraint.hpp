@@ -136,7 +136,7 @@ public:
         //xp=grid.getWrappedDelta(xp,x0);
 
 
-        cout << "xa  "<< xa << " " << ya << " " << za << endl;
+        //cout << "xa  "<< xa << " " << ya << " " << za << endl;
 
         for(size_t i=0;i<particleArray.size();i++) {
             grid.getCentroidLocation(particleArray[i],xb,yb,zb);
@@ -152,7 +152,7 @@ public:
         y0+=ya;
         z0+=za;
 
-        cerr << "Inside CC: Centre of region is " << x0 << " " << y0 << " " << z0 << endl;
+        //cerr << "Inside CC: Centre of region is " << x0 << " " << y0 << " " << z0 << endl;
 
         //x0=0;
         //y0=0;
@@ -162,7 +162,7 @@ public:
         // y0=33.3984375;
         // z0=35.3515625;
 
-        cerr<< "setting to " << x0 << " " << y0 << " "<< z0 << endl;
+        //cerr<< "setting to " << x0 << " " << y0 << " "<< z0 << endl;
 
         this->x0=x0;
         this->y0=y0;
@@ -228,7 +228,7 @@ public:
         z0=this->z0;
 
         
-        cerr << "Angmom centre is " <<x0 << " " <<y0 << " " << z0 << endl;
+        //cerr << "Angmom centre is " <<x0 << " " <<y0 << " " << z0 << endl;
 
         // x0=44.3359375;
         // y0=33.3984375;
@@ -244,21 +244,21 @@ public:
          //output[13]=complex<MyFloat> (-0.666667,0);
          //output[15]=complex<MyFloat> (0.666667,0);
 
-        int ii;
-        int sum=0;
-        for(ii=0; ii< grid.size3; ii++){
-            if ( (output[ii]!=complex<MyFloat> (0.,0.)) && (sum<10)  ){
-                cerr<< " output angmom 0 before "<< ii<< " " << output[ii] <<endl; sum+=1;} 
-        }
+        // int ii;
+        // int sum=0;
+        // for(ii=0; ii< grid.size3; ii++){
+        //     if ( (output[ii]!=complex<MyFloat> (0.,0.)) && (sum<10)  ){
+        //         cerr<< " output angmom 0 before "<< ii<< " " << output[ii] <<endl; sum+=1;} 
+        // }
 
         fft(output.data(), output.data(), grid.size, 1);
 
         //int ii;
-        sum=0;
-        for(ii=0; ii< grid.size3; ii++){
-            if ( (output[ii]!=complex<MyFloat> (0.,0.)) && (sum<10)  ){
-                cerr<< " output angmom 0 after "<< ii<< " " << output[ii] <<endl; sum+=1;} 
-        }
+        // sum=0;
+        // for(ii=0; ii< grid.size3; ii++){
+        //     if ( (output[ii]!=complex<MyFloat> (0.,0.)) && (sum<10)  ){
+        //         cerr<< " output angmom 0 after "<< ii<< " " << output[ii] <<endl; sum+=1;} 
+        // }
         // The constraint as derived is on the potential. By considering
         // unitarity of FT, we can FT the constraint to get the constraint
         // on the density.
@@ -266,11 +266,11 @@ public:
               cosmology.scalefactor, cosmology.OmegaM0);
 
 
-        sum=0;
-        for(ii=0; ii< grid.size3; ii++){
-            if ( (output[ii]!=complex<MyFloat> (0.,0.)) && (sum<10)  ){
-                cerr<< " output angmom 0 end "<< ii<< " " << output[ii] <<endl; sum+=1;}
-        } 
+        // sum=0;
+        // for(ii=0; ii< grid.size3; ii++){
+        //     if ( (output[ii]!=complex<MyFloat> (0.,0.)) && (sum<10)  ){
+        //         cerr<< " output angmom 0 end "<< ii<< " " << output[ii] <<endl; sum+=1;}
+        // } 
 
     }
 
@@ -281,7 +281,7 @@ public:
         y0=this->y0;
         z0=this->z0;
 
-        cerr << "Angmom centre is " <<x0 << " " <<y0 << " " << z0 << endl;
+        //cerr << "Angmom centre is " <<x0 << " " <<y0 << " " << z0 << endl;
 
         // x0=44.3359375;
         // y0=33.3984375;
@@ -310,7 +310,7 @@ public:
         y0=this->y0;
         z0=this->z0;
 
-        cerr << "Angmom centre is " <<x0 << " " <<y0 << " " << z0 << endl;
+        //cerr << "Angmom centre is " <<x0 << " " <<y0 << " " << z0 << endl;
 
 
         // x0=44.3359375;
@@ -355,12 +355,12 @@ void calcConstraint(const std::string &name, const Grid<MyFloat>& grid,
 
     dispatch.run(name);
 
-    int ii;
-    int sum=0;
-    for(ii=0; ii< grid.size3; ii++){
-        if ( (output[ii]!=complex<MyFloat> (0.,0.)) && (sum<10)  ){
-            cerr<< " output alpha "<< ii<< " " << output[ii] <<endl; sum+=1;} 
-    }
+    // int ii;
+    // int sum=0;
+    // for(ii=0; ii< grid.size3; ii++){
+    //     if ( (output[ii]!=complex<MyFloat> (0.,0.)) && (sum<10)  ){
+    //         cerr<< " output alpha "<< ii<< " " << output[ii] <<endl; sum+=1;} 
+    // }
     //cerr <<  "output alpha" << output[0] << " " << output[1] << " " <<  output[2] << " " <<  output[3] << " " << endl;
 
 
