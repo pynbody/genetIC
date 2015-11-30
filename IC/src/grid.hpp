@@ -234,7 +234,7 @@ public:
     }
 
     virtual void debugInfo(std::ostream& s) const {
-        s << "Grid of side " << size << " address " << this;
+        s << "Grid of side " << size << " address " << this << "; " << this->particleArray.size() << " cells marked";
     }
 
 
@@ -1005,6 +1005,14 @@ public:
         this->simWrap(x,y,z);
     }
 
+    void gatherParticleList(std::vector<size_t> & targetArray) const override {
+        throw(std::runtime_error("gatherParticleList is not implemented for OffsetGrid"));
+    }
+
+    void distributeParticleList(const std::vector<size_t> & sourceArray) override {
+        throw(std::runtime_error("distributeParticleList is not implemented for OffsetGrid"));
+    }
+
 
 };
 
@@ -1021,7 +1029,7 @@ protected:
     using typename Grid<T>::PtrTField;
     using typename Grid<T>::GridPtrType;
 
-    size_t mapIndex(size_t sec_id) const {
+    size_t mapIndexToUnderlying(size_t sec_id) const {
         int x,y,z;
         this->getCoordinates(sec_id,x,y,z);
         x+=xOffset_i;
@@ -1030,8 +1038,21 @@ protected:
         const int underlyingSize = int(this->pUnderlying->size);
 
         if(x<0 || x>=underlyingSize || y<0 || y>=underlyingSize || z<0 || z>=underlyingSize)
-            throw std::out_of_range("Out of range in SectionOfGrid");
+            throw std::out_of_range("Out of range in SectionOfGrid::mapIndexToUnderlying");
         return this->pUnderlying->getIndex(x,y,z);
+    }
+
+    size_t mapIndexFromUnderlying(size_t underlying_id) const {
+        int x,y,z;
+        this->pUnderlying->getCoordinates(underlying_id, x,y,z);
+        x-=xOffset_i;
+        y-=yOffset_i;
+        z-=zOffset_i;
+
+        if(x<0 || x>=this->size || y<0 || y>=this->size || z<0 || z>=this->size)
+            throw std::out_of_range("Out of range in SectionOfGrid::mapIndexFromUnderlying");
+
+        return this->getIndex(x,y,z);
     }
 
 public:
@@ -1070,7 +1091,7 @@ public:
 
     virtual void getParticleNoWrap(size_t id, T &x, T &y, T &z, T &vx, T &vy, T &vz, T &cellMassi, T &eps) const
     {
-        this->pUnderlying->getParticleNoWrap(mapIndex(id),x,y,z,vx,vy,vz,cellMassi,eps);
+        this->pUnderlying->getParticleNoWrap(mapIndexToUnderlying(id),x,y,z,vx,vy,vz,cellMassi,eps);
     }
 
     void getParticleFromOffset(T &x, T &y, T &z, T &vx, T &vy, T &vz, T &cellMassi, T &eps) const override
@@ -1081,11 +1102,27 @@ public:
     }
 
     virtual T getFieldAt(size_t i, const TRealField &field) override {
-        return this->pUnderlying->getFieldAt(mapIndex(i), field);
+        return this->pUnderlying->getFieldAt(mapIndexToUnderlying(i), field);
     }
 
     virtual complex<T> getFieldAt(size_t i, const TField &field) override {
-        return this->pUnderlying->getFieldAt(mapIndex(i), field);
+        return this->pUnderlying->getFieldAt(mapIndexToUnderlying(i), field);
+    }
+
+    void gatherParticleList(std::vector<size_t> & targetArray) const override {
+        std::vector<size_t> underlyingArray;
+        this->pUnderlying->gatherParticleList(underlyingArray);
+        for(size_t ptcl: underlyingArray) {
+            try {
+                targetArray.push_back(this->mapIndexFromUnderlying(ptcl));
+            } catch(std::out_of_range &e) {
+                continue;
+            }
+        }
+    }
+
+    void distributeParticleList(const std::vector<size_t> & sourceArray) override {
+        throw(std::runtime_error("distributeParticleList is not implemented for OffsetGrid"));
     }
 
 

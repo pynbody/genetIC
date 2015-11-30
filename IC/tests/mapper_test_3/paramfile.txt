@@ -1,0 +1,30 @@
+# Test that the mapper marks the zoomed particles when presented with
+# particles in the original simulation that are now in the zoom
+
+Om  0.279
+Ol  0.721
+Ob  0.04
+s8  0.817
+Boxl	50
+zin	99
+n       64
+output	1
+seed	8896131
+outname mappertest
+camb	../camb_transfer_kmax40_z0.dat
+outdir	 ./
+
+
+relative_to ../mapper_test_1/unzoomed_paramfile.txt
+
+zoom 3
+n2 64
+zoom_IDfile ../mapper_test_1/zoomtest.txt
+
+gadgetformat 4
+
+
+idfile test_ids.txt
+dump_idfile output.txt
+
+done

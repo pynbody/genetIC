@@ -314,8 +314,16 @@ public:
         throw std::runtime_error("There is no grid associated with this particle mapper");
     }
 
+    ConstGridPtrType getCoarsestGrid() const {
+      return (const_cast<ParticleMapper*>(this)->getCoarsestGrid());
+    }
+
     virtual iterator begin() const {
         return iterator(this);
+    }
+
+    virtual bool references(GridPtrType grid) const {
+        return getCoarsestGrid().get()==grid.get();
     }
 
     virtual iterator end() const {
@@ -712,6 +720,10 @@ public:
         s << "TwoLevelParticleMapper ends" << std::endl;
     }
 
+    bool references(GridPtrType grid) const override {
+      return pLevel1->references(grid) || pLevel2->references(grid);
+    }
+
     virtual void clearParticleList() override {
         pLevel1->clearParticleList();
         pLevel2->clearParticleList();
@@ -820,10 +832,10 @@ public:
             ++zoomed_i;
 
           // If the marked particle is not actually in the output list, ignore it.
-	  //
-	  // Older versions of the code throw an exception instead
+	        //
+	        // Older versions of the code throw an exception instead
           if(zoomed_i==len_zoomed || zoomParticleArrayHiresUnsorted[sortIndex[zoomed_i]]!=i_hr)
-            continue;
+              continue;
 
           particleArray.push_back(sortIndex[zoomed_i]+firstLevel2Particle);
         }
@@ -959,6 +971,10 @@ protected:
 
 
 public:
+
+    bool references(GridPtrType grid) const override {
+      return firstMap->references(grid) || secondMap->references(grid);
+    }
 
     virtual void debugInfo(std::ostream& s, int level=0) const override {
         indent(s,level);

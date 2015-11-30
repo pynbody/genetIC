@@ -1,0 +1,33 @@
+# Test that the mapper can consistently find particles in a zoom simulation with gas
+# Otherwise, identical to mapper_test_1 (the IDs are offset to skip over the gas part)
+
+Om  0.279
+Ol  0.721
+Ob  0.04
+s8  0.817
+Boxl	50
+zin	99
+n       64
+output	1
+seed	8896131
+outname mappertest
+
+relative_to ../mapper_test_1/unzoomed_paramfile.txt
+
+zoom 3
+n2 64
+zoom_IDfile ../mapper_test_1/zoomtest.txt
+
+
+camb	../camb_transfer_kmax40_z0.dat
+outdir	 ./
+gadgetformat 3
+
+relative_to ../mapper_test_1/paramfile.txt
+
+IDfile ../mapper_test_1/reference.txt
+dump_IDfile output.txt
+
+
+
+done

@@ -569,6 +569,14 @@ public:
         if(pInputMapper!=nullptr) {
           pInputMapper->clearParticleList();
           pInputMapper->distributeParticleList(genericParticleArray);
+          if(pGrid.size()>1 && !pInputMapper->references(pGrid[1])) {
+            // Input mapper is unzoomed => shift coarse flags onto fine level.
+            // This logic should ultimately be generalised and shifted into the mapper itself.
+            vector<size_t> ar;
+            GridPtrType proxyGrid = pGrid[0]->makeProxyGridToMatch(*pGrid[1]);
+            proxyGrid->gatherParticleList(ar);
+            pGrid[1]->distributeParticleList(ar);
+          }
         }
         else
         {
@@ -702,6 +710,8 @@ public:
 
     void dumpID(string fname) {
         std::vector<size_t> results;
+        cerr << "dumpID using current mapper:" << endl;
+        cerr << (*pMapper);
         pMapper->gatherParticleList(results);
         dumpBuffer(results, fname);
     }

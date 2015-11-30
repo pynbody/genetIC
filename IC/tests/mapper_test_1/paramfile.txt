@@ -1,0 +1,36 @@
+# Test that the mapper can consistently find particles in a zoom simulation
+#
+# Tests input has certain special values -
+# 108381: just before zoom
+# 108382: the first particle adjusted because of the zoom (maps onto 108386 in underlying grid)
+# 200000, 200001: two particles after the zoom particles are all over (maps onto +1081 in underlying grid)
+# 276828: HR particle
+
+Om  0.279
+Ol  0.721
+#Ob  0.04
+s8  0.817
+Boxl	50
+zin	99
+n       64
+output	1
+seed	8896131
+outname mappertest
+
+
+zoom 3
+n2 64
+zoom_IDfile zoomtest.txt
+
+
+camb	../camb_transfer_kmax40_z0.dat
+outdir	 ./
+gadgetformat 4
+
+
+IDfile reference.txt
+dump_IDfile output.txt
+
+
+
+done
