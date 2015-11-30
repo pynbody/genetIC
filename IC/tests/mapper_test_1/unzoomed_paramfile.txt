@@ -1,0 +1,22 @@
+# A dummy paramfile that is used as the notional file from which
+# the zoom simulation is seeded.
+
+Om  0.279
+Ol  0.721
+#Ob  0.04
+s8  0.817
+Boxl	50
+zin	99
+n       64
+output	1
+seed	8896131
+outname mappertest
+
+
+camb	../camb_transfer_kmax40_z0.dat
+outdir	 ./
+gadgetformat 4
+
+
+
+done
