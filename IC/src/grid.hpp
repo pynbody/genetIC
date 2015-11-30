@@ -1119,6 +1119,7 @@ public:
                 continue;
             }
         }
+        std::sort(targetArray.begin(), targetArray.end());
     }
 
     void distributeParticleList(const std::vector<size_t> & sourceArray) override {
