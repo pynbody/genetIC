@@ -728,9 +728,8 @@ public:
 
     }
 
-    void selectSphere(float radius) {
-        MyFloat r2 = radius*radius;
-        MyFloat delta_x, delta_y, delta_z, r2_i;
+    void select(std::function<bool(MyFloat,MyFloat,MyFloat)> inclusionFunction) {
+        MyFloat delta_x, delta_y, delta_z;
         MyFloat xp,yp,zp;
 
         genericParticleArray.clear();
@@ -743,16 +742,30 @@ public:
                 delta_x = get_wrapped_delta(xp,x0);
                 delta_y = get_wrapped_delta(yp,y0);
                 delta_z = get_wrapped_delta(zp,z0);
-                r2_i = delta_x*delta_x+delta_y*delta_y+delta_z*delta_z;
-                if(r2_i<r2)
-                  particleArray.push_back(i);
+                if(inclusionFunction(delta_x, delta_y, delta_z))
+                    particleArray.push_back(i);
             }
 
             pGrid[level]->clearParticleList();
             pGrid[level]->distributeParticleList(particleArray);
 
         }
+    }
 
+    void selectSphere(float radius) {
+        MyFloat r2 = radius*radius;
+        select([r2](MyFloat delta_x, MyFloat delta_y, MyFloat delta_z) -> bool {
+            MyFloat r2_i = delta_x*delta_x+delta_y*delta_y+delta_z*delta_z;
+            return r2_i<r2;
+        });
+
+    }
+
+    void selectCube(float side) {
+        MyFloat side_by_2 = side/2;
+        select([side_by_2](MyFloat delta_x, MyFloat delta_y, MyFloat delta_z) -> bool {
+            return abs(delta_x) < side_by_2 && abs(delta_y) < side_by_2 && abs(delta_z) < side_by_2;
+        });
     }
 
 

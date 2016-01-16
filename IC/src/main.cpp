@@ -98,6 +98,7 @@ void setup_parser(ClassDispatch<ICf,void> &dispatch) {
     dispatch.add_class_route("append_IDfile",&ICf::appendID);
     dispatch.add_class_route("dump_IDfile",&ICf::dumpID);
     dispatch.add_class_route("select_sphere",&ICf::selectSphere);
+    dispatch.add_class_route("select_cube",&ICf::selectCube);
     dispatch.add_class_route("select_nearest",&ICf::selectNearest);
     dispatch.add_class_route("centre_on",&ICf::centreParticle);
     dispatch.add_class_route("centre", &ICf::setCentre);
