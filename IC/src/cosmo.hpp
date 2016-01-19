@@ -81,7 +81,7 @@ public:
 
         MyFloat Tcamb_f = Tcamb.back(), kcamb_f = kcamb.back();
 
-        while(kcamb.back()<300)
+        while(kcamb.back()<1000)
         {
             kcamb.push_back(kcamb.back()+1.0);
             Tcamb.push_back(exp(log(Tcamb_f) + gradient * (log(kcamb.back()/kcamb_f))));
