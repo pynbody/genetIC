@@ -864,6 +864,7 @@ protected:
 
         #pragma omp parallel for
         for(size_t i=0; i<n; i++) {
+            TipsyParticle::initialise(p[i], cosmology);
             p[i].x=xAr[i]*pos_factor-0.5;
             p[i].y=yAr[i]*pos_factor-0.5;
             p[i].z=zAr[i]*pos_factor-0.5;
