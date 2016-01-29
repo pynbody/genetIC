@@ -677,7 +677,11 @@ protected:
         cerr << "Loading " << filename << endl;
 
         getBuffer(genericParticleArray, filename);
-
+	size_t size = genericParticleArray.size();
+	std::sort(genericParticleArray.begin(),genericParticleArray.end());
+	genericParticleArray.erase( std::unique( genericParticleArray.begin(), genericParticleArray.end() ), genericParticleArray.end() );
+	if(genericParticleArray.size()<size)
+	  cerr << "  ... erased " << size-genericParticleArray.size() << " duplicate particles" << endl;
         cerr << "  -> total number of particles is " << genericParticleArray.size() << endl;
 
         clearAndDistributeParticleList();
