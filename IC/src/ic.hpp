@@ -97,6 +97,7 @@ public:
         cosmology.hubble =0.701;   // old default
         cosmology.OmegaBaryons0 =-1.0;
         cosmology.ns = 0.96;      // old default
+	cosmology.TCMB = 2.725;
         n[0]=-1;
         n[1]=-1; // no subgrid by default
         boxlen[0]=-1;
@@ -117,6 +118,10 @@ public:
     void setOmegaM0(MyFloat in) {
         cosmology.OmegaM0 =in;
     }
+
+  void setTCMB(MyFloat in) {
+    cosmology.TCMB = in;
+  }
 
     void setOmegaB0(MyFloat in) {
         cosmology.OmegaBaryons0 =in;

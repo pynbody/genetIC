@@ -7,7 +7,7 @@
 template<typename MyFloat>
 struct CosmologicalParameters {
     MyFloat OmegaM0, OmegaLambda0, OmegaBaryons0, hubble, redshift;
-    MyFloat scalefactor, sigma8, ns;
+  MyFloat scalefactor, sigma8, ns, TCMB;
 };
 
 template<typename MyFloat>

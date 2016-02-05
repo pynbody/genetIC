@@ -828,7 +828,7 @@ namespace TipsyParticle {
 
     template<typename T>
     void initialise(gas &p, const CosmologicalParameters<T> &cosmo) {
-        p.temp = 2.73 / cosmo.scalefactor;
+        p.temp = cosmo.TCMB / cosmo.scalefactor;
         p.metals = 0.0;
         p.rho = 0.0;
     }

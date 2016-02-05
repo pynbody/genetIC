@@ -72,7 +72,7 @@ typedef IC<MyFloat> ICf ;
 void setup_parser(ClassDispatch<ICf,void> &dispatch) {
 
     // Define the commands for the paramfile
-
+    dispatch.add_class_route("TCMB",&ICf::setTCMB);
     dispatch.add_class_route("Om",&ICf::setOmegaM0);
     dispatch.add_class_route("Ob",&ICf::setOmegaB0);
     dispatch.add_class_route("Ol",&ICf::setOmegaLambda0);
