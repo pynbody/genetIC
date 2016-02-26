@@ -155,10 +155,10 @@ public:
       MyFloat s=0.,k,t;
 
       MyFloat amp=9./2./M_PI/M_PI;
-      MyFloat kmax=kcamb.back();
+      MyFloat kmax=min(kcamb.back(),200.0/R);
       MyFloat kmin=kcamb[0];
 
-      MyFloat dk=(kmax-kmin)/10000.;
+      MyFloat dk=(kmax-kmin)/50000.;
         for(k=kmin; k<kmax;k+=dk){
 
         t=gsl_spline_eval (spline, k, acc);
