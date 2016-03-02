@@ -509,14 +509,14 @@ public:
                     if( iy>size/2 ) iiy = static_cast<int>(iy) - size; else iiy = iy;
                     if( iz>size/2 ) iiz = static_cast<int>(iz) - size; else iiz = iz;
 
-                    kfft = sqrt(iix*iix+iiy*iiy+iiz*iiz);
+                    kfft = (T)(iix*iix+iiy*iiy+iiz*iiz);
 
-                    psift1k[idx].real(-pField_k[idx].imag()/(T)(kfft*kfft)*iix/kw);
-                    psift1k[idx].imag(pField_k[idx].real()/(T)(kfft*kfft)*iix/kw);
-                    psift2k[idx].real(-pField_k[idx].imag()/(T)(kfft*kfft)*iiy/kw);
-                    psift2k[idx].imag(pField_k[idx].real()/(T)(kfft*kfft)*iiy/kw);
-                    psift3k[idx].real(-pField_k[idx].imag()/(T)(kfft*kfft)*iiz/kw);
-                    psift3k[idx].imag(pField_k[idx].real()/(T)(kfft*kfft)*iiz/kw);
+                    psift1k[idx].real(-pField_k[idx].imag()/(T)(kfft)*iix/kw);
+                    psift1k[idx].imag(pField_k[idx].real()/(T)(kfft)*iix/kw);
+                    psift2k[idx].real(-pField_k[idx].imag()/(T)(kfft)*iiy/kw);
+                    psift2k[idx].imag(pField_k[idx].real()/(T)(kfft)*iiy/kw);
+                    psift3k[idx].real(-pField_k[idx].imag()/(T)(kfft)*iiz/kw);
+                    psift3k[idx].imag(pField_k[idx].real()/(T)(kfft)*iiz/kw);
                 }
             }
         }
@@ -533,9 +533,8 @@ public:
         pOff_y = std::make_shared<std::vector<T>>(size3,0);
         pOff_z = std::make_shared<std::vector<T>>(size3,0);
 
-
         //apply ZA:
-        #pragma omp parallel for schedule(static) default(shared) private(iix, iiy, iiz, kfft, idx)
+        #pragma omp parallel for schedule(static) default(shared) private(idx)
         for(size_t ix=0;ix<size;ix++) {
             for(size_t iy=0;iy<size;iy++) {
                 for(size_t iz=0;iz<size;iz++) {
@@ -593,9 +592,9 @@ public:
         y = y%size;
         z = z%size;
 #else
-        if(x>(signed) size) x-=size;
-        if(y>(signed) size) y-=size;
-        if(z>(signed) size) z-=size;
+        if(x>(signed) size-1) x-=size;
+        if(y>(signed) size-1) y-=size;
+        if(z>(signed) size-1) z-=size;
 #endif
         if(x<0) x+=size;
         if(y<0) y+=size;
@@ -652,7 +651,7 @@ public:
     }
 
     void getCoordinates(size_t id, int &x, int &y, int &z) const {
-        // if(id>=size3) throw std::runtime_error("Index out of range");
+        if(id>=size3) throw std::runtime_error("Index out of range");
 
         // The following implementation is a little faster than using the
         // modulo operator.

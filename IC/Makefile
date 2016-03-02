@@ -74,7 +74,7 @@ endif
 ifeq ($(HOST), chewb)
 	CC      = /usr/local/bin/g++
 	FFTW    = -DFFTW_TYPE_PREFIX=1
-    FFTWLIB = -ldfftw -ldrfftw
+    	FFTWLIB = -ldfftw -ldrfftw
 endif
 
 

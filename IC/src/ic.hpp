@@ -656,9 +656,9 @@ protected:
 
         for(size_t i=0;i<particleArray.size();i++) {
             pGrid[level]->getCentroidLocation(particleArray[i],xb,yb,zb);
-            x0+=get_wrapped_delta(xa,xb);
-            y0+=get_wrapped_delta(ya,yb);
-            z0+=get_wrapped_delta(za,zb);
+            x0+=get_wrapped_delta(xb,xa);
+            y0+=get_wrapped_delta(yb,ya);
+            z0+=get_wrapped_delta(zb,za);
         }
         x0/=particleArray.size();
         y0/=particleArray.size();
@@ -666,7 +666,7 @@ protected:
         x0+=xa;
         y0+=ya;
         z0+=za;
-        cerr << "Centre of region is " << x0 << " " << y0 << " " << z0 << endl;
+        cerr << "Centre of region is "<<setprecision(12) << x0 << " " << y0 << " " << z0 << endl;
     }
 
 
