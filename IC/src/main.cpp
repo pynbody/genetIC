@@ -72,7 +72,7 @@ typedef IC<MyFloat> ICf ;
 void setup_parser(ClassDispatch<ICf,void> &dispatch) {
 
     // Define the commands for the paramfile
-
+    dispatch.add_class_route("TCMB",&ICf::setTCMB);
     dispatch.add_class_route("Om",&ICf::setOmegaM0);
     dispatch.add_class_route("Ob",&ICf::setOmegaB0);
     dispatch.add_class_route("Ol",&ICf::setOmegaLambda0);
@@ -98,6 +98,7 @@ void setup_parser(ClassDispatch<ICf,void> &dispatch) {
     dispatch.add_class_route("append_IDfile",&ICf::appendID);
     dispatch.add_class_route("dump_IDfile",&ICf::dumpID);
     dispatch.add_class_route("select_sphere",&ICf::selectSphere);
+    dispatch.add_class_route("select_cube",&ICf::selectCube);
     dispatch.add_class_route("select_nearest",&ICf::selectNearest);
     dispatch.add_class_route("centre_on",&ICf::centreParticle);
     dispatch.add_class_route("centre", &ICf::setCentre);

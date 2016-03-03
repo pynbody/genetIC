@@ -7,7 +7,7 @@
 template<typename MyFloat>
 struct CosmologicalParameters {
     MyFloat OmegaM0, OmegaLambda0, OmegaBaryons0, hubble, redshift;
-    MyFloat scalefactor, sigma8, ns;
+  MyFloat scalefactor, sigma8, ns, TCMB;
 };
 
 template<typename MyFloat>
@@ -81,7 +81,7 @@ public:
 
         MyFloat Tcamb_f = Tcamb.back(), kcamb_f = kcamb.back();
 
-        while(kcamb.back()<300)
+        while(kcamb.back()<1000)
         {
             kcamb.push_back(kcamb.back()+1.0);
             Tcamb.push_back(exp(log(Tcamb_f) + gradient * (log(kcamb.back()/kcamb_f))));
@@ -155,10 +155,10 @@ public:
       MyFloat s=0.,k,t;
 
       MyFloat amp=9./2./M_PI/M_PI;
-      MyFloat kmax=kcamb.back();
+      MyFloat kmax=min(kcamb.back(),200.0/R);
       MyFloat kmin=kcamb[0];
 
-      MyFloat dk=(kmax-kmin)/10000.;
+      MyFloat dk=(kmax-kmin)/50000.;
         for(k=kmin; k<kmax;k+=dk){
 
         t=gsl_spline_eval (spline, k, acc);

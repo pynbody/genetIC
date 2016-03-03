@@ -22,7 +22,7 @@ outdir	 ./
 gadgetformat 4
 
 
-
+dumpps 0
 
 
 done

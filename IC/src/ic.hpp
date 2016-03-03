@@ -97,6 +97,7 @@ public:
         cosmology.hubble =0.701;   // old default
         cosmology.OmegaBaryons0 =-1.0;
         cosmology.ns = 0.96;      // old default
+	cosmology.TCMB = 2.725;
         n[0]=-1;
         n[1]=-1; // no subgrid by default
         boxlen[0]=-1;
@@ -117,6 +118,10 @@ public:
     void setOmegaM0(MyFloat in) {
         cosmology.OmegaM0 =in;
     }
+
+  void setTCMB(MyFloat in) {
+    cosmology.TCMB = in;
+  }
 
     void setOmegaB0(MyFloat in) {
         cosmology.OmegaBaryons0 =in;
@@ -677,7 +682,11 @@ protected:
         cerr << "Loading " << filename << endl;
 
         getBuffer(genericParticleArray, filename);
-
+	size_t size = genericParticleArray.size();
+	std::sort(genericParticleArray.begin(),genericParticleArray.end());
+	genericParticleArray.erase( std::unique( genericParticleArray.begin(), genericParticleArray.end() ), genericParticleArray.end() );
+	if(genericParticleArray.size()<size)
+	  cerr << "  ... erased " << size-genericParticleArray.size() << " duplicate particles" << endl;
         cerr << "  -> total number of particles is " << genericParticleArray.size() << endl;
 
         clearAndDistributeParticleList();
@@ -728,9 +737,8 @@ public:
 
     }
 
-    void selectSphere(float radius) {
-        MyFloat r2 = radius*radius;
-        MyFloat delta_x, delta_y, delta_z, r2_i;
+    void select(std::function<bool(MyFloat,MyFloat,MyFloat)> inclusionFunction) {
+        MyFloat delta_x, delta_y, delta_z;
         MyFloat xp,yp,zp;
 
         genericParticleArray.clear();
@@ -743,16 +751,30 @@ public:
                 delta_x = get_wrapped_delta(xp,x0);
                 delta_y = get_wrapped_delta(yp,y0);
                 delta_z = get_wrapped_delta(zp,z0);
-                r2_i = delta_x*delta_x+delta_y*delta_y+delta_z*delta_z;
-                if(r2_i<r2)
-                  particleArray.push_back(i);
+                if(inclusionFunction(delta_x, delta_y, delta_z))
+                    particleArray.push_back(i);
             }
 
             pGrid[level]->clearParticleList();
             pGrid[level]->distributeParticleList(particleArray);
 
         }
+    }
 
+    void selectSphere(float radius) {
+        MyFloat r2 = radius*radius;
+        select([r2](MyFloat delta_x, MyFloat delta_y, MyFloat delta_z) -> bool {
+            MyFloat r2_i = delta_x*delta_x+delta_y*delta_y+delta_z*delta_z;
+            return r2_i<r2;
+        });
+
+    }
+
+    void selectCube(float side) {
+        MyFloat side_by_2 = side/2;
+        select([side_by_2](MyFloat delta_x, MyFloat delta_y, MyFloat delta_z) -> bool {
+            return abs(delta_x) < side_by_2 && abs(delta_y) < side_by_2 && abs(delta_z) < side_by_2;
+        });
     }
 
 
