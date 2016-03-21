@@ -218,6 +218,7 @@ io_header_3 CreateGadget3Header(MyFloat *masses, long *npart, double Boxlength,
     header3.flag_entropy_instead_u=0; /*!< flags that IC-file contains entropy instead of u */
     header3.flag_doubleprecision=floatinfo<MyFloat>::doubleprecision;
     header3.flag_ic_info=1;
+    header3.lpt_scalingfactor=0.; /*!dummy value since we never use ic_info!=1 */
 
     if (npart[0] > 0) { //options for baryons & special behavior
       header3.flag_sfr=1;
