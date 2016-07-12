@@ -44,25 +44,6 @@ struct io_header_tipsy
 } header_tipsy;
 
 
-template<typename MyFloat> struct io_gadget_dark
-{
-  MyFloat x,y,z,vx,vy,vz;
-};
-
-template<typename MyFloat> struct io_gadget_gas
-{
-  MyFloat x,y,z,vx,vy,vz,erg;
-};
-
-//struct io_gadget_dark
-//{
-//  float x,y,z,vx,vy,vz;
-//};
-
-//struct io_gadget_gas
-//{
-//  float x,y,z,vx,vy,vz,erg;
-//};
 
 struct io_header_2 //header for gadget2
 {
@@ -597,16 +578,12 @@ void SaveGadget(const std::string &name, double Boxlength, shared_ptr<ParticleMa
     if(!fd) throw std::runtime_error("Unable to open file for writing");
 
 
-
-
-    //total particle number:
-    long n=npart[0]+npart[1]+npart[2]+npart[3]+npart[4]+npart[5]; //what happens if this gets too large?
-
+    size_t n=npart[0]+npart[1]+npart[2]+npart[3]+npart[4]+npart[5]; 
+    cerr << "total n = " << n << endl;
     int dummy;
 
     if (gadgetformat==3) {
       io_header_3 header1= CreateGadget3Header(masses, npart, Boxlength, cosmology);
-      cout << "Hello from Gadget3 header!"<< endl;
       //header block
       dummy= sizeof(header1);
       my_fwrite(&dummy, sizeof(dummy), 1, fd);
@@ -615,7 +592,6 @@ void SaveGadget(const std::string &name, double Boxlength, shared_ptr<ParticleMa
     }
     else if (gadgetformat==2) {
       io_header_2 header1= CreateGadget2Header(masses, npart, Boxlength, cosmology);
-      cout << "Hello from Gadget2 header!"<< endl;
       dummy= sizeof(header1);
       my_fwrite(&dummy, sizeof(dummy), 1, fd);
       my_fwrite(&header1, sizeof(header1), 1, fd);
@@ -623,12 +599,11 @@ void SaveGadget(const std::string &name, double Boxlength, shared_ptr<ParticleMa
     }
     else {cerr << "Wrong format for Gadget output!" << endl; exit(1);}
 
-
-    //long counter=0; //for debugging
     float output_cache;
 
-    dummy=sizeof(dp.x)*(long)(n)*3; //this will be 0 or some strange number for n>563; BUT: gagdget does not actually use this value; it gets the number of particles from the header
-    my_fwrite(&dummy, sizeof(dummy), 1, fd); //start of position block
+    dummy=sizeof(output_cache)*(long)(n)*3; 
+    
+    my_fwrite(&dummy, sizeof(dummy), 1, fd);
 
     // DM particles positions
 
