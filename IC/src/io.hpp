@@ -625,47 +625,22 @@ void SaveGadget(const std::string &name, double Boxlength, shared_ptr<ParticleMa
 
 
     //long counter=0; //for debugging
-    io_gadget_dark<MyFloat> dp;
-    io_gadget_gas<MyFloat> gp;
+    float output_cache;
 
-    dummy=sizeof(gp.x)*(long)(n)*3; //this will be 0 or some strange number for n>563; BUT: gagdget does not actually use this value; it gets the number of particles from the header
+    dummy=sizeof(dp.x)*(long)(n)*3; //this will be 0 or some strange number for n>563; BUT: gagdget does not actually use this value; it gets the number of particles from the header
     my_fwrite(&dummy, sizeof(dummy), 1, fd); //start of position block
-    //the following bunch of for loops are a bit redundant but that's the best we can do for now
-    //gas particles positions
-    for(auto i=pMapper->beginGas(); i!=pMapper->endGas(); ++i) {
-        i.getParticle(x,y,z,vx,vy,vz,mass,eps); //what is eps? softening I assume
 
-        // progress("Writing file",iord, totlen);
-        gp.x=x*pos_factor;
-        gp.y=y*pos_factor;
-        gp.z=z*pos_factor;
+    // DM particles positions
 
-        //cout << "gas mass " << mass << endl;
-
-        my_fwrite(&gp.x,sizeof(gp.x),1,fd);
-        my_fwrite(&gp.y,sizeof(gp.y),1,fd);
-        my_fwrite(&gp.z,sizeof(gp.z),1,fd);
-
-        //counter+=1;
-
-    }
-
-    //cout<< "counter after gas: "<< counter << endl;
-
-    //DM particles positions
     for(auto i=pMapper->beginDm(); i!=pMapper->endDm(); ++i) {
         i.getParticle(x,y,z,vx,vy,vz,mass,eps);
 
-        // progress("Writing file",iord, totlen);
-        dp.x=x*pos_factor;
-        dp.y=y*pos_factor;
-        dp.z=z*pos_factor;
-
-        my_fwrite(&dp.x,sizeof(dp.x),1,fd);
-        my_fwrite(&dp.y,sizeof(dp.y),1,fd);
-        my_fwrite(&dp.z,sizeof(dp.z),1,fd);
-
-        //counter+=1;
+        output_cache=x*pos_factor;
+        my_fwrite(&output_cache,sizeof(output_cache),1,fd);
+        output_cache=y*pos_factor;
+        my_fwrite(&output_cache,sizeof(output_cache),1,fd);
+        output_cache=z*pos_factor;
+        my_fwrite(&output_cache,sizeof(output_cache),1,fd);
 
     }
     my_fwrite(&dummy, sizeof(dummy), 1, fd); //end of position block
@@ -674,36 +649,16 @@ void SaveGadget(const std::string &name, double Boxlength, shared_ptr<ParticleMa
 
     //gas particles velocities
     my_fwrite(&dummy, sizeof(dummy), 1, fd); //beginning of velocity block
-    for(auto i=pMapper->beginGas(); i!=pMapper->endGas(); ++i) {
-        i.getParticle(x,y,z,vx,vy,vz,mass,eps); //what is eps? softening I assume
 
-        gp.vx=vx*vel_factor;
-        gp.vy=vy*vel_factor;
-        gp.vz=vz*vel_factor;
-
-        my_fwrite(&gp.vx,sizeof(gp.vx),1,fd);
-        my_fwrite(&gp.vy,sizeof(gp.vy),1,fd);
-        my_fwrite(&gp.vz,sizeof(gp.vz),1,fd);
-
-        //counter+=1;
-
-    }
-
-    //cout<< "counter after gas vel: "<< counter << endl;
-
-    //DM particles velocities
     for(auto i=pMapper->beginDm(); i!=pMapper->endDm(); ++i) {
-        i.getParticle(x,y,z,vx,vy,vz,mass,eps); //what is eps? softening I assume
+        i.getParticle(x,y,z,vx,vy,vz,mass,eps);
 
-        dp.vx=vx*vel_factor;
-        dp.vy=vy*vel_factor;
-        dp.vz=vz*vel_factor;
-
-        my_fwrite(&dp.vx,sizeof(dp.vx),1,fd);
-        my_fwrite(&dp.vy,sizeof(dp.vy),1,fd);
-        my_fwrite(&dp.vz,sizeof(dp.vz),1,fd);
-
-        //counter+=1;
+        output_cache=vx*pos_factor;
+        my_fwrite(&output_cache,sizeof(output_cache),1,fd);
+        output_cache=vy*pos_factor;
+        my_fwrite(&output_cache,sizeof(output_cache),1,fd);
+        output_cache=vz*pos_factor;
+        my_fwrite(&output_cache,sizeof(output_cache),1,fd);
 
     }
     my_fwrite(&dummy, sizeof(dummy), 1, fd); //end of velocity block
