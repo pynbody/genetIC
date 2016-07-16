@@ -8,83 +8,80 @@
 #include <fftw3.h>
 
 #ifdef _OPENMP
+
 #include <omp.h>
+
 #endif
 
 
 void init_fftw_threads() {
-    #ifdef FFTW_THREADS
-        if(fftw_init_threads()==0)
-            throw std::runtime_error("Cannot initialize FFTW threads");
-    #ifndef _OPENMP
-        fftw_plan_with_nthreads(FFTW_THREADS);
-    #else
-        fftw_plan_with_nthreads(omp_get_num_procs());
-    #endif
-    #endif
+#ifdef FFTW_THREADS
+  if (fftw_init_threads() == 0)
+    throw std::runtime_error("Cannot initialize FFTW threads");
+#ifndef _OPENMP
+  fftw_plan_with_nthreads(FFTW_THREADS);
+#else
+  fftw_plan_with_nthreads(omp_get_num_procs());
+#endif
+#endif
 }
 
 template<typename MyFloat>
 void repackForReality(std::complex<MyFloat> *ft_full, std::complex<MyFloat> *ft_reduced, const int nx) {
-    // for testing purposes only!
-    const int nz = nx/2+1;
+  // for testing purposes only!
+  const int nz = nx / 2 + 1;
 
-    for(size_t x=0; x<nx; x++)
-        for(size_t y=0; y<nx; y++)
-            for(size_t z=0; z<nz; z++)
-                ft_reduced[z+nz*y+nz*nx*x] = ft_full[z+nx*y+nx*nx*x];
+  for (size_t x = 0; x < nx; x++)
+    for (size_t y = 0; y < nx; y++)
+      for (size_t z = 0; z < nz; z++)
+        ft_reduced[z + nz * y + nz * nx * x] = ft_full[z + nx * y + nx * nx * x];
 
 }
 
 template<typename MyFloat>
 void repackForReality(std::complex<MyFloat> *ft, const int nx) {
-    repackForReality(ft,ft,nx);
+  repackForReality(ft, ft, nx);
 }
 
 template<typename MyFloat>
 void fft(std::complex<MyFloat> *fto, std::complex<MyFloat> *ftin,
-                             const unsigned int res, const  int dir)
-{
-    throw std::runtime_error("Sorry, the fourier transform has not been implemented for your specified precision");
-    // you'll need to implement an alternative specialisation like the one below for the correct calls
-    // see http://www.fftw.org/doc/Precision.html#Precision
+         const unsigned int res, const int dir) {
+  throw std::runtime_error("Sorry, the fourier transform has not been implemented for your specified precision");
+  // you'll need to implement an alternative specialisation like the one below for the correct calls
+  // see http://www.fftw.org/doc/Precision.html#Precision
 }
 
 template<typename MyFloat>
 void fft_real(MyFloat *fto, std::complex<MyFloat> *ftin,
-                             const unsigned int res, const  int dir)
-{
-    throw std::runtime_error("Sorry, the fourier transform has not been implemented for your specified precision");
-    // you'll need to implement an alternative specialisation like the one below for the correct calls
-    // see http://www.fftw.org/doc/Precision.html#Precision
+              const unsigned int res, const int dir) {
+  throw std::runtime_error("Sorry, the fourier transform has not been implemented for your specified precision");
+  // you'll need to implement an alternative specialisation like the one below for the correct calls
+  // see http://www.fftw.org/doc/Precision.html#Precision
 }
 
 template<>
 void fft<double>(std::complex<double> *fto, std::complex<double> *ftin,
-                             const unsigned int res, const  int dir)
-{
+                 const unsigned int res, const int dir) {
 
   init_fftw_threads();
 
   fftw_plan plan;
   size_t i;
   double norm = pow(static_cast<double>(res), 1.5);
-  size_t len = static_cast<size_t>(res*res);
-  len*=res;
+  size_t len = static_cast<size_t>(res * res);
+  len *= res;
 
-  if(dir==1)
-    plan = fftw_plan_dft_3d(res,res,res,
-                            reinterpret_cast<fftw_complex*>(&ftin[0]),
-                            reinterpret_cast<fftw_complex*>(&fto[0]),
+  if (dir == 1)
+    plan = fftw_plan_dft_3d(res, res, res,
+                            reinterpret_cast<fftw_complex *>(&ftin[0]),
+                            reinterpret_cast<fftw_complex *>(&fto[0]),
                             FFTW_FORWARD, FFTW_ESTIMATE);
 
-  else if(dir==-1)
-    plan = fftw_plan_dft_3d(res,res,res,
-                            reinterpret_cast<fftw_complex*>(&ftin[0]),
-                            reinterpret_cast<fftw_complex*>(&fto[0]),
+  else if (dir == -1)
+    plan = fftw_plan_dft_3d(res, res, res,
+                            reinterpret_cast<fftw_complex *>(&ftin[0]),
+                            reinterpret_cast<fftw_complex *>(&fto[0]),
                             FFTW_BACKWARD, FFTW_ESTIMATE);
-
-
 
 
   else throw std::runtime_error("Incorrect direction parameter to fft");
@@ -92,34 +89,33 @@ void fft<double>(std::complex<double> *fto, std::complex<double> *ftin,
   fftw_execute(plan);
   fftw_destroy_plan(plan);
 
-  #pragma omp parallel for schedule(static) private(i)
-  for(i=0;i<len;i++)
-      fto[i]/=norm;
+#pragma omp parallel for schedule(static) private(i)
+  for (i = 0; i < len; i++)
+    fto[i] /= norm;
 
 
 }
 
 template<>
 void fft_real<double>(double *fto, std::complex<double> *ftin,
-                             const unsigned int res, const  int dir)
-{
+                      const unsigned int res, const int dir) {
 
   init_fftw_threads();
 
   fftw_plan plan;
   size_t i;
   double norm = pow(static_cast<double>(res), 1.5);
-  size_t len = static_cast<size_t>(res*res);
-  len*=res;
+  size_t len = static_cast<size_t>(res * res);
+  len *= res;
 
-  if(dir==-1)
-    plan = fftw_plan_dft_c2r_3d(res,res,res,
-                                reinterpret_cast<fftw_complex*>(&ftin[0]),
-                                reinterpret_cast<double*>(&fto[0]),
+  if (dir == -1)
+    plan = fftw_plan_dft_c2r_3d(res, res, res,
+                                reinterpret_cast<fftw_complex *>(&ftin[0]),
+                                reinterpret_cast<double *>(&fto[0]),
                                 FFTW_BACKWARD | FFTW_ESTIMATE);
 
 
-  else if(dir==-1)
+  else if (dir == -1)
     throw std::runtime_error("Not implemented");
 
 
@@ -128,13 +124,12 @@ void fft_real<double>(double *fto, std::complex<double> *ftin,
   fftw_execute(plan);
   fftw_destroy_plan(plan);
 
-  #pragma omp parallel for schedule(static) private(i)
-  for(i=0;i<len;i++)
-      fto[i]/=norm;
+#pragma omp parallel for schedule(static) private(i)
+  for (i = 0; i < len; i++)
+    fto[i] /= norm;
 
 
 }
-
 
 
 #else
@@ -145,12 +140,12 @@ void fft_real<double>(double *fto, std::complex<double> *ftin,
 
 #ifndef DOUBLEPRECISION     /* default is single-precision */
 
-    #include <srfftw.h>
+#include <srfftw.h>
 
-    #ifdef HAVE_HDF5
+#ifdef HAVE_HDF5
         hid_t hdf_float = H5Tcopy (H5T_NATIVE_FLOAT);
         hid_t hdf_double = H5Tcopy (H5T_NATIVE_FLOAT);
-    #endif
+#endif
     //#else
     //#if (DOUBLEPRECISION == 2)   /* mixed precision, do we want to implement this at all? */
     //typedef float   MyFloat;
@@ -158,11 +153,11 @@ void fft_real<double>(double *fto, std::complex<double> *ftin,
     //hid_t hdf_float = H5Tcopy (H5T_NATIVE_FLOAT);
     //hid_t hdf_double = H5Tcopy (H5T_NATIVE_DOUBLE);
 #else                        /* everything double-precision */
-    #ifdef FFTW_TYPE_PREFIX
-    #include <drfftw.h>
-    #else
-    #include <rfftw.h>
-    #endif
+#ifdef FFTW_TYPE_PREFIX
+#include <drfftw.h>
+#else
+#include <rfftw.h>
+#endif
 #endif
 
 
@@ -209,7 +204,7 @@ unsigned int integerCubeRoot(unsigned long x) {
   y = 0;
   for (s = 63; s >= 0; s -= 3) {
     y += y;
-    b = 3*y*((unsigned long) y + 1) + 1;
+    b = 3 * y * ((unsigned long) y + 1) + 1;
     if ((x >> s) >= b) {
       x -= b << s;
       y++;
@@ -220,10 +215,10 @@ unsigned int integerCubeRoot(unsigned long x) {
 
 template<typename T>
 void fft(std::vector<T> &fto, std::vector<T> &ftin, const int dir) {
-    assert(fto.size()==ftin.size());
-    size_t res = integerCubeRoot(fto.size());
-    assert(res*res*res==fto.size());
-    fft(fto.data(),ftin.data(), res, dir);
+  assert(fto.size() == ftin.size());
+  size_t res = integerCubeRoot(fto.size());
+  assert(res * res * res == fto.size());
+  fft(fto.data(), ftin.data(), res, dir);
 }
 
 #endif // FFTH_INCLUDED

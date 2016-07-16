@@ -9,12 +9,12 @@
 
 class ChangeCwdWhileInScope {
 protected:
-    std::string old;
+  std::string old;
 
 public:
-    ChangeCwdWhileInScope(std::string newFolder);
+  ChangeCwdWhileInScope(std::string newFolder);
 
-    ~ChangeCwdWhileInScope();
+  ~ChangeCwdWhileInScope();
 };
 
 std::string getDirectoryName(std::string full);

@@ -3,7 +3,7 @@
 
 // Argsort function from http://stackoverflow.com/questions/1577475/c-sorting-and-keeping-track-of-indexes
 
-template <typename T>
+template<typename T>
 vector<size_t> argsort(const vector<T> &v) {
 
   // initialize original index locations
@@ -12,8 +12,9 @@ vector<size_t> argsort(const vector<T> &v) {
 
   // sort indexes based on comparing values in v
   std::sort(idx.begin(), idx.end(),
-       [&v](size_t i1, size_t i2) {return v[i1] < v[i2];});
+            [&v](size_t i1, size_t i2) { return v[i1] < v[i2]; });
 
   return idx;
 }
+
 #endif

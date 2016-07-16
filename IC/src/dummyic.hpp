@@ -4,7 +4,7 @@
 #include "ic.hpp"
 
 template<typename MyFloat>
-class DummyIC  : public IC<MyFloat> {
+class DummyIC : public IC<MyFloat> {
 protected:
   IC<MyFloat> *pUnderlying;
 public:
@@ -14,27 +14,28 @@ public:
 
   void initGrid(unsigned int level) override {
 
-      if(this->n[level]<0 || this->boxlen[level]<0)
-          return;
+    if (this->n[level] < 0 || this->boxlen[level] < 0)
+      return;
 
-      this->nPartLevel[level] = ((long)this->n[level]*this->n[level])*this->n[level];
-      this->dx[level] = this->boxlen[level]/this->n[level];
+    this->nPartLevel[level] = ((long) this->n[level] * this->n[level]) * this->n[level];
+    this->dx[level] = this->boxlen[level] / this->n[level];
 
-      if(this->pGrid.size()!=level)
-          throw std::runtime_error("Trying to re-initialize a grid level");
+    if (this->pGrid.size() != level)
+      throw std::runtime_error("Trying to re-initialize a grid level");
 
-      if(pUnderlying->n[level]!=this->n[level])
-        throw std::runtime_error("Trying to match particles between incompatible simulation setups (wrong grid n)");
+    if (pUnderlying->n[level] != this->n[level])
+      throw std::runtime_error("Trying to match particles between incompatible simulation setups (wrong grid n)");
 
-      if(pUnderlying->dx[level]!=this->dx[level])
-        throw std::runtime_error("Trying to match particles between incompatible simulation setups (wrong grid dx)");
+    if (pUnderlying->dx[level] != this->dx[level])
+      throw std::runtime_error("Trying to match particles between incompatible simulation setups (wrong grid dx)");
 
-      if(pUnderlying->x_off[level]!=this->x_off[level] || pUnderlying->y_off[level]!=this->y_off[level] || pUnderlying->z_off[level]!=this->z_off[level])
-        throw std::runtime_error("Trying to match particles between incompatible simulation setups (wrong grid origin)");
+    if (pUnderlying->x_off[level] != this->x_off[level] || pUnderlying->y_off[level] != this->y_off[level] ||
+        pUnderlying->z_off[level] != this->z_off[level])
+      throw std::runtime_error("Trying to match particles between incompatible simulation setups (wrong grid origin)");
 
-      this->pGrid.push_back(this->pUnderlying->pGrid[level]);
+    this->pGrid.push_back(this->pUnderlying->pGrid[level]);
 
-      this->updateParticleMapper();
+    this->updateParticleMapper();
 
   }
 
