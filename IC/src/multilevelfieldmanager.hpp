@@ -7,6 +7,7 @@
 #include <vector>
 #include <cassert>
 #include <vector>
+#include <memory>
 
 //#include <Eigen/Dense>
 
@@ -207,7 +208,7 @@ public:
 
 #pragma omp parallel for
     for (size_t i = 0; i < grid.size3; i++) {
-      T k = grid.getAbsK(i);
+      T k = grid.getFourierCellAbsK(i);
       if (enforceExactPowerSpectrum) {
         T existing_norm = abs(field[i]);
         field[i] *= sqrt(spectrum[i] * filter(k)) * white_noise_norm / existing_norm;
@@ -366,7 +367,7 @@ public:
       pFilt = &pFilters->getFilterForDensityOnLevel(comp);
     };
     auto getCellContribution = [&weight, &v1, &v2, &pFilt, this](size_t component, size_t i, size_t cumu_i) {
-      T k = std::sqrt(pGrid[component]->getKSquared(i));
+      T k = std::sqrt(pGrid[component]->getFourierCellKSquared(i));
       return conj(v1[cumu_i]) * cov(v2, component, i) * weight / (*pFilt)(k);
     };
 

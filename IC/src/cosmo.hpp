@@ -124,7 +124,7 @@ public:
     std::vector<MyFloat> P(grid.size3);
 
     for (size_t i = 0; i < grid.size3; ++i) {
-      MyFloat k = grid.getAbsK(i);
+      MyFloat k = grid.getFourierCellAbsK(i);
       MyFloat linearTransfer;
       if (k != 0)
         linearTransfer = gsl_spline_eval(spline, k, acc);

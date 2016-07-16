@@ -24,7 +24,7 @@ protected:
   void cen_deriv4_alpha(long index, int direc, MyFloat x0, MyFloat y0, MyFloat z0) {   //4th order central difference
 
     MyFloat xp = 0., yp = 0., zp = 0.;
-    grid.getCentroidLocation(index, xp, yp, zp);
+    std::tie(xp,yp,zp) = grid.getCellCentroid(index);
 
     xp = grid.getWrappedDelta(xp, x0);
     yp = grid.getWrappedDelta(yp, y0);
@@ -70,10 +70,10 @@ protected:
       //ind_m2=grid.findNextIndNoWrap(ind_m1, neg_step1);
       //ind_p2=grid.findNextIndNoWrap(ind_p1, step1);
 
-      ind_m1 = grid.findNextInd(index, neg_step1);
-      ind_p1 = grid.findNextInd(index, step1);
-      ind_m2 = grid.findNextInd(ind_m1, neg_step1);
-      ind_p2 = grid.findNextInd(ind_p1, step1);
+      ind_m1 = grid.getIndexFromIndexAndStep(index, neg_step1);
+      ind_p1 = grid.getIndexFromIndexAndStep(index, step1);
+      ind_m2 = grid.getIndexFromIndexAndStep(ind_m1, neg_step1);
+      ind_p2 = grid.getIndexFromIndexAndStep(ind_p1, step1);
 
       MyFloat a = -1. / 12. / grid.dx, b = 2. / 3. / grid.dx;  //the signs here so that L ~ - Nabla Phi
 
@@ -101,10 +101,10 @@ public:
     std::vector<size_t> particleArray;
     grid.gatherParticleList(particleArray);
 
-    grid.getCentroidLocation(particleArray[0], xa, ya, za);
+    std::tie(xa,ya,za) = grid.getCellCentroid(particleArray[0]);
 
     for (size_t i = 0; i < particleArray.size(); i++) {
-      grid.getCentroidLocation(particleArray[i], xb, yb, zb);
+      std::tie(xb,yb,zb) = grid.getCellCentroid(particleArray[i]);
 
       x0 += grid.getWrappedDelta(xb, xa);
       y0 += grid.getWrappedDelta(yb, ya);

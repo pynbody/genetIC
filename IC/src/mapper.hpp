@@ -500,7 +500,7 @@ private:
     // Finds all the particles at level2 corresponding to the single
     // particle at level1
     T x0, y0, z0;
-    pGrid1->getCentroidLocation(id0, x0, y0, z0);
+    std::tie(x0, y0, z0) = pGrid1->getCellCentroid(id0);
     pGrid2->appendIdsInCubeToVector(x0, y0, z0, pGrid1->dx, ids);
   }
 
@@ -511,9 +511,8 @@ private:
   }
 
   size_t reverseMapId(size_t id2) const {
-    T x0, y0, z0;
-    pGrid2->getCentroidLocation(id2, x0, y0, z0);
-    return pGrid1->getClosestIdNoWrap(x0, y0, z0);
+    auto coord = pGrid2->getCellCentroid(id2);
+    return pGrid1->getClosestIdNoWrap(coord);
   }
 
 

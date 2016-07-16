@@ -4,8 +4,12 @@
 #include <cassert>
 #include <set>
 #include <type_traits>
+#include <memory>
+#include <vector>
+#include <complex>
 #include "fft.hpp"
 #include "filter.hpp"
+#include "coordinate.hpp"
 
 using namespace std;
 
@@ -63,24 +67,17 @@ protected:
 
     assert(target->size >= source->size);
     assert((target->size) % (source->size) == 0);
-    size_t factor = target->size / source->size;
+    int factor = int(target->size / source->size);
     targetArray.clear();
 
     for (auto id: sourceArray) {
-      source->getCoordinates(id, x0, y0, z0);
-      x0 *= factor;
-      y0 *= factor;
-      z0 *= factor;
-      x1 = x0 + factor;
-      y1 = y0 + factor;
-      z1 = z0 + factor;
-      for (x = x0; x < x1; ++x) {
-        for (y = y0; y < y1; ++y) {
-          for (z = z0; z < z1; ++z) {
-            targetArray.push_back(target->getIndexNoWrap(x, y, z));
-          }
+      auto coord = source->getCellCoordinate(id);
+      iterateOverCube<int>(
+        coord * factor, coord * factor + factor,
+        [&targetArray, &target](const Coordinate<int> & subCoord) {
+          targetArray.push_back(target->getCellIndexNoWrap(subCoord));
         }
-      }
+      );
     }
   }
 
@@ -98,8 +95,8 @@ protected:
     size_t factor = source->size / target->size;
 
     for (auto id: sourceArray) {
-      source->getCoordinates(id, x, y, z);
-      targetSet.insert(target->getIndexNoWrap(x / factor, y / factor, z / factor));
+      auto coord = source->getCellCoordinate(id);
+      targetSet.insert(target->getCellIndexNoWrap(coord / factor));
     }
     targetArray.clear();
     targetArray.insert(targetArray.end(), targetSet.begin(), targetSet.end());
@@ -110,15 +107,24 @@ protected:
     kMinSquared = kMin * kMin;
   }
 
+  static int getRatioAndAssertInteger(T p, T q) {
+    const T tolerance = 1e-6;
+    T ratio = p / q;
+    int rounded_ratio = int(round(ratio));
+    assert(abs(T(rounded_ratio) - ratio) < tolerance);
+    return rounded_ratio;
+  }
+
 public:
 
-  const T simsize, boxsize, dx, x0, y0, z0;
+  const T simsize, boxsize, dx;
+  const Coordinate<T> offsetLower;
   const size_t size, size2, size3;
 
 
   Grid(T simsize, size_t n, T dx = 1.0, T x0 = 0.0, T y0 = 0.0, T z0 = 0.0, bool withField = true) :
     simsize(simsize), boxsize(dx * n),
-    dx(dx), x0(x0), y0(y0), z0(z0),
+    dx(dx), offsetLower(x0, y0, z0),
     size(n), size2(n * n), size3(n * n * n) {
     // cerr << "Grid ctor " << this <<  endl;
     if (withField) {
@@ -130,7 +136,8 @@ public:
 
 
   Grid(size_t n) : simsize(0), boxsize(n),
-                   dx(1.0), x0(0), y0(0), z0(0), size(n), size2(n * n), size3(n * n * n) {
+                   dx(1.0), offsetLower(0, 0, 0),
+                   size(n), size2(n * n), size3(n * n * n) {
     // cerr << "Grid ctor size-only" << endl;
     pField = nullptr;
     setKmin();
@@ -151,13 +158,6 @@ public:
     return result;
   }
 
-  static int getRatioAndAssertInteger(T p, T q) {
-    const T tolerance = 1e-6;
-    T ratio = p / q;
-    int rounded_ratio = int(round(ratio));
-    assert(abs(T(rounded_ratio) - ratio) < tolerance);
-    return rounded_ratio;
-  }
 
   GridPtrType makeProxyGridToMatch(const Grid<T> &target) const {
     GridPtrType proxy = std::const_pointer_cast<Grid<T>>(this->shared_from_this());
@@ -169,11 +169,14 @@ public:
       proxy = std::make_shared<SuperSampleGrid<T>>(proxy, ratio);
     }
 
-    if (target.x0 != x0 || target.y0 != y0 || target.z0 != z0 || target.size != proxy->size) {
+    if (target.offsetLower != offsetLower || target.size != proxy->size) {
       proxy = std::make_shared<SectionOfGrid<T>>(proxy,
-                                                 getRatioAndAssertInteger(target.x0 - x0, proxy->dx),
-                                                 getRatioAndAssertInteger(target.y0 - y0, proxy->dx),
-                                                 getRatioAndAssertInteger(target.z0 - z0, proxy->dx),
+                                                 getRatioAndAssertInteger(target.offsetLower.x - offsetLower.x,
+                                                                          proxy->dx),
+                                                 getRatioAndAssertInteger(target.offsetLower.y - offsetLower.y,
+                                                                          proxy->dx),
+                                                 getRatioAndAssertInteger(target.offsetLower.z - offsetLower.z,
+                                                                          proxy->dx),
                                                  target.size);
     }
 
@@ -195,7 +198,7 @@ public:
 
 #pragma omp parallel for schedule(static)
     for (size_t ind_l = 0; ind_l < size3; ind_l++) {
-      if (pSourceProxyGrid->isInDomain(ind_l))
+      if (pSourceProxyGrid->containsCell(ind_l))
         pField_x_dest[ind_l] += pSourceProxyGrid->getFieldAt(ind_l, pField_x_src);
 
     }
@@ -293,7 +296,7 @@ public:
 
 #pragma omp parallel for
     for (size_t i = 0; i < size3; ++i) {
-      fieldFourier[i] *= filter(getAbsK(i));
+      fieldFourier[i] *= filter(getFourierCellAbsK(i));
     }
   }
 
@@ -306,13 +309,13 @@ public:
     return field.size() == size3;
   }
 
-  virtual bool isInDomain(size_t i) {
-    return i < size3;
+  virtual bool containsCell(const Coordinate<T> &coord) const {
+    return coord.x >= 0 && coord.y >= 0 && coord.z >= 0 &&
+           coord.x < size && coord.y < size && coord.z < size;
   }
 
-  virtual bool isInDomain(int x, int y, int z) {
-    const int intsize = int(size);
-    return x >= 0 && y >= 0 && z >= 0 && x < intsize && y < intsize && z < intsize;
+  virtual bool containsCell(size_t i) const {
+    return i<size3;
   }
 
   virtual complex<T> getFieldAt(size_t i, const TField &field) {
@@ -346,8 +349,12 @@ public:
   }
 
   virtual void getParticleNoWrap(size_t id, T &x, T &y, T &z, T &vx, T &vy, T &vz, T &cellMassi, T &eps) const {
+    T x0, y0, z0;
     getParticleNoOffset(id, x, y, z, vx, vy, vz, cellMassi, eps);
-    addCentroidLocation(id, x, y, z);
+    std::tie(x0, y0, z0) = getCellCentroid(id);
+    x += x0;
+    y += y0;
+    z += z0;
   }
 
   virtual T getMass() const {
@@ -393,14 +400,19 @@ public:
 
 
   template<typename TField>
+  typename TField::value_type getFieldInterpolated(const Coordinate<T> &location, const TField &pField) const {
+    return getFieldInterpolated(location.x, location.y, location.z, pField);
+  }
+
+  template<typename TField>
   typename TField::value_type getFieldInterpolated(const T &x, const T &y, const T &z, const TField &pField) const {
     int x_p_0, y_p_0, z_p_0, x_p_1, y_p_1, z_p_1;
 
     // grid coordinates of parent cell starting to bottom-left
     // of our current point
-    x_p_0 = (int) floor(((x - x0) / dx - 0.5));
-    y_p_0 = (int) floor(((y - y0) / dx - 0.5));
-    z_p_0 = (int) floor(((z - z0) / dx - 0.5));
+    x_p_0 = (int) floor(((x - offsetLower.x) / dx - 0.5));
+    y_p_0 = (int) floor(((y - offsetLower.y) / dx - 0.5));
+    z_p_0 = (int) floor(((z - offsetLower.z) / dx - 0.5));
 
     // grid coordinates of top-right
     x_p_1 = x_p_0 + 1;
@@ -411,9 +423,9 @@ public:
     // upper-right cell, in grid units (-> maximum 1)
 
     T xw0, yw0, zw0, xw1, yw1, zw1;
-    xw0 = ((T) x_p_1 + 0.5) - ((x - x0) / dx);
-    yw0 = ((T) y_p_1 + 0.5) - ((y - y0) / dx);
-    zw0 = ((T) z_p_1 + 0.5) - ((z - z0) / dx);
+    xw0 = ((T) x_p_1 + 0.5) - ((x - offsetLower.x) / dx);
+    yw0 = ((T) y_p_1 + 0.5) - ((y - offsetLower.y) / dx);
+    zw0 = ((T) z_p_1 + 0.5) - ((z - offsetLower.z) / dx);
 
     xw1 = 1. - xw0;
     yw1 = 1. - yw0;
@@ -442,14 +454,14 @@ public:
     if (z_p_0 == -1) z_p_0 = 0;
 
 
-    return xw0 * yw0 * zw1 * pField[getIndexNoWrap(x_p_0, y_p_0, z_p_1)] +
-           xw1 * yw0 * zw1 * pField[getIndexNoWrap(x_p_1, y_p_0, z_p_1)] +
-           xw0 * yw1 * zw1 * pField[getIndexNoWrap(x_p_0, y_p_1, z_p_1)] +
-           xw1 * yw1 * zw1 * pField[getIndexNoWrap(x_p_1, y_p_1, z_p_1)] +
-           xw0 * yw0 * zw0 * pField[getIndexNoWrap(x_p_0, y_p_0, z_p_0)] +
-           xw1 * yw0 * zw0 * pField[getIndexNoWrap(x_p_1, y_p_0, z_p_0)] +
-           xw0 * yw1 * zw0 * pField[getIndexNoWrap(x_p_0, y_p_1, z_p_0)] +
-           xw1 * yw1 * zw0 * pField[getIndexNoWrap(x_p_1, y_p_1, z_p_0)];
+    return xw0 * yw0 * zw1 * pField[getCellIndexNoWrap(x_p_0, y_p_0, z_p_1)] +
+           xw1 * yw0 * zw1 * pField[getCellIndexNoWrap(x_p_1, y_p_0, z_p_1)] +
+           xw0 * yw1 * zw1 * pField[getCellIndexNoWrap(x_p_0, y_p_1, z_p_1)] +
+           xw1 * yw1 * zw1 * pField[getCellIndexNoWrap(x_p_1, y_p_1, z_p_1)] +
+           xw0 * yw0 * zw0 * pField[getCellIndexNoWrap(x_p_0, y_p_0, z_p_0)] +
+           xw1 * yw0 * zw0 * pField[getCellIndexNoWrap(x_p_1, y_p_0, z_p_0)] +
+           xw0 * yw1 * zw0 * pField[getCellIndexNoWrap(x_p_0, y_p_1, z_p_0)] +
+           xw1 * yw1 * zw0 * pField[getCellIndexNoWrap(x_p_1, y_p_1, z_p_0)];
   }
 
 
@@ -542,43 +554,10 @@ public:
   //  Index manipulation routines
   ///////////////////////////////////////
 
-  size_t findNextInd(size_t index, const int step[3]) const {
-    int grid[3];
-    std::tie(grid[0], grid[1], grid[2]) = getCoordinates(index);
-
-    grid[0] += step[0];
-    grid[1] += step[1];
-    grid[2] += step[2];
-
-    return this->getIndex(grid); // N.B. does wrapping inside getIndex
-  }
-
-  size_t findNextIndNoWrap(size_t index, const int step[3]) const {
-
-    int grid[3];
-    std::tie(grid[0], grid[1], grid[2]) = getCoordinates(index);
-
-    grid[0] += step[0];
-    grid[1] += step[1];
-    grid[2] += step[2];
-
-
-    return this->getIndexNoWrap(grid);
-  }
-
-  void wrap(int &x, int &y, int &z) const {
-#ifdef SAFER_SLOWER
-    x = x%size;
-    y = y%size;
-    z = z%size;
-#else
-    if (x > (signed) size - 1) x -= size;
-    if (y > (signed) size - 1) y -= size;
-    if (z > (signed) size - 1) z -= size;
-#endif
-    if (x < 0) x += size;
-    if (y < 0) y += size;
-    if (z < 0) z += size;
+  size_t getIndexFromIndexAndStep(size_t index, const Coordinate<int> &step) const {
+    auto coord = getCellCoordinate(index);
+    coord += step;
+    return this->getCellIndex(coord); // N.B. does wrapping inside getIndex
   }
 
   void simWrap(T &x, T &y, T &z) const {
@@ -590,26 +569,28 @@ public:
     if (z < 0) z += simsize;
   }
 
-  void wrap(int pos[3]) const {
-    wrap(pos[0], pos[1], pos[2]);
+  void cellWrap(Coordinate<int> &index) const {
+#ifdef SAFER_SLOWER
+    index.x = index.x%size;
+    index.y = index.y%size;
+    index.z = index.z%size;
+#else
+    if (index.x > (signed) size - 1) index.x -= size;
+    if (index.y > (signed) size - 1) index.y -= size;
+    if (index.z > (signed) size - 1) index.z -= size;
+#endif
+    if (index.x < 0) index.x += size;
+    if (index.y < 0) index.y += size;
+    if (index.z < 0) index.z += size;
   }
 
 
-  size_t getIndex(int x, int y, int z) const {
-
-    size_t size = this->size;
-
-    wrap(x, y, z);
-
-    size_t index = (x * size + y);
-    index *= size;
-    index += z;
-
-    return index;
-
+  size_t getCellIndex(Coordinate<int> coord) const {
+    cellWrap(coord);
+    return getCellIndexNoWrap(coord);
   }
 
-  size_t getIndexNoWrap(int x, int y, int z) const {
+  size_t getCellIndexNoWrap(int x, int y, int z) const {
 
 #ifdef SAFER_SLOWER
     if(x<0 || x>=size || y<0 || y>=size || z<0 || z>=size)
@@ -618,15 +599,14 @@ public:
     return size_t(x * size + y) * size + z;
   }
 
-  size_t getIndex(const int pos[3]) const {
-    return getIndex(pos[0], pos[1], pos[2]);
+  size_t getCellIndexNoWrap(const Coordinate<int> &coordinate) const {
+    return getCellIndexNoWrap(coordinate.x, coordinate.y, coordinate.z);
   }
 
-  size_t getIndexNoWrap(const int pos[3]) const {
-    return getIndexNoWrap(pos[0], pos[1], pos[2]);
-  }
 
-  void getCoordinates(size_t id, int &x, int &y, int &z) const {
+  Coordinate<int> getCellCoordinate(size_t id) const {
+    int x, y, z;
+
     if (id >= size3) throw std::runtime_error("Index out of range");
 
     // The following implementation is a little faster than using the
@@ -637,104 +617,70 @@ public:
     id -= size_t(y) * size;
     z = int(id);
 
-
+    return Coordinate<int>(x, y, z);
   }
 
-  tuple<int, int, int> getCoordinates(size_t id) const {
-    int x, y, z;
+  Coordinate<int> getFourierCellCoordinate(size_t id) const {
 
-    getCoordinates(id, x, y, z);
+    auto coord = getCellCoordinate(id);
+    if (coord.x > (signed) size / 2) coord.x -= size;
+    if (coord.y > (signed) size / 2) coord.y -= size;
+    if (coord.z > (signed) size / 2) coord.z -= size;
 
-    return std::make_tuple(x, y, z);
+    return coord;
   }
 
-  void getKCoordinates(size_t id, int &x, int &y, int &z) const {
-    getCoordinates(id, x, y, z);
-    if (x > (signed) size / 2) x = x - size;
-    if (y > (signed) size / 2) y = y - size;
-    if (z > (signed) size / 2) z = z - size;
-  }
-
-  tuple<int, int, int> getKCoordinates(size_t id) const {
-    int x, y, z;
-
-    getKCoordinates(id, x, y, z);
-
-    return std::make_tuple(x, y, z);
-  }
-
-  T getKSquared(size_t id) const {
-    int x, y, z;
+  T getFourierCellKSquared(size_t id) const {
     T res;
-    getKCoordinates(id, x, y, z);
-    res = x * x + y * y + z * z;
+    auto coords = getFourierCellCoordinate(id);
+    res = coords.x * coords.x + coords.y * coords.y + coords.z * coords.z;
     res *= kMinSquared;
     return res;
   }
 
-  T getAbsK(size_t id) const {
-    return sqrt(getKSquared(id));
+  T getFourierCellAbsK(size_t id) const {
+    return sqrt(getFourierCellKSquared(id));
   }
 
 
-  void getCentroidLocation(size_t id, T &xc, T &yc, T &zc) const {
-    int x, y, z;
-    getCoordinates(id, x, y, z);
-    xc = x0 + x * dx + dx / 2;
-    yc = y0 + y * dx + dx / 2;
-    zc = z0 + z * dx + dx / 2;
-
+  Coordinate<T> getCellCentroid(size_t id) const {
+    Coordinate<T> coord = getCellCoordinate(id);
+    coord *= dx;
+    coord += offsetLower;
+    coord += dx / 2;
+    return coord;
   }
 
-  void addCentroidLocation(size_t id, T &xc, T &yc, T &zc) const {
-    int x, y, z;
-    getCoordinates(id, x, y, z);
-    xc += x0 + x * dx + dx / 2;
-    yc += y0 + y * dx + dx / 2;
-    zc += z0 + z * dx + dx / 2;
-
+  size_t getClosestIdNoWrap(Coordinate<T> coord) {
+    auto coords = floor((coord - offsetLower - dx / 2) / dx);
+    return getCellIndexNoWrap(coords);
   }
-
-  tuple<T, T, T> getCentroidLocation(size_t id) const {
-    T xc, yc, zc;
-    getCentroidLocation(id, xc, yc, zc);
-    return std::make_tuple(xc, yc, zc);
-  }
-
-  size_t getClosestIdNoWrap(T x0c, T y0c, T z0c) {
-    int xa = ((int) floor((x0c - x0 - dx / 2) / dx));
-    int ya = ((int) floor((y0c - y0 - dx / 2) / dx));
-    int za = ((int) floor((z0c - z0 - dx / 2) / dx));
-    return getIndexNoWrap(xa, ya, za);
-
-  }
+  /*
+  int xa=((int) floor((x0c-x0-dx/2)/dx));
+  int ya=((int) floor((y0c-y0-dx/2)/dx));
+  int za=((int) floor((z0c-z0-dx/2)/dx));
+  return getIndexNoWrap(xa,ya,za);
+  */
 
   void appendIdsInCubeToVector(T x0c, T y0c, T z0c, T dxc, vector<size_t> &ids) {
     // return all the grid IDs whose centres lie within the specified cube
 
     // TODO: optimization, set the storage size of ids here.
 
-    int xa = ((int) floor((x0c - x0 - dxc / 2 + dx / 2) / dx));
-    int ya = ((int) floor((y0c - y0 - dxc / 2 + dx / 2) / dx));
-    int za = ((int) floor((z0c - z0 - dxc / 2 + dx / 2) / dx));
+    int xa = ((int) floor((x0c - offsetLower.x - dxc / 2 + dx / 2) / dx));
+    int ya = ((int) floor((y0c - offsetLower.y - dxc / 2 + dx / 2) / dx));
+    int za = ((int) floor((z0c - offsetLower.z - dxc / 2 + dx / 2) / dx));
 
-    int xb = ((int) floor((x0c - x0 + dxc / 2 - dx / 2) / dx));
-    int yb = ((int) floor((y0c - y0 + dxc / 2 - dx / 2) / dx));
-    int zb = ((int) floor((z0c - z0 + dxc / 2 - dx / 2) / dx));
+    int xb = ((int) floor((x0c - offsetLower.x + dxc / 2 - dx / 2) / dx));
+    int yb = ((int) floor((y0c - offsetLower.y + dxc / 2 - dx / 2) / dx));
+    int zb = ((int) floor((z0c - offsetLower.z + dxc / 2 - dx / 2) / dx));
 
-    for (int x = xa; x <= xb; x++) {
-      for (int y = ya; y <= yb; y++) {
-        for (int z = za; z <= zb; z++) {
-          ids.emplace_back(getIndex(x, y, z));
-        }
-      }
-    }
-  }
+    iterateOverCube<int>(Coordinate<int>(xa, ya, za),
+                    Coordinate<int>(xb, yb, zb)+1,
+                    [&ids, this](const Coordinate<int> &cellCoord) {
+                      ids.emplace_back(getCellIndex(cellCoord));
+                    });
 
-  vector<size_t> getIdsInCube(T x0c, T y0c, T z0c, T dxc) {
-    vector<size_t> ids;
-    appendIdsInCubeToVector(x0c, y0c, z0c, dxc, ids);
-    return ids;
   }
 
 
@@ -754,8 +700,8 @@ public:
   VirtualGrid(GridPtrType pUnderlying) :
     Grid<T>(
       pUnderlying->simsize, pUnderlying->size,
-      pUnderlying->dx, pUnderlying->x0, pUnderlying->y0,
-      pUnderlying->z0, false),
+      pUnderlying->dx, pUnderlying->offsetLower.x, pUnderlying->offsetLower.y,
+      pUnderlying->offsetLower.z, false),
     pUnderlying(pUnderlying) {
 
   }
@@ -869,8 +815,9 @@ public:
   SuperSampleGrid(GridPtrType pUnderlying, int factor) :
     VirtualGrid<T>(pUnderlying,
                    pUnderlying->simsize, pUnderlying->size * factor,
-                   pUnderlying->dx / factor, pUnderlying->x0, pUnderlying->y0,
-                   pUnderlying->z0, false),
+                   pUnderlying->dx / factor, pUnderlying->offsetLower.x,
+                   pUnderlying->offsetLower.y,
+                   pUnderlying->offsetLower.z, false),
     factor(factor) {
 
     factor3 = factor * factor * factor;
@@ -901,7 +848,10 @@ public:
   }
 
   virtual void getParticleNoWrap(size_t id, T &x, T &y, T &z, T &vx, T &vy, T &vz, T &cellMassi, T &eps) const {
-    this->getCentroidLocation(id, x, y, z);
+    auto centroid = this->getCellCentroid(id);
+    x = centroid.x;
+    y = centroid.y;
+    z = centroid.z;
     getParticleFromOffset(x, y, z, vx, vy, vz, cellMassi, eps);
   }
 
@@ -912,15 +862,13 @@ public:
   }
 
   virtual T getFieldAt(size_t i, const TRealField &field) override {
-    T x, y, z;
-    this->getCentroidLocation(i, x, y, z);
-    return this->pUnderlying->getFieldInterpolated(x, y, z, field);
+    auto centroid = this->getCellCentroid(i);
+    return this->pUnderlying->getFieldInterpolated(centroid, field);
   }
 
   virtual complex<T> getFieldAt(size_t i, const TField &field) override {
-    T x, y, z;
-    this->getCentroidLocation(i, x, y, z);
-    return this->pUnderlying->getFieldInterpolated(x, y, z, field);
+    auto centroid = this->getCellCentroid(i);
+    return this->pUnderlying->getFieldInterpolated(centroid, field);
   }
 
 };
@@ -985,8 +933,9 @@ public:
 template<typename T>
 class SectionOfGrid : public VirtualGrid<T> {
 private:
-  int xOffset_i, yOffset_i, zOffset_i;
-  T xOffset, yOffset, zOffset;
+  Coordinate<int> cellOffset;
+  Coordinate<int> upperCell;
+  Coordinate<T> posOffset;
 
 protected:
   using typename Grid<T>::TField;
@@ -994,58 +943,51 @@ protected:
   using typename Grid<T>::PtrTField;
   using typename Grid<T>::GridPtrType;
 
+
   size_t mapIndexToUnderlying(size_t sec_id) const {
     int x, y, z;
-    this->getCoordinates(sec_id, x, y, z);
-    x += xOffset_i;
-    y += yOffset_i;
-    z += zOffset_i;
-    const int underlyingSize = int(this->pUnderlying->size);
-
-    if (x < 0 || x >= underlyingSize || y < 0 || y >= underlyingSize || z < 0 || z >= underlyingSize)
+    auto coord = this->getCellCoordinate(sec_id);
+    coord += cellOffset;
+    if (!this->pUnderlying->containsCell(coord))
       throw std::out_of_range("Out of range in SectionOfGrid::mapIndexToUnderlying");
-    return this->pUnderlying->getIndex(x, y, z);
+    return this->pUnderlying->getCellIndex(coord);
   }
 
   size_t mapIndexFromUnderlying(size_t underlying_id) const {
     int x, y, z;
-    this->pUnderlying->getCoordinates(underlying_id, x, y, z);
-    x -= xOffset_i;
-    y -= yOffset_i;
-    z -= zOffset_i;
+    auto coord = this->pUnderlying->getCellCoordinate(underlying_id);
+    coord -= cellOffset;
 
-    if (x < 0 || x >= this->size || y < 0 || y >= this->size || z < 0 || z >= this->size)
+    if (!this->containsCell(coord))
       throw std::out_of_range("Out of range in SectionOfGrid::mapIndexFromUnderlying");
 
-    return this->getIndex(x, y, z);
+    return this->getCellIndex(coord);
   }
 
 public:
   SectionOfGrid(GridPtrType pUnderlying, int deltax, int deltay, int deltaz, size_t size) :
     VirtualGrid<T>(pUnderlying,
                    pUnderlying->simsize, size,
-                   pUnderlying->dx, pUnderlying->x0 + deltax * pUnderlying->dx,
-                   pUnderlying->y0 + deltay * pUnderlying->dx,
-                   pUnderlying->z0 + deltaz * pUnderlying->dx, false),
-    xOffset_i(deltax), yOffset_i(deltay), zOffset_i(deltaz),
-    xOffset(deltax * this->dx), yOffset(deltay * this->dx), zOffset(deltaz * this->dx) {
+                   pUnderlying->dx,
+                   pUnderlying->offsetLower.x + deltax * pUnderlying->dx,
+                   pUnderlying->offsetLower.y + deltay * pUnderlying->dx,
+                   pUnderlying->offsetLower.z + deltaz * pUnderlying->dx, false),
+    cellOffset(deltax, deltay, deltaz),
+    posOffset(deltax * this->dx, deltay * this->dx, deltaz * this->dx),
+    upperCell(cellOffset+pUnderlying->size)
+  {
 
   }
 
-  virtual bool isInDomain(size_t i) override {
-    int x, y, z;
-    this->getCoordinates(i, x, y, z);
-    return isInDomain(x, y, z);
+
+
+  virtual bool containsCell(size_t i) const override {
+    return containsCell(this->getCellCoordinate(i));
   }
 
-  virtual bool isInDomain(int x, int y, int z) override {
-    x += xOffset_i;
-    y += yOffset_i;
-    z += zOffset_i;
-    const int underlyingSize = int(this->pUnderlying->size);
-
-    return x >= 0 && y >= 0 && z >= 0 && x < underlyingSize && y < underlyingSize && z < underlyingSize;
-
+  virtual bool containsCell(const Coordinate<T> &coord) const override {
+    auto translated_coord = coord + cellOffset;
+    return this->pUnderlying->containsCell(translated_coord);
   }
 
 
@@ -1107,8 +1049,8 @@ public:
   SubSampleGrid(std::shared_ptr<Grid<T>> pUnderlying, int factor) :
     VirtualGrid<T>(pUnderlying,
                    pUnderlying->simsize, pUnderlying->size / factor,
-                   pUnderlying->dx * factor, pUnderlying->x0, pUnderlying->y0,
-                   pUnderlying->z0, false),
+                   pUnderlying->dx * factor, pUnderlying->offsetLower.x, pUnderlying->offsetLower.y,
+                   pUnderlying->offsetLower.z, false),
     factor(factor) {
     //if(this->pUnderlying->size%factor!=0)
     //  throw std::runtime_error("SubSampleGrid - factor must be a divisor of the original grid size");
@@ -1144,13 +1086,9 @@ public:
   }
 
   int forEachSubcell(size_t id, std::function<void(size_t)> callback) const {
-    int x0, y0, z0;
-    this->getCoordinates(id, x0, y0, z0);
-    x0 *= factor;
-    y0 *= factor;
-    z0 *= factor;
-    auto x1 = x0 + factor, y1 = y0 + factor, z1 = z0 + factor;
-
+    auto coord0 = this->getCellCoordinate(id);
+    coord0 *= factor;
+    auto coord1 = coord0 + factor;
     // In case the edge of the last cell in the fine grid (this->pUnderlying)
     // is not aligned with the edge of any cell in the coarse grid (this),
     // we need to be able to do an average over fewer than factor^3 cells.
@@ -1159,16 +1097,16 @@ public:
     // since early tests and simulations were conducted without obeying
     // this 'end-alignment' condition, we need to support it.
     const int underlyingSize = int(this->pUnderlying->size);
-    if (x1 > underlyingSize) x1 = underlyingSize;
-    if (y1 > underlyingSize) y1 = underlyingSize;
-    if (z1 > underlyingSize) z1 = underlyingSize;
+    if (coord1.x > underlyingSize) coord1.x = underlyingSize;
+    if (coord1.y > underlyingSize) coord1.y = underlyingSize;
+    if (coord1.z > underlyingSize) coord1.z = underlyingSize;
 
-    int localFactor3 = (x1 - x0) * (y1 - y0) * (z1 - z0);
+    int localFactor3 = (coord1.x - coord0.x) * (coord1.y - coord0.y) * (coord1.z - coord0.z);
 
-    for (auto xi = x0; xi < x1; ++xi) {
-      for (auto yi = y0; yi < y1; ++yi) {
-        for (auto zi = z0; zi < z1; ++zi) {
-          callback(this->pUnderlying->getIndexNoWrap(xi, yi, zi));
+    for (auto xi = coord0.x; xi < coord1.x; ++xi) {
+      for (auto yi = coord0.y; yi < coord1.y; ++yi) {
+        for (auto zi = coord0.z; zi < coord1.z; ++zi) {
+          callback(this->pUnderlying->getCellIndexNoWrap(xi, yi, zi));
         }
 
       }
@@ -1255,8 +1193,8 @@ public:
   MassScaledGrid(GridPtrType pUnderlying, T massFac) :
     VirtualGrid<T>(pUnderlying,
                    pUnderlying->simsize, pUnderlying->size,
-                   pUnderlying->dx, pUnderlying->x0, pUnderlying->y0,
-                   pUnderlying->z0, false),
+                   pUnderlying->dx, pUnderlying->offsetLower.x, pUnderlying->offsetLower.y,
+                   pUnderlying->offsetLower.z, false),
     massFac(massFac) {
   }
 

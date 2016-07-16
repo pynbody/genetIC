@@ -19,11 +19,11 @@ protected:
   const gsl_rng_type *T;
   bool drawInFourierSpace;
   bool reverseRandomDrawOrder;
-  MultiLevelFieldManager <MyFloat> &fieldManager;
+  MultiLevelFieldManager<MyFloat> &fieldManager;
 
 
 public:
-  RandomFieldGenerator(MultiLevelFieldManager <MyFloat> &fieldManager_, int seed = 0) :
+  RandomFieldGenerator(MultiLevelFieldManager<MyFloat> &fieldManager_, int seed = 0) :
     fieldManager(fieldManager_) {
     T = gsl_rng_ranlxs2; // shouldn't this be gsl_rng_ranlxd2 for MyFloat = double? -> it's single precision for compatibility with previous versions!
     randomState = gsl_rng_alloc(T); //this allocates memory for the generator with type T
@@ -67,8 +67,8 @@ protected:
                           MyFloat norm, RefFieldType pField_k) {
     size_t id_k, id_negk;
 
-    id_k = g.getIndex(k1, k2, k3);
-    id_negk = g.getIndex(-k1, -k2, -k3);
+    id_k = g.getCellIndex(Coordinate<int>(k1, k2, k3));
+    id_negk = g.getCellIndex(Coordinate<int>(-k1, -k2, -k3));
 
 
     // these need to be initialized in explicit order - can't leave it to compilers

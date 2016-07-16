@@ -49,7 +49,6 @@ protected:
 
   std::vector<GridPtrType> pGrid;       // the objects that help us relate points on the grid
 
-
   MyFloat x_off[2], y_off[2], z_off[2]; // x,y,z offsets for subgrids
 
   MyFloat xOffOutput, yOffOutput, zOffOutput;
@@ -230,7 +229,7 @@ public:
     // TO DO: wrap the box sensibly
 
     for (size_t i = 0; i < zoomParticleArray.size(); i++) {
-      g.getCoordinates(zoomParticleArray[i], x, y, z);
+      std::tie(x, y, z) = g.getCellCoordinate(zoomParticleArray[i]);
       if (x < x0) x0 = x;
       if (y < y0) y0 = y;
       if (z < z0) z0 = z;
@@ -653,13 +652,13 @@ protected:
     std::vector<size_t> particleArray;
     pGrid[level]->gatherParticleList(particleArray);
 
-    pGrid[level]->getCentroidLocation(particleArray[0], xa, ya, za);
+    auto p0_location = pGrid[level]->getCellCentroid(particleArray[0]);
 
     for (size_t i = 0; i < particleArray.size(); i++) {
-      pGrid[level]->getCentroidLocation(particleArray[i], xb, yb, zb);
-      x0 += get_wrapped_delta(xb, xa);
-      y0 += get_wrapped_delta(yb, ya);
-      z0 += get_wrapped_delta(zb, za);
+      auto pi_location = pGrid[level]->getCellCentroid(particleArray[i]);
+      x0 += get_wrapped_delta(pi_location.x, p0_location.x);
+      y0 += get_wrapped_delta(pi_location.y, p0_location.y);
+      z0 += get_wrapped_delta(pi_location.z, p0_location.z);
     }
     x0 /= particleArray.size();
     y0 /= particleArray.size();
@@ -720,13 +719,14 @@ public:
   }
 
   void centreParticle(long id) {
-    pGrid[0]->getCentroidLocation(id, x0, y0, z0);
+    std::tie(x0, y0, z0) = pGrid[0]->getCellCentroid(id);
   }
 
   void selectNearest() {
     auto grid = pGrid[deepestLevel()];
     pMapper->clearParticleList();
-    size_t id = grid->getClosestIdNoWrap(x0, y0, z0);
+    size_t id = grid->getClosestIdNoWrap(Coordinate<MyFloat>(x0, y0, z0));
+    cerr << "selectNearest " <<x0 << " " << y0 << " " << z0 << " " << id << " " << endl;
     grid->distributeParticleList({id});
 
   }
@@ -741,7 +741,7 @@ public:
       std::vector<size_t> particleArray;
 
       for (size_t i = 0; i < this->nPartLevel[level]; i++) {
-        pGrid[level]->getCentroidLocation(i, xp, yp, zp);
+        std::tie(xp, yp, zp) = pGrid[level]->getCellCentroid(i);
         delta_x = get_wrapped_delta(xp, x0);
         delta_y = get_wrapped_delta(yp, y0);
         delta_z = get_wrapped_delta(zp, z0);
@@ -789,7 +789,7 @@ public:
     std::vector<size_t> index(genericParticleArray.size());
 
     for (size_t i = 0; i < genericParticleArray.size(); i++) {
-      pGrid[0]->getCentroidLocation(i, delta_x, delta_y, delta_z);
+      std::tie(delta_x, delta_y, delta_z) = pGrid[0]->getCellCentroid(i);
       delta_x = get_wrapped_delta(delta_x, x0);
       delta_y = get_wrapped_delta(delta_y, y0);
       delta_z = get_wrapped_delta(delta_z, z0);
@@ -893,7 +893,7 @@ public:
       const auto &grid = *(this->pGrid[level]);
       MyFloat k2;
       for (size_t i = 0; i < this->nPartLevel[level]; i++) {
-        k2 = grid.getKSquared(i);
+        k2 = grid.getFourierCellKSquared(i);
         if (k2 > k2max && k2 != 0) {
           field[i] = fieldOriginal[i];
         }
@@ -913,10 +913,10 @@ public:
       size_t modes_reversed = 0;
       size_t tot_modes = pGrid[level]->size3;
       auto &field = pGrid[level]->getFieldFourier();
-      const auto &grid = *(this->pGrid[level]);
+      const Grid<MyFloat> &grid = *(this->pGrid[level]);
       MyFloat k2;
       for (size_t i = 0; i < this->nPartLevel[level]; i++) {
-        k2 = grid.getKSquared(i);
+        k2 = grid.getFourierCellKSquared(i);
         if (k2 < k2max && k2 != 0) {
           field[i] = -field[i];
           modes_reversed++;
