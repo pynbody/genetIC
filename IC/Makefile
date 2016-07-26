@@ -51,13 +51,11 @@ ifeq ($(HOST), bridg)
 	FFTW = -DFFTW3 # intel MKL has its own threading scheme
 endif
 
-ifeq ($(HOST), Piann)
+ifeq ($(HOST), Peony)
 	CPATH = /sw/include/
 	LPATH = /sw/lib/
-	C = gcc-4
-	CC = g++-4
-	FFTW    =
-	FFTWLIB =  -lfftw -lrfftw
+	C = /opt/local/bin/g++-mp-5
+	CC = /opt/local/bin/g++-mp-5 -lstdc++ -fopenmp -O3 -g -L/opt/local/lib/
 endif
 
 ifeq ($(HOST), Rhodo)
