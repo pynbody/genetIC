@@ -562,7 +562,7 @@ void SaveGadget(const std::string &name, double Boxlength, shared_ptr<ParticleMa
 
   std::cout << "Hello from Gadget output!" << std::endl;
 
-  MyFloat x, y, z, vx, vy, vz, mass, tot_mass = 0.0, eps;
+  MyFloat tot_mass = 0.0;
   MyFloat min_mass, max_mass, gas_mass;
   size_t nlow, ngas, nhigh;
 
@@ -631,13 +631,13 @@ void SaveGadget(const std::string &name, double Boxlength, shared_ptr<ParticleMa
   // DM particles positions
 
   for (auto i = pMapper->beginDm(); i != pMapper->endDm(); ++i) {
-    i.getParticle(x, y, z, vx, vy, vz, mass, eps);
+    auto particle = i.getParticle();
 
-    output_cache = x * pos_factor;
+    output_cache = particle.pos.x * pos_factor;
     my_fwrite(&output_cache, sizeof(output_cache), 1, fd);
-    output_cache = y * pos_factor;
+    output_cache = particle.pos.y * pos_factor;
     my_fwrite(&output_cache, sizeof(output_cache), 1, fd);
-    output_cache = z * pos_factor;
+    output_cache = particle.pos.z * pos_factor;
     my_fwrite(&output_cache, sizeof(output_cache), 1, fd);
 
   }
@@ -649,13 +649,13 @@ void SaveGadget(const std::string &name, double Boxlength, shared_ptr<ParticleMa
   my_fwrite(&dummy, sizeof(dummy), 1, fd); //beginning of velocity block
 
   for (auto i = pMapper->beginDm(); i != pMapper->endDm(); ++i) {
-    i.getParticle(x, y, z, vx, vy, vz, mass, eps);
+    auto particle = i.getParticle();
 
-    output_cache = vx * pos_factor;
+    output_cache = particle.vel.x * pos_factor;
     my_fwrite(&output_cache, sizeof(output_cache), 1, fd);
-    output_cache = vy * pos_factor;
+    output_cache = particle.vel.y * pos_factor;
     my_fwrite(&output_cache, sizeof(output_cache), 1, fd);
-    output_cache = vz * pos_factor;
+    output_cache = particle.vel.z * pos_factor;
     my_fwrite(&output_cache, sizeof(output_cache), 1, fd);
 
   }
@@ -804,11 +804,9 @@ protected:
 
 
   template<typename ParticleType>
-  void saveTipsyParticlesFromBlock(std::vector<MyFloat> &xAr, std::vector<MyFloat> &yAr, std::vector<MyFloat> &zAr,
-                                   std::vector<MyFloat> &vxAr, std::vector<MyFloat> &vyAr, std::vector<MyFloat> &vzAr,
-                                   std::vector<MyFloat> &massAr, std::vector<MyFloat> &epsAr) {
+  void saveTipsyParticlesFromBlock(std::vector<Particle<MyFloat>> &particleAr) {
 
-    const size_t n = xAr.size();
+    const size_t n = particleAr.size();
 
     /*
     for(auto &q: {xAr,yAr,zAr,vxAr,vyAr,vzAr,massAr,epsAr}) {
@@ -821,18 +819,19 @@ protected:
 #pragma omp parallel for
     for (size_t i = 0; i < n; i++) {
       TipsyParticle::initialise(p[i], cosmology);
-      p[i].x = xAr[i] * pos_factor - 0.5;
-      p[i].y = yAr[i] * pos_factor - 0.5;
-      p[i].z = zAr[i] * pos_factor - 0.5;
-      p[i].eps = epsAr[i] * pos_factor;
+      Particle<MyFloat> &thisParticle = particleAr[i];
 
-      p[i].vx = vxAr[i] * vel_factor;
-      p[i].vy = vyAr[i] * vel_factor;
-      p[i].vz = vzAr[i] * vel_factor;
+      p[i].x = thisParticle.pos.x * pos_factor - 0.5;
+      p[i].y = thisParticle.pos.y * pos_factor - 0.5;
+      p[i].z = thisParticle.pos.z * pos_factor - 0.5;
+      p[i].eps = thisParticle.soft * pos_factor;
 
-      p[i].mass = massAr[i] * mass_factor;
+      p[i].vx = thisParticle.vel.x * vel_factor;
+      p[i].vy = thisParticle.vel.y * vel_factor;
+      p[i].vz = thisParticle.vel.z * vel_factor;
+      p[i].mass = thisParticle.mass * mass_factor;
 
-      if (massAr[i] == min_mass && omp_get_thread_num() == 0) {
+      if (thisParticle.mass == min_mass && omp_get_thread_num() == 0) {
         photogenic_file << iord << endl;
       }
 
@@ -847,11 +846,11 @@ protected:
 
     ParticleType p;
     TipsyParticle::initialise(p, cosmology);
-    std::vector<MyFloat> xAr, yAr, zAr, vxAr, vyAr, vzAr, massAr, epsAr;
+    std::vector<Particle<MyFloat>> particles;
     auto i = begin;
     while (i != end) {
-      i.getNextNParticles(xAr, yAr, zAr, vxAr, vyAr, vzAr, massAr, epsAr);
-      saveTipsyParticlesFromBlock<ParticleType>(xAr, yAr, zAr, vxAr, vyAr, vzAr, massAr, epsAr);
+      i.getNextNParticles(particles);
+      saveTipsyParticlesFromBlock<ParticleType>(particles);
     }
   }
 
@@ -868,18 +867,17 @@ protected:
     MyFloat x, y, z, vx, vy, vz, mass, eps;
 
     for (auto i = begin; i != end; ++i) {
-      i.getParticle(x, y, z, vx, vy, vz, mass, eps);
+      auto thisParticle = i.getParticle();
 
-      p.x = x * pos_factor - 0.5;
-      p.y = y * pos_factor - 0.5;
-      p.z = z * pos_factor - 0.5;
-      p.eps = eps * pos_factor;
+      p.x = thisParticle.pos.x * pos_factor - 0.5;
+      p.y = thisParticle.pos.y * pos_factor - 0.5;
+      p.z = thisParticle.pos.z * pos_factor - 0.5;
+      p.eps = thisParticle.soft * pos_factor;
 
-      p.vx = vx * vel_factor;
-      p.vy = vy * vel_factor;
-      p.vz = vz * vel_factor;
-
-      p.mass = mass * mass_factor;
+      p.vx = thisParticle.vel.x * vel_factor;
+      p.vy = thisParticle.vel.y * vel_factor;
+      p.vz = thisParticle.vel.z * vel_factor;
+      p.mass = thisParticle.mass * mass_factor;
 
       fwrite(&p, sizeof(ParticleType), 1, fd);
 

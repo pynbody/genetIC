@@ -111,12 +111,12 @@ public:
     pMapper->dereferenceIterator(this, gp, id);
   }
 
-  template<typename... Args>
-  void getParticle(Args &&... args) const {
+
+  Particle<T> getParticle() const {
     ConstGridPtrType pGrid;
     size_t id;
     deReference(pGrid, id);
-    pGrid->getParticle(id, std::forward<Args>(args)...);
+    return pGrid->getParticle(id);
   }
 
   auto getField() const {
@@ -125,25 +125,16 @@ public:
   }
 
 
-  size_t getNextNParticles(std::vector<T> &xAr, std::vector<T> &yAr, std::vector<T> &zAr,
-                           std::vector<T> &vxAr, std::vector<T> &vyAr, std::vector<T> &vzAr,
-                           std::vector<T> &massAr, std::vector<T> &epsAr) {
+  size_t getNextNParticles(std::vector<Particle<T>> &particles) {
     size_t n = 1024 * 256;
     if (n + i > pMapper->size())
       n = pMapper->size() - i;
 
-    xAr.resize(n);
-    yAr.resize(n);
-    zAr.resize(n);
-    vxAr.resize(n);
-    vyAr.resize(n);
-    vzAr.resize(n);
-    massAr.resize(n);
-    epsAr.resize(n);
+    particles.resize(n);
 
     n = parallelIterate([&](size_t local_i, const MapperIterator &localIterator) {
-      localIterator.getParticle(xAr[local_i], yAr[local_i], zAr[local_i], vxAr[local_i],
-                                vyAr[local_i], vzAr[local_i], massAr[local_i], epsAr[local_i]);
+      particles[local_i] = localIterator.getParticle();
+
     }, n);
 
     return n;

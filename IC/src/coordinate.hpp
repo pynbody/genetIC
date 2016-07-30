@@ -19,6 +19,12 @@ public:
   Coordinate(T *vec) : x(vec[0]), y(vec[1]), z(vec[2]) {
   }
 
+  Coordinate(T value): x(value), y(value), z(value) {}
+
+  Coordinate() {
+
+  }
+
   template<typename S>
   Coordinate(const Coordinate<S> &other) : x(other.x), y(other.y), z(other.z) { }
 

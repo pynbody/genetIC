@@ -10,6 +10,7 @@
 #include "fft.hpp"
 #include "filter.hpp"
 #include "coordinate.hpp"
+#include "particle.hpp"
 
 using namespace std;
 
@@ -343,18 +344,17 @@ public:
     return fieldFourier;
   }
 
-  void getParticle(size_t id, T &x, T &y, T &z, T &vx, T &vy, T &vz, T &cellMassi, T &eps) const {
-    getParticleNoWrap(id, x, y, z, vx, vy, vz, cellMassi, eps);
-    simWrap(x, y, z);
+  Particle<T> getParticle(size_t id) const {
+    Particle<T> particle = getParticleNoWrap(id);
+    simWrap(particle.pos);
+    return particle;
   }
 
-  virtual void getParticleNoWrap(size_t id, T &x, T &y, T &z, T &vx, T &vy, T &vz, T &cellMassi, T &eps) const {
-    T x0, y0, z0;
-    getParticleNoOffset(id, x, y, z, vx, vy, vz, cellMassi, eps);
-    std::tie(x0, y0, z0) = getCellCentroid(id);
-    x += x0;
-    y += y0;
-    z += z0;
+  virtual Particle<T> getParticleNoWrap(size_t id) const {
+    auto particle = getParticleNoOffset(id);
+    auto centroid = getCellCentroid(id);
+    particle.pos+=centroid;
+    return particle;
   }
 
   virtual T getMass() const {
@@ -365,37 +365,36 @@ public:
     return dx * 0.01075; // <-- arbitrary to coincide with normal UW resolution. TODO: Find a way to make this flexible.
   }
 
-  void getParticleNoOffset(size_t id, T &x, T &y, T &z, T &vx, T &vy, T &vz, T &cellMassi, T &eps) const {
+  Particle<T> getParticleNoOffset(size_t id) const {
+    Particle<T> particle;
 
-    x = (*pOff_x)[id];
-    y = (*pOff_y)[id];
-    z = (*pOff_z)[id];
+    particle.pos.x = (*pOff_x)[id];
+    particle.pos.y = (*pOff_y)[id];
+    particle.pos.z = (*pOff_z)[id];
 
-    vx = (*pOff_x)[id] * hFactor;
-    vy = (*pOff_y)[id] * hFactor;
-    vz = (*pOff_z)[id] * hFactor;
+    particle.vel.x = (*pOff_x)[id] * hFactor;
+    particle.vel.y = (*pOff_y)[id] * hFactor;
+    particle.vel.z = (*pOff_z)[id] * hFactor;
 
-    cellMassi = getMass();
-    eps = getEps();
+    particle.mass = getMass();
+    particle.soft = getEps();
+
+    return particle;
   }
 
-  virtual void getParticleFromOffset(T &x, T &y, T &z, T &vx, T &vy, T &vz, T &cellMassi, T &eps) const {
+  virtual void getParticleFromOffset(Particle<T> &particle) const {
 
-    vx = getFieldInterpolated(x, y, z, *pOff_x);
-    vy = getFieldInterpolated(x, y, z, *pOff_y);
-    vz = getFieldInterpolated(x, y, z, *pOff_z);
-    x += vx;
-    y += vy;
-    z += vz;
+    particle.vel.x = getFieldInterpolated(particle.pos, *pOff_x);
+    particle.vel.y = getFieldInterpolated(particle.pos, *pOff_y);
+    particle.vel.z = getFieldInterpolated(particle.pos, *pOff_z);
 
-    simWrap(x, y, z);
+    particle.pos+=particle.vel;
+    particle.vel*=hFactor;
 
-    vx *= hFactor;
-    vy *= hFactor;
-    vz *= hFactor;
+    simWrap(particle.pos);
 
-    cellMassi = getMass();
-    eps = getEps();
+    particle.mass = getMass();
+    particle.soft = getEps();
   }
 
 
@@ -560,13 +559,13 @@ public:
     return this->getCellIndex(coord); // N.B. does wrapping inside getIndex
   }
 
-  void simWrap(T &x, T &y, T &z) const {
-    x = fmod(x, simsize);
-    if (x < 0) x += simsize;
-    y = fmod(y, simsize);
-    if (y < 0) y += simsize;
-    z = fmod(z, simsize);
-    if (z < 0) z += simsize;
+  void simWrap(Coordinate<T> & pos) const {
+    pos.x = fmod(pos.x, simsize);
+    if (pos.x < 0) pos.x += simsize;
+    pos.y = fmod(pos.y, simsize);
+    if (pos.y < 0) pos.y += simsize;
+    pos.z = fmod(pos.z, simsize);
+    if (pos.z < 0) pos.z += simsize;
   }
 
   void cellWrap(Coordinate<int> &index) const {
@@ -785,12 +784,12 @@ public:
     return pUnderlying->getMass();
   }
 
-  void getParticleNoWrap(size_t id, T &x, T &y, T &z, T &vx, T &vy, T &vz, T &cellMassi, T &eps) const override {
-    pUnderlying->getParticleNoWrap(id, x, y, z, vx, vy, vz, cellMassi, eps);
+  Particle<T> getParticleNoWrap(size_t id) const override {
+    return pUnderlying->getParticleNoWrap(id);
   }
 
-  void getParticleFromOffset(T &x, T &y, T &z, T &vx, T &vy, T &vz, T &cellMassi, T &eps) const override {
-    pUnderlying->getParticleFromOffset(x, y, z, vx, vy, vz, cellMassi, eps);
+  void getParticleFromOffset(Particle<T> & particle) const override {
+    pUnderlying->getParticleFromOffset(particle);
   }
 
   complex<T> getFieldAt(size_t i) override {
@@ -847,18 +846,17 @@ public:
     return this->pUnderlying->estimateParticleListSize() * factor3;
   }
 
-  virtual void getParticleNoWrap(size_t id, T &x, T &y, T &z, T &vx, T &vy, T &vz, T &cellMassi, T &eps) const {
-    auto centroid = this->getCellCentroid(id);
-    x = centroid.x;
-    y = centroid.y;
-    z = centroid.z;
-    getParticleFromOffset(x, y, z, vx, vy, vz, cellMassi, eps);
+  virtual Particle<T> getParticleNoWrap(size_t id) const override {
+    Particle<T> particle;
+    particle.pos = this->getCellCentroid(id);
+    getParticleFromOffset(particle);
+    return particle;
   }
 
-  void getParticleFromOffset(T &x, T &y, T &z, T &vx, T &vy, T &vz, T &cellMassi, T &eps) const override {
-    this->pUnderlying->getParticleFromOffset(x, y, z, vx, vy, vz, cellMassi, eps);
+  void getParticleFromOffset(Particle<T> & particle) const override {
+    this->pUnderlying->getParticleFromOffset(particle);
     // adjust mass
-    cellMassi /= factor3;
+    particle.mass /= factor3;
   }
 
   virtual T getFieldAt(size_t i, const TRealField &field) override {
@@ -876,8 +874,7 @@ public:
 template<typename T>
 class OffsetGrid : public VirtualGrid<T> {
 private:
-  T xOffset, yOffset, zOffset;
-  int xOffset_i, yOffset_i, zOffset_i;
+  Coordinate<T> positionOffset;
 
 protected:
   using typename Grid<T>::TField;
@@ -889,7 +886,8 @@ protected:
 public:
   OffsetGrid(GridPtrType pUnderlying, T dx, T dy, T dz) :
     VirtualGrid<T>(pUnderlying),
-    xOffset(dx), yOffset(dy), zOffset(dz) {
+    positionOffset(Coordinate<T>(dx,dy,dz))
+  {
 
   }
 
@@ -898,24 +896,19 @@ public:
     s << "OffsetGrid";
   }
 
-  virtual void getParticleNoWrap(size_t id, T &x, T &y, T &z, T &vx, T &vy, T &vz, T &cellMassi, T &eps) const {
-    this->pUnderlying->getParticleNoWrap(id, x, y, z, vx, vy, vz, cellMassi, eps);
-    x += xOffset;
-    y += yOffset;
-    z += zOffset;
-    this->simWrap(x, y, z);
+  virtual Particle<T> getParticleNoWrap(size_t id) const {
+    auto particle = this->pUnderlying->getParticleNoWrap(id);
+    particle.pos+=positionOffset;
+    this->simWrap(particle.pos);
+    return particle;
   }
 
-  void getParticleFromOffset(T &x, T &y, T &z, T &vx, T &vy, T &vz, T &cellMassi, T &eps) const override {
-    x -= xOffset;
-    y -= yOffset;
-    z -= zOffset;
-    this->simWrap(x, y, z);
-    this->pUnderlying->getParticleFromOffset(x, y, z, vx, vy, vz, cellMassi, eps);
-    x += xOffset;
-    y += yOffset;
-    z += zOffset;
-    this->simWrap(x, y, z);
+  void getParticleFromOffset(Particle<T> &particle) const override {
+    particle.pos-=positionOffset;
+    this->simWrap(particle.pos);
+    this->pUnderlying->getParticleFromOffset(particle);
+    particle.pos+=positionOffset;
+    this->simWrap(particle.pos);
   }
 
   void gatherParticleList(std::vector<size_t> &targetArray) const override {
@@ -995,14 +988,12 @@ public:
     s << "SectionOfGrid";
   }
 
-  virtual void getParticleNoWrap(size_t id, T &x, T &y, T &z, T &vx, T &vy, T &vz, T &cellMassi, T &eps) const {
-    this->pUnderlying->getParticleNoWrap(mapIndexToUnderlying(id), x, y, z, vx, vy, vz, cellMassi, eps);
+  virtual Particle<T> getParticleNoWrap(size_t id) const {
+    return this->pUnderlying->getParticleNoWrap(mapIndexToUnderlying(id));
   }
 
-  void getParticleFromOffset(T &x, T &y, T &z, T &vx, T &vy, T &vz, T &cellMassi, T &eps) const override {
-
-    this->pUnderlying->getParticleFromOffset(x, y, z, vx, vy, vz, cellMassi, eps);
-
+  void getParticleFromOffset(Particle<T> &particle) const override {
+    return this->pUnderlying->getParticleFromOffset(particle);
   }
 
   virtual T getFieldAt(size_t i, const TRealField &field) override {
@@ -1114,43 +1105,27 @@ public:
     return localFactor3;
   }
 
-  virtual void getParticleNoWrap(size_t id, T &x, T &y, T &z, T &vx, T &vy, T &vz, T &cellMassi, T &eps) const {
-    T xt, yt, zt, vxt, vyt, vzt, cellMassit, epst;
-
-    x = 0;
-    y = 0;
-    z = 0;
-    vx = 0;
-    vy = 0;
-    vz = 0;
-    cellMassi = 0;
-    eps = 0;
+  virtual Particle<T> getParticleNoWrap(size_t id) const override {
+    Particle<T> particle(0); // initializes values to zeros
 
     int localFactor3 = forEachSubcell(id, [&](size_t sub_id) {
-      this->pUnderlying->getParticleNoWrap(sub_id,
-                                           xt, yt, zt, vxt, vyt, vzt, cellMassit, epst);
-      x += xt;
-      y += yt;
-      z += zt;
-      vx += vxt;
-      vy += vyt;
-      vz += vzt;
-      eps += epst;
-      cellMassi += cellMassit;
+      Particle<T> sub_particle = this->pUnderlying->getParticleNoWrap(sub_id);
+      particle.pos+=sub_particle.pos;
+      particle.vel+=sub_particle.vel;
+      particle.soft+=sub_particle.soft;
+      particle.mass+=sub_particle.mass;
     });
 
     // most variables want an average, not a sum:
-    x /= localFactor3;
-    y /= localFactor3;
-    z /= localFactor3;
-    vx /= localFactor3;
-    vy /= localFactor3;
-    vz /= localFactor3;
-    eps /= localFactor3;
+    particle.pos/=localFactor3;
+    particle.vel/=localFactor3;
+    particle.soft/=localFactor3;
 
     // cell mass wants to be a sum over the *entire* cell (even if
     // some subcells are missing):
-    cellMassi *= factor3 / localFactor3;
+    particle.mass*=factor3/localFactor3;
+
+    return particle;
 
   }
 
@@ -1171,9 +1146,9 @@ public:
   }
 
 
-  void getParticleFromOffset(T &x, T &y, T &z, T &vx, T &vy, T &vz, T &cellMassi, T &eps) const override {
-    this->pUnderlying->getParticleFromOffset(x, y, z, vx, vy, vz, cellMassi, eps);
-    cellMassi *= factor3;
+  void getParticleFromOffset(Particle<T> &particle) const override {
+    this->pUnderlying->getParticleFromOffset(particle);
+    particle.mass *= factor3;
   }
 
 };
@@ -1206,14 +1181,15 @@ public:
     return this->pUnderlying->getMass() * massFac;
   }
 
-  virtual void getParticleNoWrap(size_t id, T &x, T &y, T &z, T &vx, T &vy, T &vz, T &cellMassi, T &eps) const {
-    this->pUnderlying->getParticleNoWrap(id, x, y, z, vx, vy, vz, cellMassi, eps);
-    cellMassi *= massFac;
+  virtual Particle<T> getParticleNoWrap(size_t id) const {
+    auto result = this->pUnderlying->getParticleNoWrap(id);
+    result.mass *= massFac;
+    return result;
   }
 
-  void getParticleFromOffset(T &x, T &y, T &z, T &vx, T &vy, T &vz, T &cellMassi, T &eps) const override {
-    this->pUnderlying->getParticleFromOffset(x, y, z, vx, vy, vz, cellMassi, eps);
-    cellMassi *= massFac;
+  void getParticleFromOffset(Particle<T> &particle) const override {
+    this->pUnderlying->getParticleFromOffset(particle);
+    particle.mass*=massFac;
   }
 
 };
