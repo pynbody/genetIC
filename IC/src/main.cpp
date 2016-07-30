@@ -27,7 +27,7 @@
 #include "cosmo.hpp"
 #include "parser.hpp"
 #include "grid.hpp"
-#include "multilevelfieldmanager.hpp"
+#include "multilevelcontext.hpp"
 #include "mapper.hpp"
 #include "io.hpp"
 #include "ic.hpp"
