@@ -17,6 +17,7 @@
 #include "filesystem.h"
 #include "randomfieldgenerator.hpp"
 #include "MultiLevelConstraintGenerator.h"
+#include "multilevelfield.hpp"
 
 #define for_each_level(level) for(size_t level=0; level<2 && n[level]>0; level++)
 
@@ -35,10 +36,12 @@ protected:
   friend class DummyIC<MyFloat>;
 
   CosmologicalParameters<MyFloat> cosmology;
-  MultiLevelFieldManager<MyFloat> fieldManager;
+  MultiLevelContextInformation<MyFloat> multiLevelContext;
+  OutputField<std::complex<MyFloat>> outputField;
   ConstraintApplicator<MyFloat> constraintApplicator;
   MultiLevelConstraintGenerator<MyFloat> constraintGenerator;
   RandomFieldGenerator<MyFloat> randomFieldGenerator;
+
   CAMB<MyFloat> spectrum;
 
   // Everything about the grids:
@@ -65,7 +68,7 @@ protected:
 
 
   bool prepared;
-
+  bool exactPowerSpectrum;
 
   std::vector<size_t> genericParticleArray;
   std::vector<size_t> zoomParticleArray;
@@ -83,11 +86,14 @@ protected:
 
 
 public:
-  IC(ClassDispatch<IC<MyFloat>, void> &interpreter) : constraintApplicator(&fieldManager),
-                                                      constraintGenerator(fieldManager, cosmology),
-                                                      randomFieldGenerator(fieldManager),
+  IC(ClassDispatch<IC<MyFloat>, void> &interpreter) :
+                                                      constraintGenerator(multiLevelContext, cosmology),
+                                                      randomFieldGenerator(multiLevelContext),
                                                       pMapper(new ParticleMapper<MyFloat>()),
-                                                      interpreter(interpreter) {
+                                                      interpreter(interpreter),
+                                                      outputField(multiLevelContext),
+                                                      constraintApplicator(&multiLevelContext, &outputField)
+  {
     pInputMapper = nullptr;
     cosmology.hubble = 0.701;   // old default
     cosmology.OmegaBaryons0 = -1.0;
@@ -104,6 +110,7 @@ public:
     xOffOutput = 0;
     yOffOutput = 0;
     zOffOutput = 0;
+    exactPowerSpectrum = false;
   }
 
   ~IC() {
@@ -320,7 +327,7 @@ public:
   }
 
   void setExactPowerSpectrumEnforcement() {
-    fieldManager.setExactPowerSpectrumEnforcement(true);
+    exactPowerSpectrum = true;
   }
 
   void setCambDat(std::string in) {
@@ -365,8 +372,8 @@ public:
   void updateFieldManager() {
     if (spectrum.isUsable()) {
       for_each_level(level) {
-        if (fieldManager.getNumLevels() <= level)
-          fieldManager.addLevel(spectrum.getPowerSpectrumForGrid(this->cosmology, *(this->pGrid[level])),
+        if (multiLevelContext.getNumLevels() <= level)
+          multiLevelContext.addLevel(spectrum.getPowerSpectrumForGrid(this->cosmology, *(this->pGrid[level])),
                                 this->pGrid[level],
                                 this->nPartLevel[level]);
       }
@@ -381,7 +388,7 @@ public:
   virtual void zeroLevel(int level) {
     cerr << "*** Warning: your script calls zeroLevel(" << level << "). This is intended for testing purposes only!" <<
     endl;
-    fieldManager.zeroLevel(level);
+    multiLevelContext.zeroLevel(level);
   }
 
   template<typename T>
@@ -402,7 +409,11 @@ public:
 
 
   virtual void applyPowerSpec() {
-    fieldManager.applyCovarianceToWhiteNoiseField();
+    if(this->exactPowerSpectrum) {
+      outputField.enforceExactPowerSpectrum();
+    } else {
+      outputField.applyPowerSpectrum();
+    }
   }
 
   template<typename T>
@@ -438,7 +449,7 @@ public:
 
   virtual void dumpPS(int level = 0) {
     powsp_noJing(n[level], pGrid[level]->getFieldFourier(),
-                 fieldManager.getCovariance(level),
+                 multiLevelContext.getCovariance(level),
                  (base + "_" + ((char) (level + '0')) + ".ps").c_str(), boxlen[level]);
   }
 
@@ -465,7 +476,11 @@ public:
     } else if (pGrid.size() == 1) {
       zeldovichForLevel(0);
     } else {
+
       cerr << "Zeldovich approximation on successive levels...";
+      multiLevelContext.applyFiltering(); // TODO: remove need for this
+      outputField.applyFilters();
+
       zeldovichForLevel(0);
       zeldovichForLevel(1);
       cerr << "done." << endl;
@@ -475,7 +490,7 @@ public:
       cerr << "done." << endl;
 
       cerr << "Re-introducing high-k modes into low-res region...";
-      fieldManager.recombineLevel0();
+      // multiLevelContext.recombineLevel0();
       zeldovichForLevel(0);
       cerr << "done." << endl;
 
@@ -692,7 +707,7 @@ protected:
   }
 
 
-  vector<complex<MyFloat>> calcConstraint(string name_in, bool kspace = true) {
+  auto calcConstraint(string name_in, bool kspace = true) {
     return constraintGenerator.calcConstraintForAllLevels(name_in, kspace);
   }
 
@@ -825,8 +840,9 @@ public:
   }
 
   void calculate(string name) {
-    auto vecs = calcConstraint(name);
-    float val = float((fieldManager.v1_dot_y(vecs)).real());
+    auto constraint_field = calcConstraint(name);
+    auto val = outputField.innerProduct(constraint_field, false);
+
     cout << name << ": calculated value = " << val << endl;
   }
 
@@ -840,7 +856,8 @@ public:
 
     std::complex<MyFloat> constraint = value;
     auto vec = calcConstraint(name);
-    std::complex<MyFloat> initv = fieldManager.v1_dot_y(vec);
+
+    std::complex<MyFloat> initv = outputField.innerProduct(vec, false);
 
     if (relative) constraint *= initv;
 
@@ -860,9 +877,9 @@ public:
   }
 
   virtual void done() {
-    cerr << "BEFORE constraints: chi^2=" << fieldManager.get_field_chi2() << endl;
+    cerr << "BEFORE constraints: chi^2=" << multiLevelContext.get_field_chi2() << endl;
     fixConstraints();
-    cerr << "AFTER  constraints: chi^2=" << fieldManager.get_field_chi2() << endl;
+    cerr << "AFTER  constraints: chi^2=" << multiLevelContext.get_field_chi2() << endl;
     write();
   }
 

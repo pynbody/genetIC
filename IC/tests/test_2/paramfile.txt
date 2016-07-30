@@ -23,8 +23,8 @@ outdir	 ./
 gadgetformat 4
 
 
-
-
 done
 dumpgrid 0
 dumpgrid 1
+dumpps 0
+dumpps 1

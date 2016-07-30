@@ -34,10 +34,10 @@ dump_IDfile check_constr.txt
 calculate overdensity
 constrain overdensity absolute 1.0
 
-
-
 done
-#calculate overdensity
+calculate overdensity
 
 dumpgrid 0
 dumpgrid 1
+dumpPS 0
+dumpPS 1

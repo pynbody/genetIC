@@ -1,7 +1,8 @@
 #ifndef _CONSTRAINTAPPLICATOR_HPP
 #define _CONSTRAINTAPPLICATOR_HPP
 
-#include "multilevelfieldmanager.hpp"
+#include "multilevelcontext.hpp"
+#include "multilevelfield.hpp"
 
 template<typename T>
 class ConstraintApplicator {
@@ -9,17 +10,19 @@ private:
 
 
 public:
-  std::vector<std::vector<std::complex<T>>> alphas;
+  std::vector<ConstraintField<std::complex<T>>> alphas;
   std::vector<std::complex<T> > values;
   std::vector<std::complex<T> > existing_values;
 
-  MultiLevelFieldManager<T> *underlying;
+  MultiLevelContextInformation<T> *underlying;
+  OutputField<std::complex<T>> *outputField;
 
-  ConstraintApplicator(MultiLevelFieldManager<T> *underlying_) : underlying(underlying_) {
+  ConstraintApplicator(MultiLevelContextInformation<T> *underlying_,
+                       OutputField<std::complex<T>> *outputField_) : underlying(underlying_), outputField(outputField_) {
 
   }
 
-  void add_constraint(std::vector<std::complex<T>> &&alpha, std::complex<T> value, std::complex<T> existing) {
+  void add_constraint(ConstraintField<std::complex<T>> &&alpha, std::complex<T> value, std::complex<T> existing) {
 
     alphas.push_back(std::move(alpha));
     values.push_back(value);
@@ -37,7 +40,7 @@ public:
       for (size_t j = 0; j <= i; j++) {
         auto &alpha_j = alphas[j];
         progress("calculating covariance", ((float) done * 2) / (n * (1 + n)));
-        c_matrix[i][j] = underlying->v1_cov_v2(alpha_j, alpha_i);
+        c_matrix[i][j] = alphas[i].innerProduct(alphas[j], true);
         c_matrix[j][i] = c_matrix[i][j];
         done += 1;
       }
@@ -98,12 +101,10 @@ public:
       for (size_t j = 0; j < i; j++) {
         auto &alpha_j = alphas[j];
         progress("orthogonalizing constraints", ((float) done * 2) / (n * (1 + n)));
-        std::complex<T> result = underlying->v1_cov_v2_with_pseudo_crossterm(alpha_j, alpha_i);
+        std::complex<T> result = alpha_i.innerProduct(alpha_j, true);
 
-#pragma omp parallel for
-        for (size_t k = 0; k < nCells; k++) {
-          alpha_i[k] -= result * alpha_j[k];
-        }
+        alpha_i.addScaled(alpha_j,-result);
+
 
         // update display matrix accordingly such that at each step
         // our current values array is equal to t_matrix . input_values
@@ -116,12 +117,9 @@ public:
       }
 
       // normalize
-      std::complex<T> norm = sqrt(underlying->v_cov_v_with_pseudo_crossterm(alpha_i));
+      std::complex<T> norm = sqrt(alpha_i.innerProduct(alpha_i, true));
 
-#pragma omp parallel for
-      for (size_t k = 0; k < nCells; k++) {
-        alpha_i[k] /= norm;
-      }
+      alpha_i/=norm;
       values[i] /= norm;
 
 
@@ -140,10 +138,12 @@ public:
 
 
     existing_values.clear();
+
+
     for (size_t i = 0; i < n; i++) {
       auto &alpha_i = alphas[i];
       progress("calculating existing means", ((float) i) / n);
-      existing_values.push_back(underlying->v1_dot_y(alpha_i));
+      existing_values.push_back(outputField->innerProduct(alpha_i, false));
     }
     end_progress();
 
@@ -183,39 +183,16 @@ public:
 
   void applyConstraints() {
 
+
     for (size_t i = 0; i < alphas.size(); i++) {
-      auto &alpha_i = alphas[i];
+      MultiLevelField<std::complex<T>> &alpha_i = alphas[i];
       auto dval_i = values[i] - existing_values[i];
+      alpha_i.multiplyByCovariance();
+      outputField->addScaled(alpha_i, dval_i);
 
-      underlying->forEachCellOfEachLevel([dval_i, &alpha_i, this](size_t level, size_t j,
-                                                                  size_t overall_field_j,
-                                                                  std::vector<std::complex<T>> &field) {
-        field[j] += dval_i * underlying->cov(alpha_i, overall_field_j);
-
-      });
     }
   }
 
-  void get_realization(std::complex<T> *r) {
-    size_t nCells = underlying->getNumCells();
-    size_t n = alphas.size();
-    underlying->get_realization(r);
-
-    for (size_t i = 0; i < n; i++) {
-      auto &alpha_i = alphas[i];
-      std::complex<T> dval_i = values[i] - existing_values[i];
-      progress("get constrained y", float(i) / n);
-
-
-#pragma omp parallel for
-      for (size_t j = 0; j < nCells; j++) {
-        r[j] += dval_i * underlying->cov(alpha_i, j);
-      }
-    }
-
-    end_progress();
-
-  }
 };
 
 

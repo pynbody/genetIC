@@ -10,6 +10,9 @@
 
 
 template<typename T>
+class DivisionFilter;
+
+template<typename T>
 class Filter {
 public:
   virtual ~Filter() { }
@@ -17,7 +20,36 @@ public:
   virtual T operator()(T x) const {
     return 1.0;
   }
+
+  virtual Filter<T> *clone() const {
+    return new Filter<T>();
+  }
+
+  DivisionFilter<T> operator/(const Filter<T> &other) const {
+    return DivisionFilter<T>(this, &other);
+  }
 };
+
+template<typename T>
+class DivisionFilter : public Filter <T> {
+private:
+  Filter<T> *pFirst, *pSecond;
+public:
+  DivisionFilter(const Filter<T> * first, const Filter<T> *second) : pFirst(first->clone()), pSecond(second->clone())
+  {
+
+  }
+
+  virtual ~DivisionFilter() {
+    delete pFirst;
+    delete pSecond;
+  }
+
+  virtual T operator()(T x) const {
+    return (*pFirst)(x)/(*pSecond)(x);
+  }
+};
+
 
 template<typename T>
 void tabulateFilter(Filter<T> *pF) {
@@ -42,21 +74,29 @@ public:
     temperature = kcut / 10;
   };
 
+  virtual Filter<T> *clone() const {
+    return new LowPassFermiFilter<T>(*this);
+  }
+
   T operator()(T k) const override {
     return 1. / (1. + exp((k - kcut) / temperature));
   }
 };
 
 template<typename T>
-class CovarianceFilterAdaptor : public Filter<T> {
+class ComplementaryCovarianceFilterAdaptor : public Filter<T> {
 private:
   Filter<T> *pUnderlying;
 public:
-  CovarianceFilterAdaptor(Filter<T> *pOriginal) : pUnderlying(pOriginal) { };
+  ComplementaryCovarianceFilterAdaptor(Filter<T> *pOriginal) : pUnderlying(pOriginal) { };
 
   T operator()(T k) const override {
     T denFilter = (*pUnderlying)(k);
-    return denFilter * denFilter;
+    return sqrt(1.-denFilter*denFilter);
+  }
+
+  virtual Filter<T> *clone() const {
+    return new ComplementaryCovarianceFilterAdaptor<T>(*this);
   }
 };
 
@@ -70,6 +110,10 @@ public:
   T operator()(T k) const override {
     return 1. - (*pUnderlying)(k);
   }
+
+  virtual Filter<T> *clone() const {
+    return new ComplementaryFilterAdaptor<T>(*this);
+  }
 };
 
 
@@ -79,50 +123,46 @@ class FilterFamily {
 public:
   virtual ~FilterFamily() { };
 
-  virtual Filter<T> &getFilterForDensityOnLevel(int level) {
+  virtual Filter<T> &getFilterOnLevel(int level) {
     if (level == 0)
       return filter;
     throw std::runtime_error("FilterFamily cannot produce filter for requested level");
   }
 
-  virtual Filter<T> &getFilterForCovarianceOnLevel(int level) {
-    if (level == 0)
-      return filter;
-    throw std::runtime_error("FilterFamily cannot produce filter for requested level");
-  }
-
-  virtual Filter<T> &getFilterForCovarianceResidualOnLevel(int level) {
+  virtual Filter<T> &getResidualFilterOnLevel(int level) {
     throw std::runtime_error("FilterFamily cannot produce filter for requested level");
   }
 };
 
 template<typename T>
 class TwoLevelFilterFamily : public FilterFamily<T> {
-private:
+protected:
   Filter<T> *pDenFilterLow;
   Filter<T> *pDenFilterHigh;
-  Filter<T> *pCovFilterLow;
   Filter<T> *pCovFilterHighPartOfLowRes;
   Filter<T> *pCovFilterHigh;
+
+  TwoLevelFilterFamily() {
+
+  }
+
 public:
+
+
 
   TwoLevelFilterFamily(T k_cut) {
     pDenFilterLow = new LowPassFermiFilter<T>(k_cut);
-    pDenFilterHigh = new ComplementaryFilterAdaptor<T>(pDenFilterLow);
-    pCovFilterLow = new CovarianceFilterAdaptor<T>(pDenFilterLow);
-    pCovFilterHigh = new ComplementaryFilterAdaptor<T>(pCovFilterLow);
-    pCovFilterHighPartOfLowRes = new CovarianceFilterAdaptor<T>(pDenFilterHigh);
+    pDenFilterHigh = new ComplementaryCovarianceFilterAdaptor<T>(pDenFilterLow);
+    pCovFilterHighPartOfLowRes = new ComplementaryFilterAdaptor<T>(pDenFilterLow);
   }
 
   ~TwoLevelFilterFamily() {
     delete pDenFilterLow;
     delete pDenFilterHigh;
-    delete pCovFilterLow;
     delete pCovFilterHighPartOfLowRes;
-    delete pCovFilterHigh;
   }
 
-  Filter<T> &getFilterForDensityOnLevel(int level) override {
+  Filter<T> &getFilterOnLevel(int level) override {
     switch (level) {
       case 0:
         return *pDenFilterLow;
@@ -133,18 +173,8 @@ public:
     }
   }
 
-  Filter<T> &getFilterForCovarianceOnLevel(int level) override {
-    switch (level) {
-      case 0:
-        return *pCovFilterLow;
-      case 1:
-        return *pCovFilterHigh;
-      default:
-        throw std::runtime_error("TwoLevelFilterFamily cannot produce filter for requested level");
-    }
-  }
 
-  Filter<T> &getFilterForCovarianceResidualOnLevel(int level) override {
+  Filter<T> &getResidualFilterOnLevel(int level) override {
     switch (level) {
       case 0:
         return *pCovFilterHighPartOfLowRes;
@@ -154,5 +184,19 @@ public:
   }
 };
 
+
+
+
+template<typename T>
+class TwoLevelDependentFilterFamily : public TwoLevelFilterFamily<T> {
+public:
+
+  TwoLevelDependentFilterFamily(T k_cut) {
+    this->pDenFilterLow = new LowPassFermiFilter<T>(k_cut);
+    this->pDenFilterHigh = new ComplementaryFilterAdaptor<T>(this->pDenFilterLow);
+    this->pCovFilterHighPartOfLowRes = new ComplementaryFilterAdaptor<T>(this->pDenFilterLow);
+  }
+
+};
 
 #endif //IC_FILTER_HPP

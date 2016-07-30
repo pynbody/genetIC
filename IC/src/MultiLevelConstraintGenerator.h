@@ -8,20 +8,21 @@
 #include <complex.h>
 #include <vector>
 
-#include "multilevelfieldmanager.hpp"
+#include "multilevelcontext.hpp"
 #include "grid.hpp"
 #include "sparse.hpp"
 #include "onelevelconstraint.hpp"
+#include "multilevelfield.hpp"
 
 using namespace std;
 
 template<typename T>
 class MultiLevelConstraintGenerator {
 protected:
-  MultiLevelFieldManager<T> &fieldManager;
+  MultiLevelContextInformation<T> &fieldManager;
   CosmologicalParameters<T> &cosmology;
 public:
-  MultiLevelConstraintGenerator(MultiLevelFieldManager<T> &fieldManager, CosmologicalParameters<T> &cosmology) :
+  MultiLevelConstraintGenerator(MultiLevelContextInformation<T> &fieldManager, CosmologicalParameters<T> &cosmology) :
     fieldManager(fieldManager), cosmology(cosmology) {
 
   }
@@ -52,9 +53,9 @@ public:
     return dataOnLevels;
   }
 
-  vector<complex<T>> calcConstraintForAllLevels(string name, bool kspace = true) {
+  auto calcConstraintForAllLevels(string name, bool kspace = true) {
     auto dataOnLevels = calcConstraintForEachLevel(name, kspace);
-    return fieldManager.combineDataOnLevelsIntoOneVector(dataOnLevels);
+    return ConstraintField<std::complex<T>>(fieldManager,std::move(dataOnLevels));
   }
 };
 
