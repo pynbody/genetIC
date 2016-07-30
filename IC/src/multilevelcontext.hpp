@@ -10,22 +10,20 @@
 #include <memory>
 
 #include "grid.hpp"
-
+#include "signaling.hpp"
 
 //#include <Eigen/Dense>
 
 
 
 template<typename T>
-class MultiLevelContextInformation {
+class MultiLevelContextInformation : public Signaling {
 private:
   std::vector<std::shared_ptr<Grid<T>>> pGrid;
   std::vector<std::vector<T>> C0s;
   std::vector<T> weights;
   std::shared_ptr<FilterFamily<T>> pFilters;
   std::vector<complex<T>> pField_k_0_high; // high-k modes for level 0
-  std::map<size_t, std::function<void(void)>> subscriptionList; // callback functions for changes
-  size_t last_subscription;
 
 protected:
   std::vector<size_t> Ns;
@@ -62,29 +60,16 @@ protected:
     }
   }
 
-  void triggerUpdates() {
-    for(auto key_and_fn : subscriptionList) {
-      key_and_fn.second();
-    }
-  }
+
 
 public:
+
   MultiLevelContextInformation() {
     nLevels = 0;
     Ntot = 0;
   }
 
   virtual ~MultiLevelContextInformation() { }
-
-  size_t subscribe(std::function<void(void)> fn) {
-    last_subscription++;
-    subscriptionList[last_subscription] = fn;
-    return last_subscription;
-  }
-
-  void unsubscribe(size_t id) {
-    subscriptionList.erase(id);
-  }
 
 
 
@@ -100,7 +85,7 @@ public:
     cumu_Ns.push_back(Ntot);
     Ntot += N;
     nLevels += 1;
-    triggerUpdates();
+    this->changed();
     setupFilters();
   }
 

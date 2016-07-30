@@ -490,7 +490,7 @@ public:
       cerr << "done." << endl;
 
       cerr << "Re-introducing high-k modes into low-res region...";
-      // multiLevelContext.recombineLevel0();
+      multiLevelContext.recombineLevel0();
       zeldovichForLevel(0);
       cerr << "done." << endl;
 
@@ -708,7 +708,8 @@ protected:
 
 
   auto calcConstraint(string name_in, bool kspace = true) {
-    return constraintGenerator.calcConstraintForAllLevels(name_in, kspace);
+    auto constraint = constraintGenerator.calcConstraintForAllLevels(name_in, kspace);
+    return constraint;
   }
 
 

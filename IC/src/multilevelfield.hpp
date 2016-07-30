@@ -29,7 +29,7 @@ protected:
   using T = strip_complex<DataType>;
   MultiLevelContextInformation<T> * multiLevelContext;
   std::shared_ptr<FilterFamily<T>> pFilters;
-  size_t subscription_id;
+  Signaling::connection_t connection;
 
   template<typename FilterType>
   void setupFilters() {
@@ -50,19 +50,18 @@ protected:
 public:
 
   MultiLevelField(MultiLevelContextInformation<T> & multiLevelContext) : multiLevelContext(&multiLevelContext) {
-    subscription_id = multiLevelContext.subscribe([this]() {
-      update();
+    connection = multiLevelContext.connect([this]() {
+      cerr << "GOT SIGNAL! Calling update... this = " << this << " pointer = " << pFilters.get() << endl;
+      this->update();
+      cerr << "           finished update... pointer = " << pFilters.get() << endl;
     });
-    update();
-  }
-
-  ~MultiLevelField() {
-    multiLevelContext->unsubscribe(subscription_id);
+    cerr << "MultiLevelField initializer " << this << endl;
   }
 
   virtual void update() {
 
   }
+
 
   virtual const std::vector<DataType> & getFieldOnGrid(size_t i) const = 0;
 
@@ -262,7 +261,7 @@ protected:
 
 public:
   OutputField(MultiLevelContextInformation<T> & multiLevelContext) : MultiLevelField<DataType>(multiLevelContext) {
-
+    cerr << "OutputField initializer " << this << endl;
   }
 
   virtual void update() {
@@ -286,10 +285,12 @@ public:
   ConstraintField(MultiLevelContextInformation<T> & multiLevelContext, std::vector<std::vector<DataType>> && fieldsOnGrids)
   : MultiLevelField<DataType>(multiLevelContext), fieldsOnGrids(std::move(fieldsOnGrids))
   {
-
+    update();
   }
 
+
   virtual void update() override {
+    cerr << "ConstraintField update " << this <<endl;
     this->template setupFilters<TwoLevelDependentFilterFamily<T>>();
   }
 

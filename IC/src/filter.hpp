@@ -124,9 +124,7 @@ public:
   virtual ~FilterFamily() { };
 
   virtual Filter<T> &getFilterOnLevel(int level) {
-    if (level == 0)
-      return filter;
-    throw std::runtime_error("FilterFamily cannot produce filter for requested level");
+    return filter;
   }
 
   virtual Filter<T> &getResidualFilterOnLevel(int level) {
