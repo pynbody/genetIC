@@ -23,38 +23,42 @@
 
 using namespace std;
 
-template<typename MyFloat>
-class DummyIC;
+template<typename T>
+class DummyICGenerator;
 
 
-template<typename MyFloat>
-class IC {
+template<typename T>
+class ICGenerator {
+  /** The top level object responsible for coordinating the generation of initial conditions, including GM constraints.
+   *
+   * This class exposes all the methods which are made scriptable by main.cpp
+   */
 protected:
 
-  using GridPtrType = std::shared_ptr<Grid<MyFloat>>;
+  using GridPtrType = std::shared_ptr<Grid<T>>;
 
-  friend class DummyIC<MyFloat>;
+  friend class DummyICGenerator<T>;
 
-  CosmologicalParameters<MyFloat> cosmology;
-  MultiLevelContextInformation<MyFloat> multiLevelContext;
-  OutputField<std::complex<MyFloat>> outputField;
-  ConstraintApplicator<MyFloat> constraintApplicator;
-  MultiLevelConstraintGenerator<MyFloat> constraintGenerator;
-  RandomFieldGenerator<MyFloat> randomFieldGenerator;
+  CosmologicalParameters<T> cosmology;
+  MultiLevelContextInformation<T> multiLevelContext;
+  OutputField<std::complex<T>> outputField;
+  ConstraintApplicator<T> constraintApplicator;
+  MultiLevelConstraintGenerator<T> constraintGenerator;
+  RandomFieldGenerator<T> randomFieldGenerator;
 
-  CAMB<MyFloat> spectrum;
+  CAMB<T> spectrum;
 
   // Everything about the grids:
-  MyFloat boxlen[2], dx[2];      // the box length of each grid
-  int n[2];                      // number of grid divisions along one axis
+  T boxlen[2], dx[2];      // the box length of each grid
+  int n[2];                // number of grid divisions along one axis
 
   int supersample, subsample;               // DM supersampling to perform on zoom grid, and subsampling on base grid
 
   std::vector<GridPtrType> pGrid;       // the objects that help us relate points on the grid
 
-  MyFloat x_off[2], y_off[2], z_off[2]; // x,y,z offsets for subgrids
+  T x_off[2], y_off[2], z_off[2]; // x,y,z offsets for subgrids
 
-  MyFloat xOffOutput, yOffOutput, zOffOutput;
+  T xOffOutput, yOffOutput, zOffOutput;
 
   int zoomfac; // the zoom factor, i.e. the ratio dx/dx[1]
 
@@ -64,7 +68,7 @@ protected:
 
   size_t nPartLevel[2];
 
-  string incamb, indir, inname, base;
+  string indir, inname, base;
 
 
   bool prepared;
@@ -74,25 +78,25 @@ protected:
   std::vector<size_t> zoomParticleArray;
 
 
-  MyFloat x0, y0, z0;
+  T x0, y0, z0;
 
-  shared_ptr<ParticleMapper<MyFloat>> pMapper;
-  shared_ptr<ParticleMapper<MyFloat>> pInputMapper;
+  shared_ptr<ParticleMapper<T>> pMapper;
+  shared_ptr<ParticleMapper<T>> pInputMapper;
 
   using RefFieldType = decltype(pGrid[0]->getField());
   using FieldType = std::remove_reference_t<decltype(pGrid[0]->getField())>;
 
-  ClassDispatch<IC<MyFloat>, void> &interpreter;
+  ClassDispatch<ICGenerator<T>, void> &interpreter;
 
 
 public:
-  IC(ClassDispatch<IC<MyFloat>, void> &interpreter) :
+  ICGenerator(ClassDispatch<ICGenerator<T>, void> &interpreter) :
+                                                      outputField(multiLevelContext),
+                                                      constraintApplicator(&multiLevelContext, &outputField),
                                                       constraintGenerator(multiLevelContext, cosmology),
                                                       randomFieldGenerator(multiLevelContext),
-                                                      pMapper(new ParticleMapper<MyFloat>()),
-                                                      interpreter(interpreter),
-                                                      outputField(multiLevelContext),
-                                                      constraintApplicator(&multiLevelContext, &outputField)
+                                                      pMapper(new ParticleMapper<T>()),
+                                                      interpreter(interpreter)
   {
     pInputMapper = nullptr;
     cosmology.hubble = 0.701;   // old default
@@ -113,40 +117,40 @@ public:
     exactPowerSpectrum = false;
   }
 
-  ~IC() {
+  ~ICGenerator() {
 
   }
 
-  void setOmegaM0(MyFloat in) {
+  void setOmegaM0(T in) {
     cosmology.OmegaM0 = in;
   }
 
-  void setTCMB(MyFloat in) {
+  void setTCMB(T in) {
     cosmology.TCMB = in;
   }
 
-  void setOmegaB0(MyFloat in) {
+  void setOmegaB0(T in) {
     cosmology.OmegaBaryons0 = in;
     // now that we have gas, mapper may have changed:
     updateParticleMapper();
   }
 
-  void setOmegaLambda0(MyFloat in) {
+  void setOmegaLambda0(T in) {
     cosmology.OmegaLambda0 = in;
   }
 
-  void setHubble(MyFloat in) {
+  void setHubble(T in) {
     cosmology.hubble = in;
   }
 
-  void offsetOutput(MyFloat x, MyFloat y, MyFloat z) {
+  void offsetOutput(T x, T y, T z) {
     xOffOutput = x;
     yOffOutput = y;
     zOffOutput = z;
     updateParticleMapper();
   }
 
-  void setSigma8(MyFloat in) {
+  void setSigma8(T in) {
     cosmology.sigma8 = in;
   }
 
@@ -160,12 +164,12 @@ public:
     updateParticleMapper();
   }
 
-  void setBoxLen(MyFloat in) {
+  void setBoxLen(T in) {
     boxlen[0] = in;
     initGrid();
   }
 
-  void setZ0(MyFloat in) {
+  void setZ0(T in) {
     cosmology.redshift = in;
     cosmology.scalefactor = 1. / (cosmology.redshift + 1.);
   }
@@ -186,7 +190,7 @@ public:
     if (pGrid.size() != level)
       throw std::runtime_error("Trying to re-initialize a grid level");
 
-    pGrid.push_back(std::make_shared<Grid<MyFloat>>(boxlen[0], n[level], dx[level],
+    pGrid.push_back(std::make_shared<Grid<T>>(boxlen[0], n[level], dx[level],
                                                     x_off[level], y_off[level], z_off[level]));
 
 
@@ -195,7 +199,7 @@ public:
 
   }
 
-  void setns(MyFloat in) {
+  void setns(T in) {
     cosmology.ns = in;
   }
 
@@ -231,7 +235,7 @@ public:
 
     x0 = y0 = z0 = n[0];
     x1 = y1 = z1 = 0;
-    Grid<MyFloat> g(n[0]);
+    Grid<T> g(n[0]);
 
     // TO DO: wrap the box sensibly
 
@@ -331,7 +335,8 @@ public:
   }
 
   void setCambDat(std::string in) {
-    incamb = in;
+    spectrum.read(in);
+    updateFieldManager();
   }
 
   void setOutDir(std::string in) {
@@ -352,7 +357,7 @@ public:
   string make_base(string basename, int level = 0) {
     ostringstream nult;
     if (inname.size() == 0) {
-      nult << basename << "IC_iter_" << floatinfo<MyFloat>::name << "_z" << cosmology.redshift << "_" << n[level] <<
+      nult << basename << "IC_iter_" << floatinfo<T>::name << "_z" << cosmology.redshift << "_" << n[level] <<
       "_L" << boxlen[level];
 
     } else {
@@ -365,17 +370,17 @@ public:
   }
 
   void readCamb() {
-    spectrum.read(incamb);
+
     updateFieldManager();
   }
 
   void updateFieldManager() {
     if (spectrum.isUsable()) {
+      multiLevelContext.clear();
       for_each_level(level) {
-        if (multiLevelContext.getNumLevels() <= level)
-          multiLevelContext.addLevel(spectrum.getPowerSpectrumForGrid(this->cosmology, *(this->pGrid[level])),
-                                this->pGrid[level],
-                                this->nPartLevel[level]);
+        multiLevelContext.addLevel(spectrum.getPowerSpectrumForGrid(this->cosmology, *(this->pGrid[level])),
+                                   this->pGrid[level],
+                                   this->nPartLevel[level]);
       }
     }
   }
@@ -391,9 +396,9 @@ public:
     multiLevelContext.zeroLevel(level);
   }
 
-  template<typename T>
+  template<typename TField>
   void interpolateIntoLevel(const GridPtrType &pGrid_dest, const GridPtrType &pGrid_src,
-                            T &pField_x_dest, T &pField_x_src) {
+                            TField &pField_x_dest, TField &pField_x_src) {
     pGrid_dest->addFieldFromDifferentGrid(*pGrid_src, pField_x_src, pField_x_dest);
   }
 
@@ -416,8 +421,8 @@ public:
     }
   }
 
-  template<typename T>
-  void dumpGridData(int level, const T &data) {
+  template<typename TField>
+  void dumpGridData(int level, const TField &data) {
     assert(data.size() == pGrid[level]->size3);
     ostringstream filename;
     filename << indir << "/grid-" << level << ".npy";
@@ -456,14 +461,14 @@ public:
   virtual void zeldovichForLevel(int level) {
     //Zeldovich approx.
 
-    MyFloat hfac = 1. * 100. * sqrt(
+    T hfac = 1. * 100. * sqrt(
       cosmology.OmegaM0 / cosmology.scalefactor / cosmology.scalefactor / cosmology.scalefactor +
       cosmology.OmegaLambda0) * sqrt(
       cosmology.scalefactor);
     //this should be f*H(t)*a, but gadget wants vel/sqrt(a), so we use H(t)*sqrt(a)
     //TODO: hardcoded value of f=1 is inaccurate, but fomega currently gives wrong results
 
-    MyFloat pmass = 27.78 * cosmology.OmegaM0 * powf(boxlen[level] / (MyFloat) (n[level]), 3.0);
+    T pmass = 27.78 * cosmology.OmegaM0 * powf(boxlen[level] / (T) (n[level]), 3.0);
 
     pGrid[level]->zeldovich(hfac, pmass);
 
@@ -499,7 +504,7 @@ public:
   }
 
   void setInputMapper(std::string fname) {
-    DummyIC<MyFloat> pseudoICs(this);
+    DummyICGenerator<T> pseudoICs(this);
     auto dispatch = interpreter.specify_instance(pseudoICs);
     ifstream inf;
     inf.open(fname);
@@ -518,11 +523,11 @@ public:
 
   }
 
-  std::shared_ptr<Grid<MyFloat>> getGridWithOutputOffset(int level = 0) {
+  std::shared_ptr<Grid<T>> getGridWithOutputOffset(int level = 0) {
     auto gridForOutput = pGrid[level];
 
     if (xOffOutput != 0 || yOffOutput != 0 || zOffOutput != 0) {
-      gridForOutput = std::make_shared<OffsetGrid<MyFloat>>(pGrid[0], xOffOutput, yOffOutput, zOffOutput);
+      gridForOutput = std::make_shared<OffsetGrid<T>>(pGrid[0], xOffOutput, yOffOutput, zOffOutput);
     }
     return gridForOutput;
   }
@@ -533,7 +538,7 @@ public:
       return;
 
     // make a basic mapper for the base level grid
-    pMapper = std::shared_ptr<ParticleMapper<MyFloat>>(new OneLevelParticleMapper<MyFloat>(
+    pMapper = std::shared_ptr<ParticleMapper<T>>(new OneLevelParticleMapper<T>(
       getGridWithOutputOffset(0)
     ));
 
@@ -545,11 +550,11 @@ public:
 
     if (pGrid.size() == 2) {
       // it's a zoom!
-      auto pMapperLevel1 = std::shared_ptr<ParticleMapper<MyFloat>>(
-        new OneLevelParticleMapper<MyFloat>(getGridWithOutputOffset(1)));
+      auto pMapperLevel1 = std::shared_ptr<ParticleMapper<T>>(
+        new OneLevelParticleMapper<T>(getGridWithOutputOffset(1)));
 
-      pMapper = std::shared_ptr<ParticleMapper<MyFloat>>(
-        new TwoLevelParticleMapper<MyFloat>(pMapper, pMapperLevel1, zoomParticleArray, zoomfac * zoomfac * zoomfac));
+      pMapper = std::shared_ptr<ParticleMapper<T>>(
+        new TwoLevelParticleMapper<T>(pMapper, pMapperLevel1, zoomParticleArray, zoomfac * zoomfac * zoomfac));
     }
 
     if (cosmology.OmegaBaryons0 > 0) {
@@ -563,10 +568,10 @@ public:
 
       // graft the gas particles onto the start of the map
       if (gasFirst)
-        pMapper = std::make_shared<AddGasMapper<MyFloat>>(
+        pMapper = std::make_shared<AddGasMapper<T>>(
           gasMapper.first, gasMapper.second, true);
       else
-        pMapper = std::make_shared<AddGasMapper<MyFloat>>(
+        pMapper = std::make_shared<AddGasMapper<T>>(
           gasMapper.second, gasMapper.first, false);
 
     }
@@ -623,7 +628,6 @@ public:
 
     base = make_base(indir);
 
-    readCamb();
     drawRandom();
 
     applyPowerSpec();
@@ -651,7 +655,7 @@ protected:
     if (pGrid.size() > 1) return 1; else return 0;
   }
 
-  MyFloat get_wrapped_delta(MyFloat x0, MyFloat x1) {
+  T get_wrapped_delta(T x0, T x1) {
     return pGrid[0]->getWrappedDelta(x0, x1);
   }
 
@@ -662,8 +666,6 @@ protected:
     z0 = 0;
 
     int level = deepestLevelWithParticlesSelected();
-
-    MyFloat xa, ya, za, xb, yb, zb;
 
     std::vector<size_t> particleArray;
     pGrid[level]->gatherParticleList(particleArray);
@@ -679,9 +681,7 @@ protected:
     x0 /= particleArray.size();
     y0 /= particleArray.size();
     z0 /= particleArray.size();
-    x0 += xa;
-    y0 += ya;
-    z0 += za;
+
     cerr << "Centre of region is " << setprecision(12) << x0 << " " << y0 << " " << z0 << endl;
   }
 
@@ -742,15 +742,15 @@ public:
   void selectNearest() {
     auto grid = pGrid[deepestLevel()];
     pMapper->clearParticleList();
-    size_t id = grid->getClosestIdNoWrap(Coordinate<MyFloat>(x0, y0, z0));
+    size_t id = grid->getClosestIdNoWrap(Coordinate<T>(x0, y0, z0));
     cerr << "selectNearest " <<x0 << " " << y0 << " " << z0 << " " << id << " " << endl;
     grid->distributeParticleList({id});
 
   }
 
-  void select(std::function<bool(MyFloat, MyFloat, MyFloat)> inclusionFunction) {
-    MyFloat delta_x, delta_y, delta_z;
-    MyFloat xp, yp, zp;
+  void select(std::function<bool(T, T, T)> inclusionFunction) {
+    T delta_x, delta_y, delta_z;
+    T xp, yp, zp;
 
     genericParticleArray.clear();
 
@@ -773,23 +773,23 @@ public:
   }
 
   void selectSphere(float radius) {
-    MyFloat r2 = radius * radius;
-    select([r2](MyFloat delta_x, MyFloat delta_y, MyFloat delta_z) -> bool {
-      MyFloat r2_i = delta_x * delta_x + delta_y * delta_y + delta_z * delta_z;
+    T r2 = radius * radius;
+    select([r2](T delta_x, T delta_y, T delta_z) -> bool {
+      T r2_i = delta_x * delta_x + delta_y * delta_y + delta_z * delta_z;
       return r2_i < r2;
     });
 
   }
 
   void selectCube(float side) {
-    MyFloat side_by_2 = side / 2;
-    select([side_by_2](MyFloat delta_x, MyFloat delta_y, MyFloat delta_z) -> bool {
+    T side_by_2 = side / 2;
+    select([side_by_2](T delta_x, T delta_y, T delta_z) -> bool {
       return abs(delta_x) < side_by_2 && abs(delta_y) < side_by_2 && abs(delta_z) < side_by_2;
     });
   }
 
 
-  void setCentre(MyFloat xin, MyFloat yin, MyFloat zin) {
+  void setCentre(T xin, T yin, T zin) {
     x0 = xin;
     y0 = yin;
     z0 = zin;
@@ -800,8 +800,8 @@ public:
     cout << "Reordering buffer radially..." << endl;
     cout << " [taking centre = " << x0 << " " << y0 << " " << z0 << "]" << endl;
 
-    std::vector<MyFloat> r2(genericParticleArray.size());
-    MyFloat delta_x, delta_y, delta_z;
+    std::vector<T> r2(genericParticleArray.size());
+    T delta_x, delta_y, delta_z;
 
     std::vector<size_t> index(genericParticleArray.size());
 
@@ -856,10 +856,10 @@ public:
       throw runtime_error("Constraint type must be either 'relative' or 'absolute'");
     }
 
-    std::complex<MyFloat> constraint = value;
+    std::complex<T> constraint = value;
     auto vec = calcConstraint(name);
 
-    std::complex<MyFloat> initv = vec.innerProduct(outputField);
+    std::complex<T> initv = vec.innerProduct(outputField);
 
     if (relative) constraint *= initv;
 
@@ -893,9 +893,9 @@ public:
     }
   }
 
-  void reseedSmallK(MyFloat kmax, int seed) {
+  void reseedSmallK(T kmax, int seed) {
 
-    MyFloat k2max = kmax * kmax;
+    T k2max = kmax * kmax;
 
     // take a copy of all the fields
     std::vector<FieldType> fieldCopies;
@@ -910,7 +910,7 @@ public:
       auto &fieldOriginal = fieldCopies[level];
       auto &field = pGrid[level]->getFieldFourier();
       const auto &grid = *(this->pGrid[level]);
-      MyFloat k2;
+      T k2;
       for (size_t i = 0; i < this->nPartLevel[level]; i++) {
         k2 = grid.getFourierCellKSquared(i);
         if (k2 > k2max && k2 != 0) {
@@ -921,19 +921,19 @@ public:
 
   }
 
-  void reverseSmallK(MyFloat kmax) {
+  void reverseSmallK(T kmax) {
 
-    MyFloat k2max = kmax * kmax;
+    T k2max = kmax * kmax;
 
 
     for_each_level(level) {
-      MyFloat k2_g_min = std::numeric_limits<MyFloat>::max();
-      MyFloat k2_g_max = 0.0;
+      T k2_g_min = std::numeric_limits<T>::max();
+      T k2_g_max = 0.0;
       size_t modes_reversed = 0;
       size_t tot_modes = pGrid[level]->size3;
       auto &field = pGrid[level]->getFieldFourier();
-      const Grid<MyFloat> &grid = *(this->pGrid[level]);
-      MyFloat k2;
+      const Grid<T> &grid = *(this->pGrid[level]);
+      T k2;
       for (size_t i = 0; i < this->nPartLevel[level]; i++) {
         k2 = grid.getFourierCellKSquared(i);
         if (k2 < k2max && k2 != 0) {

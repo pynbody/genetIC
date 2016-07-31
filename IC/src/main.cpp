@@ -67,7 +67,7 @@ void end_progress() {
 }
 
 
-typedef IC<MyFloat> ICf;
+typedef ICGenerator<MyFloat> ICf;
 
 
 void setup_parser(ClassDispatch<ICf, void> &dispatch) {

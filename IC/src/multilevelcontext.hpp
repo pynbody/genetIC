@@ -74,6 +74,16 @@ public:
     this->changed();
   }
 
+  void clear() {
+    C0s.clear();
+    pGrid.clear();
+    Ns.clear();
+    cumu_Ns.clear();
+    Ntot = 0;
+    nLevels = 0;
+    this->changed();
+  }
+
 
   size_t getNumCells() const {
     return Ntot;

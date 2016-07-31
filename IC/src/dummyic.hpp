@@ -4,11 +4,11 @@
 #include "ic.hpp"
 
 template<typename MyFloat>
-class DummyIC : public IC<MyFloat> {
+class DummyICGenerator : public ICGenerator<MyFloat> {
 protected:
-  IC<MyFloat> *pUnderlying;
+  ICGenerator<MyFloat> *pUnderlying;
 public:
-  DummyIC(IC<MyFloat> *pUnderlying) : IC<MyFloat>(pUnderlying->interpreter), pUnderlying(pUnderlying) {
+  DummyICGenerator(ICGenerator<MyFloat> *pUnderlying) : ICGenerator<MyFloat>(pUnderlying->interpreter), pUnderlying(pUnderlying) {
 
   }
 

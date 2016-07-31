@@ -36,9 +36,7 @@ public:
 
     // Gram-Schmidt orthogonalization in-place
     for (size_t i = 0; i < n; i++) {
-      auto &alpha_i = alphas[i];
       for (size_t j = 0; j <= i; j++) {
-        auto &alpha_j = alphas[j];
         progress("calculating covariance", ((float) done * 2) / (n * (1 + n)));
         c_matrix[i][j] = alphas[i].innerProduct(alphas[j]);
         c_matrix[j][i] = c_matrix[i][j];

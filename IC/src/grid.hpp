@@ -64,7 +64,6 @@ protected:
                                   std::vector<size_t> &targetArray,
                                   const Grid<T> *source,
                                   const Grid<T> *target) {
-    int x0, y0, z0, x1, y1, z1, x, y, z;
 
     assert(target->size >= source->size);
     assert((target->size) % (source->size) == 0);
@@ -89,7 +88,6 @@ protected:
 
 
     std::set<size_t> targetSet;
-    int x, y, z;
 
     assert(source->size >= target->size);
     assert((source->size) % (target->size) == 0);
@@ -938,7 +936,6 @@ protected:
 
 
   size_t mapIndexToUnderlying(size_t sec_id) const {
-    int x, y, z;
     auto coord = this->getCellCoordinate(sec_id);
     coord += cellOffset;
     if (!this->pUnderlying->containsCell(coord))
@@ -947,7 +944,6 @@ protected:
   }
 
   size_t mapIndexFromUnderlying(size_t underlying_id) const {
-    int x, y, z;
     auto coord = this->pUnderlying->getCellCoordinate(underlying_id);
     coord -= cellOffset;
 
@@ -966,8 +962,8 @@ public:
                    pUnderlying->offsetLower.y + deltay * pUnderlying->dx,
                    pUnderlying->offsetLower.z + deltaz * pUnderlying->dx, false),
     cellOffset(deltax, deltay, deltaz),
-    posOffset(deltax * this->dx, deltay * this->dx, deltaz * this->dx),
-    upperCell(cellOffset+pUnderlying->size)
+    upperCell(cellOffset+pUnderlying->size),
+    posOffset(deltax * this->dx, deltay * this->dx, deltaz * this->dx)
   {
 
   }

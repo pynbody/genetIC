@@ -571,10 +571,6 @@ void SaveGadget(const std::string &name, double Boxlength, shared_ptr<ParticleMa
   // pos in Mpc h^-1
   // vel in km s^-1 a^1/2
 
-  MyFloat pos_factor = 1.; //change if other units needed in output
-  MyFloat vel_factor = 1.;
-  MyFloat mass_factor = 1.;
-
   getParticleInfo(pMapper, min_mass, max_mass, tot_mass, gas_mass, ngas, nlow, nhigh);
 
   cout << "min and max particle mass : " << min_mass << " " << max_mass << endl;
@@ -584,9 +580,9 @@ void SaveGadget(const std::string &name, double Boxlength, shared_ptr<ParticleMa
   long *npart = (long *) calloc(6, sizeof(long));
 
   //extend these arrays when additional particle types are added:
-  masses[0] = gas_mass * mass_factor;
-  masses[1] = min_mass * mass_factor;
-  masses[5] = max_mass * mass_factor;
+  masses[0] = gas_mass;
+  masses[1] = min_mass;
+  masses[5] = max_mass;
   npart[0] = ngas;
   npart[1] = nhigh;
   npart[5] = nlow;
@@ -633,11 +629,11 @@ void SaveGadget(const std::string &name, double Boxlength, shared_ptr<ParticleMa
   for (auto i = pMapper->beginDm(); i != pMapper->endDm(); ++i) {
     auto particle = i.getParticle();
 
-    output_cache = particle.pos.x * pos_factor;
+    output_cache = particle.pos.x;
     my_fwrite(&output_cache, sizeof(output_cache), 1, fd);
-    output_cache = particle.pos.y * pos_factor;
+    output_cache = particle.pos.y;
     my_fwrite(&output_cache, sizeof(output_cache), 1, fd);
-    output_cache = particle.pos.z * pos_factor;
+    output_cache = particle.pos.z;
     my_fwrite(&output_cache, sizeof(output_cache), 1, fd);
 
   }
@@ -651,11 +647,11 @@ void SaveGadget(const std::string &name, double Boxlength, shared_ptr<ParticleMa
   for (auto i = pMapper->beginDm(); i != pMapper->endDm(); ++i) {
     auto particle = i.getParticle();
 
-    output_cache = particle.vel.x * pos_factor;
+    output_cache = particle.vel.x;
     my_fwrite(&output_cache, sizeof(output_cache), 1, fd);
-    output_cache = particle.vel.y * pos_factor;
+    output_cache = particle.vel.y;
     my_fwrite(&output_cache, sizeof(output_cache), 1, fd);
-    output_cache = particle.vel.z * pos_factor;
+    output_cache = particle.vel.z;
     my_fwrite(&output_cache, sizeof(output_cache), 1, fd);
 
   }
@@ -667,7 +663,7 @@ void SaveGadget(const std::string &name, double Boxlength, shared_ptr<ParticleMa
   dummy = sizeof(long) *
           (n); //here: gadget just checks if the IDs are ints or long longs; still the number of particles is read from the header file
   my_fwrite(&dummy, sizeof(dummy), 1, fd);
-  for (long i = 0; i < n; i++) {
+  for (size_t i = 0; i < n; i++) {
     my_fwrite(&i, sizeof(long), 1, fd);
 
     //counter+=1;
