@@ -22,8 +22,6 @@ private:
   std::vector<std::shared_ptr<Grid<T>>> pGrid;
   std::vector<std::vector<T>> C0s;
   std::vector<T> weights;
-  std::shared_ptr<FilterFamily<T>> pFilters;
-  std::vector<complex<T>> pField_k_0_high; // high-k modes for level 0
 
 protected:
   std::vector<size_t> Ns;
@@ -46,18 +44,6 @@ protected:
     nLevels = 1;
     Ns.push_back(N);
     Ntot = N;
-  }
-
-  void setupFilters() {
-    if (nLevels == 2) {
-      const T FRACTIONAL_K_SPLIT = 0.3;
-      pFilters = std::make_shared<TwoLevelFilterFamily<T>>(
-        ((T) pGrid[0]->size) * FRACTIONAL_K_SPLIT * 2. * M_PI / pGrid[0]->boxsize);
-    } else if (nLevels == 1) {
-      pFilters = std::make_shared<FilterFamily<T>>();
-    } else {
-      throw (std::runtime_error("Don't know how to make appropriate filters for multi-level field"));
-    }
   }
 
 
@@ -86,7 +72,6 @@ public:
     Ntot += N;
     nLevels += 1;
     this->changed();
-    setupFilters();
   }
 
 
@@ -127,25 +112,6 @@ public:
     return C0s[comp][j] * vec[overall_j] * weights[comp];
   }
 
-  virtual void applyFiltering() {
-    auto grid0 = pGrid[0];
-
-    pField_k_0_high = pGrid[0]->getFieldFourier();
-    pGrid[0]->applyFilter(pFilters->getResidualFilterOnLevel(0),pField_k_0_high);
-
-  }
-
-  virtual void recombineLevel0() {
-
-    auto &pField_k = pGrid[0]->getFieldFourier();
-    size_t size = this->pGrid[0]->size3;
-
-    for (size_t i = 0; i < size; i++)
-      pField_k[i] += pField_k_0_high[i];
-
-    pField_k_0_high.clear();
-
-  }
 
   vector<complex<T>> createEmptyFieldForLevel(size_t level) const {
     vector<complex<T>> ar(pGrid[level]->size3);
@@ -193,12 +159,8 @@ public:
   }
 
   void zeroLevel(int level) {
-    if (level == -1) {
-      std::fill(pField_k_0_high.begin(), pField_k_0_high.end(), 0);
-    } else {
-      auto &field = pGrid[level]->getField();
-      std::fill(field.begin(), field.end(), 0);
-    }
+    auto &field = pGrid[level]->getField();
+    std::fill(field.begin(), field.end(), 0);
   }
 
   void forEachLevel(std::function<void(Grid<T> &)> newLevelCallback) {
@@ -208,14 +170,15 @@ public:
   }
 
   void forEachCellOfEachLevel(
-    std::function<void(size_t)> levelCallback,
+    std::function<bool(size_t)> levelCallback,
     std::function<void(size_t, size_t, size_t, std::vector<std::complex<T>> &)> cellCallback,
     bool kspace = true) {
 
 
     for (size_t level = 0; level < nLevels; level++) {
 
-      levelCallback(level);
+      if(!levelCallback(level))
+        continue;
       size_t level_base = cumu_Ns[level];
       auto &field = kspace ? pGrid[level]->getFieldFourier() : pGrid[level]->getField();
 
@@ -232,12 +195,12 @@ public:
     std::function<void(size_t, size_t, size_t, std::vector<std::complex<T>> &)> cellCallback,
     bool kspace = true) {
 
-    forEachCellOfEachLevel([](size_t i) { }, cellCallback);
+    forEachCellOfEachLevel([](size_t i) { return true;}, cellCallback);
   }
 
 
   std::complex<T> accumulateOverEachCellOfEachLevel(
-    std::function<void(size_t)> newLevelCallback,
+    std::function<bool(size_t)> newLevelCallback,
     std::function<std::complex<T>(size_t, size_t, size_t)> getCellContribution) {
 
     T res_real(0), res_imag(0);
@@ -245,7 +208,9 @@ public:
 
     for (size_t level = 0; level < nLevels; level++) {
 
-      newLevelCallback(level);
+      if(!newLevelCallback(level))
+        continue;
+
       size_t level_base = cumu_Ns[level];
 
 #pragma omp parallel for reduction(+:res_real,res_imag)
@@ -262,6 +227,7 @@ public:
     return std::complex<T>(res_real, res_imag);
   }
 
+  /*
   std::complex<T> accumulateOverEachCellOfEachLevel(
     std::function<std::complex<T>(size_t, size_t, size_t, T)> getCellContribution) {
     T weight;
@@ -273,6 +239,7 @@ public:
     };
     return accumulateOverEachCellOfEachLevel(newLevelCallback, getCellContributionWrapper);
   }
+   */
 
 
   T get_field_chi2() {

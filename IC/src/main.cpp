@@ -191,6 +191,3 @@ int main(int argc, char *argv[]) {
 
   return 0;
 }
-
-std::vector<std::complex<double>> x;
-std::vector<std::vector<std::complex<double>>> y;

@@ -40,7 +40,7 @@ public:
       for (size_t j = 0; j <= i; j++) {
         auto &alpha_j = alphas[j];
         progress("calculating covariance", ((float) done * 2) / (n * (1 + n)));
-        c_matrix[i][j] = alphas[i].innerProduct(alphas[j], true);
+        c_matrix[i][j] = alphas[i].innerProduct(alphas[j]);
         c_matrix[j][i] = c_matrix[i][j];
         done += 1;
       }
@@ -101,7 +101,7 @@ public:
       for (size_t j = 0; j < i; j++) {
         auto &alpha_j = alphas[j];
         progress("orthogonalizing constraints", ((float) done * 2) / (n * (1 + n)));
-        std::complex<T> result = alpha_i.innerProduct(alpha_j, true);
+        std::complex<T> result = alpha_i.innerProduct(alpha_j);
 
         alpha_i.addScaled(alpha_j,-result);
 
@@ -117,7 +117,7 @@ public:
       }
 
       // normalize
-      std::complex<T> norm = sqrt(alpha_i.innerProduct(alpha_i, true));
+      std::complex<T> norm = sqrt(alpha_i.innerProduct(alpha_i));
 
       alpha_i/=norm;
       values[i] /= norm;
@@ -143,7 +143,7 @@ public:
     for (size_t i = 0; i < n; i++) {
       auto &alpha_i = alphas[i];
       progress("calculating existing means", ((float) i) / n);
-      existing_values.push_back(outputField->innerProduct(alpha_i, false));
+      existing_values.push_back(alpha_i.innerProduct(*outputField ));
     }
     end_progress();
 
@@ -187,7 +187,7 @@ public:
     for (size_t i = 0; i < alphas.size(); i++) {
       MultiLevelField<std::complex<T>> &alpha_i = alphas[i];
       auto dval_i = values[i] - existing_values[i];
-      alpha_i.multiplyByCovariance();
+      alpha_i.convertToVector();
       outputField->addScaled(alpha_i, dval_i);
 
     }

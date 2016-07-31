@@ -478,7 +478,8 @@ public:
     } else {
 
       cerr << "Zeldovich approximation on successive levels...";
-      multiLevelContext.applyFiltering(); // TODO: remove need for this
+      auto residuals = outputField.getHighKResiduals();
+
       outputField.applyFilters();
 
       zeldovichForLevel(0);
@@ -490,7 +491,7 @@ public:
       cerr << "done." << endl;
 
       cerr << "Re-introducing high-k modes into low-res region...";
-      multiLevelContext.recombineLevel0();
+      outputField.recombineHighKResiduals(residuals);
       zeldovichForLevel(0);
       cerr << "done." << endl;
 
@@ -842,7 +843,7 @@ public:
 
   void calculate(string name) {
     auto constraint_field = calcConstraint(name);
-    auto val = outputField.innerProduct(constraint_field, false);
+    auto val = constraint_field.innerProduct(outputField);
 
     cout << name << ": calculated value = " << val << endl;
   }
@@ -858,7 +859,7 @@ public:
     std::complex<MyFloat> constraint = value;
     auto vec = calcConstraint(name);
 
-    std::complex<MyFloat> initv = outputField.innerProduct(vec, false);
+    std::complex<MyFloat> initv = vec.innerProduct(outputField);
 
     if (relative) constraint *= initv;
 

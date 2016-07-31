@@ -15,7 +15,7 @@ do
     fi
     cd ..
     echo "Testing output"
-    python compare.py $i/*.tipsy $i/reference_output
+    python compare.py $i/
     if [ $? -ne 0 ]
     then
         echo

@@ -9,6 +9,7 @@
 #include <stdexcept>
 
 
+
 template<typename T>
 class DivisionFilter;
 
@@ -28,7 +29,12 @@ public:
   DivisionFilter<T> operator/(const Filter<T> &other) const {
     return DivisionFilter<T>(this, &other);
   }
+
+  virtual void debugInfo(std::ostream &s) const {
+    s << "Filter";
+  }
 };
+
 
 template<typename T>
 class DivisionFilter : public Filter <T> {
@@ -48,16 +54,13 @@ public:
   virtual T operator()(T x) const {
     return (*pFirst)(x)/(*pSecond)(x);
   }
+
+  virtual void debugInfo(std::ostream &s) const override {
+    s << (*pFirst) << "/" << (*pSecond);
+  }
 };
 
 
-template<typename T>
-void tabulateFilter(Filter<T> *pF) {
-  std::cerr << "tabulateFilter:" << std::endl;
-  for (T k = 0.1; k < 3.0; k += 0.1) {
-    std::cerr << " " << k << " " << (*pF)(k) << std::endl;
-  }
-}
 
 template<typename T>
 class LowPassFermiFilter : public Filter<T> {
@@ -81,6 +84,10 @@ public:
   T operator()(T k) const override {
     return 1. / (1. + exp((k - kcut) / temperature));
   }
+
+  virtual void debugInfo(std::ostream &s) const override {
+    s << "LowPassFermiFilter(" << kcut << ")";
+  }
 };
 
 template<typename T>
@@ -88,7 +95,11 @@ class ComplementaryCovarianceFilterAdaptor : public Filter<T> {
 private:
   Filter<T> *pUnderlying;
 public:
-  ComplementaryCovarianceFilterAdaptor(Filter<T> *pOriginal) : pUnderlying(pOriginal) { };
+  ComplementaryCovarianceFilterAdaptor(const Filter<T> &original) : pUnderlying(original.clone()) { };
+
+  virtual ~ComplementaryCovarianceFilterAdaptor() {
+    delete pUnderlying;
+  }
 
   T operator()(T k) const override {
     T denFilter = (*pUnderlying)(k);
@@ -98,6 +109,10 @@ public:
   virtual Filter<T> *clone() const {
     return new ComplementaryCovarianceFilterAdaptor<T>(*this);
   }
+
+  virtual void debugInfo(std::ostream &s) const override {
+    s << "ComplementaryCovarianceFilterAdaptor(" << (*pUnderlying) << ")";
+  }
 };
 
 template<typename T>
@@ -105,7 +120,11 @@ class ComplementaryFilterAdaptor : public Filter<T> {
 private:
   Filter<T> *pUnderlying;
 public:
-  ComplementaryFilterAdaptor(Filter<T> *pOriginal) : pUnderlying(pOriginal) { };
+  ComplementaryFilterAdaptor(const Filter<T> &original) : pUnderlying(original.clone()) { };
+
+  virtual ~ComplementaryFilterAdaptor() {
+    delete pUnderlying;
+  }
 
   T operator()(T k) const override {
     return 1. - (*pUnderlying)(k);
@@ -114,87 +133,128 @@ public:
   virtual Filter<T> *clone() const {
     return new ComplementaryFilterAdaptor<T>(*this);
   }
+
+  virtual void debugInfo(std::ostream &s) const override {
+    s << "ComplementaryFilterAdaptor(" << (*pUnderlying) << ")";
+  }
 };
 
 
 template<typename T>
 class FilterFamily {
-  Filter<T> filter;
-public:
-  virtual ~FilterFamily() { };
+protected:
+  std::vector<Filter<T> *> filters;
 
-  virtual Filter<T> &getFilterOnLevel(int level) {
-    return filter;
+  FilterFamily() {
+
   }
 
-  virtual Filter<T> &getResidualFilterOnLevel(int level) {
-    throw std::runtime_error("FilterFamily cannot produce filter for requested level");
+public:
+
+  FilterFamily(size_t maxLevels) {
+    for(size_t i=0; i<maxLevels; ++i)
+      filters.push_back(new Filter<T>());
+  }
+
+  virtual ~FilterFamily() {
+    /*
+    for(auto f: filters)
+      delete f;*/
+  };
+
+  virtual const Filter<T> &getFilterOnLevel(int level) const {
+    return *(filters[level]);
+  }
+
+  virtual size_t getMaxLevel() const {
+    return filters.size();
+  }
+
+  virtual void debugInfo(std::ostream &s) const  {
+    s << "FilterFamily(";
+    for(size_t i=0; i<filters.size(); ++i) {
+      s << *filters[i];
+      if(i+1<filters.size()) s << ", ";
+    }
+    s << ")";
+
   }
 };
 
 template<typename T>
 class TwoLevelFilterFamily : public FilterFamily<T> {
 protected:
-  Filter<T> *pDenFilterLow;
-  Filter<T> *pDenFilterHigh;
-  Filter<T> *pCovFilterHighPartOfLowRes;
-  Filter<T> *pCovFilterHigh;
-
-  TwoLevelFilterFamily() {
-
-  }
 
 public:
 
-
-
-  TwoLevelFilterFamily(T k_cut) {
-    pDenFilterLow = new LowPassFermiFilter<T>(k_cut);
-    pDenFilterHigh = new ComplementaryCovarianceFilterAdaptor<T>(pDenFilterLow);
-    pCovFilterHighPartOfLowRes = new ComplementaryFilterAdaptor<T>(pDenFilterLow);
+  TwoLevelFilterFamily(T k_cut)
+  {
+    this->filters.push_back(new LowPassFermiFilter<T>(k_cut));
+    this->filters.push_back(new ComplementaryCovarianceFilterAdaptor<T>(LowPassFermiFilter<T>(k_cut)));
   }
 
-  ~TwoLevelFilterFamily() {
-    delete pDenFilterLow;
-    delete pDenFilterHigh;
-    delete pCovFilterHighPartOfLowRes;
-  }
-
-  Filter<T> &getFilterOnLevel(int level) override {
-    switch (level) {
-      case 0:
-        return *pDenFilterLow;
-      case 1:
-        return *pDenFilterHigh;
-      default:
-        throw std::runtime_error("TwoLevelFilterFamily cannot produce filter for requested level");
-    }
-  }
-
-
-  Filter<T> &getResidualFilterOnLevel(int level) override {
-    switch (level) {
-      case 0:
-        return *pCovFilterHighPartOfLowRes;
-      default:
-        throw std::runtime_error("TwoLevelFilterFamily cannot produce filter for requested level");
-    }
-  }
 };
 
+
+template <typename T>
+class ResidualFilterFamily : public FilterFamily<T> {
+
+public:
+  ResidualFilterFamily(const FilterFamily<T> &underlying)
+  {
+    for(size_t i=0; i<underlying.getMaxLevel(); i++) {
+      this->filters.push_back(new ComplementaryFilterAdaptor<T>(underlying.getFilterOnLevel(i)));
+    }
+  }
+
+};
 
 
 
 template<typename T>
-class TwoLevelDependentFilterFamily : public TwoLevelFilterFamily<T> {
+class TwoLevelDependentFilterFamily : public FilterFamily<T> {
 public:
 
-  TwoLevelDependentFilterFamily(T k_cut) {
-    this->pDenFilterLow = new LowPassFermiFilter<T>(k_cut);
-    this->pDenFilterHigh = new ComplementaryFilterAdaptor<T>(this->pDenFilterLow);
-    this->pCovFilterHighPartOfLowRes = new ComplementaryFilterAdaptor<T>(this->pDenFilterLow);
+  TwoLevelDependentFilterFamily(T k_cut)
+  {
+    this->filters.push_back(new LowPassFermiFilter<T>(k_cut));
+    this->filters.push_back(new ComplementaryFilterAdaptor<T>(LowPassFermiFilter<T>(k_cut)));
   }
 
 };
+
+template<typename T>
+class TwoLevelRecombinedFilterFamily : public FilterFamily<T> {
+public:
+
+  TwoLevelRecombinedFilterFamily(T k_cut)
+  {
+    this->filters.push_back(new ComplementaryFilterAdaptor<T>(Filter<T>()));
+    this->filters.push_back(new Filter<T>());
+  }
+
+};
+
+
+template<typename T>
+std::ostream & operator<<(std::ostream &s, const Filter<T> &f) {
+  f.debugInfo(s);
+  return s;
+}
+
+template<typename T>
+std::ostream & operator<<(std::ostream &s, const FilterFamily<T> &f) {
+  f.debugInfo(s);
+  return s;
+}
+
+template<typename T>
+void tabulateFilter(Filter<T> *pF) {
+  std::cerr << "tabulateFilter:" << std::endl;
+  for (T k = 0.1; k < 3.0; k += 0.1) {
+    std::cerr << " " << k << " " << (*pF)(k) << std::endl;
+  }
+}
+
 
 #endif //IC_FILTER_HPP

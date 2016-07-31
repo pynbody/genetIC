@@ -80,16 +80,15 @@ def plotslice(prefix="output/",slice=None,plot_b=True,vmin=-0.15,vmax=0.15):
 
 
 def plotslice_pynbody(f, slice=0.0,vmin=-0.15,vmax=0.15):
-    slice/=f.properties['boxsize'].in_units('Mpc a h^-1',**f.conversion_context())
     import pynbody
-    f.original_units()
+    f = pynbody.load(f)
+    slice/=f.properties['boxsize'].in_units('Mpc a h^-1',**f.conversion_context())
     rho_mean = f.dm['mass'].sum()/f.properties['boxsize']**3 # should be numerically equal to omegaM0
     print "rho_mean=",rho_mean
     f.dm['delta'] = (f.dm['rho']-rho_mean)/rho_mean
 
     assert abs(f.dm['z'].max() - f.dm['z'].min() - 1.0)<0.03
 
-    f.dm['z']-=f.dm['z'].min()
     f.dm['z']-=slice
 
-    pynbody.plot.sph.image(f.dm,qty='delta',width=1,log=False,vmin=vmin,vmax=vmax)
+    pynbody.plot.sph.image(f.dm,qty='delta',width=1,log=False,vmin=vmin,vmax=vmax,denoise=True)

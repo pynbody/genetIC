@@ -1,4 +1,4 @@
-# Test zooming with a constraint
+# Test zooming with a constraint but pre-zeroing random component
 
 Om  0.279
 Ol  0.721
@@ -21,7 +21,6 @@ camb	../camb_transfer_kmax40_z0.dat
 outdir	 ./
 gadgetformat 4
 
-zerolevel -1
 zerolevel 0
 zerolevel 1
 
