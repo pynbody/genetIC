@@ -59,7 +59,7 @@ public:
 
 
 
-  void addLevel(std::vector<T> C0, std::shared_ptr<Grid<T>> pG, size_t N) {
+  void addLevel(std::vector<T> C0, std::shared_ptr<Grid<T>> pG) {
     C0s.push_back(std::move(C0));
     if (pGrid.size() == 0) {
       weights.push_back(1.0);
@@ -67,9 +67,9 @@ public:
       weights.push_back(pow(pG->dx / pGrid[0]->dx, 3.0));
     }
     pGrid.push_back(pG);
-    Ns.push_back(N);
+    Ns.push_back(pG->size3);
     cumu_Ns.push_back(Ntot);
-    Ntot += N;
+    Ntot += pG->size3;
     nLevels += 1;
     this->changed();
   }

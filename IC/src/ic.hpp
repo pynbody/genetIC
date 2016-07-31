@@ -379,8 +379,7 @@ public:
       multiLevelContext.clear();
       for_each_level(level) {
         multiLevelContext.addLevel(spectrum.getPowerSpectrumForGrid(this->cosmology, *(this->pGrid[level])),
-                                   this->pGrid[level],
-                                   this->nPartLevel[level]);
+                                   this->pGrid[level]);
       }
     }
   }
@@ -589,16 +588,9 @@ public:
   void clearAndDistributeParticleList() {
 
     if (pInputMapper != nullptr) {
-      pInputMapper->clearParticleList();
+      pMapper->clearParticleList();
       pInputMapper->distributeParticleList(genericParticleArray);
-      if (pGrid.size() > 1 && !pInputMapper->references(pGrid[1])) {
-        // Input mapper is unzoomed => shift coarse flags onto fine level.
-        // This logic should ultimately be generalised and shifted into the mapper itself.
-        vector<size_t> ar;
-        GridPtrType proxyGrid = pGrid[0]->makeProxyGridToMatch(*pGrid[1]);
-        proxyGrid->gatherParticleList(ar);
-        pGrid[1]->distributeParticleList(ar);
-      }
+      pInputMapper->extendParticleListToUnreferencedGrids(this->pGrid);
     }
     else {
       pMapper->clearParticleList();
@@ -753,6 +745,8 @@ public:
     T xp, yp, zp;
 
     genericParticleArray.clear();
+
+
 
     for_each_level(level) {
       std::vector<size_t> particleArray;

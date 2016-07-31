@@ -310,12 +310,39 @@ public:
     throw std::runtime_error("Cannot get particles; no particle->grid mapper available");
   }
 
+  virtual void extendParticleListToUnreferencedGrids(const std::vector<GridPtrType> & grids)  {
+    /* For any grid that is _not_ referenced by this mapper, generate cell flags by matching
+     * to the finest level available in this mapper.
+     *
+     * This is used when specifying constraints wrt an unzoomed simulation in a
+     * zoomed simulation - the cell flags will not reach onto the finest level until this routine
+     * is run.
+     */
+    for(auto pGrid: grids) {
+      if(!this->references(pGrid)) {
+        vector<size_t> ar;
+        GridPtrType proxyGrid = getFinestGrid()->makeProxyGridToMatch(*pGrid);
+        proxyGrid->gatherParticleList(ar);
+        pGrid->distributeParticleList(ar);
+      }
+    }
+  }
+
   virtual GridPtrType getCoarsestGrid() {
     throw std::runtime_error("There is no grid associated with this particle mapper");
   }
 
   ConstGridPtrType getCoarsestGrid() const {
     return (const_cast<ParticleMapper *>(this)->getCoarsestGrid());
+  }
+
+
+  virtual GridPtrType getFinestGrid() {
+    throw std::runtime_error("There is no grid associated with this particle mapper");
+  }
+
+  ConstGridPtrType getFinestGrid() const {
+    return (const_cast<ParticleMapper *>(this)->getFinestGrid());
   }
 
   virtual iterator begin() const {
@@ -429,6 +456,10 @@ public:
   }
 
   GridPtrType getCoarsestGrid() override {
+    return pGrid;
+  }
+
+  GridPtrType getFinestGrid() override {
     return pGrid;
   }
 
@@ -835,7 +866,11 @@ public:
   }
 
   virtual GridPtrType getCoarsestGrid() override {
-    return pGrid1;
+    return pLevel1->getCoarsestGrid();
+  }
+
+  GridPtrType getFinestGrid() override {
+    return pLevel2->getFinestGrid();
   }
 
   virtual size_t size() const override {
@@ -1027,6 +1062,14 @@ public:
   virtual void clearParticleList() override {
     firstMap->clearParticleList();
     secondMap->clearParticleList();
+  }
+
+  virtual GridPtrType getCoarsestGrid() override {
+    return gasFirst ? secondMap->getCoarsestGrid() : firstMap->getCoarsestGrid();
+  }
+
+  GridPtrType getFinestGrid() override {
+    return gasFirst ? secondMap->getFinestGrid() : firstMap->getFinestGrid();
   }
 
   void gatherParticleList(std::vector<size_t> &particleArray) const override {
