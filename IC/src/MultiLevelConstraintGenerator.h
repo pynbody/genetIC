@@ -10,7 +10,7 @@
 
 #include "multilevelcontext.hpp"
 #include "grid.hpp"
-#include "sparse.hpp"
+#include "vectormath.hpp"
 #include "onelevelconstraint.hpp"
 #include "multilevelfield.hpp"
 
@@ -33,7 +33,7 @@ public:
     calcConstraint(name_in, fieldManager.getGridForLevel(level), cosmology, ar);
 
     if (level != 0)
-      inPlaceMultiply(ar, pow(fieldManager.getGridForLevel(level).dx / fieldManager.getGridForLevel(0).dx, -3.0));
+      ar*=pow(fieldManager.getGridForLevel(level).dx / fieldManager.getGridForLevel(0).dx, -3.0);
 
     return ar;
   }
