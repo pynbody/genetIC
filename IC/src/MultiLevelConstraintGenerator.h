@@ -38,23 +38,11 @@ public:
     return ar;
   }
 
-  vector<vector<complex<T>>> calcConstraintForEachLevel(string name_in, bool kspace = true) {
-    auto highResConstraint = calcConstraintVector(name_in, fieldManager.getNumLevels() - 1);
+  auto calcConstraintForAllLevels(string name) {
+    auto highResConstraint = calcConstraintVector(name, fieldManager.getNumLevels() - 1);
 
     auto dataOnLevels = fieldManager.generateMultilevelFromHighResField(std::move(highResConstraint));
 
-
-    if (!kspace) {
-      for (auto levelData : dataOnLevels) {
-        fft(levelData, levelData, -1);
-      }
-    }
-
-    return dataOnLevels;
-  }
-
-  auto calcConstraintForAllLevels(string name, bool kspace = true) {
-    auto dataOnLevels = calcConstraintForEachLevel(name, kspace);
     return ConstraintField<std::complex<T>>(fieldManager,std::move(dataOnLevels));
   }
 };

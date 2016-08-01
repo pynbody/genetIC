@@ -105,24 +105,6 @@ public:
     return C0s[level];
   }
 
-
-  virtual std::complex<T> cov(const std::vector<std::complex<T>> &vec, size_t i) {
-    // returns Sum_j C[i,j] vec[j]
-    // Here, though, C0 is diagonal
-    size_t comp;
-    size_t j;
-    mapIdToLevelId(i, comp, j);
-    return vec[i] * C0s[comp][j] * weights[comp];
-  }
-
-  virtual std::complex<T> cov(const std::vector<std::complex<T>> &vec, size_t comp, size_t j) {
-    // returns Sum_i C[j,i] vec[i]
-    // Here, though, C0 is diagonal
-    size_t overall_j = j + cumu_Ns[comp];
-    return C0s[comp][j] * vec[overall_j] * weights[comp];
-  }
-
-
   vector<complex<T>> createEmptyFieldForLevel(size_t level) const {
     vector<complex<T>> ar(pGrid[level]->size3);
     return ar;

@@ -66,8 +66,6 @@ protected:
 
   int out, gadgetformat;
 
-  size_t nPartLevel[2];
-
   string indir, inname, base;
 
 
@@ -184,7 +182,6 @@ public:
     if (n[level] < 0 || boxlen[level] < 0)
       return;
 
-    nPartLevel[level] = ((size_t) n[level] * n[level]) * n[level];
     dx[level] = boxlen[level] / n[level];
 
     if (pGrid.size() != level)
@@ -195,7 +192,7 @@ public:
 
 
     updateParticleMapper();
-    updateFieldManager();
+    updateMultilevelContext();
 
   }
 
@@ -205,7 +202,6 @@ public:
 
   void setn2(int in) {
     n[1] = in;
-    nPartLevel[1] = ((size_t) n[1] * n[1]) * n[1];
   }
 
   void setZoom(int in) {
@@ -336,7 +332,7 @@ public:
 
   void setCambDat(std::string in) {
     spectrum.read(in);
-    updateFieldManager();
+    updateMultilevelContext();
   }
 
   void setOutDir(std::string in) {
@@ -371,10 +367,10 @@ public:
 
   void readCamb() {
 
-    updateFieldManager();
+    updateMultilevelContext();
   }
 
-  void updateFieldManager() {
+  void updateMultilevelContext() {
     if (spectrum.isUsable()) {
       multiLevelContext.clear();
       for_each_level(level) {
@@ -616,8 +612,7 @@ public:
   }
 
   void makeInitialRealizationWithoutConstraints() {
-    for_each_level(level) nPartLevel[level] = ((long) n[level] * n[level]) * n[level];
-
+    
     base = make_base(indir);
 
     drawRandom();
@@ -700,8 +695,8 @@ protected:
   }
 
 
-  auto calcConstraint(string name_in, bool kspace = true) {
-    auto constraint = constraintGenerator.calcConstraintForAllLevels(name_in, kspace);
+  auto calcConstraint(string name_in) {
+    auto constraint = constraintGenerator.calcConstraintForAllLevels(name_in);
     return constraint;
   }
 
@@ -750,8 +745,8 @@ public:
 
     for_each_level(level) {
       std::vector<size_t> particleArray;
-
-      for (size_t i = 0; i < this->nPartLevel[level]; i++) {
+      size_t N = this->pGrid[level]->size3;
+      for (size_t i = 0; i < N; i++) {
         std::tie(xp, yp, zp) = pGrid[level]->getCellCentroid(i);
         delta_x = get_wrapped_delta(xp, x0);
         delta_y = get_wrapped_delta(yp, y0);
@@ -882,7 +877,8 @@ public:
   void reverse() {
     for_each_level(level) {
       auto &field = pGrid[level]->getField();
-      for (size_t i = 0; i < this->nPartLevel[level]; i++)
+      size_t N = pGrid[level]->size3;
+      for (size_t i = 0; i < N; i++)
         field[i] = -field[i];
     }
   }
@@ -905,7 +901,8 @@ public:
       auto &field = pGrid[level]->getFieldFourier();
       const auto &grid = *(this->pGrid[level]);
       T k2;
-      for (size_t i = 0; i < this->nPartLevel[level]; i++) {
+      size_t N = grid.size3;
+      for (size_t i = 0; i < N; i++) {
         k2 = grid.getFourierCellKSquared(i);
         if (k2 > k2max && k2 != 0) {
           field[i] = fieldOriginal[i];
@@ -928,7 +925,8 @@ public:
       auto &field = pGrid[level]->getFieldFourier();
       const Grid<T> &grid = *(this->pGrid[level]);
       T k2;
-      for (size_t i = 0; i < this->nPartLevel[level]; i++) {
+      size_t N = grid.size3;
+      for (size_t i = 0; i < N; i++) {
         k2 = grid.getFourierCellKSquared(i);
         if (k2 < k2max && k2 != 0) {
           field[i] = -field[i];

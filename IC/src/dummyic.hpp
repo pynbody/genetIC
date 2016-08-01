@@ -17,7 +17,6 @@ public:
     if (this->n[level] < 0 || this->boxlen[level] < 0)
       return;
 
-    this->nPartLevel[level] = ((long) this->n[level] * this->n[level]) * this->n[level];
     this->dx[level] = this->boxlen[level] / this->n[level];
 
     if (this->pGrid.size() != level)
