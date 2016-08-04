@@ -149,6 +149,16 @@ void header(ostream &outf) {
 int main(int argc, char *argv[]) {
   using namespace std;
 
+  std::vector<double> bla{1,2,3,4,3,2,1};
+  cerr << bla << endl;
+  cerr << fft_real_1d(bla) << endl;
+  cerr << reverse_fft_real_1d(fft_real_1d(bla)) << endl;
+
+  bla={6,2,3,4,5,4,3,2,6};
+  cerr << bla << endl;
+  cerr << fft_real_1d(bla) << endl;
+  cerr << reverse_fft_real_1d(fft_real_1d(bla)) << endl;
+
   if (argc != 2) {
     cerr << "Usage: ./IC paramfile" << endl;
     return -1;

@@ -331,7 +331,7 @@ public:
   }
 
   void setCambDat(std::string in) {
-    spectrum.read(in);
+    spectrum.read(in, cosmology);
     updateMultilevelContext();
   }
 
@@ -374,7 +374,7 @@ public:
     if (spectrum.isUsable()) {
       multiLevelContext.clear();
       for_each_level(level) {
-        multiLevelContext.addLevel(spectrum.getPowerSpectrumForGrid(this->cosmology, *(this->pGrid[level])),
+        multiLevelContext.addLevel(spectrum.getPowerSpectrumForGrid(*(this->pGrid[level])),
                                    this->pGrid[level]);
       }
     }

@@ -59,6 +59,22 @@ void fft_real(MyFloat *fto, std::complex<MyFloat> *ftin,
   // see http://www.fftw.org/doc/Precision.html#Precision
 }
 
+template<typename MyFloat>
+std::vector<std::complex<MyFloat>> fft_real_1d(std::vector<MyFloat> in) {
+  throw std::runtime_error("Sorry, the fourier transform has not been implemented for your specified precision");
+  // you'll need to implement an alternative specialisation like the one below for the correct calls
+  // see http://www.fftw.org/doc/Precision.html#Precision
+}
+
+template<typename MyFloat>
+std::vector<MyFloat> reverse_fft_real_1d(std::vector<std::complex<MyFloat>> in) {
+  throw std::runtime_error("Sorry, the fourier transform has not been implemented for your specified precision");
+  // you'll need to implement an alternative specialisation like the one below for the correct calls
+  // see http://www.fftw.org/doc/Precision.html#Precision
+}
+
+
+
 template<>
 void fft<double>(std::complex<double> *fto, std::complex<double> *ftin,
                  const unsigned int res, const int dir) {
@@ -131,6 +147,56 @@ void fft_real<double>(double *fto, std::complex<double> *ftin,
 
 }
 
+
+template<>
+std::vector<std::complex<double> > fft_real_1d<double>(std::vector<double> input) {
+
+  init_fftw_threads();
+
+  fftw_plan plan;
+
+
+  std::vector<std::complex<double>> output;
+  output.resize(input.size()/2+1);
+  plan = fftw_plan_dft_r2c_1d(input.size(),
+                              &input[0],
+                              reinterpret_cast<fftw_complex *>(&output[0]),
+                              FFTW_ESTIMATE);
+
+
+  fftw_execute(plan);
+  fftw_destroy_plan(plan);
+
+  output/=sqrt(double(input.size()));
+  return output;
+}
+
+template<>
+std::vector<double > reverse_fft_real_1d<double>(std::vector<std::complex<double>> input) {
+
+  init_fftw_threads();
+
+  fftw_plan plan;
+
+
+  std::vector<double> output;
+  if (input.back().imag()==0)
+    output.resize(2*input.size()-2);
+  else
+    output.resize(2*input.size()-1);
+
+  plan = fftw_plan_dft_c2r_1d(output.size(),
+                              reinterpret_cast<fftw_complex *>(&input[0]),
+                              &output[0],
+                              FFTW_ESTIMATE);
+
+
+  fftw_execute(plan);
+  fftw_destroy_plan(plan);
+
+  output/=sqrt(double(output.size()));
+  return output;
+}
 
 #else
 

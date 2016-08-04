@@ -3,6 +3,8 @@
 
 #include <functional>
 #include "io.hpp"
+#include "interpolation.hpp"
+#include "realspacecorrelation.hpp"
 
 template<typename MyFloat>
 struct CosmologicalParameters {
@@ -18,35 +20,33 @@ class CAMB {
 protected:
   std::vector<MyFloat> kcamb;
   std::vector<MyFloat> Tcamb;
-  gsl_interp_accel *acc;
-  gsl_spline *spline;
-
-  void dealloc() {
-    if (spline != NULL)
-      gsl_spline_free(spline);
-    if (acc != NULL)
-      gsl_interp_accel_free(acc);
-  }
+  Interpolator<MyFloat> interpolator;
+  MyFloat amplitude;
+  MyFloat ns;
 
 public:
-
-  CAMB() {
-    spline = NULL;
-    acc = NULL;
-  }
-
-  ~CAMB() {
-    dealloc();
-  }
 
   bool isUsable() {
     return (kcamb.size() > 0);
   }
 
-  void read(std::string incamb) {
+  void read(std::string incamb, const CosmologicalParameters<MyFloat> &cosmology) {
+
+    readLinesFromCambOutput(incamb);
+    interpolator.initialise(kcamb, Tcamb);
+
+    // a bit awkward that we have to copy this value:
+    ns = cosmology.ns;
+
+    calculateOverallNormalization(cosmology);
+
+  }
+
+protected:
+  void readLinesFromCambOutput(std::string incamb) {
     kcamb.clear();
     Tcamb.clear();
-    dealloc();
+
     const int c = 7; // number of columns in transfer function
     size_t j;
 
@@ -84,17 +84,42 @@ public:
       Tcamb.push_back(exp(log(Tcamb_f) + gradient * (log(kcamb.back() / kcamb_f))));
     }
 
-
-    assert(kcamb.size() == Tcamb.size());
-
-    acc = gsl_interp_accel_alloc();
-    spline = gsl_spline_alloc(gsl_interp_cspline, kcamb.size());
-    gsl_spline_init(spline, kcamb.data(), Tcamb.data(), kcamb.size());
+    realspace::RealSpaceGenerators<MyFloat> obj(1.0,1024);
+    cerr << "cor-array:" << obj.getCorrelationArray(*this) << endl;
 
   }
 
-  MyFloat getPowerSpectrumNormalizationForGrid(const CosmologicalParameters<MyFloat> &cosmology,
-                                               const Grid<MyFloat> &grid) {
+public:
+
+  MyFloat operator()(MyFloat k) {
+    MyFloat linearTransfer;
+    if (k != 0)
+      linearTransfer = interpolator(k);
+    else
+      linearTransfer = 0.0;
+
+    return amplitude * powf(k, ns) * linearTransfer * linearTransfer;
+  }
+
+  std::vector<MyFloat> getPowerSpectrumForGrid(const Grid<MyFloat> &grid) {
+    assert(kcamb.size() == Tcamb.size());
+
+    MyFloat norm = getPowerSpectrumNormalizationForGrid(grid);
+
+    std::vector<MyFloat> P(grid.size3);
+
+    for (size_t i = 0; i < grid.size3; ++i) {
+      MyFloat k = grid.getFourierCellAbsK(i);
+      P[i] = (*this)(k) * norm;
+    }
+
+    return P;
+
+  }
+
+
+protected:
+  void calculateOverallNormalization(const CosmologicalParameters<MyFloat> &cosmology) {
     MyFloat growthFactor = D(cosmology.scalefactor, cosmology.OmegaM0, cosmology.OmegaLambda0);
 
     MyFloat growthFactorNormalized = growthFactor / D(1., cosmology.OmegaM0, cosmology.OmegaLambda0);
@@ -103,45 +128,19 @@ public:
 
     MyFloat linearRenormFactor = (cosmology.sigma8 / sigma8PreNormalization) * growthFactorNormalized;
 
-    MyFloat kw = 2. * M_PI / grid.boxsize;
+    amplitude = linearRenormFactor * linearRenormFactor;
 
-    MyFloat amp = linearRenormFactor * linearRenormFactor;
+  }
+
+  MyFloat getPowerSpectrumNormalizationForGrid(const Grid<MyFloat> &grid) {
+
+    MyFloat kw = 2. * M_PI / grid.boxsize;
     MyFloat norm = kw * kw * kw / powf(2. * M_PI, 3.); //since kw=2pi/L, this is just 1/V_box
 
-    return norm * amp;
+    return norm;
   }
 
-  std::vector<MyFloat> getPowerSpectrumForGrid(const CosmologicalParameters<MyFloat> &cosmology,
-                                               const Grid<MyFloat> &grid) {
-    assert(kcamb.size() == Tcamb.size());
-
-    MyFloat norm = getPowerSpectrumNormalizationForGrid(cosmology, grid);
-
-    gsl_interp_accel *acc = gsl_interp_accel_alloc();
-    gsl_spline *spline = gsl_spline_alloc(gsl_interp_cspline, kcamb.size());
-    gsl_spline_init(spline, kcamb.data(), Tcamb.data(), kcamb.size());
-
-    std::vector<MyFloat> P(grid.size3);
-
-    for (size_t i = 0; i < grid.size3; ++i) {
-      MyFloat k = grid.getFourierCellAbsK(i);
-      MyFloat linearTransfer;
-      if (k != 0)
-        linearTransfer = gsl_spline_eval(spline, k, acc);
-      else
-        linearTransfer = 0.0;
-
-
-      P[i] = powf(k, cosmology.ns) * linearTransfer * linearTransfer * norm;
-
-    }
-
-    gsl_spline_free(spline);
-    gsl_interp_accel_free(acc);
-
-    return P;
-
-  }
+public:
 
 
   MyFloat sig(MyFloat R, MyFloat ns) {
@@ -155,7 +154,7 @@ public:
     MyFloat dk = (kmax - kmin) / 50000.;
     for (k = kmin; k < kmax; k += dk) {
 
-      t = gsl_spline_eval(spline, k, acc);
+      t = interpolator(k);
 
       s += powf(k, ns + 2.) * ((sin(k * R) - k * R * cos(k * R)) / ((k * R) * (k * R) * (k * R))) *
            ((sin(k * R) - k * R * cos(k * R)) / ((k * R) * (k * R) * (k * R))) * t * t;
@@ -168,52 +167,6 @@ public:
 
   }
 
-  void applyTransfer(int res,
-                     MyFloat kw, MyFloat ns, MyFloat norm_amp,
-                     std::vector<std::complex<MyFloat>> &ft,
-                     std::vector<std::complex<MyFloat>> &ftsc,
-                     std::complex<MyFloat> *P,
-                     Filter<MyFloat> &filter) {
-
-    assert(kcamb.size() == Tcamb.size());
-
-    gsl_interp_accel *acc = gsl_interp_accel_alloc();
-    gsl_spline *spline = gsl_spline_alloc(gsl_interp_cspline, kcamb.size());
-    gsl_spline_init(spline, kcamb.data(), Tcamb.data(), kcamb.size());
-
-    MyFloat kk = 0.;
-    long k1, k2, k3;
-    long ii, jj, ll;
-    long idk;
-
-#pragma omp parallel for schedule(static) default(shared) private(k1,k2,k3,ii,jj,ll,idk,kk)
-    for (k1 = -res / 2; k1 < res / 2; k1++) {
-      if (k1 < 0) { ii = k1 + res; } else { ii = k1; }
-      for (k2 = -res / 2; k2 < res / 2; k2++) {
-        if (k2 < 0) { jj = k2 + res; } else { jj = k2; }
-        for (k3 = -res / 2; k3 < res / 2; k3++) {
-          if (k3 < 0) { ll = k3 + res; } else { ll = k3; }
-
-
-          idk = (ii * (res) + jj) * (res) + ll;
-          if (idk == 0) { continue; }
-          kk = sqrt(k1 * k1 + k2 * k2 + k3 * k3) * kw;
-
-          P[idk] = gsl_spline_eval(spline, kk, acc);
-          P[idk] *= (P[idk] * std::complex<MyFloat>(powf(kk, ns)) * norm_amp);
-          // P[idk]*=filter(kk);
-
-          ftsc[idk] = sqrt(P[idk] * filter(kk)) * ft[idk];
-
-        }
-      }
-    }
-
-
-    gsl_spline_free(spline);
-    gsl_interp_accel_free(acc);
-
-  }
 };
 
 
