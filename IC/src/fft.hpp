@@ -147,6 +147,27 @@ void fft_real<double>(double *fto, std::complex<double> *ftin,
 
 }
 
+std::vector<std::complex<double> > fft_1d(std::vector<std::complex<double>> input, const int dir) {
+
+  init_fftw_threads();
+
+  fftw_plan plan;
+
+
+  std::vector<std::complex<double>> output;
+  output.resize(input.size());
+  plan = fftw_plan_dft_1d(input.size(),
+                              reinterpret_cast<fftw_complex *>(&input[0]),
+                              reinterpret_cast<fftw_complex *>(&output[0]),
+                              dir,FFTW_ESTIMATE);
+
+
+  fftw_execute(plan);
+  fftw_destroy_plan(plan);
+
+  output/=sqrt(double(input.size()));
+  return output;
+}
 
 template<>
 std::vector<std::complex<double> > fft_real_1d<double>(std::vector<double> input) {

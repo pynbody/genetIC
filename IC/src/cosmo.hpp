@@ -2,6 +2,7 @@
 #define _COSMO_HPP_INCLUDED
 
 #include <functional>
+#include <climits>
 #include "io.hpp"
 #include "interpolation.hpp"
 #include "realspacecorrelation.hpp"
@@ -23,6 +24,7 @@ protected:
   Interpolator<MyFloat> interpolator;
   MyFloat amplitude;
   MyFloat ns;
+  mutable MyFloat kcamb_max_in_file;
 
 public:
 
@@ -39,6 +41,15 @@ public:
     ns = cosmology.ns;
 
     calculateOverallNormalization(cosmology);
+
+    LowPassFermiFilter<double> bla(1.0);
+    ComplementaryFilterAdaptor<double> bla2(bla);
+
+    realspace::RealSpaceGenerators<MyFloat> obj(200.0,8192*2);
+
+    cerr << "k=" << obj.generateKArray() << endl;
+    cerr << "Pk=" << obj.generatePkArray(*this) << endl;
+
 
   }
 
@@ -72,31 +83,36 @@ protected:
 
     size_t nCambLines = kcamb.size();
 
-    // extend high-k range using power law
+    // extend high-k range using Meszaros solution
+    // This is a very naive approximation and a big warning will be issued if it's actually used
 
-    MyFloat gradient =
-      log(Tcamb[nCambLines - 1] / Tcamb[nCambLines - 2]) / log(kcamb[nCambLines - 1] / kcamb[nCambLines - 2]);
-
-    MyFloat Tcamb_f = Tcamb.back(), kcamb_f = kcamb.back();
-
+    MyFloat Tcamb_f = Tcamb.back();
+    kcamb_max_in_file = kcamb.back();
+    MyFloat keq = 0.01;
     while (kcamb.back() < 1000) {
       kcamb.push_back(kcamb.back() + 1.0);
-      Tcamb.push_back(exp(log(Tcamb_f) + gradient * (log(kcamb.back() / kcamb_f))));
+      MyFloat kratio = kcamb.back() / kcamb_max_in_file;
+      Tcamb.push_back(Tcamb_f*pow(kratio,-2.0)*log(kcamb.back()/keq)/log(kcamb_max_in_file/keq));
     }
 
-    realspace::RealSpaceGenerators<MyFloat> obj(1.0,1024);
-    cerr << "cor-array:" << obj.getCorrelationArray(*this) << endl;
+
 
   }
 
 public:
 
-  MyFloat operator()(MyFloat k) {
+  MyFloat operator()(MyFloat k) const {
     MyFloat linearTransfer;
     if (k != 0)
       linearTransfer = interpolator(k);
     else
       linearTransfer = 0.0;
+
+    if(k>kcamb_max_in_file) {
+      cerr << "WARNING: maximum k in CAMB input file is insufficient (" << kcamb_max_in_file << ")" << endl;
+      cerr << "         extrapolating using naive Meszaros solution" << endl;
+      kcamb_max_in_file = std::numeric_limits<MyFloat>().max();
+    }
 
     return amplitude * powf(k, ns) * linearTransfer * linearTransfer;
   }

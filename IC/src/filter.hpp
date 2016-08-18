@@ -22,6 +22,15 @@ public:
     return 1.0;
   }
 
+  template<typename S>
+  auto compositeFunction(const S & other) const {
+    using ret_type = decltype(other(T{}));
+    auto func = [this, &other](T x) {
+      return (*this)(x)*other(x);
+    };
+    return func;
+  }
+
   virtual Filter<T> *clone() const {
     return new Filter<T>();
   }
