@@ -22,7 +22,7 @@ def cov(x,plaw = -1.5):
 """
 
 
-def cov(x,plaw = -1.5):
+def cov(x,plaw = -0.0,k0=0.0):
     try:
         cv = x**plaw
     except ZeroDivisionError:
@@ -33,6 +33,9 @@ def cov(x,plaw = -1.5):
     if isinstance(cv, np.ndarray):
         cv[cv==np.inf]=0
         cv[cv!=cv]=0
+        cv[x<k0] = 0.0
+    else:
+        if x<k0 : cv = 0.0
 
     return cv
 
@@ -47,6 +50,8 @@ def complex_dot(x,y):
     return np.dot(x,y) + np.dot(x[1:],y[1:]) # counts +ve and -ve modes
 
 class ZoomConstrained(object):
+    _real_space_filter = False
+
     def __init__(self, cov_fn = cov, k_cut=0.2, n1=256, n2=768, hires_window_scale=4, offset = 10):
 
         self.cov_fn = cov_fn
@@ -69,8 +74,8 @@ class ZoomConstrained(object):
         # <x_W x_W^dagger> = <x x^dagger> * W, where W is the fractional length
         # of the window. This can be most easily seen by thinking in real space.
         # So, only C_high picks up any explicit dependence here.
-        self.C_low = self.get_cov(self.k_low)
-        self.C_high = self.get_cov(self.k_high)/hires_window_scale
+        self.C_low = self.get_variance_k(self.k_low)
+        self.C_high = self.get_variance_k(self.k_high) / hires_window_scale
 
         self.pixel_size_ratio = (self.scale*self.n2)/self.n1
         self.constraints =[]
@@ -91,7 +96,7 @@ class ZoomConstrained(object):
     def C_filter_high(self,k):
         return 1.-self.C_filter_low(k)
 
-    def get_cov(self, k, k_filter=lambda x:1):
+    def get_variance_k(self, k, k_filter=lambda x:1):
         integrand = lambda k1: self.cov_fn(k1)*k_filter(k1)
         delta_k = k[1]-k[0]
         Cv = np.zeros_like(k)
@@ -99,14 +104,15 @@ class ZoomConstrained(object):
             if ki==0:
                 Cv[i]=0
             else:
-                Cv[i] = scipy.integrate.quad(integrand,ki-delta_k/2,ki+delta_k/2)[0]
+                upper_k = ki+delta_k/2
+                Cv[i] = scipy.integrate.quad(integrand,ki-delta_k/2,upper_k)[0]
         return Cv
 
 
-    def randoms(self, k):
-        size = len(k)
+    def randoms(self, C):
+        size = len(C)
         r = np.random.normal(0.0,1.0,size=size)
-        r*=np.sqrt(self.get_cov(k)*size)
+        r*=np.sqrt(C)
         return r
 
     def xs(self):
@@ -119,7 +125,7 @@ class ZoomConstrained(object):
         # calculate the pixel-space diagonal variance and just-off-diagonal covariance
         # for the lo-res grid
         k = scipy.fftpack.rfftfreq(self.n1,d=1./self.n1)
-        C = self.get_cov(k)
+        C = self.get_variance_k(k)
 
         pa = np.zeros(self.n1)
         pb = np.zeros(self.n1)
@@ -165,30 +171,27 @@ class ZoomConstrained(object):
 
     def realization(self,test=False,no_random=False):
 
-        pixel_dx_low = 1./self.n1
-        pixel_dx_high = 1./(self.n2*self.scale)
-        k_low = scipy.fftpack.rfftfreq(self.n1,d=pixel_dx_low)
-        k_high = scipy.fftpack.rfftfreq(self.n2,d=pixel_dx_high)
+        k_high, k_low = self._get_ks()
 
         if no_random:
             delta_low_k = np.zeros_like(k_low)
             delta_high_k = np.zeros_like(k_high)
         else:
-            delta_low_k = self.randoms(k_low)
-            delta_high_k = self.randoms(k_high)
+            delta_low_k = self.randoms(self.C_low)
+            delta_high_k = self.randoms(self.C_high)
 
-        delta_high_k*=np.sqrt(1.-self.filter_low(k_high)**2) # keep original power spectrum
-        delta_low_k_plus = delta_low_k*self.filter_high(k_low) # store the filtered-out components of the low-res field
-        delta_low_k*=self.filter_low(k_low)
-
-
+        if not self._real_space_filter:
+            delta_high_k, delta_low_k, delta_low_k_plus = self._filter_fields(delta_high_k, delta_low_k)
 
         for (al_low_k,al_high_k), d in zip(self.constraints, self.constraints_val):
+            if self._real_space_filter:
+                raise NotImplementedError, "Can't apply constraints when the filter is in real space"
+
             if test:
                 print "lowdot=",complex_dot(al_low_k,delta_low_k)*self.pixel_size_ratio
                 print "highdot=", complex_dot(al_high_k, delta_high_k)
                 print "sum=",complex_dot(al_low_k,delta_low_k)*self.pixel_size_ratio+complex_dot(al_high_k, delta_high_k)
-                al_low, al_high = self.harmonic_to_pixel(al_low_k,al_high_k)
+                al_low, al_high = self.harmonic_to_combined_pixel(al_low_k, al_high_k)
                 print "RS simple dot=",np.dot(unitary_inverse_fft(al_high_k),unitary_inverse_fft(delta_high_k))
                 print "RS dot=",np.dot(al_high,delta_high)
 
@@ -201,10 +204,37 @@ class ZoomConstrained(object):
             delta_high_k += self.C_high*al_high_k  * scale
 
         delta_low, delta_high = self.harmonic_to_pixel(delta_low_k,
-                                                       delta_high_k)
+                                                                delta_high_k)
 
-        return unitary_inverse_fft(delta_low_k_plus)+delta_low, \
-               delta_high
+        if self._real_space_filter:
+            pass
+            #delta_low, delta_high = self._filter_fields_real(delta_low, delta_high)
+            #delta_high += self.upsample(delta_low)
+        else:
+            delta_high += self.upsample(delta_low)
+            delta_low+=unitary_inverse_fft(delta_low_k_plus)
+
+
+
+        return delta_low, delta_high
+
+    def _filter_fields(self, delta_high_k, delta_low_k):
+        k_high, k_low = self._get_ks()
+        delta_high_k *= np.sqrt(1. - self.filter_low(k_high) ** 2)  # keep original power spectrum
+        delta_low_k_plus = delta_low_k * self.filter_high(
+            k_low)  # store the filtered-out components of the low-res field
+        delta_low_k *= self.filter_low(k_low)
+        return delta_high_k, delta_low_k, delta_low_k_plus
+
+    def _filter_fields_real(self, delta_low, delta_high):
+        raise RuntimeError, "Incorrect call to _filter_fields_real - should be filtering in harmonic space"
+
+    def _get_ks(self):
+        pixel_dx_low = 1. / self.n1
+        pixel_dx_high = 1. / (self.n2 * self.scale)
+        k_low = scipy.fftpack.rfftfreq(self.n1, d=pixel_dx_low)
+        k_high = scipy.fftpack.rfftfreq(self.n2, d=pixel_dx_high)
+        return k_high, k_low
 
     def estimate_cov(self, Ntrials=2000, with_means=False):
         cov = np.zeros((self.n1+self.n2,self.n1+self.n2))
@@ -214,12 +244,13 @@ class ZoomConstrained(object):
             r1,r2 = self.realization()
             cov[:self.n1,:self.n1]+=np.outer(r1,r1)
             cov[:self.n1,self.n1:]+=np.outer(r1,r2)
-            cov[self.n1:,self.n1:]+np.outer(r2,r2)
+            cov[self.n1:,self.n1:]+=np.outer(r2,r2)
             cstr_means+=[np.dot(cstr,r2) for cstr in self.constraints_real]
             cstr_vars+=[np.dot(cstr,r2)**2 for cstr in self.constraints_real]
 
         cstr_means/=Ntrials
         cstr_vars/=Ntrials
+        cov/=Ntrials
 
         cstr_vars-=cstr_means**2
 
@@ -230,31 +261,48 @@ class ZoomConstrained(object):
         else:
             return cov
 
+    def get_cov(self, ideal=False):
+        cov = np.zeros((self.n1 + self.n2, self.n1 + self.n2))
 
-    def get_lo_cov(self,white=False):
+        if ideal:
+            cov[:self.n1, :self.n1] = self.get_lo_cov_in_superbox()
+            cov[self.n1:, self.n1:] = self.get_hi_cov_ideal_limit() + self.get_lo_cov_in_subbox_ideal_limit()
+        else:
+            cov[:self.n1, :self.n1] = self.get_lo_cov_in_superbox()
+            locov_sub, locov_cross = self.get_lo_cov_in_subbox(with_cross=True)
+            cov[:self.n1, self.n1:] = locov_cross
+            cov[self.n1:, :self.n1] = locov_cross.T
+            cov[self.n1:, self.n1:] = self.get_hi_cov() + locov_sub
+
+        return cov
+
+    def get_lo_cov_in_subbox(self, white=False, with_cross=False):
         """Returns the covariance matrix for the low-res part of the
         high-res window"""
 
-        Cs = self.C_low*self.filter_low(self.k_low)**2
-        C = np.zeros((self.n2,self.n2))
-
+        if self._real_space_filter:
+            Cs = self.C_low
+        else:
+            Cs = self.C_low * self.filter_low(self.k_low) ** 2
+        C_sub = np.zeros((self.n2,self.n2))
+        C_cross = np.zeros((self.n1,self.n2))
         for i,Ci in enumerate(Cs):
             T = np.zeros(self.n1)
             T[i]=1.0
             if white:
                 Ci = 1.0
-            pspace = self.harmonic_to_pixel(T,None)[1]
-            C+=Ci*np.outer(pspace,pspace)
+            pspace_super, pspace_sub = self.harmonic_to_combined_pixel(T, None)
+            if self._real_space_filter:
+                pspace_super, pspace_sub = self._filter_fields_real(pspace_super, pspace_sub)
+                pspace_sub+=self.upsample(pspace_super)
+            C_sub+=Ci*np.outer(pspace_sub,pspace_sub)
+            C_cross+=Ci*np.outer(pspace_super, pspace_sub)
 
-        return C
+        if with_cross:
+            return C_sub, C_cross
+        else:
+            return C_sub
 
-
-
-    def get_lo_cov_unwindowed(self):
-        """Returns the covariance matrix for the low-res part of the
-        high-res window, IN THE IDEAL CASE"""
-
-        return self.get_hi_cov_unwindowed(lo=True)
 
     def get_hi_cov(self,white=False):
         """Returns the covariance matrix for the high-res segment.
@@ -262,9 +310,35 @@ class ZoomConstrained(object):
         Constraints are ignored."""
 
         C = np.zeros((self.n2,self.n2))
-        Cs = self.C_high*(1-self.filter_low(self.k_high)**2)
+        dummy_superbox = np.zeros(self.n1)
+
+        if self._real_space_filter:
+            Cs = self.C_high
+        else:
+            Cs = self.C_high * (1 - self.filter_low(self.k_high) ** 2)
+
         for i,Ci in enumerate(Cs):
             T = np.zeros(self.n2)
+            T[i]=1.0
+            T = unitary_inverse_fft(T)
+            if white:
+                Ci = 1.0
+
+            if self._real_space_filter:
+                _, T = self._filter_fields_real(dummy_superbox,T)
+            C+=Ci*np.outer(T,T)
+
+        return C
+
+    def get_lo_cov_in_superbox(self,white=False):
+        """Returns the covariance matrix for the low-res box.
+
+        Constraints are ignored."""
+
+        C = np.zeros((self.n1,self.n1))
+        Cs = self.C_low
+        for i,Ci in enumerate(Cs):
+            T = np.zeros(self.n1)
             T[i]=1.0
             T = unitary_inverse_fft(T)
             if white:
@@ -273,7 +347,14 @@ class ZoomConstrained(object):
 
         return C
 
-    def get_hi_cov_unwindowed(self, white=False, lo=False):
+
+    def get_lo_cov_in_subbox_ideal_limit(self):
+        """Returns the covariance matrix for the low-res part of the
+        high-res window, IN THE IDEAL CASE"""
+
+        return self.get_hi_cov_ideal_limit(lo=True)
+
+    def get_hi_cov_ideal_limit(self, white=False, lo=False):
         """Returns the covariance matrix for the high-res segment as
         calculated for the FULL box size (i.e. the ideal case where we could
         actually calculate the whole box at the full resolution, then just
@@ -284,9 +365,9 @@ class ZoomConstrained(object):
 
         super_k = scipy.fftpack.rfftfreq(self.n2*self.pixel_size_ratio,d=self.delta_high)
         if lo:
-            Cs = self.get_cov(super_k,self.C_filter_low)
+            Cs = self.get_variance_k(super_k, self.C_filter_low)
         else:
-            Cs = self.get_cov(super_k,self.C_filter_high)
+            Cs = self.get_variance_k(super_k, self.C_filter_high)
 
         for i,Ci in enumerate(Cs):
             T = np.zeros(self.n2*self.pixel_size_ratio)
@@ -314,20 +395,25 @@ class ZoomConstrained(object):
         return U
 
 
-    def harmonic_to_pixel(self, f_low_k, f_high_k):
-        delta_low = unitary_inverse_fft(f_low_k) #*self.filter_low(self.k_low))
-        if f_high_k is not None:
-            delta_high = unitary_inverse_fft(f_high_k)
-        else:
-            delta_high = np.zeros(self.n2)
-
-        # delta_high does not contain low-frequency contributions.
+    def harmonic_to_combined_pixel(self, f_low_k, f_high_k):
+        delta_low, delta_high = self.harmonic_to_pixel(f_low_k, f_high_k)# delta_high does not contain low-frequency contributions.
 
         # interpolate the low frequency contribution into the high-res window
         # prepare the data range just around the window ...
         delta_lowhigh = self.upsample(delta_low)
 
-        return delta_low, delta_lowhigh+delta_high
+        delta_high+=delta_lowhigh
+
+        return delta_low, delta_high
+
+    def harmonic_to_pixel(self, f_low_k, f_high_k):
+        delta_low = unitary_inverse_fft(f_low_k)  # *self.filter_low(self.k_low))
+        if f_high_k is not None:
+            delta_high = unitary_inverse_fft(f_high_k)
+        else:
+            delta_high = np.zeros(self.n2)
+
+        return delta_low, delta_high
 
     def upsample(self, delta_low):
         """Take a low-res vector and interpolate it into the high-res region"""
@@ -352,50 +438,6 @@ class ZoomConstrained(object):
 
         return delta_highres[self.offset*self.pixel_size_ratio:self.offset*self.pixel_size_ratio+self.n2]
 
-
-        """
-        start_point = self.offset-1
-        end_point = self.offset+self.n1/self.scale+1
-
-        if start_point<0:
-            assert(start_point==-1)
-            start_point = 0
-            dupl_start = True
-        else:
-            dupl_start = False
-
-        if end_point>len(delta_low):
-            assert(end_point==len(delta_low)+1)
-            end_point = len(delta_low)
-            dupl_end=True
-        else:
-            dupl_end = False
-
-        delta_low_window = delta_low[start_point:end_point]
-
-        if dupl_start:
-            delta_low_window = np.concatenate([delta_low_window[-1:],delta_low_window])
-        if dupl_end:
-            delta_low_window = np.concatenate([delta_low_window,delta_low_window[:1]])
-
-        delta_lowhigh = np.zeros(self.n2+self.pixel_size_ratio)
-
-        #  ... and interpolate linearly ...
-
-        for i in range(self.pixel_size_ratio):
-            weight_hi = self.weights[i]
-            weight_lo = self.weights[self.pixel_size_ratio-i]
-            delta_lowhigh[i::self.pixel_size_ratio] = weight_lo*delta_low_window[:-1] +\
-                weight_hi*delta_low_window[1:]
-
-        # trim to size
-        upper = -self.pixel_size_ratio/2+1
-        if upper==0: upper = None
-        delta_lowhigh = delta_lowhigh[self.pixel_size_ratio/2+1:upper]
-        return delta_lowhigh
-        """
-
-
     def downsample(self, hires_vector):
         """Take a high-res region vector and downsample it onto the low-res grid"""
         vec_lr = np.zeros(self.n1)
@@ -404,7 +446,7 @@ class ZoomConstrained(object):
         return vec_lr
 
     def high_k_vector_from_low_k_vector(self, low_harmonics):
-        pixelized_highres = self.harmonic_to_pixel(low_harmonics,None)[1]
+        pixelized_highres = self.harmonic_to_combined_pixel(low_harmonics, None)[1]
         return unitary_fft(pixelized_highres)
 
     def hr_pixel_to_harmonic(self, vec=None):
@@ -474,6 +516,43 @@ class ZoomConstrained(object):
         self.constraints_val.append(val)
 
 
+class UnfilteredZoomConstrained(ZoomConstrained):
+    _real_space_filter = True
+
+    def filter_low(self, k):
+        raise RuntimeError, "Not available - unfiltered"
+
+    def filter_high(self,k ):
+        raise RuntimeError, "Not available - unfiltered"
+
+    def C_filter_low(self, k):
+        raise RuntimeError, "Not available - unfiltered"
+
+    def C_filter_high(self,k):
+        raise RuntimeError, "Not available - unfiltered"
+
+    def _filter_fields_real(self, delta_low, delta_high):
+        delta_high -= self.upsample(self.downsample(delta_high))
+        return delta_low, delta_high
+
+    def _filter_fields(self, delta_high_k, delta_low_k):
+        raise RuntimeError, "Incorrect call to _filter_fields - should be filtering in real space"
+
+    def upsample(self, delta_low):
+        """Take a low-res vector and interpolate it into the high-res region"""
+
+        delta_highres = np.zeros(self.n1*self.pixel_size_ratio)
+
+
+        for i in range(self.pixel_size_ratio):
+            delta_highres[i::self.pixel_size_ratio] = delta_low
+
+
+
+        return delta_highres[self.offset*self.pixel_size_ratio:self.offset*self.pixel_size_ratio+self.n2]
+
+
+
 def constraint_vector(scale=100,length=768,position=None) :
     """Generate a constraint vector corresponding to the Gaussian-filtered
     density at the given position."""
@@ -512,9 +591,9 @@ def deriv_constraint_vector(smooth=None,length=768,position=None) :
     constraint/=np.sqrt(np.dot(constraint,constraint))
     return constraint
 
-def display_cov(G, cov, downgrade=False):
-    vmin = np.min(cov)
-    vmax = np.max(cov)
+def display_cov(G, cov, downgrade=False, vmin=None, vmax=None):
+    vmin = vmin or np.min(cov)
+    vmax = vmax or np.max(cov)
 
     C11 = cov[:G.n1,:G.n1]
     C22 = cov[G.n1:,G.n1:]
@@ -566,14 +645,14 @@ def WC_vs_CW(plaw=0.0, k_cut = 0.2, part='lo', log=False):
     U = G.hi_U()
 
     if part=='lo':
-        cv_noW = G.get_lo_cov_unwindowed()
-        cv_W = G.get_lo_cov()
+        cv_noW = G.get_lo_cov_in_subbox_ideal_limit()
+        cv_W = G.get_lo_cov_in_subbox()
     elif part=='hi':
-        cv_noW = G.get_hi_cov_unwindowed()
+        cv_noW = G.get_hi_cov_ideal_limit()
         cv_W = G.get_hi_cov()
     elif part=='sum':
-        cv_noW = G.get_hi_cov_unwindowed() + G.get_lo_cov_unwindowed()
-        cv_W = G.get_hi_cov() + G.get_lo_cov()
+        cv_noW = G.get_hi_cov_ideal_limit() + G.get_lo_cov_in_subbox_ideal_limit()
+        cv_W = G.get_hi_cov() + G.get_lo_cov_in_subbox()
 
     cv_noW_orig = cv_noW
     cv_W_orig = cv_W
