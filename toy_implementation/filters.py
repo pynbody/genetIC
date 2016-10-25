@@ -2,6 +2,7 @@ import pynbody
 import numpy as np
 import pylab as p
 import copy
+import math
 
 class GaussianLowPass(object):
     def __init__(self, k0):
@@ -41,6 +42,16 @@ class FermiLowPass(object):
         return 1. / (1. + np.exp((k - self.k0) / self.temp));
 
 
+
+def subsampling_plot(x,y,*args,**kwargs):
+    length = len(x)
+    if length>2**10:
+        subsampler = np.array(2**np.arange(0,math.log(length)/math.log(2),0.025),dtype=int)
+        x = x[subsampler]
+        y = y[subsampler]
+    p.plot(x,y,*args,**kwargs)
+
+
 class PowerSpectrum(object):
     def __init__(self, pspec=None, spacing_Mpc=0.01, npix=2 ** 19):
         self.spacing_Mpc = spacing_Mpc
@@ -58,7 +69,6 @@ class PowerSpectrum(object):
             self.Pk = 1e2*k_sanitized**pspec*(k_sanitized>1e-2)*(k_sanitized<1e2)
         else:
             self.Pk = pspec(abs(k_sanitized))
-            self.Pk /= self.k
             self.Pk[self.k == 0] = 0
 
 
@@ -74,7 +84,7 @@ class PowerSpectrum(object):
         return self.filter(SharpHighPass(2*np.pi/boxsize))
 
     def plot(self, scale=False):
-        p.plot(self.k[:self.npix/2], self.Pk[:self.npix / 2])
+        subsampling_plot(self.k[:self.npix/2], self.Pk[:self.npix / 2])
         p.loglog()
         if scale:
             p.ylim(2e2, 2e5)
@@ -126,7 +136,9 @@ class CorrelationFunction(object):
         if remove_dc:
             xi_r = xi_r-np.average(xi_r,weights=r**2)
 
-        p.plot(r-r_offset, xi_r * r**2 )
+
+        subsampling_plot(r-r_offset, xi_r * r**2 )
+
         if scale:
             p.xlim(0, 200)
             p.ylim(-100,100)
@@ -250,7 +262,7 @@ class FilterExplorer(object):
 
 
 def plot_filter_effect(filt, filter_real_space=False,
-                       plot_real_space=True, ns=None, grid_space=0.1):
+                       plot_real_space=True, ns=None, coarse_grid_space=0.1):
     FRACTIONAL_K_SPLIT = 0.3
 
 
@@ -261,11 +273,11 @@ def plot_filter_effect(filt, filter_real_space=False,
         ps = PowerSpectrum(spacing_Mpc=5e-4, npix=2 ** 21)
 
     if filter_real_space:
-        filt = filt(grid_space/FRACTIONAL_K_SPLIT)
+        filt = filt(coarse_grid_space / FRACTIONAL_K_SPLIT)
         f1 = ps.correlation.filter(filt)
         f2 = ps.correlation.filter(Complementary(filt))
     else:
-        filt = filt(FRACTIONAL_K_SPLIT * 2.0 * np.pi / grid_space)
+        filt = filt(FRACTIONAL_K_SPLIT * 2.0 * np.pi / coarse_grid_space)
         f1 = ps.filter(filt).correlation
         f2 = ps.filter(Complementary(filt)).correlation
 
@@ -280,7 +292,9 @@ def plot_filter_effect(filt, filter_real_space=False,
     p.plot(f1.r[subsampler],abs(ps.correlation.xi*weight)[subsampler],"r")
     p.xlim(0.001,1000.0)
     p.loglog()
-    p.xlim(1e-3*grid_space/0.2,10*grid_space/0.2)
+
+    p.xlim(1e-3 * coarse_grid_space / 0.2, 10 * coarse_grid_space / 0.2)
+
     p.ylim(1e-3,4.0)
 
     p.gca().xaxis.tick_top()
@@ -295,12 +309,16 @@ def plot_filter_effect(filt, filter_real_space=False,
     p.plot(k_recip[subsampler], (f1.Pk/ps.Pk)[subsampler], "k--")
     p.plot(k_recip[subsampler], (f2.Pk/ps.Pk)[subsampler], "k:")
     p.plot(k_recip[subsampler], (ps.Pk/ps.Pk)[subsampler], "r")
-    p.xlim(1e-3*grid_space/0.2,10*grid_space/0.2)
+
+    p.xlim(1e-3 * coarse_grid_space / 0.2, 10 * coarse_grid_space / 0.2)
     p.ylim(1e-3,4)
     p.loglog()
 
-    p.axvline(grid_space,color=(0.8,0.8,0.8),linewidth=2)
-    p.axvline(2*grid_space, color=(0.7, 0.7, 0.7), linewidth=2)
+    p.axvline(coarse_grid_space, color=(0.8, 0.8, 0.8), linewidth=2)
+    p.axvline(2 * coarse_grid_space, color=(0.85, 0.85, 0.85), linewidth=2)
+    p.axvline(3 * coarse_grid_space, color=(0.9, 0.9, 0.9), linewidth=2)
+    p.axvline(4 * coarse_grid_space, color=(0.95, 0.95, 0.95), linewidth=2)
+
     p.xlabel(r"$2\pi/k/Mpc h^{-1}$")
     p.ylabel("$P_i(k)/P(k)$")
 
