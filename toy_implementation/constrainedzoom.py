@@ -74,8 +74,10 @@ class ZoomConstrained(object):
         # <x_W x_W^dagger> = <x x^dagger> * W, where W is the fractional length
         # of the window. This can be most easily seen by thinking in real space.
         # So, only C_high picks up any explicit dependence here.
+        #
+        # TODO: why sqrt(hires_window_scale)? Reasoning above now seems cryptic.
         self.C_low = self.get_variance_k(self.k_low)
-        self.C_high = self.get_variance_k(self.k_high) / hires_window_scale
+        self.C_high = self.get_variance_k(self.k_high) *self.n2//self.n1
 
         self.pixel_size_ratio = (self.scale*self.n2)/self.n1
         self.constraints =[]
@@ -106,6 +108,7 @@ class ZoomConstrained(object):
             else:
                 upper_k = ki+delta_k/2
                 Cv[i] = scipy.integrate.quad(integrand,ki-delta_k/2,upper_k)[0]
+
         return Cv
 
 
@@ -153,20 +156,6 @@ class ZoomConstrained(object):
         # linear interpolation version:
         weights = np.arange(grid_scalefactor+1,dtype=float)/grid_scalefactor
         return weights
-        """
-        # attempt to keep power the same (but goes screwy immediately off-diagonal):
-
-        # following is exact for X=0
-        weights = (np.arange(grid_scalefactor+1,dtype=float)/grid_scalefactor)**0.5
-
-        for i in range(10):
-            xweights = weights
-            weights = -weights[::-1] * X + np.sqrt(weights[::-1]**2*(X**2-1)+1)
-            weights = (weights+xweights)/2
-
-
-        return weights
-        """
 
 
     def realization(self,test=False,no_random=False):
@@ -207,9 +196,9 @@ class ZoomConstrained(object):
                                                                 delta_high_k)
 
         if self._real_space_filter:
+            delta_low, delta_high = self._filter_fields_real(delta_low, delta_high)
+            delta_high += self.upsample(delta_low)
             pass
-            #delta_low, delta_high = self._filter_fields_real(delta_low, delta_high)
-            #delta_high += self.upsample(delta_low)
         else:
             delta_high += self.upsample(delta_low)
             delta_low+=unitary_inverse_fft(delta_low_k_plus)
@@ -539,7 +528,7 @@ class UnfilteredZoomConstrained(ZoomConstrained):
         raise RuntimeError, "Incorrect call to _filter_fields - should be filtering in real space"
 
     def upsample(self, delta_low):
-        """Take a low-res vector and interpolate it into the high-res region"""
+        """Take a low-res vector and interpolate it into the high-res region - zero-order interpolation"""
 
         delta_highres = np.zeros(self.n1*self.pixel_size_ratio)
 
@@ -755,7 +744,7 @@ def demo(val=2.0,seed=1,plaw=-1.5, deriv=False, n1=1024, n2=256, k_cut=0.2, scal
     p.ylabel("$\Delta$ solution / max |solution|")
     return G, Gs
 
-def cov_demo(downgrade_view=False,plaw=-1.5):
+def cov_constraint_demo(downgrade_view=False,plaw=-1.5):
     cov_this = functools.partial(globals()['cov'],plaw=plaw)
     G = ZoomConstrained(cov_this,n2=256)
     #G.add_constraint(0.0,constraint_vector())
@@ -764,3 +753,15 @@ def cov_demo(downgrade_view=False,plaw=-1.5):
     print "Mean of constraint:",means
     print "Std-dev of constraints:",stds
     display_cov(G, cov, downgrade_view)
+
+
+def cov_zoom_demo(n1=64, n2=32, hires_window_scale=4, estimate=False, Ntrials=2000, plaw=-1.5):
+    p.clf()
+    cov_this = functools.partial(globals()['cov'], plaw=plaw)
+    X = ZoomConstrained(cov_this, n1=n1, n2=n2, hires_window_scale=hires_window_scale)
+    if estimate:
+        cv_est = X.estimate_cov(Ntrials)
+    else:
+        cv_est = X.get_cov()
+    display_cov(X, cv_est)
+    p.colorbar()
