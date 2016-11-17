@@ -161,6 +161,12 @@ public:
     }
   }
 
+  void forEachLevel(std::function<void(const Grid<T> &)> newLevelCallback) const {
+    for (size_t level = 0; level < nLevels; level++) {
+      newLevelCallback(*pGrid[level]);
+    }
+  }
+
   void forEachCellOfEachLevel(
     std::function<bool(size_t)> levelCallback,
     std::function<void(size_t, size_t, size_t, std::vector<std::complex<T>> &)> cellCallback,

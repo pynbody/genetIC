@@ -5,7 +5,7 @@
 #include <climits>
 #include "io.hpp"
 #include "interpolation.hpp"
-#include "realspacecorrelation.hpp"
+// #include "realspacecorrelation.hpp"
 
 template<typename MyFloat>
 struct CosmologicalParameters {
@@ -45,11 +45,12 @@ public:
     LowPassFermiFilter<double> bla(1.0);
     ComplementaryFilterAdaptor<double> bla2(bla);
 
+    /*
     realspace::RealSpaceGenerators<MyFloat> obj(200.0,8192*2);
 
     cerr << "k=" << obj.generateKArray() << endl;
     cerr << "Pk=" << obj.generatePkArray(*this) << endl;
-
+    */
 
   }
 
