@@ -363,7 +363,7 @@ public:
     return dx * 0.01075; // <-- arbitrary to coincide with normal UW resolution. TODO: Find a way to make this flexible.
   }
 
-  Particle<T> getParticleNoOffset(size_t id) const {
+  virtual Particle<T> getParticleNoOffset(size_t id) const {
     Particle<T> particle;
 
     particle.pos.x = (*pOff_x)[id];
@@ -1106,6 +1106,30 @@ public:
 
     int localFactor3 = forEachSubcell(id, [&](size_t sub_id) {
       Particle<T> sub_particle = this->pUnderlying->getParticleNoWrap(sub_id);
+      particle.pos+=sub_particle.pos;
+      particle.vel+=sub_particle.vel;
+      particle.soft+=sub_particle.soft;
+      particle.mass+=sub_particle.mass;
+    });
+
+    // most variables want an average, not a sum:
+    particle.pos/=localFactor3;
+    particle.vel/=localFactor3;
+    particle.soft/=localFactor3;
+
+    // cell mass wants to be a sum over the *entire* cell (even if
+    // some subcells are missing):
+    particle.mass*=factor3/localFactor3;
+
+    return particle;
+
+  }
+
+  virtual Particle<T> getParticleNoOffset(size_t id) const override {
+    Particle<T> particle(0); // initializes values to zeros
+
+    int localFactor3 = forEachSubcell(id, [&](size_t sub_id) {
+      Particle<T> sub_particle = this->pUnderlying->getParticleNoOffset(sub_id);
       particle.pos+=sub_particle.pos;
       particle.vel+=sub_particle.vel;
       particle.soft+=sub_particle.soft;

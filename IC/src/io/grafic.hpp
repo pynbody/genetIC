@@ -24,7 +24,7 @@ namespace io {
     class GraficOutput {
     protected:
       std::string outputFilename;
-      const MultiLevelContextInformation<T> & context;
+      MultiLevelContextInformation<T> context;
       const CosmologicalParameters<T> &cosmology;
 
       T lengthFactor;
@@ -33,12 +33,12 @@ namespace io {
 
     public:
       GraficOutput(const std::string & fname,
-                   const MultiLevelContextInformation<T> & context,
+                   MultiLevelContextInformation<T> & levelContext,
                    const CosmologicalParameters<T> &cosmology):
         outputFilename(fname),
-        context(context),
         cosmology(cosmology)
       {
+        levelContext.copyContextWithIntermediateResolutionGrids(context);
         lengthFactor = cosmology.hubble; // Gadget Mpc a h^-1 -> GrafIC file Mpc a
         velFactor = std::pow(cosmology.scalefactor, 0.5f); // Gadget km s^-1 a^1/2 -> GrafIC km s^-1
       }
@@ -62,7 +62,7 @@ namespace io {
 
       void writeGrid(const Grid<T> & targetGrid) {
         const Grid<T> & baseGrid = context.getGridForLevel(0);
-        size_t effective_size = targetGrid.size * getRatioAndAssertInteger(baseGrid.dx, targetGrid.dx);
+        size_t effective_size =  getRatioAndAssertInteger(baseGrid.dx*baseGrid.size, targetGrid.dx);
 
         std::string thisGridFilename = outputFilename+"_"+std::to_string(effective_size);
         mkdir(thisGridFilename.c_str(), 0777);
@@ -144,7 +144,7 @@ namespace io {
     };
 
     template<typename T>
-    void save(const std::string & filename, const MultiLevelContextInformation<T> &context,
+    void save(const std::string & filename,  MultiLevelContextInformation<T> &context,
               const CosmologicalParameters<T> &cosmology) {
       GraficOutput<T> output(filename,context,cosmology);
       output.write();

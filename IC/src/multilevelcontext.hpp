@@ -229,20 +229,6 @@ public:
     return std::complex<T>(res_real, res_imag);
   }
 
-  /*
-  std::complex<T> accumulateOverEachCellOfEachLevel(
-    std::function<std::complex<T>(size_t, size_t, size_t, T)> getCellContribution) {
-    T weight;
-    auto newLevelCallback = [&weight, this](size_t comp) {
-      weight = weights[comp];
-    };
-    auto getCellContributionWrapper = [&weight, &getCellContribution](size_t component, size_t i, size_t cumu_i) {
-      return getCellContribution(component, i, cumu_i, weight);
-    };
-    return accumulateOverEachCellOfEachLevel(newLevelCallback, getCellContributionWrapper);
-  }
-   */
-
 
   T get_field_chi2() {
 
@@ -261,6 +247,33 @@ public:
     }
 
     return chi2;
+
+  }
+
+  void copyContextWithIntermediateResolutionGrids(MultiLevelContextInformation<T> & newStack, size_t power=2)  {
+    newStack.clear();
+
+    for(size_t level=0; level<nLevels; ++level) {
+      size_t neff = size_t(round(pGrid[0]->dx/pGrid[level]->dx))*pGrid[0]->size;
+      if(level>0) {
+        size_t factor = power;
+        while (pGrid[level]->dx * factor * 1.001 < pGrid[level-1]->dx) {
+          cerr << "Adding virtual grid with effective resolution " << neff / factor << endl;
+          auto vGrid = std::make_shared<SubSampleGrid<T>>(pGrid[level], factor);
+          newStack.addLevel(vector<T>(), vGrid);
+          factor*=power;
+        }
+      } else {
+        size_t factor = power;
+        cerr << "Adding base-level virtual grid with effective resolution " << neff / factor << endl;
+        auto vGrid = std::make_shared<SubSampleGrid<T>>(pGrid[level], factor);
+        newStack.addLevel(vector<T>(), vGrid);
+      }
+
+      cerr << "Adding real grid with resolution " << neff << endl;
+      newStack.addLevel(C0s[level], pGrid[level]);
+
+    }
 
   }
 
