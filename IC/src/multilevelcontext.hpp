@@ -97,6 +97,10 @@ public:
     return *pGrid[level];
   }
 
+  const Grid<T> &getGridForLevel(size_t level) const {
+    return *pGrid[level];
+  }
+
   T getWeightForLevel(size_t level) {
     return weights[level];
   }

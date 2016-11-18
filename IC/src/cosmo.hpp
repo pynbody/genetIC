@@ -64,7 +64,7 @@ protected:
 
     std::vector<double> input;
 
-    getBuffer(input, incamb);
+    io::getBuffer(input, incamb);
 
     if (input.size() < c || input.size() % c != 0) {
       throw std::runtime_error("CAMB transfer file doesn't have a sensible number of rows and columns");

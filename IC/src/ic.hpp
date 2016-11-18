@@ -64,7 +64,8 @@ protected:
 
 
 
-  int out, gadgetformat;
+  int out;
+  io::OutputFormat outputFormat;
 
   string indir, inname, base;
 
@@ -344,7 +345,7 @@ public:
   }
 
   void setGadgetFormat(int in) {
-    gadgetformat = in;
+    outputFormat = static_cast<io::OutputFormat>(in);
     updateParticleMapper();
     if (!prepared)
       prepare(); //compatibility with old paramfiles
@@ -439,7 +440,7 @@ public:
   }
 
   virtual void saveTipsyArray(string fname) {
-    saveFieldTipsyArray(fname, pMapper);
+    io::tipsy::saveFieldTipsyArray(fname, pMapper);
   }
 
   virtual void dumpGrid(int level = 0) {
@@ -559,7 +560,7 @@ public:
       auto gasMapper = pMapper->addGas(cosmology.OmegaBaryons0 / cosmology.OmegaM0,
                                        {pGrid.back()});
 
-      bool gasFirst = gadgetformat == 4;
+      bool gasFirst = outputFormat == io::OutputFormat::tipsy;
 
       // graft the gas particles onto the start of the map
       if (gasFirst)
@@ -596,19 +597,28 @@ public:
 
 
   virtual void write() {
+    using namespace io;
 
     zeldovich();
 
     cerr << "Write, ndm=" << pMapper->size_dm() << ", ngas=" << pMapper->size_gas() << endl;
     cerr << (*pMapper);
 
-    if (gadgetformat == 3 || gadgetformat == 2)
-      SaveGadget(base + ".gadget", boxlen[0], pMapper, cosmology, gadgetformat);
-
-    else if (gadgetformat == 4) {
-      saveTipsy(base + ".tipsy", boxlen[0], pMapper, cosmology);
+    switch(outputFormat) {
+      case OutputFormat::gadget2:
+      case OutputFormat::gadget3:
+        gadget::save(base + ".gadget", boxlen[0], pMapper, cosmology, static_cast<int>(outputFormat));
+        break;
+      case OutputFormat::tipsy:
+        tipsy::save(base + ".tipsy", boxlen[0], pMapper, cosmology);
+        break;
+      case OutputFormat::grafic:
+        grafic::save(base+".grafic", multiLevelContext, cosmology);
+        break;
+      default:
+        throw std::runtime_error("Unknown output format");
     }
-    else { throw std::runtime_error("Invalid value for gadgetformat!"); }
+
   }
 
   void makeInitialRealizationWithoutConstraints() {
@@ -677,7 +687,7 @@ protected:
 
     cerr << "Loading " << filename << endl;
 
-    getBuffer(genericParticleArray, filename);
+    io::getBuffer(genericParticleArray, filename);
     size_t size = genericParticleArray.size();
     std::sort(genericParticleArray.begin(), genericParticleArray.end());
     genericParticleArray.erase(std::unique(genericParticleArray.begin(), genericParticleArray.end()),
@@ -719,7 +729,7 @@ public:
     cerr << "dumpID using current mapper:" << endl;
     cerr << (*pMapper);
     pMapper->gatherParticleList(results);
-    dumpBuffer(results, fname);
+    io::dumpBuffer(results, fname);
   }
 
   void centreParticle(long id) {
