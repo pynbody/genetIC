@@ -1,0 +1,40 @@
+# Test zooming with a constraint and non-zero random field
+
+Om  0.279
+Ol  0.721
+#Ob  0.04
+s8  0.817
+Boxl	64
+zin	99
+n       64
+output	1
+seed	8896131
+outname test_3
+
+centre 32.5 32.5 32.5
+select_sphere 10
+zoom 3
+n2 64
+dozoom
+
+
+camb	../camb_transfer_kmax40_z0.dat
+outdir	 ./
+gadgetformat 4
+
+#IDfile constrtest.txt
+centre 32.5 32.5 32.5
+select_nearest
+dump_IDfile check_constr.txt
+
+
+calculate overdensity
+constrain overdensity absolute 0.1
+
+done
+calculate overdensity
+
+dumpgrid 0
+dumpgrid 1
+dumpPS 0
+dumpPS 1
