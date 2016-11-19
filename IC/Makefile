@@ -1,7 +1,7 @@
 # Reasonably sensible defaults
 CC    	= g++
 C		= gcc
-CFLAGS	= -Wall -g -O3 -fopenmp -std=c++14   -fdiagnostics-color=auto
+CFLAGS	= -Wall -g -Og -fopenmp -std=c++14   -fdiagnostics-color=auto -I`pwd`
 CPATH 	= /opt/local/include/
 LPATH   = /opt/local/lib
 
@@ -64,15 +64,16 @@ ifeq ($(HOST), Rhodo)
 endif
 
 ifeq ($(HOST), dirac)
-	CC 	= g++ -O3 -g
-	FFTW    = -I$(GSL_INC_DIR)
-	FFTWLIB = -L$(FFTWDIR) -I$(FFTWINCLUDE)  -lfftw -lrfftw
+	CC	= g++
+	CFLAGS  +=  -m64 -I${MKLROOT}/include -I${MKLROOT}/include/fftw -I${GSL_INC_DIR}
+	FFTW    = -DFFTW3
+	FFTWLIB =  -Wl,--start-group ${MKLROOT}/lib/intel64/libmkl_intel_lp64.a ${MKLROOT}/lib/intel64/libmkl_gnu_thread.a ${MKLROOT}/lib/intel64/libmkl_core.a -Wl,--end-group -lgomp -lpthread -lm -ldl
 endif
 
 ifeq ($(HOST), chewb)
 	CC      = /usr/local/bin/g++
 	FFTW    = -DFFTW_TYPE_PREFIX=1
-    	FFTWLIB = -ldfftw -ldrfftw
+	FFTWLIB = -ldfftw -ldrfftw
 endif
 
 
