@@ -55,7 +55,7 @@ def complex_dot(x,y):
     return np.dot(x,y) + np.dot(x[1:],y[1:]) # counts +ve and -ve modes
 
 class ZoomConstrained(object):
-    def __init__(self, cov_fn = cov, k_cut=0.15, n1=256, n2=768, hires_window_scale=4, offset = 10):
+    def __init__(self, cov_fn = cov, k_cut=0.3, n1=256, n2=768, hires_window_scale=4, offset = 10):
 
         self.cov_fn = cov_fn
         assert n1%hires_window_scale==0, "Scale must divide n1 to fit pixels exactly"
@@ -79,6 +79,7 @@ class ZoomConstrained(object):
         self.constraints =[]
         self.constraints_val = []
         self.constraints_real = []
+
 
     def set_Chigh_realspace(self):
         fullbox_n2 = self.n1*self.pixel_size_ratio
@@ -208,7 +209,7 @@ class ZoomConstrained(object):
 
     @in_real_space
     def _recombine_fields(self, delta_low, delta_high, delta_low_k_plus):
-        delta_high += self.upsample(delta_low)
+        delta_high += self.fancy_upsample(delta_low)
         delta_low += delta_low_k_plus.in_real_space()
         return delta_low, delta_high
 
@@ -444,6 +445,15 @@ class ZoomConstrained(object):
         self.constraints.append((low,high))
         self.constraints_val.append(val)
 
+    def fancy_upsample(self, delta_low):
+        "Take a low-res vector and interpolate it into the high-res region - cubic interpolation"
+
+        x_vals_low, x_vals_high = self.xs()
+        delta_highres = scipy.interpolate.interp1d(x_vals_low, delta_low, kind='cubic')(x_vals_high)
+
+        return delta_highres
+
+
 
 class IdealizedZoomConstrained(ZoomConstrained):
     """Calculate the low-res/high-res split by making a full box at the high resolution,
@@ -538,13 +548,6 @@ class HahnAbelZoomConstrained(UnfilteredZoomConstrained):
         delta_low += self._apply_transfer_function(self._delta_low_residual.in_fourier_space()).in_real_space()
         return delta_low, delta_high
 
-    def fancy_upsample(self, delta_low):
-        "Take a low-res vector and interpolate it into the high-res region - cubic interpolation"
-
-        x_vals_low, x_vals_high = self.xs()
-        delta_highres = scipy.interpolate.interp1d(x_vals_low, delta_low, kind='cubic')(x_vals_high)
-
-        return delta_highres
 
 
 
