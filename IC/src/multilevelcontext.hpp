@@ -250,24 +250,42 @@ public:
 
   }
 
-  void copyContextWithIntermediateResolutionGrids(MultiLevelContextInformation<T> & newStack, size_t power=2)  {
+  void copyContextWithIntermediateResolutionGrids(MultiLevelContextInformation<T> & newStack, size_t base_factor=2,
+                                                  size_t extra_lores=1)
+  {
+    /* Copy this MultiLevelContextInformation, but insert intermediate virtual grids such that
+     * there is a full stack increasing in the specified power.
+     *
+     * E.g. if there is a 256^3 and a 1024^3 grid stack, with default parameters this will return a
+     * 128^3, 256^3, 512^3 and 1024^3 grid stack.
+     *
+     * The first two will be based on the 256^3 literal grid, and the second two on the 1024^3 literal grid.
+     *
+     * @param newStack     the MultiLevelContextInformation into which the new stack will be placed. Any
+     *                     existing grids in the stack will be removed.
+     * @param base_factor  grids will be downgraded by factors of base_factor^N where N is an integer
+     * @param extra_lores  number of additional grids *below* the base level to add
+    */
     newStack.clear();
 
     for(size_t level=0; level<nLevels; ++level) {
       size_t neff = size_t(round(pGrid[0]->dx/pGrid[level]->dx))*pGrid[0]->size;
       if(level>0) {
-        size_t factor = power;
+        size_t factor = base_factor;
         while (pGrid[level]->dx * factor * 1.001 < pGrid[level-1]->dx) {
           cerr << "Adding virtual grid with effective resolution " << neff / factor << endl;
           auto vGrid = std::make_shared<SubSampleGrid<T>>(pGrid[level], factor);
           newStack.addLevel(vector<T>(), vGrid);
-          factor*=power;
+          factor*=base_factor;
         }
       } else {
-        size_t factor = power;
-        cerr << "Adding base-level virtual grid with effective resolution " << neff / factor << endl;
-        auto vGrid = std::make_shared<SubSampleGrid<T>>(pGrid[level], factor);
-        newStack.addLevel(vector<T>(), vGrid);
+        size_t factor = base_factor;
+        for(size_t i=0; i<extra_lores; ++i) {
+          cerr << "Adding virtual grid with effective resolution " << neff / factor << endl;
+          auto vGrid = std::make_shared<SubSampleGrid<T>>(pGrid[level], factor);
+          newStack.addLevel(vector<T>(), vGrid);
+          factor*=base_factor;
+        }
       }
 
       cerr << "Adding real grid with resolution " << neff << endl;
