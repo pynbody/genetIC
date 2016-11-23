@@ -30,6 +30,7 @@ public:
   }
 
   void print_covariance() {
+    progress::ProgressBar pb("calculating covariance");
     size_t n = alphas.size();
     size_t done = 0;
     std::vector<std::vector<std::complex<T>>> c_matrix(n, std::vector<std::complex<T>>(n, 0));
@@ -37,13 +38,12 @@ public:
     // Gram-Schmidt orthogonalization in-place
     for (size_t i = 0; i < n; i++) {
       for (size_t j = 0; j <= i; j++) {
-        progress("calculating covariance", ((float) done * 2) / (n * (1 + n)));
+        pb.setProgress( ((float) done * 2) / (n * (1 + n)));
         c_matrix[i][j] = alphas[i].innerProduct(alphas[j]);
         c_matrix[j][i] = c_matrix[i][j];
         done += 1;
       }
     }
-    end_progress();
 
     std::cout << std::endl << "cov_matr = [";
     for (size_t i = 0; i < n; i++) {
@@ -94,11 +94,14 @@ public:
     }
 
     // Gram-Schmidt orthogonalization in-place
+
+    progress::ProgressBar pb("orthogonalizing constraints");
+
     for (size_t i = 0; i < n; i++) {
       auto &alpha_i = alphas[i];
       for (size_t j = 0; j < i; j++) {
         auto &alpha_j = alphas[j];
-        progress("orthogonalizing constraints", ((float) done * 2) / (n * (1 + n)));
+        pb.setProgress(((float) done * 2) / (n * (1 + n)));
         std::complex<T> result = alpha_i.innerProduct(alpha_j);
 
         alpha_i.addScaled(alpha_j,-result);
@@ -127,7 +130,6 @@ public:
       done += 1; // one op for the normalization
 
     }
-    end_progress();
 
     // Now display t_matrix^{dagger} t_matrix, which is the matrix allowing one
     // to form chi^2: Delta chi^2 = d_1^dagger t_matrix^dagger t_matrix d_1 -
@@ -140,10 +142,8 @@ public:
 
     for (size_t i = 0; i < n; i++) {
       auto &alpha_i = alphas[i];
-      progress("calculating existing means", ((float) i) / n);
       existing_values.push_back(alpha_i.innerProduct(*outputField ));
     }
-    end_progress();
 
 
 

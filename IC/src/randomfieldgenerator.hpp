@@ -110,9 +110,10 @@ protected:
   void drawRandomForSpecifiedGridFourier(const Grid<MyFloat> &g,
                                          RefFieldType pField_k) {
 
+    progress::ProgressBar pb("");
     MyFloat sigma = sqrt((MyFloat) (g.size3));
 
-    cerr << "Drawing random numbers in fourier space...";
+    cerr << "Drawing random numbers in fourier space..." << endl;
     int ks, k1, k2;
 
     sigma /= sqrt(2.0);
@@ -122,6 +123,7 @@ protected:
     // resolution can be scaled by factors of 2 and we still get
     // the 'same' field
     for (ks = 0; ks < int(g.size / 2); ks++) {
+      pb.setProgress(float(ks*2)/g.size);
       for (k1 = -ks; k1 < ks; k1++) {
         for (k2 = -ks; k2 < ks; k2++) {
           drawOneFourierMode(g, ks, k1, k2, sigma, pField_k);
@@ -131,7 +133,6 @@ protected:
       }
     }
 
-    cerr << "done" << endl;
 
   }
 

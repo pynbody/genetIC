@@ -11,6 +11,7 @@
 #include "filter.hpp"
 #include "coordinate.hpp"
 #include "particle.hpp"
+#include "progress/progress.hpp"
 
 using namespace std;
 
@@ -468,12 +469,10 @@ public:
 
 
   virtual void zeldovich(T hfac, T particlecellMass) {
+    progress::ProgressBar pb("zeldovich",size*2);
 
     hFactor = hfac;
     cellMass = particlecellMass;
-
-    cout << "Applying Zeldovich approximation; grid cell size=" << dx << " Mpc/h...";
-    cout.flush();
 
     // make three arrays for manipulating in fourier space
     auto psift1k = std::vector<std::complex<T>>(size3, 0);
@@ -491,6 +490,7 @@ public:
 
 #pragma omp parallel for schedule(static) default(shared) private(iix, iiy, iiz, kfft, idx)
     for (size_t ix = 0; ix < size; ix++) {
+      pb.tick();
       for (size_t iy = 0; iy < size; iy++) {
         for (size_t iz = 0; iz < size; iz++) {
 
@@ -528,6 +528,7 @@ public:
     //apply ZA:
 #pragma omp parallel for schedule(static) default(shared) private(idx)
     for (size_t ix = 0; ix < size; ix++) {
+      pb.tick();
       for (size_t iy = 0; iy < size; iy++) {
         for (size_t iz = 0; iz < size; iz++) {
 
@@ -542,7 +543,6 @@ public:
       }
     }
 
-    cout << "done." << endl;
 
   }
 

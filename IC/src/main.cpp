@@ -20,7 +20,6 @@
 #include <gsl/gsl_spline.h>
 
 
-#include "progress.hpp"
 #include "float_types.hpp"
 #include "vectormath.hpp"
 #include "fft.hpp"
@@ -40,7 +39,7 @@ typedef double MyFloat;
 typedef float MyFloat;
 #endif
 
-
+/*
 inline void progress(const std::string &message, size_t i, size_t len) {
   if ((i % 100000) == 0)
     progress(message, static_cast<float>(i) / len);
@@ -65,6 +64,7 @@ void end_progress() {
   "                                                                                                                " <<
   std::endl;
 }
+*/
 
 
 typedef ICGenerator<MyFloat> ICf;
