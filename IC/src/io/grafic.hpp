@@ -39,7 +39,7 @@ namespace io {
         cosmology(cosmology)
       {
         levelContext.copyContextWithIntermediateResolutionGrids(context);
-        lengthFactor = cosmology.hubble; // Gadget Mpc a h^-1 -> GrafIC file Mpc a
+        lengthFactor = 1./cosmology.hubble; // Gadget Mpc a h^-1 -> GrafIC file Mpc a
         velFactor = std::pow(cosmology.scalefactor, 0.5f); // Gadget km s^-1 a^1/2 -> GrafIC km s^-1
       }
 
@@ -61,8 +61,10 @@ namespace io {
       }
 
       void writeGrid(const Grid<T> & targetGrid) {
+
         const Grid<T> & baseGrid = context.getGridForLevel(0);
         size_t effective_size =  getRatioAndAssertInteger(baseGrid.dx*baseGrid.size, targetGrid.dx);
+	progress::ProgressBar pb("write grid "+std::to_string(effective_size), targetGrid.size3);
 
         std::string thisGridFilename = outputFilename+"_"+std::to_string(effective_size);
         mkdir(thisGridFilename.c_str(), 0777);
@@ -86,6 +88,7 @@ namespace io {
         outFilePID.write((char*)(&iord_block_length), sizeof(int));
 
         for(size_t i=0; i<targetGrid.size3; ++i) {
+	  pb.tick();
           size_t global_index = i + iordOffset;
           auto particle = targetGrid.getParticleNoOffset(i);
           Coordinate<float> velScaled = particle.vel*velFactor;
@@ -137,7 +140,7 @@ namespace io {
         header.scalefactor = cosmology.scalefactor;
         header.omegaM = cosmology.OmegaM0;
         header.omegaL = cosmology.OmegaLambda0;
-        header.h0 = cosmology.hubble;
+        header.h0 = cosmology.hubble*100;
         return header;
       }
 

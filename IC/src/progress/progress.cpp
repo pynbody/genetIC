@@ -30,6 +30,9 @@ namespace progress {
     int remaining_width = width - title.size() - 2;
 
     int bar_chars = remaining_width * progress;
+    if(bar_chars>remaining_width)
+      bar_chars = remaining_width;
+
     int i;
     for (i = 0; i < bar_chars - 1; i++) {
       stream << "-";
@@ -55,7 +58,7 @@ namespace progress {
     std::unique_lock<std::mutex> lock(mutex);
     start = std::chrono::system_clock::now();
     while (!terminated) {
-      cv.wait_for(lock, std::chrono::milliseconds(100));
+      cv.wait_for(lock, std::chrono::milliseconds(500));
       update();
     }
     update();
