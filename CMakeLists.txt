@@ -14,6 +14,7 @@ set(SOURCE_FILES
         IC/src/HDF_IO.hh
         IC/src/ic.hpp
         IC/src/io.hpp
+        IC/src/io/grafic.hpp
         IC/src/main.cpp
         IC/src/mapper.hpp
         IC/src/numpy.hpp

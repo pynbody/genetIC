@@ -587,6 +587,10 @@ public:
     return getCellIndexNoWrap(coord);
   }
 
+  size_t getCellIndexNoWrap(size_t x, size_t y, size_t z) const {
+    return (x * size + y) * size + z;
+  }
+
   size_t getCellIndexNoWrap(int x, int y, int z) const {
 
 #ifdef SAFER_SLOWER
