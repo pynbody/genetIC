@@ -111,6 +111,7 @@ namespace progress {
     width = 80;
     updateTimeout = 1000;
     progress = 0.0;
+    nOpsCurrent =0;
     terminated = false;
     thread = std::thread([this]() { this->runUpdateLoop(); });
   }
@@ -120,6 +121,8 @@ namespace progress {
   }
 
   void ProgressBar::setProgress(float p) {
+    if(p>1.0)
+      p=1.0;
     progress = p;
   }
 
