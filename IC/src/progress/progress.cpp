@@ -3,10 +3,24 @@
 #include <iostream>
 #include <thread>
 #include <chrono>
+#include <sys/ioctl.h>
+#include <zconf.h>
 
 #include "progress.hpp"
 
 namespace progress {
+
+  size_t ProgressBar::terminalWidth() {
+    struct winsize size;
+    if(ioctl(STDOUT_FILENO,TIOCGWINSZ,&size)<0)
+      return 0;
+    else
+      return size_t(size.ws_col);
+  }
+
+  bool ProgressBar::isInteractive() {
+    return terminalWidth()>0;
+  }
 
   void ProgressBar::remainingTime() {
     auto end = std::chrono::system_clock::now();
@@ -14,20 +28,35 @@ namespace progress {
     double toEnd = elapsed * (1.0 - progress) / progress;
 
     if (progress > 0.01 && elapsed > 1.0 && toEnd > 1.0) {
-      stream << int(toEnd) << "s remaining       ";
-    } else {
-      stream << "                  ";
+      stream << int(toEnd) << "s remaining";
     }
   }
 
+  void ProgressBar::clearLine() {
+    size_t width = terminalWidth();
+    stream << "\r";
+    for(size_t i=0; i<width; ++i)
+      stream << " ";
+    stream << "\r";
+  }
+
   void ProgressBar::update() {
+    if(!isInteractive())
+      return;
+
+    clearLine();
+
     stream << title << " ";
     stream.precision(3);
     stream.width(4);
     stream << (progress * 100);
     stream << "% |";
 
-    int remaining_width = width - title.size() - 2;
+    int remaining_width = int(terminalWidth());
+    remaining_width-= title.size();
+    remaining_width-= 30;
+
+    if (remaining_width<0) return;
 
     int bar_chars = remaining_width * progress;
     if(bar_chars>remaining_width)
@@ -51,14 +80,13 @@ namespace progress {
 
     remainingTime();
 
-    stream << "\r";
   }
 
   void ProgressBar::runUpdateLoop() {
     std::unique_lock<std::mutex> lock(mutex);
     start = std::chrono::system_clock::now();
     while (!terminated) {
-      cv.wait_for(lock, std::chrono::milliseconds(500));
+      cv.wait_for(lock, std::chrono::milliseconds(200));
       update();
     }
     update();

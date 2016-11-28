@@ -43,6 +43,12 @@ namespace progress {
 
     void setProgress(float p);
     void tick();
+
+    size_t terminalWidth();
+
+    bool isInteractive();
+
+    void clearLine();
   };
 }
 
