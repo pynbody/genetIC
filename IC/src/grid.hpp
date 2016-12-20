@@ -18,6 +18,9 @@ using namespace std;
 template<typename T>
 class Grid;
 
+template<typename T, typename S>
+class Field;
+
 template<typename T>
 class SuperSampleGrid;
 
@@ -44,9 +47,6 @@ public:
   using ConstGridPtrType = std::shared_ptr<const Grid<T>>;
 
 private:
-  std::shared_ptr<std::vector<std::complex<T>>> pField;
-  bool fieldFourier; //< is the field in k-space (true) or x-space (false)?
-
   // The grid offsets after Zeldovich approximation is applied
   // (nullptr before that):
   std::shared_ptr<TRealField> pOff_x;
@@ -75,7 +75,7 @@ protected:
       auto coord = source->getCellCoordinate(id);
       iterateOverCube<int>(
         coord * factor, coord * factor + factor,
-        [&targetArray, &target](const Coordinate<int> & subCoord) {
+        [&targetArray, &target](const Coordinate<int> &subCoord) {
           targetArray.push_back(target->getCellIndexNoWrap(subCoord));
         }
       );
@@ -122,15 +122,11 @@ public:
   const size_t size, size2, size3;
 
 
-  Grid(T simsize, size_t n, T dx = 1.0, T x0 = 0.0, T y0 = 0.0, T z0 = 0.0, bool withField = true) :
+  Grid(T simsize, size_t n, T dx = 1.0, T x0 = 0.0, T y0 = 0.0, T z0 = 0.0) :
     simsize(simsize), boxsize(dx * n),
     dx(dx), offsetLower(x0, y0, z0),
     size(n), size2(n * n), size3(n * n * n) {
     // cerr << "Grid ctor " << this <<  endl;
-    if (withField) {
-      pField = std::make_shared<std::vector<std::complex<T>>>(size3, 0);
-      pField->shrink_to_fit();
-    }
     setKmin();
   }
 
@@ -139,7 +135,6 @@ public:
                    dx(1.0), offsetLower(0, 0, 0),
                    size(n), size2(n * n), size3(n * n * n) {
     // cerr << "Grid ctor size-only" << endl;
-    pField = nullptr;
     setKmin();
   }
 
@@ -205,11 +200,17 @@ public:
   }
 
   void addFieldFromDifferentGrid(const Grid<T> &grid_src) {
+    // TODO - this was supposed to also change the underlying density field, but temporarily only touches the zeldovich velocities
+    // TODO - also the zeldovich velocities should not be stored by the grid either!!
+
+    /*
     TField &pField_dest = getFieldReal();
     assert(!grid_src.isFieldFourier());
     const TField &pField_src = grid_src.getField();
 
     addFieldFromDifferentGrid(grid_src, pField_src, pField_dest);
+     */
+
 
     auto offset_fields_src = grid_src.getOffsetFields();
     auto offset_fields_dest = getOffsetFields();
@@ -221,15 +222,16 @@ public:
     }
   }
 
+  /* doesn't seem required --
   void addFieldFromDifferentGrid(Grid<T> &grid_src) {
     grid_src.getFieldReal();
     addFieldFromDifferentGrid(const_cast<const Grid<T> &>(grid_src));
   }
+   */
 
   virtual void debugInfo(std::ostream &s) const {
     s << "Grid of side " << size << " address " << this << "; " << this->particleArray.size() << " cells marked";
   }
-
 
   virtual void gatherParticleList(std::vector<size_t> &targetArray) const {
     targetArray.insert(targetArray.end(), particleArray.begin(), particleArray.end());
@@ -264,42 +266,6 @@ public:
   //  Field manipulation routines
   ///////////////////////////////////////
 
-  virtual TField &getFieldFourier() {
-    assert(pField != nullptr);
-    if (!fieldFourier) {
-      fft(pField->data(), pField->data(), size, 1);
-      fieldFourier = true;
-    }
-    return *pField;
-  }
-
-  virtual TField &getFieldReal() {
-    assert(pField != nullptr);
-    if (fieldFourier) {
-      fft(pField->data(), pField->data(), size, -1);
-      fieldFourier = false;
-    }
-    return *pField;
-  }
-
-  virtual const TField &getField() const {
-    assert(pField != nullptr);
-    return *pField;
-  }
-
-  TField &getField() {
-    return const_cast<TField &>(const_cast<const Grid *>(this)->getField());
-  }
-
-  void applyFilter(const Filter<T> &filter, TField &fieldFourier) {
-    assert(fieldFourier.size() == size3);
-
-#pragma omp parallel for
-    for (size_t i = 0; i < size3; ++i) {
-      fieldFourier[i] *= filter(getFourierCellAbsK(i));
-    }
-  }
-
 
   virtual bool fieldIsSuitableSize(const TField &field) {
     return field.size() == size3;
@@ -326,10 +292,6 @@ public:
     return field[i];
   }
 
-  virtual complex<T> getFieldAt(size_t i) {
-    return getFieldAt(i, getFieldReal());
-  }
-
 
   auto getOffsetFields() {
     return std::make_tuple(pOff_x, pOff_y, pOff_z);
@@ -337,10 +299,6 @@ public:
 
   auto getOffsetFields() const {
     return std::make_tuple(pOff_x, pOff_y, pOff_z);
-  }
-
-  virtual bool isFieldFourier() const {
-    return fieldFourier;
   }
 
   Particle<T> getParticle(size_t id) const {
@@ -468,7 +426,7 @@ public:
   }
 
 
-  virtual void zeldovich(T hfac, T particlecellMass) {
+  virtual void zeldovich(T hfac, T particlecellMass, Field<complex<T>,T> & field) {
     progress::ProgressBar pb("zeldovich",size*2);
 
     hFactor = hfac;
@@ -480,7 +438,8 @@ public:
     auto psift3k = std::vector<std::complex<T>>(size3, 0);
 
     // get a reference to the density field in fourier space
-    auto &pField_k = getFieldFourier();
+    field.toFourier();
+    auto &pField_k = field.getDataVector();
 
     int iix, iiy, iiz;
     T kfft;
@@ -702,15 +661,15 @@ public:
     Grid<T>(
       pUnderlying->simsize, pUnderlying->size,
       pUnderlying->dx, pUnderlying->offsetLower.x, pUnderlying->offsetLower.y,
-      pUnderlying->offsetLower.z, false),
+      pUnderlying->offsetLower.z),
     pUnderlying(pUnderlying) {
 
   }
 
 
   VirtualGrid(GridPtrType pUnderlying, T simsize, T gridsize,
-              T dx, T x0, T y0, T z0, bool withField) :
-    Grid<T>(simsize, gridsize, dx, x0, y0, z0, withField),
+              T dx, T x0, T y0, T z0) :
+    Grid<T>(simsize, gridsize, dx, x0, y0, z0),
     pUnderlying(pUnderlying) {
 
   }
@@ -761,23 +720,7 @@ public:
     return pUnderlying->estimateParticleListSize();
   }
 
-  virtual TField &getFieldFourier() override {
-    return pUnderlying->getFieldFourier();
-  }
-
-  virtual TField &getFieldReal() override {
-    return pUnderlying->getFieldReal();
-  }
-
-  virtual const TField &getField() const override {
-    return pUnderlying->getField();
-  }
-
-  virtual bool isFieldFourier() const override {
-    return pUnderlying->isFieldFourier();
-  }
-
-  virtual void zeldovich(T hfac, T particlecellMass) override {
+  virtual void zeldovich(T hfac, T particlecellMass, Field<complex<T>,T> & field) override {
     throw std::runtime_error("VirtualGrid - does not contain an actual field in memory");
   }
 
@@ -794,9 +737,6 @@ public:
     pUnderlying->getParticleFromOffset(particle);
   }
 
-  complex<T> getFieldAt(size_t i) override {
-    return this->getFieldAt(i, this->pUnderlying->getFieldReal());
-  }
 
 };
 
@@ -818,7 +758,7 @@ public:
                    pUnderlying->simsize, pUnderlying->size * factor,
                    pUnderlying->dx / factor, pUnderlying->offsetLower.x,
                    pUnderlying->offsetLower.y,
-                   pUnderlying->offsetLower.z, false),
+                   pUnderlying->offsetLower.z),
     factor(factor) {
 
     factor3 = factor * factor * factor;
@@ -964,7 +904,7 @@ public:
                    pUnderlying->dx,
                    pUnderlying->offsetLower.x + deltax * pUnderlying->dx,
                    pUnderlying->offsetLower.y + deltay * pUnderlying->dx,
-                   pUnderlying->offsetLower.z + deltaz * pUnderlying->dx, false),
+                   pUnderlying->offsetLower.z + deltaz * pUnderlying->dx),
     cellOffset(deltax, deltay, deltaz),
     upperCell(cellOffset+pUnderlying->size),
     posOffset(deltax * this->dx, deltay * this->dx, deltaz * this->dx)
@@ -1041,7 +981,7 @@ public:
     VirtualGrid<T>(pUnderlying,
                    pUnderlying->simsize, pUnderlying->size / factor,
                    pUnderlying->dx * factor, pUnderlying->offsetLower.x, pUnderlying->offsetLower.y,
-                   pUnderlying->offsetLower.z, false),
+                   pUnderlying->offsetLower.z),
     factor(factor) {
     //if(this->pUnderlying->size%factor!=0)
     //  throw std::runtime_error("SubSampleGrid - factor must be a divisor of the original grid size");
@@ -1193,7 +1133,7 @@ public:
     VirtualGrid<T>(pUnderlying,
                    pUnderlying->simsize, pUnderlying->size,
                    pUnderlying->dx, pUnderlying->offsetLower.x, pUnderlying->offsetLower.y,
-                   pUnderlying->offsetLower.z, false),
+                   pUnderlying->offsetLower.z),
     massFac(massFac) {
   }
 

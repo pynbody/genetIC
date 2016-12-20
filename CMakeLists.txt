@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.2)
 project(IC)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -fopenmp")
 
 set(SOURCE_FILES
         IC/src/argsort.hpp
@@ -30,8 +30,14 @@ set(SOURCE_FILES
         IC/src/multilevelfield.hpp
         IC/src/particle.hpp
         IC/src/progress/progress.cpp
-        IC/Makefile)
+        IC/src/field.hpp
+        IC/src/MultiLevelConstraintGenerator.h
+        IC/Makefile IC/src/zeldovich.hpp)
 
-add_definitions(-DFFTW3 -DFFTW_THREADS)
+include_directories( /opt/local/include )
+link_directories(/opt/local/lib )
+include_directories( IC/  )
+link_libraries(fftw3 m fftw3 fftw3_threads gsl gslcblas)
 
+add_definitions(-DFFTW3 -DFFTW_THREADS -DGIT_VERSION -DGIT_MODIFIED -DDOUBLEPRECISION -DOUTPUT_IN_DOUBLEPRECISION)
 add_executable(IC ${SOURCE_FILES} )

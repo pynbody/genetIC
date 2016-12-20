@@ -39,6 +39,8 @@
  #2 & #4 & #6
 \end{array}\right)}}
 
+\linespread{1.0}
+
 \newcommand{\D}{\mathcal{D}}
 
 \title{The posterior of a Gaussian subject to $\delta$-function constraints}
@@ -161,8 +163,6 @@ direction:
 \end{equation}
 where we have used \eqref{eq:newvar} in the intermediate steps to cancel all terms which contain $\vec{x}_1$ and $d_1$.
 
-This is a generalized version of Hoffman and Ribak 1991 (ApJ).
-
 To satisfy two constraints, for simplicity on an initially zero-mean
 field, start with $\vec{x}_0=0$ and iterate equation \eqref{eq:x1} and
 \eqref{eq:C1} twice. The attached program does that and verifies that
@@ -185,14 +185,7 @@ eigenvalues, and to transform back into a Fourier (or pixel) basis,
 also the eigenvectors. This is a horrible problem although Nina made
 some progress if we need to go back to it.
 
-Instead if possible let's use an iterative method which works as
-follows. The aim is to only ever have diagonal matrices in play. The
-strategy is to start with a realization from the original problem --
-assumed to be zero mean, covariance $\mathsf{C}$. We can work in
-Fourier space so $\mathsf{C}$ is diagonal and multiplication by
-$\mathsf{C}$ or $\mathsf{C}^{-1}$ is numerically trivial.
-
-Start by assuming it's possible to get a realization from the
+Instead, assume it's possible to get a realization from the
 constrained problem by a linear transformation of the unconstrained
 problem. Let $\vec{y}_0$ be a realization from the original system and
 $\vec{y}_1$ a realization from the constrained system. Then the
@@ -214,8 +207,6 @@ get the new covariance correct
 \end{equation}
 using equation \eqref{eq:C1} above.
 
-\subsection{November 2014 - the new scheme}
-
 To solve this, we can just set
 \begin{equation}
 \mathsf{A} = - \mathsf{C}_0 \alpha_1 \alpha_1^{\dagger}\textrm{,}\label{eq:A}
@@ -233,6 +224,8 @@ which gives
 \mathsf{C}_0\textrm{ as required,}
 \end{align}
 where I have used the normalization condition \eqref{eq:norm}.
+
+\pagebreak
 
 \subsection{For multiple constraints}
 

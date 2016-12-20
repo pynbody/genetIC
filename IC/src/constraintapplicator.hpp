@@ -181,11 +181,13 @@ public:
 
   void applyConstraints() {
 
+    outputField->toFourier();
 
     for (size_t i = 0; i < alphas.size(); i++) {
       MultiLevelField<std::complex<T>> &alpha_i = alphas[i];
       auto dval_i = values[i] - existing_values[i];
       alpha_i.convertToVector();
+      alpha_i.toFourier(); // probably already is, but just to be safe
       outputField->addScaled(alpha_i, dval_i);
 
     }

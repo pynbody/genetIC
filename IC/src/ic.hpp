@@ -82,8 +82,8 @@ protected:
   shared_ptr<ParticleMapper<T>> pMapper;
   shared_ptr<ParticleMapper<T>> pInputMapper;
 
-  using RefFieldType = decltype(pGrid[0]->getField());
-  using FieldType = std::remove_reference_t<decltype(pGrid[0]->getField())>;
+  using RefFieldType = std::vector<std::complex<T>> &;
+  using FieldType = std::vector<std::complex<T>>;
 
   ClassDispatch<ICGenerator<T>, void> &interpreter;
 
@@ -93,7 +93,7 @@ public:
                                                       outputField(multiLevelContext),
                                                       constraintApplicator(&multiLevelContext, &outputField),
                                                       constraintGenerator(multiLevelContext, cosmology),
-                                                      randomFieldGenerator(multiLevelContext),
+                                                      randomFieldGenerator(outputField),
                                                       pMapper(new ParticleMapper<T>()),
                                                       interpreter(interpreter)
   {
@@ -389,7 +389,8 @@ public:
   virtual void zeroLevel(int level) {
     cerr << "*** Warning: your script calls zeroLevel(" << level << "). This is intended for testing purposes only!" <<
     endl;
-    multiLevelContext.zeroLevel(level);
+    auto &fieldData = outputField.getFieldOnGrid(level).getDataVector();
+    std::fill(fieldData.begin(), fieldData.end(), 0);
   }
 
   template<typename TField>
@@ -406,6 +407,10 @@ public:
     auto pGrid_p = pGrid[level - 1];
 
     pGrid_l->addFieldFromDifferentGrid(*pGrid_p);
+    outputField.toReal();
+    pGrid_l->addFieldFromDifferentGrid(*pGrid_p,
+                                       outputField.getFieldOnGrid(*pGrid_p).getDataVector(),
+                                       outputField.getFieldOnGrid(*pGrid_l).getDataVector());
   }
 
 
@@ -440,16 +445,19 @@ public:
   }
 
   virtual void saveTipsyArray(string fname) {
-    io::tipsy::saveFieldTipsyArray(fname, pMapper);
+    io::tipsy::saveFieldTipsyArray(fname, pMapper, outputField);
   }
 
   virtual void dumpGrid(int level = 0) {
-    dumpGridData(level, pGrid[level]->getFieldReal());
+    outputField.toReal();
+    dumpGridData(level, outputField.getFieldOnGrid(level).getDataVector());
   }
 
 
   virtual void dumpPS(int level = 0) {
-    powsp_noJing(n[level], pGrid[level]->getFieldFourier(),
+    auto & field = outputField.getFieldOnGrid(level);
+    field.toFourier();
+    powsp_noJing(n[level], field.getDataVector(),
                  multiLevelContext.getCovariance(level),
                  (base + "_" + ((char) (level + '0')) + ".ps").c_str(), boxlen[level]);
   }
@@ -466,7 +474,7 @@ public:
 
     T pmass = 27.78 * cosmology.OmegaM0 * powf(boxlen[level] / (T) (n[level]), 3.0);
 
-    pGrid[level]->zeldovich(hfac, pmass);
+    pGrid[level]->zeldovich(hfac, pmass, outputField.getFieldOnGrid(level)); // TODO: put Zeldovich in its own module
 
   }
 
@@ -477,6 +485,8 @@ public:
     } else if (pGrid.size() == 1) {
       zeldovichForLevel(0);
     } else {
+
+      outputField.toFourier();
 
       cerr << "Zeldovich approximation on successive levels...";
       auto residuals = outputField.getHighKResiduals();
@@ -878,15 +888,18 @@ public:
   }
 
   virtual void done() {
-    cerr << "BEFORE constraints: chi^2=" << multiLevelContext.get_field_chi2() << endl;
+    T pre_constraint_chi2 = outputField.getChi2();
+    cerr << "BEFORE constraints: chi^2=" << pre_constraint_chi2 << endl;
     fixConstraints();
-    cerr << "AFTER  constraints: chi^2=" << multiLevelContext.get_field_chi2() << endl;
+    T post_constraint_chi2 = outputField.getChi2();
+    cerr << "AFTER  constraints: chi^2=" << post_constraint_chi2 << endl;
+    cerr << "              delta chi^2=" << post_constraint_chi2-pre_constraint_chi2 << endl;
     write();
   }
 
   void reverse() {
     for_each_level(level) {
-      auto &field = pGrid[level]->getField();
+      auto &field = outputField.getFieldOnGrid(level);
       size_t N = pGrid[level]->size3;
       for (size_t i = 0; i < N; i++)
         field[i] = -field[i];
@@ -899,7 +912,11 @@ public:
 
     // take a copy of all the fields
     std::vector<FieldType> fieldCopies;
-    for_each_level(level) fieldCopies.emplace_back(pGrid[level]->getFieldFourier());
+    for_each_level(level) {
+      auto &field = outputField.getFieldOnGrid(level);
+      field.toFourier();
+      fieldCopies.emplace_back(field);
+    }
 
     // remake the fields with the new seed
     randomFieldGenerator.seed(seed);
@@ -908,7 +925,8 @@ public:
     // copy back the old field
     for_each_level(level) {
       auto &fieldOriginal = fieldCopies[level];
-      auto &field = pGrid[level]->getFieldFourier();
+      auto &field = outputField.getFieldOnGrid(level);
+      field.toFourier();
       const auto &grid = *(this->pGrid[level]);
       T k2;
       size_t N = grid.size3;
@@ -932,7 +950,8 @@ public:
       T k2_g_max = 0.0;
       size_t modes_reversed = 0;
       size_t tot_modes = pGrid[level]->size3;
-      auto &field = pGrid[level]->getFieldFourier();
+      auto &field = outputField.getFieldOnGrid(level);
+      field.toFourier();
       const Grid<T> &grid = *(this->pGrid[level]);
       T k2;
       size_t N = grid.size3;

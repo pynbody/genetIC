@@ -22,13 +22,16 @@ namespace io {
 
     template<typename MyFloat>
     void saveFieldTipsyArray(const std::string &filename,
-                             shared_ptr<ParticleMapper<MyFloat>> pMapper) {
+                             shared_ptr<ParticleMapper<MyFloat>> pMapper,
+                             MultiLevelField<complex<MyFloat>> &field) {
       ofstream outfile(filename.c_str(), ofstream::binary);
       int lengthField = pMapper->size();
       outfile.write(reinterpret_cast<char *>(&lengthField), 4);
 
+      field.toReal();
+
       for (auto i = pMapper->begin(); i != pMapper->end(); ++i) {
-        float data = float(i.getField().real());
+        float data = float(i.getField(field).real());
         outfile.write(reinterpret_cast<char *>(&data), 4);
       }
     }

@@ -19,12 +19,12 @@ protected:
   const gsl_rng_type *T;
   bool drawInFourierSpace;
   bool reverseRandomDrawOrder;
-  MultiLevelContextInformation<MyFloat> &fieldManager;
+  MultiLevelField<complex<MyFloat>> & field;
 
 
 public:
-  RandomFieldGenerator(MultiLevelContextInformation<MyFloat> &fieldManager_, int seed = 0) :
-    fieldManager(fieldManager_) {
+  RandomFieldGenerator(MultiLevelField<complex<MyFloat>> &field_, int seed = 0) :
+    field(field_) {
     T = gsl_rng_ranlxs2; // shouldn't this be gsl_rng_ranlxd2 for MyFloat = double? -> it's single precision for compatibility with previous versions!
     randomState = gsl_rng_alloc(T); //this allocates memory for the generator with type T
     gsl_rng_set(randomState, seed);
@@ -52,13 +52,15 @@ public:
   }
 
   void draw() {
-    fieldManager.forEachLevel([this](Grid<MyFloat> &g) {
+    for(size_t i=0; i<field.getNumLevels(); ++i) {
+      auto &fieldOnGrid = field.getFieldOnGrid(i);
       if (drawInFourierSpace) {
-        drawRandomForSpecifiedGridFourier(g, g.getFieldFourier());
+        fieldOnGrid.toFourier();
+        drawRandomForSpecifiedGridFourier(fieldOnGrid.getGrid(), fieldOnGrid.getDataVector());
       } else {
-        drawRandomForSpecifiedGrid(g, g.getFieldFourier());
+        drawRandomForSpecifiedGrid(fieldOnGrid.getGrid(), fieldOnGrid.getDataVector());
       }
-    });
+    }
   }
 
 protected:

@@ -11,6 +11,7 @@
 
 #include "grid.hpp"
 #include "signaling.hpp"
+#include "field.hpp"
 
 //#include <Eigen/Dense>
 
@@ -115,30 +116,31 @@ public:
   }
 
 
-  vector<vector<complex<T>>> generateMultilevelFromHighResField(vector<complex<T>> &&data) {
+  vector<LiteralField<complex<T>, T>> generateMultilevelFromHighResField(vector<complex<T>> &&data) {
     assert(data.size() == pGrid.back()->size3);
-    vector<vector<complex<T>>> dataOnLevels;
+
+    vector<LiteralField<complex<T>, T>> dataOnLevels;
     for (size_t level = 0; level < pGrid.size(); level++) {
       if (level == pGrid.size() - 1) {
-        dataOnLevels.emplace_back(std::move(data));
+        dataOnLevels.emplace_back(*pGrid[level],std::move(data));
       } else {
-        dataOnLevels.emplace_back(pGrid[level]->size3, 0.0);
+        dataOnLevels.emplace_back(*pGrid[level]);
       }
     }
     size_t levelmax = dataOnLevels.size() - 1;
     if (levelmax > 0) {
-      fft(dataOnLevels.back(), dataOnLevels.back(), -1);
+      fft(dataOnLevels.back().getDataVector(), dataOnLevels.back().getDataVector(), -1);
       for (int level = levelmax - 1; level >= 0; --level) {
 
-        pGrid[level]->addFieldFromDifferentGrid(*pGrid[levelmax], dataOnLevels[levelmax],
-                                                dataOnLevels[level]);
+        pGrid[level]->addFieldFromDifferentGrid(*pGrid[levelmax], dataOnLevels[levelmax].getDataVector(),
+                                                dataOnLevels[level].getDataVector());
 
 
-        fft(dataOnLevels[level], dataOnLevels[level], 1);
+        fft(dataOnLevels[level].getDataVector(), dataOnLevels[level].getDataVector(), 1);
 
 
       }
-      fft(dataOnLevels.back(), dataOnLevels.back(), 1);
+      fft(dataOnLevels.back().getDataVector(), dataOnLevels.back().getDataVector(), 1);
 
 
     }
@@ -154,10 +156,6 @@ public:
 
   }
 
-  void zeroLevel(int level) {
-    auto &field = pGrid[level]->getField();
-    std::fill(field.begin(), field.end(), 0);
-  }
 
   void forEachLevel(std::function<void(Grid<T> &)> newLevelCallback) {
     for (size_t level = 0; level < nLevels; level++) {
@@ -171,9 +169,10 @@ public:
     }
   }
 
+
   void forEachCellOfEachLevel(
     std::function<bool(size_t)> levelCallback,
-    std::function<void(size_t, size_t, size_t, std::vector<std::complex<T>> &)> cellCallback,
+    std::function<void(size_t, size_t, size_t)> cellCallback,
     bool kspace = true) {
 
 
@@ -182,12 +181,11 @@ public:
       if(!levelCallback(level))
         continue;
       size_t level_base = cumu_Ns[level];
-      auto &field = kspace ? pGrid[level]->getFieldFourier() : pGrid[level]->getField();
 
 #pragma omp parallel for
       for (size_t i = 0; i < Ns[level]; i++) {
         size_t i_all_levels = level_base + i;
-        cellCallback(level, i, i_all_levels, field);
+        cellCallback(level, i, i_all_levels);
       }
     }
 
@@ -199,6 +197,7 @@ public:
 
     forEachCellOfEachLevel([](size_t i) { return true;}, cellCallback);
   }
+
 
 
   std::complex<T> accumulateOverEachCellOfEachLevel(
@@ -230,25 +229,7 @@ public:
   }
 
 
-  T get_field_chi2() {
 
-    T chi2 = 0;
-
-    for (size_t i = 0; i < getNumLevels(); ++i) {
-
-      auto &field = pGrid[i]->getFieldFourier();
-      const auto &spectrum = C0s[i];
-      T norm = T(pGrid[i]->size3);
-
-      for (size_t j = 0; j < field.size(); ++j) {
-        if (spectrum[j] != 0)
-          chi2 += pow(abs(field[j]), 2.0) / (spectrum[j] * norm);
-      }
-    }
-
-    return chi2;
-
-  }
 
   void copyContextWithIntermediateResolutionGrids(MultiLevelContextInformation<T> & newStack, size_t base_factor=2,
                                                   size_t extra_lores=1)

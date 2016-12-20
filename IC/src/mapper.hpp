@@ -16,6 +16,7 @@
 #include <omp.h>
 #include "grid.hpp"
 #include "argsort.hpp"
+#include "multilevelfield.hpp"
 
 // helper function for our debug dumps
 void indent(std::ostream &s, int level = 0) {
@@ -119,9 +120,10 @@ public:
     return pGrid->getParticle(id);
   }
 
-  auto getField() const {
+  template<typename S>
+  auto getField(const MultiLevelField<S> &multiLevelField) const {
     const auto q = **this;
-    return const_cast<Grid<T> &>(*q.first).getFieldAt(q.second);
+    return multiLevelField.getFieldOnGrid(*q.first)[q.second];
   }
 
 
