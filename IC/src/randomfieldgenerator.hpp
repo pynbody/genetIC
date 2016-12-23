@@ -53,7 +53,7 @@ public:
 
   void draw() {
     for(size_t i=0; i<field.getNumLevels(); ++i) {
-      auto &fieldOnGrid = field.getFieldOnGrid(i);
+      auto &fieldOnGrid = field.getFieldForLevel(i);
       if (drawInFourierSpace) {
         fieldOnGrid.toFourier();
         drawRandomForSpecifiedGridFourier(fieldOnGrid.getGrid(), fieldOnGrid.getDataVector());

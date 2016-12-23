@@ -389,7 +389,7 @@ public:
   virtual void zeroLevel(int level) {
     cerr << "*** Warning: your script calls zeroLevel(" << level << "). This is intended for testing purposes only!" <<
     endl;
-    auto &fieldData = outputField.getFieldOnGrid(level).getDataVector();
+    auto &fieldData = outputField.getFieldForLevel(level).getDataVector();
     std::fill(fieldData.begin(), fieldData.end(), 0);
   }
 
@@ -409,8 +409,8 @@ public:
     pGrid_l->addFieldFromDifferentGrid(*pGrid_p);
     outputField.toReal();
     pGrid_l->addFieldFromDifferentGrid(*pGrid_p,
-                                       outputField.getFieldOnGrid(*pGrid_p).getDataVector(),
-                                       outputField.getFieldOnGrid(*pGrid_l).getDataVector());
+                                       outputField.getFieldForGrid(*pGrid_p),
+                                       outputField.getFieldForGrid(*pGrid_l));
   }
 
 
@@ -450,12 +450,12 @@ public:
 
   virtual void dumpGrid(int level = 0) {
     outputField.toReal();
-    dumpGridData(level, outputField.getFieldOnGrid(level).getDataVector());
+    dumpGridData(level, outputField.getFieldForLevel(level).getDataVector());
   }
 
 
   virtual void dumpPS(int level = 0) {
-    auto & field = outputField.getFieldOnGrid(level);
+    auto & field = outputField.getFieldForLevel(level);
     field.toFourier();
     powsp_noJing(n[level], field.getDataVector(),
                  multiLevelContext.getCovariance(level),
@@ -474,7 +474,7 @@ public:
 
     T pmass = 27.78 * cosmology.OmegaM0 * powf(boxlen[level] / (T) (n[level]), 3.0);
 
-    pGrid[level]->zeldovich(hfac, pmass, outputField.getFieldOnGrid(level)); // TODO: put Zeldovich in its own module
+    pGrid[level]->zeldovich(hfac, pmass, outputField.getFieldForLevel(level)); // TODO: put Zeldovich in its own module
 
   }
 
@@ -717,6 +717,7 @@ protected:
 
   auto calcConstraint(string name_in) {
     auto constraint = constraintGenerator.calcConstraintForAllLevels(name_in);
+    constraint.toFourier();
     return constraint;
   }
 
@@ -899,7 +900,7 @@ public:
 
   void reverse() {
     for_each_level(level) {
-      auto &field = outputField.getFieldOnGrid(level);
+      auto &field = outputField.getFieldForLevel(level);
       size_t N = pGrid[level]->size3;
       for (size_t i = 0; i < N; i++)
         field[i] = -field[i];
@@ -913,7 +914,7 @@ public:
     // take a copy of all the fields
     std::vector<FieldType> fieldCopies;
     for_each_level(level) {
-      auto &field = outputField.getFieldOnGrid(level);
+      auto &field = outputField.getFieldForLevel(level);
       field.toFourier();
       fieldCopies.emplace_back(field);
     }
@@ -925,7 +926,7 @@ public:
     // copy back the old field
     for_each_level(level) {
       auto &fieldOriginal = fieldCopies[level];
-      auto &field = outputField.getFieldOnGrid(level);
+      auto &field = outputField.getFieldForLevel(level);
       field.toFourier();
       const auto &grid = *(this->pGrid[level]);
       T k2;
@@ -950,7 +951,7 @@ public:
       T k2_g_max = 0.0;
       size_t modes_reversed = 0;
       size_t tot_modes = pGrid[level]->size3;
-      auto &field = outputField.getFieldOnGrid(level);
+      auto &field = outputField.getFieldForLevel(level);
       field.toFourier();
       const Grid<T> &grid = *(this->pGrid[level]);
       T k2;

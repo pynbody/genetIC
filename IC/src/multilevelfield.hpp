@@ -34,7 +34,7 @@ protected:
   Signaling::connection_t connection;
   bool isCovector;
 
-  std::vector<LiteralField<DataType, T>> fieldsOnGrids;
+  std::vector<LiteralField<DataType, T>> fieldsOnLevels;
 
   template<typename FilterType>
   void setupFilters() {
@@ -67,7 +67,7 @@ public:
 
   MultiLevelField(MultiLevelContextInformation<T> & multiLevelContext,
                   std::vector<LiteralField<DataType, T>> && fieldsOnGrids) :
-    multiLevelContext(&multiLevelContext), fieldsOnGrids(std::move(fieldsOnGrids)) {
+    multiLevelContext(&multiLevelContext), fieldsOnLevels(std::move(fieldsOnGrids)) {
     setupConnection();
   }
 
@@ -84,25 +84,25 @@ public:
   }
 
 
-  virtual const Field<DataType, T> &getFieldOnGrid(size_t i) const {
-    return fieldsOnGrids[i];
+  virtual const Field<DataType, T> &getFieldForLevel(size_t i) const {
+    return fieldsOnLevels[i];
   }
 
-  virtual const Field<DataType, T> &getFieldOnGrid(const Grid<T> &grid) const {
-    return (const_cast<MultiLevelField<DataType> *>(this))->getFieldOnGrid(grid);
+  virtual const Field<DataType, T> &getFieldForGrid(const Grid<T> &grid) const {
+    return (const_cast<MultiLevelField<DataType> *>(this))->getFieldForGrid(grid);
   };
 
-  virtual Field<DataType, T> &getFieldOnGrid(const Grid<T> &grid)  {
+  virtual Field<DataType, T> &getFieldForGrid(const Grid<T> &grid)  {
     // TODO: problematically slow implementation
     for(size_t i=0; i<multiLevelContext->getNumLevels(); ++i) {
       if(&grid==&multiLevelContext->getGridForLevel(i))
-        return getFieldOnGrid(i);
+        return getFieldForLevel(i);
     }
     throw(std::runtime_error("Cannot find a field for the specified grid"));
   };
 
-  virtual Field<DataType, T> & getFieldOnGrid(size_t i) {
-    return fieldsOnGrids[i];
+  virtual Field<DataType, T> & getFieldForLevel(size_t i) {
+    return fieldsOnLevels[i];
   }
 
 
@@ -111,25 +111,37 @@ public:
   }
 
   bool hasFieldOnGrid(size_t i) const {
-    return this->getFieldOnGrid(i).getDataVector().size()>0;
+    return this->getFieldForLevel(i).getDataVector().size()>0;
   }
 
-  virtual const Filter<T> & getFilterForGrid(size_t i) const {
+  virtual const Filter<T> & getFilterForLevel(size_t i) const {
     return pFilters->getFilterOnLevel(i);
   }
 
   void toReal() {
     for(size_t i =0; i<multiLevelContext->getNumLevels(); ++i)
-      getFieldOnGrid(i).toReal();
+      getFieldForLevel(i).toReal();
   }
 
   void toFourier() {
     for(size_t i =0; i<multiLevelContext->getNumLevels(); ++i)
-      getFieldOnGrid(i).toFourier();
+      getFieldForLevel(i).toFourier();
   }
 
   bool isCompatible(const MultiLevelField<DataType> &other) const {
     return other.multiLevelContext == multiLevelContext;
+  }
+
+  bool isRealOnAllLevels() const {
+    for(size_t i =0; i<multiLevelContext->getNumLevels(); ++i)
+      if(getFieldForLevel(i).isFourier()) return false;
+    return true;
+  }
+
+  bool isFourierOnAllLevels() const {
+    for(size_t i =0; i<multiLevelContext->getNumLevels(); ++i)
+      if(!getFieldForLevel(i).isFourier()) return false;
+    return true;
   }
 
 
@@ -146,8 +158,8 @@ public:
 
     auto newLevel = [&](size_t level) {
       pCurrentGrid = &(multiLevelContext->getGridForLevel(level));
-      pFiltThis = &(getFilterForGrid(level));
-      pFieldThis = &(getFieldOnGrid(level).getDataVector());
+      pFiltThis = &(getFilterForLevel(level));
+      pFieldThis = &(getFieldForLevel(level).getDataVector());
       return pFieldThis->size()>0;
     };
 
@@ -167,20 +179,20 @@ public:
 
     auto newLevel = [&](size_t level) {
       pCurrentGrid = &(multiLevelContext->getGridForLevel(level));
-      pFiltThis = &(getFilterForGrid(level));
-      pFiltOther = &(other.getFilterForGrid(level));
+      pFiltThis = &(getFilterForLevel(level));
+      pFiltOther = &(other.getFilterForLevel(level));
 
       // adjust our field's fourier/real convention to match the other field
-      if(other.getFieldOnGrid(level).isFourier())
-        getFieldOnGrid(level).toFourier();
+      if(other.getFieldForLevel(level).isFourier())
+        getFieldForLevel(level).toFourier();
       else
-        getFieldOnGrid(level).toReal();
+        getFieldForLevel(level).toReal();
 
       // check we did that right!
-      assert (getFieldOnGrid(level).isFourier()==other.getFieldOnGrid(level).isFourier());
+      assert (getFieldForLevel(level).isFourier()==other.getFieldForLevel(level).isFourier());
 
-      pFieldThis = &(getFieldOnGrid(level).getDataVector());
-      pFieldOther = &(other.getFieldOnGrid(level).getDataVector());
+      pFieldThis = &(getFieldForLevel(level).getDataVector());
+      pFieldOther = &(other.getFieldForLevel(level).getDataVector());
 
       return this->hasFieldOnGrid(level) && other.hasFieldOnGrid(level);
     };
@@ -205,6 +217,9 @@ public:
      * TODO: translate these notes into the paper or into inline documentation here
      * */
 
+    assert(isFourierOnAllLevels() && other.isFourierOnAllLevels());
+    // To take inner product with correct filters, we must have the fields in fourier space
+
     bool covariance_weighted;
 
     if(other.isCovector)
@@ -221,9 +236,9 @@ public:
       weight = multiLevelContext->getWeightForLevel(level);
       pCurrentGrid = &(multiLevelContext->getGridForLevel(level));
       pCov = &(multiLevelContext->getCovariance(level));
-      pFiltOther = &(other.getFilterForGrid(level));
-      pFieldThis = &(this->getFieldOnGrid(level).getDataVector());
-      pFieldOther = &(other.getFieldOnGrid(level).getDataVector());
+      pFiltOther = &(other.getFilterForLevel(level));
+      pFieldThis = &(this->getFieldForLevel(level).getDataVector());
+      pFieldOther = &(other.getFieldForLevel(level).getDataVector());
       return pFieldOther->size()>0 && pFieldThis->size()>0;
     };
 
@@ -246,8 +261,8 @@ public:
 
     auto newLevel = [&](size_t level) {
       pCurrentGrid = &(multiLevelContext->getGridForLevel(level));
-      pFiltThis = &(this->getFilterForGrid(level));
-      pFieldThis = &(this->getFieldOnGrid(level).getDataVector());
+      pFiltThis = &(this->getFilterForLevel(level));
+      pFieldThis = &(this->getFieldForLevel(level).getDataVector());
       return pFieldThis->size()>0;
     };
 
@@ -269,7 +284,7 @@ public:
     for (size_t i = 0; i < multiLevelContext->getNumLevels(); ++i) {
       auto & grid = multiLevelContext->getGridForLevel(i);
 
-      multiplyByCovarianceOneGrid(getFieldOnGrid(i),
+      multiplyByCovarianceOneGrid(getFieldForLevel(i),
                                   multiLevelContext->getCovariance(i),
                                   grid,
                                   multiLevelContext->getWeightForLevel(i));
@@ -283,7 +298,7 @@ public:
     for (size_t i = 0; i < multiLevelContext->getNumLevels(); ++i) {
       auto & grid = multiLevelContext->getGridForLevel(i);
 
-      applySpectrumOneGrid(getFieldOnGrid(i),
+      applySpectrumOneGrid(getFieldForLevel(i),
                            multiLevelContext->getCovariance(i),
                            grid);
 
@@ -295,7 +310,7 @@ public:
     for (size_t i = 0; i < multiLevelContext->getNumLevels(); ++i) {
       auto & grid = multiLevelContext->getGridForLevel(i);
 
-      enforceSpectrumOneGrid(getFieldOnGrid(i),
+      enforceSpectrumOneGrid(getFieldForLevel(i),
                            multiLevelContext->getCovariance(i),
                            grid);
 
@@ -308,7 +323,7 @@ public:
 
     for (size_t i = 0; i < multiLevelContext->getNumLevels(); ++i) {
 
-      auto &field = getFieldOnGrid(i).getDataVector();
+      auto &field = getFieldForLevel(i).getDataVector();
       const auto &spectrum = multiLevelContext->getCovariance(i);
       T norm = T(field.size());
 
@@ -372,9 +387,9 @@ public:
     : MultiLevelField<DataType>(source.getContext())
   {
     for(size_t i=0; i<source.getContext().getNumLevels()-1; ++i) {
-      this->fieldsOnGrids.emplace_back(this->multiLevelContext->getGridForLevel(i),source.getFieldOnGrid(i));
+      this->fieldsOnLevels.emplace_back(this->multiLevelContext->getGridForLevel(i),source.getFieldForLevel(i));
     }
-    this->fieldsOnGrids.emplace_back(
+    this->fieldsOnLevels.emplace_back(
       this->multiLevelContext->getGridForLevel(source.getContext().getNumLevels()-1));
 
     this->pFilters = std::make_shared<ResidualFilterFamily<T>>(source.getFilters());
@@ -410,9 +425,9 @@ public:
   void updateMultiLevelContext() override {
     assert(outputState==PRE_SEPARATION);
     this->template setupFilters<TwoLevelFilterFamily<T>>();
-    this->fieldsOnGrids.clear();
+    this->fieldsOnLevels.clear();
     this->multiLevelContext->forEachLevel([this](Grid<T> &g) {
-      this->fieldsOnGrids.emplace_back(g);
+      this->fieldsOnLevels.emplace_back(g);
     });
   }
 

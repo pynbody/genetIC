@@ -27,7 +27,7 @@ public:
 
   }
 
-  vector<complex<T>> calcConstraintVector(string name_in, int level) {
+  LiteralField<complex<T>, T> calcConstraintVector(string name_in, int level) {
     auto ar = fieldManager.createEmptyFieldForLevel(level);
 
     calcConstraint(name_in, fieldManager.getGridForLevel(level), cosmology, ar);
@@ -35,15 +35,12 @@ public:
     if (level != 0)
       ar*=pow(fieldManager.getGridForLevel(level).dx / fieldManager.getGridForLevel(0).dx, -3.0);
 
-    return ar;
+    return LiteralField<complex<T>, T>(fieldManager.getGridForLevel(level), ar, true);
   }
 
   auto calcConstraintForAllLevels(string name) {
     auto highResConstraint = calcConstraintVector(name, fieldManager.getNumLevels() - 1);
-
-    auto dataOnLevels = fieldManager.generateMultilevelFromHighResField(std::move(highResConstraint));
-
-    return ConstraintField<std::complex<T>>(fieldManager,std::move(dataOnLevels));
+    return fieldManager.generateMultilevelFromHighResField(std::move(highResConstraint));
   }
 };
 

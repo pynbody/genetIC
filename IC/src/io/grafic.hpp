@@ -72,7 +72,7 @@ namespace io {
 
         auto filenames = {"ic_velcx","ic_velcy","ic_velcz","ic_poscx","ic_poscy","ic_poscz","ic_particle_ids"};
 
-        std::vector<int> block_lengths = {sizeof(float)*targetGrid.size2, sizeof(float)*targetGrid.size2, sizeof(float)*targetGrid.size2,
+        std::vector<size_t> block_lengths = {sizeof(float)*targetGrid.size2, sizeof(float)*targetGrid.size2, sizeof(float)*targetGrid.size2,
                               sizeof(float)*targetGrid.size2, sizeof(float)*targetGrid.size2, sizeof(float)*targetGrid.size2,
                               sizeof(size_t)*targetGrid.size2};
 
@@ -116,10 +116,11 @@ namespace io {
 
       }
 
-      void writeBlockHeaderFooter(const vector<int> &block_lengths, vector <ofstream> &files) const {
+      void writeBlockHeaderFooter(const vector<size_t> &block_lengths, vector <ofstream> &files) const {
         assert(block_lengths.size()==files.size());
         for(size_t i=0; i < block_lengths.size(); ++i) {
-          files[i].write((char*) &block_lengths[i], sizeof(int));
+          int block_length_as_integer = int(block_lengths[i]);
+          files[i].write((char*) &block_length_as_integer, sizeof(int));
         }
       }
 

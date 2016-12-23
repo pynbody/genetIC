@@ -123,7 +123,7 @@ public:
   template<typename S>
   auto getField(const MultiLevelField<S> &multiLevelField) const {
     const auto q = **this;
-    return multiLevelField.getFieldOnGrid(*q.first)[q.second];
+    return multiLevelField.getFieldForGrid(*q.first)[q.second];
   }
 
 

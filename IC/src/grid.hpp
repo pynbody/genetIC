@@ -21,6 +21,18 @@ class Grid;
 template<typename T, typename S>
 class Field;
 
+template<typename T, typename S>
+class LiteralField;
+
+template<typename T, typename S>
+class InterpolatedField;
+
+template<typename T, typename S>
+class SubsampledField;
+
+template<typename T, typename S>
+class TranslatedField;
+
 template<typename T>
 class SuperSampleGrid;
 
@@ -40,8 +52,8 @@ template<typename T>
 class Grid : public std::enable_shared_from_this<Grid<T>> {
 public:
 
-  using TField = std::vector<std::complex<T>>;
-  using TRealField = std::vector<T>;
+  using TField = Field<complex<T>, T>;
+  using TRealField = Field<T, T>;
   using PtrTField = std::shared_ptr<std::vector<std::complex<T>>>;
   using GridPtrType = std::shared_ptr<Grid<T>>;
   using ConstGridPtrType = std::shared_ptr<const Grid<T>>;
@@ -57,7 +69,6 @@ private:
   T kMin, kMinSquared;
 
   std::vector<size_t> particleArray; // just a list of particles on this grid for one purpose or another
-  std::vector<T *> particleProperties; // a list of particle properties
 
 protected:
 
@@ -186,15 +197,18 @@ public:
 
     GridPtrType pSourceProxyGrid = grid_src.makeProxyGridToMatch(*this);
 
-    assert(pSourceProxyGrid->fieldIsSuitableSize(pField_x_src));
-    assert(fieldIsSuitableSize(pField_x_dest));
     assert(pSourceProxyGrid->size3 == size3);
 
+    auto & field_x_dest_data = pField_x_dest.getDataVector();
+
+    pField_x_dest.matchFourier(pField_x_src);
+
+    assert(pField_x_src.isFourier()==pField_x_dest.isFourier());
 
 #pragma omp parallel for schedule(static)
     for (size_t ind_l = 0; ind_l < size3; ind_l++) {
       if (pSourceProxyGrid->containsCell(ind_l))
-        pField_x_dest[ind_l] += pSourceProxyGrid->getFieldAt(ind_l, pField_x_src);
+        field_x_dest_data[ind_l] += pSourceProxyGrid->getFieldAt(ind_l, pField_x_src);
 
     }
   }
@@ -215,7 +229,7 @@ public:
     auto offset_fields_src = grid_src.getOffsetFields();
     auto offset_fields_dest = getOffsetFields();
 
-    if (std::get<0>(offset_fields_src)->size() > 0 && std::get<0>(offset_fields_dest)->size() > 0) {
+    if (std::get<0>(offset_fields_src)!=nullptr && std::get<0>(offset_fields_dest)!=nullptr) {
       addFieldFromDifferentGrid(grid_src, *std::get<0>(offset_fields_src), *std::get<0>(offset_fields_dest));
       addFieldFromDifferentGrid(grid_src, *std::get<1>(offset_fields_src), *std::get<1>(offset_fields_dest));
       addFieldFromDifferentGrid(grid_src, *std::get<2>(offset_fields_src), *std::get<2>(offset_fields_dest));
@@ -250,7 +264,7 @@ public:
   }
 
 
-  virtual bool pointsToGrid(Grid<T> *pOther) {
+  virtual bool pointsToGrid(const Grid *pOther) const {
     return this == pOther;
   }
 
@@ -267,14 +281,6 @@ public:
   ///////////////////////////////////////
 
 
-  virtual bool fieldIsSuitableSize(const TField &field) {
-    return field.size() == size3;
-  }
-
-  virtual bool fieldIsSuitableSize(const TRealField &field) {
-    return field.size() == size3;
-  }
-
   virtual bool containsCell(const Coordinate<T> &coord) const {
     return coord.x >= 0 && coord.y >= 0 && coord.z >= 0 &&
            coord.x < size && coord.y < size && coord.z < size;
@@ -284,13 +290,6 @@ public:
     return i<size3;
   }
 
-  virtual complex<T> getFieldAt(size_t i, const TField &field) {
-    return field[i];
-  }
-
-  virtual T getFieldAt(size_t i, const TRealField &field) {
-    return field[i];
-  }
 
 
   auto getOffsetFields() {
@@ -355,71 +354,18 @@ public:
   }
 
 
-  template<typename TField>
-  typename TField::value_type getFieldInterpolated(const Coordinate<T> &location, const TField &pField) const {
-    return getFieldInterpolated(location.x, location.y, location.z, pField);
+  virtual complex<T> getFieldAt(size_t i, const TField &field) {
+    return field[i];
+  }
+
+  virtual T getFieldAt(size_t i, const TRealField &field) {
+    return field[i];
   }
 
   template<typename TField>
-  typename TField::value_type getFieldInterpolated(const T &x, const T &y, const T &z, const TField &pField) const {
-    int x_p_0, y_p_0, z_p_0, x_p_1, y_p_1, z_p_1;
-
-    // grid coordinates of parent cell starting to bottom-left
-    // of our current point
-    x_p_0 = (int) floor(((x - offsetLower.x) / dx - 0.5));
-    y_p_0 = (int) floor(((y - offsetLower.y) / dx - 0.5));
-    z_p_0 = (int) floor(((z - offsetLower.z) / dx - 0.5));
-
-    // grid coordinates of top-right
-    x_p_1 = x_p_0 + 1;
-    y_p_1 = y_p_0 + 1;
-    z_p_1 = z_p_0 + 1;
-
-    // weights, which are the distance to the centre point of the
-    // upper-right cell, in grid units (-> maximum 1)
-
-    T xw0, yw0, zw0, xw1, yw1, zw1;
-    xw0 = ((T) x_p_1 + 0.5) - ((x - offsetLower.x) / dx);
-    yw0 = ((T) y_p_1 + 0.5) - ((y - offsetLower.y) / dx);
-    zw0 = ((T) z_p_1 + 0.5) - ((z - offsetLower.z) / dx);
-
-    xw1 = 1. - xw0;
-    yw1 = 1. - yw0;
-    zw1 = 1. - zw0;
-
-    assert(xw0 <= 1.0 && xw0 >= 0.0);
-
-    // allow things on the boundary to 'saturate' value, but beyond boundary
-    // is not acceptable
-    //
-    // TODO - in some circumstances we may wish to replace this with wrapping
-    // but not all circumstances!
-    int size_i = static_cast<int>(size);
-    assert(x_p_1 <= size_i);
-    if (x_p_1 == size_i) x_p_1 = size_i - 1;
-    assert(y_p_1 <= size_i);
-    if (y_p_1 == size_i) y_p_1 = size_i - 1;
-    assert(z_p_1 <= size_i);
-    if (z_p_1 == size_i) z_p_1 = size_i - 1;
-
-    assert(x_p_0 >= -1);
-    if (x_p_0 == -1) x_p_0 = 0;
-    assert(y_p_0 >= -1);
-    if (y_p_0 == -1) y_p_0 = 0;
-    assert(z_p_0 >= -1);
-    if (z_p_0 == -1) z_p_0 = 0;
-
-
-    return xw0 * yw0 * zw1 * pField[getCellIndexNoWrap(x_p_0, y_p_0, z_p_1)] +
-           xw1 * yw0 * zw1 * pField[getCellIndexNoWrap(x_p_1, y_p_0, z_p_1)] +
-           xw0 * yw1 * zw1 * pField[getCellIndexNoWrap(x_p_0, y_p_1, z_p_1)] +
-           xw1 * yw1 * zw1 * pField[getCellIndexNoWrap(x_p_1, y_p_1, z_p_1)] +
-           xw0 * yw0 * zw0 * pField[getCellIndexNoWrap(x_p_0, y_p_0, z_p_0)] +
-           xw1 * yw0 * zw0 * pField[getCellIndexNoWrap(x_p_1, y_p_0, z_p_0)] +
-           xw0 * yw1 * zw0 * pField[getCellIndexNoWrap(x_p_0, y_p_1, z_p_0)] +
-           xw1 * yw1 * zw0 * pField[getCellIndexNoWrap(x_p_1, y_p_1, z_p_0)];
+  typename TField::value_type getFieldInterpolated(const Coordinate<T> &location, const TField &field) const {
+    return field.evaluateInterpolated(location);
   }
-
 
   virtual std::shared_ptr<Grid<T>> makeScaledMassVersion(T massRatio) {
     return std::make_shared<MassScaledGrid<T>>(this->shared_from_this(), massRatio);
@@ -480,9 +426,13 @@ public:
     fft(psift2k.data(), psift2k.data(), size, -1); //same
     fft(psift3k.data(), psift3k.data(), size, -1); //same
 
-    pOff_x = std::make_shared<std::vector<T>>(size3, 0);
-    pOff_y = std::make_shared<std::vector<T>>(size3, 0);
-    pOff_z = std::make_shared<std::vector<T>>(size3, 0);
+    pOff_x = std::make_shared<LiteralField<T,T>>(*this);
+    pOff_y = std::make_shared<LiteralField<T,T>>(*this);
+    pOff_z = std::make_shared<LiteralField<T,T>>(*this);
+
+    auto & off_x = pOff_x->getDataVector();
+    auto & off_y = pOff_y->getDataVector();
+    auto & off_z = pOff_z->getDataVector();
 
     //apply ZA:
 #pragma omp parallel for schedule(static) default(shared) private(idx)
@@ -494,9 +444,9 @@ public:
           idx = (ix * size + iy) * size + iz;
 
           // position offset in physical coordinates
-          (*pOff_x)[idx] = psift1k[idx].real();
-          (*pOff_y)[idx] = psift2k[idx].real();
-          (*pOff_z)[idx] = psift3k[idx].real();
+          off_x[idx] = psift1k[idx].real();
+          off_y[idx] = psift2k[idx].real();
+          off_z[idx] = psift3k[idx].real();
 
         }
       }
@@ -684,16 +634,8 @@ public:
     pUnderlying->debugInfo(s);
   }
 
-  bool pointsToGrid(Grid<T> *pOther) override {
+  bool pointsToGrid(const Grid<T> *pOther) const override {
     return pUnderlying.get() == pOther;
-  }
-
-  virtual bool fieldIsSuitableSize(const TRealField &field) override {
-    return pUnderlying->fieldIsSuitableSize(field);
-  }
-
-  virtual bool fieldIsSuitableSize(const TField &field) override {
-    return pUnderlying->fieldIsSuitableSize(field);
   }
 
   virtual T getFieldAt(size_t i, const TRealField &field) override {
@@ -736,7 +678,6 @@ public:
   void getParticleFromOffset(Particle<T> & particle) const override {
     pUnderlying->getParticleFromOffset(particle);
   }
-
 
 };
 

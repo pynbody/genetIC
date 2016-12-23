@@ -12,6 +12,11 @@
 #include "grid.hpp"
 #include "signaling.hpp"
 #include "field.hpp"
+#include "multilevelfield.hpp"
+
+template<typename T>
+class ConstraintField;
+
 
 //#include <Eigen/Dense>
 
@@ -116,45 +121,36 @@ public:
   }
 
 
-  vector<LiteralField<complex<T>, T>> generateMultilevelFromHighResField(vector<complex<T>> &&data) {
-    assert(data.size() == pGrid.back()->size3);
+  auto generateMultilevelFromHighResField(LiteralField<complex<T>, T> &&data) {
+    assert(&data.getGrid()==pGrid.back().get());
+
+
 
     vector<LiteralField<complex<T>, T>> dataOnLevels;
     for (size_t level = 0; level < pGrid.size(); level++) {
       if (level == pGrid.size() - 1) {
-        dataOnLevels.emplace_back(*pGrid[level],std::move(data));
+        dataOnLevels.emplace_back(std::move(data));
       } else {
-        dataOnLevels.emplace_back(*pGrid[level]);
+        dataOnLevels.emplace_back(*pGrid[level],false);
       }
     }
     size_t levelmax = dataOnLevels.size() - 1;
     if (levelmax > 0) {
-      fft(dataOnLevels.back().getDataVector(), dataOnLevels.back().getDataVector(), -1);
+      assert(dataOnLevels.back().isFourier());
+      dataOnLevels.back().toReal();
       for (int level = levelmax - 1; level >= 0; --level) {
 
-        pGrid[level]->addFieldFromDifferentGrid(*pGrid[levelmax], dataOnLevels[levelmax].getDataVector(),
-                                                dataOnLevels[level].getDataVector());
-
-
-        fft(dataOnLevels[level].getDataVector(), dataOnLevels[level].getDataVector(), 1);
-
+        pGrid[level]->addFieldFromDifferentGrid(*pGrid[levelmax], dataOnLevels.back(), dataOnLevels[level]);
 
       }
-      fft(dataOnLevels.back().getDataVector(), dataOnLevels.back().getDataVector(), 1);
-
 
     }
 
-    return dataOnLevels;
-
-  }
-
-
-
-  void applyCovarianceToWhiteNoiseField() {
+    return ConstraintField<std::complex<T>>(*this, std::move(dataOnLevels));
 
 
   }
+
 
 
   void forEachLevel(std::function<void(Grid<T> &)> newLevelCallback) {

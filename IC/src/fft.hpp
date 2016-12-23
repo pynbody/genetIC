@@ -52,7 +52,7 @@ void fft(std::complex<MyFloat> *fto, std::complex<MyFloat> *ftin,
 }
 
 template<typename MyFloat>
-void fft_real(MyFloat *fto, std::complex<MyFloat> *ftin,
+void fft(MyFloat *fto, MyFloat *ftin,
               const unsigned int res, const int dir) {
   throw std::runtime_error("Sorry, the fourier transform has not been implemented for your specified precision");
   // you'll need to implement an alternative specialisation like the one below for the correct calls
@@ -113,7 +113,7 @@ void fft<double>(std::complex<double> *fto, std::complex<double> *ftin,
 }
 
 template<>
-void fft_real<double>(double *fto, std::complex<double> *ftin,
+void fft<double>(double *fto, double *ftin,
                       const unsigned int res, const int dir) {
 
   init_fftw_threads();
@@ -125,9 +125,10 @@ void fft_real<double>(double *fto, std::complex<double> *ftin,
   len *= res;
 
   if (dir == -1)
-    plan = fftw_plan_dft_c2r_3d(res, res, res,
-                                reinterpret_cast<fftw_complex *>(&ftin[0]),
+    plan = fftw_plan_r2r_3d(res, res, res,
+                                reinterpret_cast<double *>(&ftin[0]),
                                 reinterpret_cast<double *>(&fto[0]),
+                            FFTW_R2HC,FFTW_R2HC,FFTW_R2HC,
                                 FFTW_BACKWARD | FFTW_ESTIMATE);
 
 

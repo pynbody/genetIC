@@ -32,7 +32,7 @@ set(SOURCE_FILES
         IC/src/progress/progress.cpp
         IC/src/field.hpp
         IC/src/MultiLevelConstraintGenerator.h
-        IC/Makefile IC/src/zeldovich.hpp)
+        IC/Makefile )
 
 include_directories( /opt/local/include )
 link_directories(/opt/local/lib )
