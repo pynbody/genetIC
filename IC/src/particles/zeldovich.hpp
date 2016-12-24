@@ -10,6 +10,7 @@
 #include "../progress/progress.hpp"
 #include "../field.hpp"
 #include "generator.hpp"
+#include "particle.hpp"
 
 template<typename T>
 struct CosmologicalParameters;
@@ -17,12 +18,15 @@ struct CosmologicalParameters;
 namespace particle {
 
   template<typename T>
+  class Particle;
+
+  template<typename T>
   class ZeldovichParticleGenerator : public ParticleGenerator<T> {
   protected:
     using TField = std::vector<std::complex<T>>;
     using TRealField = Field<T,T>;
 
-    T velocityToOffsetRatio, particleMass;
+    T velocityToOffsetRatio, boxMass;
     Field<complex<T>, T> &linearOverdensityField;
     const CosmologicalParameters<T> &cosmology;
     using ParticleGenerator<T>::grid;
@@ -46,9 +50,11 @@ namespace particle {
       //TODO: hardcoded value of f=1 is inaccurate - should be a function of omega
 
     }
-    void calculateParticleMass() {
-      particleMass = 27.78 * cosmology.OmegaM0 * powf(grid.boxsize / (T) (grid.size), 3.0);
+
+    void calculateSimulationMass() {
+      boxMass = 27.78 * cosmology.OmegaM0 * powf(grid.simsize, 3.0);
     }
+
     virtual void calculateOffsetFields() {
       // TODO: refactorise this horrible long method
 
@@ -144,7 +150,7 @@ namespace particle {
 
     void recalculate() override {
       calculateVelocityToOffsetRatio();
-      calculateParticleMass();
+      calculateSimulationMass();
       calculateOffsetFields();
     }
 
@@ -154,12 +160,12 @@ namespace particle {
       pOff_z->addFieldFromDifferentGrid(*source.pOff_z);
     }
 
-    virtual T getMass() const override {
-      return particleMass;
+    virtual T getMass(const Grid<T> & onGrid) const override {
+      return boxMass*onGrid.cellMassFrac;
     }
 
-    virtual T getEps() const override  {
-      return grid.dx * 0.01075; // <-- arbitrary to coincide with normal UW resolution. TODO: Find a way to make this flexible.
+    virtual T getEps(const Grid<T> & onGrid) const override  {
+      return onGrid.dx * onGrid.cellSofteningScale * 0.01075; // <-- arbitrary to coincide with normal UW resolution. TODO: Find a way to make this flexible.
     }
 
     auto getOffsetFields() {
@@ -170,44 +176,28 @@ namespace particle {
       return std::make_tuple(pOff_x, pOff_y, pOff_z);
     }
 
-    virtual particle::Particle<T> getParticleNoOffset(size_t id) const override {
+    virtual particle::Particle<T> getParticleNoOffset(const Grid<T> &onGrid, size_t id) const override {
       particle::Particle<T> particle;
 
-      particle.pos.x = (*pOff_x)[id];
-      particle.pos.y = (*pOff_y)[id];
-      particle.pos.z = (*pOff_z)[id];
+      particle.pos.x = onGrid.getFieldAt(id, *pOff_x);
+      particle.pos.y = onGrid.getFieldAt(id, *pOff_y);
+      particle.pos.z = onGrid.getFieldAt(id, *pOff_z);
 
-      particle.vel.x = (*pOff_x)[id] * velocityToOffsetRatio;
-      particle.vel.y = (*pOff_y)[id] * velocityToOffsetRatio;
-      particle.vel.z = (*pOff_z)[id] * velocityToOffsetRatio;
+      particle.vel = particle.pos*velocityToOffsetRatio;
 
-      particle.mass = getMass();
-      particle.soft = getEps();
+      particle.mass = getMass(onGrid);
+      particle.soft = getEps(onGrid);
 
       return particle;
     }
 
-    virtual void getParticleFromOffset(particle::Particle<T> &particle) const override {
-
-      particle.vel.x = grid.getFieldInterpolated(particle.pos, *pOff_x);
-      particle.vel.y = grid.getFieldInterpolated(particle.pos, *pOff_y);
-      particle.vel.z = grid.getFieldInterpolated(particle.pos, *pOff_z);
-
-      particle.pos+=particle.vel;
-      particle.vel*=velocityToOffsetRatio;
-
-      grid.simWrap(particle.pos);
-
-      particle.mass = getMass();
-      particle.soft = getEps();
-    }
-
-    virtual particle::Particle<T> getParticleNoWrap(size_t id) const override {
-      auto particle = getParticleNoOffset(id);
-      auto centroid = grid.getCellCentroid(id);
+    virtual particle::Particle<T> getParticleNoWrap(const Grid<T> &onGrid, size_t id) const override {
+      auto particle = getParticleNoOffset(onGrid, id);
+      auto centroid = onGrid.getCellCentroid(id);
       particle.pos+=centroid;
       return particle;
     }
+
 
 
   };

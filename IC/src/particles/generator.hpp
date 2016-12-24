@@ -9,8 +9,12 @@
 #include <complex>
 #include "src/field.hpp"
 #include "src/cosmo.hpp"
+#include "particle.hpp"
 
 namespace particle {
+
+  template<typename T>
+  class Particle;
 
   template<typename T>
   class ParticleGenerator : public std::enable_shared_from_this<ParticleGenerator<T>> {
@@ -22,8 +26,8 @@ namespace particle {
 
   public:
 
-    particle::Particle<T> getParticle(size_t id) const {
-      particle::Particle<T> particle = getParticleNoWrap(id);
+    Particle<T> getParticle(const Grid<T> & onGrid, size_t id) const {
+      Particle<T> particle = getParticleNoWrap(onGrid, id);
       grid.simWrap(particle.pos);
       return particle;
     }
@@ -33,11 +37,11 @@ namespace particle {
     }
 
     virtual void recalculate() = 0;
-    virtual particle::Particle<T> getParticleNoWrap(size_t id) const =0;
-    virtual T getMass() const =0;
-    virtual T getEps() const =0;
-    virtual particle::Particle<T> getParticleNoOffset(size_t id) const =0;
-    virtual void getParticleFromOffset(particle::Particle<T> &particle) const =0;
+    virtual Particle<T> getParticleNoWrap(const Grid<T> & onGrid, size_t id) const =0;
+    virtual T getMass(const Grid<T> & onGrid) const =0;
+    virtual T getEps(const Grid<T> & onGrid) const =0;
+    virtual Particle<T> getParticleNoOffset(const Grid<T> & onGrid, size_t id) const =0;
+    // virtual void getParticleFromOffset(const Grid<T> & onGrid, particle::Particle<T> &particle) const =0;
 
 
   };

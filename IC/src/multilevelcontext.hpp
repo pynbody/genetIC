@@ -122,7 +122,7 @@ public:
   auto generateMultilevelFromHighResField(Field<complex<T>, T> &&data) {
     assert(&data.getGrid() == pGrid.back().get());
 
-
+    // Generate the fields on each level. Fill low-res levels with zeros to start with.
     vector<Field<complex<T>, T>> dataOnLevels;
     for (size_t level = 0; level < pGrid.size(); level++) {
       if (level == pGrid.size() - 1) {
@@ -131,20 +131,18 @@ public:
         dataOnLevels.emplace_back(*pGrid[level], false);
       }
     }
+
+    // Now interpolate the high-res level down into lower-res levels
     size_t levelmax = dataOnLevels.size() - 1;
     if (levelmax > 0) {
       assert(dataOnLevels.back().isFourier());
       dataOnLevels.back().toReal();
       for (int level = levelmax - 1; level >= 0; --level) {
-
-        pGrid[level]->addFieldFromDifferentGrid(*pGrid[levelmax], dataOnLevels.back(), dataOnLevels[level]);
-
+        dataOnLevels[level].addFieldFromDifferentGrid(dataOnLevels.back());
       }
-
     }
 
     return ConstraintField<std::complex<T>>(*this, std::move(dataOnLevels));
-
   }
 
   void forEachLevel(std::function<void(Grid<T> &)> newLevelCallback) {

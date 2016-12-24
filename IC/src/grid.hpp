@@ -10,7 +10,6 @@
 #include "fft.hpp"
 #include "filter.hpp"
 #include "coordinate.hpp"
-#include "src/particles/particle.hpp"
 #include "progress/progress.hpp"
 
 using namespace std;
@@ -48,13 +47,6 @@ class SectionOfGrid;
 template<typename T>
 class MassScaledGrid;
 
-namespace particle {
-  template<typename T>
-  class ParticleGenerator;
-
-  template<typename T>
-  class ZeldovichParticleGenerator;
-}
 
 template<typename T>
 class Grid : public std::enable_shared_from_this<Grid<T>> {
@@ -68,76 +60,23 @@ public:
 
 private:
   T kMin, kMinSquared;
-
-  std::vector<size_t> particleArray; // just a list of particles on this grid for one purpose or another
-
-protected:
-
-  static void upscaleParticleList(const std::vector<size_t> sourceArray,
-                                  std::vector<size_t> &targetArray,
-                                  const Grid<T> *source,
-                                  const Grid<T> *target) {
-
-    assert(target->size >= source->size);
-    assert((target->size) % (source->size) == 0);
-    int factor = int(target->size / source->size);
-    targetArray.clear();
-
-    for (auto id: sourceArray) {
-      auto coord = source->getCellCoordinate(id);
-      iterateOverCube<int>(
-        coord * factor, coord * factor + factor,
-        [&targetArray, &target](const Coordinate<int> &subCoord) {
-          targetArray.push_back(target->getCellIndexNoWrap(subCoord));
-        }
-      );
-    }
-  }
-
-  static void downscaleParticleList(const std::vector<size_t> sourceArray,
-                                    std::vector<size_t> &targetArray,
-                                    const Grid<T> *source,
-                                    const Grid<T> *target) {
-
-
-    std::set<size_t> targetSet;
-
-    assert(source->size >= target->size);
-    assert((source->size) % (target->size) == 0);
-    size_t factor = source->size / target->size;
-
-    for (auto id: sourceArray) {
-      auto coord = source->getCellCoordinate(id);
-      targetSet.insert(target->getCellIndexNoWrap(coord / factor));
-    }
-    targetArray.clear();
-    targetArray.insert(targetArray.end(), targetSet.begin(), targetSet.end());
-  }
-
-  void setKmin() {
-    kMin = 2. * M_PI / boxsize;
-    kMinSquared = kMin * kMin;
-  }
-
-  static int getRatioAndAssertInteger(T p, T q) {
-    const T tolerance = 1e-6;
-    T ratio = p / q;
-    int rounded_ratio = int(round(ratio));
-    assert(abs(T(rounded_ratio) - ratio) < tolerance);
-    return rounded_ratio;
-  }
+  std::vector<size_t> flags;
 
 public:
-
   const T simsize, boxsize, dx;
   const Coordinate<T> offsetLower;
   const size_t size, size2, size3;
+  const T cellMassFrac; ///< the fraction of mass of the full simulation in a single cell of this grid
+  const T cellSofteningScale; ///< normally 1.0; scales softening relative to dx
 
-
-  Grid(T simsize, size_t n, T dx = 1.0, T x0 = 0.0, T y0 = 0.0, T z0 = 0.0) :
+  Grid(T simsize, size_t n, T dx = 1.0, T x0 = 0.0, T y0 = 0.0, T z0 = 0.0,
+       T massFrac=0.0, T softScale=1.0) :
     simsize(simsize), boxsize(dx * n),
     dx(dx), offsetLower(x0, y0, z0),
-    size(n), size2(n * n), size3(n * n * n) {
+    size(n), size2(n * n), size3(n * n * n),
+    cellMassFrac(massFrac==0.0?pow(dx/simsize,3.0):massFrac),
+    cellSofteningScale(softScale)
+  {
     // cerr << "Grid ctor " << this <<  endl;
     setKmin();
   }
@@ -145,7 +84,9 @@ public:
 
   Grid(size_t n) : simsize(0), boxsize(n),
                    dx(1.0), offsetLower(0, 0, 0),
-                   size(n), size2(n * n), size3(n * n * n) {
+                   size(n), size2(n * n), size3(n * n * n), cellMassFrac(0.0),
+  cellSofteningScale(1.0)
+  {
     // cerr << "Grid ctor size-only" << endl;
     setKmin();
   }
@@ -153,6 +94,14 @@ public:
   virtual ~Grid() {
     // cerr << "~Grid " << this << endl;
   }
+
+protected:
+  void setKmin() {
+    kMin = 2. * M_PI / boxsize;
+    kMinSquared = kMin * kMin;
+  }
+
+public:
 
   T getWrappedDelta(T x0, T x1) const {
     T result = x0 - x1;
@@ -164,7 +113,6 @@ public:
     }
     return result;
   }
-
 
   GridPtrType makeProxyGridToMatch(const Grid<T> &target) const {
     GridPtrType proxy = std::const_pointer_cast<Grid<T>>(this->shared_from_this());
@@ -191,32 +139,25 @@ public:
     return proxy;
   }
 
-  template<typename TArray>
-  void addFieldFromDifferentGrid(const Grid<T> &grid_src, const TArray &pField_x_src, TArray &pField_x_dest) {
-    // TODO: remote in favour of calling Field class directly
-
-    pField_x_dest.addFieldFromDifferentGrid(pField_x_src);
-
-  }
 
   virtual void debugInfo(std::ostream &s) const {
-    s << "Grid of side " << size << " address " << this << "; " << this->particleArray.size() << " cells marked";
+    s << "Grid of side " << size << " address " << this << "; " << this->flags.size() << " cells marked";
   }
 
-  virtual void gatherParticleList(std::vector<size_t> &targetArray) const {
-    targetArray.insert(targetArray.end(), particleArray.begin(), particleArray.end());
+  virtual void getFlaggedCells(std::vector<size_t> &targetArray) const {
+    targetArray.insert(targetArray.end(), flags.begin(), flags.end());
   }
 
-  virtual void distributeParticleList(const std::vector<size_t> &sourceArray) {
-    particleArray.insert(particleArray.end(), sourceArray.begin(), sourceArray.end());
+  virtual void flagCells(const std::vector<size_t> &sourceArray) {
+    flags.insert(flags.end(), sourceArray.begin(), sourceArray.end());
   }
 
-  virtual void clearParticleList() {
-    particleArray.clear();
+  virtual void unflagAllCells() {
+    flags.clear();
   }
 
-  virtual size_t estimateParticleListSize() {
-    return particleArray.size();
+  virtual bool hasFlaggedCells() const {
+    return flags.size()>0;
   }
 
 
@@ -232,11 +173,6 @@ public:
     return false;
   }
 
-  ///////////////////////////////////////
-  //  Field manipulation routines
-  ///////////////////////////////////////
-
-
   virtual bool containsCell(const Coordinate<T> &coord) const {
     return coord.x >= 0 && coord.y >= 0 && coord.z >= 0 &&
            coord.x < size && coord.y < size && coord.z < size;
@@ -245,37 +181,6 @@ public:
   virtual bool containsCell(size_t i) const {
     return i<size3;
   }
-
-  particle::Particle<T> getParticle(size_t id, const particle::ParticleGenerator<T> & generator) const {
-    auto particle= getParticleNoWrap(id, generator);
-    simWrap(particle.pos);
-    return particle;
-  }
-
-  virtual particle::Particle<T> getParticleNoWrap(size_t id, const particle::ParticleGenerator<T> & generator) const {
-    assert(&generator.getGrid()==this);
-    return generator.getParticleNoWrap(id);
-  }
-
-  virtual T getMass(const particle::ParticleGenerator<T> & generator) const {
-    return generator.getMass();
-  }
-
-  virtual T getEps(const particle::ParticleGenerator<T> & generator) const {
-    return generator.getEps();
-  }
-
-  virtual particle::Particle<T> getParticleNoOffset(size_t id, const particle::ParticleGenerator<T> & generator) const {
-    assert(&generator.getGrid()==this);
-    return generator.getParticleNoOffset(id);
-  }
-
-  virtual void getParticleFromOffset(particle::Particle<T> &particle,
-                                     const particle::ParticleGenerator<T> & generator) const {
-    assert(&generator.getGrid()==this);
-    return generator.getParticleFromOffset(particle);
-  }
-
 
   virtual complex<T> getFieldAt(size_t i, const TField &field) const {
     return field[i];
@@ -434,6 +339,58 @@ public:
   }
 
 
+protected:
+
+  static void upscaleCellFlagVector(const std::vector<size_t> sourceArray,
+                                    std::vector<size_t> &targetArray,
+                                    const Grid<T> *source,
+                                    const Grid<T> *target) {
+
+    assert(target->size >= source->size);
+    assert((target->size) % (source->size) == 0);
+    int factor = int(target->size / source->size);
+    targetArray.clear();
+
+    for (auto id: sourceArray) {
+      auto coord = source->getCellCoordinate(id);
+      iterateOverCube<int>(
+        coord * factor, coord * factor + factor,
+        [&targetArray, &target](const Coordinate<int> &subCoord) {
+          targetArray.push_back(target->getCellIndexNoWrap(subCoord));
+        }
+      );
+    }
+  }
+
+  static void downscaleCellFlagVector(const std::vector<size_t> sourceArray,
+                                      std::vector<size_t> &targetArray,
+                                      const Grid<T> *source,
+                                      const Grid<T> *target) {
+
+
+    std::set<size_t> targetSet;
+
+    assert(source->size >= target->size);
+    assert((source->size) % (target->size) == 0);
+    size_t factor = source->size / target->size;
+
+    for (auto id: sourceArray) {
+      auto coord = source->getCellCoordinate(id);
+      targetSet.insert(target->getCellIndexNoWrap(coord / factor));
+    }
+    targetArray.clear();
+    targetArray.insert(targetArray.end(), targetSet.begin(), targetSet.end());
+  }
+
+  static int getRatioAndAssertInteger(T p, T q) {
+    const T tolerance = 1e-6;
+    T ratio = p / q;
+    int rounded_ratio = int(round(ratio));
+    assert(abs(T(rounded_ratio) - ratio) < tolerance);
+    return rounded_ratio;
+  }
+
+
 };
 
 
@@ -451,15 +408,14 @@ public:
     Grid<T>(
       pUnderlying->simsize, pUnderlying->size,
       pUnderlying->dx, pUnderlying->offsetLower.x, pUnderlying->offsetLower.y,
-      pUnderlying->offsetLower.z),
+      pUnderlying->offsetLower.z, pUnderlying->cellMassFrac, pUnderlying->cellSofteningScale),
     pUnderlying(pUnderlying) {
 
   }
 
-
   VirtualGrid(GridPtrType pUnderlying, T simsize, T gridsize,
-              T dx, T x0, T y0, T z0) :
-    Grid<T>(simsize, gridsize, dx, x0, y0, z0),
+              T dx, T x0, T y0, T z0, T massfrac=0.0, T softScale=1.0) :
+    Grid<T>(simsize, gridsize, dx, x0, y0, z0, massfrac, softScale),
     pUnderlying(pUnderlying) {
 
   }
@@ -479,42 +435,29 @@ public:
   }
 
   virtual T getFieldAt(size_t i, const TRealField &field) const override {
-    throw std::runtime_error("getFieldAt is not implemented for this type of VirtualGrid");
+    return pUnderlying->getFieldAt(i, field);
   }
 
   virtual complex<T> getFieldAt(size_t i, const TField &field) const override {
-    throw std::runtime_error("getFieldAt is not implemented for this type of VirtualGrid");
+    return pUnderlying->getFieldAt(i, field);
   }
 
-  void gatherParticleList(std::vector<size_t> &targetArray) const override {
-    pUnderlying->gatherParticleList(targetArray);
+  void getFlaggedCells(std::vector<size_t> &targetArray) const override {
+    pUnderlying->getFlaggedCells(targetArray);
   }
 
-  void distributeParticleList(const std::vector<size_t> &sourceArray) override {
-    pUnderlying->distributeParticleList(sourceArray);
+  void flagCells(const std::vector<size_t> &sourceArray) override {
+    pUnderlying->flagCells(sourceArray);
   }
 
-  void clearParticleList() override {
-    pUnderlying->clearParticleList();
+  void unflagAllCells() override {
+    pUnderlying->unflagAllCells();
   }
 
-  size_t estimateParticleListSize() override {
-    return pUnderlying->estimateParticleListSize();
+  bool hasFlaggedCells() const override {
+    return pUnderlying->hasFlaggedCells();
   }
 
-
-
-  virtual T getMass(const particle::ParticleGenerator<T> & generator) const override {
-    return pUnderlying->getMass(generator);
-  }
-
-  particle::Particle<T> getParticleNoWrap(size_t id, const particle::ParticleGenerator<T> & generator) const override {
-    return pUnderlying->getParticleNoWrap(id, generator);
-  }
-
-  void getParticleFromOffset(particle::Particle<T> & particle, const particle::ParticleGenerator<T> & generator) const override {
-    pUnderlying->getParticleFromOffset(particle, generator);
-  }
 
 };
 
@@ -536,47 +479,29 @@ public:
                    pUnderlying->simsize, pUnderlying->size * factor,
                    pUnderlying->dx / factor, pUnderlying->offsetLower.x,
                    pUnderlying->offsetLower.y,
-                   pUnderlying->offsetLower.z),
+                   pUnderlying->offsetLower.z,
+                   pUnderlying->cellMassFrac/(factor*factor*factor),
+                   factor),
     factor(factor) {
 
     factor3 = factor * factor * factor;
   }
 
-  virtual T getMass(const particle::ParticleGenerator<T> & generator) const override {
-    return this->pUnderlying->getMass(generator) / factor3;
-  }
 
   virtual void debugName(std::ostream &s) const override {
     s << "SuperSampleGrid";
   }
 
-  void gatherParticleList(std::vector<size_t> &targetArray) const override {
+  void getFlaggedCells(std::vector<size_t> &targetArray) const override {
     std::vector<size_t> underlyingArray;
-    this->pUnderlying->gatherParticleList(underlyingArray);
-    Grid<T>::upscaleParticleList(underlyingArray, targetArray, this->pUnderlying.get(), this);
+    this->pUnderlying->getFlaggedCells(underlyingArray);
+    Grid<T>::upscaleCellFlagVector(underlyingArray, targetArray, this->pUnderlying.get(), this);
   }
 
-  void distributeParticleList(const std::vector<size_t> &sourceArray) override {
+  void flagCells(const std::vector<size_t> &sourceArray) override {
     std::vector<size_t> targetArray;
-    Grid<T>::downscaleParticleList(sourceArray, targetArray, this, this->pUnderlying.get());
-    this->pUnderlying->distributeParticleList(targetArray);
-  }
-
-  size_t estimateParticleListSize() override {
-    return this->pUnderlying->estimateParticleListSize() * factor3;
-  }
-
-  virtual particle::Particle<T> getParticleNoWrap(size_t id, const particle::ParticleGenerator<T> & generator) const override {
-    particle::Particle<T> particle;
-    particle.pos = this->getCellCentroid(id);
-    getParticleFromOffset(particle, generator);
-    return particle;
-  }
-
-  void getParticleFromOffset(particle::Particle<T> & particle, const particle::ParticleGenerator<T> & generator) const override {
-    this->pUnderlying->getParticleFromOffset(particle, generator);
-    // adjust mass
-    particle.mass /= factor3;
+    Grid<T>::downscaleCellFlagVector(sourceArray, targetArray, this, this->pUnderlying.get());
+    this->pUnderlying->flagCells(targetArray);
   }
 
   virtual T getFieldAt(size_t i, const TRealField &field) const override {
@@ -593,8 +518,6 @@ public:
 
 template<typename T>
 class OffsetGrid : public VirtualGrid<T> {
-private:
-  Coordinate<T> positionOffset;
 
 protected:
   using typename Grid<T>::TField;
@@ -605,8 +528,13 @@ protected:
 
 public:
   OffsetGrid(GridPtrType pUnderlying, T dx, T dy, T dz) :
-    VirtualGrid<T>(pUnderlying),
-    positionOffset(Coordinate<T>(dx,dy,dz))
+    VirtualGrid<T>(pUnderlying, pUnderlying->simsize, pUnderlying->size,
+                   pUnderlying->dx,
+                   pUnderlying->offsetLower.x+dx,
+                   pUnderlying->offsetLower.y+dy,
+                   pUnderlying->offsetLower.z+dz,
+                   pUnderlying->cellMassFrac,
+                   pUnderlying->cellSofteningScale)
   {
 
   }
@@ -616,27 +544,12 @@ public:
     s << "OffsetGrid";
   }
 
-  virtual particle::Particle<T> getParticleNoWrap(size_t id, const particle::ParticleGenerator<T> & generator) const {
-    auto particle = this->pUnderlying->getParticleNoWrap(id, generator);
-    particle.pos+=positionOffset;
-    this->simWrap(particle.pos);
-    return particle;
+  void getFlaggedCells(std::vector<size_t> &targetArray) const override {
+    throw (std::runtime_error("getFlaggedCells is not implemented for OffsetGrid"));
   }
 
-  void getParticleFromOffset(particle::Particle<T> &particle, const particle::ParticleGenerator<T> & generator) const override {
-    particle.pos-=positionOffset;
-    this->simWrap(particle.pos);
-    this->pUnderlying->getParticleFromOffset(particle, generator);
-    particle.pos+=positionOffset;
-    this->simWrap(particle.pos);
-  }
-
-  void gatherParticleList(std::vector<size_t> &targetArray) const override {
-    throw (std::runtime_error("gatherParticleList is not implemented for OffsetGrid"));
-  }
-
-  void distributeParticleList(const std::vector<size_t> &sourceArray) override {
-    throw (std::runtime_error("distributeParticleList is not implemented for OffsetGrid"));
+  void flagCells(const std::vector<size_t> &sourceArray) override {
+    throw (std::runtime_error("flagCells is not implemented for OffsetGrid"));
   }
 
 
@@ -682,7 +595,8 @@ public:
                    pUnderlying->dx,
                    pUnderlying->offsetLower.x + deltax * pUnderlying->dx,
                    pUnderlying->offsetLower.y + deltay * pUnderlying->dx,
-                   pUnderlying->offsetLower.z + deltaz * pUnderlying->dx),
+                   pUnderlying->offsetLower.z + deltaz * pUnderlying->dx,
+                   pUnderlying->cellMassFrac, pUnderlying->cellSofteningScale),
     cellOffset(deltax, deltay, deltaz),
     upperCell(cellOffset+pUnderlying->size),
     posOffset(deltax * this->dx, deltay * this->dx, deltaz * this->dx)
@@ -706,14 +620,6 @@ public:
     s << "SectionOfGrid";
   }
 
-  virtual particle::Particle<T> getParticleNoWrap(size_t id, const particle::ParticleGenerator<T> & generator) const {
-    return this->pUnderlying->getParticleNoWrap(mapIndexToUnderlying(id),generator);
-  }
-
-  void getParticleFromOffset(particle::Particle<T> &particle,const particle::ParticleGenerator<T> & generator) const override {
-    return this->pUnderlying->getParticleFromOffset(particle,generator);
-  }
-
   virtual T getFieldAt(size_t i, const TRealField &field) const override {
     return this->pUnderlying->getFieldAt(mapIndexToUnderlying(i), field);
   }
@@ -722,9 +628,9 @@ public:
     return this->pUnderlying->getFieldAt(mapIndexToUnderlying(i), field);
   }
 
-  void gatherParticleList(std::vector<size_t> &targetArray) const override {
+  void getFlaggedCells(std::vector<size_t> &targetArray) const override {
     std::vector<size_t> underlyingArray;
-    this->pUnderlying->gatherParticleList(underlyingArray);
+    this->pUnderlying->getFlaggedCells(underlyingArray);
     for (size_t ptcl: underlyingArray) {
       try {
         targetArray.push_back(this->mapIndexFromUnderlying(ptcl));
@@ -735,8 +641,8 @@ public:
     std::sort(targetArray.begin(), targetArray.end());
   }
 
-  void distributeParticleList(const std::vector<size_t> &sourceArray) override {
-    throw (std::runtime_error("distributeParticleList is not implemented for OffsetGrid"));
+  void flagCells(const std::vector<size_t> &sourceArray) override {
+    throw (std::runtime_error("flagCells is not implemented for OffsetGrid"));
   }
 
 
@@ -759,7 +665,8 @@ public:
     VirtualGrid<T>(pUnderlying,
                    pUnderlying->simsize, pUnderlying->size / factor,
                    pUnderlying->dx * factor, pUnderlying->offsetLower.x, pUnderlying->offsetLower.y,
-                   pUnderlying->offsetLower.z),
+                   pUnderlying->offsetLower.z, pUnderlying->cellMassFrac*powf(factor,3.0),
+                   pUnderlying->cellSofteningScale),
     factor(factor) {
     //if(this->pUnderlying->size%factor!=0)
     //  throw std::runtime_error("SubSampleGrid - factor must be a divisor of the original grid size");
@@ -771,28 +678,20 @@ public:
     s << "SubSampleGrid";
   }
 
-  void gatherParticleList(std::vector<size_t> &targetArray) const override {
+  void getFlaggedCells(std::vector<size_t> &targetArray) const override {
     std::vector<size_t> underlyingArray;
-    this->pUnderlying->gatherParticleList(underlyingArray);
-    Grid<T>::downscaleParticleList(underlyingArray, targetArray, this->pUnderlying.get(), this);
-    // err << "SubSample gatherParticleList - underlying = " << underlyingArray.size() << " transformed = " <<targetArray.size() << endl;
+    this->pUnderlying->getFlaggedCells(underlyingArray);
+    Grid<T>::downscaleCellFlagVector(underlyingArray, targetArray, this->pUnderlying.get(), this);
+    // err << "SubSample getFlaggedCells - underlying = " << underlyingArray.size() << " transformed = " <<targetArray.size() << endl;
   }
 
-  void distributeParticleList(const std::vector<size_t> &sourceArray) override {
+  void flagCells(const std::vector<size_t> &sourceArray) override {
     std::vector<size_t> targetArray;
-    Grid<T>::upscaleParticleList(sourceArray, targetArray, this, this->pUnderlying.get());
-    this->pUnderlying->distributeParticleList(targetArray);
-    // cerr << "SubSample distributeParticleList - source = " << sourceArray.size() << " transformed = " <<targetArray.size() << endl;
+    Grid<T>::upscaleCellFlagVector(sourceArray, targetArray, this, this->pUnderlying.get());
+    this->pUnderlying->flagCells(targetArray);
+    // cerr << "SubSample flagCells - source = " << sourceArray.size() << " transformed = " <<targetArray.size() << endl;
   }
 
-  size_t estimateParticleListSize() override {
-    return this->pUnderlying->estimateParticleListSize() / factor3;
-  }
-
-
-  virtual T getMass(const particle::ParticleGenerator<T> & generator) const override {
-    return this->pUnderlying->getMass(generator) * factor3;
-  }
 
   int forEachSubcell(size_t id, std::function<void(size_t)> callback) const {
     auto coord0 = this->getCellCoordinate(id);
@@ -823,53 +722,6 @@ public:
     return localFactor3;
   }
 
-  virtual particle::Particle<T> getParticleNoWrap(size_t id, const particle::ParticleGenerator<T> & generator) const override {
-    particle::Particle<T> particle(0); // initializes values to zeros
-
-    int localFactor3 = forEachSubcell(id, [&](size_t sub_id) {
-      particle::Particle<T> sub_particle = this->pUnderlying->getParticleNoWrap(sub_id, generator);
-      particle.pos+=sub_particle.pos;
-      particle.vel+=sub_particle.vel;
-      particle.soft+=sub_particle.soft;
-      particle.mass+=sub_particle.mass;
-    });
-
-    // most variables want an average, not a sum:
-    particle.pos/=localFactor3;
-    particle.vel/=localFactor3;
-    particle.soft/=localFactor3;
-
-    // cell mass wants to be a sum over the *entire* cell (even if
-    // some subcells are missing):
-    particle.mass*=factor3/localFactor3;
-
-    return particle;
-
-  }
-
-  virtual particle::Particle<T> getParticleNoOffset(size_t id, const particle::ParticleGenerator<T> & generator) const override {
-    particle::Particle<T> particle(0); // initializes values to zeros
-
-    int localFactor3 = forEachSubcell(id, [&](size_t sub_id) {
-      particle::Particle<T> sub_particle = this->pUnderlying->getParticleNoOffset(sub_id, generator);
-      particle.pos+=sub_particle.pos;
-      particle.vel+=sub_particle.vel;
-      particle.soft+=sub_particle.soft;
-      particle.mass+=sub_particle.mass;
-    });
-
-    // most variables want an average, not a sum:
-    particle.pos/=localFactor3;
-    particle.vel/=localFactor3;
-    particle.soft/=localFactor3;
-
-    // cell mass wants to be a sum over the *entire* cell (even if
-    // some subcells are missing):
-    particle.mass*=factor3/localFactor3;
-
-    return particle;
-
-  }
 
   virtual complex<T> getFieldAt(size_t i, const TField &field) const override {
     complex<T> returnVal(0);
@@ -888,11 +740,6 @@ public:
   }
 
 
-  void getParticleFromOffset(particle::Particle<T> &particle, const particle::ParticleGenerator<T> & generator) const override {
-    this->pUnderlying->getParticleFromOffset(particle, generator);
-    particle.mass *= factor3;
-  }
-
 };
 
 
@@ -904,35 +751,20 @@ protected:
   using typename Grid<T>::PtrTField;
   using typename Grid<T>::GridPtrType;
 
-  T massFac;
 
 public:
-  MassScaledGrid(GridPtrType pUnderlying, T massFac) :
+  MassScaledGrid(GridPtrType pUnderlying, T massScale) :
     VirtualGrid<T>(pUnderlying,
                    pUnderlying->simsize, pUnderlying->size,
                    pUnderlying->dx, pUnderlying->offsetLower.x, pUnderlying->offsetLower.y,
-                   pUnderlying->offsetLower.z),
-    massFac(massFac) {
-  }
+                   pUnderlying->offsetLower.z,massScale*pUnderlying->cellMassFrac,
+                   pUnderlying->cellSofteningScale)
+  { }
 
   virtual void debugName(std::ostream &s) const override {
     s << "MassScaledGrid";
   }
 
-  virtual T getMass(const particle::ParticleGenerator<T> & generator) const override {
-    return this->pUnderlying->getMass(generator) * massFac;
-  }
-
-  virtual particle::Particle<T> getParticleNoWrap(size_t id, const particle::ParticleGenerator<T> & generator) const {
-    auto result = this->pUnderlying->getParticleNoWrap(id, generator);
-    result.mass *= massFac;
-    return result;
-  }
-
-  void getParticleFromOffset(particle::Particle<T> &particle, const particle::ParticleGenerator<T> & generator) const override {
-    this->pUnderlying->getParticleFromOffset(particle, generator);
-    particle.mass*=massFac;
-  }
 
 };
 

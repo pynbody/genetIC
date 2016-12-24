@@ -89,7 +89,7 @@ public:
   ConstraintCalculator(const Grid<MyFloat> &grid, std::vector<complex<MyFloat>> &output,
                        const CosmologicalParameters<MyFloat> &cosmology)
     : grid(grid), output(output), cosmology(cosmology) {
-    grid.gatherParticleList(particleArray);
+    grid.getFlaggedCells(particleArray);
     output.resize(grid.size3);
     getCentre();
   }
@@ -99,7 +99,7 @@ public:
     MyFloat xa, ya, za, xb, yb, zb, x0 = 0., y0 = 0., z0 = 0.;
 
     std::vector<size_t> particleArray;
-    grid.gatherParticleList(particleArray);
+    grid.getFlaggedCells(particleArray);
 
     std::tie(xa,ya,za) = grid.getCellCentroid(particleArray[0]);
 

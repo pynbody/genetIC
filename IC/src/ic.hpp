@@ -75,7 +75,7 @@ protected:
   bool prepared;
   bool exactPowerSpectrum;
 
-  std::vector<size_t> genericParticleArray;
+  std::vector<size_t> flaggedParticles;
   std::vector<size_t> zoomParticleArray;
 
 
@@ -229,7 +229,7 @@ public:
     if (boxlen[1] == 0)
       throw (std::runtime_error("Set the zoom factor before specifying the zoom particles"));
 
-    pGrid[0]->gatherParticleList(zoomParticleArray);
+    pGrid[0]->getFlaggedCells(zoomParticleArray);
 
     // find boundaries
     int x0, x1, y0, y1, z0, z1;
@@ -542,16 +542,16 @@ public:
 
   }
 
-  void clearAndDistributeParticleList() {
+  void reflag() {
 
     if (pInputMapper != nullptr) {
       pMapper->clearParticleList();
-      pInputMapper->distributeParticleList(genericParticleArray);
+      pInputMapper->flagParticles(flaggedParticles);
       pInputMapper->extendParticleListToUnreferencedGrids(this->pGrid);
     }
     else {
       pMapper->clearParticleList();
-      pMapper->distributeParticleList(genericParticleArray);
+      pMapper->flagParticles(flaggedParticles);
     }
   }
 
@@ -608,7 +608,7 @@ public:
 protected:
 
   int deepestLevelWithParticlesSelected() {
-    if (pGrid.size() > 1 && pGrid[1]->estimateParticleListSize() > 0) return 1; else return 0;
+    if (pGrid.size() > 1 && pGrid[1]->hasFlaggedCells()) return 1; else return 0;
   }
 
   int deepestLevel() {
@@ -628,7 +628,7 @@ protected:
     int level = deepestLevelWithParticlesSelected();
 
     std::vector<size_t> particleArray;
-    pGrid[level]->gatherParticleList(particleArray);
+    pGrid[level]->getFlaggedCells(particleArray);
 
     auto p0_location = pGrid[level]->getCellCentroid(particleArray[0]);
 
@@ -650,20 +650,20 @@ protected:
 
     cerr << "Loading " << filename << endl;
 
-    io::getBuffer(genericParticleArray, filename);
-    size_t size = genericParticleArray.size();
-    std::sort(genericParticleArray.begin(), genericParticleArray.end());
-    genericParticleArray.erase(std::unique(genericParticleArray.begin(), genericParticleArray.end()),
-                               genericParticleArray.end());
-    if (genericParticleArray.size() < size)
-      cerr << "  ... erased " << size - genericParticleArray.size() << " duplicate particles" << endl;
-    cerr << "  -> total number of particles is " << genericParticleArray.size() << endl;
+    io::getBuffer(flaggedParticles, filename);
+    size_t size = flaggedParticles.size();
+    std::sort(flaggedParticles.begin(), flaggedParticles.end());
+    flaggedParticles.erase(std::unique(flaggedParticles.begin(), flaggedParticles.end()),
+                               flaggedParticles.end());
+    if (flaggedParticles.size() < size)
+      cerr << "  ... erased " << size - flaggedParticles.size() << " duplicate particles" << endl;
+    cerr << "  -> total number of particles is " << flaggedParticles.size() << endl;
 
-    clearAndDistributeParticleList();
+    reflag();
   }
 
   void loadParticleIdFile(std::string filename) {
-    genericParticleArray.clear();
+    flaggedParticles.clear();
     appendParticleIdFile(filename);
   }
 
@@ -692,7 +692,7 @@ public:
     std::vector<size_t> results;
     cerr << "dumpID using current mapper:" << endl;
     cerr << (*pMapper);
-    pMapper->gatherParticleList(results);
+    pMapper->getFlaggedParticles(results);
     io::dumpBuffer(results, fname);
   }
 
@@ -705,7 +705,7 @@ public:
     pMapper->clearParticleList();
     size_t id = grid->getClosestIdNoWrap(Coordinate<T>(x0, y0, z0));
     cerr << "selectNearest " <<x0 << " " << y0 << " " << z0 << " " << id << " " << endl;
-    grid->distributeParticleList({id});
+    grid->flagCells({id});
 
   }
 
@@ -713,7 +713,7 @@ public:
     T delta_x, delta_y, delta_z;
     T xp, yp, zp;
 
-    genericParticleArray.clear();
+    flaggedParticles.clear();
 
 
 
@@ -729,8 +729,8 @@ public:
           particleArray.push_back(i);
       }
 
-      pGrid[level]->clearParticleList();
-      pGrid[level]->distributeParticleList(particleArray);
+      pGrid[level]->unflagAllCells();
+      pGrid[level]->flagCells(particleArray);
 
     }
   }
@@ -756,52 +756,6 @@ public:
     x0 = xin;
     y0 = yin;
     z0 = zin;
-  }
-
-  void reorderBuffer() {
-
-    cout << "Reordering buffer radially..." << endl;
-    cout << " [taking centre = " << x0 << " " << y0 << " " << z0 << "]" << endl;
-
-    std::vector<T> r2(genericParticleArray.size());
-    T delta_x, delta_y, delta_z;
-
-    std::vector<size_t> index(genericParticleArray.size());
-
-    for (size_t i = 0; i < genericParticleArray.size(); i++) {
-      std::tie(delta_x, delta_y, delta_z) = pGrid[0]->getCellCentroid(i);
-      delta_x = get_wrapped_delta(delta_x, x0);
-      delta_y = get_wrapped_delta(delta_y, y0);
-      delta_z = get_wrapped_delta(delta_z, z0);
-      r2[i] = delta_x * delta_x + delta_y * delta_y + delta_z * delta_z;
-      index[i] = i;
-    }
-
-    // Now sort the index array
-    std::sort(index.begin(), index.end(),
-              [&r2](size_t i1, size_t i2) { return r2[i1] < r2[i2]; });
-
-    // Turn the index array into something pointing to the particles
-    for (size_t i = 0; i < genericParticleArray.size(); i++) {
-      index[i] = genericParticleArray[index[i]];
-    }
-
-    // Copy back into the particle array
-    for (size_t i = 0; i < genericParticleArray.size(); i++) {
-      genericParticleArray[i] = index[i];
-    }
-
-  }
-
-  void truncateBuffer(float x) {
-    if (x < 0) {
-      cerr << "Truncate command takes a fraction between 0 and 1 or a number>=1" << endl;
-      exit(0);
-    }
-    if (x < 1)
-      genericParticleArray.resize(((int) (genericParticleArray.size() * x)));
-    else
-      genericParticleArray.resize(((int) x));
   }
 
   void calculate(string name) {
@@ -843,11 +797,11 @@ public:
 
   virtual void done() {
     T pre_constraint_chi2 = outputField.getChi2();
-    cerr << "BEFORE constraints: chi^2=" << pre_constraint_chi2 << endl;
+    cerr << "BEFORE constraints chi^2=" << pre_constraint_chi2 << endl;
     fixConstraints();
     T post_constraint_chi2 = outputField.getChi2();
-    cerr << "AFTER  constraints: chi^2=" << post_constraint_chi2 << endl;
-    cerr << "              delta chi^2=" << post_constraint_chi2-pre_constraint_chi2 << endl;
+    cerr << "AFTER  constraints chi^2=" << post_constraint_chi2 << endl;
+    cerr << "             delta-chi^2=" << post_constraint_chi2-pre_constraint_chi2 << endl;
     write();
   }
 

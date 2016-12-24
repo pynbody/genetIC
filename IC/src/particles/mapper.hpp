@@ -44,6 +44,12 @@ namespace particle {
   class AddGasMapper;
 
   template<typename T>
+  class ParticleGenerator;
+
+  template<typename T>
+  class AbstractMultiLevelParticleGenerator;
+
+  template<typename T>
   class MapperIterator {
   protected:
     // This is a generic structure used by all subclasses to keep
@@ -71,7 +77,7 @@ namespace particle {
     const ParticleMapper<T> *pMapper;
     const AbstractMultiLevelParticleGenerator<T> &generator;
     mutable ConstGridPtrType pLastGrid;
-    mutable std::shared_ptr<const particle::ParticleGenerator<T>> pLastGridGenerator;
+    mutable std::shared_ptr<const ParticleGenerator<T>> pLastGridGenerator;
 
     MapperIterator(const ParticleMapper<T> *pMapper,
                    const AbstractMultiLevelParticleGenerator<T> &generator) :
@@ -135,7 +141,7 @@ namespace particle {
       ConstGridPtrType pGrid;
       size_t id;
       deReference(pGrid, id);
-      return pGrid->getParticle(id,*pLastGridGenerator);
+      return pLastGridGenerator->getParticle(*pGrid, id);
     }
 
   protected:
@@ -214,7 +220,7 @@ namespace particle {
       ConstGridPtrType pGrid;
       size_t id;
       deReference(pGrid, id);
-      return pGrid->getMass(*pLastGridGenerator);
+      return pLastGridGenerator->getMass(*pGrid);
     }
 
     std::unique_ptr<DereferenceType> operator->() const {
@@ -321,17 +327,17 @@ namespace particle {
 
     }
 
-    virtual void distributeParticleList(const std::vector<size_t> &genericParticleArray) {
+    virtual void flagParticles(const std::vector<size_t> &genericParticleArray) {
       throw std::runtime_error("Cannot interpret particles yet; no particle->grid mapper available");
     }
 
-    virtual void distributeParticleList(std::vector<size_t> &&genericParticleArray) {
+    virtual void flagParticles(std::vector<size_t> &&genericParticleArray) {
       // Sometimes it's helpful to have move semantics, but in general just call
       // the normal implementation
-      this->distributeParticleList(genericParticleArray);
+      this->flagParticles(genericParticleArray);
     }
 
-    virtual void gatherParticleList(std::vector<size_t> &particleArray) const {
+    virtual void getFlaggedParticles(std::vector<size_t> &particleArray) const {
       throw std::runtime_error("Cannot get particles; no particle->grid mapper available");
     }
 
@@ -347,8 +353,8 @@ namespace particle {
         if (!this->references(pGrid)) {
           vector<size_t> ar;
           GridPtrType proxyGrid = getFinestGrid()->makeProxyGridToMatch(*pGrid);
-          proxyGrid->gatherParticleList(ar);
-          pGrid->distributeParticleList(ar);
+          proxyGrid->getFlaggedCells(ar);
+          pGrid->flagCells(ar);
         }
       }
     }
@@ -469,15 +475,15 @@ namespace particle {
     }
 
     virtual void clearParticleList() override {
-      pGrid->clearParticleList();
+      pGrid->unflagAllCells();
     }
 
-    void distributeParticleList(const std::vector<size_t> &genericParticleArray) override {
-      pGrid->distributeParticleList(genericParticleArray);
+    void flagParticles(const std::vector<size_t> &genericParticleArray) override {
+      pGrid->flagCells(genericParticleArray);
     }
 
-    void gatherParticleList(std::vector<size_t> &particleArray) const override {
-      pGrid->gatherParticleList(particleArray);
+    void getFlaggedParticles(std::vector<size_t> &particleArray) const override {
+      pGrid->getFlaggedCells(particleArray);
     }
 
     GridPtrType getCoarsestGrid() override {
@@ -775,7 +781,7 @@ namespace particle {
       pLevel2->clearParticleList();
     }
 
-    void distributeParticleList(const std::vector<size_t> &genericParticleArray) override {
+    void flagParticles(const std::vector<size_t> &genericParticleArray) override {
 
       std::vector<size_t> grid1particles;
       std::vector<size_t> grid2particles;
@@ -830,7 +836,7 @@ namespace particle {
 
       }
 
-      // Some routines need these lists to be sorted (e.g. gatherParticleList below,
+      // Some routines need these lists to be sorted (e.g. getFlaggedParticles below,
       // or in principle there could be an underlying further processing step.
       // So it's time to do it...
       std::sort(grid1particles.begin(), grid1particles.end());
@@ -840,17 +846,17 @@ namespace particle {
       // certainly just involves making a copy of our list (notwithstanding
       // point made above about a possible underlying processing step). In fact, we're
       // done with our list so they might as well steal the data.
-      pLevel1->distributeParticleList(std::move(grid1particles));
-      pLevel2->distributeParticleList(std::move(grid2particles));
+      pLevel1->flagParticles(std::move(grid1particles));
+      pLevel2->flagParticles(std::move(grid2particles));
 
     }
 
 
-    void gatherParticleList(std::vector<size_t> &particleArray) const override {
+    void getFlaggedParticles(std::vector<size_t> &particleArray) const override {
 
       // translate level 1 particles - just need to exclude the zoomed particles
       std::vector<size_t> grid1particles;
-      pLevel1->gatherParticleList(grid1particles);
+      pLevel1->getFlaggedParticles(grid1particles);
 
       size_t zoom_i = 0;
       size_t len_zoom = zoomParticleArray.size();
@@ -865,7 +871,7 @@ namespace particle {
       }
 
       std::vector<size_t> grid2particles;
-      pLevel2->gatherParticleList(grid2particles);
+      pLevel2->getFlaggedParticles(grid2particles);
 
       // get the ordering of the level 2 particles
       std::vector<size_t> sortIndex = argsort(zoomParticleArrayHiresUnsorted);
@@ -946,8 +952,8 @@ namespace particle {
       // Work out the new list of particles to zoom on
       decltype(zoomParticleArray) newZoomParticles;
       ssub1->clearParticleList();
-      pLevel1->distributeParticleList(zoomParticleArray);
-      ssub1->gatherParticleList(newZoomParticles);
+      pLevel1->flagParticles(zoomParticleArray);
+      ssub1->getFlaggedParticles(newZoomParticles);
 
       size_t new_n_hr_per_lr = n_hr_per_lr;
 
@@ -1063,7 +1069,7 @@ namespace particle {
     };
 
 
-    virtual void distributeParticleList(const std::vector<size_t> &genericParticleArray) {
+    virtual void flagParticles(const std::vector<size_t> &genericParticleArray) {
       std::vector<size_t> first;
       std::vector<size_t> second;
 
@@ -1076,9 +1082,9 @@ namespace particle {
 
       // At present we ONLY distribute particles onto the DM grids
       if (gasFirst)
-        secondMap->distributeParticleList(second);
+        secondMap->flagParticles(second);
       else
-        firstMap->distributeParticleList(first);
+        firstMap->flagParticles(first);
 
     }
 
@@ -1095,18 +1101,18 @@ namespace particle {
       return gasFirst ? secondMap->getFinestGrid() : firstMap->getFinestGrid();
     }
 
-    void gatherParticleList(std::vector<size_t> &particleArray) const override {
+    void getFlaggedParticles(std::vector<size_t> &particleArray) const override {
       // At present we ONLY gather particles from the DM grids, to make
-      // this the inverse operation to distributeParticleList.
+      // this the inverse operation to flagParticles.
       if (gasFirst) {
-        secondMap->gatherParticleList(particleArray);
+        secondMap->getFlaggedParticles(particleArray);
 
         // perform offset
         for (size_t &i : particleArray)
           i += nFirst;
 
       } else {
-        firstMap->gatherParticleList(particleArray);
+        firstMap->getFlaggedParticles(particleArray);
       }
     }
 

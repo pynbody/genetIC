@@ -39,33 +39,6 @@ typedef double MyFloat;
 typedef float MyFloat;
 #endif
 
-/*
-inline void progress(const std::string &message, size_t i, size_t len) {
-  if ((i % 100000) == 0)
-    progress(message, static_cast<float>(i) / len);
-}
-
-void progress(const std::string &message, float progress) {
-  int barWidth = 70;
-
-  std::cout << message << " [";
-  int pos = barWidth * progress;
-  for (int i = 0; i < barWidth; ++i) {
-    if (i < pos) std::cout << "=";
-    else if (i == pos) std::cout << ">";
-    else std::cout << " ";
-  }
-  std::cout << "] " << int(progress * 100.0) << " %         \r";
-  std::cout.flush();
-}
-
-void end_progress() {
-  std::cout <<
-  "                                                                                                                " <<
-  std::endl;
-}
-*/
-
 
 typedef ICGenerator<MyFloat> ICf;
 
@@ -103,8 +76,8 @@ void setup_parser(ClassDispatch<ICf, void> &dispatch) {
   dispatch.add_class_route("select_nearest", &ICf::selectNearest);
   dispatch.add_class_route("centre_on", &ICf::centreParticle);
   dispatch.add_class_route("centre", &ICf::setCentre);
-  dispatch.add_class_route("order", &ICf::reorderBuffer);
-  dispatch.add_class_route("truncate", &ICf::truncateBuffer);
+  //dispatch.add_class_route("order", &ICf::reorderBuffer);
+  // dispatch.add_class_route("truncate", &ICf::truncateBuffer);
   dispatch.add_class_route("calculate", &ICf::calculate);
   dispatch.add_class_route("constrain", &ICf::constrain);
   dispatch.add_class_route("cov", &ICf::cov);
