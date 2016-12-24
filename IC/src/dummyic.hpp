@@ -46,17 +46,11 @@ public:
 
   }
 
-  void interpolateIntoLevel(int level) override {
-
-  }
-
   void applyPowerSpec() override { }
 
   void dumpGrid(int level) override { }
 
   void dumpPS(int level) override { }
-
-  void zeldovichForLevel(int level) override { }
 
   void zeldovich() override { }
 

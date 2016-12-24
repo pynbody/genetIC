@@ -10,7 +10,9 @@
 namespace io {
   namespace gadget {
     template<typename MyFloat>
-    void getParticleInfo(const shared_ptr<ParticleMapper<MyFloat>> &pMapper, MyFloat &min_mass, MyFloat &max_mass,
+    void getParticleInfo(const particle::AbstractMultiLevelParticleGenerator<MyFloat> &generator,
+                         particle::ParticleMapper<MyFloat> &mapper,
+                         MyFloat &min_mass, MyFloat &max_mass,
                          MyFloat &tot_mass, MyFloat &gas_mass, size_t &ngas, size_t &nlow, size_t &nhigh) {
 
       min_mass = std::numeric_limits<MyFloat>::max();
@@ -22,7 +24,7 @@ namespace io {
       nhigh = 0;
 
       MyFloat mass;
-      for (auto i = pMapper->beginDm(); i != pMapper->endDm(); ++i) {
+      for (auto i = mapper.beginDm(generator); i != mapper.endDm(generator); ++i) {
         // progress("Pre-write scan file",iord, totlen);
         mass = i.getMass(); // sometimes can be MUCH faster than getParticle
         if (min_mass > mass) min_mass = mass;
@@ -32,13 +34,13 @@ namespace io {
 
       // end_progress();
 
-      ngas = pMapper->size_gas();
-      if (ngas > 0) gas_mass = pMapper->beginGas().getMass();
+      ngas = mapper.size_gas();
+      if (ngas > 0) gas_mass = mapper.beginGas(generator).getMass();
 
       cout << "gas mass and number of particles in info " << gas_mass << " " << ngas << endl;
 
 
-      for (auto i = pMapper->beginDm(); i != pMapper->endDm(); ++i) {
+      for (auto i = mapper.beginDm(generator); i != mapper.endDm(generator); ++i) {
         // progress("Pre-write scan file",iord, totlen);
         mass = i.getMass(); // sometimes can be MUCH faster than getParticle
         if (mass == min_mass) nhigh += 1;
@@ -578,7 +580,9 @@ int save_phases(complex<MyFloat> *phk, MyFloat* ph, complex<MyFloat> *delta, int
     }
 
     template<typename MyFloat>
-    void save(const std::string &name, double Boxlength, shared_ptr<ParticleMapper<MyFloat>> pMapper,
+    void save(const std::string &name, double Boxlength,
+              particle::ParticleMapper<MyFloat> & mapper,
+              particle::AbstractMultiLevelParticleGenerator<MyFloat> & generator,
               const CosmologicalParameters<MyFloat> &cosmology, int gadgetformat) {
 
       std::cout << "Hello from Gadget output!" << std::endl;
@@ -592,7 +596,7 @@ int save_phases(complex<MyFloat> *phk, MyFloat* ph, complex<MyFloat> *delta, int
       // pos in Mpc h^-1
       // vel in km s^-1 a^1/2
 
-      getParticleInfo(pMapper, min_mass, max_mass, tot_mass, gas_mass, ngas, nlow, nhigh);
+      getParticleInfo(generator, mapper, min_mass, max_mass, tot_mass, gas_mass, ngas, nlow, nhigh);
 
       cout << "min and max particle mass : " << min_mass << " " << max_mass << endl;
       cout << "particle numbers (gas, high, low) : " << ngas << " " << nhigh << " " << nlow << endl;
@@ -647,7 +651,7 @@ int save_phases(complex<MyFloat> *phk, MyFloat* ph, complex<MyFloat> *delta, int
 
       // DM particles positions
 
-      for (auto i = pMapper->beginDm(); i != pMapper->endDm(); ++i) {
+      for (auto i = mapper.beginDm(generator); i != mapper.endDm(generator); ++i) {
         auto particle = i.getParticle();
 
         output_cache = particle.pos.x;
@@ -665,7 +669,7 @@ int save_phases(complex<MyFloat> *phk, MyFloat* ph, complex<MyFloat> *delta, int
       //gas particles velocities
       my_fwrite(&dummy, sizeof(dummy), 1, fd); //beginning of velocity block
 
-      for (auto i = pMapper->beginDm(); i != pMapper->endDm(); ++i) {
+      for (auto i = mapper.beginDm(generator); i != mapper.endDm(generator); ++i) {
         auto particle = i.getParticle();
 
         output_cache = particle.vel.x;

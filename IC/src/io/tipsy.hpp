@@ -22,15 +22,16 @@ namespace io {
 
     template<typename MyFloat>
     void saveFieldTipsyArray(const std::string &filename,
-                             shared_ptr<ParticleMapper<MyFloat>> pMapper,
+                             particle::ParticleMapper<MyFloat> & mapper,
+                             particle::AbstractMultiLevelParticleGenerator<MyFloat> & generator,
                              MultiLevelField<complex<MyFloat>> &field) {
       ofstream outfile(filename.c_str(), ofstream::binary);
-      int lengthField = pMapper->size();
+      int lengthField = mapper.size();
       outfile.write(reinterpret_cast<char *>(&lengthField), 4);
 
       field.toReal();
 
-      for (auto i = pMapper->begin(); i != pMapper->end(); ++i) {
+      for (auto i = mapper.begin(generator); i != mapper.end(generator); ++i) {
         float data = float(i.getField(field).real());
         outfile.write(reinterpret_cast<char *>(&data), 4);
       }
@@ -68,12 +69,13 @@ namespace io {
       size_t iord;
       double pos_factor, vel_factor, mass_factor, min_mass, max_mass;
       double boxLength;
-      shared_ptr<ParticleMapper<MyFloat>> pMapper;
+      const particle::AbstractMultiLevelParticleGenerator<MyFloat> &generator;
+      shared_ptr<particle::ParticleMapper<MyFloat>> pMapper;
       const CosmologicalParameters<MyFloat> &cosmology;
 
 
       template<typename ParticleType>
-      void saveTipsyParticlesFromBlock(std::vector<Particle<MyFloat>> &particleAr) {
+      void saveTipsyParticlesFromBlock(std::vector<particle::Particle<MyFloat>> &particleAr) {
 
         const size_t n = particleAr.size();
 
@@ -88,7 +90,7 @@ namespace io {
     #pragma omp parallel for
         for (size_t i = 0; i < n; i++) {
           TipsyParticle::initialise(p[i], cosmology);
-          Particle<MyFloat> &thisParticle = particleAr[i];
+          particle::Particle<MyFloat> &thisParticle = particleAr[i];
 
           p[i].x = thisParticle.pos.x * pos_factor - 0.5;
           p[i].y = thisParticle.pos.y * pos_factor - 0.5;
@@ -100,9 +102,12 @@ namespace io {
           p[i].vz = thisParticle.vel.z * vel_factor;
           p[i].mass = thisParticle.mass * mass_factor;
 
-          if (thisParticle.mass == min_mass && omp_get_thread_num() == 0) {
+#ifdef _OPENMP
+          if (thisParticle.mass == min_mass && omp_get_thread_num() == 0)
+#else
+          if(thisParticle.mass==min_mass)
+#endif
             photogenic_file << iord << endl;
-          }
 
           ++iord;
         }
@@ -111,11 +116,12 @@ namespace io {
       }
 
       template<typename ParticleType>
-      void saveTipsyParticles(MapperIterator<MyFloat> &&begin, MapperIterator<MyFloat> &&end) {
+      void saveTipsyParticles(particle::MapperIterator<MyFloat> &&begin,
+                              particle::MapperIterator<MyFloat> &&end) {
 
         ParticleType p;
         TipsyParticle::initialise(p, cosmology);
-        std::vector<Particle<MyFloat>> particles;
+        std::vector<particle::Particle<MyFloat>> particles;
         auto i = begin;
         while (i != end) {
           i.getNextNParticles(particles);
@@ -130,7 +136,8 @@ namespace io {
 
 
       template<typename ParticleType>
-      void saveTipsyParticlesSingleThread(MapperIterator<MyFloat> &&begin, MapperIterator<MyFloat> &&end) {
+      void saveTipsyParticlesSingleThread(particle::MapperIterator<MyFloat> &&begin,
+                                          particle::MapperIterator<MyFloat> &&end) {
 
         ParticleType p;
         MyFloat x, y, z, vx, vy, vz, mass, eps;
@@ -162,8 +169,10 @@ namespace io {
     public:
 
       TipsyOutput(double boxLength,
-                  shared_ptr<ParticleMapper<MyFloat>> pMapper,
-                  const CosmologicalParameters<MyFloat> &cosmology) : boxLength(boxLength), pMapper(pMapper),
+                  const particle::AbstractMultiLevelParticleGenerator<MyFloat> &generator,
+                  shared_ptr<particle::ParticleMapper<MyFloat>> pMapper,
+                  const CosmologicalParameters<MyFloat> &cosmology) : generator(generator),boxLength(boxLength),
+                                                                      pMapper(pMapper),
                                                                       cosmology(cosmology) {
 
       }
@@ -181,7 +190,7 @@ namespace io {
 
         MyFloat mass, tot_mass = 0.0;
 
-        for (auto i = pMapper->begin(); i != pMapper->end(); ++i) {
+        for (auto i = pMapper->begin(generator); i != pMapper->end(generator); ++i) {
           // progress("Pre-write scan file",iord, totlen);
           mass = i.getMass(); // sometimes can be MUCH faster than getParticle
           if (min_mass > mass) min_mass = mass;
@@ -215,9 +224,6 @@ namespace io {
         header.nstar = 0;
 
 
-        cout << "TIPSY parameters:" << endl;
-
-
         ofstream paramfile;
         paramfile.open("tipsy.param");
 
@@ -234,18 +240,19 @@ namespace io {
 
         fwrite(&header, sizeof(io_header_tipsy), 1, fd);
 
-        saveTipsyParticles<TipsyParticle::gas>(pMapper->beginGas(), pMapper->endGas());
-        saveTipsyParticles<TipsyParticle::dark>(pMapper->beginDm(), pMapper->endDm());
+        saveTipsyParticles<TipsyParticle::gas>(pMapper->beginGas(generator), pMapper->endGas(generator));
+        saveTipsyParticles<TipsyParticle::dark>(pMapper->beginDm(generator), pMapper->endDm(generator));
 
       }
     };
 
     template<typename T>
     void save(const std::string &filename, double Boxlength,
-              shared_ptr<ParticleMapper<T>> pMapper,
+              const particle::AbstractMultiLevelParticleGenerator<T> & generator,
+              shared_ptr<particle::ParticleMapper<T>> pMapper,
               const CosmologicalParameters<T> &cosmology) {
 
-      TipsyOutput<T> output(Boxlength, pMapper, cosmology);
+      TipsyOutput<T> output(Boxlength, generator, pMapper, cosmology);
       output(filename);
     }
 

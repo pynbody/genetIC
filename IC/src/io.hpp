@@ -5,7 +5,7 @@
 #include <vector>
 #include <limits>
 
-#include "mapper.hpp"
+#include "particles/mapper.hpp"
 #include "cosmo.hpp"
 
 

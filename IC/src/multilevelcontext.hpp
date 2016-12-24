@@ -53,7 +53,6 @@ protected:
   }
 
 
-
 public:
 
   MultiLevelContextInformation() {
@@ -61,8 +60,7 @@ public:
     Ntot = 0;
   }
 
-  virtual ~MultiLevelContextInformation() { }
-
+  virtual ~MultiLevelContextInformation() {}
 
 
   void addLevel(std::vector<T> C0, std::shared_ptr<Grid<T>> pG) {
@@ -121,17 +119,16 @@ public:
   }
 
 
-  auto generateMultilevelFromHighResField(LiteralField<complex<T>, T> &&data) {
-    assert(&data.getGrid()==pGrid.back().get());
+  auto generateMultilevelFromHighResField(Field<complex<T>, T> &&data) {
+    assert(&data.getGrid() == pGrid.back().get());
 
 
-
-    vector<LiteralField<complex<T>, T>> dataOnLevels;
+    vector<Field<complex<T>, T>> dataOnLevels;
     for (size_t level = 0; level < pGrid.size(); level++) {
       if (level == pGrid.size() - 1) {
         dataOnLevels.emplace_back(std::move(data));
       } else {
-        dataOnLevels.emplace_back(*pGrid[level],false);
+        dataOnLevels.emplace_back(*pGrid[level], false);
       }
     }
     size_t levelmax = dataOnLevels.size() - 1;
@@ -148,10 +145,7 @@ public:
 
     return ConstraintField<std::complex<T>>(*this, std::move(dataOnLevels));
 
-
   }
-
-
 
   void forEachLevel(std::function<void(Grid<T> &)> newLevelCallback) {
     for (size_t level = 0; level < nLevels; level++) {
@@ -174,7 +168,7 @@ public:
 
     for (size_t level = 0; level < nLevels; level++) {
 
-      if(!levelCallback(level))
+      if (!levelCallback(level))
         continue;
       size_t level_base = cumu_Ns[level];
 
@@ -191,9 +185,8 @@ public:
     std::function<void(size_t, size_t, size_t, std::vector<std::complex<T>> &)> cellCallback,
     bool kspace = true) {
 
-    forEachCellOfEachLevel([](size_t i) { return true;}, cellCallback);
+    forEachCellOfEachLevel([](size_t i) { return true; }, cellCallback);
   }
-
 
 
   std::complex<T> accumulateOverEachCellOfEachLevel(
@@ -205,7 +198,7 @@ public:
 
     for (size_t level = 0; level < nLevels; level++) {
 
-      if(!newLevelCallback(level))
+      if (!newLevelCallback(level))
         continue;
 
       size_t level_base = cumu_Ns[level];
@@ -225,11 +218,8 @@ public:
   }
 
 
-
-
-  void copyContextWithIntermediateResolutionGrids(MultiLevelContextInformation<T> & newStack, size_t base_factor=2,
-                                                  size_t extra_lores=1)
-  {
+  void copyContextWithIntermediateResolutionGrids(MultiLevelContextInformation<T> &newStack, size_t base_factor = 2,
+                                                  size_t extra_lores = 1) {
     /* Copy this MultiLevelContextInformation, but insert intermediate virtual grids such that
      * there is a full stack increasing in the specified power.
      *
@@ -245,23 +235,23 @@ public:
     */
     newStack.clear();
 
-    for(size_t level=0; level<nLevels; ++level) {
-      size_t neff = size_t(round(pGrid[0]->dx/pGrid[level]->dx))*pGrid[0]->size;
-      if(level>0) {
+    for (size_t level = 0; level < nLevels; ++level) {
+      size_t neff = size_t(round(pGrid[0]->dx / pGrid[level]->dx)) * pGrid[0]->size;
+      if (level > 0) {
         size_t factor = base_factor;
-        while (pGrid[level]->dx * factor * 1.001 < pGrid[level-1]->dx) {
+        while (pGrid[level]->dx * factor * 1.001 < pGrid[level - 1]->dx) {
           cerr << "Adding virtual grid with effective resolution " << neff / factor << endl;
           auto vGrid = std::make_shared<SubSampleGrid<T>>(pGrid[level], factor);
           newStack.addLevel(vector<T>(), vGrid);
-          factor*=base_factor;
+          factor *= base_factor;
         }
       } else {
         size_t factor = base_factor;
-        for(size_t i=0; i<extra_lores; ++i) {
+        for (size_t i = 0; i < extra_lores; ++i) {
           cerr << "Adding virtual grid with effective resolution " << neff / factor << endl;
           auto vGrid = std::make_shared<SubSampleGrid<T>>(pGrid[level], factor);
           newStack.addLevel(vector<T>(), vGrid);
-          factor*=base_factor;
+          factor *= base_factor;
         }
       }
 

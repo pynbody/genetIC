@@ -27,7 +27,7 @@
 #include "parser.hpp"
 #include "grid.hpp"
 #include "multilevelcontext.hpp"
-#include "mapper.hpp"
+#include "src/particles/mapper.hpp"
 #include "io.hpp"
 #include "ic.hpp"
 #include "dummyic.hpp"

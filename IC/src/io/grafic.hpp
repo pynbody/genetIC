@@ -9,6 +9,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <list>
+#include <src/particles/multilevelgenerator.hpp>
 
 namespace io {
   namespace grafic {
@@ -26,6 +27,7 @@ namespace io {
     protected:
       std::string outputFilename;
       MultiLevelContextInformation<T> context;
+      std::shared_ptr<particle::AbstractMultiLevelParticleGenerator<T>> generator;
       const CosmologicalParameters<T> &cosmology;
 
       T lengthFactor;
@@ -35,8 +37,10 @@ namespace io {
     public:
       GraficOutput(const std::string & fname,
                    MultiLevelContextInformation<T> & levelContext,
+                   particle::AbstractMultiLevelParticleGenerator<T> &particleGenerator,
                    const CosmologicalParameters<T> &cosmology):
         outputFilename(fname),
+        generator(particleGenerator.shared_from_this()),
         cosmology(cosmology)
       {
         levelContext.copyContextWithIntermediateResolutionGrids(context);
@@ -62,7 +66,7 @@ namespace io {
       }
 
       void writeGrid(const Grid<T> & targetGrid) {
-
+        auto & gridGenerator = generator->getGeneratorForGrid(targetGrid);
         const Grid<T> & baseGrid = context.getGridForLevel(0);
         size_t effective_size =  getRatioAndAssertInteger(baseGrid.dx*baseGrid.size, targetGrid.dx);
 	      progress::ProgressBar pb("write grid "+std::to_string(effective_size), targetGrid.size);
@@ -92,7 +96,7 @@ namespace io {
             for (size_t i_x = 0; i_x < targetGrid.size; ++i_x) {
               size_t i = targetGrid.getCellIndexNoWrap(i_x, i_y, i_z);
               size_t global_index = i + iordOffset;
-              auto particle = targetGrid.getParticleNoOffset(i);
+              auto particle = targetGrid.getParticleNoOffset(i,gridGenerator);
 
               Coordinate<float> velScaled = particle.vel * velFactor;
               Coordinate<float> posScaled = particle.pos * lengthFactor;
@@ -149,9 +153,12 @@ namespace io {
     };
 
     template<typename T>
-    void save(const std::string & filename,  MultiLevelContextInformation<T> &context,
+    void save(const std::string & filename,
+              particle::AbstractMultiLevelParticleGenerator<T> &generator,
+              MultiLevelContextInformation<T> &context,
               const CosmologicalParameters<T> &cosmology) {
-      GraficOutput<T> output(filename,context,cosmology);
+      GraficOutput<T> output(filename,context,
+                             generator, cosmology);
       output.write();
     }
 

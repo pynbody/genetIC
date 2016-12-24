@@ -27,7 +27,7 @@ public:
 
   }
 
-  LiteralField<complex<T>, T> calcConstraintVector(string name_in, int level) {
+  Field<complex<T>, T> calcConstraintVector(string name_in, int level) {
     auto ar = fieldManager.createEmptyFieldForLevel(level);
 
     calcConstraint(name_in, fieldManager.getGridForLevel(level), cosmology, ar);
@@ -35,7 +35,7 @@ public:
     if (level != 0)
       ar*=pow(fieldManager.getGridForLevel(level).dx / fieldManager.getGridForLevel(0).dx, -3.0);
 
-    return LiteralField<complex<T>, T>(fieldManager.getGridForLevel(level), ar, true);
+    return Field<complex<T>, T>(fieldManager.getGridForLevel(level), ar, true);
   }
 
   auto calcConstraintForAllLevels(string name) {

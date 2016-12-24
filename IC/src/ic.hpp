@@ -18,6 +18,8 @@
 #include "randomfieldgenerator.hpp"
 #include "MultiLevelConstraintGenerator.h"
 #include "multilevelfield.hpp"
+#include "particles/generator.hpp"
+#include "particles/multilevelgenerator.hpp"
 
 #define for_each_level(level) for(size_t level=0; level<2 && n[level]>0; level++)
 
@@ -79,8 +81,10 @@ protected:
 
   T x0, y0, z0;
 
-  shared_ptr<ParticleMapper<T>> pMapper;
-  shared_ptr<ParticleMapper<T>> pInputMapper;
+  shared_ptr<particle::ParticleMapper<T>> pMapper;
+  shared_ptr<particle::ParticleMapper<T>> pInputMapper;
+
+  shared_ptr<particle::AbstractMultiLevelParticleGenerator<T>> pParticleGenerator;
 
   using RefFieldType = std::vector<std::complex<T>> &;
   using FieldType = std::vector<std::complex<T>>;
@@ -94,7 +98,7 @@ public:
                                                       constraintApplicator(&multiLevelContext, &outputField),
                                                       constraintGenerator(multiLevelContext, cosmology),
                                                       randomFieldGenerator(outputField),
-                                                      pMapper(new ParticleMapper<T>()),
+                                                      pMapper(new particle::ParticleMapper<T>()),
                                                       interpreter(interpreter)
   {
     pInputMapper = nullptr;
@@ -114,6 +118,7 @@ public:
     yOffOutput = 0;
     zOffOutput = 0;
     exactPowerSpectrum = false;
+    pParticleGenerator = std::make_shared<particle::NullMultiLevelParticleGenerator<T>>();
   }
 
   ~ICGenerator() {
@@ -393,26 +398,6 @@ public:
     std::fill(fieldData.begin(), fieldData.end(), 0);
   }
 
-  template<typename TField>
-  void interpolateIntoLevel(const GridPtrType &pGrid_dest, const GridPtrType &pGrid_src,
-                            TField &pField_x_dest, TField &pField_x_src) {
-    pGrid_dest->addFieldFromDifferentGrid(*pGrid_src, pField_x_src, pField_x_dest);
-  }
-
-  virtual void interpolateIntoLevel(int level) {
-    if (level <= 0)
-      throw std::runtime_error("Trying to interpolate onto the top-level grid");
-
-    auto pGrid_l = pGrid[level];
-    auto pGrid_p = pGrid[level - 1];
-
-    pGrid_l->addFieldFromDifferentGrid(*pGrid_p);
-    outputField.toReal();
-    pGrid_l->addFieldFromDifferentGrid(*pGrid_p,
-                                       outputField.getFieldForGrid(*pGrid_p),
-                                       outputField.getFieldForGrid(*pGrid_l));
-  }
-
 
   virtual void applyPowerSpec() {
     if(this->exactPowerSpectrum) {
@@ -445,7 +430,7 @@ public:
   }
 
   virtual void saveTipsyArray(string fname) {
-    io::tipsy::saveFieldTipsyArray(fname, pMapper, outputField);
+    io::tipsy::saveFieldTipsyArray(fname, *pMapper, *pParticleGenerator, outputField);
   }
 
   virtual void dumpGrid(int level = 0) {
@@ -462,51 +447,16 @@ public:
                  (base + "_" + ((char) (level + '0')) + ".ps").c_str(), boxlen[level]);
   }
 
-  virtual void zeldovichForLevel(int level) {
-    //Zeldovich approx.
-
-    T hfac = 1. * 100. * sqrt(
-      cosmology.OmegaM0 / cosmology.scalefactor / cosmology.scalefactor / cosmology.scalefactor +
-      cosmology.OmegaLambda0) * sqrt(
-      cosmology.scalefactor);
-    //this should be f*H(t)*a, but gadget wants vel/sqrt(a), so we use H(t)*sqrt(a)
-    //TODO: hardcoded value of f=1 is inaccurate, but fomega currently gives wrong results
-
-    T pmass = 27.78 * cosmology.OmegaM0 * powf(boxlen[level] / (T) (n[level]), 3.0);
-
-    pGrid[level]->zeldovich(hfac, pmass, outputField.getFieldForLevel(level)); // TODO: put Zeldovich in its own module
-
-  }
-
 
   virtual void zeldovich() {
-    if (pGrid.size() == 0) {
-      throw std::runtime_error("Trying to apply zeldovich approximation, but no grids have been created");
-    } else if (pGrid.size() == 1) {
-      zeldovichForLevel(0);
-    } else {
+    // in principle this could now be easily extended to slot in higher order PT or other
+    // methods of generating the particles from the fields
 
-      outputField.toFourier();
+    using GridLevelGeneratorType = particle::ZeldovichParticleGenerator<T>;
 
-      cerr << "Zeldovich approximation on successive levels...";
-      auto residuals = outputField.getHighKResiduals();
+    pParticleGenerator = std::make_shared<
+      particle::MultiLevelParticleGenerator<T, GridLevelGeneratorType>>(outputField, cosmology);
 
-      outputField.applyFilters();
-
-      zeldovichForLevel(0);
-      zeldovichForLevel(1);
-      cerr << "done." << endl;
-
-      cerr << "Interpolating low-frequency information into zoom region...";
-      interpolateIntoLevel(1);
-      cerr << "done." << endl;
-
-      cerr << "Re-introducing high-k modes into low-res region...";
-      outputField.recombineHighKResiduals(residuals);
-      zeldovichForLevel(0);
-      cerr << "done." << endl;
-
-    }
   }
 
   void setInputMapper(std::string fname) {
@@ -544,7 +494,7 @@ public:
       return;
 
     // make a basic mapper for the base level grid
-    pMapper = std::shared_ptr<ParticleMapper<T>>(new OneLevelParticleMapper<T>(
+    pMapper = std::shared_ptr<particle::ParticleMapper<T>>(new particle::OneLevelParticleMapper<T>(
       getGridWithOutputOffset(0)
     ));
 
@@ -556,11 +506,11 @@ public:
 
     if (pGrid.size() == 2) {
       // it's a zoom!
-      auto pMapperLevel1 = std::shared_ptr<ParticleMapper<T>>(
-        new OneLevelParticleMapper<T>(getGridWithOutputOffset(1)));
+      auto pMapperLevel1 = std::shared_ptr<particle::ParticleMapper<T>>(
+        new particle::OneLevelParticleMapper<T>(getGridWithOutputOffset(1)));
 
-      pMapper = std::shared_ptr<ParticleMapper<T>>(
-        new TwoLevelParticleMapper<T>(pMapper, pMapperLevel1, zoomParticleArray, zoomfac * zoomfac * zoomfac));
+      pMapper = std::shared_ptr<particle::ParticleMapper<T>>(
+        new particle::TwoLevelParticleMapper<T>(pMapper, pMapperLevel1, zoomParticleArray, zoomfac * zoomfac * zoomfac));
     }
 
     if (cosmology.OmegaBaryons0 > 0) {
@@ -574,10 +524,10 @@ public:
 
       // graft the gas particles onto the start of the map
       if (gasFirst)
-        pMapper = std::make_shared<AddGasMapper<T>>(
+        pMapper = std::make_shared<particle::AddGasMapper<T>>(
           gasMapper.first, gasMapper.second, true);
       else
-        pMapper = std::make_shared<AddGasMapper<T>>(
+        pMapper = std::make_shared<particle::AddGasMapper<T>>(
           gasMapper.second, gasMapper.first, false);
 
     }
@@ -617,13 +567,16 @@ public:
     switch(outputFormat) {
       case OutputFormat::gadget2:
       case OutputFormat::gadget3:
-        gadget::save(base + ".gadget", boxlen[0], pMapper, cosmology, static_cast<int>(outputFormat));
+        gadget::save(base + ".gadget", boxlen[0], *pMapper,
+                     *pParticleGenerator,
+                     cosmology, static_cast<int>(outputFormat));
         break;
       case OutputFormat::tipsy:
-        tipsy::save(base + ".tipsy", boxlen[0], pMapper, cosmology);
+        tipsy::save(base + ".tipsy", boxlen[0], *pParticleGenerator,
+                    pMapper, cosmology);
         break;
       case OutputFormat::grafic:
-        grafic::save(base+".grafic", multiLevelContext, cosmology);
+        grafic::save(base+".grafic", *pParticleGenerator, multiLevelContext, cosmology);
         break;
       default:
         throw std::runtime_error("Unknown output format");

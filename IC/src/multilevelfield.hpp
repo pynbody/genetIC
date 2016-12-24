@@ -25,7 +25,7 @@ using strip_complex = typename strip_complex_s<T>::type;
 
 
 template<typename DataType>
-class MultiLevelField {
+class MultiLevelField : public std::enable_shared_from_this<MultiLevelField<DataType>> {
 
 protected:
   using T = strip_complex<DataType>;
@@ -34,7 +34,7 @@ protected:
   Signaling::connection_t connection;
   bool isCovector;
 
-  std::vector<LiteralField<DataType, T>> fieldsOnLevels;
+  std::vector<Field<DataType, T>> fieldsOnLevels;
 
   template<typename FilterType>
   void setupFilters() {
@@ -66,7 +66,7 @@ public:
   }
 
   MultiLevelField(MultiLevelContextInformation<T> & multiLevelContext,
-                  std::vector<LiteralField<DataType, T>> && fieldsOnGrids) :
+                  std::vector<Field<DataType, T>> && fieldsOnGrids) :
     multiLevelContext(&multiLevelContext), fieldsOnLevels(std::move(fieldsOnGrids)) {
     setupConnection();
   }
@@ -459,7 +459,7 @@ protected:
 
 public:
   ConstraintField(MultiLevelContextInformation<T> & multiLevelContext,
-                  std::vector<LiteralField<DataType, T>> && fieldsOnGrids)
+                  std::vector<Field<DataType, T>> && fieldsOnGrids)
   : MultiLevelField<DataType>(multiLevelContext,std::move(fieldsOnGrids))
   {
     this->isCovector = true;

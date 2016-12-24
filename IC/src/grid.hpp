@@ -10,7 +10,7 @@
 #include "fft.hpp"
 #include "filter.hpp"
 #include "coordinate.hpp"
-#include "particle.hpp"
+#include "src/particles/particle.hpp"
 #include "progress/progress.hpp"
 
 using namespace std;
@@ -22,7 +22,7 @@ template<typename T, typename S>
 class Field;
 
 template<typename T, typename S>
-class LiteralField;
+class Field;
 
 template<typename T, typename S>
 class InterpolatedField;
@@ -48,6 +48,14 @@ class SectionOfGrid;
 template<typename T>
 class MassScaledGrid;
 
+namespace particle {
+  template<typename T>
+  class ParticleGenerator;
+
+  template<typename T>
+  class ZeldovichParticleGenerator;
+}
+
 template<typename T>
 class Grid : public std::enable_shared_from_this<Grid<T>> {
 public:
@@ -59,13 +67,6 @@ public:
   using ConstGridPtrType = std::shared_ptr<const Grid<T>>;
 
 private:
-  // The grid offsets after Zeldovich approximation is applied
-  // (nullptr before that):
-  std::shared_ptr<TRealField> pOff_x;
-  std::shared_ptr<TRealField> pOff_y;
-  std::shared_ptr<TRealField> pOff_z;
-
-  T hFactor, cellMass;
   T kMin, kMinSquared;
 
   std::vector<size_t> particleArray; // just a list of particles on this grid for one purpose or another
@@ -192,56 +193,11 @@ public:
 
   template<typename TArray>
   void addFieldFromDifferentGrid(const Grid<T> &grid_src, const TArray &pField_x_src, TArray &pField_x_dest) {
+    // TODO: remote in favour of calling Field class directly
 
-    // TODO: make signature above const-correct
+    pField_x_dest.addFieldFromDifferentGrid(pField_x_src);
 
-    GridPtrType pSourceProxyGrid = grid_src.makeProxyGridToMatch(*this);
-
-    assert(pSourceProxyGrid->size3 == size3);
-
-    auto & field_x_dest_data = pField_x_dest.getDataVector();
-
-    pField_x_dest.matchFourier(pField_x_src);
-
-    assert(pField_x_src.isFourier()==pField_x_dest.isFourier());
-
-#pragma omp parallel for schedule(static)
-    for (size_t ind_l = 0; ind_l < size3; ind_l++) {
-      if (pSourceProxyGrid->containsCell(ind_l))
-        field_x_dest_data[ind_l] += pSourceProxyGrid->getFieldAt(ind_l, pField_x_src);
-
-    }
   }
-
-  void addFieldFromDifferentGrid(const Grid<T> &grid_src) {
-    // TODO - this was supposed to also change the underlying density field, but temporarily only touches the zeldovich velocities
-    // TODO - also the zeldovich velocities should not be stored by the grid either!!
-
-    /*
-    TField &pField_dest = getFieldReal();
-    assert(!grid_src.isFieldFourier());
-    const TField &pField_src = grid_src.getField();
-
-    addFieldFromDifferentGrid(grid_src, pField_src, pField_dest);
-     */
-
-
-    auto offset_fields_src = grid_src.getOffsetFields();
-    auto offset_fields_dest = getOffsetFields();
-
-    if (std::get<0>(offset_fields_src)!=nullptr && std::get<0>(offset_fields_dest)!=nullptr) {
-      addFieldFromDifferentGrid(grid_src, *std::get<0>(offset_fields_src), *std::get<0>(offset_fields_dest));
-      addFieldFromDifferentGrid(grid_src, *std::get<1>(offset_fields_src), *std::get<1>(offset_fields_dest));
-      addFieldFromDifferentGrid(grid_src, *std::get<2>(offset_fields_src), *std::get<2>(offset_fields_dest));
-    }
-  }
-
-  /* doesn't seem required --
-  void addFieldFromDifferentGrid(Grid<T> &grid_src) {
-    grid_src.getFieldReal();
-    addFieldFromDifferentGrid(const_cast<const Grid<T> &>(grid_src));
-  }
-   */
 
   virtual void debugInfo(std::ostream &s) const {
     s << "Grid of side " << size << " address " << this << "; " << this->particleArray.size() << " cells marked";
@@ -290,75 +246,42 @@ public:
     return i<size3;
   }
 
-
-
-  auto getOffsetFields() {
-    return std::make_tuple(pOff_x, pOff_y, pOff_z);
-  }
-
-  auto getOffsetFields() const {
-    return std::make_tuple(pOff_x, pOff_y, pOff_z);
-  }
-
-  Particle<T> getParticle(size_t id) const {
-    Particle<T> particle = getParticleNoWrap(id);
+  particle::Particle<T> getParticle(size_t id, const particle::ParticleGenerator<T> & generator) const {
+    auto particle= getParticleNoWrap(id, generator);
     simWrap(particle.pos);
     return particle;
   }
 
-  virtual Particle<T> getParticleNoWrap(size_t id) const {
-    auto particle = getParticleNoOffset(id);
-    auto centroid = getCellCentroid(id);
-    particle.pos+=centroid;
-    return particle;
+  virtual particle::Particle<T> getParticleNoWrap(size_t id, const particle::ParticleGenerator<T> & generator) const {
+    assert(&generator.getGrid()==this);
+    return generator.getParticleNoWrap(id);
   }
 
-  virtual T getMass() const {
-    return cellMass;
+  virtual T getMass(const particle::ParticleGenerator<T> & generator) const {
+    return generator.getMass();
   }
 
-  virtual T getEps() const {
-    return dx * 0.01075; // <-- arbitrary to coincide with normal UW resolution. TODO: Find a way to make this flexible.
+  virtual T getEps(const particle::ParticleGenerator<T> & generator) const {
+    return generator.getEps();
   }
 
-  virtual Particle<T> getParticleNoOffset(size_t id) const {
-    Particle<T> particle;
-
-    particle.pos.x = (*pOff_x)[id];
-    particle.pos.y = (*pOff_y)[id];
-    particle.pos.z = (*pOff_z)[id];
-
-    particle.vel.x = (*pOff_x)[id] * hFactor;
-    particle.vel.y = (*pOff_y)[id] * hFactor;
-    particle.vel.z = (*pOff_z)[id] * hFactor;
-
-    particle.mass = getMass();
-    particle.soft = getEps();
-
-    return particle;
+  virtual particle::Particle<T> getParticleNoOffset(size_t id, const particle::ParticleGenerator<T> & generator) const {
+    assert(&generator.getGrid()==this);
+    return generator.getParticleNoOffset(id);
   }
 
-  virtual void getParticleFromOffset(Particle<T> &particle) const {
-
-    particle.vel.x = getFieldInterpolated(particle.pos, *pOff_x);
-    particle.vel.y = getFieldInterpolated(particle.pos, *pOff_y);
-    particle.vel.z = getFieldInterpolated(particle.pos, *pOff_z);
-
-    particle.pos+=particle.vel;
-    particle.vel*=hFactor;
-
-    simWrap(particle.pos);
-
-    particle.mass = getMass();
-    particle.soft = getEps();
+  virtual void getParticleFromOffset(particle::Particle<T> &particle,
+                                     const particle::ParticleGenerator<T> & generator) const {
+    assert(&generator.getGrid()==this);
+    return generator.getParticleFromOffset(particle);
   }
 
 
-  virtual complex<T> getFieldAt(size_t i, const TField &field) {
+  virtual complex<T> getFieldAt(size_t i, const TField &field) const {
     return field[i];
   }
 
-  virtual T getFieldAt(size_t i, const TRealField &field) {
+  virtual T getFieldAt(size_t i, const TRealField &field) const {
     return field[i];
   }
 
@@ -369,90 +292,6 @@ public:
 
   virtual std::shared_ptr<Grid<T>> makeScaledMassVersion(T massRatio) {
     return std::make_shared<MassScaledGrid<T>>(this->shared_from_this(), massRatio);
-  }
-
-
-  virtual void zeldovich(T hfac, T particlecellMass, Field<complex<T>,T> & field) {
-    progress::ProgressBar pb("zeldovich",size*2);
-
-    hFactor = hfac;
-    cellMass = particlecellMass;
-
-    // make three arrays for manipulating in fourier space
-    auto psift1k = std::vector<std::complex<T>>(size3, 0);
-    auto psift2k = std::vector<std::complex<T>>(size3, 0);
-    auto psift3k = std::vector<std::complex<T>>(size3, 0);
-
-    // get a reference to the density field in fourier space
-    field.toFourier();
-    auto &pField_k = field.getDataVector();
-
-    int iix, iiy, iiz;
-    T kfft;
-    size_t idx;
-
-    T kw = 2. * M_PI / boxsize;
-
-#pragma omp parallel for schedule(static) default(shared) private(iix, iiy, iiz, kfft, idx)
-    for (size_t ix = 0; ix < size; ix++) {
-      pb.tick();
-      for (size_t iy = 0; iy < size; iy++) {
-        for (size_t iz = 0; iz < size; iz++) {
-
-          idx = (ix * size + iy) * size + iz;
-
-          if (ix > size / 2) iix = static_cast<int>(ix) - size; else iix = ix;
-          if (iy > size / 2) iiy = static_cast<int>(iy) - size; else iiy = iy;
-          if (iz > size / 2) iiz = static_cast<int>(iz) - size; else iiz = iz;
-
-          kfft = (T) (iix * iix + iiy * iiy + iiz * iiz);
-
-          psift1k[idx].real(-pField_k[idx].imag() / (T) (kfft) * iix / kw);
-          psift1k[idx].imag(pField_k[idx].real() / (T) (kfft) * iix / kw);
-          psift2k[idx].real(-pField_k[idx].imag() / (T) (kfft) * iiy / kw);
-          psift2k[idx].imag(pField_k[idx].real() / (T) (kfft) * iiy / kw);
-          psift3k[idx].real(-pField_k[idx].imag() / (T) (kfft) * iiz / kw);
-          psift3k[idx].imag(pField_k[idx].real() / (T) (kfft) * iiz / kw);
-        }
-      }
-    }
-
-    psift1k[0] = complex<T>(0., 0.);
-    psift2k[0] = complex<T>(0., 0.);
-    psift3k[0] = complex<T>(0., 0.);
-
-    fft(psift1k.data(), psift1k.data(), size,
-        -1); //the output .imag() part is non-zero because of the Nyquist frequency, but this is not used anywhere else
-    fft(psift2k.data(), psift2k.data(), size, -1); //same
-    fft(psift3k.data(), psift3k.data(), size, -1); //same
-
-    pOff_x = std::make_shared<LiteralField<T,T>>(*this);
-    pOff_y = std::make_shared<LiteralField<T,T>>(*this);
-    pOff_z = std::make_shared<LiteralField<T,T>>(*this);
-
-    auto & off_x = pOff_x->getDataVector();
-    auto & off_y = pOff_y->getDataVector();
-    auto & off_z = pOff_z->getDataVector();
-
-    //apply ZA:
-#pragma omp parallel for schedule(static) default(shared) private(idx)
-    for (size_t ix = 0; ix < size; ix++) {
-      pb.tick();
-      for (size_t iy = 0; iy < size; iy++) {
-        for (size_t iz = 0; iz < size; iz++) {
-
-          idx = (ix * size + iy) * size + iz;
-
-          // position offset in physical coordinates
-          off_x[idx] = psift1k[idx].real();
-          off_y[idx] = psift2k[idx].real();
-          off_z[idx] = psift3k[idx].real();
-
-        }
-      }
-    }
-
-
   }
 
 
@@ -467,6 +306,7 @@ public:
   }
 
   void simWrap(Coordinate<T> & pos) const {
+    // TODO: this doesn't belong in the Grid class
     pos.x = fmod(pos.x, simsize);
     if (pos.x < 0) pos.x += simsize;
     pos.y = fmod(pos.y, simsize);
@@ -635,14 +475,14 @@ public:
   }
 
   bool pointsToGrid(const Grid<T> *pOther) const override {
-    return pUnderlying.get() == pOther;
+    return pUnderlying.get() == pOther || pUnderlying->pointsToGrid(pOther);
   }
 
-  virtual T getFieldAt(size_t i, const TRealField &field) override {
+  virtual T getFieldAt(size_t i, const TRealField &field) const override {
     throw std::runtime_error("getFieldAt is not implemented for this type of VirtualGrid");
   }
 
-  virtual complex<T> getFieldAt(size_t i, const TField &field) override {
+  virtual complex<T> getFieldAt(size_t i, const TField &field) const override {
     throw std::runtime_error("getFieldAt is not implemented for this type of VirtualGrid");
   }
 
@@ -662,21 +502,18 @@ public:
     return pUnderlying->estimateParticleListSize();
   }
 
-  virtual void zeldovich(T hfac, T particlecellMass, Field<complex<T>,T> & field) override {
-    throw std::runtime_error("VirtualGrid - does not contain an actual field in memory");
+
+
+  virtual T getMass(const particle::ParticleGenerator<T> & generator) const override {
+    return pUnderlying->getMass(generator);
   }
 
-
-  virtual T getMass() const override {
-    return pUnderlying->getMass();
+  particle::Particle<T> getParticleNoWrap(size_t id, const particle::ParticleGenerator<T> & generator) const override {
+    return pUnderlying->getParticleNoWrap(id, generator);
   }
 
-  Particle<T> getParticleNoWrap(size_t id) const override {
-    return pUnderlying->getParticleNoWrap(id);
-  }
-
-  void getParticleFromOffset(Particle<T> & particle) const override {
-    pUnderlying->getParticleFromOffset(particle);
+  void getParticleFromOffset(particle::Particle<T> & particle, const particle::ParticleGenerator<T> & generator) const override {
+    pUnderlying->getParticleFromOffset(particle, generator);
   }
 
 };
@@ -705,8 +542,8 @@ public:
     factor3 = factor * factor * factor;
   }
 
-  virtual T getMass() const override {
-    return this->pUnderlying->getMass() / factor3;
+  virtual T getMass(const particle::ParticleGenerator<T> & generator) const override {
+    return this->pUnderlying->getMass(generator) / factor3;
   }
 
   virtual void debugName(std::ostream &s) const override {
@@ -729,25 +566,25 @@ public:
     return this->pUnderlying->estimateParticleListSize() * factor3;
   }
 
-  virtual Particle<T> getParticleNoWrap(size_t id) const override {
-    Particle<T> particle;
+  virtual particle::Particle<T> getParticleNoWrap(size_t id, const particle::ParticleGenerator<T> & generator) const override {
+    particle::Particle<T> particle;
     particle.pos = this->getCellCentroid(id);
-    getParticleFromOffset(particle);
+    getParticleFromOffset(particle, generator);
     return particle;
   }
 
-  void getParticleFromOffset(Particle<T> & particle) const override {
-    this->pUnderlying->getParticleFromOffset(particle);
+  void getParticleFromOffset(particle::Particle<T> & particle, const particle::ParticleGenerator<T> & generator) const override {
+    this->pUnderlying->getParticleFromOffset(particle, generator);
     // adjust mass
     particle.mass /= factor3;
   }
 
-  virtual T getFieldAt(size_t i, const TRealField &field) override {
+  virtual T getFieldAt(size_t i, const TRealField &field) const override {
     auto centroid = this->getCellCentroid(i);
     return this->pUnderlying->getFieldInterpolated(centroid, field);
   }
 
-  virtual complex<T> getFieldAt(size_t i, const TField &field) override {
+  virtual complex<T> getFieldAt(size_t i, const TField &field) const override {
     auto centroid = this->getCellCentroid(i);
     return this->pUnderlying->getFieldInterpolated(centroid, field);
   }
@@ -779,17 +616,17 @@ public:
     s << "OffsetGrid";
   }
 
-  virtual Particle<T> getParticleNoWrap(size_t id) const {
-    auto particle = this->pUnderlying->getParticleNoWrap(id);
+  virtual particle::Particle<T> getParticleNoWrap(size_t id, const particle::ParticleGenerator<T> & generator) const {
+    auto particle = this->pUnderlying->getParticleNoWrap(id, generator);
     particle.pos+=positionOffset;
     this->simWrap(particle.pos);
     return particle;
   }
 
-  void getParticleFromOffset(Particle<T> &particle) const override {
+  void getParticleFromOffset(particle::Particle<T> &particle, const particle::ParticleGenerator<T> & generator) const override {
     particle.pos-=positionOffset;
     this->simWrap(particle.pos);
-    this->pUnderlying->getParticleFromOffset(particle);
+    this->pUnderlying->getParticleFromOffset(particle, generator);
     particle.pos+=positionOffset;
     this->simWrap(particle.pos);
   }
@@ -869,19 +706,19 @@ public:
     s << "SectionOfGrid";
   }
 
-  virtual Particle<T> getParticleNoWrap(size_t id) const {
-    return this->pUnderlying->getParticleNoWrap(mapIndexToUnderlying(id));
+  virtual particle::Particle<T> getParticleNoWrap(size_t id, const particle::ParticleGenerator<T> & generator) const {
+    return this->pUnderlying->getParticleNoWrap(mapIndexToUnderlying(id),generator);
   }
 
-  void getParticleFromOffset(Particle<T> &particle) const override {
-    return this->pUnderlying->getParticleFromOffset(particle);
+  void getParticleFromOffset(particle::Particle<T> &particle,const particle::ParticleGenerator<T> & generator) const override {
+    return this->pUnderlying->getParticleFromOffset(particle,generator);
   }
 
-  virtual T getFieldAt(size_t i, const TRealField &field) override {
+  virtual T getFieldAt(size_t i, const TRealField &field) const override {
     return this->pUnderlying->getFieldAt(mapIndexToUnderlying(i), field);
   }
 
-  virtual complex<T> getFieldAt(size_t i, const TField &field) override {
+  virtual complex<T> getFieldAt(size_t i, const TField &field) const override {
     return this->pUnderlying->getFieldAt(mapIndexToUnderlying(i), field);
   }
 
@@ -953,8 +790,8 @@ public:
   }
 
 
-  virtual T getMass() const override {
-    return this->pUnderlying->getMass() * factor3;
+  virtual T getMass(const particle::ParticleGenerator<T> & generator) const override {
+    return this->pUnderlying->getMass(generator) * factor3;
   }
 
   int forEachSubcell(size_t id, std::function<void(size_t)> callback) const {
@@ -986,11 +823,11 @@ public:
     return localFactor3;
   }
 
-  virtual Particle<T> getParticleNoWrap(size_t id) const override {
-    Particle<T> particle(0); // initializes values to zeros
+  virtual particle::Particle<T> getParticleNoWrap(size_t id, const particle::ParticleGenerator<T> & generator) const override {
+    particle::Particle<T> particle(0); // initializes values to zeros
 
     int localFactor3 = forEachSubcell(id, [&](size_t sub_id) {
-      Particle<T> sub_particle = this->pUnderlying->getParticleNoWrap(sub_id);
+      particle::Particle<T> sub_particle = this->pUnderlying->getParticleNoWrap(sub_id, generator);
       particle.pos+=sub_particle.pos;
       particle.vel+=sub_particle.vel;
       particle.soft+=sub_particle.soft;
@@ -1010,11 +847,11 @@ public:
 
   }
 
-  virtual Particle<T> getParticleNoOffset(size_t id) const override {
-    Particle<T> particle(0); // initializes values to zeros
+  virtual particle::Particle<T> getParticleNoOffset(size_t id, const particle::ParticleGenerator<T> & generator) const override {
+    particle::Particle<T> particle(0); // initializes values to zeros
 
     int localFactor3 = forEachSubcell(id, [&](size_t sub_id) {
-      Particle<T> sub_particle = this->pUnderlying->getParticleNoOffset(sub_id);
+      particle::Particle<T> sub_particle = this->pUnderlying->getParticleNoOffset(sub_id, generator);
       particle.pos+=sub_particle.pos;
       particle.vel+=sub_particle.vel;
       particle.soft+=sub_particle.soft;
@@ -1034,7 +871,7 @@ public:
 
   }
 
-  virtual complex<T> getFieldAt(size_t i, const TField &field) {
+  virtual complex<T> getFieldAt(size_t i, const TField &field) const override {
     complex<T> returnVal(0);
     int localFactor3 = forEachSubcell(i, [this, &returnVal, &field](size_t local_id) {
       returnVal += field[local_id];
@@ -1042,7 +879,7 @@ public:
     return returnVal / T(localFactor3);
   }
 
-  virtual T getFieldAt(size_t i, const TRealField &field) {
+  virtual T getFieldAt(size_t i, const TRealField &field) const override {
     T returnVal(0);
     int localFactor3 = forEachSubcell(i, [this, &returnVal, &field](size_t local_id) {
       returnVal += field[local_id];
@@ -1051,8 +888,8 @@ public:
   }
 
 
-  void getParticleFromOffset(Particle<T> &particle) const override {
-    this->pUnderlying->getParticleFromOffset(particle);
+  void getParticleFromOffset(particle::Particle<T> &particle, const particle::ParticleGenerator<T> & generator) const override {
+    this->pUnderlying->getParticleFromOffset(particle, generator);
     particle.mass *= factor3;
   }
 
@@ -1082,18 +919,18 @@ public:
     s << "MassScaledGrid";
   }
 
-  virtual T getMass() const override {
-    return this->pUnderlying->getMass() * massFac;
+  virtual T getMass(const particle::ParticleGenerator<T> & generator) const override {
+    return this->pUnderlying->getMass(generator) * massFac;
   }
 
-  virtual Particle<T> getParticleNoWrap(size_t id) const {
-    auto result = this->pUnderlying->getParticleNoWrap(id);
+  virtual particle::Particle<T> getParticleNoWrap(size_t id, const particle::ParticleGenerator<T> & generator) const {
+    auto result = this->pUnderlying->getParticleNoWrap(id, generator);
     result.mass *= massFac;
     return result;
   }
 
-  void getParticleFromOffset(Particle<T> &particle) const override {
-    this->pUnderlying->getParticleFromOffset(particle);
+  void getParticleFromOffset(particle::Particle<T> &particle, const particle::ParticleGenerator<T> & generator) const override {
+    this->pUnderlying->getParticleFromOffset(particle, generator);
     particle.mass*=massFac;
   }
 
