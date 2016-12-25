@@ -4,7 +4,7 @@ project(IC)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14  -fopenmp -g -O0")
 
 set(SOURCE_FILES
-        IC/src/argsort.hpp
+        IC/src/utils.hpp
         IC/src/constraintapplicator.hpp
         IC/src/cosmo.hpp
         IC/src/dummyic.hpp
@@ -41,3 +41,7 @@ link_libraries(fftw3 m fftw3 fftw3_threads gsl gslcblas)
 
 add_definitions(-DFFTW3 -DFFTW_THREADS -DOPENMP -DGIT_VERSION -DGIT_MODIFIED -DDOUBLEPRECISION -DOUTPUT_IN_DOUBLEPRECISION)
 add_executable(IC ${SOURCE_FILES} )
+
+add_custom_command(TARGET IC
+        POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:IC> /Users/app/Science/genetIC/IC/IC)

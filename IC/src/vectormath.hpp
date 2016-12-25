@@ -1,5 +1,5 @@
-#ifndef _SPARSE_HPP_INCLUDED
-#define _SPARSE_HPP_INCLUDED
+#ifndef _VECTORMATH_HPP_INCLUDED
+#define _VECTORMATH_HPP_INCLUDED
 
 #include <cassert>
 #include <vector>

@@ -5,24 +5,22 @@ Om  0.279
 Ol  0.721
 Ob  0.00001
 s8  0.817
-Boxl	50
 zin	99
-n       32
-output	1
-seedfourier	8896131
+camb	../camb_transfer_kmax40_z0.dat
 
-outname test_6
+basegrid 50.0 32
+
+seedfourier	8896131
 
 centre 25 25 25
 select_sphere 5
 
-zoom 2
-n2 32
-dozoom
+zoomgrid 2 32
 
-camb	../camb_transfer_kmax40_z0.dat
+
+outname test_6
 outdir	 ./
-gadgetformat 4
+outformat 4
 
 supersample 2
 

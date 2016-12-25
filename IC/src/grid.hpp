@@ -11,6 +11,7 @@
 #include "filter.hpp"
 #include "coordinate.hpp"
 #include "progress/progress.hpp"
+#include "utils.hpp"
 
 using namespace std;
 
@@ -65,7 +66,9 @@ private:
 public:
   const T simsize, boxsize, dx;
   const Coordinate<T> offsetLower;
-  const size_t size, size2, size3;
+  const size_t size; ///<the number of cells on a side
+  const size_t size2; ///< the number of cells on a face
+  const size_t size3; ///< the total number of cells in the grid cube
   const T cellMassFrac; ///< the fraction of mass of the full simulation in a single cell of this grid
   const T cellSofteningScale; ///< normally 1.0; scales softening relative to dx
 
@@ -117,21 +120,21 @@ public:
   GridPtrType makeProxyGridToMatch(const Grid<T> &target) const {
     GridPtrType proxy = std::const_pointer_cast<Grid<T>>(this->shared_from_this());
     if (target.dx > dx) {
-      int ratio = getRatioAndAssertInteger(target.dx, dx);
+      size_t ratio = getRatioAndAssertPositiveInteger(target.dx, dx);
       proxy = std::make_shared<SubSampleGrid<T>>(proxy, ratio);
     } else if (target.dx < dx) {
-      int ratio = getRatioAndAssertInteger(dx, target.dx);
+      size_t ratio = getRatioAndAssertPositiveInteger(dx, target.dx);
       proxy = std::make_shared<SuperSampleGrid<T>>(proxy, ratio);
     }
 
     if (target.offsetLower != offsetLower || target.size != proxy->size) {
       proxy = std::make_shared<SectionOfGrid<T>>(proxy,
                                                  getRatioAndAssertInteger(target.offsetLower.x - offsetLower.x,
-                                                                          proxy->dx),
+                                                                                  proxy->dx),
                                                  getRatioAndAssertInteger(target.offsetLower.y - offsetLower.y,
-                                                                          proxy->dx),
+                                                                                  proxy->dx),
                                                  getRatioAndAssertInteger(target.offsetLower.z - offsetLower.z,
-                                                                          proxy->dx),
+                                                                                  proxy->dx),
                                                  target.size);
     }
 
@@ -310,12 +313,6 @@ public:
     auto coords = floor((coord - offsetLower - dx / 2) / dx);
     return getCellIndexNoWrap(coords);
   }
-  /*
-  int xa=((int) floor((x0c-x0-dx/2)/dx));
-  int ya=((int) floor((y0c-y0-dx/2)/dx));
-  int za=((int) floor((z0c-z0-dx/2)/dx));
-  return getIndexNoWrap(xa,ya,za);
-  */
 
   void appendIdsInCubeToVector(T x0c, T y0c, T z0c, T dxc, vector<size_t> &ids) {
     // return all the grid IDs whose centres lie within the specified cube
@@ -380,14 +377,6 @@ protected:
     }
     targetArray.clear();
     targetArray.insert(targetArray.end(), targetSet.begin(), targetSet.end());
-  }
-
-  static int getRatioAndAssertInteger(T p, T q) {
-    const T tolerance = 1e-6;
-    T ratio = p / q;
-    int rounded_ratio = int(round(ratio));
-    assert(abs(T(rounded_ratio) - ratio) < tolerance);
-    return rounded_ratio;
   }
 
 

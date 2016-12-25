@@ -56,19 +56,11 @@ namespace io {
       }
 
     protected:
-      static size_t getRatioAndAssertInteger(T a, T b, T tol=1e-8) {
-        T ratio = a/b;
-        size_t ratio_int = size_t(round(ratio));
-
-        T residual = T(ratio_int)-ratio;
-        assert(abs(residual)<tol);
-        return ratio_int;
-      }
 
       void writeGrid(const Grid<T> & targetGrid) {
         auto & gridGenerator = generator->getGeneratorForGrid(targetGrid);
         const Grid<T> & baseGrid = context.getGridForLevel(0);
-        size_t effective_size =  getRatioAndAssertInteger(baseGrid.dx*baseGrid.size, targetGrid.dx);
+        size_t effective_size = getRatioAndAssertPositiveInteger(baseGrid.dx * baseGrid.size, targetGrid.dx);
 	      progress::ProgressBar pb("write grid "+std::to_string(effective_size), targetGrid.size);
 
         std::string thisGridFilename = outputFilename+"_"+std::to_string(effective_size);

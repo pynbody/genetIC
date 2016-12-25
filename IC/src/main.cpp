@@ -52,21 +52,21 @@ void setup_parser(ClassDispatch<ICf, void> &dispatch) {
   dispatch.add_class_route("Ol", &ICf::setOmegaLambda0);
   dispatch.add_class_route("hubble", &ICf::setHubble);
   dispatch.add_class_route("s8", &ICf::setSigma8);
-  dispatch.add_class_route("Boxl", &ICf::setBoxLen);
+  dispatch.add_class_route("basegrid", &ICf::initBaseGrid);
+  dispatch.add_class_route("zoomgrid", &ICf::initZoomGrid);
+  // dispatch.add_class_route("Boxl", &ICf::setBoxLen);
   dispatch.add_class_route("zin", &ICf::setZ0);
-  dispatch.add_class_route("n", &ICf::setn);
+  // dispatch.add_class_route("n", &ICf::setn);
   dispatch.add_class_route("supersample", &ICf::setSupersample);
   dispatch.add_class_route("subsample", &ICf::setSubsample);
   dispatch.add_class_route("ns", &ICf::setns);
-  dispatch.add_class_route("output", &ICf::setOutputMode);
   dispatch.add_class_route("seed", &ICf::setSeed);
   dispatch.add_class_route("seedfourier", &ICf::setSeedFourier);
   dispatch.add_class_route("seedfourier_old", &ICf::setSeedFourierReverseOrder);
   dispatch.add_class_route("camb", &ICf::setCambDat);
   dispatch.add_class_route("outdir", &ICf::setOutDir);
   dispatch.add_class_route("outname", &ICf::setOutName);
-  dispatch.add_class_route("gadgetformat", &ICf::setGadgetFormat);
-  dispatch.add_class_route("prepare", &ICf::prepare);
+  dispatch.add_class_route("outformat", &ICf::setOutputFormat);
 
   dispatch.add_class_route("IDfile", &ICf::loadID);
   dispatch.add_class_route("append_IDfile", &ICf::appendID);
@@ -92,10 +92,10 @@ void setup_parser(ClassDispatch<ICf, void> &dispatch) {
   dispatch.add_class_route("exact_power_spectrum_enforcement", &ICf::setExactPowerSpectrumEnforcement);
 
   dispatch.add_class_route("relative_to", &ICf::setInputMapper);
-  dispatch.add_class_route("zoom", &ICf::setZoom);
-  dispatch.add_class_route("n2", &ICf::setn2);
-  dispatch.add_class_route("zoom_IDfile", &ICf::setZoomParticles);
-  dispatch.add_class_route("dozoom", &ICf::doZoom);
+  // dispatch.add_class_route("zoom", &ICf::setZoom);
+  // dispatch.add_class_route("n2", &ICf::setn2);
+  // dispatch.add_class_route("zoom_IDfile", &ICf::setZoomParticles);
+  // dispatch.add_class_route("dozoom", &ICf::doZoom);
   dispatch.add_class_route("dump", &ICf::saveTipsyArray);
   // dispatch.add_class_route("writeLevel", &ICf::writeLevel);
 

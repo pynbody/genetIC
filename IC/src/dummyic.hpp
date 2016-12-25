@@ -12,36 +12,6 @@ public:
 
   }
 
-  void initGrid(unsigned int level) override {
-
-    if (this->n[level] < 0 || this->boxlen[level] < 0)
-      return;
-
-    this->dx[level] = this->boxlen[level] / this->n[level];
-
-    if (this->pGrid.size() != level)
-      throw std::runtime_error("Trying to re-initialize a grid level");
-
-    if (pUnderlying->n[level] != this->n[level])
-      throw std::runtime_error("Trying to match particles between incompatible simulation setups (wrong grid n)");
-
-    if (pUnderlying->dx[level] != this->dx[level])
-      throw std::runtime_error("Trying to match particles between incompatible simulation setups (wrong grid dx)");
-
-    if (pUnderlying->x_off[level] != this->x_off[level] || pUnderlying->y_off[level] != this->y_off[level] ||
-        pUnderlying->z_off[level] != this->z_off[level])
-      throw std::runtime_error("Trying to match particles between incompatible simulation setups (wrong grid origin)");
-
-    this->pGrid.push_back(this->pUnderlying->pGrid[level]);
-
-    this->updateParticleMapper();
-
-  }
-
-  void drawRandom() override {
-
-  }
-
   void zeroLevel(int level) override {
 
   }
@@ -52,11 +22,8 @@ public:
 
   void dumpPS(int level) override { }
 
-  void zeldovich() override { }
 
   void write() override { }
-
-  void prepare() override { }
 
   void constrain(string name, string type, float value) override { }
 

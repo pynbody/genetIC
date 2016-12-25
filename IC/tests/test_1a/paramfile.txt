@@ -4,22 +4,17 @@ Om  0.279
 Ol  0.721
 #Ob  0.04
 s8  0.817
-Boxl	50
 zin	99
-n       32
-output	1
 seed	8896131
+
 outname test_1
-
-
-#zoom 3
-#n2 128
-#zoom_IDfile zoomtest.txt
-
+outdir	 ./
+outformat 4
 
 camb	../camb_transfer_kmax40_z0.dat
-outdir	 ./
-gadgetformat 4
+basegrid 50.0 32
+
+
 
 
 offset_output 2 4 7.2

@@ -20,8 +20,10 @@
 #include "multilevelfield.hpp"
 #include "particles/generator.hpp"
 #include "particles/multilevelgenerator.hpp"
+#include "parser.hpp"
 
-#define for_each_level(level) for(size_t level=0; level<2 && n[level]>0; level++)
+//TODO: remove ugly macro
+#define for_each_level(level) for(size_t level=0; level<multiLevelContext.getNumLevels(); ++level)
 
 using namespace std;
 
@@ -50,29 +52,15 @@ protected:
 
   CAMB<T> spectrum;
 
-  // Everything about the grids:
-  T boxlen[2], dx[2];      // the box length of each grid
-  int n[2];                // number of grid divisions along one axis
-
   int supersample, subsample;               // DM supersampling to perform on zoom grid, and subsampling on base grid
-
-  std::vector<GridPtrType> pGrid;       // the objects that help us relate points on the grid
-
-  T x_off[2], y_off[2], z_off[2]; // x,y,z offsets for subgrids
 
   T xOffOutput, yOffOutput, zOffOutput;
 
-  int zoomfac; // the zoom factor, i.e. the ratio dx/dx[1]
 
-
-
-  int out;
   io::OutputFormat outputFormat;
+  string outputFolder, outputFilename;
 
-  string indir, inname, base;
-
-
-  bool prepared;
+  bool haveInitialisedRandomComponent;
   bool exactPowerSpectrum;
 
   std::vector<size_t> flaggedParticles;
@@ -106,12 +94,7 @@ public:
     cosmology.OmegaBaryons0 = -1.0;
     cosmology.ns = 0.96;      // old default
     cosmology.TCMB = 2.725;
-    n[0] = -1;
-    n[1] = -1; // no subgrid by default
-    boxlen[0] = -1;
-    x_off[0] = y_off[0] = z_off[0] = 0;
-    x_off[1] = y_off[1] = z_off[1] = 0;
-    prepared = false;
+    haveInitialisedRandomComponent = false;
     supersample = 1;
     subsample = 1;
     xOffOutput = 0;
@@ -168,37 +151,24 @@ public:
     updateParticleMapper();
   }
 
-  void setBoxLen(T in) {
-    boxlen[0] = in;
-    initGrid();
-  }
-
   void setZ0(T in) {
     cosmology.redshift = in;
     cosmology.scalefactor = 1. / (cosmology.redshift + 1.);
   }
 
-  void setn(int in) {
-    n[0] = in;
-    initGrid();
-  }
 
-  virtual void initGrid(unsigned int level = 0) {
+  virtual void initBaseGrid(T boxSize, size_t n)
+  {
+    assert(boxSize>0);
 
-    if (n[level] < 0 || boxlen[level] < 0)
-      return;
+    if(multiLevelContext.getNumLevels()>0)
+      throw std::runtime_error("Cannot re-initialize the base grid");
 
-    dx[level] = boxlen[level] / n[level];
+    if (haveInitialisedRandomComponent)
+      throw (std::runtime_error("Trying to initialize a grid after the random field was already drawn"));
 
-    if (pGrid.size() != level)
-      throw std::runtime_error("Trying to re-initialize a grid level");
-
-    pGrid.push_back(std::make_shared<Grid<T>>(boxlen[0], n[level], dx[level],
-                                                    x_off[level], y_off[level], z_off[level]));
-
-
+    multiLevelContext.addLevel(spectrum, boxSize, n);
     updateParticleMapper();
-    updateMultilevelContext();
 
   }
 
@@ -206,43 +176,26 @@ public:
     cosmology.ns = in;
   }
 
-  void setn2(int in) {
-    n[1] = in;
-  }
+  void initZoomGrid(size_t zoomfac, size_t n) {
+    if (haveInitialisedRandomComponent)
+      throw (std::runtime_error("Trying to initialize a grid after the random field was already drawn"));
 
-  void setZoom(int in) {
-    // open a subgrid which is the specified factor smaller than
-    // the parent grid
-    boxlen[1] = boxlen[0] / in;
-    zoomfac = in;
-  }
-
-  void setZoomParticles(string fname) {
-    appendParticleIdFile(fname);
-    doZoom();
-  }
-
-  void doZoom() {
-    if (n[1] == 0)
-      throw (std::runtime_error("Set n2 before specifying the zoom particles"));
-
-    if (boxlen[1] == 0)
-      throw (std::runtime_error("Set the zoom factor before specifying the zoom particles"));
-
-    pGrid[0]->getFlaggedCells(zoomParticleArray);
+    assert(multiLevelContext.getNumLevels()==1); // TODO: to be relaxed SOON
+    Grid<T> & gridAbove = multiLevelContext.getGridForLevel(0);
+    int nAbove = gridAbove.size;
+    gridAbove.getFlaggedCells(zoomParticleArray);
 
     // find boundaries
     int x0, x1, y0, y1, z0, z1;
     int x, y, z;
 
-    x0 = y0 = z0 = n[0];
+    x0 = y0 = z0 = gridAbove.size;
     x1 = y1 = z1 = 0;
-    Grid<T> g(n[0]);
 
     // TO DO: wrap the box sensibly
 
     for (size_t i = 0; i < zoomParticleArray.size(); i++) {
-      std::tie(x, y, z) = g.getCellCoordinate(zoomParticleArray[i]);
+      std::tie(x, y, z) = gridAbove.getCellCoordinate(zoomParticleArray[i]);
       if (x < x0) x0 = x;
       if (y < y0) y0 = y;
       if (z < z0) z0 = z;
@@ -252,7 +205,7 @@ public:
     }
 
     // Now see if the zoom the user chose is OK
-    int n_user = n[0] / zoomfac;
+    int n_user = nAbove / zoomfac;
     if ((x1 - x0) > n_user || (y1 - y0) > n_user || (z1 - z0) > n_user) {
       throw (std::runtime_error(
         "Zoom particles do not fit in specified sub-box. Decrease zoom, or choose different particles. (NB wrapping not yet implemented)"));
@@ -262,59 +215,37 @@ public:
     // zoom box.
 
     // Here is the bottom left of the box:
-    x = (x0 + x1) / 2 - n[0] / (2 * zoomfac);
-    y = (y0 + y1) / 2 - n[0] / (2 * zoomfac);
-    z = (z0 + z1) / 2 - n[0] / (2 * zoomfac);
+    x = (x0 + x1) / 2 - nAbove / (2 * zoomfac);
+    y = (y0 + y1) / 2 - nAbove / (2 * zoomfac);
+    z = (z0 + z1) / 2 - nAbove / (2 * zoomfac);
 
     if (x < 0) x = 0;
     if (y < 0) y = 0;
     if (z < 0) z = 0;
-    if (x > n[0] - n[0] / zoomfac) x = n[0] - n[0] / zoomfac;
-    if (y > n[0] - n[0] / zoomfac) y = n[0] - n[0] / zoomfac;
-    if (z > n[0] - n[0] / zoomfac) z = n[0] - n[0] / zoomfac;
+    if (x > nAbove - nAbove / zoomfac) x = nAbove - nAbove / zoomfac;
+    if (y > nAbove - nAbove / zoomfac) y = nAbove - nAbove / zoomfac;
+    if (z > nAbove - nAbove / zoomfac) z = nAbove - nAbove / zoomfac;
 
+    Coordinate<T> newOffsetLower = gridAbove.offsetLower + Coordinate<T>(x,y,z)*gridAbove.dx;
 
-    x_off[1] = x_off[0] + x * dx[0];
-    y_off[1] = y_off[0] + y * dx[0];
-    z_off[1] = z_off[0] + z * dx[0];
+    multiLevelContext.addLevel(spectrum, gridAbove.boxsize/zoomfac, n, newOffsetLower);
 
+    Grid<T> &newGrid = multiLevelContext.getGridForLevel(1);
 
-    initZoom();
-
-  }
-
-  void initZoom() {
-    zoomfac = (boxlen[0] / n[0]) / (boxlen[1] / n[1]);
-    dx[1] = boxlen[1] / n[1];
     cout << "Initialized a zoom region:" << endl;
-    cout << "  Subbox length   = " << boxlen[1] << " Mpc/h" << endl;
-    cout << "  n[1]            = " << n[1] << endl;
-    cout << "  dx[1]           = " << dx[1] << endl;
+    cout << "  Subbox length   = " << newGrid.boxsize << " Mpc/h" << endl;
+    cout << "  n[1]            = " << newGrid.size << endl;
+    cout << "  dx[1]           = " << newGrid.dx << endl;
     cout << "  Zoom factor     = " << zoomfac << endl;
-    cout << "  Low-left corner = " << x_off[1] << ", " << y_off[1] << ", " << z_off[1] << endl;
+    cout << "  Low-left corner = " << newGrid.offsetLower.x << ", " << newGrid.offsetLower.y << ", " << newGrid.offsetLower.z << endl;
     cout << "  Num particles   = " << zoomParticleArray.size() << endl;
-    initGrid(1);
 
     updateParticleMapper();
 
     cout << "  Total particles = " << pMapper->size() << endl;
-  }
-
-
-  void setOutputMode(int in) {
-    out = in; // the joy of writing this line is substantial
-
-    if (out != 0 && out != 1 && out != 2)
-      throw runtime_error("Wrong output format, choose 0 (HDF5), 1 (Gadget) or 2 (both)");
-
-#ifndef HAVE_HDF5
-    if (out != 1)
-      throw runtime_error("Not compiled with HDF5. Only output=1 is allowed in this case!");
-#endif
-
-    updateParticleMapper();
 
   }
+
 
   void setSeed(int in) {
     randomFieldGenerator.seed(in);
@@ -338,62 +269,37 @@ public:
 
   void setCambDat(std::string in) {
     spectrum.read(in, cosmology);
-    updateMultilevelContext();
   }
 
   void setOutDir(std::string in) {
-    indir = in;
+    outputFolder = in;
   }
 
   void setOutName(std::string in) {
-    inname = in;
+    outputFilename = in;
   }
 
-  void setGadgetFormat(int in) {
+  void setOutputFormat(int in) {
     outputFormat = static_cast<io::OutputFormat>(in);
     updateParticleMapper();
-    if (!prepared)
-      prepare(); //compatibility with old paramfiles
   }
 
-  string make_base(string basename, int level = 0) {
-    ostringstream nult;
-    if (inname.size() == 0) {
-      nult << basename << "IC_iter_" << floatinfo<T>::name << "_z" << cosmology.redshift << "_" << n[level] <<
-      "_L" << boxlen[level];
-
+  string getOutputPath() {
+    ostringstream fname_stream;
+    if (outputFilename.size() == 0) {
+      fname_stream << outputFolder << "/IC_" << floatinfo<T>::name << "_z" << cosmology.redshift << "_" << multiLevelContext.getGridForLevel(0).size;
     } else {
-      if (level == 0)
-        nult << basename << "/" << inname;
-      else
-        nult << basename << "/" << inname << "_" << level;
+      fname_stream << outputFolder << "/" << outputFilename;
     }
-    return nult.str();
-  }
-
-  void readCamb() {
-
-    updateMultilevelContext();
-  }
-
-  void updateMultilevelContext() {
-    if (spectrum.isUsable()) {
-      multiLevelContext.clear();
-      for_each_level(level) {
-        multiLevelContext.addLevel(spectrum.getPowerSpectrumForGrid(*(this->pGrid[level])),
-                                   this->pGrid[level]);
-      }
-    }
-  }
-
-
-  virtual void drawRandom() {
-    randomFieldGenerator.draw();
+    return fname_stream.str();
   }
 
   virtual void zeroLevel(int level) {
-    cerr << "*** Warning: your script calls zeroLevel(" << level << "). This is intended for testing purposes only!" <<
-    endl;
+    cerr << "*** Warning: your script calls zeroLevel(" << level << "). This is intended for testing purposes only!" << endl;
+
+    if(!haveInitialisedRandomComponent)
+      initialiseRandomComponent();
+
     auto &fieldData = outputField.getFieldForLevel(level).getDataVector();
     std::fill(fieldData.begin(), fieldData.end(), 0);
   }
@@ -409,21 +315,25 @@ public:
 
   template<typename TField>
   void dumpGridData(int level, const TField &data) {
-    assert(data.size() == pGrid[level]->size3);
+    Grid<T> & levelGrid = multiLevelContext.getGridForLevel(level);
+    assert(data.size() == levelGrid.size3);
     ostringstream filename;
-    filename << indir << "/grid-" << level << ".npy";
+    filename << outputFolder << "/grid-" << level << ".npy";
 
-    const int dim[3] = {n[level], n[level], n[level]};
+    int n = levelGrid.size;
+
+    const int dim[3] = {n,n,n};
     numpy::SaveArrayAsNumpy(filename.str(), false, 3, dim, data.data());
 
     filename.str("");
-    filename << indir << "/grid-info-" << level << ".txt";
+    filename << outputFolder << "/grid-info-" << level << ".txt";
 
     ofstream ifile;
     ifile.open(filename.str());
     cerr << "Writing to " << filename.str() << endl;
 
-    ifile << x_off[level] << " " << y_off[level] << " " << z_off[level] << " " << boxlen[level] << endl;
+    ifile << levelGrid.offsetLower.x << " " << levelGrid.offsetLower.y << " "
+          << levelGrid.offsetLower.z << " " << levelGrid.boxsize << endl;
     ifile << "The line above contains information about grid level " << level << endl;
     ifile << "It gives the x-offset, y-offset and z-offset of the low-left corner and also the box length" << endl;
     ifile.close();
@@ -442,13 +352,13 @@ public:
   virtual void dumpPS(int level = 0) {
     auto & field = outputField.getFieldForLevel(level);
     field.toFourier();
-    powsp_noJing(n[level], field.getDataVector(),
+    powsp_noJing(field.getGrid().size, field.getDataVector(),
                  multiLevelContext.getCovariance(level),
-                 (base + "_" + ((char) (level + '0')) + ".ps").c_str(), boxlen[level]);
+                 (getOutputPath() + "_" + ((char) (level + '0')) + ".ps").c_str(), field.getGrid().simsize);
   }
 
 
-  virtual void zeldovich() {
+  virtual void initialiseParticleGenerator() {
     // in principle this could now be easily extended to slot in higher order PT or other
     // methods of generating the particles from the fields
 
@@ -480,17 +390,19 @@ public:
   }
 
   std::shared_ptr<Grid<T>> getGridWithOutputOffset(int level = 0) {
-    auto gridForOutput = pGrid[level];
+    auto gridForOutput = multiLevelContext.getGridForLevel(level).shared_from_this();
 
     if (xOffOutput != 0 || yOffOutput != 0 || zOffOutput != 0) {
-      gridForOutput = std::make_shared<OffsetGrid<T>>(pGrid[0], xOffOutput, yOffOutput, zOffOutput);
+      gridForOutput = std::make_shared<OffsetGrid<T>>(gridForOutput,
+                                                      xOffOutput, yOffOutput, zOffOutput);
     }
     return gridForOutput;
   }
 
   void updateParticleMapper() {
+    size_t nLevels = multiLevelContext.getNumLevels();
 
-    if (pGrid.size() == 0)
+    if (nLevels == 0)
       return;
 
     // make a basic mapper for the base level grid
@@ -499,12 +411,14 @@ public:
     ));
 
 
-    if (pGrid.size() >= 3) {
+    if (nLevels >= 3) {
       // possible future enhancement, but for now...
       throw runtime_error("Don't know how to set up a mapper for more than one level of refinement");
     }
 
-    if (pGrid.size() == 2) {
+    if (nLevels == 2) {
+      size_t zoomfac = getRatioAndAssertPositiveInteger(multiLevelContext.getGridForLevel(0).dx,
+                                                        multiLevelContext.getGridForLevel(1).dx);
       // it's a zoom!
       auto pMapperLevel1 = std::shared_ptr<particle::ParticleMapper<T>>(
         new particle::OneLevelParticleMapper<T>(getGridWithOutputOffset(1)));
@@ -518,7 +432,7 @@ public:
       // Add gas only to the deepest level. Pass the whole pGrid
       // vector if you want to add gas to every level.
       auto gasMapper = pMapper->addGas(cosmology.OmegaBaryons0 / cosmology.OmegaM0,
-                                       {pGrid.back()});
+                                       {multiLevelContext.getGridForLevel(nLevels-1).shared_from_this()});
 
       bool gasFirst = outputFormat == io::OutputFormat::tipsy;
 
@@ -535,10 +449,10 @@ public:
     // potentially resample the lowest-level DM grid. Again, this is theoretically
     // more flexible if you pass in other grid pointers.
     if (supersample > 1)
-      pMapper = pMapper->superOrSubSampleDM(supersample, {pGrid.back()}, true);
+      pMapper = pMapper->superOrSubSampleDM(supersample, {multiLevelContext.getGridForLevel(nLevels-1).shared_from_this()}, true);
 
     if (subsample > 1)
-      pMapper = pMapper->superOrSubSampleDM(subsample, {pGrid[0]}, false);
+      pMapper = pMapper->superOrSubSampleDM(subsample, {multiLevelContext.getGridForLevel(0).shared_from_this()}, false);
 
   }
 
@@ -547,7 +461,7 @@ public:
     if (pInputMapper != nullptr) {
       pMapper->clearParticleList();
       pInputMapper->flagParticles(flaggedParticles);
-      pInputMapper->extendParticleListToUnreferencedGrids(this->pGrid);
+      pInputMapper->extendParticleListToUnreferencedGrids(multiLevelContext);
     }
     else {
       pMapper->clearParticleList();
@@ -559,24 +473,29 @@ public:
   virtual void write() {
     using namespace io;
 
-    zeldovich();
+    if(!haveInitialisedRandomComponent)
+      initialiseRandomComponent();
+
+    initialiseParticleGenerator();
 
     cerr << "Write, ndm=" << pMapper->size_dm() << ", ngas=" << pMapper->size_gas() << endl;
     cerr << (*pMapper);
 
+    T boxlen = multiLevelContext.getGridForLevel(0).simsize;
+
     switch(outputFormat) {
       case OutputFormat::gadget2:
       case OutputFormat::gadget3:
-        gadget::save(base + ".gadget", boxlen[0], *pMapper,
+        gadget::save(getOutputPath() + ".gadget", boxlen, *pMapper,
                      *pParticleGenerator,
                      cosmology, static_cast<int>(outputFormat));
         break;
       case OutputFormat::tipsy:
-        tipsy::save(base + ".tipsy", boxlen[0], *pParticleGenerator,
+        tipsy::save(getOutputPath() + ".tipsy", boxlen, *pParticleGenerator,
                     pMapper, cosmology);
         break;
       case OutputFormat::grafic:
-        grafic::save(base+".grafic", *pParticleGenerator, multiLevelContext, cosmology);
+        grafic::save(getOutputPath() + ".grafic", *pParticleGenerator, multiLevelContext, cosmology);
         break;
       default:
         throw std::runtime_error("Unknown output format");
@@ -584,39 +503,35 @@ public:
 
   }
 
-  void makeInitialRealizationWithoutConstraints() {
-    
-    base = make_base(indir);
+  void initialiseRandomComponent() {
+    if (haveInitialisedRandomComponent)
+      throw (std::runtime_error("Trying to re-draw the random field after it was already initialised"));
 
-    drawRandom();
-
+    randomFieldGenerator.draw();
     applyPowerSpec();
+
+    haveInitialisedRandomComponent=true;
   }
 
-
-  virtual void prepare() {
-    if (prepared)
-      throw (std::runtime_error("Called prepare, but grid is already prepared for constraints"));
-
-    makeInitialRealizationWithoutConstraints();
-
-    prepared = true;
-
-  }
 
 
 protected:
 
   int deepestLevelWithParticlesSelected() {
-    if (pGrid.size() > 1 && pGrid[1]->hasFlaggedCells()) return 1; else return 0;
+    for(size_t i=multiLevelContext.getNumLevels()-1; i>=0; --i) {
+      if(multiLevelContext.getGridForLevel(i).hasFlaggedCells())
+        return i;
+    }
+    throw std::runtime_error("No level has any particles selected");
   }
 
   int deepestLevel() {
-    if (pGrid.size() > 1) return 1; else return 0;
+    //TODO: can this be removed?
+    return multiLevelContext.getNumLevels();
   }
 
   T get_wrapped_delta(T x0, T x1) {
-    return pGrid[0]->getWrappedDelta(x0, x1);
+    return multiLevelContext.getGridForLevel(0).getWrappedDelta(x0, x1);
   }
 
 
@@ -628,12 +543,13 @@ protected:
     int level = deepestLevelWithParticlesSelected();
 
     std::vector<size_t> particleArray;
-    pGrid[level]->getFlaggedCells(particleArray);
+    Grid<T> &grid = multiLevelContext.getGridForLevel(level);
+    grid.getFlaggedCells(particleArray);
 
-    auto p0_location = pGrid[level]->getCellCentroid(particleArray[0]);
+    auto p0_location = grid.getCellCentroid(particleArray[0]);
 
     for (size_t i = 0; i < particleArray.size(); i++) {
-      auto pi_location = pGrid[level]->getCellCentroid(particleArray[i]);
+      auto pi_location = grid.getCellCentroid(particleArray[i]);
       x0 += get_wrapped_delta(pi_location.x, p0_location.x);
       y0 += get_wrapped_delta(pi_location.y, p0_location.y);
       z0 += get_wrapped_delta(pi_location.z, p0_location.z);
@@ -668,11 +584,6 @@ protected:
   }
 
 
-  auto calcConstraint(string name_in) {
-    auto constraint = constraintGenerator.calcConstraintForAllLevels(name_in);
-    constraint.toFourier();
-    return constraint;
-  }
 
 
 public:
@@ -697,15 +608,15 @@ public:
   }
 
   void centreParticle(long id) {
-    std::tie(x0, y0, z0) = pGrid[0]->getCellCentroid(id);
+    std::tie(x0, y0, z0) = multiLevelContext.getGridForLevel(0).getCellCentroid(id);
   }
 
   void selectNearest() {
-    auto grid = pGrid[deepestLevel()];
+    auto & grid = multiLevelContext.getGridForLevel(deepestLevel()-1);
     pMapper->clearParticleList();
-    size_t id = grid->getClosestIdNoWrap(Coordinate<T>(x0, y0, z0));
+    size_t id = grid.getClosestIdNoWrap(Coordinate<T>(x0, y0, z0));
     cerr << "selectNearest " <<x0 << " " << y0 << " " << z0 << " " << id << " " << endl;
-    grid->flagCells({id});
+    grid.flagCells({id});
 
   }
 
@@ -719,9 +630,10 @@ public:
 
     for_each_level(level) {
       std::vector<size_t> particleArray;
-      size_t N = this->pGrid[level]->size3;
+      Grid<T> &grid = multiLevelContext.getGridForLevel(level);
+      size_t N = grid.size3;
       for (size_t i = 0; i < N; i++) {
-        std::tie(xp, yp, zp) = pGrid[level]->getCellCentroid(i);
+        std::tie(xp, yp, zp) = grid.getCellCentroid(i);
         delta_x = get_wrapped_delta(xp, x0);
         delta_y = get_wrapped_delta(yp, y0);
         delta_z = get_wrapped_delta(zp, z0);
@@ -729,8 +641,8 @@ public:
           particleArray.push_back(i);
       }
 
-      pGrid[level]->unflagAllCells();
-      pGrid[level]->flagCells(particleArray);
+      grid.unflagAllCells();
+      grid.flagCells(particleArray);
 
     }
   }
@@ -758,7 +670,16 @@ public:
     z0 = zin;
   }
 
+  auto calcConstraint(string name_in) {
+    auto constraint = constraintGenerator.calcConstraintForAllLevels(name_in);
+    constraint.toFourier();
+    return constraint;
+  }
+
   void calculate(string name) {
+    if(!haveInitialisedRandomComponent)
+      initialiseRandomComponent();
+
     auto constraint_field = calcConstraint(name);
     auto val = constraint_field.innerProduct(outputField);
 
@@ -791,6 +712,9 @@ public:
 
 
   virtual void fixConstraints() {
+    if(!haveInitialisedRandomComponent)
+      initialiseRandomComponent();
+
     constraintApplicator.prepare();
     constraintApplicator.applyConstraints();
   }
@@ -808,7 +732,7 @@ public:
   void reverse() {
     for_each_level(level) {
       auto &field = outputField.getFieldForLevel(level);
-      size_t N = pGrid[level]->size3;
+      size_t N = field.getGrid().size3;
       for (size_t i = 0; i < N; i++)
         field[i] = -field[i];
     }
@@ -828,14 +752,14 @@ public:
 
     // remake the fields with the new seed
     randomFieldGenerator.seed(seed);
-    makeInitialRealizationWithoutConstraints();
+    initialiseRandomComponent();
 
     // copy back the old field
     for_each_level(level) {
       auto &fieldOriginal = fieldCopies[level];
       auto &field = outputField.getFieldForLevel(level);
+      auto &grid = field.getGrid();
       field.toFourier();
-      const auto &grid = *(this->pGrid[level]);
       T k2;
       size_t N = grid.size3;
       for (size_t i = 0; i < N; i++) {
@@ -857,10 +781,10 @@ public:
       T k2_g_min = std::numeric_limits<T>::max();
       T k2_g_max = 0.0;
       size_t modes_reversed = 0;
-      size_t tot_modes = pGrid[level]->size3;
       auto &field = outputField.getFieldForLevel(level);
       field.toFourier();
-      const Grid<T> &grid = *(this->pGrid[level]);
+      const Grid<T> &grid = field.getGrid();
+      size_t tot_modes = grid.size3;
       T k2;
       size_t N = grid.size3;
       for (size_t i = 0; i < N; i++) {

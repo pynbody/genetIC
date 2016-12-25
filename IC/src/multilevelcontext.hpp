@@ -17,6 +17,8 @@
 template<typename T>
 class ConstraintField;
 
+template<typename T>
+class CAMB;
 
 //#include <Eigen/Dense>
 
@@ -34,6 +36,7 @@ protected:
   std::vector<size_t> cumu_Ns;
   size_t Ntot;
   size_t nLevels;
+  T simSize;
 
   void mapIdToLevelId(size_t i, size_t &level, size_t &level_id) {
     level = 0;
@@ -62,6 +65,19 @@ public:
 
   virtual ~MultiLevelContextInformation() {}
 
+
+  void addLevel(const CAMB<T> &spectrum, T size, size_t nside, const Coordinate<T> & offset={0,0,0}) {
+    if(!spectrum.isUsable())
+      throw std::runtime_error("Cannot add a grid level until the power spectrum has been specified");
+
+    if(nLevels==0)
+      simSize = size;
+
+    auto grid = std::make_shared<Grid<T>>(simSize, nside, size/nside, offset.x, offset.y, offset.z);
+    std::vector<T> C0 = spectrum.getPowerSpectrumForGrid(*grid);
+    addLevel(C0, grid);
+
+  }
 
   void addLevel(std::vector<T> C0, std::shared_ptr<Grid<T>> pG) {
     C0s.push_back(std::move(C0));

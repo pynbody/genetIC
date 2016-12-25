@@ -28,7 +28,7 @@ protected:
 
 public:
 
-  bool isUsable() {
+  bool isUsable() const {
     return (kcamb.size() > 0);
   }
 
@@ -118,7 +118,7 @@ public:
     return amplitude * powf(k, ns) * linearTransfer * linearTransfer;
   }
 
-  std::vector<MyFloat> getPowerSpectrumForGrid(const Grid<MyFloat> &grid) {
+  std::vector<MyFloat> getPowerSpectrumForGrid(const Grid<MyFloat> &grid) const {
     assert(kcamb.size() == Tcamb.size());
 
     MyFloat norm = getPowerSpectrumNormalizationForGrid(grid);
@@ -149,7 +149,7 @@ protected:
 
   }
 
-  MyFloat getPowerSpectrumNormalizationForGrid(const Grid<MyFloat> &grid) {
+  MyFloat getPowerSpectrumNormalizationForGrid(const Grid<MyFloat> &grid) const {
 
     MyFloat kw = 2. * M_PI / grid.boxsize;
     MyFloat norm = kw * kw * kw / powf(2. * M_PI, 3.); //since kw=2pi/L, this is just 1/V_box

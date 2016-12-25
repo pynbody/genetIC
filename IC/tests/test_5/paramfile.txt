@@ -6,24 +6,23 @@ Om  0.279
 Ol  0.721
 Ob  0.04
 s8  0.817
-Boxl	50
 zin	99
-n       64
-output	1
-seed	8896131
-outname test_5
-
-relative_to ../test_1/paramfile.txt
-
-zoom 3
-n2 64
-zoom_IDfile zoomtest.txt
-
 
 
 camb	../camb_transfer_kmax40_z0.dat
-outdir	 ./
-gadgetformat 4
+seed	8896131
 
+
+basegrid 50.0 64
+
+outname test_5
+outdir ./
+outformat 4
+
+
+relative_to ../test_1/paramfile.txt
+idfile zoomtest.txt
+
+zoomgrid 3 64
 
 done

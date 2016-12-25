@@ -7,6 +7,8 @@
 //
 // Andrew Pontzen 2013
 
+#ifndef _PARSER_HPP
+#define _PARSER_HPP
 
 #include <memory>
 #include <sstream>
@@ -324,3 +326,5 @@ int main() {
 }
 
 */
+
+#endif

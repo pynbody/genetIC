@@ -19,6 +19,7 @@ protected:
   const gsl_rng_type *T;
   bool drawInFourierSpace;
   bool reverseRandomDrawOrder;
+  bool seeded;
   MultiLevelField<complex<MyFloat>> & field;
 
 
@@ -29,6 +30,7 @@ public:
     randomState = gsl_rng_alloc(T); //this allocates memory for the generator with type T
     gsl_rng_set(randomState, seed);
     drawInFourierSpace = false;
+    seeded=false;
   }
 
   virtual ~RandomFieldGenerator() {
@@ -48,10 +50,16 @@ public:
   }
 
   void seed(int seed) {
-    gsl_rng_set(randomState, seed);
+    if(seeded)
+      throw std::runtime_error("The random number generator has already been seeded");
+    else
+      gsl_rng_set(randomState, seed);
+    seeded=true;
   }
 
   void draw() {
+    if(!seeded)
+      throw std::runtime_error("The random number generator has not been seeded");
     for(size_t i=0; i<field.getNumLevels(); ++i) {
       auto &fieldOnGrid = field.getFieldForLevel(i);
       if (drawInFourierSpace) {

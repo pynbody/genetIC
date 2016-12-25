@@ -17,7 +17,7 @@
 #include <omp.h>
 #endif
 #include "src/grid.hpp"
-#include "src/argsort.hpp"
+#include "src/utils.hpp"
 #include "src/multilevelfield.hpp"
 #include "multilevelgenerator.hpp"
 
@@ -262,8 +262,6 @@ namespace particle {
 
   protected:
 
-    std::shared_ptr<BaseGeneratorType> pGenerator;
-
     virtual void incrementIterator(iterator *pIterator) const {
       ++(pIterator->i);
     }
@@ -341,7 +339,7 @@ namespace particle {
       throw std::runtime_error("Cannot get particles; no particle->grid mapper available");
     }
 
-    virtual void extendParticleListToUnreferencedGrids(const std::vector<GridPtrType> &grids) {
+    virtual void extendParticleListToUnreferencedGrids(MultiLevelContextInformation<T> &grids) {
       /* For any grid that is _not_ referenced by this mapper, generate cell flags by matching
        * to the finest level available in this mapper.
        *
@@ -349,7 +347,8 @@ namespace particle {
        * zoomed simulation - the cell flags will not reach onto the finest level until this routine
        * is run.
        */
-      for (auto pGrid: grids) {
+      for (size_t i=0; i<grids.getNumLevels(); i++) {
+        auto pGrid = grids.getGridForLevel(i).shared_from_this();
         if (!this->references(pGrid)) {
           vector<size_t> ar;
           GridPtrType proxyGrid = getFinestGrid()->makeProxyGridToMatch(*pGrid);
