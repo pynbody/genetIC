@@ -368,6 +368,8 @@ protected:
     std::set<size_t> targetSet;
 
     assert(source->size >= target->size);
+    assert(source->offsetLower==target->offsetLower);
+
     assert((source->size) % (target->size) == 0);
     size_t factor = source->size / target->size;
 

@@ -3,14 +3,34 @@
 
 #include "ic.hpp"
 
-template<typename MyFloat>
-class DummyICGenerator : public ICGenerator<MyFloat> {
+template<typename T>
+class DummyICGenerator : public ICGenerator<T> {
 protected:
-  ICGenerator<MyFloat> *pUnderlying;
+  ICGenerator<T> *pUnderlying;
 public:
-  DummyICGenerator(ICGenerator<MyFloat> *pUnderlying) : ICGenerator<MyFloat>(pUnderlying->interpreter), pUnderlying(pUnderlying) {
+  DummyICGenerator(ICGenerator<T> *pUnderlying) : ICGenerator<T>(pUnderlying->interpreter), pUnderlying(pUnderlying) {
 
   }
+
+  void addLevelToContext(const CAMB<T> &spectrum, T gridSize, size_t nside, const Coordinate<T> & offset={0,0,0}) override {
+    size_t newLevel = this->multiLevelContext.getNumLevels();
+    if(pUnderlying->multiLevelContext.getNumLevels()<=newLevel)
+      throw std::runtime_error("Trying to match particles between incompatible simulation setups (too many levels)");
+
+    Grid<T> & underlyingGrid = pUnderlying->multiLevelContext.getGridForLevel(newLevel);
+    if(underlyingGrid.size!=nside)
+      throw std::runtime_error("Trying to match particles between incompatible simulation setups (wrong grid n)");
+
+    if(underlyingGrid.boxsize!=gridSize)
+      throw std::runtime_error("Trying to match particles between incompatible simulation setups (wrong grid size)");
+
+    if(underlyingGrid.offsetLower!=offset)
+      throw std::runtime_error("Trying to match particles between incompatible simulation setups (wrong grid origin)");
+
+    this->multiLevelContext.addLevel(pUnderlying->multiLevelContext.getCovariance(newLevel),
+                               underlyingGrid.shared_from_this());
+  }
+
 
   void zeroLevel(int level) override {
 
@@ -22,6 +42,9 @@ public:
 
   void dumpPS(int level) override { }
 
+  virtual void initialiseParticleGenerator() override { }
+
+  void dumpID(string fname) override { }
 
   void write() override { }
 

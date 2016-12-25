@@ -167,7 +167,7 @@ public:
     if (haveInitialisedRandomComponent)
       throw (std::runtime_error("Trying to initialize a grid after the random field was already drawn"));
 
-    multiLevelContext.addLevel(spectrum, boxSize, n);
+    addLevelToContext(spectrum, boxSize, n);
     updateParticleMapper();
 
   }
@@ -228,7 +228,7 @@ public:
 
     Coordinate<T> newOffsetLower = gridAbove.offsetLower + Coordinate<T>(x,y,z)*gridAbove.dx;
 
-    multiLevelContext.addLevel(spectrum, gridAbove.boxsize/zoomfac, n, newOffsetLower);
+    addLevelToContext(spectrum, gridAbove.boxsize/zoomfac, n, newOffsetLower);
 
     Grid<T> &newGrid = multiLevelContext.getGridForLevel(1);
 
@@ -244,6 +244,12 @@ public:
 
     cout << "  Total particles = " << pMapper->size() << endl;
 
+  }
+
+  virtual void addLevelToContext(const CAMB<T> &spectrum, T size, size_t nside, const Coordinate<T> & offset={0,0,0}) {
+    // This forwards to multiLevelContext but is required because it is overriden in DummyICGenerator,
+    // which needs to ensure that grids are synchronised between two different contexts
+    multiLevelContext.addLevel(spectrum,size,nside,offset);
   }
 
 
@@ -599,7 +605,7 @@ public:
     getCentre();
   }
 
-  void dumpID(string fname) {
+  virtual void dumpID(string fname) {
     std::vector<size_t> results;
     cerr << "dumpID using current mapper:" << endl;
     cerr << (*pMapper);

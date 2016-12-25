@@ -349,12 +349,23 @@ namespace particle {
        */
       for (size_t i=0; i<grids.getNumLevels(); i++) {
         auto pGrid = grids.getGridForLevel(i).shared_from_this();
+        cerr << "REFLAG: " << i << " " ;
+        pGrid->debugInfo(cerr);
+        cerr << endl;
         if (!this->references(pGrid)) {
           vector<size_t> ar;
           GridPtrType proxyGrid = getFinestGrid()->makeProxyGridToMatch(*pGrid);
+
+          cerr << "REFLAG: COPY from ";
+          proxyGrid->debugInfo(cerr);
+          cerr << endl;
+
           proxyGrid->getFlaggedCells(ar);
           pGrid->flagCells(ar);
-        }
+          cerr << "REFLAG: DONE ";
+          pGrid->debugInfo(cerr);
+          cerr << endl;
+        } else cerr << "REFLAG: OK" << endl;
       }
     }
 

@@ -5,29 +5,23 @@ Om  0.279
 Ol  0.721
 Ob  0.04
 s8  0.817
-Boxl	50
+camb	../camb_transfer_kmax40_z0.dat
 zin	99
-n       64
-output	1
 seed	8896131
+
 outname mappertest
+outdir	 ./
+outformat 3
+
+basegrid 50.0 64
 
 relative_to ../mapper_test_1/unzoomed_paramfile.txt
-
-zoom 3
-n2 64
-zoom_IDfile ../mapper_test_1/zoomtest.txt
-
-
-camb	../camb_transfer_kmax40_z0.dat
-outdir	 ./
-gadgetformat 3
+idfile ../mapper_test_1/zoomtest.txt
+zoomgrid 3 64
 
 relative_to ../mapper_test_1/paramfile.txt
-
 IDfile ../mapper_test_1/reference.txt
 dump_IDfile output.txt
-
 
 
 done
