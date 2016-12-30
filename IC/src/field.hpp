@@ -78,9 +78,28 @@ public:
     return getDataVector();
   }
 
+  void operator*=(DataType x) {
+    for(size_t i=0; i<data.size(); ++i)
+      data[i]*=x;
+  }
+
   /*
    * EVALUATION OPERATIONS
    */
+
+  DataType evaluateNearest(const Coordinate<CoordinateType> &location) const {
+    auto offsetLower = pGrid->offsetLower;
+    int x_p_0, y_p_0, z_p_0;
+
+
+    // grid coordinates of parent cell that we're in
+    x_p_0 = (int) floor(((location.x - offsetLower.x) / pGrid->dx ));
+    y_p_0 = (int) floor(((location.y - offsetLower.y) / pGrid->dx ));
+    z_p_0 = (int) floor(((location.z - offsetLower.z) / pGrid->dx ));
+
+    return (*this)[pGrid->getCellIndex(Coordinate<int>(x_p_0, y_p_0, z_p_0))];
+  }
+
 
   DataType evaluateInterpolated(const Coordinate<CoordinateType> &location) const {
     auto offsetLower = pGrid->offsetLower;
@@ -132,6 +151,8 @@ public:
     assert(z_p_0 >= -1);
     if (z_p_0 == -1) z_p_0 = 0;
 
+    // return (*this)[pGrid->getCellIndexNoWrap(x_p_0, y_p_0, z_p_0)];
+
 
     return xw0 * yw0 * zw1 * (*this)[pGrid->getCellIndexNoWrap(x_p_0, y_p_0, z_p_1)] +
            xw1 * yw0 * zw1 * (*this)[pGrid->getCellIndexNoWrap(x_p_1, y_p_0, z_p_1)] +
@@ -175,11 +196,21 @@ public:
     fourier=false;
   }
 
+  void applyFilter(const Filter<CoordinateType> & filter) {
+    toFourier();
+    size_t size3 = pGrid->size3;
+
+#pragma omp parallel for schedule(static)
+    for(size_t i=0; i<size3; ++i) {
+      data[i]*=filter(pGrid->getFourierCellAbsK(i));
+    }
+
+  }
+
   void addFieldFromDifferentGrid(const Field<DataType, CoordinateType> & source) {
     assert(!source.isFourier());
     toReal();
     TPtrGrid pSourceProxyGrid = source.getGrid().makeProxyGridToMatch(getGrid());
-
 
     size_t size3 = getGrid().size3;
 
@@ -189,12 +220,70 @@ public:
         data[ind_l] += pSourceProxyGrid->getFieldAt(ind_l, source);
     }
 
+
   }
+
+
+#ifdef FILTER_ON_COARSE_GRID
+  // Version for compatibility with pre-Dec 2016 output
+  // Applies filter BEFORE interpolating onto the fine grid, which results in more pixel window function
+  // artefacts but (presumably?) fewer artefacts from the grid-level window function
+
+  void addFieldFromDifferentGridWithFilter(Field<DataType, CoordinateType> & source,
+                                           const Filter<CoordinateType> & filter) {
+
+
+    Field<DataType, CoordinateType> temporaryField(source);
+    temporaryField.applyFilter(filter);
+
+    auto & temporaryFieldData=temporaryField.data;
+
+    size_t size3 = getGrid().size3;
+
+    temporaryField.toReal();
+    this->toReal();
+
+#pragma omp parallel for schedule(static)
+    for (size_t ind_l = 0; ind_l < size3; ind_l++) {
+      data[ind_l] += temporaryField.evaluateInterpolated(pGrid->getCellCentroid(ind_l));
+    }
+
+  }
+
+#else
+  void addFieldFromDifferentGridWithFilter(Field<DataType, CoordinateType> & source,
+                                           const Filter<CoordinateType> & filter) {
+
+    source.toReal();
+    Field<DataType, CoordinateType> temporaryField(getGrid(), false);
+    auto &temporaryFieldData = temporaryField.getDataVector();
+
+    size_t tfSize = getGrid().size3;
+
+    assert(temporaryFieldData.size() == tfSize);
+    assert(data.size() == tfSize);
+
+#pragma omp parallel for schedule(static)
+    for (size_t i = 0; i < tfSize; ++i) {
+      temporaryFieldData[i] = source.evaluateInterpolated(pGrid->getCellCentroid(i));
+    }
+
+    temporaryField.applyFilter(filter);
+
+    this->matchFourier(temporaryField); // expect that the temporary field is now stored in Fourier space
+
+#pragma omp parallel for schedule(static)
+    for (size_t i = 0; i < tfSize; ++i) {
+      data[i] += temporaryFieldData[i];
+    }
+  }
+#endif
 
   void addFieldFromDifferentGrid(Field<DataType, CoordinateType> & source) {
     source.toReal();
     addFieldFromDifferentGrid(const_cast<const Field<DataType,CoordinateType> &>(source));
   }
+
 
 };
 

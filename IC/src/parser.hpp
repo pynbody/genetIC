@@ -181,9 +181,9 @@ private:
 
     int line = 0;
     while (std::getline(input_stream, str)) {
+      line += 1;
       if (str.size() == 0) continue;
       ss.str(str);
-      line += 1;
       try {
         run(ss, output_stream);
       } catch (std::exception &e) {

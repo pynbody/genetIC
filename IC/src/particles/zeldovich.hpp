@@ -24,7 +24,7 @@ namespace particle {
   class ZeldovichParticleGenerator : public ParticleGenerator<T> {
   protected:
     using TField = std::vector<std::complex<T>>;
-    using TRealField = Field<T,T>;
+    using TRealField = Field<std::complex<T>,T>; // TODO: revert to Field<T,T>
 
     T velocityToOffsetRatio, boxMass;
     Field<complex<T>, T> &linearOverdensityField;
@@ -160,6 +160,24 @@ namespace particle {
       pOff_z->addFieldFromDifferentGrid(*source.pOff_z);
     }
 
+    void addFieldFromDifferentGridWithFilter(ZeldovichParticleGenerator &source, const Filter<T> &filter) {
+      pOff_x->addFieldFromDifferentGridWithFilter(*source.pOff_x, filter);
+      pOff_y->addFieldFromDifferentGridWithFilter(*source.pOff_y, filter);
+      pOff_z->addFieldFromDifferentGridWithFilter(*source.pOff_z, filter);
+    }
+
+    void applyFilter(const Filter<T> &filter) {
+      pOff_x->applyFilter(filter);
+      pOff_y->applyFilter(filter);
+      pOff_z->applyFilter(filter);
+    }
+
+    void toReal() {
+      pOff_x->toReal();
+      pOff_y->toReal();
+      pOff_z->toReal();
+    }
+
     virtual T getMass(const Grid<T> & onGrid) const override {
       return boxMass*onGrid.cellMassFrac;
     }
@@ -179,9 +197,13 @@ namespace particle {
     virtual particle::Particle<T> getParticleNoOffset(const Grid<T> &onGrid, size_t id) const override {
       particle::Particle<T> particle;
 
-      particle.pos.x = onGrid.getFieldAt(id, *pOff_x);
-      particle.pos.y = onGrid.getFieldAt(id, *pOff_y);
-      particle.pos.z = onGrid.getFieldAt(id, *pOff_z);
+      assert(!pOff_x->isFourier());
+      assert(!pOff_y->isFourier());
+      assert(!pOff_z->isFourier());
+
+      particle.pos.x = onGrid.getFieldAt(id, *pOff_x).real();
+      particle.pos.y = onGrid.getFieldAt(id, *pOff_y).real();
+      particle.pos.z = onGrid.getFieldAt(id, *pOff_z).real();
 
       particle.vel = particle.pos*velocityToOffsetRatio;
 

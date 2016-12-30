@@ -1,0 +1,59 @@
+# Test double-zooming with a constraint, pre-zeroed random component
+
+# cosmology:
+Om  0.279
+Ol  0.721
+s8  0.817
+zin	99
+camb	../camb_transfer_kmax40_z0.dat
+seed	8896131
+
+
+# output:
+outname test_10
+outdir	 ./
+outformat 4
+
+# 64 Mpc/h, 64 cells
+basegrid 64.0 64
+
+# open a zoom region, 1/3rd scale, 64^3
+centre 32.5 32.5 32.5
+select_sphere 9.0
+zoomgrid 3 64
+
+centre 32.5 32.5 32.5
+select_sphere 2.5
+zoomgrid 3 64
+
+
+# remove random components:
+zerolevel 0
+zerolevel 1
+zerolevel 2
+
+# select a cube in the second level zoom which corresponds to a single cell
+# in the first level zoom - basically reconstrut the two-level test_3, but
+# now on the lower level grid. This provides a manual cross-check between
+# test_3 and test_10.
+centre 32.5 32.5 32.5
+select_cube 0.25
+
+# output text file to check we targeted the correct cell
+dump_IDfile check_constr.txt
+
+# calculate the existing overdensity (should be 0), set it to 1.0
+calculate overdensity
+constrain overdensity absolute 1.0
+
+# apply the constraints
+done
+
+# check overdensity was correctly constrained
+calculate overdensity
+
+# dump diagnostic output
+dump test_10.tipsy.overdensity
+dumpgrid 0
+dumpgrid 1
+dumpgrid 2

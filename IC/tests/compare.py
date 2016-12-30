@@ -6,12 +6,14 @@ import pynbody
 import sys
 import glob
 import os.path
+import warnings
 
 def compare(f1,f2) :
     npt.assert_almost_equal(f1['mass'],f2['mass'],decimal=6)
     npt.assert_almost_equal(f1['eps'],f2['eps'],decimal=6)
     npt.assert_almost_equal(f1['vel'],f2['vel'],decimal=4)
     npt.assert_almost_equal(f1['pos'],f2['pos'],decimal=4)
+    print "Particle output matches"
 
 def compare_grids(ref, test):
     list_of_grids = [os.path.basename(x) for x in glob.glob(ref+"grid-?.npy")]
@@ -20,8 +22,10 @@ def compare_grids(ref, test):
         grid_ref = np.load(ref+grid)
         grid_test = np.load(test+grid)
         npt.assert_almost_equal(grid_ref, grid_test, decimal=4)
+    print "Grid output matches"
 
 if __name__=="__main__":
+    warnings.simplefilter("ignore")
     assert len(sys.argv)==2
     if os.path.exists(sys.argv[1]+"/reference_grid"):
         compare_grids(sys.argv[1]+"/reference_grid/",sys.argv[1]+"/")

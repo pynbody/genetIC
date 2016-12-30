@@ -7,6 +7,7 @@
 
 #include "../multilevelfield.hpp"
 #include "../cosmo.hpp"
+#include "generator.hpp"
 #include "zeldovich.hpp"
 
 namespace particle {
@@ -84,36 +85,78 @@ namespace particle {
   template<>
   void MultiLevelParticleGenerator<double, ZeldovichParticleGenerator<double>>::initialise() {
     using ZPG=ZeldovichParticleGenerator<double>;
+    size_t nlevels = context.getNumLevels();
 
     outputField.toFourier();
 
-    if (context.getNumLevels() == 0) {
+    if (nlevels == 0) {
       throw std::runtime_error("Trying to apply zeldovich approximation, but no grids have been created");
-    } else if (context.getNumLevels() == 1) {
+    } else if (nlevels == 1) {
       pGenerators.emplace_back(std::make_shared<ZPG>(outputField.getFieldForLevel(0), cosmoParams));
-    } else if (context.getNumLevels() == 2) {
-      auto residuals = outputField.getHighKResiduals();
+    } else if (nlevels >= 2) {
       cerr << "Zeldovich approximation on successive levels...";
+
+#define NEWMETHOD
+
+#ifndef NEWMETHOD
+      // remove all the unwanted k-modes from grids, but keep a record of them so we can reinstate them on the
+      // coarser levels later
+      auto residuals = outputField.getHighKResiduals();
       outputField.applyFilters();
-      pGenerators.emplace_back(std::make_shared<ZPG>(outputField.getFieldForLevel(0), cosmoParams));
-      pGenerators.emplace_back(std::make_shared<ZPG>(outputField.getFieldForLevel(1), cosmoParams));
-      cerr << "done." << endl;
+#endif
 
-      cerr << "Interpolating low-frequency information into zoom region...";
-      outputField.toReal();
-      outputField.getFieldForLevel(1).addFieldFromDifferentGrid(outputField.getFieldForLevel(0));
-      pGenerators[1]->addFieldFromDifferentGrid(*pGenerators[0]);
+      for(size_t level=0; level<nlevels; ++level)
+        pGenerators.emplace_back(std::make_shared<ZPG>(outputField.getFieldForLevel(level), cosmoParams));
+
+      cerr << "Interpolating low-frequency information into zoom regions...";
+
+      for(size_t level=1; level<nlevels; ++level) {
+
+#ifdef NEWMETHOD
+        // remove the low-frequency information from this level
+        outputField.getFieldForLevel(level).applyFilter(outputField.getHighPassFilterForLevel(level));
+
+        // replace with the low-frequency information from the level below
+
+        outputField.getFieldForLevel(level).addFieldFromDifferentGridWithFilter(outputField.getFieldForLevel(level - 1),
+                                                                                outputField.getLowPassFilterForLevel(level-1));
+
+
+        pGenerators[level]->applyFilter(outputField.getHighPassFilterForLevel(level));
+
+
+        pGenerators[level]->addFieldFromDifferentGridWithFilter(*pGenerators[level - 1],
+                                                                outputField.getLowPassFilterForLevel(level-1));
+
+
+#else
+        outputField.getFieldForLevel(level).addFieldFromDifferentGrid(outputField.getFieldForLevel(level - 1));
+        pGenerators[level]->addFieldFromDifferentGrid(*pGenerators[level - 1]);
+#endif
+
+
+      }
+
       outputField.toFourier();
-      // TODO: also the velocity offsets!
-      cerr << "done." << endl;
 
+#ifdef NEWMETHOD
+      outputField.setStateRecombined();
+#else
       cerr << "Re-introducing high-k modes into low-res region...";
+
       outputField.recombineHighKResiduals(residuals);
-      pGenerators[0]->recalculate();
+
+      for(size_t level=0; level<nlevels-1; ++level) {
+        pGenerators[level]->recalculate();
+      }
+
+#endif
+
+      for(size_t i=0; i<nlevels; ++i)
+        pGenerators[i]->toReal();
+
       cerr << "done." << endl;
 
-    } else {
-      throw std::runtime_error("Too many levels!"); // TODO: general multi-level zeldovich algorithm
     }
   }
 

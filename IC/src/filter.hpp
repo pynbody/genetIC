@@ -14,9 +14,20 @@ template<typename T>
 class DivisionFilter;
 
 template<typename T>
-class Filter {
+class ProductFilter;
+
+template<typename T>
+class Filter : public std::enable_shared_from_this<Filter<T>> {
 public:
+  typedef T ReturnType;
+
   virtual ~Filter() { }
+
+  Filter() { }
+
+  Filter(T k_cut) {
+    // provided for compatibility with filters that do take a wavenumber cut
+  }
 
   virtual T operator()(T x) const {
     return 1.0;
@@ -30,12 +41,16 @@ public:
     return func;
   }
 
-  virtual Filter<T> *clone() const {
-    return new Filter<T>();
+  virtual std::shared_ptr<Filter<T>> clone() const {
+    return std::make_shared<Filter<T>>();
   }
 
   DivisionFilter<T> operator/(const Filter<T> &other) const {
-    return DivisionFilter<T>(this, &other);
+    return DivisionFilter<T>(*this, other);
+  }
+
+  ProductFilter<T> operator*(const Filter<T> &other) const {
+    return ProductFilter<T>(*this, other);
   }
 
   virtual void debugInfo(std::ostream &s) const {
@@ -43,28 +58,84 @@ public:
   }
 };
 
+template<typename T>
+class NullFilter : public Filter<T> {
+public:
+  NullFilter() {
+
+
+  }
+  NullFilter(T k_cut) {
+    // provided for compatibility with filters that do take a wavenumber cut
+  }
+
+  T operator()(T x) const override {
+    return 0.0;
+  }
+
+  std::shared_ptr<Filter<T>> clone() const override {
+    return std::make_shared<NullFilter<T>>();
+  }
+
+  virtual void debugInfo(std::ostream &s) const {
+    s << "NullFilter";
+  }
+
+};
+
 
 template<typename T>
 class DivisionFilter : public Filter <T> {
-private:
-  Filter<T> *pFirst, *pSecond;
+protected:
+  std::shared_ptr<Filter<T>> pFirst, pSecond;
 public:
-  DivisionFilter(const Filter<T> * first, const Filter<T> *second) : pFirst(first->clone()), pSecond(second->clone())
+  DivisionFilter(const Filter<T> & first, const Filter<T> &second) : pFirst(first.clone()), pSecond(second.clone())
   {
 
-  }
-
-  virtual ~DivisionFilter() {
-    delete pFirst;
-    delete pSecond;
   }
 
   virtual T operator()(T x) const {
     return (*pFirst)(x)/(*pSecond)(x);
   }
 
+  virtual std::shared_ptr<Filter<T>> clone() const override {
+    return std::make_shared<DivisionFilter<T>>(*pFirst,*pSecond);
+  }
+
   virtual void debugInfo(std::ostream &s) const override {
     s << (*pFirst) << "/" << (*pSecond);
+  }
+};
+
+template<typename T>
+class ProductFilter : public DivisionFilter <T> {
+protected:
+  using DivisionFilter<T>::pFirst;
+  using DivisionFilter<T>::pSecond;
+
+public:
+
+  ProductFilter(const Filter<T> & first, const Filter<T> &second) : DivisionFilter<T>(first,second)
+  {
+
+  }
+
+  virtual std::shared_ptr<Filter<T>> clone() const override {
+    // simplification/optimization:
+    if(typeid(*pFirst)==typeid(Filter<T>))
+      return pSecond->clone();
+    else if(typeid(*pSecond)==typeid(Filter<T>))
+      return pFirst->clone();
+    else
+      return std::make_shared<ProductFilter<T>>(*pFirst,*pSecond);
+  }
+
+  virtual T operator()(T x) const {
+    return (*pFirst)(x)*(*pSecond)(x);
+  }
+
+  virtual void debugInfo(std::ostream &s) const override {
+    s << (*pFirst) << "*" << (*pSecond);
   }
 };
 
@@ -85,8 +156,8 @@ public:
     temperature = kcut / 10;
   };
 
-  virtual Filter<T> *clone() const {
-    return new LowPassFermiFilter<T>(*this);
+  virtual std::shared_ptr<Filter<T>> clone() const {
+    return std::make_shared<LowPassFermiFilter<T>>(*this);
   }
 
   T operator()(T k) const override {
@@ -98,24 +169,26 @@ public:
   }
 };
 
-template<typename T>
+template<typename UnderlyingType, typename T=typename UnderlyingType::ReturnType>
 class ComplementaryCovarianceFilterAdaptor : public Filter<T> {
 private:
-  Filter<T> *pUnderlying;
-public:
-  ComplementaryCovarianceFilterAdaptor(const Filter<T> &original) : pUnderlying(original.clone()) { };
 
-  virtual ~ComplementaryCovarianceFilterAdaptor() {
-    delete pUnderlying;
-  }
+  std::shared_ptr<Filter<T>> pUnderlying;
+public:
+
+  template<typename... Args>
+  ComplementaryCovarianceFilterAdaptor(Args && ... args)  {
+    pUnderlying = std::make_shared<UnderlyingType>(std::forward<Args>(args)...);
+  };
+
 
   T operator()(T k) const override {
     T denFilter = (*pUnderlying)(k);
     return sqrt(1.-denFilter*denFilter);
   }
 
-  virtual Filter<T> *clone() const {
-    return new ComplementaryCovarianceFilterAdaptor<T>(*this);
+  virtual std::shared_ptr<Filter<T>> clone() const {
+    return std::make_shared<ComplementaryCovarianceFilterAdaptor<UnderlyingType>>(*this);
   }
 
   virtual void debugInfo(std::ostream &s) const override {
@@ -123,23 +196,29 @@ public:
   }
 };
 
-template<typename T>
+template<typename UnderlyingType, typename T=typename UnderlyingType::ReturnType>
 class ComplementaryFilterAdaptor : public Filter<T> {
 private:
-  Filter<T> *pUnderlying;
+  std::shared_ptr<Filter<T>> pUnderlying;
 public:
-  ComplementaryFilterAdaptor(const Filter<T> &original) : pUnderlying(original.clone()) { };
 
-  virtual ~ComplementaryFilterAdaptor() {
-    delete pUnderlying;
+  template<typename... Args>
+  ComplementaryFilterAdaptor(Args && ... args)  {
+    pUnderlying =  std::make_shared<UnderlyingType>(std::forward<Args>(args)...);
+  };
+
+  ComplementaryFilterAdaptor(const Filter<T> &pOriginal) {
+    assert(typeid(pOriginal)!=typeid(ComplementaryFilterAdaptor<UnderlyingType,T>)); // this is NOT a copy constructor!
+    pUnderlying = pOriginal.clone();
   }
+
 
   T operator()(T k) const override {
     return 1. - (*pUnderlying)(k);
   }
 
-  virtual Filter<T> *clone() const {
-    return new ComplementaryFilterAdaptor<T>(*this);
+  virtual std::shared_ptr<Filter<T>> clone() const {
+    return std::make_shared<ComplementaryFilterAdaptor<UnderlyingType>>(*this);
   }
 
   virtual void debugInfo(std::ostream &s) const override {
@@ -149,9 +228,16 @@ public:
 
 
 template<typename T>
+class ResidualFilterFamily;
+
+template<typename T>
 class FilterFamily {
 protected:
-  std::vector<Filter<T> *> filters;
+  friend class ResidualFilterFamily<T>;
+  std::vector<std::shared_ptr<Filter<T>>> filters;
+  std::vector<std::shared_ptr<Filter<T>>> complementFilters;
+  std::vector<std::shared_ptr<Filter<T>>> hpFilters;
+  std::vector<std::shared_ptr<Filter<T>>> lpFilters;
 
   FilterFamily() {
 
@@ -161,17 +247,20 @@ public:
 
   FilterFamily(size_t maxLevels) {
     for(size_t i=0; i<maxLevels; ++i)
-      filters.push_back(new Filter<T>());
+      filters.push_back(std::make_shared<Filter<T>>());
   }
 
-  virtual ~FilterFamily() {
-    /*
-    for(auto f: filters)
-      delete f;*/
-  };
 
   virtual const Filter<T> &getFilterOnLevel(int level) const {
     return *(filters[level]);
+  }
+
+  virtual const Filter<T> &getHighPassFilterOnLevel(int level) const {
+    return *(hpFilters[level]);
+  }
+
+  virtual const Filter<T> &getLowPassFilterOnLevel(int level) const {
+    return *(lpFilters[level]);
   }
 
   virtual size_t getMaxLevel() const {
@@ -187,21 +276,67 @@ public:
     s << ")";
 
   }
+
+  virtual void addLevel(T k_cut) {
+    throw std::runtime_error("Don't know how to add a level to this type of filter family");
+  }
 };
 
-template<typename T>
-class TwoLevelFilterFamily : public FilterFamily<T> {
+template<typename LowFilterType, typename HighFilterType>
+class GenericMultiLevelFilterFamily : public FilterFamily<typename LowFilterType::ReturnType> {
 protected:
-
+  using T = typename LowFilterType::ReturnType;
+  static_assert(std::is_same<typename LowFilterType::ReturnType, typename HighFilterType::ReturnType>::value,
+                "Filters must use same floating point type");
 public:
 
-  TwoLevelFilterFamily(T k_cut)
+  GenericMultiLevelFilterFamily()
   {
-    this->filters.push_back(new LowPassFermiFilter<T>(k_cut));
-    this->filters.push_back(new ComplementaryCovarianceFilterAdaptor<T>(LowPassFermiFilter<T>(k_cut)));
+    this->filters.push_back(std::make_shared<Filter<T>>());
+    this->lpFilters.push_back(std::make_shared<Filter<T>>());
+    this->hpFilters.push_back(std::make_shared<Filter<T>>());
+  }
+
+  void addLevel(T k_cut) override {
+    std::shared_ptr<Filter<T>> filt = this->filters.back();
+    this->filters.pop_back();
+    this->lpFilters.pop_back();
+
+    // the low-pass filtered version of the field on what used to be the finest level:
+    this->filters.push_back(((*filt)*LowFilterType(k_cut)).clone());
+
+    this->complementFilters.push_back(((*filt)*HighFilterType(k_cut)).clone());
+
+    // the low-pass filter to be used when copying from what used to be the finest level to the new finest level:
+    this->lpFilters.push_back(LowFilterType(k_cut).clone());
+
+    // the new finest level filter:
+    this->filters.push_back(((*filt)*HighFilterType(k_cut)).clone());
+
+    // the high-pass filter for removing unwanted low-k information from the new fine level:
+    this->hpFilters.push_back(HighFilterType(k_cut).clone());
+
+    // if this ends up being the last level, there is no low-pass filter ever applied
+    this->lpFilters.push_back(Filter<T>().clone());
+
   }
 
 };
+
+template<typename T>
+using MultiLevelFilterFamily = GenericMultiLevelFilterFamily<LowPassFermiFilter<T>,
+  ComplementaryCovarianceFilterAdaptor<LowPassFermiFilter<T>>>;
+
+template<typename T>
+using MultiLevelDependentFilterFamily = GenericMultiLevelFilterFamily<LowPassFermiFilter<T>,
+  ComplementaryFilterAdaptor<LowPassFermiFilter<T>>>;
+
+template<typename T>
+using MultiLevelRecombinedFilterFamily = GenericMultiLevelFilterFamily<NullFilter<T>, Filter<T>>;
+
+template<typename T>
+using UnfilteredFilterFamily = GenericMultiLevelFilterFamily<Filter<T>, Filter<T>>;
+
 
 
 template <typename T>
@@ -210,38 +345,14 @@ class ResidualFilterFamily : public FilterFamily<T> {
 public:
   ResidualFilterFamily(const FilterFamily<T> &underlying)
   {
-    for(size_t i=0; i<underlying.getMaxLevel(); i++) {
-      this->filters.push_back(new ComplementaryFilterAdaptor<T>(underlying.getFilterOnLevel(i)));
+    for(size_t i=0; i<underlying.getMaxLevel()-1; i++) {
+      this->filters.push_back(underlying.complementFilters[i]->clone());
     }
+    this->filters.push_back(std::make_shared<NullFilter<T>>());
   }
 
 };
 
-
-
-template<typename T>
-class TwoLevelDependentFilterFamily : public FilterFamily<T> {
-public:
-
-  TwoLevelDependentFilterFamily(T k_cut)
-  {
-    this->filters.push_back(new LowPassFermiFilter<T>(k_cut));
-    this->filters.push_back(new ComplementaryFilterAdaptor<T>(LowPassFermiFilter<T>(k_cut)));
-  }
-
-};
-
-template<typename T>
-class TwoLevelRecombinedFilterFamily : public FilterFamily<T> {
-public:
-
-  TwoLevelRecombinedFilterFamily(T k_cut)
-  {
-    this->filters.push_back(new ComplementaryFilterAdaptor<T>(Filter<T>()));
-    this->filters.push_back(new Filter<T>());
-  }
-
-};
 
 
 template<typename T>

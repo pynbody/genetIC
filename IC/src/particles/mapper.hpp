@@ -321,7 +321,7 @@ namespace particle {
       return size();
     }
 
-    virtual void clearParticleList() {
+    virtual void unflagAllParticles() {
 
     }
 
@@ -349,23 +349,13 @@ namespace particle {
        */
       for (size_t i=0; i<grids.getNumLevels(); i++) {
         auto pGrid = grids.getGridForLevel(i).shared_from_this();
-        cerr << "REFLAG: " << i << " " ;
-        pGrid->debugInfo(cerr);
-        cerr << endl;
+
         if (!this->references(pGrid)) {
           vector<size_t> ar;
           GridPtrType proxyGrid = getFinestGrid()->makeProxyGridToMatch(*pGrid);
-
-          cerr << "REFLAG: COPY from ";
-          proxyGrid->debugInfo(cerr);
-          cerr << endl;
-
           proxyGrid->getFlaggedCells(ar);
           pGrid->flagCells(ar);
-          cerr << "REFLAG: DONE ";
-          pGrid->debugInfo(cerr);
-          cerr << endl;
-        } else cerr << "REFLAG: OK" << endl;
+        }
       }
     }
 
@@ -484,7 +474,7 @@ namespace particle {
       return pGrid->size3;
     }
 
-    virtual void clearParticleList() override {
+    virtual void unflagAllParticles() override {
       pGrid->unflagAllCells();
     }
 
@@ -538,6 +528,13 @@ namespace particle {
 
   template<typename T>
   class TwoLevelParticleMapper : public ParticleMapper<T> {
+    /* TwoLevelParticleMapper - the critical class for mapping different grids into an assembled zoom simulation
+     *
+     * This class points to two other mappers, referred to as level 1 and level 2. The level 2 mapper _must_ be
+     * a OneLevelParticleMapper, i.e. it can only point to a single grid. The level 1 mapper on the other hand
+     * can itself be a TwoLevelParticleMapper, allowing multi-level maps to be built through a left-expanding
+     * tree structure.
+     */
   private:
 
     using MapType = ParticleMapper<T>;
@@ -553,12 +550,17 @@ namespace particle {
     GridPtrType pGrid1;
     GridPtrType pGrid2;
 
-    unsigned int n_hr_per_lr;
+    size_t n_hr_per_lr;
 
     size_t totalParticles;
     size_t firstLevel2Particle;
 
     bool skipLevel1;
+
+    std::vector<size_t> zoomParticleArrayForL1mapper; //< the particles on the level-1 (finest available) grid, which we wish to replace with their zooms
+    std::vector<size_t> zoomParticleArrayForL1grid;
+    mutable std::vector<size_t> zoomParticleArrayHiresUnsorted; //< the particles on the level-2 grid that are included
+
 
     void appendMappedIdsToVector(size_t id0, std::vector<size_t> &ids) const {
       // Finds all the particles at level2 corresponding to the single
@@ -580,10 +582,290 @@ namespace particle {
     }
 
 
+
   public:
-    std::vector<size_t> zoomParticleArray; //< the particles on the coarse grid which we wish to replace with their zooms
+
+    virtual iterator begin(const AbstractMultiLevelParticleGenerator<T> &generator) const override {
+      if (zoomParticleArrayForL1mapper.size() == 0)
+        return this->end(generator);
+
+      iterator x(this, generator);
+      x.extraData.push_back(0); // current position in zoom ID list
+      x.extraData.push_back(zoomParticleArrayForL1mapper[0]); // next entry in zoom ID list
+
+      if (!skipLevel1)
+        x.subIterators.emplace_back(new iterator(pLevel1->begin(generator)));
+      else
+        x.subIterators.emplace_back(nullptr);
+
+      x.subIterators.emplace_back(new iterator(pLevel2->begin(generator)));
+
+      syncL2iterator(0, *(x.subIterators.back()));
+
+      return x;
+    }
+
+
+    TwoLevelParticleMapper(MapPtrType &pLevel1,
+                           MapPtrType &pLevel2,
+                           const std::vector<size_t> &zoomParticlesOnLevel1Grid,
+                           bool skipLevel1 = false) :
+      pLevel1(pLevel1), pLevel2(pLevel2),
+      pGrid1(pLevel1->getFinestGrid()),
+      pGrid2(pLevel2->getCoarsestGrid()),
+      skipLevel1(skipLevel1),
+      zoomParticleArrayForL1grid(zoomParticlesOnLevel1Grid) {
+      /* @param pLevel1 - the coarser particle mapper, which can itself have multiple levels
+       * @param pLevel2 - the fine particle mapper, which can point to only one grid (i.e. must be OneLevelParticleMapper)
+       * @param zoomParticlesOnLevel1Grid - the list of particles on the level 1 mapper that will be zoomed. NB these
+       *                                    are specified relative to the finest grid on level 1 (not relative to the
+       *                                    level 1 mapper itself)
+       *
+       *
+       */
+
+      assert(zoomParticleArrayForL1grid.size() > 0);
+      assert(typeid(*pLevel2)==typeid(OneLevelParticleMapper<T>));
+      assert(pLevel1->size_gas() == 0);
+      assert(pLevel2->size_gas() == 0);
+
+      std::sort(zoomParticleArrayForL1grid.begin(), zoomParticleArrayForL1grid.end());
+      pLevel1->unflagAllParticles();
+      pGrid1->flagCells(zoomParticleArrayForL1grid);
+      pLevel1->getFlaggedParticles(zoomParticleArrayForL1mapper);
+
+      if(zoomParticleArrayForL1grid.size()!=zoomParticleArrayForL1mapper.size())
+        throw std::runtime_error("The cells to zoom on must all be on the finest level 1 grid");
+
+      n_hr_per_lr = getRatioAndAssertPositiveInteger(pGrid1->dx,pGrid2->dx);
+      n_hr_per_lr*=n_hr_per_lr*n_hr_per_lr;
+
+      totalParticles = pLevel1->size() + (n_hr_per_lr - 1) * zoomParticleArrayForL1mapper.size();
+
+      firstLevel2Particle = pLevel1->size() - zoomParticleArrayForL1mapper.size();
+
+      if (skipLevel1) {
+        firstLevel2Particle = 0;
+        totalParticles = n_hr_per_lr * zoomParticleArrayForL1mapper.size();
+      }
+
+      calculateHiresParticleList();
+
+    }
+
+    virtual void debugInfo(std::ostream &s, int level = 0) const override {
+      indent(s, level);
+      s << "TwoLevelParticleMapper, n_hr_per_lr=" << n_hr_per_lr << ", firstLevel2Particle=" << firstLevel2Particle <<
+        std::endl;
+      indent(s, level);
+      s << "                      , zoom.size=" << zoomParticleArrayForL1mapper.size() << ", zoomed.size=" <<
+        zoomParticleArrayHiresUnsorted.size() << std::endl;
+      if (skipLevel1) {
+        indent(s, level);
+        s << "low-res part will be skipped but notionally is:" << endl;
+      }
+      pLevel1->debugInfo(s, level + 1);
+      indent(s, level);
+      s << "TwoLevelParticleMapper continues with high-res particles:" << std::endl;
+      pLevel2->debugInfo(s, level + 1);
+      indent(s, level);
+      s << "TwoLevelParticleMapper ends" << std::endl;
+    }
+
+    bool references(GridPtrType grid) const override {
+      return pLevel1->references(grid) || pLevel2->references(grid);
+    }
+
+    virtual void unflagAllParticles() override {
+      pLevel1->unflagAllParticles();
+      pLevel2->unflagAllParticles();
+    }
+
+    void flagParticles(const std::vector<size_t> &orderedParticleIndices) override {
+
+      std::vector<size_t> level1particles;
+      std::vector<size_t> level2particles;
+
+      if (pLevel1->size() < zoomParticleArrayForL1mapper.size())
+        throw std::runtime_error("Zoom particle list is longer than the grid it refers to");
+
+      size_t i0 = pLevel1->size() - zoomParticleArrayForL1mapper.size();
+      size_t lr_index;
+      size_t lr_mapper_particle;
+      size_t lr_grid_cell;
+
+      size_t last_val = 0;
+      size_t numSkippedParticlesLR = 0;
+      size_t nZoomParticles = zoomParticleArrayForL1mapper.size();
+
+      for (size_t i : orderedParticleIndices) {
+        if (i < last_val)
+          throw std::runtime_error("The particle list must be in ascending order");
+        last_val = (i);
+
+        if (i < i0) {
+          // particle in low res region. We need to count how many skipped
+          // particles there are to work out the address in the original
+          // file ordering. NB this approach assumes the input particle array is
+          // in ascending order (and the zoomParticleArray).
+          while (numSkippedParticlesLR < nZoomParticles &&
+                 zoomParticleArrayForL1mapper[numSkippedParticlesLR] <= i + numSkippedParticlesLR)
+            ++numSkippedParticlesLR;
+
+          level1particles.push_back(i + numSkippedParticlesLR);
+
+        } else {
+          // particle in high res region
+          lr_index = (i - i0) / n_hr_per_lr;
+
+          if (lr_index >= zoomParticleArrayForL1mapper.size())
+            throw std::runtime_error("Particle ID out of range");
+
+          // find the low-res particle. Note that we push it onto the list
+          // without searching to see if it's already there, i.e. we assume that
+          // duplicates don't matter.
+
+          lr_mapper_particle = zoomParticleArrayForL1mapper[lr_index];
+          level1particles.push_back(lr_mapper_particle);
+
+          // get all the HR particles
+          std::vector<size_t> hr_particles = getMappedIds(zoomParticleArrayForL1grid[lr_index]);
+          assert(hr_particles.size() == n_hr_per_lr);
+
+          // work out which of these this particle must be and push it onto
+          // the HR list
+          size_t offset = (i - i0) % n_hr_per_lr;
+          level2particles.push_back(hr_particles[offset]);
+        }
+
+      }
+
+      // Some routines need these lists to be sorted (e.g. getFlaggedParticles below,
+      // or in principle there could be an underlying further processing step.
+      // So it's time to do it...
+      std::sort(level1particles.begin(), level1particles.end());
+      std::sort(level2particles.begin(), level2particles.end());
+
+      // Get the grids to interpret their own particles. This almost
+      // certainly just involves making a copy of our list (notwithstanding
+      // point made above about a possible underlying processing step). In fact, we're
+      // done with our list so they might as well steal the data.
+      pLevel1->flagParticles(std::move(level1particles));
+      pLevel2->flagParticles(std::move(level2particles));
+
+    }
+
+
+    void getFlaggedParticles(std::vector<size_t> &particleArray) const override {
+
+      // translate level 1 particles - just need to exclude the zoomed particles
+      std::vector<size_t> grid1particles;
+      pLevel1->getFlaggedParticles(grid1particles);
+
+      size_t zoom_i = 0;
+      size_t len_zoom = zoomParticleArrayForL1mapper.size();
+      for (const size_t &i_lr : grid1particles) {
+        while (zoom_i < len_zoom && zoomParticleArrayForL1mapper[zoom_i] < i_lr)
+          ++zoom_i;
+
+        if (zoom_i == len_zoom || zoomParticleArrayForL1mapper[zoom_i] != i_lr) {
+          // not a zoom particle: record it in the low res region
+          particleArray.push_back(i_lr - zoom_i);
+        }
+      }
+
+      std::vector<size_t> grid2particles;
+      pLevel2->getFlaggedParticles(grid2particles);
+
+      // get the ordering of the level 2 particles
+      std::vector<size_t> sortIndex = argsort(zoomParticleArrayHiresUnsorted);
+
+
+      size_t zoomed_i = 0;
+      size_t len_zoomed = zoomParticleArrayHiresUnsorted.size();
+      for (const size_t &i_hr : grid2particles) {
+        // find the i_hr in the zoomed particle list
+        while (zoomed_i < len_zoomed && zoomParticleArrayHiresUnsorted[sortIndex[zoomed_i]] < i_hr)
+          ++zoomed_i;
+
+        // If the marked particle is not actually in the output list, ignore it.
+        //
+        // Older versions of the code throw an exception instead
+        if (zoomed_i == len_zoomed || zoomParticleArrayHiresUnsorted[sortIndex[zoomed_i]] != i_hr)
+          continue;
+
+        particleArray.push_back(sortIndex[zoomed_i] + firstLevel2Particle);
+      }
+
+      std::sort(particleArray.begin(), particleArray.end());
+
+    }
+
+    virtual GridPtrType getCoarsestGrid() override {
+      return pLevel1->getCoarsestGrid();
+    }
+
+    GridPtrType getFinestGrid() override {
+      return pLevel2->getFinestGrid();
+    }
+
+    virtual size_t size() const override {
+      return totalParticles;
+    }
+
+    std::pair<MapPtrType, MapPtrType> addGas(T massRatio, const std::vector<GridPtrType> &toGrids) override {
+      bool newskip = skipLevel1;
+
+      auto newLevel1 = pLevel1->addGas(massRatio, toGrids);
+      auto newLevel2 = pLevel2->addGas(massRatio, toGrids);
+
+      auto gasSubLevel1 = newLevel1.first;
+      auto gasSubLevel2 = newLevel2.first;
+      auto dmSubLevel1 = newLevel1.second;
+      auto dmSubLevel2 = newLevel2.second;
+
+      decltype(gasSubLevel1) newGasMap;
+      decltype(gasSubLevel1) newDmMap;
+
+      if (gasSubLevel1 == nullptr) {
+        gasSubLevel1 = pLevel1;
+        newskip = true;
+      }
+
+      if (gasSubLevel2 != nullptr)
+        newGasMap = std::make_shared<TwoLevelParticleMapper<T>>(
+          gasSubLevel1, gasSubLevel2, zoomParticleArrayForL1mapper,
+          newskip);
+      else
+        newGasMap = nullptr;
+
+      newDmMap = std::make_shared<TwoLevelParticleMapper<T>>(
+        dmSubLevel1, dmSubLevel2, zoomParticleArrayForL1mapper,
+        skipLevel1);
+
+      return std::make_pair(newGasMap, newDmMap);
+
+
+    }
+
+    MapPtrType superOrSubSampleDM(int ratio, const std::vector<GridPtrType> &toGrids, bool super) override {
+
+      auto ssub1 = pLevel1->superOrSubSampleDM(ratio, toGrids, super);
+      auto ssub2 = pLevel2->superOrSubSampleDM(ratio, toGrids, super);
+
+      // Work out the new list of particles to zoom on
+      decltype(zoomParticleArrayForL1mapper) newZoomParticles;
+      ssub1->unflagAllParticles();
+      pLevel1->flagParticles(zoomParticleArrayForL1mapper);
+      ssub1->getFlaggedParticles(newZoomParticles);
+
+      return std::make_shared<TwoLevelParticleMapper<T>>(
+        ssub1, ssub2, newZoomParticles,
+        skipLevel1);
+    }
+
+
   protected:
-    mutable std::vector<size_t> zoomParticleArrayHiresUnsorted; //< the particles on the fine grid that are therefore included
 
     void syncL2iterator(const size_t &next_zoom, iterator &level2iterator) const {
 
@@ -661,8 +943,8 @@ namespace particle {
 
           // load the next zoom particle
           ++next_zoom;
-          if (next_zoom < zoomParticleArray.size())
-            next_zoom_index = zoomParticleArray[next_zoom];
+          if (next_zoom < zoomParticleArrayForL1mapper.size())
+            next_zoom_index = zoomParticleArrayForL1mapper[next_zoom];
           else
             next_zoom_index = size() + 1; // i.e. there isn't a next zoom index!
 
@@ -692,10 +974,10 @@ namespace particle {
 
     void calculateHiresParticleList() const {
 
-      zoomParticleArrayHiresUnsorted.reserve(zoomParticleArray.size() * n_hr_per_lr);
+      zoomParticleArrayHiresUnsorted.reserve(zoomParticleArrayForL1mapper.size() * n_hr_per_lr);
 
-      for (size_t i = 0; i < zoomParticleArray.size(); ++i) {
-        appendMappedIdsToVector(zoomParticleArray[i], zoomParticleArrayHiresUnsorted);
+      for (size_t i : zoomParticleArrayForL1grid) {
+        appendMappedIdsToVector(i, zoomParticleArrayHiresUnsorted);
 
       }
 
@@ -706,289 +988,6 @@ namespace particle {
 
     }
 
-
-  public:
-
-    virtual iterator begin(const AbstractMultiLevelParticleGenerator<T> &generator) const override {
-      if (zoomParticleArray.size() == 0)
-        return this->end(generator);
-
-      iterator x(this, generator);
-      x.extraData.push_back(0); // current position in zoom ID list
-      x.extraData.push_back(zoomParticleArray[0]); // next entry in zoom ID list
-
-      if (!skipLevel1)
-        x.subIterators.emplace_back(new iterator(pLevel1->begin(generator)));
-      else
-        x.subIterators.emplace_back(nullptr);
-
-      x.subIterators.emplace_back(new iterator(pLevel2->begin(generator)));
-
-      syncL2iterator(0, *(x.subIterators.back()));
-
-      return x;
-    }
-
-
-    TwoLevelParticleMapper(MapPtrType &pLevel1,
-                           MapPtrType &pLevel2,
-                           const std::vector<size_t> &zoomParticles,
-                           int n_hr_per_lr,
-                           bool skipLevel1 = false) :
-      pLevel1(pLevel1), pLevel2(pLevel2),
-      pGrid1(pLevel1->getCoarsestGrid()),
-      pGrid2(pLevel2->getCoarsestGrid()),
-      n_hr_per_lr(n_hr_per_lr),
-      skipLevel1(skipLevel1),
-      zoomParticleArray(zoomParticles) {
-
-      assert(zoomParticleArray.size() > 0);
-
-      std::sort(zoomParticleArray.begin(), zoomParticleArray.end());
-
-      totalParticles = pLevel1->size() + (n_hr_per_lr - 1) * zoomParticleArray.size();
-
-      firstLevel2Particle = pLevel1->size() - zoomParticleArray.size();
-
-      if (skipLevel1) {
-        firstLevel2Particle = 0;
-        totalParticles = n_hr_per_lr * zoomParticleArray.size();
-      }
-
-      assert(pLevel1->size_gas() == 0);
-      assert(pLevel2->size_gas() == 0);
-
-      calculateHiresParticleList();
-
-
-    }
-
-    virtual void debugInfo(std::ostream &s, int level = 0) const override {
-      indent(s, level);
-      s << "TwoLevelParticleMapper, n_hr_per_lr=" << n_hr_per_lr << ", firstLevel2Particle=" << firstLevel2Particle <<
-        std::endl;
-      indent(s, level);
-      s << "                      , zoom.size=" << zoomParticleArray.size() << ", zoomed.size=" <<
-        zoomParticleArrayHiresUnsorted.size() << std::endl;
-      if (skipLevel1) {
-        indent(s, level);
-        s << "low-res part will be skipped but notionally is:" << endl;
-      }
-      pLevel1->debugInfo(s, level + 1);
-      indent(s, level);
-      s << "TwoLevelParticleMapper continues with high-res particles:" << std::endl;
-      pLevel2->debugInfo(s, level + 1);
-      indent(s, level);
-      s << "TwoLevelParticleMapper ends" << std::endl;
-    }
-
-    bool references(GridPtrType grid) const override {
-      return pLevel1->references(grid) || pLevel2->references(grid);
-    }
-
-    virtual void clearParticleList() override {
-      pLevel1->clearParticleList();
-      pLevel2->clearParticleList();
-    }
-
-    void flagParticles(const std::vector<size_t> &genericParticleArray) override {
-
-      std::vector<size_t> grid1particles;
-      std::vector<size_t> grid2particles;
-
-      if (pLevel1->size() < zoomParticleArray.size())
-        throw std::runtime_error("Zoom particle list is longer than the grid it refers to");
-
-      size_t i0 = pLevel1->size() - zoomParticleArray.size();
-      size_t lr_particle;
-
-      size_t last_val = 0;
-      size_t numSkippedParticlesLR = 0;
-      size_t nZoomParticles = zoomParticleArray.size();
-
-      for (auto i = genericParticleArray.begin(); i != genericParticleArray.end(); ++i) {
-        if (*i < last_val)
-          throw std::runtime_error("The particle list must be in ascending order");
-        last_val = (*i);
-
-        if ((*i) < i0) {
-          // particle in low res region. We need to count how many skipped
-          // particles there are to work out the address in the original
-          // file ordering
-          while (numSkippedParticlesLR < nZoomParticles &&
-                 zoomParticleArray[numSkippedParticlesLR] <= (*i) + numSkippedParticlesLR)
-            ++numSkippedParticlesLR;
-
-          grid1particles.push_back(*i + numSkippedParticlesLR);
-
-        } else {
-          // particle in high res region
-
-          if (((*i) - i0) / n_hr_per_lr >= zoomParticleArray.size())
-            throw std::runtime_error("Particle ID out of range");
-
-          // find the low-res particle. Note that we push it onto the list
-          // even if it's already on there to get the weighting right and
-          // prevent the need for a costly search
-          lr_particle = zoomParticleArray[((*i) - i0) / n_hr_per_lr];
-
-          grid1particles.push_back(lr_particle);
-
-          // get all the HR particles
-          std::vector<size_t> hr_particles = getMappedIds(lr_particle);
-          assert(hr_particles.size() == n_hr_per_lr);
-
-          // work out which of these this particle must be and push it onto
-          // the HR list
-          int offset = ((*i) - i0) % n_hr_per_lr;
-          grid2particles.push_back(hr_particles[offset]);
-        }
-
-      }
-
-      // Some routines need these lists to be sorted (e.g. getFlaggedParticles below,
-      // or in principle there could be an underlying further processing step.
-      // So it's time to do it...
-      std::sort(grid1particles.begin(), grid1particles.end());
-      std::sort(grid2particles.begin(), grid2particles.end());
-
-      // Get the grids to interpret their own particles. This almost
-      // certainly just involves making a copy of our list (notwithstanding
-      // point made above about a possible underlying processing step). In fact, we're
-      // done with our list so they might as well steal the data.
-      pLevel1->flagParticles(std::move(grid1particles));
-      pLevel2->flagParticles(std::move(grid2particles));
-
-    }
-
-
-    void getFlaggedParticles(std::vector<size_t> &particleArray) const override {
-
-      // translate level 1 particles - just need to exclude the zoomed particles
-      std::vector<size_t> grid1particles;
-      pLevel1->getFlaggedParticles(grid1particles);
-
-      size_t zoom_i = 0;
-      size_t len_zoom = zoomParticleArray.size();
-      for (const size_t &i_lr : grid1particles) {
-        while (zoom_i < len_zoom && zoomParticleArray[zoom_i] < i_lr)
-          ++zoom_i;
-
-        if (zoom_i == len_zoom || zoomParticleArray[zoom_i] != i_lr) {
-          // not a zoom particle: record it in the low res region
-          particleArray.push_back(i_lr - zoom_i);
-        }
-      }
-
-      std::vector<size_t> grid2particles;
-      pLevel2->getFlaggedParticles(grid2particles);
-
-      // get the ordering of the level 2 particles
-      std::vector<size_t> sortIndex = argsort(zoomParticleArrayHiresUnsorted);
-
-
-      size_t zoomed_i = 0;
-      size_t len_zoomed = zoomParticleArrayHiresUnsorted.size();
-      for (const size_t &i_hr : grid2particles) {
-        // find the i_hr in the zoomed particle list
-        while (zoomed_i < len_zoomed && zoomParticleArrayHiresUnsorted[sortIndex[zoomed_i]] < i_hr)
-          ++zoomed_i;
-
-        // If the marked particle is not actually in the output list, ignore it.
-        //
-        // Older versions of the code throw an exception instead
-        if (zoomed_i == len_zoomed || zoomParticleArrayHiresUnsorted[sortIndex[zoomed_i]] != i_hr)
-          continue;
-
-        particleArray.push_back(sortIndex[zoomed_i] + firstLevel2Particle);
-      }
-
-      std::sort(particleArray.begin(), particleArray.end());
-
-    }
-
-    virtual GridPtrType getCoarsestGrid() override {
-      return pLevel1->getCoarsestGrid();
-    }
-
-    GridPtrType getFinestGrid() override {
-      return pLevel2->getFinestGrid();
-    }
-
-    virtual size_t size() const override {
-      return totalParticles;
-    }
-
-    std::pair<MapPtrType, MapPtrType> addGas(T massRatio, const std::vector<GridPtrType> &toGrids) override {
-      bool newskip = skipLevel1;
-
-      auto newLevel1 = pLevel1->addGas(massRatio, toGrids);
-      auto newLevel2 = pLevel2->addGas(massRatio, toGrids);
-
-      auto gasSubLevel1 = newLevel1.first;
-      auto gasSubLevel2 = newLevel2.first;
-      auto dmSubLevel1 = newLevel1.second;
-      auto dmSubLevel2 = newLevel2.second;
-
-      decltype(gasSubLevel1) newGasMap;
-      decltype(gasSubLevel1) newDmMap;
-
-      if (gasSubLevel1 == nullptr) {
-        gasSubLevel1 = pLevel1;
-        newskip = true;
-      }
-
-      if (gasSubLevel2 != nullptr)
-        newGasMap = std::make_shared<TwoLevelParticleMapper<T>>(
-          gasSubLevel1, gasSubLevel2, zoomParticleArray,
-          n_hr_per_lr, newskip);
-      else
-        newGasMap = nullptr;
-
-      newDmMap = std::make_shared<TwoLevelParticleMapper<T>>(
-        dmSubLevel1, dmSubLevel2, zoomParticleArray,
-        n_hr_per_lr, skipLevel1);
-
-      return std::make_pair(newGasMap, newDmMap);
-
-
-    }
-
-    MapPtrType superOrSubSampleDM(int ratio, const std::vector<GridPtrType> &toGrids, bool super) override {
-
-      auto ssub1 = pLevel1->superOrSubSampleDM(ratio, toGrids, super);
-      auto ssub2 = pLevel2->superOrSubSampleDM(ratio, toGrids, super);
-
-      // Work out the new list of particles to zoom on
-      decltype(zoomParticleArray) newZoomParticles;
-      ssub1->clearParticleList();
-      pLevel1->flagParticles(zoomParticleArray);
-      ssub1->getFlaggedParticles(newZoomParticles);
-
-      size_t new_n_hr_per_lr = n_hr_per_lr;
-
-      // Work out the new number of high res particles per low res
-      if (super && ssub2.get() != pLevel2.get()) {
-        // super-sampling changed high-res grid
-        new_n_hr_per_lr = n_hr_per_lr * ratio * ratio * ratio;
-      } else if (!super && ssub1.get() != pLevel1.get()) {
-        // sub-sampling changed low-res grid
-        new_n_hr_per_lr = n_hr_per_lr * (ratio * ratio * ratio);
-      } else if (ssub1.get() != pLevel1.get() || ssub2.get() != pLevel2.get()) {
-        // For more general changes, n_hr_per_lr might not be calculable.
-        // In the most general map, n_hr_per_lr might vary from particle to particle
-        // (e.g. if we start allowing multi-level zooms). This would require
-        // re-implementation of the entire mapping class to remove the explicit
-        // requirement to know n_hr_per_lr. Work for the future...
-        throw runtime_error("Supersampling/subsampling error. The change is in a regime which can't be calculated.");
-      }
-
-
-      return std::make_shared<TwoLevelParticleMapper<T>>(
-        ssub1, ssub2, newZoomParticles,
-        new_n_hr_per_lr,
-        skipLevel1);
-    }
 
   };
 
@@ -1098,9 +1097,9 @@ namespace particle {
 
     }
 
-    virtual void clearParticleList() override {
-      firstMap->clearParticleList();
-      secondMap->clearParticleList();
+    virtual void unflagAllParticles() override {
+      firstMap->unflagAllParticles();
+      secondMap->unflagAllParticles();
     }
 
     virtual GridPtrType getCoarsestGrid() override {

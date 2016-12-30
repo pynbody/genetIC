@@ -64,7 +64,7 @@ protected:
   bool exactPowerSpectrum;
 
   std::vector<size_t> flaggedParticles;
-  std::vector<size_t> zoomParticleArray;
+  std::vector<std::vector<size_t>> zoomParticleArray;
 
 
   T x0, y0, z0;
@@ -180,10 +180,15 @@ public:
     if (haveInitialisedRandomComponent)
       throw (std::runtime_error("Trying to initialize a grid after the random field was already drawn"));
 
-    assert(multiLevelContext.getNumLevels()==1); // TODO: to be relaxed SOON
-    Grid<T> & gridAbove = multiLevelContext.getGridForLevel(0);
+    if(multiLevelContext.getNumLevels()<1)
+      throw std::runtime_error("Cannot initialise a zoom grid before initialising the base grid");
+
+    Grid<T> & gridAbove = multiLevelContext.getGridForLevel(multiLevelContext.getNumLevels()-1);
     int nAbove = gridAbove.size;
-    gridAbove.getFlaggedCells(zoomParticleArray);
+
+    zoomParticleArray.emplace_back();
+    vector<size_t> & newLevelZoomParticleArray = zoomParticleArray.back();
+    gridAbove.getFlaggedCells(newLevelZoomParticleArray);
 
     // find boundaries
     int x0, x1, y0, y1, z0, z1;
@@ -194,8 +199,8 @@ public:
 
     // TO DO: wrap the box sensibly
 
-    for (size_t i = 0; i < zoomParticleArray.size(); i++) {
-      std::tie(x, y, z) = gridAbove.getCellCoordinate(zoomParticleArray[i]);
+    for (size_t i = 0; i < newLevelZoomParticleArray.size(); i++) {
+      std::tie(x, y, z) = gridAbove.getCellCoordinate(newLevelZoomParticleArray[i]);
       if (x < x0) x0 = x;
       if (y < y0) y0 = y;
       if (z < z0) z0 = z;
@@ -230,15 +235,15 @@ public:
 
     addLevelToContext(spectrum, gridAbove.boxsize/zoomfac, n, newOffsetLower);
 
-    Grid<T> &newGrid = multiLevelContext.getGridForLevel(1);
+    Grid<T> &newGrid = multiLevelContext.getGridForLevel(multiLevelContext.getNumLevels()-1);
 
     cout << "Initialized a zoom region:" << endl;
     cout << "  Subbox length   = " << newGrid.boxsize << " Mpc/h" << endl;
-    cout << "  n[1]            = " << newGrid.size << endl;
-    cout << "  dx[1]           = " << newGrid.dx << endl;
+    cout << "  n               = " << newGrid.size << endl;
+    cout << "  dx              = " << newGrid.dx << endl;
     cout << "  Zoom factor     = " << zoomfac << endl;
     cout << "  Low-left corner = " << newGrid.offsetLower.x << ", " << newGrid.offsetLower.y << ", " << newGrid.offsetLower.z << endl;
-    cout << "  Num particles   = " << zoomParticleArray.size() << endl;
+    cout << "  Num particles   = " << newLevelZoomParticleArray.size() << endl;
 
     updateParticleMapper();
 
@@ -354,13 +359,12 @@ public:
     dumpGridData(level, outputField.getFieldForLevel(level).getDataVector());
   }
 
-
   virtual void dumpPS(int level = 0) {
     auto & field = outputField.getFieldForLevel(level);
     field.toFourier();
     powsp_noJing(field.getGrid().size, field.getDataVector(),
                  multiLevelContext.getCovariance(level),
-                 (getOutputPath() + "_" + ((char) (level + '0')) + ".ps").c_str(), field.getGrid().simsize);
+                 (getOutputPath() + "_" + ((char) (level + '0')) + ".ps").c_str(), field.getGrid().boxsize);
   }
 
 
@@ -411,26 +415,22 @@ public:
     if (nLevels == 0)
       return;
 
-    // make a basic mapper for the base level grid
+    // make a basic mapper for the coarsest grid
     pMapper = std::shared_ptr<particle::ParticleMapper<T>>(new particle::OneLevelParticleMapper<T>(
       getGridWithOutputOffset(0)
     ));
 
 
-    if (nLevels >= 3) {
-      // possible future enhancement, but for now...
-      throw runtime_error("Don't know how to set up a mapper for more than one level of refinement");
-    }
+    if (nLevels >= 2) {
 
-    if (nLevels == 2) {
-      size_t zoomfac = getRatioAndAssertPositiveInteger(multiLevelContext.getGridForLevel(0).dx,
-                                                        multiLevelContext.getGridForLevel(1).dx);
-      // it's a zoom!
-      auto pMapperLevel1 = std::shared_ptr<particle::ParticleMapper<T>>(
-        new particle::OneLevelParticleMapper<T>(getGridWithOutputOffset(1)));
+      for(size_t level=1; level<nLevels; level++) {
 
-      pMapper = std::shared_ptr<particle::ParticleMapper<T>>(
-        new particle::TwoLevelParticleMapper<T>(pMapper, pMapperLevel1, zoomParticleArray, zoomfac * zoomfac * zoomfac));
+        auto pFine = std::shared_ptr<particle::ParticleMapper<T>>(
+          new particle::OneLevelParticleMapper<T>(getGridWithOutputOffset(level)));
+
+        pMapper = std::shared_ptr<particle::ParticleMapper<T>>(
+          new particle::TwoLevelParticleMapper<T>(pMapper, pFine, zoomParticleArray[level-1]));
+      }
     }
 
     if (cosmology.OmegaBaryons0 > 0) {
@@ -465,12 +465,12 @@ public:
   void reflag() {
 
     if (pInputMapper != nullptr) {
-      pMapper->clearParticleList();
+      pMapper->unflagAllParticles();
       pInputMapper->flagParticles(flaggedParticles);
       pInputMapper->extendParticleListToUnreferencedGrids(multiLevelContext);
     }
     else {
-      pMapper->clearParticleList();
+      pMapper->unflagAllParticles();
       pMapper->flagParticles(flaggedParticles);
     }
   }
@@ -619,7 +619,7 @@ public:
 
   void selectNearest() {
     auto & grid = multiLevelContext.getGridForLevel(deepestLevel()-1);
-    pMapper->clearParticleList();
+    pMapper->unflagAllParticles();
     size_t id = grid.getClosestIdNoWrap(Coordinate<T>(x0, y0, z0));
     cerr << "selectNearest " <<x0 << " " << y0 << " " << z0 << " " << id << " " << endl;
     grid.flagCells({id});
@@ -678,6 +678,47 @@ public:
 
   auto calcConstraint(string name_in) {
     auto constraint = constraintGenerator.calcConstraintForAllLevels(name_in);
+    constraint.toFourier();
+    /*
+    T norm = constraint.innerProduct(constraint).real();
+    constraint/=sqrt(norm);
+    constraint.convertToVector();
+
+    auto constraint2 = constraintGenerator.calcConstraintForAllLevels(name_in);
+    constraint2/=sqrt(norm);
+    constraint2.toFourier();
+
+
+    // constraint.setStateRecombined();
+
+    constraint.toFourier();
+
+    //constraint.getFieldForLevel(0).applyFilter(constraint.getFilterForLevel(0));
+    //constraint.getFieldForLevel(1).applyFilter(constraint.getFilterForLevel(1));
+    constraint.getFieldForLevel(2).applyFilter(constraint.getFilterForLevel(2));
+
+    constraint.toReal();
+
+    constraint.getFieldForLevel(2).addFieldFromDifferentGridWithFilter(constraint.getFieldForLevel(0),constraint.getFilterForLevel(0));
+    constraint.getFieldForLevel(2).addFieldFromDifferentGrid(constraint.getFieldForLevel(1));
+
+
+    constraint.toFourier();
+
+    constraint.template setupFilters<MultiLevelRecombinedFilterFamily<T>>();
+
+
+    cerr << "THING THING HERE HERE " << constraint2.innerProduct(constraint) << endl;
+    constraint.toReal();
+    for(size_t level=0; level<3; level++) {
+      cerr << level << ": ";
+      constraint.getFilterForLevel(level).debugInfo(cerr);
+      cerr << endl;
+      dumpGridData(level, constraint.getFieldForLevel(level).getDataVector());
+    }
+
+    assert(false);
+    */
     constraint.toFourier();
     return constraint;
   }

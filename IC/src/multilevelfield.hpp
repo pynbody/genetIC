@@ -36,22 +36,6 @@ protected:
 
   std::vector<Field<DataType, T>> fieldsOnLevels;
 
-  template<typename FilterType>
-  void setupFilters() {
-    size_t nLevels = this->multiLevelContext->getNumLevels();
-    if (nLevels == 2) {
-      const T FRACTIONAL_K_SPLIT = 0.3;
-      const Grid<T> & grid0(this->multiLevelContext->getGridForLevel(0));
-      this->pFilters = make_shared<FilterType>(
-              ((T) grid0.size) * FRACTIONAL_K_SPLIT * 2. * M_PI / grid0.boxsize);
-    } else if (nLevels == 1) {
-      this->pFilters = make_shared<FilterFamily<T>>(1);
-    } else {
-      this->pFilters = nullptr;
-      // throw (runtime_error("Don't know how to make appropriate filters for multi-level field"));
-    }
-  }
-
   void setupConnection() {
     connection = multiLevelContext->connect([this]() {
       this->updateMultiLevelContext();
@@ -60,6 +44,20 @@ protected:
 
 
 public:
+
+  template<typename FilterType>
+  void setupFilters() {
+    const T FRACTIONAL_K_SPLIT = 0.3;
+
+    size_t nLevels = this->multiLevelContext->getNumLevels();
+    this->pFilters = make_shared<FilterType>();
+    for(size_t level=0; level<nLevels-1; ++level) {
+      const Grid<T> &grid0(this->multiLevelContext->getGridForLevel(level));
+      T k_cut = ((T) grid0.size) * FRACTIONAL_K_SPLIT * 2. * M_PI / grid0.boxsize;
+      this->pFilters->addLevel(k_cut);
+    }
+
+  }
 
   MultiLevelField(MultiLevelContextInformation<T> & multiLevelContext) : multiLevelContext(&multiLevelContext) {
     setupConnection();
@@ -116,6 +114,14 @@ public:
 
   virtual const Filter<T> & getFilterForLevel(size_t i) const {
     return pFilters->getFilterOnLevel(i);
+  }
+
+  virtual const Filter<T> & getHighPassFilterForLevel(size_t i) const {
+    return pFilters->getHighPassFilterOnLevel(i);
+  }
+
+  virtual const Filter<T> & getLowPassFilterForLevel(size_t i) const {
+    return pFilters->getLowPassFilterOnLevel(i);
   }
 
   void toReal() {
@@ -194,6 +200,12 @@ public:
       pFieldThis = &(getFieldForLevel(level).getDataVector());
       pFieldOther = &(other.getFieldForLevel(level).getDataVector());
 
+      /* cerr << "addScaled " << level << ":";
+      pFiltThis->debugInfo(cerr);
+      cerr << " -> ";
+      pFiltOther->debugInfo(cerr);
+      cerr << endl;*/
+
       return this->hasFieldOnGrid(level) && other.hasFieldOnGrid(level);
     };
 
@@ -258,10 +270,12 @@ public:
     const Grid<T> *pCurrentGrid;
     std::vector<DataType> *pFieldThis;
 
-
     auto newLevel = [&](size_t level) {
       pCurrentGrid = &(multiLevelContext->getGridForLevel(level));
       pFiltThis = &(this->getFilterForLevel(level));
+      /*cerr << level << " ";
+      pFiltThis->debugInfo(cerr);
+      cerr <<  endl;*/
       pFieldThis = &(this->getFieldForLevel(level).getDataVector());
       return pFieldThis->size()>0;
     };
@@ -368,7 +382,8 @@ private:
 #pragma omp parallel for
     for (size_t i = 0; i < grid.size3; i++) {
       T existing_norm = abs(field[i]);
-      field[i] *= sqrt(spectrum[i]) * white_noise_norm / existing_norm;
+      if(existing_norm!=0.0)
+        field[i] *= sqrt(spectrum[i]) * white_noise_norm / existing_norm;
     }
   }
 
@@ -424,7 +439,7 @@ public:
 
   void updateMultiLevelContext() override {
     assert(outputState==PRE_SEPARATION);
-    this->template setupFilters<TwoLevelFilterFamily<T>>();
+    this->template setupFilters<MultiLevelFilterFamily<T>>();
     this->fieldsOnLevels.clear();
     this->multiLevelContext->forEachLevel([this](Grid<T> &g) {
       this->fieldsOnLevels.emplace_back(g);
@@ -441,7 +456,12 @@ public:
     assert(outputState==SEPARATED);
     outputState = RECOMBINED;
     (*this)+=residuals;
-    this->template setupFilters<TwoLevelRecombinedFilterFamily<T>>();
+    this->template setupFilters<MultiLevelRecombinedFilterFamily<T>>();
+  }
+
+  void setStateRecombined() {
+    outputState = RECOMBINED;
+    this->template setupFilters<MultiLevelRecombinedFilterFamily<T>>();
   }
 
 
@@ -468,7 +488,7 @@ public:
 
 
   virtual void updateMultiLevelContext() override {
-    this->template setupFilters<TwoLevelDependentFilterFamily<T>>();
+    this->template setupFilters<MultiLevelDependentFilterFamily<T>>();
   }
 
 

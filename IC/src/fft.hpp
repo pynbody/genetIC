@@ -124,16 +124,19 @@ void fft<double>(double *fto, double *ftin,
   size_t len = static_cast<size_t>(res * res);
   len *= res;
 
-  if (dir == -1)
+  if (dir == 1)
     plan = fftw_plan_r2r_3d(res, res, res,
                                 reinterpret_cast<double *>(&ftin[0]),
                                 reinterpret_cast<double *>(&fto[0]),
                             FFTW_R2HC,FFTW_R2HC,FFTW_R2HC,
-                                FFTW_BACKWARD | FFTW_ESTIMATE);
-
+                                 FFTW_ESTIMATE);
 
   else if (dir == -1)
-    throw std::runtime_error("Not implemented");
+    plan = fftw_plan_r2r_3d(res, res, res,
+                            reinterpret_cast<double *>(&ftin[0]),
+                            reinterpret_cast<double *>(&fto[0]),
+                            FFTW_HC2R,FFTW_HC2R,FFTW_HC2R,
+                             FFTW_ESTIMATE);
 
 
   else throw std::runtime_error("Incorrect direction parameter to fft");

@@ -30,6 +30,7 @@ zoomgrid 3 64
 
 
 done
+dump test_2.tipsy.overdensity
 dumpgrid 0
 dumpgrid 1
 dumpps 0
