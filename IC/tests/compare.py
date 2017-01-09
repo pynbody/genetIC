@@ -24,11 +24,24 @@ def compare_grids(ref, test):
         npt.assert_almost_equal(grid_ref, grid_test, decimal=4)
     print "Grid output matches"
 
+def compare_ps(ref, test):
+    ref_vals = np.loadtxt(ref)
+    test_vals = np.loadtxt(test)
+    npt.assert_allclose(ref_vals, test_vals, rtol=1e-4)
+    print "Power-spectrum output %s matches"%ref
+
+
 if __name__=="__main__":
     warnings.simplefilter("ignore")
     assert len(sys.argv)==2
     if os.path.exists(sys.argv[1]+"/reference_grid"):
         compare_grids(sys.argv[1]+"/reference_grid/",sys.argv[1]+"/")
+
+    powspecs = sorted(glob.glob(sys.argv[1]+"/*.ps"))
+    powspecs_test = sorted(glob.glob(sys.argv[1]+"/reference_ps/*.ps"))
+    for ps, ps_test in zip(powspecs, powspecs_test):
+        compare_ps(ps,ps_test)
+
     output_file = glob.glob(sys.argv[1]+"/*.tipsy")
     assert len(output_file)==1, "Could not find a unique output file to test against"
     compare(pynbody.load(output_file[0]),pynbody.load(sys.argv[1]+"/reference_output"))

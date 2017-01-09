@@ -12,22 +12,24 @@
 
 #include "grid.hpp"
 
-template<typename MyFloat>
+template<typename DataType>
 class RandomFieldGenerator {
 protected:
+  using MyFloat=  strip_complex<DataType>;
+
   gsl_rng *randomState;
-  const gsl_rng_type *T;
+  const gsl_rng_type *randomNumberGeneratorType;
   bool drawInFourierSpace;
   bool reverseRandomDrawOrder;
   bool seeded;
-  MultiLevelField<complex<MyFloat>> & field;
+  MultiLevelField<DataType> & field;
 
 
 public:
   RandomFieldGenerator(MultiLevelField<complex<MyFloat>> &field_, int seed = 0) :
     field(field_) {
-    T = gsl_rng_ranlxs2; // shouldn't this be gsl_rng_ranlxd2 for MyFloat = double? -> it's single precision for compatibility with previous versions!
-    randomState = gsl_rng_alloc(T); //this allocates memory for the generator with type T
+    randomNumberGeneratorType = gsl_rng_ranlxs2; // shouldn't this be gsl_rng_ranlxd2 for MyFloat = double? -> it's single precision for compatibility with previous versions!
+    randomState = gsl_rng_alloc(randomNumberGeneratorType); //this allocates memory for the generator with type T
     gsl_rng_set(randomState, seed);
     drawInFourierSpace = false;
     seeded=false;
@@ -73,13 +75,20 @@ public:
 
 protected:
 
-  void drawOneFourierMode(const Grid<MyFloat> &g, int k1, int k2, int k3,
-                          MyFloat norm, RefFieldType pField_k) {
+  void setOneFourierMode(const Grid<MyFloat> &g, int k1, int k2, int k3,
+                         RefFieldType pField_k, MyFloat realPart, MyFloat imagPart) {
     size_t id_k, id_negk;
 
     id_k = g.getCellIndex(Coordinate<int>(k1, k2, k3));
     id_negk = g.getCellIndex(Coordinate<int>(-k1, -k2, -k3));
 
+    pField_k[id_k] = std::complex<MyFloat>(realPart, imagPart);
+    pField_k[id_negk] = std::complex<MyFloat>(realPart, -imagPart);
+
+  }
+
+  void drawOneFourierMode(const Grid<MyFloat> &g, int k1, int k2, int k3,
+                          MyFloat norm, RefFieldType pField_k) {
 
     // these need to be initialized in explicit order - can't leave it to compilers
     // to choose as they choose differently...
@@ -87,12 +96,9 @@ protected:
     MyFloat b = norm * gsl_ran_gaussian_ziggurat(randomState, 1.);
 
     if (reverseRandomDrawOrder)
-      pField_k[id_k] = std::complex<MyFloat>(b, a);
+      setOneFourierMode(g, k1, k2, k3, pField_k, b, a);
     else
-      pField_k[id_k] = std::complex<MyFloat>(a, b);
-
-    // reality condition:
-    pField_k[id_negk] = std::conj(pField_k[id_k]);
+      setOneFourierMode(g, k1, k2, k3, pField_k, a, b);
 
   }
 

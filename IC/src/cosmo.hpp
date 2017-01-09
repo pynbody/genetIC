@@ -288,10 +288,10 @@ void powsp(int n, std::complex<MyFloat> *ft, const char *out, MyFloat Boxlength)
 }
 
 template<typename MyFloat>
-void powsp_noJing(int n, const std::vector<std::complex<MyFloat>> &ft,
+void powsp_noJing(const Field<std::complex<MyFloat>> & field,
                   const std::vector<MyFloat> &P0, const char *out, MyFloat Boxlength) {
 
-  int res = n;
+  int res = field.getGrid().size;
   int nBins = 100;
   std::vector<MyFloat> inBin(nBins);
   std::vector<MyFloat> kbin(nBins);
@@ -318,7 +318,8 @@ void powsp_noJing(int n, const std::vector<std::complex<MyFloat>> &ft,
 
         // determine mode modulus
 
-        MyFloat vabs = ft[idx].real() * ft[idx].real() + ft[idx].imag() * ft[idx].imag();
+        auto fieldValue = field.evaluateFourierMode({ix,iy,iz});
+        MyFloat vabs = fieldValue.real() * fieldValue.real() + fieldValue.imag() * fieldValue.imag();
 
         int iix, iiy, iiz;
 
@@ -369,39 +370,42 @@ void powsp_noJing(int n, const std::vector<std::complex<MyFloat>> &ft,
 
 }
 
-template<typename MyFloat>
-std::complex<MyFloat> *poiss(std::complex<MyFloat> *out, std::complex<MyFloat> *in, int res, MyFloat Boxlength,
-                             MyFloat a, MyFloat Om) {
+template<typename DataType, typename FloatType=strip_complex<DataType>>
+DataType *poiss(DataType *out, DataType *in, int res,
+                FloatType Boxlength, FloatType a, FloatType Om) {
 
   long i;
-  MyFloat prefac =
+  FloatType prefac =
     3. / 2. * Om / a * 100. * 100. / (3. * 100000.) / (3. * 100000.); // =3/2 Om0/a * (H0/h)^2 (h/Mpc)^2 / c^2 (km/s)
-  MyFloat kw = 2.0f * M_PI / (MyFloat) Boxlength, k;
+  FloatType kw = 2.0f * M_PI / (FloatType) Boxlength, k_inv;
 
   int k1, k2, k3, kk1, kk2, kk3;
 
   for (k1 = 0; k1 < res; k1++) {
     for (k2 = 0; k2 < res; k2++) {
       for (k3 = 0; k3 < res; k3++) {
+        // TODO: refactor this to use the provided routine for getting k coordinates in Grid class
         i = (k1 * res + k2) * (res) + k3;
 
         if (k1 > res / 2) kk1 = k1 - res; else kk1 = k1;
         if (k2 > res / 2) kk2 = k2 - res; else kk2 = k2;
         if (k3 > res / 2) kk3 = k3 - res; else kk3 = k3;
 
-        k = (MyFloat) (kk1 * kk1 + kk2 * kk2 + kk3 * kk3) * kw * kw;
+        k_inv = 1.0/((FloatType) (kk1 * kk1 + kk2 * kk2 + kk3 * kk3) * kw * kw);
+        if(i==0)
+          k_inv = 0;
 
-        out[i] = -in[i] * prefac / k;
+        out[i] = -in[i] * prefac * k_inv;
       }
     }
   }
-
-  out[0] = std::complex<MyFloat>(0., 0.);
 
   return out;
 
 }
 
+
+/*
 template<typename MyFloat>
 std::complex<MyFloat> *rev_poiss(std::complex<MyFloat> *out, std::complex<MyFloat> *in, int res, MyFloat Boxlength,
                                  MyFloat a, MyFloat Om) {
@@ -436,5 +440,6 @@ std::complex<MyFloat> *rev_poiss(std::complex<MyFloat> *out, std::complex<MyFloa
   return out;
 
 }
+ */
 
 #endif

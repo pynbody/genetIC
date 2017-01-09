@@ -5,22 +5,6 @@
 #include "filter.hpp"
 #include "field.hpp"
 
-template<typename T>
-class strip_complex_s {
-public:
-  using type = T;
-};
-
-template<typename T>
-class strip_complex_s<std::complex<T>> {
-public:
-  using type = T;
-};
-
-
-template <typename T>
-using strip_complex = typename strip_complex_s<T>::type;
-
 
 
 

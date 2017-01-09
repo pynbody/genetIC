@@ -48,7 +48,7 @@ protected:
   OutputField<std::complex<T>> outputField;
   ConstraintApplicator<T> constraintApplicator;
   MultiLevelConstraintGenerator<T> constraintGenerator;
-  RandomFieldGenerator<T> randomFieldGenerator;
+  RandomFieldGenerator<std::complex<T>> randomFieldGenerator;
 
   CAMB<T> spectrum;
 
@@ -362,7 +362,7 @@ public:
   virtual void dumpPS(int level = 0) {
     auto & field = outputField.getFieldForLevel(level);
     field.toFourier();
-    powsp_noJing(field.getGrid().size, field.getDataVector(),
+    powsp_noJing(field,
                  multiLevelContext.getCovariance(level),
                  (getOutputPath() + "_" + ((char) (level + '0')) + ".ps").c_str(), field.getGrid().boxsize);
   }

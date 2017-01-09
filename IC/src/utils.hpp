@@ -36,4 +36,24 @@ int getRatioAndAssertInteger(T p, T q, T tolerance=1e-8) {
   return rounded_ratio;
 }
 
+template<typename T>
+class strip_complex_s {
+public:
+  using type = T;
+};
+
+template<typename T>
+class strip_complex_s<std::complex<T>> {
+public:
+  using type = T;
+};
+
+
+template <typename T>
+using strip_complex = typename strip_complex_s<T>::type;
+
+template<typename T>
+using ensure_complex = std::complex<strip_complex<T>>;
+
+
 #endif

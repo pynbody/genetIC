@@ -24,7 +24,7 @@ namespace particle {
   class ZeldovichParticleGenerator : public ParticleGenerator<T> {
   protected:
     using TField = std::vector<std::complex<T>>;
-    using TRealField = Field<std::complex<T>,T>; // TODO: revert to Field<T,T>
+    using TRealField = Field<T,T>;
 
     T velocityToOffsetRatio, boxMass;
     Field<complex<T>, T> &linearOverdensityField;
@@ -201,9 +201,9 @@ namespace particle {
       assert(!pOff_y->isFourier());
       assert(!pOff_z->isFourier());
 
-      particle.pos.x = onGrid.getFieldAt(id, *pOff_x).real();
-      particle.pos.y = onGrid.getFieldAt(id, *pOff_y).real();
-      particle.pos.z = onGrid.getFieldAt(id, *pOff_z).real();
+      particle.pos.x = onGrid.getFieldAt(id, *pOff_x);
+      particle.pos.y = onGrid.getFieldAt(id, *pOff_y);
+      particle.pos.z = onGrid.getFieldAt(id, *pOff_z);
 
       particle.vel = particle.pos*velocityToOffsetRatio;
 

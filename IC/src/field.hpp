@@ -10,13 +10,14 @@
 #include <cassert>
 #include "grid.hpp"
 
-template<typename DataType, typename CoordinateType>
+template<typename DataType, typename CoordinateType=strip_complex<DataType>>
 class Field : public std::enable_shared_from_this<Field<DataType, CoordinateType>> {
 public:
   using TGrid = const Grid<CoordinateType>;
   using TPtrGrid = std::shared_ptr<TGrid>;
   using TData = std::vector<DataType>;
   using value_type = DataType;
+  using ComplexType = ensure_complex<DataType>;
 
 protected:
   const TPtrGrid pGrid;
@@ -205,6 +206,10 @@ public:
       data[i]*=filter(pGrid->getFourierCellAbsK(i));
     }
 
+  }
+
+  ComplexType evaluateFourierMode(Coordinate<int> kcoords) const {
+    return data[pGrid->getCellIndex(kcoords)];
   }
 
   void addFieldFromDifferentGrid(const Field<DataType, CoordinateType> & source) {
