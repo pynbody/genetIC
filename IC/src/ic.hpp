@@ -39,16 +39,18 @@ class ICGenerator {
    */
 protected:
 
+  using GridDataType = std::complex<T>;
   using GridPtrType = std::shared_ptr<Grid<T>>;
+
 
   friend class DummyICGenerator<T>;
 
   CosmologicalParameters<T> cosmology;
-  MultiLevelContextInformation<T> multiLevelContext;
-  OutputField<std::complex<T>> outputField;
-  ConstraintApplicator<T> constraintApplicator;
-  MultiLevelConstraintGenerator<T> constraintGenerator;
-  RandomFieldGenerator<std::complex<T>> randomFieldGenerator;
+  MultiLevelContextInformation<GridDataType> multiLevelContext;
+  OutputField<GridDataType> outputField;
+  ConstraintApplicator<GridDataType> constraintApplicator;
+  MultiLevelConstraintGenerator<GridDataType> constraintGenerator;
+  RandomFieldGenerator<GridDataType> randomFieldGenerator;
 
   CAMB<T> spectrum;
 
@@ -72,7 +74,7 @@ protected:
   shared_ptr<particle::ParticleMapper<T>> pMapper;
   shared_ptr<particle::ParticleMapper<T>> pInputMapper;
 
-  shared_ptr<particle::AbstractMultiLevelParticleGenerator<T>> pParticleGenerator;
+  shared_ptr<particle::AbstractMultiLevelParticleGenerator<GridDataType>> pParticleGenerator;
 
   using RefFieldType = std::vector<std::complex<T>> &;
   using FieldType = std::vector<std::complex<T>>;
@@ -375,7 +377,7 @@ public:
     using GridLevelGeneratorType = particle::ZeldovichParticleGenerator<T>;
 
     pParticleGenerator = std::make_shared<
-      particle::MultiLevelParticleGenerator<T, GridLevelGeneratorType>>(outputField, cosmology);
+      particle::MultiLevelParticleGenerator<GridDataType, GridLevelGeneratorType>>(outputField, cosmology);
 
   }
 

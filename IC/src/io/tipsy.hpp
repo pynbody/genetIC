@@ -20,11 +20,11 @@ namespace io {
     } header_tipsy;
 
 
-    template<typename MyFloat>
+    template<typename GridType, typename MyFloat=strip_complex<GridType>>
     void saveFieldTipsyArray(const std::string &filename,
-                             particle::ParticleMapper<MyFloat> & mapper,
-                             particle::AbstractMultiLevelParticleGenerator<MyFloat> & generator,
-                             MultiLevelField<complex<MyFloat>> &field) {
+                             particle::ParticleMapper<GridType> & mapper,
+                             particle::AbstractMultiLevelParticleGenerator<GridType> & generator,
+                             MultiLevelField<GridType> &field) {
       ofstream outfile(filename.c_str(), ofstream::binary);
       int lengthField = mapper.size();
       outfile.write(reinterpret_cast<char *>(&lengthField), 4);
@@ -246,9 +246,9 @@ namespace io {
       }
     };
 
-    template<typename T>
+    template<typename GridDataType, typename T>
     void save(const std::string &filename, double Boxlength,
-              const particle::AbstractMultiLevelParticleGenerator<T> & generator,
+              const particle::AbstractMultiLevelParticleGenerator<GridDataType> & generator,
               shared_ptr<particle::ParticleMapper<T>> pMapper,
               const CosmologicalParameters<T> &cosmology) {
 

@@ -16,8 +16,11 @@ namespace particle {
   template<typename T>
   class Particle;
 
-  template<typename T>
-  class ParticleGenerator : public std::enable_shared_from_this<ParticleGenerator<T>> {
+  template<typename GT>
+  class ParticleGenerator : public std::enable_shared_from_this<ParticleGenerator<GT>> {
+  public:
+    using T = strip_complex<GT>;
+
   protected:
     const Grid <T> &grid;
     ParticleGenerator(const Grid<T> &grid) : grid(grid) {

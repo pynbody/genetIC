@@ -1,0 +1,661 @@
+(* Content-type: application/vnd.wolfram.mathematica *)
+
+(*** Wolfram Notebook File ***)
+(* http://www.wolfram.com/nb *)
+
+(* CreatedBy='Mathematica 11.0' *)
+
+(*CacheID: 234*)
+(* Internal cache information:
+NotebookFileLineBreakTest
+NotebookFileLineBreakTest
+NotebookDataPosition[       158,          7]
+NotebookDataLength[     21446,        653]
+NotebookOptionsPosition[     19970,        601]
+NotebookOutlinePosition[     20331,        617]
+CellTagsIndexPosition[     20288,        614]
+WindowFrame->Normal*)
+
+(* Beginning of Notebook Content *)
+Notebook[{
+Cell[TextData[{
+ "This code is designed to generate the mapping from real/imaginary parts of \
+a complex transform to the FFTW r2r conventions.\n\nFor background see ",
+ ButtonBox["http://www.fftw.org/doc/Real_002dto_ 002dReal-Transforms.html",
+  BaseStyle->"Hyperlink",
+  ButtonData->{
+    URL["http://www.fftw.org/doc/Real_002dto_002dReal-Transforms.html"], None},
+  ButtonNote->"http://www.fftw.org/doc/Real_002dto_002dReal-Transforms.html"]
+}], "Text",
+ CellChangeTimes->{{3.692973135019525*^9, 3.6929731555443773`*^9}, {
+  3.6929732586756496`*^9, 3.6929732586787233`*^9}}],
+
+Cell["\<\
+Start with the easy case: the 1D real Fourier transform definition. ReF is \
+the real part of the actual Fourier transform, FReal are the literal real \
+numbers stored at the end of an FFTW r2r transform. NB we are using \
+\[OpenCurlyDoubleQuote]numpy\[CloseCurlyDoubleQuote]/Fortran indexing \
+notation, i.e. -kx refers to the element in location size-kx.\
+\>", "Text",
+ CellChangeTimes->{{3.692973160366311*^9, 3.6929732086825867`*^9}}],
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{"ReF", "[", "kx_Symbol", "]"}], ":=", 
+  RowBox[{"FReal", "[", "kx", "]"}]}]], "Input",
+ CellChangeTimes->{{3.69297089455907*^9, 3.692971030138123*^9}, {
+   3.692971065890304*^9, 3.692971134515377*^9}, {3.6929711910458307`*^9, 
+   3.69297121391671*^9}, {3.692971265823884*^9, 3.6929712665662518`*^9}, {
+   3.692971369649444*^9, 3.692971376995566*^9}, 3.6929715693463373`*^9, {
+   3.692971715392524*^9, 3.6929717165735607`*^9}, {3.692971844689447*^9, 
+   3.692971847398999*^9}, {3.6929724331710253`*^9, 3.692972433823365*^9}, {
+   3.692972541845048*^9, 3.6929725425650063`*^9}}],
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{"ReF", "[", 
+   RowBox[{"-", "kx_Symbol"}], "]"}], ":=", 
+  RowBox[{"FReal", "[", "kx", "]"}]}]], "Input",
+ CellChangeTimes->{
+  3.692971222996969*^9, {3.6929712686821423`*^9, 3.692971269827936*^9}, {
+   3.692971358344585*^9, 3.692971362089258*^9}, {3.692971411151711*^9, 
+   3.692971418597577*^9}, {3.69297156874043*^9, 3.692971585118726*^9}, {
+   3.69297170952148*^9, 3.6929717290272713`*^9}, {3.6929718487151747`*^9, 
+   3.692971850345907*^9}, {3.6929724349816303`*^9, 3.692972435522059*^9}, {
+   3.6929725408662653`*^9, 3.6929725412375383`*^9}}],
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{"ImF", "[", "kx_Symbol", "]"}], ":=", 
+  RowBox[{"FReal", "[", 
+   RowBox[{"-", "kx"}], "]"}]}]], "Input",
+ CellChangeTimes->{{3.6929715948964233`*^9, 3.692971597157545*^9}, {
+  3.6929717308056*^9, 3.692971731547187*^9}, {3.692971851415371*^9, 
+  3.692971853755122*^9}, {3.6929724369735203`*^9, 3.692972440280851*^9}, {
+  3.69297253965136*^9, 3.692972540067897*^9}}],
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{"ImF", "[", 
+   RowBox[{"-", "kx_Symbol"}], "]"}], ":=", 
+  RowBox[{"-", 
+   RowBox[{"FReal", "[", 
+    RowBox[{"-", "kx"}], "]"}]}]}]], "Input",
+ CellChangeTimes->{{3.69297159960748*^9, 3.692971612489621*^9}, {
+  3.6929717348437157`*^9, 3.692971735630258*^9}, {3.692971856410882*^9, 
+  3.692971857332698*^9}, {3.6929724422272*^9, 3.69297244411699*^9}, {
+  3.692972538301543*^9, 3.692972538739973*^9}}],
+
+Cell["\<\
+The mind-boggling bit: what happens when higher dimensional real transforms \
+are performed? Answer: e.g. going 1D->2D, the x transform is done first, then \
+the y transform is applied to the result, regarding it literally as a \
+\[OpenCurlyDoubleQuote]real\[CloseCurlyDoubleQuote] field. \
+\>", "Text",
+ CellChangeTimes->{{3.692973214343384*^9, 3.692973297726102*^9}}],
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{"ReF", "[", 
+   RowBox[{"ks__", ",", "ky_Symbol"}], "]"}], ":=", "\[IndentingNewLine]", 
+  RowBox[{"Module", "[", 
+   RowBox[{
+    RowBox[{"{", 
+     RowBox[{
+      RowBox[{"ReFs", "=", 
+       RowBox[{"ReF", "[", "ks", "]"}]}], ",", " ", 
+      RowBox[{"ImFs", "=", 
+       RowBox[{"ImF", "[", "ks", "]"}]}]}], "}"}], ",", "\[IndentingNewLine]", 
+    RowBox[{
+     RowBox[{"(", 
+      RowBox[{"ReFs", "/.", 
+       RowBox[{"{", 
+        RowBox[{
+         RowBox[{"FReal", "[", "A__", "]"}], "\[Rule]", 
+         RowBox[{"FReal", "[", 
+          RowBox[{"A", ",", "ky"}], "]"}]}], "}"}]}], ")"}], "-", 
+     RowBox[{"(", 
+      RowBox[{"ImFs", "/.", 
+       RowBox[{"{", 
+        RowBox[{
+         RowBox[{"FReal", "[", "A__", "]"}], "\[Rule]", 
+         RowBox[{"FReal", "[", 
+          RowBox[{"A", ",", 
+           RowBox[{"-", "ky"}]}], "]"}]}], "}"}]}], ")"}]}]}], 
+   "\[IndentingNewLine]", "]"}]}]], "Input",
+ CellChangeTimes->{{3.69297175641966*^9, 3.692971788314352*^9}, {
+  3.692971891680204*^9, 3.692972001495997*^9}, {3.692972032754382*^9, 
+  3.692972035521641*^9}, {3.69297209945502*^9, 3.692972118692799*^9}, {
+  3.692972182951991*^9, 3.692972183647794*^9}, {3.692972359339265*^9, 
+  3.692972409806539*^9}, {3.692972559558978*^9, 3.692972579678693*^9}, {
+  3.692972636524827*^9, 3.692972688296818*^9}}],
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{"ReF", "[", 
+   RowBox[{"ks__", ",", 
+    RowBox[{"-", "ky_Symbol"}]}], "]"}], ":=", "\[IndentingNewLine]", 
+  RowBox[{"Module", "[", 
+   RowBox[{
+    RowBox[{"{", 
+     RowBox[{
+      RowBox[{"ReFs", "=", 
+       RowBox[{"ReF", "[", "ks", "]"}]}], ",", " ", 
+      RowBox[{"ImFs", "=", 
+       RowBox[{"ImF", "[", "ks", "]"}]}]}], "}"}], ",", "\[IndentingNewLine]", 
+    RowBox[{
+     RowBox[{"(", 
+      RowBox[{"ReFs", "/.", 
+       RowBox[{"{", 
+        RowBox[{
+         RowBox[{"FReal", "[", "A__", "]"}], "\[Rule]", 
+         RowBox[{"FReal", "[", 
+          RowBox[{"A", ",", "ky"}], "]"}]}], "}"}]}], ")"}], "+", 
+     RowBox[{"(", 
+      RowBox[{"ImFs", "/.", 
+       RowBox[{"{", 
+        RowBox[{
+         RowBox[{"FReal", "[", "A__", "]"}], "\[Rule]", 
+         RowBox[{"FReal", "[", 
+          RowBox[{"A", ",", 
+           RowBox[{"-", "ky"}]}], "]"}]}], "}"}]}], ")"}]}]}], 
+   "\[IndentingNewLine]", "]"}]}]], "Input",
+ CellChangeTimes->{{3.692972700986627*^9, 3.692972732418482*^9}}],
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{"ImF", "[", 
+   RowBox[{"ks__", ",", "ky_Symbol"}], "]"}], ":=", "\[IndentingNewLine]", 
+  RowBox[{"Module", "[", 
+   RowBox[{
+    RowBox[{"{", 
+     RowBox[{
+      RowBox[{"ReFs", "=", 
+       RowBox[{"ReF", "[", "ks", "]"}]}], ",", " ", 
+      RowBox[{"ImFs", "=", 
+       RowBox[{"ImF", "[", "ks", "]"}]}]}], "}"}], ",", "\[IndentingNewLine]", 
+    RowBox[{
+     RowBox[{"(", 
+      RowBox[{"ImFs", "/.", 
+       RowBox[{"{", 
+        RowBox[{
+         RowBox[{"FReal", "[", "A__", "]"}], "\[Rule]", 
+         RowBox[{"FReal", "[", 
+          RowBox[{"A", ",", "ky"}], "]"}]}], "}"}]}], ")"}], "+", 
+     RowBox[{"(", 
+      RowBox[{"ReFs", "/.", 
+       RowBox[{"{", 
+        RowBox[{
+         RowBox[{"FReal", "[", "A__", "]"}], "\[Rule]", 
+         RowBox[{"FReal", "[", 
+          RowBox[{"A", ",", 
+           RowBox[{"-", "ky"}]}], "]"}]}], "}"}]}], ")"}]}]}], 
+   "\[IndentingNewLine]", "]"}]}]], "Input",
+ CellChangeTimes->{{3.692972741296625*^9, 3.6929727642337523`*^9}}],
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{"ImF", "[", 
+   RowBox[{"ks__", ",", 
+    RowBox[{"-", "ky_Symbol"}]}], "]"}], ":=", "\[IndentingNewLine]", 
+  RowBox[{"Module", "[", 
+   RowBox[{
+    RowBox[{"{", 
+     RowBox[{
+      RowBox[{"ReFs", "=", 
+       RowBox[{"ReF", "[", "ks", "]"}]}], ",", " ", 
+      RowBox[{"ImFs", "=", 
+       RowBox[{"ImF", "[", "ks", "]"}]}]}], "}"}], ",", "\[IndentingNewLine]", 
+    RowBox[{
+     RowBox[{"(", 
+      RowBox[{"ImFs", "/.", 
+       RowBox[{"{", 
+        RowBox[{
+         RowBox[{"FReal", "[", "A__", "]"}], "\[Rule]", 
+         RowBox[{"FReal", "[", 
+          RowBox[{"A", ",", "ky"}], "]"}]}], "}"}]}], ")"}], "-", 
+     RowBox[{"(", 
+      RowBox[{"ReFs", "/.", 
+       RowBox[{"{", 
+        RowBox[{
+         RowBox[{"FReal", "[", "A__", "]"}], "\[Rule]", 
+         RowBox[{"FReal", "[", 
+          RowBox[{"A", ",", 
+           RowBox[{"-", "ky"}]}], "]"}]}], "}"}]}], ")"}]}]}], 
+   "\[IndentingNewLine]", "]"}]}]], "Input",
+ CellChangeTimes->{
+  3.692972776845438*^9, {3.692972825151866*^9, 3.6929728258381567`*^9}}],
+
+Cell["\<\
+Check 2D case agrees with manual calculation (in notebook at 9/1/17)\
+\>", "Text",
+ CellChangeTimes->{{3.692973061030012*^9, 3.692973065538781*^9}, {
+  3.692973378062077*^9, 3.692973391865786*^9}}],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{"ReF", "[", 
+   RowBox[{"kx", ",", "ky"}], "]"}], "+", 
+  RowBox[{"I", " ", 
+   RowBox[{"ImF", "[", 
+    RowBox[{"kx", ",", "ky"}], "]"}]}]}]], "Input",
+ CellChangeTimes->{{3.692972849823018*^9, 3.692972854987834*^9}, {
+  3.6929728877581453`*^9, 3.69297289018889*^9}}],
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{"-", 
+   RowBox[{"FReal", "[", 
+    RowBox[{
+     RowBox[{"-", "kx"}], ",", 
+     RowBox[{"-", "ky"}]}], "]"}]}], "+", 
+  RowBox[{"\[ImaginaryI]", " ", 
+   RowBox[{"(", 
+    RowBox[{
+     RowBox[{"FReal", "[", 
+      RowBox[{
+       RowBox[{"-", "kx"}], ",", "ky"}], "]"}], "+", 
+     RowBox[{"FReal", "[", 
+      RowBox[{"kx", ",", 
+       RowBox[{"-", "ky"}]}], "]"}]}], ")"}]}], "+", 
+  RowBox[{"FReal", "[", 
+   RowBox[{"kx", ",", "ky"}], "]"}]}]], "Output",
+ CellChangeTimes->{3.692972855557809*^9, 3.6929728904608183`*^9}]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{"ReF", "[", 
+   RowBox[{
+    RowBox[{"-", "kx"}], ",", "ky"}], "]"}], "+", 
+  RowBox[{"I", " ", 
+   RowBox[{"ImF", "[", 
+    RowBox[{
+     RowBox[{"-", "kx"}], ",", "ky"}], "]"}]}]}]], "Input",
+ CellChangeTimes->{
+  3.692972860443988*^9, {3.6929728937224083`*^9, 3.692972896521015*^9}}],
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{"FReal", "[", 
+   RowBox[{
+    RowBox[{"-", "kx"}], ",", 
+    RowBox[{"-", "ky"}]}], "]"}], "+", 
+  RowBox[{"\[ImaginaryI]", " ", 
+   RowBox[{"(", 
+    RowBox[{
+     RowBox[{"-", 
+      RowBox[{"FReal", "[", 
+       RowBox[{
+        RowBox[{"-", "kx"}], ",", "ky"}], "]"}]}], "+", 
+     RowBox[{"FReal", "[", 
+      RowBox[{"kx", ",", 
+       RowBox[{"-", "ky"}]}], "]"}]}], ")"}]}], "+", 
+  RowBox[{"FReal", "[", 
+   RowBox[{"kx", ",", "ky"}], "]"}]}]], "Output",
+ CellChangeTimes->{3.692972860709887*^9, 3.69297289818744*^9}]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{"ReF", "[", 
+   RowBox[{"kx", ",", 
+    RowBox[{"-", "ky"}]}], "]"}], "+", 
+  RowBox[{"I", " ", 
+   RowBox[{"ImF", "[", 
+    RowBox[{"kx", ",", 
+     RowBox[{"-", "ky"}]}], "]"}]}]}]], "Input",
+ CellChangeTimes->{{3.6929728651014557`*^9, 3.692972866641176*^9}, {
+  3.692972900866117*^9, 3.692972904891199*^9}}],
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{"FReal", "[", 
+   RowBox[{
+    RowBox[{"-", "kx"}], ",", 
+    RowBox[{"-", "ky"}]}], "]"}], "+", 
+  RowBox[{"\[ImaginaryI]", " ", 
+   RowBox[{"(", 
+    RowBox[{
+     RowBox[{"FReal", "[", 
+      RowBox[{
+       RowBox[{"-", "kx"}], ",", "ky"}], "]"}], "-", 
+     RowBox[{"FReal", "[", 
+      RowBox[{"kx", ",", 
+       RowBox[{"-", "ky"}]}], "]"}]}], ")"}]}], "+", 
+  RowBox[{"FReal", "[", 
+   RowBox[{"kx", ",", "ky"}], "]"}]}]], "Output",
+ CellChangeTimes->{3.6929728674899387`*^9, 3.6929729053159027`*^9}]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{"ReF", "[", 
+   RowBox[{
+    RowBox[{"-", "kx"}], ",", 
+    RowBox[{"-", "ky"}]}], "]"}], "+", 
+  RowBox[{"I", " ", 
+   RowBox[{"ImF", "[", 
+    RowBox[{
+     RowBox[{"-", "kx"}], ",", 
+     RowBox[{"-", "ky"}]}], "]"}]}]}]], "Input",
+ CellChangeTimes->{
+  3.692972879499762*^9, {3.692972913353908*^9, 3.6929729170296*^9}}],
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{"-", 
+   RowBox[{"FReal", "[", 
+    RowBox[{
+     RowBox[{"-", "kx"}], ",", 
+     RowBox[{"-", "ky"}]}], "]"}]}], "+", 
+  RowBox[{"\[ImaginaryI]", " ", 
+   RowBox[{"(", 
+    RowBox[{
+     RowBox[{"-", 
+      RowBox[{"FReal", "[", 
+       RowBox[{
+        RowBox[{"-", "kx"}], ",", "ky"}], "]"}]}], "-", 
+     RowBox[{"FReal", "[", 
+      RowBox[{"kx", ",", 
+       RowBox[{"-", "ky"}]}], "]"}]}], ")"}]}], "+", 
+  RowBox[{"FReal", "[", 
+   RowBox[{"kx", ",", "ky"}], "]"}]}]], "Output",
+ CellChangeTimes->{3.692972879896492*^9, 3.692972917316901*^9}]
+}, Open  ]],
+
+Cell[TextData[StyleBox["Seems good! In 3D:", "Text"]], "Text",
+ CellChangeTimes->{{3.69297306784568*^9, 3.692973069636808*^9}, {
+  3.692973316625655*^9, 3.6929733177731133`*^9}}],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{"ReF", "[", 
+   RowBox[{"kx", ",", "ky", ",", "kz"}], "]"}], "+", 
+  RowBox[{"I", " ", 
+   RowBox[{"ImF", "[", 
+    RowBox[{"kx", ",", "ky", ",", "kz"}], "]"}]}]}]], "Input",
+ CellChangeTimes->{{3.6929733190463953`*^9, 3.6929733274954844`*^9}}],
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{"-", 
+   RowBox[{"FReal", "[", 
+    RowBox[{
+     RowBox[{"-", "kx"}], ",", 
+     RowBox[{"-", "ky"}], ",", "kz"}], "]"}]}], "-", 
+  RowBox[{"FReal", "[", 
+   RowBox[{
+    RowBox[{"-", "kx"}], ",", "ky", ",", 
+    RowBox[{"-", "kz"}]}], "]"}], "-", 
+  RowBox[{"FReal", "[", 
+   RowBox[{"kx", ",", 
+    RowBox[{"-", "ky"}], ",", 
+    RowBox[{"-", "kz"}]}], "]"}], "+", 
+  RowBox[{"\[ImaginaryI]", " ", 
+   RowBox[{"(", 
+    RowBox[{
+     RowBox[{"-", 
+      RowBox[{"FReal", "[", 
+       RowBox[{
+        RowBox[{"-", "kx"}], ",", 
+        RowBox[{"-", "ky"}], ",", 
+        RowBox[{"-", "kz"}]}], "]"}]}], "+", 
+     RowBox[{"FReal", "[", 
+      RowBox[{
+       RowBox[{"-", "kx"}], ",", "ky", ",", "kz"}], "]"}], "+", 
+     RowBox[{"FReal", "[", 
+      RowBox[{"kx", ",", 
+       RowBox[{"-", "ky"}], ",", "kz"}], "]"}], "+", 
+     RowBox[{"FReal", "[", 
+      RowBox[{"kx", ",", "ky", ",", 
+       RowBox[{"-", "kz"}]}], "]"}]}], ")"}]}], "+", 
+  RowBox[{"FReal", "[", 
+   RowBox[{"kx", ",", "ky", ",", "kz"}], "]"}]}]], "Output",
+ CellChangeTimes->{{3.6929733217569857`*^9, 3.692973327714243*^9}, {
+  3.6929735837746677`*^9, 3.692973593309989*^9}}]
+}, Open  ]],
+
+Cell["\<\
+Also looks good! (No manual calculation attempted for the other coeffs.)\
+\>", "Text",
+ CellChangeTimes->{{3.692973361941491*^9, 3.692973370873588*^9}}],
+
+Cell["\<\
+Now solve for the transformation from the half-plane of the actual complex \
+FFT back to the FFTW real coeffs:\
+\>", "Text",
+ CellChangeTimes->{{3.692973811300109*^9, 3.6929738412909527`*^9}}],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"Solve", "[", 
+  RowBox[{
+   RowBox[{
+    RowBox[{"{", 
+     RowBox[{
+      RowBox[{
+       RowBox[{"ReF", "[", 
+        RowBox[{"kx", ",", "ky", ",", "kz"}], "]"}], "\[Equal]", "ReFppp"}], 
+      ",", "\[IndentingNewLine]", 
+      RowBox[{
+       RowBox[{"ReF", "[", 
+        RowBox[{"kx", ",", "ky", ",", 
+         RowBox[{"-", "kz"}]}], "]"}], "==", "ReFppm"}], ",", 
+      "\[IndentingNewLine]", 
+      RowBox[{
+       RowBox[{"ReF", "[", 
+        RowBox[{"kx", ",", 
+         RowBox[{"-", "ky"}], ",", "kz"}], "]"}], "\[Equal]", "ReFpmp"}], ",",
+       "\[IndentingNewLine]", 
+      RowBox[{
+       RowBox[{"ReF", "[", 
+        RowBox[{"kx", ",", 
+         RowBox[{"-", "ky"}], ",", 
+         RowBox[{"-", "kz"}]}], "]"}], "==", "ReFpmm"}], ",", 
+      "\[IndentingNewLine]", 
+      RowBox[{
+       RowBox[{"ImF", "[", 
+        RowBox[{"kx", ",", "ky", ",", "kz"}], "]"}], "\[Equal]", "ImFppp"}], 
+      ",", "\[IndentingNewLine]", 
+      RowBox[{
+       RowBox[{"ImF", "[", 
+        RowBox[{"kx", ",", "ky", ",", 
+         RowBox[{"-", "kz"}]}], "]"}], "\[Equal]", "ImFppm"}], ",", 
+      "\[IndentingNewLine]", 
+      RowBox[{
+       RowBox[{"ImF", "[", 
+        RowBox[{"kx", ",", 
+         RowBox[{"-", "ky"}], ",", "kz"}], "]"}], "\[Equal]", "ImFpmp"}], ",",
+       "\[IndentingNewLine]", 
+      RowBox[{
+       RowBox[{"ImF", "[", 
+        RowBox[{"kx", ",", 
+         RowBox[{"-", "ky"}], ",", 
+         RowBox[{"-", "kz"}]}], "]"}], "\[Equal]", "ImFpmm"}]}], 
+     "\[IndentingNewLine]", "}"}], "/.", 
+    RowBox[{"{", 
+     RowBox[{
+      RowBox[{
+       RowBox[{"FReal", "[", 
+        RowBox[{"kx", ",", "ky", ",", "kz"}], "]"}], "\[Rule]", "FFTWppp"}], 
+      ",", "\[IndentingNewLine]", 
+      RowBox[{
+       RowBox[{"FReal", "[", 
+        RowBox[{"kx", ",", "ky", ",", 
+         RowBox[{"-", "kz"}]}], "]"}], "\[Rule]", "FFTWppm"}], ",", 
+      "\[IndentingNewLine]", 
+      RowBox[{
+       RowBox[{"FReal", "[", 
+        RowBox[{"kx", ",", 
+         RowBox[{"-", "ky"}], ",", "kz"}], "]"}], "\[Rule]", "FFTWpmp"}], ",",
+       "\[IndentingNewLine]", 
+      RowBox[{
+       RowBox[{"FReal", "[", 
+        RowBox[{"kx", ",", 
+         RowBox[{"-", "ky"}], ",", 
+         RowBox[{"-", "kz"}]}], "]"}], "\[Rule]", "FFTWpmm"}], ",", 
+      "\[IndentingNewLine]", 
+      RowBox[{
+       RowBox[{"FReal", "[", 
+        RowBox[{
+         RowBox[{"-", "kx"}], ",", "ky", ",", "kz"}], "]"}], "\[Rule]", 
+       "FFTWmpp"}], ",", "\[IndentingNewLine]", 
+      RowBox[{
+       RowBox[{"FReal", "[", 
+        RowBox[{
+         RowBox[{"-", "kx"}], ",", "ky", ",", 
+         RowBox[{"-", "kz"}]}], "]"}], "\[Rule]", "FFTWmpm"}], ",", 
+      "\[IndentingNewLine]", 
+      RowBox[{
+       RowBox[{"FReal", "[", 
+        RowBox[{
+         RowBox[{"-", "kx"}], ",", 
+         RowBox[{"-", "ky"}], ",", "kz"}], "]"}], "\[Rule]", "FFTWmmp"}], ",",
+       "\[IndentingNewLine]", 
+      RowBox[{
+       RowBox[{"FReal", "[", 
+        RowBox[{
+         RowBox[{"-", "kx"}], ",", 
+         RowBox[{"-", "ky"}], ",", 
+         RowBox[{"-", "kz"}]}], "]"}], "\[Rule]", "FFTWmmm"}]}], "}"}]}], ",", 
+   RowBox[{"{", 
+    RowBox[{
+    "FFTWppp", ",", "FFTWppm", ",", "FFTWpmp", ",", "FFTWpmm", ",", "FFTWmpp",
+      ",", "FFTWmpm", ",", "FFTWmmp", ",", "FFTWmmm"}], "}"}]}], 
+  "]"}]], "Input",
+ CellChangeTimes->{{3.692973468344529*^9, 3.6929735453851357`*^9}, {
+  3.692973687809298*^9, 3.692973689035041*^9}, {3.692973763859524*^9, 
+  3.692973802287284*^9}, {3.6929738438228693`*^9, 3.692973955412306*^9}}],
+
+Cell[BoxData[
+ RowBox[{"{", 
+  RowBox[{"{", 
+   RowBox[{
+    RowBox[{"FFTWppp", "\[Rule]", 
+     RowBox[{
+      FractionBox["1", "4"], " ", 
+      RowBox[{"(", 
+       RowBox[{"ReFpmm", "+", "ReFpmp", "+", "ReFppm", "+", "ReFppp"}], 
+       ")"}]}]}], ",", 
+    RowBox[{"FFTWppm", "\[Rule]", 
+     RowBox[{
+      FractionBox["1", "4"], " ", 
+      RowBox[{"(", 
+       RowBox[{
+        RowBox[{"-", "ImFpmm"}], "+", "ImFpmp", "-", "ImFppm", "+", 
+        "ImFppp"}], ")"}]}]}], ",", 
+    RowBox[{"FFTWpmp", "\[Rule]", 
+     RowBox[{
+      FractionBox["1", "4"], " ", 
+      RowBox[{"(", 
+       RowBox[{
+        RowBox[{"-", "ImFpmm"}], "-", "ImFpmp", "+", "ImFppm", "+", 
+        "ImFppp"}], ")"}]}]}], ",", 
+    RowBox[{"FFTWpmm", "\[Rule]", 
+     RowBox[{
+      FractionBox["1", "4"], " ", 
+      RowBox[{"(", 
+       RowBox[{
+        RowBox[{"-", "ReFpmm"}], "+", "ReFpmp", "+", "ReFppm", "-", 
+        "ReFppp"}], ")"}]}]}], ",", 
+    RowBox[{"FFTWmpp", "\[Rule]", 
+     RowBox[{
+      FractionBox["1", "4"], " ", 
+      RowBox[{"(", 
+       RowBox[{"ImFpmm", "+", "ImFpmp", "+", "ImFppm", "+", "ImFppp"}], 
+       ")"}]}]}], ",", 
+    RowBox[{"FFTWmpm", "\[Rule]", 
+     RowBox[{
+      FractionBox["1", "4"], " ", 
+      RowBox[{"(", 
+       RowBox[{"ReFpmm", "-", "ReFpmp", "+", "ReFppm", "-", "ReFppp"}], 
+       ")"}]}]}], ",", 
+    RowBox[{"FFTWmmp", "\[Rule]", 
+     RowBox[{
+      FractionBox["1", "4"], " ", 
+      RowBox[{"(", 
+       RowBox[{"ReFpmm", "+", "ReFpmp", "-", "ReFppm", "-", "ReFppp"}], 
+       ")"}]}]}], ",", 
+    RowBox[{"FFTWmmm", "\[Rule]", 
+     RowBox[{
+      FractionBox["1", "4"], " ", 
+      RowBox[{"(", 
+       RowBox[{
+        RowBox[{"-", "ImFpmm"}], "+", "ImFpmp", "+", "ImFppm", "-", 
+        "ImFppp"}], ")"}]}]}]}], "}"}], "}"}]], "Output",
+ CellChangeTimes->{{3.692973541687647*^9, 3.692973594586475*^9}, 
+   3.692973803844542*^9, 3.692973916648744*^9, 3.692973955899416*^9}]
+}, Open  ]]
+},
+WindowSize->{635, 781},
+WindowMargins->{{Automatic, 921}, {Automatic, 163}},
+FrontEndVersion->"11.0 for Mac OS X x86 (32-bit, 64-bit Kernel) (September \
+21, 2016)",
+StyleDefinitions->"Default.nb"
+]
+(* End of Notebook Content *)
+
+(* Internal cache information *)
+(*CellTagsOutline
+CellTagsIndex->{}
+*)
+(*CellTagsIndex
+CellTagsIndex->{}
+*)
+(*NotebookFileOutline
+Notebook[{
+Cell[558, 20, 577, 10, 87, "Text"],
+Cell[1138, 32, 448, 7, 87, "Text"],
+Cell[1589, 41, 611, 10, 32, "Input"],
+Cell[2203, 53, 583, 11, 32, "Input"],
+Cell[2789, 66, 400, 8, 32, "Input"],
+Cell[3192, 76, 436, 10, 32, "Input"],
+Cell[3631, 88, 379, 6, 68, "Text"],
+Cell[4013, 96, 1350, 34, 117, "Input"],
+Cell[5366, 132, 1035, 30, 117, "Input"],
+Cell[6404, 164, 1017, 29, 117, "Input"],
+Cell[7424, 195, 1062, 31, 117, "Input"],
+Cell[8489, 228, 207, 4, 30, "Text"],
+Cell[CellGroupData[{
+Cell[8721, 236, 302, 8, 32, "Input"],
+Cell[9026, 246, 562, 18, 32, "Output"]
+}, Open  ]],
+Cell[CellGroupData[{
+Cell[9625, 269, 320, 10, 32, "Input"],
+Cell[9948, 281, 561, 18, 32, "Output"]
+}, Open  ]],
+Cell[CellGroupData[{
+Cell[10546, 304, 344, 10, 32, "Input"],
+Cell[10893, 316, 542, 17, 32, "Output"]
+}, Open  ]],
+Cell[CellGroupData[{
+Cell[11472, 338, 357, 12, 32, "Input"],
+Cell[11832, 352, 584, 19, 54, "Output"]
+}, Open  ]],
+Cell[12431, 374, 178, 2, 30, "Text"],
+Cell[CellGroupData[{
+Cell[12634, 380, 278, 7, 32, "Input"],
+Cell[12915, 389, 1185, 36, 75, "Output"]
+}, Open  ]],
+Cell[14115, 428, 162, 3, 30, "Text"],
+Cell[14280, 433, 202, 4, 49, "Text"],
+Cell[CellGroupData[{
+Cell[14507, 441, 3523, 98, 390, "Input"],
+Cell[18033, 541, 1921, 57, 275, "Output"]
+}, Open  ]]
+}
+]
+*)
+

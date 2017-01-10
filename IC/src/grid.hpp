@@ -193,11 +193,6 @@ public:
     return field[i];
   }
 
-  template<typename TField>
-  typename TField::value_type getFieldInterpolated(const Coordinate<T> &location, const TField &field) const {
-    return field.evaluateInterpolated(location);
-  }
-
   virtual std::shared_ptr<Grid<T>> makeScaledMassVersion(T massRatio) {
     return std::make_shared<MassScaledGrid<T>>(this->shared_from_this(), massRatio);
   }
@@ -497,12 +492,12 @@ public:
 
   virtual T getFieldAt(size_t i, const TRealField &field) const override {
     auto centroid = this->getCellCentroid(i);
-    return this->pUnderlying->getFieldInterpolated(centroid, field);
+    return field.evaluateInterpolated(centroid);
   }
 
   virtual complex<T> getFieldAt(size_t i, const TField &field) const override {
     auto centroid = this->getCellCentroid(i);
-    return this->pUnderlying->getFieldInterpolated(centroid, field);
+    return field.evaluateInterpolated(centroid);
   }
 
 };

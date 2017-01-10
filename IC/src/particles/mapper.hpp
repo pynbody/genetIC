@@ -31,22 +31,22 @@ void indent(std::ostream &s, int level = 0) {
 namespace particle {
 
 // forward declarations:
-  template<typename T>
+  template<typename GT>
   class ParticleMapper;
 
-  template<typename T>
+  template<typename GT>
   class OneLevelParticleMapper;
 
-  template<typename T>
+  template<typename GT>
   class TwoLevelParticleMapper;
 
-  template<typename T>
+  template<typename GT>
   class AddGasMapper;
 
-  template<typename T>
+  template<typename GT>
   class ParticleGenerator;
 
-  template<typename T>
+  template<typename GridDataType>
   class AbstractMultiLevelParticleGenerator;
 
   template<typename T>
@@ -247,11 +247,12 @@ namespace particle {
   };
 
 
-  template<typename T>
+  template<typename GridDataType>
   class ParticleMapper {
   public:
-    using MapType = ParticleMapper<T>;
-    using MapPtrType = std::shared_ptr<ParticleMapper<T>>;
+    using T = strip_complex<GridDataType>;
+    using MapType = ParticleMapper<GridDataType>;
+    using MapPtrType = std::shared_ptr<MapType>;
     using GridType = Grid<T>;
     using GridPtrType = std::shared_ptr<Grid<T>>;
     using ConstGridPtrType = std::shared_ptr<const Grid<T>>;
@@ -339,7 +340,7 @@ namespace particle {
       throw std::runtime_error("Cannot get particles; no particle->grid mapper available");
     }
 
-    virtual void extendParticleListToUnreferencedGrids(MultiLevelContextInformation<T> &grids) {
+    virtual void extendParticleListToUnreferencedGrids(MultiLevelContextInformation<complex<T>> &grids) {
       /* For any grid that is _not_ referenced by this mapper, generate cell flags by matching
        * to the finest level available in this mapper.
        *

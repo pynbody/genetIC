@@ -579,10 +579,10 @@ int save_phases(complex<MyFloat> *phk, MyFloat* ph, complex<MyFloat> *delta, int
 
     }
 
-    template<typename MyFloat>
+    template<typename GridDataType, typename MyFloat>
     void save(const std::string &name, double Boxlength,
               particle::ParticleMapper<MyFloat> & mapper,
-              particle::AbstractMultiLevelParticleGenerator<MyFloat> & generator,
+              particle::AbstractMultiLevelParticleGenerator<GridDataType> & generator,
               const CosmologicalParameters<MyFloat> &cosmology, int gadgetformat) {
 
       std::cout << "Hello from Gadget output!" << std::endl;

@@ -11,11 +11,12 @@
 #include "zeldovich.hpp"
 
 namespace particle {
-  template<typename T>
+  template<typename GridDataType>
   class AbstractMultiLevelParticleGenerator :
-    public std::enable_shared_from_this<AbstractMultiLevelParticleGenerator<T>> {
+    public std::enable_shared_from_this<AbstractMultiLevelParticleGenerator<GridDataType>> {
 
   public:
+    using T = strip_complex<GridDataType>;
     virtual particle::ParticleGenerator<T> &getGeneratorForLevel(size_t level) = 0;
     virtual particle::ParticleGenerator<T> &getGeneratorForGrid(const Grid<T> &grid) =0;
 
@@ -41,12 +42,12 @@ namespace particle {
     }
   };
 
-  template<typename T, typename TParticleGenerator>
-  class MultiLevelParticleGenerator : public AbstractMultiLevelParticleGenerator<T>
+  template<typename GridDataType, typename TParticleGenerator, typename T=strip_complex<GridDataType>>
+  class MultiLevelParticleGenerator : public AbstractMultiLevelParticleGenerator<GridDataType>
   {
   protected:
-    OutputField<std::complex<T>> & outputField;
-    const MultiLevelContextInformation<T> &context;
+    OutputField<GridDataType> & outputField;
+    const MultiLevelContextInformation<GridDataType> &context;
     std::vector<std::shared_ptr<TParticleGenerator>> pGenerators;
     const CosmologicalParameters<T> &cosmoParams;
 

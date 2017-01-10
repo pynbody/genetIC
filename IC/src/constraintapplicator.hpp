@@ -4,25 +4,25 @@
 #include "multilevelcontext.hpp"
 #include "multilevelfield.hpp"
 
-template<typename T>
+template<typename DataType, typename T=strip_complex<DataType>>
 class ConstraintApplicator {
 private:
 
 
 public:
-  std::vector<ConstraintField<std::complex<T>>> alphas;
-  std::vector<std::complex<T> > values;
-  std::vector<std::complex<T> > existing_values;
+  std::vector<ConstraintField<DataType>> alphas;
+  std::vector<DataType> values;
+  std::vector<DataType> existing_values;
 
-  MultiLevelContextInformation<T> *underlying;
-  OutputField<std::complex<T>> *outputField;
+  MultiLevelContextInformation<DataType> *underlying;
+  OutputField<DataType> *outputField;
 
-  ConstraintApplicator(MultiLevelContextInformation<T> *underlying_,
-                       OutputField<std::complex<T>> *outputField_) : underlying(underlying_), outputField(outputField_) {
+  ConstraintApplicator(MultiLevelContextInformation<DataType> *underlying_,
+                       OutputField<DataType> *outputField_) : underlying(underlying_), outputField(outputField_) {
 
   }
 
-  void add_constraint(ConstraintField<std::complex<T>> &&alpha, std::complex<T> value, std::complex<T> existing) {
+  void add_constraint(ConstraintField<DataType> &&alpha, DataType value, DataType existing) {
 
     alphas.push_back(std::move(alpha));
     values.push_back(value);

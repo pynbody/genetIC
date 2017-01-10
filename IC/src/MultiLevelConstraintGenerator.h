@@ -16,18 +16,18 @@
 
 using namespace std;
 
-template<typename T>
+template<typename DataType, typename T = strip_complex<DataType>>
 class MultiLevelConstraintGenerator {
 protected:
-  MultiLevelContextInformation<T> &fieldManager;
+  MultiLevelContextInformation<DataType> &fieldManager;
   CosmologicalParameters<T> &cosmology;
 public:
-  MultiLevelConstraintGenerator(MultiLevelContextInformation<T> &fieldManager, CosmologicalParameters<T> &cosmology) :
+  MultiLevelConstraintGenerator(MultiLevelContextInformation<DataType> &fieldManager, CosmologicalParameters<T> &cosmology) :
     fieldManager(fieldManager), cosmology(cosmology) {
 
   }
 
-  Field<complex<T>, T> calcConstraintVector(string name_in, int level) {
+  Field<DataType> calcConstraintVector(string name_in, int level) {
     auto ar = fieldManager.createEmptyFieldForLevel(level);
 
     calcConstraint(name_in, fieldManager.getGridForLevel(level), cosmology, ar);
@@ -35,7 +35,7 @@ public:
     if (level != 0)
       ar*=pow(fieldManager.getGridForLevel(level).dx / fieldManager.getGridForLevel(0).dx, -3.0);
 
-    return Field<complex<T>, T>(fieldManager.getGridForLevel(level), ar, true);
+    return Field<DataType>(fieldManager.getGridForLevel(level), ar, true);
   }
 
   auto calcConstraintForAllLevels(string name) {

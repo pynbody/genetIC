@@ -13,7 +13,7 @@ class MultiLevelField : public std::enable_shared_from_this<MultiLevelField<Data
 
 protected:
   using T = strip_complex<DataType>;
-  MultiLevelContextInformation<T> * multiLevelContext;
+  MultiLevelContextInformation<DataType> * multiLevelContext;
   std::shared_ptr<FilterFamily<T>> pFilters;   // filters to be applied when used as a vector
   Signaling::connection_t connection;
   bool isCovector;
@@ -43,11 +43,11 @@ public:
 
   }
 
-  MultiLevelField(MultiLevelContextInformation<T> & multiLevelContext) : multiLevelContext(&multiLevelContext) {
+  MultiLevelField(MultiLevelContextInformation<DataType> & multiLevelContext) : multiLevelContext(&multiLevelContext) {
     setupConnection();
   }
 
-  MultiLevelField(MultiLevelContextInformation<T> & multiLevelContext,
+  MultiLevelField(MultiLevelContextInformation<DataType> & multiLevelContext,
                   std::vector<Field<DataType, T>> && fieldsOnGrids) :
     multiLevelContext(&multiLevelContext), fieldsOnLevels(std::move(fieldsOnGrids)) {
     setupConnection();
@@ -57,8 +57,8 @@ public:
 
   }
 
-  virtual MultiLevelContextInformation<T> & getContext() const {
-    return const_cast<MultiLevelContextInformation<T> &>(*multiLevelContext);
+  virtual MultiLevelContextInformation<DataType> & getContext() const {
+    return const_cast<MultiLevelContextInformation<DataType> &>(*multiLevelContext);
   }
 
   const FilterFamily<T> & getFilters() const {
@@ -417,7 +417,7 @@ protected:
   t_output_state outputState;
 
 public:
-  OutputField(MultiLevelContextInformation<T> & multiLevelContext) : MultiLevelField<DataType>(multiLevelContext) {
+  OutputField(MultiLevelContextInformation<DataType> & multiLevelContext) : MultiLevelField<DataType>(multiLevelContext) {
     outputState = PRE_SEPARATION;
   }
 
@@ -462,7 +462,7 @@ protected:
 
 
 public:
-  ConstraintField(MultiLevelContextInformation<T> & multiLevelContext,
+  ConstraintField(MultiLevelContextInformation<DataType> & multiLevelContext,
                   std::vector<Field<DataType, T>> && fieldsOnGrids)
   : MultiLevelField<DataType>(multiLevelContext,std::move(fieldsOnGrids))
   {

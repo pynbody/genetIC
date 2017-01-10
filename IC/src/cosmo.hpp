@@ -287,8 +287,8 @@ void powsp(int n, std::complex<MyFloat> *ft, const char *out, MyFloat Boxlength)
 
 }
 
-template<typename MyFloat>
-void powsp_noJing(const Field<std::complex<MyFloat>> & field,
+template<typename DataType, typename MyFloat=strip_complex<DataType>>
+void powsp_noJing(const Field<DataType> & field,
                   const std::vector<MyFloat> &P0, const char *out, MyFloat Boxlength) {
 
   int res = field.getGrid().size;

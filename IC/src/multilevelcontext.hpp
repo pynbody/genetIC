@@ -24,7 +24,7 @@ class CAMB;
 
 
 
-template<typename T>
+template<typename DataType, typename T=strip_complex<DataType>>
 class MultiLevelContextInformation : public Signaling {
 private:
   std::vector<std::shared_ptr<Grid<T>>> pGrid;
@@ -129,17 +129,17 @@ public:
     return C0s[level];
   }
 
-  vector<complex<T>> createEmptyFieldForLevel(size_t level) const {
-    vector<complex<T>> ar(pGrid[level]->size3);
+  vector<DataType> createEmptyFieldForLevel(size_t level) const {
+    vector<DataType> ar(pGrid[level]->size3);
     return ar;
   }
 
 
-  auto generateMultilevelFromHighResField(Field<complex<T>, T> &&data) {
+  auto generateMultilevelFromHighResField(Field<DataType, T> &&data) {
     assert(&data.getGrid() == pGrid.back().get());
 
     // Generate the fields on each level. Fill low-res levels with zeros to start with.
-    vector<Field<complex<T>, T>> dataOnLevels;
+    vector<Field<DataType, T>> dataOnLevels;
     for (size_t level = 0; level < pGrid.size(); level++) {
       if (level == pGrid.size() - 1) {
         dataOnLevels.emplace_back(std::move(data));
@@ -158,7 +158,7 @@ public:
       }
     }
 
-    return ConstraintField<std::complex<T>>(*this, std::move(dataOnLevels));
+    return ConstraintField<DataType>(*this, std::move(dataOnLevels));
   }
 
   void forEachLevel(std::function<void(Grid<T> &)> newLevelCallback) {
@@ -196,16 +196,16 @@ public:
   }
 
   void forEachCellOfEachLevel(
-    std::function<void(size_t, size_t, size_t, std::vector<std::complex<T>> &)> cellCallback,
+    std::function<void(size_t, size_t, size_t, std::vector<DataType> &)> cellCallback,
     bool kspace = true) {
 
     forEachCellOfEachLevel([](size_t i) { return true; }, cellCallback);
   }
 
 
-  std::complex<T> accumulateOverEachCellOfEachLevel(
+  DataType accumulateOverEachCellOfEachLevel(
     std::function<bool(size_t)> newLevelCallback,
-    std::function<std::complex<T>(size_t, size_t, size_t)> getCellContribution) {
+    std::function<DataType(size_t, size_t, size_t)> getCellContribution) {
 
     T res_real(0), res_imag(0);
 
@@ -220,7 +220,7 @@ public:
 #pragma omp parallel for reduction(+:res_real,res_imag)
       for (size_t i = 0; i < Ns[level]; i++) {
         size_t i_all_levels = level_base + i;
-        std::complex<T> res = getCellContribution(level, i, i_all_levels);
+        DataType res = getCellContribution(level, i, i_all_levels);
 
         // accumulate separately - OMP doesn't support complex number reduction :-(
         res_real += std::real(res);
@@ -228,11 +228,11 @@ public:
       }
     }
 
-    return std::complex<T>(res_real, res_imag);
+    return DataType(res_real, res_imag);
   }
 
 
-  void copyContextWithIntermediateResolutionGrids(MultiLevelContextInformation<T> &newStack, size_t base_factor = 2,
+  void copyContextWithIntermediateResolutionGrids(MultiLevelContextInformation<DataType> &newStack, size_t base_factor = 2,
                                                   size_t extra_lores = 1) {
     /* Copy this MultiLevelContextInformation, but insert intermediate virtual grids such that
      * there is a full stack increasing in the specified power.
