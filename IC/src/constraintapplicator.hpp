@@ -102,7 +102,7 @@ public:
       for (size_t j = 0; j < i; j++) {
         auto &alpha_j = alphas[j];
         pb.setProgress(((float) done * 2) / (n * (1 + n)));
-        std::complex<T> result = alpha_i.innerProduct(alpha_j);
+        DataType result = alpha_i.innerProduct(alpha_j);
 
         alpha_i.addScaled(alpha_j,-result);
 
@@ -118,7 +118,7 @@ public:
       }
 
       // normalize
-      std::complex<T> norm = sqrt(alpha_i.innerProduct(alpha_i));
+      DataType norm = sqrt(alpha_i.innerProduct(alpha_i));
 
       alpha_i/=norm;
       values[i] /= norm;
@@ -184,7 +184,7 @@ public:
     outputField->toFourier();
 
     for (size_t i = 0; i < alphas.size(); i++) {
-      MultiLevelField<std::complex<T>> &alpha_i = alphas[i];
+      MultiLevelField<DataType> &alpha_i = alphas[i];
       auto dval_i = values[i] - existing_values[i];
       alpha_i.convertToVector();
       alpha_i.toFourier(); // probably already is, but just to be safe

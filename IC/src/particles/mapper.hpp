@@ -49,44 +49,44 @@ namespace particle {
   template<typename GridDataType>
   class AbstractMultiLevelParticleGenerator;
 
-  template<typename T>
+  template<typename GridDataType, typename T=strip_complex<GridDataType>>
   class MapperIterator {
   protected:
     // This is a generic structure used by all subclasses to keep
     // track of where they are in a sequential operation
 
-    using MapType = ParticleMapper<T>;
-    using MapPtrType = std::shared_ptr<ParticleMapper<T>>;
+    using MapType = ParticleMapper<GridDataType>;
+    using MapPtrType = std::shared_ptr<MapType>;
     using GridType = Grid<T>;
     using ConstGridPtrType = std::shared_ptr<const Grid<T>>;
     using DereferenceType = std::pair<ConstGridPtrType, size_t>;
 
-    friend class ParticleMapper<T>;
+    friend class ParticleMapper<GridDataType>;
 
-    friend class OneLevelParticleMapper<T>;
+    friend class OneLevelParticleMapper<GridDataType>;
 
-    friend class TwoLevelParticleMapper<T>;
+    friend class TwoLevelParticleMapper<GridDataType>;
 
-    friend class AddGasMapper<T>;
+    friend class AddGasMapper<GridDataType>;
 
 
 
     size_t i;
-    std::vector<std::shared_ptr<MapperIterator<T>>> subIterators;
+    std::vector<std::shared_ptr<MapperIterator<GridDataType>>> subIterators;
     std::vector<size_t> extraData;
-    const ParticleMapper<T> *pMapper;
-    const AbstractMultiLevelParticleGenerator<T> &generator;
+    const ParticleMapper<GridDataType> *pMapper;
+    const AbstractMultiLevelParticleGenerator<GridDataType> &generator;
     mutable ConstGridPtrType pLastGrid;
-    mutable std::shared_ptr<const ParticleGenerator<T>> pLastGridGenerator;
+    mutable std::shared_ptr<const ParticleGenerator<GridDataType>> pLastGridGenerator;
 
-    MapperIterator(const ParticleMapper<T> *pMapper,
-                   const AbstractMultiLevelParticleGenerator<T> &generator) :
+    MapperIterator(const ParticleMapper<GridDataType> *pMapper,
+                   const AbstractMultiLevelParticleGenerator<GridDataType> &generator) :
             i(0), pMapper(pMapper), generator(generator) {}
 
 
   public:
 
-    MapperIterator(const MapperIterator<T> &source) :
+    MapperIterator(const MapperIterator<GridDataType> &source) :
           i(source.i), extraData(source.extraData), pMapper(source.pMapper),
           pLastGrid(nullptr), generator(source.generator)
     {
@@ -94,7 +94,7 @@ namespace particle {
         if (subIterator == nullptr)
           subIterators.push_back(nullptr);
         else
-          subIterators.push_back(std::make_shared<MapperIterator<T>>(*subIterator));
+          subIterators.push_back(std::make_shared<MapperIterator<GridDataType>>(*subIterator));
       }
     }
 
@@ -227,11 +227,11 @@ namespace particle {
       return std::unique_ptr<DereferenceType>(new DereferenceType(**this));
     }
 
-    friend bool operator==(const MapperIterator<T> &lhs, const MapperIterator<T> &rhs) {
+    friend bool operator==(const MapperIterator<GridDataType> &lhs, const MapperIterator<GridDataType> &rhs) {
       return (lhs.i == rhs.i) && (lhs.pMapper == rhs.pMapper);
     }
 
-    friend bool operator!=(const MapperIterator<T> &lhs, const MapperIterator<T> &rhs) {
+    friend bool operator!=(const MapperIterator<GridDataType> &lhs, const MapperIterator<GridDataType> &rhs) {
       return (lhs.i != rhs.i) || (lhs.pMapper != rhs.pMapper);
     }
 
@@ -256,10 +256,10 @@ namespace particle {
     using GridType = Grid<T>;
     using GridPtrType = std::shared_ptr<Grid<T>>;
     using ConstGridPtrType = std::shared_ptr<const Grid<T>>;
-    using iterator = MapperIterator<T>;
-    using BaseGeneratorType = particle::AbstractMultiLevelParticleGenerator<T>;
+    using iterator = MapperIterator<GridDataType>;
+    using BaseGeneratorType = particle::AbstractMultiLevelParticleGenerator<GridDataType>;
 
-    friend class MapperIterator<T>;
+    friend class MapperIterator<GridDataType>;
 
   protected:
 
@@ -304,7 +304,7 @@ namespace particle {
       }
     }
 
-    friend std::ostream &operator<<(std::ostream &stream, const ParticleMapper<T> &I) {
+    friend std::ostream &operator<<(std::ostream &stream, const ParticleMapper<GridDataType> &I) {
       I.debugInfo(stream);
       return stream;
     }
@@ -340,7 +340,7 @@ namespace particle {
       throw std::runtime_error("Cannot get particles; no particle->grid mapper available");
     }
 
-    virtual void extendParticleListToUnreferencedGrids(MultiLevelContextInformation<complex<T>> &grids) {
+    virtual void extendParticleListToUnreferencedGrids(MultiLevelContextInformation<GridDataType> &grids) {
       /* For any grid that is _not_ referenced by this mapper, generate cell flags by matching
        * to the finest level available in this mapper.
        *
@@ -377,7 +377,7 @@ namespace particle {
       return (const_cast<ParticleMapper *>(this)->getFinestGrid());
     }
 
-    virtual iterator begin(const AbstractMultiLevelParticleGenerator<T> &generator) const {
+    virtual iterator begin(const AbstractMultiLevelParticleGenerator<GridDataType> &generator) const {
       return iterator(this, generator);
     }
 
@@ -385,26 +385,26 @@ namespace particle {
       return getCoarsestGrid().get() == grid.get();
     }
 
-    virtual iterator end(const AbstractMultiLevelParticleGenerator<T> &generator) const {
+    virtual iterator end(const AbstractMultiLevelParticleGenerator<GridDataType> &generator) const {
       iterator x(this, generator);
       x.i = size();
 
       return x;
     }
 
-    virtual iterator beginDm(const AbstractMultiLevelParticleGenerator<T> &generator) const {
+    virtual iterator beginDm(const AbstractMultiLevelParticleGenerator<GridDataType> &generator) const {
       return begin(generator);
     }
 
-    virtual iterator endDm(const AbstractMultiLevelParticleGenerator<T> &generator) const {
+    virtual iterator endDm(const AbstractMultiLevelParticleGenerator<GridDataType> &generator) const {
       return end(generator);
     }
 
-    virtual iterator beginGas(const AbstractMultiLevelParticleGenerator<T> &generator) const {
+    virtual iterator beginGas(const AbstractMultiLevelParticleGenerator<GridDataType> &generator) const {
       return end(generator);
     }
 
-    virtual iterator endGas(const AbstractMultiLevelParticleGenerator<T> &generator) const {
+    virtual iterator endGas(const AbstractMultiLevelParticleGenerator<GridDataType> &generator) const {
       return end(generator);
     }
 
@@ -425,12 +425,13 @@ namespace particle {
   };
 
 
-  template<typename T>
-  class OneLevelParticleMapper : public ParticleMapper<T> {
+  template<typename GridDataType>
+  class OneLevelParticleMapper : public ParticleMapper<GridDataType> {
 
   private:
 
-    using MapType = ParticleMapper<T>;
+    using MapType = ParticleMapper<GridDataType>;
+    using typename MapType::T;
     using typename MapType::MapPtrType;
     using typename MapType::GridPtrType;
     using typename MapType::ConstGridPtrType;
@@ -502,12 +503,12 @@ namespace particle {
     std::pair<MapPtrType, MapPtrType> addGas(T massRatio, const std::vector<GridPtrType> &toGrids) override {
       if (pGrid->pointsToAnyGrid(toGrids)) {
         return std::make_pair(
-          std::make_shared<OneLevelParticleMapper<T>>(this->pGrid->makeScaledMassVersion(massRatio)),
-          std::make_shared<OneLevelParticleMapper<T>>(
+          std::make_shared<OneLevelParticleMapper<GridDataType>>(this->pGrid->makeScaledMassVersion(massRatio)),
+          std::make_shared<OneLevelParticleMapper<GridDataType>>(
             this->pGrid->makeScaledMassVersion(1.0 - massRatio)));
       } else {
-        return std::make_pair(std::shared_ptr<OneLevelParticleMapper<T>>(nullptr),
-                              std::make_shared<OneLevelParticleMapper<T>>(this->pGrid));
+        return std::make_pair(std::shared_ptr<OneLevelParticleMapper<GridDataType>>(nullptr),
+                              std::make_shared<OneLevelParticleMapper<GridDataType>>(this->pGrid));
       }
     }
 
@@ -518,17 +519,17 @@ namespace particle {
           newGrid = std::make_shared<SuperSampleGrid<T>>(this->pGrid, ratio);
         else
           newGrid = std::make_shared<SubSampleGrid<T>>(this->pGrid, ratio);
-        return std::make_shared<OneLevelParticleMapper<T>>(newGrid);
+        return std::make_shared<OneLevelParticleMapper<GridDataType>>(newGrid);
       } else {
-        return std::make_shared<OneLevelParticleMapper<T>>(this->pGrid);
+        return std::make_shared<OneLevelParticleMapper<GridDataType>>(this->pGrid);
       }
     }
 
 
   };
 
-  template<typename T>
-  class TwoLevelParticleMapper : public ParticleMapper<T> {
+  template<typename GridDataType>
+  class TwoLevelParticleMapper : public ParticleMapper<GridDataType> {
     /* TwoLevelParticleMapper - the critical class for mapping different grids into an assembled zoom simulation
      *
      * This class points to two other mappers, referred to as level 1 and level 2. The level 2 mapper _must_ be
@@ -538,7 +539,8 @@ namespace particle {
      */
   private:
 
-    using MapType = ParticleMapper<T>;
+    using MapType = ParticleMapper<GridDataType>;
+    using typename MapType::T;
     using typename MapType::MapPtrType;
     using typename MapType::GridPtrType;
     using typename MapType::GridType;
@@ -586,7 +588,7 @@ namespace particle {
 
   public:
 
-    virtual iterator begin(const AbstractMultiLevelParticleGenerator<T> &generator) const override {
+    virtual iterator begin(const AbstractMultiLevelParticleGenerator<GridDataType> &generator) const override {
       if (zoomParticleArrayForL1mapper.size() == 0)
         return this->end(generator);
 
@@ -626,7 +628,7 @@ namespace particle {
        */
 
       assert(zoomParticleArrayForL1grid.size() > 0);
-      assert(typeid(*pLevel2)==typeid(OneLevelParticleMapper<T>));
+      assert(typeid(*pLevel2)==typeid(OneLevelParticleMapper<GridDataType>));
       assert(pLevel1->size_gas() == 0);
       assert(pLevel2->size_gas() == 0);
 
@@ -834,13 +836,13 @@ namespace particle {
       }
 
       if (gasSubLevel2 != nullptr)
-        newGasMap = std::make_shared<TwoLevelParticleMapper<T>>(
+        newGasMap = std::make_shared<TwoLevelParticleMapper<GridDataType>>(
           gasSubLevel1, gasSubLevel2, zoomParticleArrayForL1mapper,
           newskip);
       else
         newGasMap = nullptr;
 
-      newDmMap = std::make_shared<TwoLevelParticleMapper<T>>(
+      newDmMap = std::make_shared<TwoLevelParticleMapper<GridDataType>>(
         dmSubLevel1, dmSubLevel2, zoomParticleArrayForL1mapper,
         skipLevel1);
 
@@ -860,7 +862,7 @@ namespace particle {
       pLevel1->flagParticles(zoomParticleArrayForL1mapper);
       ssub1->getFlaggedParticles(newZoomParticles);
 
-      return std::make_shared<TwoLevelParticleMapper<T>>(
+      return std::make_shared<TwoLevelParticleMapper<GridDataType>>(
         ssub1, ssub2, newZoomParticles,
         skipLevel1);
     }
@@ -993,10 +995,11 @@ namespace particle {
   };
 
 
-  template<typename T>
-  class AddGasMapper : public ParticleMapper<T> {
+  template<typename GridDataType>
+  class AddGasMapper : public ParticleMapper<GridDataType> {
   public:
-    using MapType = ParticleMapper<T>;
+    using MapType = ParticleMapper<GridDataType>;
+    using typename MapType::T;
     using typename MapType::MapPtrType;
     using typename MapType::GridPtrType;
     using typename MapType::GridType;
@@ -1126,26 +1129,26 @@ namespace particle {
       }
     }
 
-    virtual iterator begin(const AbstractMultiLevelParticleGenerator<T> &generator) const override {
+    virtual iterator begin(const AbstractMultiLevelParticleGenerator<GridDataType> &generator) const override {
       iterator i(this, generator);
       i.subIterators.emplace_back(new iterator(firstMap->begin(generator)));
       i.subIterators.emplace_back(new iterator(secondMap->begin(generator)));
       return i;
     }
 
-    virtual iterator beginDm(const AbstractMultiLevelParticleGenerator<T> &generator) const override {
+    virtual iterator beginDm(const AbstractMultiLevelParticleGenerator<GridDataType> &generator) const override {
       return (gasFirst ? secondMap : firstMap)->begin(generator);
     }
 
-    virtual iterator endDm(const AbstractMultiLevelParticleGenerator<T> &generator) const override {
+    virtual iterator endDm(const AbstractMultiLevelParticleGenerator<GridDataType> &generator) const override {
       return (gasFirst ? secondMap : firstMap)->end(generator);
     }
 
-    virtual iterator beginGas(const AbstractMultiLevelParticleGenerator<T> &generator) const override {
+    virtual iterator beginGas(const AbstractMultiLevelParticleGenerator<GridDataType> &generator) const override {
       return (gasFirst ? firstMap : secondMap)->begin(generator);
     }
 
-    virtual iterator endGas(const AbstractMultiLevelParticleGenerator<T> &generator) const override {
+    virtual iterator endGas(const AbstractMultiLevelParticleGenerator<GridDataType> &generator) const override {
       return (gasFirst ? firstMap : secondMap)->end(generator);
     }
 
@@ -1161,7 +1164,7 @@ namespace particle {
       if (applyTo1)
         ssub1 = ssub1->superOrSubSampleDM(ratio, toGrids, super);
 
-      return std::make_shared<AddGasMapper<T>>(
+      return std::make_shared<AddGasMapper<GridDataType>>(
         ssub1, ssub2, gasFirst);
     }
 

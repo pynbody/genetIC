@@ -1,4 +1,4 @@
-template<typename MyFloat>
+template<typename FloatType>
 struct floatinfo {
   static constexpr char const *name = "unknown";
   static constexpr int doubleprecision = 0;

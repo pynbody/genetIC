@@ -14,6 +14,13 @@
 #include "field.hpp"
 #include "multilevelfield.hpp"
 
+// The classes in this file keep track of the multiple grids in a multi-level run
+//
+// Because C++ doesn't allow partial specialization of member functions, there is a workaround involving splitting
+// most of the class into a Base class, and the final specializations are made in a child class.
+//
+// See http://stackoverflow.com/questions/165101/invalid-use-of-incomplete-type-error-with-partial-template-specialization
+
 template<typename T>
 class ConstraintField;
 
@@ -22,10 +29,11 @@ class CAMB;
 
 //#include <Eigen/Dense>
 
-
+template<typename DataType, typename T=strip_complex<DataType>>
+class MultiLevelContextInformation;
 
 template<typename DataType, typename T=strip_complex<DataType>>
-class MultiLevelContextInformation : public Signaling {
+class MultiLevelContextInformationBase : public Signaling {
 private:
   std::vector<std::shared_ptr<Grid<T>>> pGrid;
   std::vector<std::vector<T>> C0s;
@@ -49,7 +57,7 @@ protected:
     level_id = i;
   }
 
-  MultiLevelContextInformation(size_t N) {
+  MultiLevelContextInformationBase(size_t N) {
     nLevels = 1;
     Ns.push_back(N);
     Ntot = N;
@@ -58,12 +66,12 @@ protected:
 
 public:
 
-  MultiLevelContextInformation() {
+  MultiLevelContextInformationBase() {
     nLevels = 0;
     Ntot = 0;
   }
 
-  virtual ~MultiLevelContextInformation() {}
+  virtual ~MultiLevelContextInformationBase() {}
 
 
   void addLevel(const CAMB<T> &spectrum, T size, size_t nside, const Coordinate<T> & offset={0,0,0}) {
@@ -158,7 +166,7 @@ public:
       }
     }
 
-    return ConstraintField<DataType>(*this, std::move(dataOnLevels));
+    return ConstraintField<DataType>(*dynamic_cast<MultiLevelContextInformation<DataType, T>*>(this), std::move(dataOnLevels));
   }
 
   void forEachLevel(std::function<void(Grid<T> &)> newLevelCallback) {
@@ -203,33 +211,6 @@ public:
   }
 
 
-  DataType accumulateOverEachCellOfEachLevel(
-    std::function<bool(size_t)> newLevelCallback,
-    std::function<DataType(size_t, size_t, size_t)> getCellContribution) {
-
-    T res_real(0), res_imag(0);
-
-
-    for (size_t level = 0; level < nLevels; level++) {
-
-      if (!newLevelCallback(level))
-        continue;
-
-      size_t level_base = cumu_Ns[level];
-
-#pragma omp parallel for reduction(+:res_real,res_imag)
-      for (size_t i = 0; i < Ns[level]; i++) {
-        size_t i_all_levels = level_base + i;
-        DataType res = getCellContribution(level, i, i_all_levels);
-
-        // accumulate separately - OMP doesn't support complex number reduction :-(
-        res_real += std::real(res);
-        res_imag += std::imag(res);
-      }
-    }
-
-    return DataType(res_real, res_imag);
-  }
 
 
   void copyContextWithIntermediateResolutionGrids(MultiLevelContextInformation<DataType> &newStack, size_t base_factor = 2,
@@ -277,5 +258,87 @@ public:
   }
 
 };
+
+template<typename T>
+class MultiLevelContextInformation<T, T> : public MultiLevelContextInformationBase<T,T> {
+protected:
+  using DataType = T;
+  using MultiLevelContextInformationBase<DataType,T>::cumu_Ns;
+  using MultiLevelContextInformationBase<DataType,T>::Ns;
+  using MultiLevelContextInformationBase<DataType,T>::nLevels;
+
+public:
+  DataType accumulateOverEachCellOfEachLevel(
+    std::function<bool(size_t)> newLevelCallback,
+    std::function<DataType(size_t, size_t, size_t)> getCellContribution) {
+
+    // real version only - see complex specialization below
+
+    T accum(0);
+
+    for (size_t level = 0; level < nLevels; level++) {
+
+      if (!newLevelCallback(level))
+        continue;
+
+      size_t level_base = cumu_Ns[level];
+
+#pragma omp parallel for reduction(+:accum)
+      for (size_t i = 0; i < Ns[level]; i++) {
+        size_t i_all_levels = level_base + i;
+        DataType res = getCellContribution(level, i, i_all_levels);
+
+        // accumulate separately - OMP doesn't support complex number reduction :-(
+        accum+=res;
+      }
+    }
+
+    return accum;
+  }
+};
+
+template<typename T>
+class MultiLevelContextInformation<std::complex<T>, T> : public MultiLevelContextInformationBase<std::complex<T>, T> {
+protected:
+  using DataType= std::complex<T>;
+  using MultiLevelContextInformationBase<DataType,T>::cumu_Ns;
+  using MultiLevelContextInformationBase<DataType,T>::Ns;
+  using MultiLevelContextInformationBase<DataType,T>::nLevels;
+
+public:
+
+  std::complex<T> accumulateOverEachCellOfEachLevel(std::function<bool(size_t)> newLevelCallback,
+                                                    std::function<std::complex<T>(size_t, size_t, size_t)> getCellContribution)
+  {
+
+
+    T res_real(0), res_imag(0);
+
+
+    for (size_t level = 0; level < nLevels; level++) {
+
+      if (!newLevelCallback(level))
+        continue;
+
+      size_t level_base = cumu_Ns[level];
+
+#pragma omp parallel for reduction(+:res_real,res_imag)
+      for (size_t i = 0; i < Ns[level]; i++) {
+        size_t i_all_levels = level_base + i;
+        DataType res = getCellContribution(level, i, i_all_levels);
+
+        // accumulate separately - OMP doesn't support complex number reduction :-(
+        res_real += std::real(res);
+        res_imag += std::imag(res);
+      }
+    }
+
+    return DataType(res_real, res_imag);
+  }
+
+};
+
+// TODO: understand why this specialisation can't work for all complex<T>, only complex<double>?
+
 
 #endif

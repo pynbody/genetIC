@@ -9,13 +9,13 @@
 
 namespace io {
   namespace gadget {
-    template<typename MyFloat>
-    void getParticleInfo(const particle::AbstractMultiLevelParticleGenerator<MyFloat> &generator,
-                         particle::ParticleMapper<MyFloat> &mapper,
-                         MyFloat &min_mass, MyFloat &max_mass,
-                         MyFloat &tot_mass, MyFloat &gas_mass, size_t &ngas, size_t &nlow, size_t &nhigh) {
+    template<typename GridDataType, typename FloatType=strip_complex<GridDataType>>
+    void getParticleInfo(const particle::AbstractMultiLevelParticleGenerator<GridDataType> &generator,
+                         particle::ParticleMapper<GridDataType> &mapper,
+                         FloatType &min_mass, FloatType &max_mass,
+                         FloatType &tot_mass, FloatType &gas_mass, size_t &ngas, size_t &nlow, size_t &nhigh) {
 
-      min_mass = std::numeric_limits<MyFloat>::max();
+      min_mass = std::numeric_limits<FloatType>::max();
       max_mass = 0;
       gas_mass = 0;
       tot_mass = 0;
@@ -23,7 +23,7 @@ namespace io {
       nlow = 0;
       nhigh = 0;
 
-      MyFloat mass;
+      FloatType mass;
       for (auto i = mapper.beginDm(generator); i != mapper.endDm(generator); ++i) {
         // progress("Pre-write scan file",iord, totlen);
         mass = i.getMass(); // sometimes can be MUCH faster than getParticle
@@ -150,9 +150,9 @@ namespace io {
 
 
 
-    template<typename MyFloat>
-    io_header_2 CreateGadget2Header(MyFloat *masses, long *npart, double Boxlength,
-                                    const CosmologicalParameters<MyFloat> &cosmology) {
+    template<typename FloatType>
+    io_header_2 CreateGadget2Header(FloatType *masses, long *npart, double Boxlength,
+                                    const CosmologicalParameters<FloatType> &cosmology) {
       //types 2,3,4 are currently unused (only one zoom level)
       io_header_2 header2;
       header2.npart[0] = npart[0]; //gas
@@ -194,9 +194,9 @@ namespace io {
       return header2;
     }
 
-    template<typename MyFloat>
-    io_header_3 CreateGadget3Header(MyFloat *masses, long *npart, double Boxlength,
-                                    const CosmologicalParameters<MyFloat> &cosmology) {
+    template<typename FloatType>
+    io_header_3 CreateGadget3Header(FloatType *masses, long *npart, double Boxlength,
+                                    const CosmologicalParameters<FloatType> &cosmology) {
 
       //types 2,3,4 are currently unused (only one zoom level)
 
@@ -238,7 +238,7 @@ namespace io {
       header3.nPartTotalHighWord[4] = (unsigned int) (npart[4] >> 32);
       header3.nPartTotalHighWord[5] = (unsigned int) (npart[5] >> 32);
       header3.flag_entropy_instead_u = 0; /*!< flags that IC-file contains entropy instead of u */
-      header3.flag_doubleprecision = floatinfo<MyFloat>::doubleprecision;
+      header3.flag_doubleprecision = floatinfo<FloatType>::doubleprecision;
       header3.flag_ic_info = 1;
       header3.lpt_scalingfactor = 0.; /*!dummy value since we never use ic_info!=1 */
 
@@ -257,8 +257,8 @@ namespace io {
 
 
 #ifdef HAVE_HDF5
-    template<typename MyFloat>
-void SaveHDF(const char* Filename, int n, io_header_3 header, MyFloat *p_Data1,  MyFloat *p_Data2, MyFloat *p_Data3, MyFloat *v_Data1,  MyFloat *v_Data2, MyFloat *v_Data3, const char *name1, const char *name2, const char *name3) //saves 3 arrays as datasets "name1", "name2" and "name3" in one HDF5 file
+    template<typename FloatType>
+void SaveHDF(const char* Filename, int n, io_header_3 header, FloatType *p_Data1,  FloatType *p_Data2, FloatType *p_Data3, FloatType *v_Data1,  FloatType *v_Data2, FloatType *v_Data3, const char *name1, const char *name2, const char *name3) //saves 3 arrays as datasets "name1", "name2" and "name3" in one HDF5 file
 {
   hid_t       file_id, gidh, gid, dset_id,ndset_id,iddset_id, hdset_id,mt_id;   /* file and dataset identifiers */
   hid_t       nfilespace,dataspace_id, memspace, hboxfs,mt,idfilespace,IDmemspace,iddataspace_id;/* file and memory dataspace identifiers */
@@ -270,8 +270,8 @@ void SaveHDF(const char* Filename, int n, io_header_3 header, MyFloat *p_Data1, 
   file_id = H5Fcreate( Filename, H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT );
   gidh=H5Gcreate(file_id, "Header", 100 ); //100 gives max number of arguments (?)
 
-   MyFloat *box=new MyFloat[1];
-   MyFloat *mtt=new MyFloat[6];
+   FloatType *box=new FloatType[1];
+   FloatType *mtt=new FloatType[6];
    int *boxi=new int[1];
    mtt[0]=header.mass[0];
    mtt[1]=header.mass[1];
@@ -456,10 +456,10 @@ void SaveHDF(const char* Filename, int n, io_header_3 header, MyFloat *p_Data1, 
 
 }
 
-template<typename MyFloat>
-int save_phases(complex<MyFloat> *phk, MyFloat* ph, complex<MyFloat> *delta, int n, const char *name){
+template<typename FloatType>
+int save_phases(complex<FloatType> *phk, FloatType* ph, complex<FloatType> *delta, int n, const char *name){
 
-    MyFloat *helper=(MyFloat*)calloc(n*n*n, sizeof(MyFloat));
+    FloatType *helper=(FloatType*)calloc(n*n*n, sizeof(FloatType));
     int i;
     for(i=0;i<n*n*n;i++){helper[i]=delta[i].real();}
 
@@ -519,12 +519,12 @@ int save_phases(complex<MyFloat> *phk, MyFloat* ph, complex<MyFloat> *delta, int
 }
 #endif
 
-    template<typename MyFloat>
-    void SaveGadget2(const char *filename, long nPart, io_header_2 header1, MyFloat *Pos1, MyFloat *Vel1, MyFloat *Pos2,
-                     MyFloat *Vel2, MyFloat *Pos3, MyFloat *Vel3, MyFloat *Mass = NULL) {
+    template<typename FloatType>
+    void SaveGadget2(const char *filename, long nPart, io_header_2 header1, FloatType *Pos1, FloatType *Vel1, FloatType *Pos2,
+                     FloatType *Vel2, FloatType *Pos3, FloatType *Vel3, FloatType *Mass = NULL) {
       FILE *fd = fopen(filename, "w");
       if (!fd) throw std::runtime_error("Unable to open file for writing");
-      MyFloat *Pos = (MyFloat *) calloc(3, sizeof(MyFloat));
+      FloatType *Pos = (FloatType *) calloc(3, sizeof(FloatType));
       int dummy;
       long i;
       //header block
@@ -534,25 +534,25 @@ int save_phases(complex<MyFloat> *phk, MyFloat* ph, complex<MyFloat> *delta, int
       my_fwrite(&dummy, sizeof(dummy), 1, fd);
 
       //position block
-      dummy = sizeof(MyFloat) * (long) (nPart) *
+      dummy = sizeof(FloatType) * (long) (nPart) *
               3; //this will be 0 or some strange number for n>563; BUT: gagdget does not actually use this value; it gets the number of particles from the header
       my_fwrite(&dummy, sizeof(dummy), 1, fd);
       for (i = 0; i < nPart; i++) {
         Pos[0] = Pos1[i];
         Pos[1] = Pos2[i];
         Pos[2] = Pos3[i];
-        my_fwrite(Pos, sizeof(MyFloat), 3, fd);
+        my_fwrite(Pos, sizeof(FloatType), 3, fd);
       }
       my_fwrite(&dummy, sizeof(dummy), 1, fd);
 
       //velocity block
-      //dummy=sizeof(MyFloat)*3*nPart; //this will be 0 or some strange number for n>563; BUT: gagdget does not actually use this value; it gets the number of particles from the header
+      //dummy=sizeof(FloatType)*3*nPart; //this will be 0 or some strange number for n>563; BUT: gagdget does not actually use this value; it gets the number of particles from the header
       my_fwrite(&dummy, sizeof(dummy), 1, fd);
       for (i = 0; i < nPart; i++) {
         Pos[0] = Vel1[i];
         Pos[1] = Vel2[i];
         Pos[2] = Vel3[i];
-        my_fwrite(Pos, sizeof(MyFloat), 3, fd);
+        my_fwrite(Pos, sizeof(FloatType), 3, fd);
       }
 
       free(Pos);
@@ -568,9 +568,9 @@ int save_phases(complex<MyFloat> *phk, MyFloat* ph, complex<MyFloat> *delta, int
       my_fwrite(&dummy, sizeof(dummy), 1, fd);
 
       if (Mass != NULL) {
-        dummy = sizeof(MyFloat) * nPart;
+        dummy = sizeof(FloatType) * nPart;
         my_fwrite(&dummy, sizeof(dummy), 1, fd);
-        my_fwrite(Mass, sizeof(MyFloat), nPart, fd);
+        my_fwrite(Mass, sizeof(FloatType), nPart, fd);
         my_fwrite(&dummy, sizeof(dummy), 1, fd);
       }
 
@@ -579,16 +579,16 @@ int save_phases(complex<MyFloat> *phk, MyFloat* ph, complex<MyFloat> *delta, int
 
     }
 
-    template<typename GridDataType, typename MyFloat>
+    template<typename GridDataType, typename FloatType>
     void save(const std::string &name, double Boxlength,
-              particle::ParticleMapper<MyFloat> & mapper,
+              particle::ParticleMapper<GridDataType> & mapper,
               particle::AbstractMultiLevelParticleGenerator<GridDataType> & generator,
-              const CosmologicalParameters<MyFloat> &cosmology, int gadgetformat) {
+              const CosmologicalParameters<FloatType> &cosmology, int gadgetformat) {
 
       std::cout << "Hello from Gadget output!" << std::endl;
 
-      MyFloat tot_mass = 0.0;
-      MyFloat min_mass, max_mass, gas_mass;
+      FloatType tot_mass = 0.0;
+      FloatType min_mass, max_mass, gas_mass;
       size_t nlow, ngas, nhigh;
 
       // input units [Gadget default]::
@@ -601,7 +601,7 @@ int save_phases(complex<MyFloat> *phk, MyFloat* ph, complex<MyFloat> *delta, int
       cout << "min and max particle mass : " << min_mass << " " << max_mass << endl;
       cout << "particle numbers (gas, high, low) : " << ngas << " " << nhigh << " " << nlow << endl;
 
-      MyFloat *masses = (MyFloat *) calloc(6, sizeof(MyFloat));
+      FloatType *masses = (FloatType *) calloc(6, sizeof(FloatType));
       long *npart = (long *) calloc(6, sizeof(long));
 
       //extend these arrays when additional particle types are added:
@@ -702,25 +702,25 @@ int save_phases(complex<MyFloat> *phk, MyFloat* ph, complex<MyFloat> *delta, int
 
       //gas particles energies: TODO TEST the prop. constant (especially unitv), (include YHe_ and gamma_ in the paramfile for baryons?)
       // if (npart[0] >0) {
-      //     dummy=sizeof(MyFloat)*(long)(n); //energy block
+      //     dummy=sizeof(FloatType)*(long)(n); //energy block
       //     my_fwrite(&dummy, sizeof(dummy), 1, fd);
 
-      //     const MyFloat YHe=0.248; //helium fraction, using default from MUSIC
-      //     const MyFloat gamma=5.0/3.0; //adiabatic gas index, using default from MUSIC
+      //     const FloatType YHe=0.248; //helium fraction, using default from MUSIC
+      //     const FloatType gamma=5.0/3.0; //adiabatic gas index, using default from MUSIC
 
-      //     const MyFloat npol  = (fabs(1.0-gamma)>1e-7)? 1.0/(gamma-1.) : 1.0;
-      //     const MyFloat unitv = 1e5; //this is probably a unit transformation
-      //     const MyFloat h2    = hubble*hubble*0.0001;
-      //     const MyFloat adec  = 1.0/(160.*pow(Ob0*h2/0.022,2.0/5.0));
-      //     const MyFloat Tcmb0 = 2.726;
-      //     const MyFloat Tini  = a<adec? Tcmb0/a : Tcmb0/a/a*adec;
-      //     const MyFloat mu    = (Tini>1.e4) ? 4.0/(8.-5.*YHe) : 4.0/(1.+3.*(1.-YHe));
-      //     MyFloat ceint = 1.3806e-16/1.6726e-24 * Tini * npol / mu / unitv / unitv;
+      //     const FloatType npol  = (fabs(1.0-gamma)>1e-7)? 1.0/(gamma-1.) : 1.0;
+      //     const FloatType unitv = 1e5; //this is probably a unit transformation
+      //     const FloatType h2    = hubble*hubble*0.0001;
+      //     const FloatType adec  = 1.0/(160.*pow(Ob0*h2/0.022,2.0/5.0));
+      //     const FloatType Tcmb0 = 2.726;
+      //     const FloatType Tini  = a<adec? Tcmb0/a : Tcmb0/a/a*adec;
+      //     const FloatType mu    = (Tini>1.e4) ? 4.0/(8.-5.*YHe) : 4.0/(1.+3.*(1.-YHe));
+      //     FloatType ceint = 1.3806e-16/1.6726e-24 * Tini * npol / mu / unitv / unitv;
 
       //     cout << "gas internal energy " << ceint << endl;
 
       //     for(auto i=pMapper->beginGas(); i!=pMapper->endGas(); ++i)
-      //         my_fwrite(&ceint,sizeof(MyFloat),1,fd);
+      //         my_fwrite(&ceint,sizeof(FloatType),1,fd);
 
       //     my_fwrite(&dummy, sizeof(dummy), 1, fd); //end of energy block
       // }

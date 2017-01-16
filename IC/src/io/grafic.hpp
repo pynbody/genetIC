@@ -27,7 +27,7 @@ namespace io {
     protected:
       std::string outputFilename;
       MultiLevelContextInformation<DataType> context;
-      std::shared_ptr<particle::AbstractMultiLevelParticleGenerator<T>> generator;
+      std::shared_ptr<particle::AbstractMultiLevelParticleGenerator<DataType>> generator;
       const CosmologicalParameters<T> &cosmology;
 
       T lengthFactor;
@@ -37,7 +37,7 @@ namespace io {
     public:
       GraficOutput(const std::string & fname,
                    MultiLevelContextInformation<DataType> & levelContext,
-                   particle::AbstractMultiLevelParticleGenerator<T> &particleGenerator,
+                   particle::AbstractMultiLevelParticleGenerator<DataType> &particleGenerator,
                    const CosmologicalParameters<T> &cosmology):
         outputFilename(fname),
         generator(particleGenerator.shared_from_this()),

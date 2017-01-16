@@ -20,16 +20,16 @@ namespace particle {
   template<typename T>
   class Particle;
 
-  template<typename T>
-  class ZeldovichParticleGenerator : public ParticleGenerator<T> {
+  template<typename GridDataType, typename T=strip_complex<GridDataType>>
+  class ZeldovichParticleGenerator : public ParticleGenerator<GridDataType> {
   protected:
-    using TField = std::vector<std::complex<T>>;
+    using TField = Field<GridDataType, T>;
     using TRealField = Field<T,T>;
 
     T velocityToOffsetRatio, boxMass;
-    Field<complex<T>, T> &linearOverdensityField;
+    TField &linearOverdensityField;
     const CosmologicalParameters<T> &cosmology;
-    using ParticleGenerator<T>::grid;
+    using ParticleGenerator<GridDataType>::grid;
 
     // The grid offsets after Zeldovich approximation is applied
     // (nullptr before that):
@@ -62,22 +62,31 @@ namespace particle {
       size_t size3 = grid.size3;
       progress::ProgressBar pb("zeldovich", size * 2);
 
-      // make three arrays for manipulating in fourier space
-      auto psift1k = std::vector<std::complex<T>>(size3, 0);
-      auto psift2k = std::vector<std::complex<T>>(size3, 0);
-      auto psift3k = std::vector<std::complex<T>>(size3, 0);
-
       // get a reference to the density field in fourier space
       linearOverdensityField.toFourier();
       auto &pField_k = linearOverdensityField.getDataVector();
 
-      int iix, iiy, iiz;
+      // copy three times to start assembling the vx, vy, vz fields
+      TField psift1k(const_cast<Grid<T> &>(grid));
+      TField psift2k(const_cast<Grid<T> &>(grid));
+      TField psift3k(const_cast<Grid<T> &>(grid));
+
+
+
+
+
       T kfft;
       size_t idx;
 
-      T kw = 2. * M_PI / grid.boxsize;
+      const T kw = 2. * M_PI / grid.boxsize;
 
-#pragma omp parallel for schedule(static) default(shared) private(iix, iiy, iiz, kfft, idx)
+      fourier::applyTransformationInFourierBasis(linearOverdensityField, psift1k,
+      [&kw](complex<T> inputVal, int iix, int iiy, int iiz) -> complex<T> {
+        return inputVal;
+      });
+
+/*
+      #pragma omp parallel for schedule(static) default(shared) private(iix, iiy, iiz, kfft, idx)
       for (size_t ix = 0; ix < size; ix++) {
         pb.tick();
         for (size_t iy = 0; iy < size; iy++) {
@@ -91,24 +100,23 @@ namespace particle {
 
             kfft = (T) (iix * iix + iiy * iiy + iiz * iiz);
 
-            psift1k[idx].real(-pField_k[idx].imag() / (T) (kfft) * iix / kw);
-            psift1k[idx].imag(pField_k[idx].real() / (T) (kfft) * iix / kw);
-            psift2k[idx].real(-pField_k[idx].imag() / (T) (kfft) * iiy / kw);
-            psift2k[idx].imag(pField_k[idx].real() / (T) (kfft) * iiy / kw);
-            psift3k[idx].real(-pField_k[idx].imag() / (T) (kfft) * iiz / kw);
-            psift3k[idx].imag(pField_k[idx].real() / (T) (kfft) * iiz / kw);
+            psift1k[idx]*=T(iix)/(kfft*kw);
+            psift2k[idx]*=T(iiy)/(kfft*kw);
+            psift3k[idx]*=T(iiz)/(kfft*kw);
           }
         }
       }
+*/
+      set_zero(psift1k[0]);
+      set_zero(psift2k[0]);
+      set_zero(psift3k[0]);
 
-      psift1k[0] = complex<T>(0., 0.);
-      psift2k[0] = complex<T>(0., 0.);
-      psift3k[0] = complex<T>(0., 0.);
 
-      fft(psift1k.data(), psift1k.data(), size,
-          -1); //the output .imag() part is non-zero because of the Nyquist frequency, but this is not used anywhere else
-      fft(psift2k.data(), psift2k.data(), size, -1); //same
-      fft(psift3k.data(), psift3k.data(), size, -1); //same
+      psift1k.toReal();
+      psift2k.toReal();
+      psift3k.toReal();
+
+      // TODO: following copy operation only necessary for complex implementation
 
       pOff_x = std::make_shared<TRealField>(grid,false);
       pOff_y = std::make_shared<TRealField>(grid,false);
@@ -128,9 +136,9 @@ namespace particle {
             idx = (ix * size + iy) * size + iz;
 
             // position offset in physical coordinates
-            offx_data[idx] = psift1k[idx].real();
-            offy_data[idx] = psift2k[idx].real();
-            offz_data[idx] = psift3k[idx].real();
+            offx_data[idx] = real_part_if_complex(psift1k[idx]);
+            offy_data[idx] = real_part_if_complex(psift2k[idx]);
+            offz_data[idx] = real_part_if_complex(psift3k[idx]);
           }
         }
       }
@@ -139,11 +147,11 @@ namespace particle {
   public:
 
 
-    ZeldovichParticleGenerator(Field<complex<T> ,T> &linearOverdensityField,
+    ZeldovichParticleGenerator(TField &linearOverdensityField,
                                const CosmologicalParameters<T> &cosmology) :
       linearOverdensityField(linearOverdensityField),
       cosmology(cosmology),
-      ParticleGenerator<T>(linearOverdensityField.getGrid())
+      ParticleGenerator<GridDataType>(linearOverdensityField.getGrid())
     {
       recalculate();
     }

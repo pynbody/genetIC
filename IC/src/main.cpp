@@ -34,14 +34,17 @@
 
 
 #ifdef DOUBLEPRECISION
-typedef double MyFloat;
+typedef double FloatType;
 #else
-typedef float MyFloat;
+typedef float FloatType;
 #endif
 
-
-typedef ICGenerator<MyFloat> ICf;
-
+#define USE_COMPLEX_FFT
+#ifdef USE_COMPLEX_FFT
+using ICf = ICGenerator<complex<FloatType>> ;
+#else
+using ICf = ICGenerator<FloatType>;
+#endif
 
 void setup_parser(ClassDispatch<ICf, void> &dispatch) {
 

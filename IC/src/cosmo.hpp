@@ -7,24 +7,24 @@
 #include "interpolation.hpp"
 // #include "realspacecorrelation.hpp"
 
-template<typename MyFloat>
+template<typename FloatType>
 struct CosmologicalParameters {
-  MyFloat OmegaM0, OmegaLambda0, OmegaBaryons0, hubble, redshift;
-  MyFloat scalefactor, sigma8, ns, TCMB;
+  FloatType OmegaM0, OmegaLambda0, OmegaBaryons0, hubble, redshift;
+  FloatType scalefactor, sigma8, ns, TCMB;
 };
 
-template<typename MyFloat>
-extern MyFloat D(MyFloat a, MyFloat Om, MyFloat Ol);
+template<typename FloatType>
+extern FloatType D(FloatType a, FloatType Om, FloatType Ol);
 
-template<typename MyFloat>
+template<typename FloatType>
 class CAMB {
 protected:
-  std::vector<MyFloat> kcamb;
-  std::vector<MyFloat> Tcamb;
-  Interpolator<MyFloat> interpolator;
-  MyFloat amplitude;
-  MyFloat ns;
-  mutable MyFloat kcamb_max_in_file;
+  std::vector<FloatType> kcamb;
+  std::vector<FloatType> Tcamb;
+  Interpolator<FloatType> interpolator;
+  FloatType amplitude;
+  FloatType ns;
+  mutable FloatType kcamb_max_in_file;
 
 public:
 
@@ -32,7 +32,7 @@ public:
     return (kcamb.size() > 0);
   }
 
-  void read(std::string incamb, const CosmologicalParameters<MyFloat> &cosmology) {
+  void read(std::string incamb, const CosmologicalParameters<FloatType> &cosmology) {
 
     readLinesFromCambOutput(incamb);
     interpolator.initialise(kcamb, Tcamb);
@@ -44,7 +44,7 @@ public:
 
 
     /*
-    realspace::RealSpaceGenerators<MyFloat> obj(200.0,8192*2);
+    realspace::RealSpaceGenerators<FloatType> obj(200.0,8192*2);
 
     cerr << "k=" << obj.generateKArray() << endl;
     cerr << "Pk=" << obj.generatePkArray(*this) << endl;
@@ -69,13 +69,13 @@ protected:
     }
 
 
-    MyFloat ap = input[1]; //to normalise CAMB transfer function so T(0)= 1, doesn't matter if we normalise here in terms of accuracy, but feels more natural
+    FloatType ap = input[1]; //to normalise CAMB transfer function so T(0)= 1, doesn't matter if we normalise here in terms of accuracy, but feels more natural
 
     for (j = 0; j < input.size() / c; j++) {
       if (input[c * j] > 0) {
         // hard-coded to first two columns of CAMB file -
-        kcamb.push_back(MyFloat(input[c * j]));
-        Tcamb.push_back(MyFloat(input[c * j + 1]) / ap);
+        kcamb.push_back(FloatType(input[c * j]));
+        Tcamb.push_back(FloatType(input[c * j + 1]) / ap);
       }
       else continue;
     }
@@ -85,12 +85,12 @@ protected:
     // extend high-k range using Meszaros solution
     // This is a very naive approximation and a big warning will be issued if it's actually used
 
-    MyFloat Tcamb_f = Tcamb.back();
+    FloatType Tcamb_f = Tcamb.back();
     kcamb_max_in_file = kcamb.back();
-    MyFloat keq = 0.01;
+    FloatType keq = 0.01;
     while (kcamb.back() < 1000) {
       kcamb.push_back(kcamb.back() + 1.0);
-      MyFloat kratio = kcamb.back() / kcamb_max_in_file;
+      FloatType kratio = kcamb.back() / kcamb_max_in_file;
       Tcamb.push_back(Tcamb_f*pow(kratio,-2.0)*log(kcamb.back()/keq)/log(kcamb_max_in_file/keq));
     }
 
@@ -100,8 +100,8 @@ protected:
 
 public:
 
-  MyFloat operator()(MyFloat k) const {
-    MyFloat linearTransfer;
+  FloatType operator()(FloatType k) const {
+    FloatType linearTransfer;
     if (k != 0)
       linearTransfer = interpolator(k);
     else
@@ -110,21 +110,21 @@ public:
     if(k>kcamb_max_in_file) {
       cerr << "WARNING: maximum k in CAMB input file is insufficient (" << kcamb_max_in_file << ")" << endl;
       cerr << "         extrapolating using naive Meszaros solution" << endl;
-      kcamb_max_in_file = std::numeric_limits<MyFloat>().max();
+      kcamb_max_in_file = std::numeric_limits<FloatType>().max();
     }
 
     return amplitude * powf(k, ns) * linearTransfer * linearTransfer;
   }
 
-  std::vector<MyFloat> getPowerSpectrumForGrid(const Grid<MyFloat> &grid) const {
+  std::vector<FloatType> getPowerSpectrumForGrid(const Grid<FloatType> &grid) const {
     assert(kcamb.size() == Tcamb.size());
 
-    MyFloat norm = getPowerSpectrumNormalizationForGrid(grid);
+    FloatType norm = getPowerSpectrumNormalizationForGrid(grid);
 
-    std::vector<MyFloat> P(grid.size3);
+    std::vector<FloatType> P(grid.size3);
 
     for (size_t i = 0; i < grid.size3; ++i) {
-      MyFloat k = grid.getFourierCellAbsK(i);
+      FloatType k = grid.getFourierCellAbsK(i);
       P[i] = (*this)(k) * norm;
     }
 
@@ -134,23 +134,23 @@ public:
 
 
 protected:
-  void calculateOverallNormalization(const CosmologicalParameters<MyFloat> &cosmology) {
-    MyFloat growthFactor = D(cosmology.scalefactor, cosmology.OmegaM0, cosmology.OmegaLambda0);
+  void calculateOverallNormalization(const CosmologicalParameters<FloatType> &cosmology) {
+    FloatType growthFactor = D(cosmology.scalefactor, cosmology.OmegaM0, cosmology.OmegaLambda0);
 
-    MyFloat growthFactorNormalized = growthFactor / D(1., cosmology.OmegaM0, cosmology.OmegaLambda0);
+    FloatType growthFactorNormalized = growthFactor / D(1., cosmology.OmegaM0, cosmology.OmegaLambda0);
 
-    MyFloat sigma8PreNormalization = sig(8., cosmology.ns);
+    FloatType sigma8PreNormalization = sig(8., cosmology.ns);
 
-    MyFloat linearRenormFactor = (cosmology.sigma8 / sigma8PreNormalization) * growthFactorNormalized;
+    FloatType linearRenormFactor = (cosmology.sigma8 / sigma8PreNormalization) * growthFactorNormalized;
 
     amplitude = linearRenormFactor * linearRenormFactor;
 
   }
 
-  MyFloat getPowerSpectrumNormalizationForGrid(const Grid<MyFloat> &grid) const {
+  FloatType getPowerSpectrumNormalizationForGrid(const Grid<FloatType> &grid) const {
 
-    MyFloat kw = 2. * M_PI / grid.boxsize;
-    MyFloat norm = kw * kw * kw / powf(2. * M_PI, 3.); //since kw=2pi/L, this is just 1/V_box
+    FloatType kw = 2. * M_PI / grid.boxsize;
+    FloatType norm = kw * kw * kw / powf(2. * M_PI, 3.); //since kw=2pi/L, this is just 1/V_box
 
     return norm;
   }
@@ -158,15 +158,15 @@ protected:
 public:
 
 
-  MyFloat sig(MyFloat R, MyFloat ns) {
+  FloatType sig(FloatType R, FloatType ns) {
 
-    MyFloat s = 0., k, t;
+    FloatType s = 0., k, t;
 
-    MyFloat amp = 9. / 2. / M_PI / M_PI;
-    MyFloat kmax = min(kcamb.back(), 200.0 / R);
-    MyFloat kmin = kcamb[0];
+    FloatType amp = 9. / 2. / M_PI / M_PI;
+    FloatType kmax = min(kcamb.back(), 200.0 / R);
+    FloatType kmin = kcamb[0];
 
-    MyFloat dk = (kmax - kmin) / 50000.;
+    FloatType dk = (kmax - kmin) / 50000.;
     for (k = kmin; k < kmax; k += dk) {
 
       t = interpolator(k);
@@ -185,11 +185,11 @@ public:
 };
 
 
-template<typename MyFloat>
-MyFloat D(MyFloat a, MyFloat Om, MyFloat Ol) {
+template<typename FloatType>
+FloatType D(FloatType a, FloatType Om, FloatType Ol) {
 
-  MyFloat Hsq = Om / powf(a, 3.0) + (1. - Om - Ol) / a / a + Ol;
-  MyFloat d = 2.5 * a * Om / powf(a, 3.0) / Hsq / (powf(Om / Hsq / a / a / a, 4. / 7.) - Ol / Hsq +
+  FloatType Hsq = Om / powf(a, 3.0) + (1. - Om - Ol) / a / a + Ol;
+  FloatType d = 2.5 * a * Om / powf(a, 3.0) / Hsq / (powf(Om / Hsq / a / a / a, 4. / 7.) - Ol / Hsq +
                                                    (1. + 0.5 * Om / powf(a, 3.0) / Hsq) * (1. + 1. / 70. * Ol / Hsq));
 
   //simplify this...?
@@ -198,19 +198,19 @@ MyFloat D(MyFloat a, MyFloat Om, MyFloat Ol) {
 }
 
 
-template<typename MyFloat>
-void powsp(int n, std::complex<MyFloat> *ft, const char *out, MyFloat Boxlength) {
+template<typename FloatType>
+void powsp(int n, std::complex<FloatType> *ft, const char *out, FloatType Boxlength) {
 
   int res = n;
   int nBins = 100;
-  MyFloat *inBin = new MyFloat[nBins];
-  MyFloat *Gx = new MyFloat[nBins];
-  MyFloat *kbin = new MyFloat[nBins];
-  MyFloat kmax = M_PI / Boxlength * (MyFloat) res, kmin = 2.0f * M_PI / (MyFloat) Boxlength, dklog =
-    log10(kmax / kmin) / nBins, kw = 2.0f * M_PI / (MyFloat) Boxlength;
+  FloatType *inBin = new FloatType[nBins];
+  FloatType *Gx = new FloatType[nBins];
+  FloatType *kbin = new FloatType[nBins];
+  FloatType kmax = M_PI / Boxlength * (FloatType) res, kmin = 2.0f * M_PI / (FloatType) Boxlength, dklog =
+    log10(kmax / kmin) / nBins, kw = 2.0f * M_PI / (FloatType) Boxlength;
 
   int ix, iy, iz, idx, idx2;
-  MyFloat kfft;
+  FloatType kfft;
 
   for (ix = 0; ix < nBins; ix++) {
     inBin[ix] = 0;
@@ -226,7 +226,7 @@ void powsp(int n, std::complex<MyFloat> *ft, const char *out, MyFloat Boxlength)
 
         // determine mode modulus
 
-        MyFloat vabs = ft[idx].real() * ft[idx].real() + ft[idx].imag() * ft[idx].imag();
+        FloatType vabs = ft[idx].real() * ft[idx].real() + ft[idx].imag() * ft[idx].imag();
 
         int iix, iiy, iiz;
 
@@ -235,13 +235,13 @@ void powsp(int n, std::complex<MyFloat> *ft, const char *out, MyFloat Boxlength)
         if (iz > res / 2) iiz = iz - res; else iiz = iz;
 
         kfft = sqrt(iix * iix + iiy * iiy + iiz * iiz);
-        MyFloat k = kfft * kw;
+        FloatType k = kfft * kw;
 
         // correct for aliasing, formula from Jing (2005), ApJ 620, 559
         // assume isotropic aliasing (approx. true for k<kmax=knyquist)
         // this formula is for CIC interpolation scheme, which we use <- only needed for Powerspectrum
 
-        MyFloat JingCorr = (1.0f - 2.0f / 3.0f * sin(M_PI * k / kmax / 2.0f) * sin(M_PI * k / kmax / 2.0f));
+        FloatType JingCorr = (1.0f - 2.0f / 3.0f * sin(M_PI * k / kmax / 2.0f) * sin(M_PI * k / kmax / 2.0f));
         vabs /= JingCorr;
 
         //.. logarithmic spacing in k
@@ -264,7 +264,7 @@ void powsp(int n, std::complex<MyFloat> *ft, const char *out, MyFloat Boxlength)
 
   //definition of powerspectrum brings (2pi)^-3, FT+conversion to physical units brings sqrt(Box^3/N^6) per delta1, where ps22~d2*d2~d1*d1*d1*d1 -> (Box^3/N^6)^2
 
-  MyFloat psnorm = powf(Boxlength / (2.0 * M_PI), 3.0);
+  FloatType psnorm = powf(Boxlength / (2.0 * M_PI), 3.0);
 
   for (ix = 0; ix < nBins; ix++) {
 
@@ -273,7 +273,7 @@ void powsp(int n, std::complex<MyFloat> *ft, const char *out, MyFloat Boxlength)
 
       ofs << std::setw(16) << pow(10., log10(kmin) + dklog * (ix + 0.5))
       << std::setw(16) << kbin[ix] / inBin[ix]
-      << std::setw(16) << (MyFloat) (Gx[ix] / inBin[ix]) * psnorm
+      << std::setw(16) << (FloatType) (Gx[ix] / inBin[ix]) * psnorm
       << std::setw(16) << inBin[ix]
       << std::endl;
 
@@ -287,22 +287,22 @@ void powsp(int n, std::complex<MyFloat> *ft, const char *out, MyFloat Boxlength)
 
 }
 
-template<typename DataType, typename MyFloat=strip_complex<DataType>>
+template<typename DataType, typename FloatType=strip_complex<DataType>>
 void powsp_noJing(const Field<DataType> & field,
-                  const std::vector<MyFloat> &P0, const char *out, MyFloat Boxlength) {
+                  const std::vector<FloatType> &P0, const char *out, FloatType Boxlength) {
 
   int res = field.getGrid().size;
   int nBins = 100;
-  std::vector<MyFloat> inBin(nBins);
-  std::vector<MyFloat> kbin(nBins);
-  std::vector<MyFloat> Gx(nBins);
-  std::vector<MyFloat> Px(nBins);
+  std::vector<FloatType> inBin(nBins);
+  std::vector<FloatType> kbin(nBins);
+  std::vector<FloatType> Gx(nBins);
+  std::vector<FloatType> Px(nBins);
 
-  MyFloat kmax = M_PI / Boxlength * (MyFloat) res, kmin = 2.0f * M_PI / (MyFloat) Boxlength, dklog =
-    log10(kmax / kmin) / nBins, kw = 2.0f * M_PI / (MyFloat) Boxlength;
+  FloatType kmax = M_PI / Boxlength * (FloatType) res, kmin = 2.0f * M_PI / (FloatType) Boxlength, dklog =
+    log10(kmax / kmin) / nBins, kw = 2.0f * M_PI / (FloatType) Boxlength;
 
   int ix, iy, iz, idx, idx2;
-  MyFloat kfft;
+  FloatType kfft;
 
   for (ix = 0; ix < nBins; ix++) {
     inBin[ix] = 0;
@@ -319,7 +319,7 @@ void powsp_noJing(const Field<DataType> & field,
         // determine mode modulus
 
         auto fieldValue = field.evaluateFourierMode({ix,iy,iz});
-        MyFloat vabs = fieldValue.real() * fieldValue.real() + fieldValue.imag() * fieldValue.imag();
+        FloatType vabs = fieldValue.real() * fieldValue.real() + fieldValue.imag() * fieldValue.imag();
 
         int iix, iiy, iiz;
 
@@ -328,14 +328,14 @@ void powsp_noJing(const Field<DataType> & field,
         if (iz > res / 2) iiz = iz - res; else iiz = iz;
 
         kfft = sqrt(iix * iix + iiy * iiy + iiz * iiz);
-        MyFloat k = kfft * kw;
+        FloatType k = kfft * kw;
 
         //.. logarithmic spacing in k
         idx2 = (int) ((1.0f / dklog * log10(k / kmin)));
 
         if (k >= kmin && k < kmax) {
 
-          Gx[idx2] += vabs / (MyFloat) (res * res * res); //because FFT is now normalised with 1/sqrt(Ntot)
+          Gx[idx2] += vabs / (FloatType) (res * res * res); //because FFT is now normalised with 1/sqrt(Ntot)
           Px[idx2] += P0[idx];
           kbin[idx2] += k;
           inBin[idx2]++;
@@ -349,7 +349,7 @@ void powsp_noJing(const Field<DataType> & field,
   std::ofstream ofs(out);
 
 
-  MyFloat psnorm = powf(Boxlength / (2.0 * M_PI), 3.0);
+  FloatType psnorm = powf(Boxlength / (2.0 * M_PI), 3.0);
 
   for (ix = 0; ix < nBins; ix++) {
 
@@ -358,8 +358,8 @@ void powsp_noJing(const Field<DataType> & field,
 
       ofs << std::setw(16) << pow(10., log10(kmin) + dklog * (ix + 0.5))
       << std::setw(16) << kbin[ix] / inBin[ix]
-      << std::setw(16) << (MyFloat) (Px[ix] / inBin[ix]) * psnorm
-      << std::setw(16) << (MyFloat) (Gx[ix] / inBin[ix]) * psnorm
+      << std::setw(16) << (FloatType) (Px[ix] / inBin[ix]) * psnorm
+      << std::setw(16) << (FloatType) (Gx[ix] / inBin[ix]) * psnorm
       << std::setw(16) << inBin[ix]
       << std::endl;
 
@@ -406,16 +406,16 @@ DataType *poiss(DataType *out, DataType *in, int res,
 
 
 /*
-template<typename MyFloat>
-std::complex<MyFloat> *rev_poiss(std::complex<MyFloat> *out, std::complex<MyFloat> *in, int res, MyFloat Boxlength,
-                                 MyFloat a, MyFloat Om) {
+template<typename FloatType>
+std::complex<FloatType> *rev_poiss(std::complex<FloatType> *out, std::complex<FloatType> *in, int res, FloatType Boxlength,
+                                 FloatType a, FloatType Om) {
 
   long i;
 
-  MyFloat prefac =
+  FloatType prefac =
     3. / 2. * Om / a * 100. * 100. / (3. * 100000.) / (3. * 100000.); // 3/2 Om/a * (H0/h)^2 (h/Mpc)^2 / c^2 (km/s)
 
-  MyFloat kw = 2.0f * M_PI / (MyFloat) (Boxlength), k;
+  FloatType kw = 2.0f * M_PI / (FloatType) (Boxlength), k;
 
   int k1, k2, k3, kk1, kk2, kk3;
 
@@ -428,14 +428,14 @@ std::complex<MyFloat> *rev_poiss(std::complex<MyFloat> *out, std::complex<MyFloa
         if (k2 > res / 2) kk2 = k2 - res; else kk2 = k2;
         if (k3 > res / 2) kk3 = k3 - res; else kk3 = k3;
 
-        k = (MyFloat) (kk1 * kk1 + kk2 * kk2 + kk3 * kk3) * kw * kw;
+        k = (FloatType) (kk1 * kk1 + kk2 * kk2 + kk3 * kk3) * kw * kw;
 
         out[i] = -k * in[i] / prefac;
       }
     }
   }
 
-  out[0] = std::complex<MyFloat>(0., 0.);
+  out[0] = std::complex<FloatType>(0., 0.);
 
   return out;
 

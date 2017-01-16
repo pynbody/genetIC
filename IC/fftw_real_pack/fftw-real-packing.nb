@@ -10,10 +10,10 @@
 NotebookFileLineBreakTest
 NotebookFileLineBreakTest
 NotebookDataPosition[       158,          7]
-NotebookDataLength[     21446,        653]
-NotebookOptionsPosition[     19970,        601]
-NotebookOutlinePosition[     20331,        617]
-CellTagsIndexPosition[     20288,        614]
+NotebookDataLength[     25968,        782]
+NotebookOptionsPosition[     24336,        725]
+NotebookOutlinePosition[     24698,        741]
+CellTagsIndexPosition[     24655,        738]
 WindowFrame->Normal*)
 
 (* Beginning of Notebook Content *)
@@ -440,104 +440,107 @@ FFT back to the FFTW real coeffs:\
 Cell[CellGroupData[{
 
 Cell[BoxData[
- RowBox[{"Solve", "[", 
-  RowBox[{
+ RowBox[{"fftwFromField", "=", 
+  RowBox[{"Solve", "[", 
    RowBox[{
-    RowBox[{"{", 
-     RowBox[{
-      RowBox[{
-       RowBox[{"ReF", "[", 
-        RowBox[{"kx", ",", "ky", ",", "kz"}], "]"}], "\[Equal]", "ReFppp"}], 
-      ",", "\[IndentingNewLine]", 
-      RowBox[{
-       RowBox[{"ReF", "[", 
-        RowBox[{"kx", ",", "ky", ",", 
-         RowBox[{"-", "kz"}]}], "]"}], "==", "ReFppm"}], ",", 
-      "\[IndentingNewLine]", 
-      RowBox[{
-       RowBox[{"ReF", "[", 
-        RowBox[{"kx", ",", 
-         RowBox[{"-", "ky"}], ",", "kz"}], "]"}], "\[Equal]", "ReFpmp"}], ",",
-       "\[IndentingNewLine]", 
-      RowBox[{
-       RowBox[{"ReF", "[", 
-        RowBox[{"kx", ",", 
-         RowBox[{"-", "ky"}], ",", 
-         RowBox[{"-", "kz"}]}], "]"}], "==", "ReFpmm"}], ",", 
-      "\[IndentingNewLine]", 
-      RowBox[{
-       RowBox[{"ImF", "[", 
-        RowBox[{"kx", ",", "ky", ",", "kz"}], "]"}], "\[Equal]", "ImFppp"}], 
-      ",", "\[IndentingNewLine]", 
-      RowBox[{
-       RowBox[{"ImF", "[", 
-        RowBox[{"kx", ",", "ky", ",", 
-         RowBox[{"-", "kz"}]}], "]"}], "\[Equal]", "ImFppm"}], ",", 
-      "\[IndentingNewLine]", 
-      RowBox[{
-       RowBox[{"ImF", "[", 
-        RowBox[{"kx", ",", 
-         RowBox[{"-", "ky"}], ",", "kz"}], "]"}], "\[Equal]", "ImFpmp"}], ",",
-       "\[IndentingNewLine]", 
-      RowBox[{
-       RowBox[{"ImF", "[", 
-        RowBox[{"kx", ",", 
-         RowBox[{"-", "ky"}], ",", 
-         RowBox[{"-", "kz"}]}], "]"}], "\[Equal]", "ImFpmm"}]}], 
-     "\[IndentingNewLine]", "}"}], "/.", 
-    RowBox[{"{", 
-     RowBox[{
-      RowBox[{
-       RowBox[{"FReal", "[", 
-        RowBox[{"kx", ",", "ky", ",", "kz"}], "]"}], "\[Rule]", "FFTWppp"}], 
-      ",", "\[IndentingNewLine]", 
-      RowBox[{
-       RowBox[{"FReal", "[", 
-        RowBox[{"kx", ",", "ky", ",", 
-         RowBox[{"-", "kz"}]}], "]"}], "\[Rule]", "FFTWppm"}], ",", 
-      "\[IndentingNewLine]", 
-      RowBox[{
-       RowBox[{"FReal", "[", 
-        RowBox[{"kx", ",", 
-         RowBox[{"-", "ky"}], ",", "kz"}], "]"}], "\[Rule]", "FFTWpmp"}], ",",
-       "\[IndentingNewLine]", 
-      RowBox[{
-       RowBox[{"FReal", "[", 
-        RowBox[{"kx", ",", 
-         RowBox[{"-", "ky"}], ",", 
-         RowBox[{"-", "kz"}]}], "]"}], "\[Rule]", "FFTWpmm"}], ",", 
-      "\[IndentingNewLine]", 
-      RowBox[{
-       RowBox[{"FReal", "[", 
-        RowBox[{
-         RowBox[{"-", "kx"}], ",", "ky", ",", "kz"}], "]"}], "\[Rule]", 
-       "FFTWmpp"}], ",", "\[IndentingNewLine]", 
-      RowBox[{
-       RowBox[{"FReal", "[", 
-        RowBox[{
-         RowBox[{"-", "kx"}], ",", "ky", ",", 
-         RowBox[{"-", "kz"}]}], "]"}], "\[Rule]", "FFTWmpm"}], ",", 
-      "\[IndentingNewLine]", 
-      RowBox[{
-       RowBox[{"FReal", "[", 
-        RowBox[{
-         RowBox[{"-", "kx"}], ",", 
-         RowBox[{"-", "ky"}], ",", "kz"}], "]"}], "\[Rule]", "FFTWmmp"}], ",",
-       "\[IndentingNewLine]", 
-      RowBox[{
-       RowBox[{"FReal", "[", 
-        RowBox[{
-         RowBox[{"-", "kx"}], ",", 
-         RowBox[{"-", "ky"}], ",", 
-         RowBox[{"-", "kz"}]}], "]"}], "\[Rule]", "FFTWmmm"}]}], "}"}]}], ",", 
-   RowBox[{"{", 
     RowBox[{
-    "FFTWppp", ",", "FFTWppm", ",", "FFTWpmp", ",", "FFTWpmm", ",", "FFTWmpp",
-      ",", "FFTWmpm", ",", "FFTWmmp", ",", "FFTWmmm"}], "}"}]}], 
-  "]"}]], "Input",
+     RowBox[{"{", 
+      RowBox[{
+       RowBox[{
+        RowBox[{"ReF", "[", 
+         RowBox[{"kx", ",", "ky", ",", "kz"}], "]"}], "\[Equal]", "ReFppp"}], 
+       ",", "\[IndentingNewLine]", 
+       RowBox[{
+        RowBox[{"ReF", "[", 
+         RowBox[{"kx", ",", "ky", ",", 
+          RowBox[{"-", "kz"}]}], "]"}], "==", "ReFppm"}], ",", 
+       "\[IndentingNewLine]", 
+       RowBox[{
+        RowBox[{"ReF", "[", 
+         RowBox[{"kx", ",", 
+          RowBox[{"-", "ky"}], ",", "kz"}], "]"}], "\[Equal]", "ReFpmp"}], 
+       ",", "\[IndentingNewLine]", 
+       RowBox[{
+        RowBox[{"ReF", "[", 
+         RowBox[{"kx", ",", 
+          RowBox[{"-", "ky"}], ",", 
+          RowBox[{"-", "kz"}]}], "]"}], "==", "ReFpmm"}], ",", 
+       "\[IndentingNewLine]", 
+       RowBox[{
+        RowBox[{"ImF", "[", 
+         RowBox[{"kx", ",", "ky", ",", "kz"}], "]"}], "\[Equal]", "ImFppp"}], 
+       ",", "\[IndentingNewLine]", 
+       RowBox[{
+        RowBox[{"ImF", "[", 
+         RowBox[{"kx", ",", "ky", ",", 
+          RowBox[{"-", "kz"}]}], "]"}], "\[Equal]", "ImFppm"}], ",", 
+       "\[IndentingNewLine]", 
+       RowBox[{
+        RowBox[{"ImF", "[", 
+         RowBox[{"kx", ",", 
+          RowBox[{"-", "ky"}], ",", "kz"}], "]"}], "\[Equal]", "ImFpmp"}], 
+       ",", "\[IndentingNewLine]", 
+       RowBox[{
+        RowBox[{"ImF", "[", 
+         RowBox[{"kx", ",", 
+          RowBox[{"-", "ky"}], ",", 
+          RowBox[{"-", "kz"}]}], "]"}], "\[Equal]", "ImFpmm"}]}], 
+      "\[IndentingNewLine]", "}"}], "/.", 
+     RowBox[{"{", 
+      RowBox[{
+       RowBox[{
+        RowBox[{"FReal", "[", 
+         RowBox[{"kx", ",", "ky", ",", "kz"}], "]"}], "\[Rule]", "FFTWppp"}], 
+       ",", "\[IndentingNewLine]", 
+       RowBox[{
+        RowBox[{"FReal", "[", 
+         RowBox[{"kx", ",", "ky", ",", 
+          RowBox[{"-", "kz"}]}], "]"}], "\[Rule]", "FFTWppm"}], ",", 
+       "\[IndentingNewLine]", 
+       RowBox[{
+        RowBox[{"FReal", "[", 
+         RowBox[{"kx", ",", 
+          RowBox[{"-", "ky"}], ",", "kz"}], "]"}], "\[Rule]", "FFTWpmp"}], 
+       ",", "\[IndentingNewLine]", 
+       RowBox[{
+        RowBox[{"FReal", "[", 
+         RowBox[{"kx", ",", 
+          RowBox[{"-", "ky"}], ",", 
+          RowBox[{"-", "kz"}]}], "]"}], "\[Rule]", "FFTWpmm"}], ",", 
+       "\[IndentingNewLine]", 
+       RowBox[{
+        RowBox[{"FReal", "[", 
+         RowBox[{
+          RowBox[{"-", "kx"}], ",", "ky", ",", "kz"}], "]"}], "\[Rule]", 
+        "FFTWmpp"}], ",", "\[IndentingNewLine]", 
+       RowBox[{
+        RowBox[{"FReal", "[", 
+         RowBox[{
+          RowBox[{"-", "kx"}], ",", "ky", ",", 
+          RowBox[{"-", "kz"}]}], "]"}], "\[Rule]", "FFTWmpm"}], ",", 
+       "\[IndentingNewLine]", 
+       RowBox[{
+        RowBox[{"FReal", "[", 
+         RowBox[{
+          RowBox[{"-", "kx"}], ",", 
+          RowBox[{"-", "ky"}], ",", "kz"}], "]"}], "\[Rule]", "FFTWmmp"}], 
+       ",", "\[IndentingNewLine]", 
+       RowBox[{
+        RowBox[{"FReal", "[", 
+         RowBox[{
+          RowBox[{"-", "kx"}], ",", 
+          RowBox[{"-", "ky"}], ",", 
+          RowBox[{"-", "kz"}]}], "]"}], "\[Rule]", "FFTWmmm"}]}], "}"}]}], 
+    ",", 
+    RowBox[{"{", 
+     RowBox[{
+     "FFTWppp", ",", "FFTWppm", ",", "FFTWpmp", ",", "FFTWpmm", ",", 
+      "FFTWmpp", ",", "FFTWmpm", ",", "FFTWmmp", ",", "FFTWmmm"}], "}"}]}], 
+   "]"}]}]], "Input",
  CellChangeTimes->{{3.692973468344529*^9, 3.6929735453851357`*^9}, {
   3.692973687809298*^9, 3.692973689035041*^9}, {3.692973763859524*^9, 
-  3.692973802287284*^9}, {3.6929738438228693`*^9, 3.692973955412306*^9}}],
+  3.692973802287284*^9}, {3.6929738438228693`*^9, 3.692973955412306*^9}, {
+  3.6931327823695383`*^9, 3.693132790423349*^9}}],
 
 Cell[BoxData[
  RowBox[{"{", 
@@ -596,11 +599,132 @@ Cell[BoxData[
         RowBox[{"-", "ImFpmm"}], "+", "ImFpmp", "+", "ImFppm", "-", 
         "ImFppp"}], ")"}]}]}]}], "}"}], "}"}]], "Output",
  CellChangeTimes->{{3.692973541687647*^9, 3.692973594586475*^9}, 
-   3.692973803844542*^9, 3.692973916648744*^9, 3.692973955899416*^9}]
+   3.692973803844542*^9, 3.692973916648744*^9, 3.692973955899416*^9, 
+   3.6931327917521563`*^9}]
+}, Open  ]],
+
+Cell["\<\
+Figure out what multiplying by I entails in terms of forming a new GReal from \
+original FReal...\
+\>", "Text",
+ CellChangeTimes->{{3.693131844549032*^9, 3.693131862774106*^9}}],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{"fftwFromField", "/.", 
+   RowBox[{"{", "\[IndentingNewLine]", 
+    RowBox[{
+     RowBox[{"ReFppp", "\[Rule]", 
+      RowBox[{"ImF", "[", 
+       RowBox[{"kx", ",", "ky", ",", "kz"}], "]"}]}], ",", 
+     "\[IndentingNewLine]", 
+     RowBox[{"ReFppm", "\[Rule]", 
+      RowBox[{"ImF", "[", 
+       RowBox[{"kx", ",", "ky", ",", 
+        RowBox[{"-", "kz"}]}], "]"}]}], ",", "\[IndentingNewLine]", 
+     RowBox[{"ReFpmp", "\[Rule]", 
+      RowBox[{"ImF", "[", 
+       RowBox[{"kx", ",", 
+        RowBox[{"-", "ky"}], ",", "kz"}], "]"}]}], ",", "\[IndentingNewLine]", 
+     RowBox[{"ReFpmm", "\[Rule]", 
+      RowBox[{"ImF", "[", 
+       RowBox[{"kx", ",", 
+        RowBox[{"-", "ky"}], ",", 
+        RowBox[{"-", "kz"}]}], "]"}]}], ",", "\[IndentingNewLine]", 
+     RowBox[{"ImFppp", "\[Rule]", 
+      RowBox[{"-", 
+       RowBox[{"ReF", "[", 
+        RowBox[{"kx", ",", "ky", ",", "kz"}], "]"}]}]}], ",", 
+     "\[IndentingNewLine]", 
+     RowBox[{"ImFppm", "\[Rule]", 
+      RowBox[{"-", 
+       RowBox[{"ReF", "[", 
+        RowBox[{"kx", ",", "ky", ",", 
+         RowBox[{"-", "kz"}]}], "]"}]}]}], ",", "\[IndentingNewLine]", 
+     RowBox[{"ImFpmp", "\[Rule]", 
+      RowBox[{"-", 
+       RowBox[{"ReF", "[", 
+        RowBox[{"kx", ",", 
+         RowBox[{"-", "ky"}], ",", "kz"}], "]"}]}]}], ",", 
+     "\[IndentingNewLine]", 
+     RowBox[{"ImFpmm", "\[Rule]", 
+      RowBox[{"-", 
+       RowBox[{"ReF", "[", 
+        RowBox[{"kx", ",", 
+         RowBox[{"-", "ky"}], ",", 
+         RowBox[{"-", "kz"}]}], "]"}]}]}]}], "}"}]}], "/.", 
+  RowBox[{"{", "\[IndentingNewLine]", 
+   RowBox[{
+    RowBox[{
+     RowBox[{"FReal", "[", 
+      RowBox[{"kx", ",", "ky", ",", "kz"}], "]"}], "\[Rule]", "FFTWpppOld"}], 
+    ",", "\[IndentingNewLine]", 
+    RowBox[{
+     RowBox[{"FReal", "[", 
+      RowBox[{"kx", ",", "ky", ",", 
+       RowBox[{"-", "kz"}]}], "]"}], "\[Rule]", "FFTWppmOld"}], ",", 
+    "\[IndentingNewLine]", 
+    RowBox[{
+     RowBox[{"FReal", "[", 
+      RowBox[{"kx", ",", 
+       RowBox[{"-", "ky"}], ",", "kz"}], "]"}], "\[Rule]", "FFTWpmpOld"}], 
+    ",", "\[IndentingNewLine]", 
+    RowBox[{
+     RowBox[{"FReal", "[", 
+      RowBox[{"kx", ",", 
+       RowBox[{"-", "ky"}], ",", 
+       RowBox[{"-", "kz"}]}], "]"}], "\[Rule]", "FFTWpmmOld"}], ",", 
+    "\[IndentingNewLine]", 
+    RowBox[{
+     RowBox[{"FReal", "[", 
+      RowBox[{
+       RowBox[{"-", "kx"}], ",", "ky", ",", "kz"}], "]"}], "\[Rule]", 
+     "FFTWmppOld"}], ",", "\[IndentingNewLine]", 
+    RowBox[{
+     RowBox[{"FReal", "[", 
+      RowBox[{
+       RowBox[{"-", "kx"}], ",", "ky", ",", 
+       RowBox[{"-", "kz"}]}], "]"}], "\[Rule]", "FFTWmpmOld"}], ",", 
+    "\[IndentingNewLine]", 
+    RowBox[{
+     RowBox[{"FReal", "[", 
+      RowBox[{
+       RowBox[{"-", "kx"}], ",", 
+       RowBox[{"-", "ky"}], ",", "kz"}], "]"}], "\[Rule]", "FFTWmmpOld"}], 
+    ",", "\[IndentingNewLine]", 
+    RowBox[{
+     RowBox[{"FReal", "[", 
+      RowBox[{
+       RowBox[{"-", "kx"}], ",", 
+       RowBox[{"-", "ky"}], ",", 
+       RowBox[{"-", "kz"}]}], "]"}], "\[Rule]", "FFTWmmmOld"}]}], 
+   "}"}]}]], "Input",
+ CellChangeTimes->{{3.693132698792045*^9, 3.693132887995243*^9}}],
+
+Cell[BoxData[
+ RowBox[{"{", 
+  RowBox[{"{", 
+   RowBox[{
+    RowBox[{"FFTWppp", "\[Rule]", "FFTWmppOld"}], ",", 
+    RowBox[{"FFTWppm", "\[Rule]", "FFTWmpmOld"}], ",", 
+    RowBox[{"FFTWpmp", "\[Rule]", "FFTWmmpOld"}], ",", 
+    RowBox[{"FFTWpmm", "\[Rule]", "FFTWmmmOld"}], ",", 
+    RowBox[{"FFTWmpp", "\[Rule]", 
+     RowBox[{"-", "FFTWpppOld"}]}], ",", 
+    RowBox[{"FFTWmpm", "\[Rule]", 
+     RowBox[{"-", "FFTWppmOld"}]}], ",", 
+    RowBox[{"FFTWmmp", "\[Rule]", 
+     RowBox[{"-", "FFTWpmpOld"}]}], ",", 
+    RowBox[{"FFTWmmm", "\[Rule]", 
+     RowBox[{"-", "FFTWpmmOld"}]}]}], "}"}], "}"}]], "Output",
+ CellChangeTimes->{{3.693132700597125*^9, 3.693132733211635*^9}, 
+   3.693132822530209*^9, 3.693132852899096*^9, 3.693132888316729*^9}]
 }, Open  ]]
 },
-WindowSize->{635, 781},
-WindowMargins->{{Automatic, 921}, {Automatic, 163}},
+WindowSize->{635, 1005},
+WindowMargins->{{Automatic, 745}, {178, Automatic}},
 FrontEndVersion->"11.0 for Mac OS X x86 (32-bit, 64-bit Kernel) (September \
 21, 2016)",
 StyleDefinitions->"Default.nb"
@@ -652,8 +776,13 @@ Cell[12915, 389, 1185, 36, 75, "Output"]
 Cell[14115, 428, 162, 3, 30, "Text"],
 Cell[14280, 433, 202, 4, 49, "Text"],
 Cell[CellGroupData[{
-Cell[14507, 441, 3523, 98, 390, "Input"],
-Cell[18033, 541, 1921, 57, 275, "Output"]
+Cell[14507, 441, 3708, 101, 390, "Input"],
+Cell[18218, 544, 1949, 58, 275, "Output"]
+}, Open  ]],
+Cell[20182, 605, 187, 4, 49, "Text"],
+Cell[CellGroupData[{
+Cell[20394, 613, 3178, 90, 369, "Input"],
+Cell[23575, 705, 745, 17, 75, "Output"]
 }, Open  ]]
 }
 ]

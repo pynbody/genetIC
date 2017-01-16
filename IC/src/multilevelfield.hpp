@@ -336,7 +336,7 @@ public:
   }
 
 private:
-  void applySpectrumOneGrid(std::vector<std::complex<T>> &field,
+  void applySpectrumOneGrid(std::vector<DataType> &field,
                             const std::vector<T> &spectrum,
                             const Grid<T> &grid) {
 
@@ -346,7 +346,7 @@ private:
     }
   }
 
-  void multiplyByCovarianceOneGrid(std::vector<std::complex<T>> &field,
+  void multiplyByCovarianceOneGrid(std::vector<DataType> &field,
                             const std::vector<T> &spectrum,
                             const Grid<T> &grid,
                             T weight)
@@ -358,7 +358,7 @@ private:
     }
   }
 
-  void enforceSpectrumOneGrid(std::vector<std::complex<T>> &field,
+  void enforceSpectrumOneGrid(std::vector<DataType> &field,
                             const std::vector<T> &spectrum,
                             const Grid<T> &grid) {
     T white_noise_norm = sqrt(T(grid.size3));

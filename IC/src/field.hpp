@@ -165,7 +165,11 @@ public:
            xw1 * yw1 * zw0 * (*this)[pGrid->getCellIndexNoWrap(x_p_1, y_p_1, z_p_0)];
   }
 
-  DataType operator[](size_t i) const  {
+  const DataType & operator[](size_t i) const  {
+    return data[i];
+  }
+
+  DataType & operator[](size_t i)   {
     return data[i];
   }
 
@@ -187,13 +191,13 @@ public:
 
   void toFourier()  {
     if(fourier) return;
-    fft(data.data(), data.data(), this->pGrid->size, 1);
+    fourier::fft(data.data(), data.data(), this->pGrid->size, 1);
     fourier=true;
   }
 
   void toReal()  {
     if(!fourier) return;
-    fft(data.data(), data.data(), this->pGrid->size, -1);
+    fourier::fft(data.data(), data.data(), this->pGrid->size, -1);
     fourier=false;
   }
 

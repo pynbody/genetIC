@@ -3,12 +3,14 @@
 
 #include "ic.hpp"
 
-template<typename T>
-class DummyICGenerator : public ICGenerator<T> {
+template<typename GridDataType>
+class DummyICGenerator : public ICGenerator<GridDataType> {
 protected:
-  ICGenerator<T> *pUnderlying;
+  ICGenerator<GridDataType> *pUnderlying;
 public:
-  DummyICGenerator(ICGenerator<T> *pUnderlying) : ICGenerator<T>(pUnderlying->interpreter), pUnderlying(pUnderlying) {
+  using typename ICGenerator<GridDataType>::T;
+
+  DummyICGenerator(ICGenerator<GridDataType> *pUnderlying) : ICGenerator<GridDataType>(pUnderlying->interpreter), pUnderlying(pUnderlying) {
 
   }
 

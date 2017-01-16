@@ -31,7 +31,7 @@ template<typename T>
 class DummyICGenerator;
 
 
-template<typename T>
+template<typename GridDataType>
 class ICGenerator {
   /** The top level object responsible for coordinating the generation of initial conditions, including GM constraints.
    *
@@ -39,11 +39,11 @@ class ICGenerator {
    */
 protected:
 
-  using GridDataType = std::complex<T>;
+  using T = strip_complex<GridDataType>;
   using GridPtrType = std::shared_ptr<Grid<T>>;
 
 
-  friend class DummyICGenerator<T>;
+  friend class DummyICGenerator<GridDataType>;
 
   CosmologicalParameters<T> cosmology;
   MultiLevelContextInformation<GridDataType> multiLevelContext;
@@ -71,24 +71,24 @@ protected:
 
   T x0, y0, z0;
 
-  shared_ptr<particle::ParticleMapper<T>> pMapper;
-  shared_ptr<particle::ParticleMapper<T>> pInputMapper;
+  shared_ptr<particle::ParticleMapper<GridDataType>> pMapper;
+  shared_ptr<particle::ParticleMapper<GridDataType>> pInputMapper;
 
   shared_ptr<particle::AbstractMultiLevelParticleGenerator<GridDataType>> pParticleGenerator;
 
-  using RefFieldType = std::vector<std::complex<T>> &;
-  using FieldType = std::vector<std::complex<T>>;
+  using RefFieldType = std::vector<GridDataType> &;
+  using FieldType = std::vector<GridDataType>;
 
-  ClassDispatch<ICGenerator<T>, void> &interpreter;
+  ClassDispatch<ICGenerator<GridDataType>, void> &interpreter;
 
 
 public:
-  ICGenerator(ClassDispatch<ICGenerator<T>, void> &interpreter) :
+  ICGenerator(ClassDispatch<ICGenerator<GridDataType>, void> &interpreter) :
                                                       outputField(multiLevelContext),
                                                       constraintApplicator(&multiLevelContext, &outputField),
                                                       constraintGenerator(multiLevelContext, cosmology),
                                                       randomFieldGenerator(outputField),
-                                                      pMapper(new particle::ParticleMapper<T>()),
+                                                      pMapper(new particle::ParticleMapper<GridDataType>()),
                                                       interpreter(interpreter)
   {
     pInputMapper = nullptr;
@@ -103,7 +103,7 @@ public:
     yOffOutput = 0;
     zOffOutput = 0;
     exactPowerSpectrum = false;
-    pParticleGenerator = std::make_shared<particle::NullMultiLevelParticleGenerator<T>>();
+    pParticleGenerator = std::make_shared<particle::NullMultiLevelParticleGenerator<GridDataType>>();
   }
 
   ~ICGenerator() {
@@ -374,7 +374,7 @@ public:
     // in principle this could now be easily extended to slot in higher order PT or other
     // methods of generating the particles from the fields
 
-    using GridLevelGeneratorType = particle::ZeldovichParticleGenerator<T>;
+    using GridLevelGeneratorType = particle::ZeldovichParticleGenerator<GridDataType>;
 
     pParticleGenerator = std::make_shared<
       particle::MultiLevelParticleGenerator<GridDataType, GridLevelGeneratorType>>(outputField, cosmology);
@@ -382,7 +382,7 @@ public:
   }
 
   void setInputMapper(std::string fname) {
-    DummyICGenerator<T> pseudoICs(this);
+    DummyICGenerator<GridDataType> pseudoICs(this);
     auto dispatch = interpreter.specify_instance(pseudoICs);
     ifstream inf;
     inf.open(fname);
@@ -418,7 +418,7 @@ public:
       return;
 
     // make a basic mapper for the coarsest grid
-    pMapper = std::shared_ptr<particle::ParticleMapper<T>>(new particle::OneLevelParticleMapper<T>(
+    pMapper = std::shared_ptr<particle::ParticleMapper<GridDataType>>(new particle::OneLevelParticleMapper<GridDataType>(
       getGridWithOutputOffset(0)
     ));
 
@@ -427,11 +427,11 @@ public:
 
       for(size_t level=1; level<nLevels; level++) {
 
-        auto pFine = std::shared_ptr<particle::ParticleMapper<T>>(
-          new particle::OneLevelParticleMapper<T>(getGridWithOutputOffset(level)));
+        auto pFine = std::shared_ptr<particle::ParticleMapper<GridDataType>>(
+          new particle::OneLevelParticleMapper<GridDataType>(getGridWithOutputOffset(level)));
 
-        pMapper = std::shared_ptr<particle::ParticleMapper<T>>(
-          new particle::TwoLevelParticleMapper<T>(pMapper, pFine, zoomParticleArray[level-1]));
+        pMapper = std::shared_ptr<particle::ParticleMapper<GridDataType>>(
+          new particle::TwoLevelParticleMapper<GridDataType>(pMapper, pFine, zoomParticleArray[level-1]));
       }
     }
 
@@ -446,10 +446,10 @@ public:
 
       // graft the gas particles onto the start of the map
       if (gasFirst)
-        pMapper = std::make_shared<particle::AddGasMapper<T>>(
+        pMapper = std::make_shared<particle::AddGasMapper<GridDataType>>(
           gasMapper.first, gasMapper.second, true);
       else
-        pMapper = std::make_shared<particle::AddGasMapper<T>>(
+        pMapper = std::make_shared<particle::AddGasMapper<GridDataType>>(
           gasMapper.second, gasMapper.first, false);
 
     }
@@ -743,10 +743,10 @@ public:
       throw runtime_error("Constraint type must be either 'relative' or 'absolute'");
     }
 
-    std::complex<T> constraint = value;
+    GridDataType constraint = value;
     auto vec = calcConstraint(name);
 
-    std::complex<T> initv = vec.innerProduct(outputField);
+    GridDataType initv = vec.innerProduct(outputField);
 
     if (relative) constraint *= initv;
 
@@ -782,8 +782,9 @@ public:
     for_each_level(level) {
       auto &field = outputField.getFieldForLevel(level);
       size_t N = field.getGrid().size3;
+      auto &field_data = field.getDataVector();
       for (size_t i = 0; i < N; i++)
-        field[i] = -field[i];
+        field_data[i] = -field_data[i];
     }
   }
 
@@ -832,6 +833,7 @@ public:
       size_t modes_reversed = 0;
       auto &field = outputField.getFieldForLevel(level);
       field.toFourier();
+      auto &fieldData = field.getDataVector();
       const Grid<T> &grid = field.getGrid();
       size_t tot_modes = grid.size3;
       T k2;
@@ -839,7 +841,7 @@ public:
       for (size_t i = 0; i < N; i++) {
         k2 = grid.getFourierCellKSquared(i);
         if (k2 < k2max && k2 != 0) {
-          field[i] = -field[i];
+          fieldData[i] = -fieldData[i];
           modes_reversed++;
         }
         if (k2 < k2_g_min && k2 != 0)

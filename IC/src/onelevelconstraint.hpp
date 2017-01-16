@@ -12,25 +12,25 @@
 #include "grid.hpp"
 #include "cosmo.hpp"
 
-template<typename MyFloat>
+template<typename DataType, typename FloatType=strip_complex<DataType>>
 class ConstraintCalculator {
 protected:
-  const Grid<MyFloat> &grid;
-  std::vector<complex<MyFloat>> &output;
+  const Grid<FloatType> &grid;
+  std::vector<DataType> &output;
   std::vector<size_t> particleArray;
-  const CosmologicalParameters<MyFloat> &cosmology;
-  MyFloat x0 = 0., y0 = 0., z0 = 0.; //centre coordinates needed for angmom; set in getCentre()
+  const CosmologicalParameters<FloatType> &cosmology;
+  FloatType x0 = 0., y0 = 0., z0 = 0.; //centre coordinates needed for angmom; set in getCentre()
 
-  void cen_deriv4_alpha(long index, int direc, MyFloat x0, MyFloat y0, MyFloat z0) {   //4th order central difference
+  void cen_deriv4_alpha(long index, int direc, FloatType x0, FloatType y0, FloatType z0) {   //4th order central difference
 
-    MyFloat xp = 0., yp = 0., zp = 0.;
+    FloatType xp = 0., yp = 0., zp = 0.;
     std::tie(xp,yp,zp) = grid.getCellCentroid(index);
 
     xp = grid.getWrappedDelta(xp, x0);
     yp = grid.getWrappedDelta(yp, y0);
     zp = grid.getWrappedDelta(zp, z0);
 
-    MyFloat c[3] = {0, 0, 0};
+    FloatType c[3] = {0, 0, 0};
     if (direc == 0) {
       c[2] = yp;
       c[1] = -zp;
@@ -44,7 +44,7 @@ protected:
       c[0] = -yp;
     }
     else if (direc == 3) {
-      MyFloat rp = std::sqrt((xp * xp) + (yp * yp) + (zp * zp));
+      FloatType rp = std::sqrt((xp * xp) + (yp * yp) + (zp * zp));
       if (rp != 0) {
         c[0] = xp / rp;
         c[1] = yp / rp;
@@ -75,7 +75,7 @@ protected:
       ind_m2 = grid.getIndexFromIndexAndStep(ind_m1, neg_step1);
       ind_p2 = grid.getIndexFromIndexAndStep(ind_p1, step1);
 
-      MyFloat a = -1. / 12. / grid.dx, b = 2. / 3. / grid.dx;  //the signs here so that L ~ - Nabla Phi
+      FloatType a = -1. / 12. / grid.dx, b = 2. / 3. / grid.dx;  //the signs here so that L ~ - Nabla Phi
 
       output[ind_m2] += (c[di] * a);
       output[ind_m1] += (c[di] * b);
@@ -86,8 +86,8 @@ protected:
   }
 
 public:
-  ConstraintCalculator(const Grid<MyFloat> &grid, std::vector<complex<MyFloat>> &output,
-                       const CosmologicalParameters<MyFloat> &cosmology)
+  ConstraintCalculator(const Grid<FloatType> &grid, std::vector<DataType> &output,
+                       const CosmologicalParameters<FloatType> &cosmology)
     : grid(grid), output(output), cosmology(cosmology) {
     grid.getFlaggedCells(particleArray);
     output.resize(grid.size3);
@@ -96,7 +96,7 @@ public:
 
   void getCentre() {
 
-    MyFloat xa, ya, za, xb, yb, zb, x0 = 0., y0 = 0., z0 = 0.;
+    FloatType xa, ya, za, xb, yb, zb, x0 = 0., y0 = 0., z0 = 0.;
 
     std::vector<size_t> particleArray;
     grid.getFlaggedCells(particleArray);
@@ -126,7 +126,7 @@ public:
 
   void overdensity() {
 
-    MyFloat w = 1.0 / particleArray.size();
+    FloatType w = 1.0 / particleArray.size();
 
     for (size_t i = 0; i < grid.size3; ++i) {
       output[i] = 0;
@@ -136,12 +136,12 @@ public:
       output[particleArray[i]] += w;
     }
 
-    fft(output.data(), output.data(), grid.size, 1);
+    fourier::fft(output.data(), output.data(), grid.size, 1);
   }
 
   void phi() {
 
-    MyFloat w = 1.0 / particleArray.size();
+    FloatType w = 1.0 / particleArray.size();
 
 
     for (size_t i = 0; i < grid.size3; ++i) {
@@ -152,7 +152,7 @@ public:
       output[particleArray[i]] += w;
     }
 
-    fft(output.data(), output.data(), grid.size, 1);
+    fourier::fft(output.data(), output.data(), grid.size, 1);
     poiss(output.data(), output.data(), grid.size, grid.boxsize, cosmology.scalefactor, cosmology.OmegaM0);
   }
 
@@ -164,7 +164,7 @@ public:
       cen_deriv4_alpha(particleArray[i], direction, x0, y0, z0);
     }
 
-    fft(output.data(), output.data(), grid.size, 1);
+    fourier::fft(output.data(), output.data(), grid.size, 1);
     // The constraint as derived is on the potential. By considering
     // unitarity of FT, we can FT the constraint to get the constraint
     // on the density.
@@ -175,7 +175,7 @@ public:
 
   void angmom0() { //L_x
 
-    MyFloat x0, y0, z0;
+    FloatType x0, y0, z0;
     x0 = this->x0;
     y0 = this->y0;
     z0 = this->z0;
@@ -184,7 +184,7 @@ public:
       cen_deriv4_alpha(particleArray[i], 0, x0, y0, z0);
     }
 
-    fft(output.data(), output.data(), grid.size, 1);
+    fourier::fft(output.data(), output.data(), grid.size, 1);
     // The constraint as derived is on the potential. By considering
     // unitarity of FT, we can FT the constraint to get the constraint
     // on the density.
@@ -195,7 +195,7 @@ public:
 
   void angmom1() { //L_y
 
-    MyFloat x0, y0, z0;
+    FloatType x0, y0, z0;
     x0 = this->x0;
     y0 = this->y0;
     z0 = this->z0;
@@ -204,7 +204,7 @@ public:
       cen_deriv4_alpha(particleArray[i], 1, x0, y0, z0);
     }
 
-    fft(output.data(), output.data(), grid.size, 1);
+    fourier::fft(output.data(), output.data(), grid.size, 1);
     // The constraint as derived is on the potential. By considering
     // unitarity of FT, we can FT the constraint to get the constraint
     // on the density.
@@ -215,7 +215,7 @@ public:
 
   void angmom2() { //L_z
 
-    MyFloat x0, y0, z0;
+    FloatType x0, y0, z0;
     x0 = this->x0;
     y0 = this->y0;
     z0 = this->z0;
@@ -224,7 +224,7 @@ public:
       cen_deriv4_alpha(particleArray[i], 2, x0, y0, z0);
     }
 
-    fft(output.data(), output.data(), grid.size, 1);
+    fourier::fft(output.data(), output.data(), grid.size, 1);
     // The constraint as derived is on the potential. By considering
     // unitarity of FT, we can FT the constraint to get the constraint
     // on the density.
@@ -235,11 +235,11 @@ public:
 };
 
 
-template<typename MyFloat>
-void calcConstraint(const std::string &name, const Grid<MyFloat> &grid,
-                    const CosmologicalParameters<MyFloat> &cosmology,
-                    std::vector<complex<MyFloat>> &output) {
-  typedef ConstraintCalculator<MyFloat> CC;
+template<typename DataType, typename FloatType=strip_complex<DataType>>
+void calcConstraint(const std::string &name, const Grid<FloatType> &grid,
+                    const CosmologicalParameters<FloatType> &cosmology,
+                    std::vector<DataType> &output) {
+  typedef ConstraintCalculator<DataType> CC;
 
   CC calc(grid, output, cosmology);
 

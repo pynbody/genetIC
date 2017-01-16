@@ -16,7 +16,7 @@ hid_t hdf_double = H5Tcopy (H5T_NATIVE_DOUBLE);
 
 // #endif
 
-template<typename MyFloat>
+template<typename FloatType>
 struct CosmologicalParameters;
 
 

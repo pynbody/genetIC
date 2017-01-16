@@ -15,7 +15,7 @@
 template<typename DataType>
 class RandomFieldGenerator {
 protected:
-  using MyFloat=  strip_complex<DataType>;
+  using FloatType=  strip_complex<DataType>;
 
   gsl_rng *randomState;
   const gsl_rng_type *randomNumberGeneratorType;
@@ -26,9 +26,9 @@ protected:
 
 
 public:
-  RandomFieldGenerator(MultiLevelField<complex<MyFloat>> &field_, int seed = 0) :
+  RandomFieldGenerator(MultiLevelField<DataType> &field_, int seed = 0) :
     field(field_) {
-    randomNumberGeneratorType = gsl_rng_ranlxs2; // shouldn't this be gsl_rng_ranlxd2 for MyFloat = double? -> it's single precision for compatibility with previous versions!
+    randomNumberGeneratorType = gsl_rng_ranlxs2; // shouldn't this be gsl_rng_ranlxd2 for FloatType = double? -> it's single precision for compatibility with previous versions!
     randomState = gsl_rng_alloc(randomNumberGeneratorType); //this allocates memory for the generator with type T
     gsl_rng_set(randomState, seed);
     drawInFourierSpace = false;
@@ -39,7 +39,7 @@ public:
     gsl_rng_free(randomState);
   }
 
-  using RefFieldType = std::vector<std::complex<MyFloat>> &;
+  using RefFieldType = std::vector<DataType> &;
   using FieldType = std::remove_reference_t<RefFieldType>;
 
 
@@ -66,7 +66,7 @@ public:
       auto &fieldOnGrid = field.getFieldForLevel(i);
       if (drawInFourierSpace) {
         fieldOnGrid.toFourier();
-        drawRandomForSpecifiedGridFourier(fieldOnGrid.getGrid(), fieldOnGrid.getDataVector());
+        drawRandomForSpecifiedGridFourier(fieldOnGrid);
       } else {
         drawRandomForSpecifiedGrid(fieldOnGrid.getGrid(), fieldOnGrid.getDataVector());
       }
@@ -75,38 +75,28 @@ public:
 
 protected:
 
-  void setOneFourierMode(const Grid<MyFloat> &g, int k1, int k2, int k3,
-                         RefFieldType pField_k, MyFloat realPart, MyFloat imagPart) {
-    size_t id_k, id_negk;
 
-    id_k = g.getCellIndex(Coordinate<int>(k1, k2, k3));
-    id_negk = g.getCellIndex(Coordinate<int>(-k1, -k2, -k3));
 
-    pField_k[id_k] = std::complex<MyFloat>(realPart, imagPart);
-    pField_k[id_negk] = std::complex<MyFloat>(realPart, -imagPart);
-
-  }
-
-  void drawOneFourierMode(const Grid<MyFloat> &g, int k1, int k2, int k3,
-                          MyFloat norm, RefFieldType pField_k) {
+  void drawOneFourierMode(Field<DataType> &field, int k1, int k2, int k3,
+                          FloatType norm) {
 
     // these need to be initialized in explicit order - can't leave it to compilers
     // to choose as they choose differently...
-    MyFloat a = norm * gsl_ran_gaussian_ziggurat(randomState, 1.);
-    MyFloat b = norm * gsl_ran_gaussian_ziggurat(randomState, 1.);
+    FloatType a = norm * gsl_ran_gaussian_ziggurat(randomState, 1.);
+    FloatType b = norm * gsl_ran_gaussian_ziggurat(randomState, 1.);
 
     if (reverseRandomDrawOrder)
-      setOneFourierMode(g, k1, k2, k3, pField_k, b, a);
+      fourier::setFourierCoefficient(field, k1, k2, k3, b, a);
     else
-      setOneFourierMode(g, k1, k2, k3, pField_k, a, b);
+      fourier::setFourierCoefficient(field, k1, k2, k3, a, b);
 
   }
 
 
-  void drawRandomForSpecifiedGrid(const Grid<MyFloat> &g, RefFieldType pField_k) {
+  void drawRandomForSpecifiedGrid(const Grid<FloatType> &g, RefFieldType pField_k) {
     size_t nPartTotal = g.size3;
 
-    MyFloat sigma = sqrt((MyFloat) (nPartTotal));
+    FloatType sigma = sqrt((FloatType) (nPartTotal));
 
     cerr << "Drawing random numbers...";
 
@@ -117,17 +107,22 @@ protected:
 
     // this FFT is kept for historical compatibility, even though it could be made
     // unnecessary by picking random phases directly in fourier space
-    fft(pField_k, pField_k, 1);
+    fourier::fft(pField_k, pField_k, 1);
 
-    pField_k[0] = complex<MyFloat>(0., 0.); // ensure mean==0
+    set_zero(pField_k[0]);
+
     cerr << "done" << endl;
   }
 
-  void drawRandomForSpecifiedGridFourier(const Grid<MyFloat> &g,
-                                         RefFieldType pField_k) {
+  void drawRandomForSpecifiedGridFourier(Field<DataType> &field) {
+    std::vector<DataType> & vec = field.getDataVector();
+
+    std::fill(vec.begin(), vec.end(), DataType(0));
+
+    const Grid<FloatType> &g=field.getGrid();
 
     progress::ProgressBar pb("");
-    MyFloat sigma = sqrt((MyFloat) (g.size3));
+    FloatType sigma = sqrt((FloatType) (g.size3));
 
     cerr << "Drawing random numbers in fourier space..." << endl;
     int ks, k1, k2;
@@ -142,9 +137,9 @@ protected:
       pb.setProgress(float(ks*2)/g.size);
       for (k1 = -ks; k1 < ks; k1++) {
         for (k2 = -ks; k2 < ks; k2++) {
-          drawOneFourierMode(g, ks, k1, k2, sigma, pField_k);
-          drawOneFourierMode(g, k1, ks, k2, sigma, pField_k);
-          drawOneFourierMode(g, k1, k2, ks, sigma, pField_k);
+          drawOneFourierMode(field, ks, k1, k2, sigma);
+          drawOneFourierMode(field, k1, ks, k2, sigma);
+          drawOneFourierMode(field, k1, k2, ks, sigma);
         }
       }
     }

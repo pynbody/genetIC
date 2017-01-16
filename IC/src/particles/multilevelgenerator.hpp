@@ -17,83 +17,47 @@ namespace particle {
 
   public:
     using T = strip_complex<GridDataType>;
-    virtual particle::ParticleGenerator<T> &getGeneratorForLevel(size_t level) = 0;
-    virtual particle::ParticleGenerator<T> &getGeneratorForGrid(const Grid<T> &grid) =0;
+    virtual particle::ParticleGenerator<GridDataType> &getGeneratorForLevel(size_t level) = 0;
+    virtual particle::ParticleGenerator<GridDataType> &getGeneratorForGrid(const Grid<T> &grid) =0;
 
-    const particle::ParticleGenerator<T> &getGeneratorForGrid(const Grid<T> &grid) const {
-      return const_cast<AbstractMultiLevelParticleGenerator<T>*>(this)->getGeneratorForGrid(grid);
+    const particle::ParticleGenerator<GridDataType> &getGeneratorForGrid(const Grid<T> &grid) const {
+      return const_cast<AbstractMultiLevelParticleGenerator<GridDataType>*>(this)->getGeneratorForGrid(grid);
     }
   };
 
-  template<typename T>
-  class NullMultiLevelParticleGenerator: public AbstractMultiLevelParticleGenerator<T> {
+  template<typename GridDataType, typename T=strip_complex<GridDataType>>
+  class NullMultiLevelParticleGenerator: public AbstractMultiLevelParticleGenerator<GridDataType> {
   public:
 
     NullMultiLevelParticleGenerator() {
 
     }
 
-    virtual particle::ParticleGenerator<T> &getGeneratorForLevel(size_t level) override {
+    virtual particle::ParticleGenerator<GridDataType> &getGeneratorForLevel(size_t level) override {
       throw std::runtime_error("Attempt to generate particles before they have been calculated");
     }
 
-    virtual particle::ParticleGenerator<T> &getGeneratorForGrid(const Grid<T> &grid) override {
+    virtual particle::ParticleGenerator<GridDataType> &getGeneratorForGrid(const Grid<T> &grid) override {
       throw std::runtime_error("Attempt to generate particles before they have been calculated");
     }
   };
 
-  template<typename GridDataType, typename TParticleGenerator, typename T=strip_complex<GridDataType>>
-  class MultiLevelParticleGenerator : public AbstractMultiLevelParticleGenerator<GridDataType>
-  {
-  protected:
-    OutputField<GridDataType> & outputField;
-    const MultiLevelContextInformation<GridDataType> &context;
-    std::vector<std::shared_ptr<TParticleGenerator>> pGenerators;
-    const CosmologicalParameters<T> &cosmoParams;
-
-    void initialise() {
-      // TODO: add specialisations
-      assert(false);
-    }
+  template<typename A,typename B,typename C>
+  class MultiLevelParticleGenerator;
 
 
-  public:
 
-    MultiLevelParticleGenerator(OutputField<std::complex<T>> &field, const CosmologicalParameters<T> &params) :
-      outputField(field),
-      context(field.getContext()),
-      cosmoParams(params) {
-      initialise();
-    }
+  template<typename GridDataType, typename T>
+  void initialiseParticleGeneratorBasedOnTemplate(MultiLevelParticleGenerator<GridDataType, ZeldovichParticleGenerator<GridDataType>, T> &generator) {
+    using ZPG=ZeldovichParticleGenerator<GridDataType>;
+    size_t nlevels = generator.context.getNumLevels();
 
-    particle::ParticleGenerator<T> &getGeneratorForLevel(size_t level) override  {
-      return *(pGenerators[level]);
-    }
-
-    particle::ParticleGenerator<T> &getGeneratorForGrid(const Grid<T> &grid) override {
-      for(size_t i=0; i<outputField.getNumLevels(); i++) {
-        if(grid.pointsToGrid(&(outputField.getFieldForLevel(i).getGrid())))
-          return getGeneratorForLevel(i);
-      }
-      throw std::runtime_error("Attempt to get a generator for a grid which is not related to the field");
-    }
-
-
-  };
-
-
-  // TODO: why can't I do partial specialization here?
-  template<>
-  void MultiLevelParticleGenerator<double, ZeldovichParticleGenerator<double>>::initialise() {
-    using ZPG=ZeldovichParticleGenerator<double>;
-    size_t nlevels = context.getNumLevels();
-
-    outputField.toFourier();
+    generator.outputField.toFourier();
 
     if (nlevels == 0) {
       throw std::runtime_error("Trying to apply zeldovich approximation, but no grids have been created");
     } else if (nlevels == 1) {
-      pGenerators.emplace_back(std::make_shared<ZPG>(outputField.getFieldForLevel(0), cosmoParams));
+      generator.pGenerators.emplace_back(std::make_shared<ZPG>(generator.outputField.getFieldForLevel(0), generator.cosmoParams));
     } else if (nlevels >= 2) {
       cerr << "Zeldovich approximation on successive levels...";
 
@@ -107,7 +71,7 @@ namespace particle {
 #endif
 
       for(size_t level=0; level<nlevels; ++level)
-        pGenerators.emplace_back(std::make_shared<ZPG>(outputField.getFieldForLevel(level), cosmoParams));
+        generator.pGenerators.emplace_back(std::make_shared<ZPG>(generator.outputField.getFieldForLevel(level), generator.cosmoParams));
 
       cerr << "Interpolating low-frequency information into zoom regions...";
 
@@ -115,51 +79,103 @@ namespace particle {
 
 #ifdef NEWMETHOD
         // remove the low-frequency information from this level
-        outputField.getFieldForLevel(level).applyFilter(outputField.getHighPassFilterForLevel(level));
+        generator.outputField.getFieldForLevel(level).applyFilter(generator.outputField.getHighPassFilterForLevel(level));
 
         // replace with the low-frequency information from the level below
 
-        outputField.getFieldForLevel(level).addFieldFromDifferentGridWithFilter(outputField.getFieldForLevel(level - 1),
-                                                                                outputField.getLowPassFilterForLevel(level-1));
+        generator.outputField.getFieldForLevel(level).addFieldFromDifferentGridWithFilter(generator.outputField.getFieldForLevel(level - 1),
+                                                                                          generator.outputField.getLowPassFilterForLevel(level-1));
 
 
-        pGenerators[level]->applyFilter(outputField.getHighPassFilterForLevel(level));
+        generator.pGenerators[level]->applyFilter(generator.outputField.getHighPassFilterForLevel(level));
 
 
-        pGenerators[level]->addFieldFromDifferentGridWithFilter(*pGenerators[level - 1],
-                                                                outputField.getLowPassFilterForLevel(level-1));
+        generator.pGenerators[level]->addFieldFromDifferentGridWithFilter(*generator.pGenerators[level - 1],
+                                                                          generator.outputField.getLowPassFilterForLevel(level-1));
 
 
 #else
-        outputField.getFieldForLevel(level).addFieldFromDifferentGrid(outputField.getFieldForLevel(level - 1));
-        pGenerators[level]->addFieldFromDifferentGrid(*pGenerators[level - 1]);
+        generator.outputField.getFieldForLevel(level).addFieldFromDifferentGrid(generator.outputField.getFieldForLevel(level - 1));
+        generator.pGenerators[level]->addFieldFromDifferentGrid(*generator.pGenerators[level - 1]);
 #endif
 
 
       }
 
-      outputField.toFourier();
+      generator.outputField.toFourier();
 
 #ifdef NEWMETHOD
-      outputField.setStateRecombined();
+      generator.outputField.setStateRecombined();
 #else
       cerr << "Re-introducing high-k modes into low-res region...";
 
-      outputField.recombineHighKResiduals(residuals);
+      generator.outputField.recombineHighKResiduals(residuals);
 
       for(size_t level=0; level<nlevels-1; ++level) {
-        pGenerators[level]->recalculate();
+        generator.pGenerators[level]->recalculate();
       }
 
 #endif
 
       for(size_t i=0; i<nlevels; ++i)
-        pGenerators[i]->toReal();
+        generator.pGenerators[i]->toReal();
 
       cerr << "done." << endl;
 
     }
   }
+
+
+
+  template<typename GridDataType, typename TParticleGenerator, typename T=strip_complex<GridDataType>>
+  class MultiLevelParticleGenerator : public AbstractMultiLevelParticleGenerator<GridDataType>
+  {
+  protected:
+    OutputField<GridDataType> & outputField;
+    const MultiLevelContextInformation<GridDataType> &context;
+    std::vector<std::shared_ptr<TParticleGenerator>> pGenerators;
+    const CosmologicalParameters<T> &cosmoParams;
+
+
+    void initialise() {
+      // Dispatch to correct initialiser.
+      // This is required because partial specialization is not allowed at class level.
+      initialiseParticleGeneratorBasedOnTemplate(*this);
+    }
+
+
+    friend void initialiseParticleGeneratorBasedOnTemplate<>(MultiLevelParticleGenerator<GridDataType, TParticleGenerator, T> &generator);
+
+
+
+
+  public:
+
+    MultiLevelParticleGenerator(OutputField<GridDataType> &field, const CosmologicalParameters<T> &params) :
+      outputField(field),
+      context(field.getContext()),
+      cosmoParams(params) {
+      initialise();
+    }
+
+    particle::ParticleGenerator<GridDataType> &getGeneratorForLevel(size_t level) override  {
+      return *(pGenerators[level]);
+    }
+
+    particle::ParticleGenerator<GridDataType> &getGeneratorForGrid(const Grid<T> &grid) override {
+      for(size_t i=0; i<outputField.getNumLevels(); i++) {
+        if(grid.pointsToGrid(&(outputField.getFieldForLevel(i).getGrid())))
+          return getGeneratorForLevel(i);
+      }
+      throw std::runtime_error("Attempt to get a generator for a grid which is not related to the field");
+    }
+
+
+  };
+
+
+
+
 
 
 }

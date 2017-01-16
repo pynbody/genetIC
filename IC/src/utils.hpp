@@ -55,5 +55,26 @@ using strip_complex = typename strip_complex_s<T>::type;
 template<typename T>
 using ensure_complex = std::complex<strip_complex<T>>;
 
+template<typename T>
+T real_part_if_complex(const T & input) {
+  return input; // no-op for real types
+}
+
+template<typename T>
+T real_part_if_complex(const std::complex<T> & input) {
+  return input.real();
+}
+
+
+template<typename T>
+void set_zero(T &item) {
+  item = 0;
+}
+
+template<typename T>
+void set_zero(std::complex<T> &item) {
+  item.real(0);
+  item.imag(0);
+}
 
 #endif
