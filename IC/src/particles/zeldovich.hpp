@@ -80,10 +80,22 @@ namespace particle {
 
       const T kw = 2. * M_PI / grid.boxsize;
 
-      fourier::applyTransformationInFourierBasis(linearOverdensityField, psift1k,
-      [&kw](complex<T> inputVal, int iix, int iiy, int iiz) -> complex<T> {
-        return inputVal;
-      });
+      fourier::applyTransformationInFourierBasis<T>(linearOverdensityField,
+      [kw](complex<T> inputVal, int iix, int iiy, int iiz) -> std::tuple<complex<T>, complex<T>, complex<T>> {
+        complex<T> result_x;
+        T kfft = (iix * iix + iiy * iiy + iiz * iiz);
+        result_x.real(-inputVal.imag()/(kfft*kw));
+        result_x.imag(inputVal.real()/(kfft*kw));
+        complex<T> result_y(result_x);
+        complex<T> result_z(result_x);
+
+        result_x*=iix;
+        result_y*=iiy;
+        result_z*=iiz;
+
+        return std::make_tuple(result_x, result_y, result_z);
+      },
+      psift1k, psift2k, psift3k);
 
 /*
       #pragma omp parallel for schedule(static) default(shared) private(iix, iiy, iiz, kfft, idx)

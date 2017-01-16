@@ -235,19 +235,25 @@ namespace fourier {
 
   template<typename T>
   void applyTransformationInFourierBasis(const Field<std::complex<T>, T> & sourceField,
-                                         Field<std::complex<T>, T> & destField,
-                                         std::function<std::complex<T>(std::complex<T>, int, int, int)> transformation) {
+                                         std::function<std::tuple<std::complex<T>, std::complex<T>, std::complex<T>>(std::complex<T>, int, int, int)> transformation,
+                                         Field<std::complex<T>, T> & destField1,
+                                         Field<std::complex<T>, T> & destField2,
+                                         Field<std::complex<T>, T> & destField3) {
 
-    const Grid<T> & g = destField.getGrid();
+    const Grid<T> & g = destField1.getGrid();
     assert (&g==&(sourceField.getGrid()));
+    assert (&g==&(destField2.getGrid()));
+    assert (&g==&(destField3.getGrid()));
 
 #pragma omp parallel for
     for(size_t i=0; i<g.size3; ++i) {
       int kx, ky, kz;
-      std::tie(kx,ky,kz) = g.getFourierCellCordinate(i);
-      destField[i] = transformation(sourceField[i], kx, ky, kz);
+      std::tie(kx,ky,kz) = g.getFourierCellCoordinate(i);
+      std::tie(destField1[i], destField2[i], destField3[i]) = transformation(sourceField[i], kx, ky, kz);
     }
   }
+
+
 
 
 
