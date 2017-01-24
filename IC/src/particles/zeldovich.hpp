@@ -6,6 +6,7 @@
 #define IC_ZELDOVICH_HPP
 
 #include <complex>
+#include <src/numpy.hpp>
 #include "../cosmo.hpp"
 #include "../progress/progress.hpp"
 #include "../field.hpp"
@@ -66,6 +67,52 @@ namespace particle {
       linearOverdensityField.toFourier();
       auto &pField_k = linearOverdensityField.getDataVector();
 
+      /*
+      RE-FFT:
+      TEST:(-0.470325,-0.0842186)
+(-0.417907,-0.314688)
+(-0.299121,0.507641)
+(-0.223375,0.369053)
+(0.246137,-0.391641)
+
+      ORIG-FFT:
+      TEST:(-0.470325,-0.0842186)
+(-0.417907,-0.314688)
+(-0.299121,0.507641)
+(-0.223375,0.369053)
+(0.246137,-0.391641)
+
+       */
+
+      std::cerr << "TEST:" <<  std::endl;
+
+      /*
+      for(int kx=-3; kx<=0; kx++) {
+        int lower_lim = (kx!=0)?-3:0;
+        for(int ky=lower_lim; ky<3; ky++) {
+          for(int kz=lower_lim; kz<3; kz++) {
+            auto test_value = std::complex<T>(kx+ky+kz, 2*kx+3*ky+4*kz);
+            fourier::setFourierCoefficient(linearOverdensityField, kx, ky, kz, test_value.real(), test_value.imag());
+            auto check_value = fourier::getFourierCoefficient(linearOverdensityField, kx, ky, kz);
+            assert(abs(test_value.real()-check_value.real())<1e-7);
+            assert(abs(test_value.imag()-check_value.imag())<1e-7);
+          }
+        }
+      }
+
+      for(int kx=-3; kx<=0; kx++) {
+        int lower_lim = (kx!=0)?-3:0;
+        for(int ky=lower_lim; ky<3; ky++) {
+          for(int kz=lower_lim; kz<3; kz++) {
+            auto test_value = std::complex<T>(kx+ky+kz, 2*kx+3*ky+4*kz);
+            auto check_value = fourier::getFourierCoefficient(linearOverdensityField, kx, ky, kz);
+            assert(abs(test_value.real()-check_value.real())<1e-7);
+            assert(abs(test_value.imag()-check_value.imag())<1e-7);
+          }
+        }
+      }
+       */
+
       // copy three times to start assembling the vx, vy, vz fields
       TField psift1k(const_cast<Grid<T> &>(grid));
       TField psift2k(const_cast<Grid<T> &>(grid));
@@ -74,14 +121,14 @@ namespace particle {
 
 
 
-
       T kfft;
       size_t idx;
 
       const T kw = 2. * M_PI / grid.boxsize;
+      const int nyquist = fourier::getNyquistModeThatMustBeReal(grid);
 
       fourier::applyTransformationInFourierBasis<T>(linearOverdensityField,
-      [kw](complex<T> inputVal, int iix, int iiy, int iiz) -> std::tuple<complex<T>, complex<T>, complex<T>> {
+      [kw, nyquist](complex<T> inputVal, int iix, int iiy, int iiz) -> std::tuple<complex<T>, complex<T>, complex<T>> {
         complex<T> result_x;
         T kfft = (iix * iix + iiy * iiy + iiz * iiz);
         result_x.real(-inputVal.imag()/(kfft*kw));
@@ -93,9 +140,26 @@ namespace particle {
         result_y*=iiy;
         result_z*=iiz;
 
+        // derivative at nyquist frequency is not defined; set it to zero
+        if(abs(iix)==nyquist)
+          result_x=0;
+        if(abs(iiy)==nyquist)
+          result_y=0;
+        if(abs(iiz)==nyquist)
+          result_z=0;
+
         return std::make_tuple(result_x, result_y, result_z);
       },
       psift1k, psift2k, psift3k);
+
+      // TEMP DEBUG
+
+      /*
+      Field<complex<T>, T> fieldToWrite = fourier::getComplexFourierField(psift1k);
+      int n = psift1k.getGrid().size;
+      const int dim[3] = {n,n,n};
+      numpy::SaveArrayAsNumpy("temp_debug.npy", false, 3, dim, fieldToWrite.getDataVector().data());
+       */
 
 /*
       #pragma omp parallel for schedule(static) default(shared) private(iix, iiy, iiz, kfft, idx)

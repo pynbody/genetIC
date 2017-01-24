@@ -361,6 +361,11 @@ public:
     dumpGridData(level, outputField.getFieldForLevel(level).getDataVector());
   }
 
+  virtual void dumpGridFourier(int level=0) {
+    Field<complex<T>, T> fieldToWrite = fourier::getComplexFourierField(outputField.getFieldForLevel(level));
+    dumpGridData(level, fieldToWrite.getDataVector());
+  }
+
   virtual void dumpPS(int level = 0) {
     auto & field = outputField.getFieldForLevel(level);
     field.toFourier();

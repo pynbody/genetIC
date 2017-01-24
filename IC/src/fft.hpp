@@ -82,6 +82,8 @@ namespace fourier {
   }
 
 
+  template<typename T>
+  int getNyquistModeThatMustBeReal(const Grid<T> &g);
 
   template<typename T>
   std::complex<T> getFourierCoefficient(const Field<T, T> & field, int kx, int ky, int kz) {
@@ -92,6 +94,8 @@ namespace fourier {
     int abs_ky = abs(ky);
     int abs_kz = abs(kz);
 
+    int even_nyquist = getNyquistModeThatMustBeReal(g);
+
     size_t id_ppp = g.getCellIndex(Coordinate<int>( abs_kx,  abs_ky,  abs_kz));
     size_t id_ppm = g.getCellIndex(Coordinate<int>( abs_kx,  abs_ky, -abs_kz));
     size_t id_pmp = g.getCellIndex(Coordinate<int>( abs_kx, -abs_ky,  abs_kz));
@@ -101,42 +105,75 @@ namespace fourier {
     size_t id_mmp = g.getCellIndex(Coordinate<int>(-abs_kx, -abs_ky,  abs_kz));
     size_t id_mmm = g.getCellIndex(Coordinate<int>(-abs_kx, -abs_ky, -abs_kz));
 
+    T field_ppp = field[id_ppp];
+    T field_ppm = field[id_ppm];
+    T field_pmp = field[id_pmp];
+    T field_pmm = field[id_pmm];
+    T field_mpp = field[id_mpp];
+    T field_mpm = field[id_mpm];
+    T field_mmp = field[id_mmp];
+    T field_mmm = field[id_mmm];
+
+    // There is no imaginary part to the zero-frequency component
+
+    if(abs_kx==0 || abs_kx==even_nyquist) {
+      field_mpp = 0;
+      field_mpm = 0;
+      field_mmp = 0;
+      field_mmm = 0;
+    }
+
+    if(abs_ky==0 || abs_ky==even_nyquist) {
+      field_pmp = 0;
+      field_pmm = 0;
+      field_mmp = 0;
+      field_mmm = 0;
+    }
+
+    if (abs_kz==0 || abs_kz==even_nyquist) {
+      field_ppm = 0;
+      field_pmm = 0;
+      field_mpm = 0;
+      field_mmm = 0;
+    }
+
     T real, imag;
 
+    // Final linear combination into real and imag parts, derived in mathematica
     if(kx>=0) {
       if (ky >= 0) {
         if (kz >= 0) {
-          real = field[id_ppp] - field[id_pmm] - field[id_mpm] - field[id_mmp];
-          imag = field[id_ppm] + field[id_pmp] + field[id_mpp] - field[id_mmm];
+          real = field_ppp - field_pmm - field_mpm - field_mmp;
+          imag = field_ppm + field_pmp + field_mpp - field_mmm;
         } else {
-          real = -field[id_mmp] + field[id_mpm] + field[id_pmm] + field[id_ppp];
-          imag =  field[id_mmm] + field[id_mpp] + field[id_pmp] - field[id_ppm];
+          real = -field_mmp + field_mpm + field_pmm + field_ppp;
+          imag =  field_mmm + field_mpp + field_pmp - field_ppm;
         }
       } else {
         if (kz >= 0) {
-          real = field[id_mmp] - field[id_mpm] + field[id_pmm] + field[id_ppp];
-          imag = field[id_mmm] + field[id_mpp] - field[id_pmp] + field[id_ppm];
+          real = field_mmp - field_mpm + field_pmm + field_ppp;
+          imag = field_mmm + field_mpp - field_pmp + field_ppm;
         } else {
-          real = field[id_mmp] + field[id_mpm] - field[id_pmm] + field[id_ppp];
-          imag = -field[id_mmm] + field[id_mpp] - field[id_pmp] - field[id_ppm];
+          real = field_mmp + field_mpm - field_pmm + field_ppp;
+          imag = -field_mmm + field_mpp - field_pmp - field_ppm;
         }
       }
     } else {
       if (ky >= 0) {
         if(kz>=0) {
-          real = field[id_mmp] + field[id_mpm] - field[id_pmm] + field[id_ppp];
-          imag = field[id_mmm] - field[id_mpp] + field[id_pmp] + field[id_ppm];
+          real = field_mmp + field_mpm - field_pmm + field_ppp;
+          imag = field_mmm - field_mpp + field_pmp + field_ppm;
         } else {
-          real = field[id_mmp] - field[id_mpm] + field[id_pmm] + field[id_ppp];
-          imag = -field[id_mmm] - field[id_mpp] + field[id_pmp] - field[id_ppm];
+          real = field_mmp - field_mpm + field_pmm + field_ppp;
+          imag = -field_mmm - field_mpp + field_pmp - field_ppm;
         }
       } else {
         if(kz>=0) {
-          real = -field[id_mmp] + field[id_mpm] + field[id_pmm] + field[id_ppp];
-          imag = -field[id_mmm] - field[id_mpp] - field[id_pmp] + field[id_ppm];
+          real = -field_mmp + field_mpm + field_pmm + field_ppp;
+          imag = -field_mmm - field_mpp - field_pmp + field_ppm;
         } else {
-          real = -field[id_mmp] - field[id_mpm] - field[id_pmm] + field[id_ppp];
-          imag = field[id_mmm] - field[id_mpp] - field[id_pmp] - field[id_ppm];
+          real = -field_mmp - field_mpm - field_pmm + field_ppp;
+          imag = field_mmm - field_mpp - field_pmp - field_ppm;
         }
       }
     }
@@ -145,6 +182,16 @@ namespace fourier {
 
   }
 
+  template<typename T>
+  int getNyquistModeThatMustBeReal(const Grid<T> &g) {
+    int even_nyquist;
+    if(g.size%2==0)
+      even_nyquist = int(g.size)/2;
+    else
+      even_nyquist = int(g.size)*100; // arbitrary large number that will not be seen
+
+    return even_nyquist;
+  }
 
 
   template<typename T>
@@ -157,9 +204,6 @@ namespace fourier {
     id_k = g.getCellIndex(Coordinate<int>(kx, ky, kz));
     id_negk = g.getCellIndex(Coordinate<int>(-kx,-ky,-kz));
 
-    if(field[id_k].real()!=0)
-      throw std::runtime_error("gotcha!");
-
     field[id_k] = std::complex<T>(realPart, imagPart);
     field[id_negk] = std::complex<T>(realPart, -imagPart);
 
@@ -169,8 +213,10 @@ namespace fourier {
   template<typename T>
   void addFourierCoefficient(Field<T,T> &field, int kx, int ky, int kz, T realPart, T imagPart) {
     if(kx<0) {
-      addFourierCoefficient(field, -kx, -ky, -kz, realPart, -imagPart);
-      return;
+      kx = -kx;
+      ky = -ky;
+      kz = -kz;
+      imagPart = -imagPart;
     }
 
     const Grid<T> &g(field.getGrid());
@@ -178,6 +224,8 @@ namespace fourier {
     int abs_kx = abs(kx);
     int abs_ky = abs(ky);
     int abs_kz = abs(kz);
+
+    int even_nyquist = getNyquistModeThatMustBeReal(g);
 
     size_t id_ppp = g.getCellIndex(Coordinate<int>( abs_kx,  abs_ky,  abs_kz));
     size_t id_ppm = g.getCellIndex(Coordinate<int>( abs_kx,  abs_ky, -abs_kz));
@@ -188,31 +236,72 @@ namespace fourier {
     size_t id_mmp = g.getCellIndex(Coordinate<int>(-abs_kx, -abs_ky,  abs_kz));
     size_t id_mmm = g.getCellIndex(Coordinate<int>(-abs_kx, -abs_ky, -abs_kz));
 
-    constexpr T quarter = 0.25;
+    T ppp_weight, ppm_weight, pmp_weight, pmm_weight, mpp_weight, mpm_weight, mmp_weight, mmm_weight;
+    ppp_weight= ppm_weight= pmp_weight= pmm_weight= mpp_weight= mpm_weight= mmp_weight= mmm_weight = 0.25;
 
+
+    int adjustments=0;
+
+    if(abs_kx==0 || abs_kx==even_nyquist) {
+      mpp_weight = 0;
+      mpm_weight = 0;
+      mmp_weight = 0;
+      mmm_weight = 0;
+      ppp_weight *=2;
+      ppm_weight *=2;
+      pmp_weight *=2;
+      pmm_weight *=2;
+      adjustments++;
+    }
+
+    if(abs_ky==0 || abs_ky==even_nyquist) {
+      pmp_weight = 0;
+      pmm_weight = 0;
+      mmp_weight = 0;
+      mmm_weight = 0;
+      ppp_weight *=2;
+      ppm_weight *=2;
+      mpp_weight *=2;
+      mpm_weight *=2;
+      adjustments++;
+    }
+
+    if (abs_kz==0 || abs_kz==even_nyquist) {
+      ppm_weight = 0;
+      pmm_weight = 0;
+      mpm_weight = 0;
+      mmm_weight = 0;
+      if(adjustments<2) {
+        ppp_weight *= 2;
+        pmp_weight *= 2;
+        mpp_weight *= 2;
+        mmp_weight *= 2;
+      }
+    }
+    
     if(ky>=0) {
       if(kz>=0) {
-        field[id_ppp]+= quarter  * realPart; field[id_mpp]+= imagPart * quarter;
-        field[id_ppm]+= imagPart * quarter;  field[id_mpm]+= -quarter * realPart;
-        field[id_pmp]+= imagPart * quarter;  field[id_mmp]+= -quarter * realPart;
-        field[id_pmm]+= -quarter * realPart; field[id_mmm]+= -imagPart * quarter;
+        field[id_ppp]+= ppp_weight  * realPart; field[id_mpp]+= imagPart * mpp_weight;
+        field[id_ppm]+= imagPart * ppm_weight;  field[id_mpm]+= -mpm_weight * realPart;
+        field[id_pmp]+= imagPart * pmp_weight;  field[id_mmp]+= -mmp_weight * realPart;
+        field[id_pmm]+= -pmm_weight * realPart; field[id_mmm]+= -imagPart * mmm_weight;
       } else {
-        field[id_ppp]+= quarter *realPart ; field[id_ppm]+= -imagPart* quarter;
-        field[id_pmp]+= imagPart* quarter ; field[id_pmm]+= quarter *realPart ;
-        field[id_mpp]+= imagPart* quarter ; field[id_mpm]+= quarter* realPart;
-        field[id_mmp]+= -quarter* realPart ; field[id_mmm]+=  imagPart* quarter;
+        field[id_ppp]+= ppp_weight *realPart ; field[id_ppm]+= -imagPart* ppm_weight;
+        field[id_pmp]+= imagPart* pmp_weight ; field[id_pmm]+= pmm_weight *realPart ;
+        field[id_mpp]+= imagPart* mpp_weight ; field[id_mpm]+= mpm_weight* realPart;
+        field[id_mmp]+= -mmp_weight* realPart ; field[id_mmm]+=  imagPart* mmm_weight;
       }
     } else {
       if(kz>=0) {
-        field[id_ppp] += quarter * realPart;  field[id_ppm] += imagPart * quarter;
-        field[id_pmp] += -imagPart * quarter; field[id_pmm] += quarter * realPart;
-        field[id_mpp] += imagPart * quarter;  field[id_mpm] += -quarter * realPart;
-        field[id_mmp] += quarter * realPart;  field[id_mmm] += imagPart * quarter;
+        field[id_ppp] += ppp_weight * realPart;  field[id_ppm] += imagPart * ppm_weight;
+        field[id_pmp] += -imagPart * pmp_weight; field[id_pmm] += pmm_weight * realPart;
+        field[id_mpp] += imagPart * mpp_weight;  field[id_mpm] += -mpm_weight * realPart;
+        field[id_mmp] += mmp_weight * realPart;  field[id_mmm] += imagPart * mmm_weight;
       } else {
-        field[id_ppp] += quarter * realPart;  field[id_ppm] += -imagPart * quarter;
-        field[id_pmp] += -imagPart * quarter; field[id_pmm] += -quarter * realPart;
-        field[id_mpp] += imagPart * quarter;  field[id_mpm] += quarter * realPart;
-        field[id_mmp] += quarter * realPart;  field[id_mmm] += -imagPart * quarter;
+        field[id_ppp] += ppp_weight * realPart;  field[id_ppm] += -imagPart * ppm_weight;
+        field[id_pmp] += -imagPart * pmp_weight; field[id_pmm] += -pmm_weight * realPart;
+        field[id_mpp] += imagPart * mpp_weight;  field[id_mpm] += mpm_weight * realPart;
+        field[id_mmp] += mmp_weight * realPart;  field[id_mmm] += -imagPart * mmm_weight;
       }
     }
 
@@ -224,11 +313,34 @@ namespace fourier {
   }
 
   template<typename T>
+  Field<ensure_complex<T>, strip_complex<T>> getComplexFourierField(const Field<T, strip_complex<T>> & field) {
+    using complex_T = ensure_complex<T>;
+    using underlying_T = strip_complex<T>;
+    const Grid<underlying_T> & g = field.getGrid();
+    Field<complex_T, underlying_T> out(g);
+
+    std::cerr << "field-size=" << out.getDataVector().size() << std::endl;
+
+    for(size_t i=0; i<g.size3; ++i) {
+      int kx,ky,kz;
+      std::tie(kx,ky,kz) = g.getFourierCellCoordinate(i);
+      out[i] = getFourierCoefficient(field, kx, ky, kz);
+    }
+    return out;
+  };
+
+  template<typename T>
   void setFourierCoefficient(Field<T, T> &field, int kx, int ky, int kz,
                              strip_complex<T> realPart, strip_complex<T> imagPart) {
     // this may be *horribly* inefficient
     auto existingCoeff = getFourierCoefficient(field, kx, ky, kz);
     addFourierCoefficient(field, kx, ky, kz, realPart-existingCoeff.real(), imagPart-existingCoeff.imag());
+
+    /*
+    auto newCoeff = getFourierCoefficient(field, kx, ky, kz);
+    assert (abs(realPart-newCoeff.real())<1e-10);
+    assert (abs(imagPart-newCoeff.imag())<1e-10);
+     */
   }
 
 
@@ -245,7 +357,6 @@ namespace fourier {
     assert (&g==&(destField2.getGrid()));
     assert (&g==&(destField3.getGrid()));
 
-#pragma omp parallel for
     for(size_t i=0; i<g.size3; ++i) {
       int kx, ky, kz;
       std::tie(kx,ky,kz) = g.getFourierCellCoordinate(i);
@@ -253,7 +364,41 @@ namespace fourier {
     }
   }
 
+  template<typename T>
+  void applyTransformationInFourierBasis(const Field<T, T> & sourceField,
+                                         std::function<std::tuple<std::complex<T>, std::complex<T>, std::complex<T>>(std::complex<T>, int, int, int)> transformation,
+                                         Field<T, T> & destField1,
+                                         Field<T, T> & destField2,
+                                         Field<T, T> & destField3) {
 
+    const Grid<T> & g = destField1.getGrid();
+    assert (&g==&(sourceField.getGrid()));
+    assert (&g==&(destField2.getGrid()));
+    assert (&g==&(destField3.getGrid()));
+
+    std::fill(destField1.getDataVector().begin(), destField1.getDataVector().end(), 0);
+    std::fill(destField2.getDataVector().begin(), destField2.getDataVector().end(), 0);
+    std::fill(destField3.getDataVector().begin(), destField3.getDataVector().end(), 0);
+
+    int size_by_2 = int(g.size)/2;
+
+    for(int kx=0; kx<=size_by_2; kx++) {
+      for(int ky=-size_by_2+1; ky<=size_by_2; ky++) {
+        int lower_limit = -size_by_2+1;
+        if((kx==0 || kx==size_by_2) && (ky==0 || ky==size_by_2))
+          lower_limit = 0;
+        for(int kz=lower_limit; kz<=size_by_2; kz++ ) {
+          std::complex<T> res1, res2, res3;
+          auto sourceFieldValue = getFourierCoefficient(sourceField, kx, ky, kz);
+          std::tie(res1, res2, res3) = transformation(sourceFieldValue, kx, ky, kz);
+          setFourierCoefficient(destField1, kx, ky, kz, res1.real(), res1.imag());
+          setFourierCoefficient(destField2, kx, ky, kz, res2.real(), res2.imag());
+          setFourierCoefficient(destField3, kx, ky, kz, res3.real(), res3.imag());
+        }
+      }
+
+    }
+  }
 
 
 
