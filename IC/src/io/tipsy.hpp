@@ -209,7 +209,7 @@ namespace io {
 
         double dKpcUnit = boxLength * 1000 / cosmology.hubble;
         double dMsolUnit = 1e10 / cosmology.hubble / mass_factor;
-        double dKmsUnit = sqrt(4.30211349e-6 * dMsolUnit / (dKpcUnit));
+        double dKmsUnit = sqrt(4.3022682e-6 * dMsolUnit / (dKpcUnit));
 
         vel_factor = std::pow(cosmology.scalefactor, -0.5) / dKmsUnit;
 

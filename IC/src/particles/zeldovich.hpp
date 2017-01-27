@@ -53,7 +53,11 @@ namespace particle {
     }
 
     void calculateSimulationMass() {
-      boxMass = 27.78 * cosmology.OmegaM0 * powf(grid.simsize, 3.0);
+      // The mass of the entire simulation:
+      // sqrt(3*(100 h km/s/Mpc)^2/(8 pi G))
+      //
+      // Gadget units are used internally, so express as Msol h
+      boxMass = 27.744948 * cosmology.OmegaM0 * powf(grid.simsize, 3.0);
     }
 
     virtual void calculateOffsetFields() {
