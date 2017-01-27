@@ -51,7 +51,7 @@ ifeq ($(HOST3), pfe)
 	FFTW = -DFFTW3 # intel MKL has its own threading scheme
 endif
 
-ifeq ($(HOST), Peony)
+ifeq ($(HOST), Snowd)
 	CPATH = /sw/include/
 	LPATH = /sw/lib/
 	C = /opt/local/bin/g++-mp-5
