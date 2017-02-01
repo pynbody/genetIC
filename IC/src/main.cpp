@@ -39,7 +39,7 @@ typedef double FloatType;
 typedef float FloatType;
 #endif
 
-#define USE_COMPLEX_FFT
+// #define USE_COMPLEX_FFT
 #ifdef USE_COMPLEX_FFT
 using ICf = ICGenerator<complex<FloatType>> ;
 #else

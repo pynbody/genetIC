@@ -48,9 +48,23 @@ public:
   using type = T;
 };
 
+template<typename T>
+class underlying_if_complex_s {
+
+};
+
+template<typename T>
+class underlying_if_complex_s<std::complex<T>> {
+public:
+  using type = T;
+};
+
 
 template <typename T>
 using strip_complex = typename strip_complex_s<T>::type;
+
+template<typename T>
+using underlying_if_complex = typename underlying_if_complex_s<T>::type;
 
 template<typename T>
 using ensure_complex = std::complex<strip_complex<T>>;

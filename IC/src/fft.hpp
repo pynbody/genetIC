@@ -400,6 +400,29 @@ namespace fourier {
     }
   }
 
+  template<typename T>
+  int getFourierCellWeight(const Field<T, T> & field, size_t i) {
+    const Grid<T> &grid(field.getGrid());
+    int kx, ky, kz;
+    std::tie(kx,ky,kz) = grid.getFourierCellCoordinate(i);
+    int even_nyquist = getNyquistModeThatMustBeReal(grid);
+
+    int weight=8;
+
+    if(kx==0 || kx==even_nyquist)
+      weight>>=1;
+    if(ky==0 || ky==even_nyquist)
+      weight>>=1;
+    if(kz==0 || kz==even_nyquist)
+      weight>>=1;
+
+    return weight;
+  }
+
+  template<typename T>
+  int getFourierCellWeight(const Field<std::complex<T>, T> & field, size_t i) {
+    return 1;
+  }
 
 
 

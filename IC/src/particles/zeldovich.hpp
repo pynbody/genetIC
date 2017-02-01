@@ -71,59 +71,10 @@ namespace particle {
       linearOverdensityField.toFourier();
       auto &pField_k = linearOverdensityField.getDataVector();
 
-      /*
-      RE-FFT:
-      TEST:(-0.470325,-0.0842186)
-(-0.417907,-0.314688)
-(-0.299121,0.507641)
-(-0.223375,0.369053)
-(0.246137,-0.391641)
-
-      ORIG-FFT:
-      TEST:(-0.470325,-0.0842186)
-(-0.417907,-0.314688)
-(-0.299121,0.507641)
-(-0.223375,0.369053)
-(0.246137,-0.391641)
-
-       */
-
-      std::cerr << "TEST:" <<  std::endl;
-
-      /*
-      for(int kx=-3; kx<=0; kx++) {
-        int lower_lim = (kx!=0)?-3:0;
-        for(int ky=lower_lim; ky<3; ky++) {
-          for(int kz=lower_lim; kz<3; kz++) {
-            auto test_value = std::complex<T>(kx+ky+kz, 2*kx+3*ky+4*kz);
-            fourier::setFourierCoefficient(linearOverdensityField, kx, ky, kz, test_value.real(), test_value.imag());
-            auto check_value = fourier::getFourierCoefficient(linearOverdensityField, kx, ky, kz);
-            assert(abs(test_value.real()-check_value.real())<1e-7);
-            assert(abs(test_value.imag()-check_value.imag())<1e-7);
-          }
-        }
-      }
-
-      for(int kx=-3; kx<=0; kx++) {
-        int lower_lim = (kx!=0)?-3:0;
-        for(int ky=lower_lim; ky<3; ky++) {
-          for(int kz=lower_lim; kz<3; kz++) {
-            auto test_value = std::complex<T>(kx+ky+kz, 2*kx+3*ky+4*kz);
-            auto check_value = fourier::getFourierCoefficient(linearOverdensityField, kx, ky, kz);
-            assert(abs(test_value.real()-check_value.real())<1e-7);
-            assert(abs(test_value.imag()-check_value.imag())<1e-7);
-          }
-        }
-      }
-       */
-
       // copy three times to start assembling the vx, vy, vz fields
-      TField psift1k(const_cast<Grid<T> &>(grid));
-      TField psift2k(const_cast<Grid<T> &>(grid));
-      TField psift3k(const_cast<Grid<T> &>(grid));
-
-
-
+      auto offsetX = std::make_shared<TField>(const_cast<Grid<T> &>(grid));
+      auto offsetY = std::make_shared<TField>(const_cast<Grid<T> &>(grid));
+      auto offsetZ = std::make_shared<TField>(const_cast<Grid<T> &>(grid));
 
       T kfft;
       size_t idx;
@@ -145,83 +96,28 @@ namespace particle {
         result_z*=iiz;
 
         // derivative at nyquist frequency is not defined; set it to zero
-        if(abs(iix)==nyquist)
+        // potential is also undefined at (0,0,0); set that mode to zero too
+        if(abs(iix)==nyquist || kfft==0)
           result_x=0;
-        if(abs(iiy)==nyquist)
+        if(abs(iiy)==nyquist || kfft==0)
           result_y=0;
-        if(abs(iiz)==nyquist)
+        if(abs(iiz)==nyquist || kfft==0)
           result_z=0;
 
         return std::make_tuple(result_x, result_y, result_z);
       },
-      psift1k, psift2k, psift3k);
+      *offsetX, *offsetY, *offsetZ);
 
-      // TEMP DEBUG
+      offsetX->toReal();
+      offsetY->toReal();
+      offsetZ->toReal();
 
-      /*
-      Field<complex<T>, T> fieldToWrite = fourier::getComplexFourierField(psift1k);
-      int n = psift1k.getGrid().size;
-      const int dim[3] = {n,n,n};
-      numpy::SaveArrayAsNumpy("temp_debug.npy", false, 3, dim, fieldToWrite.getDataVector().data());
-       */
+      // if the implementation is complex, at this point get real copies of the fields
+      // otherwise just use the offset field we have already constructed
+      this->pOff_x = getRealPart(*offsetX);
+      this->pOff_y = getRealPart(*offsetY);
+      this->pOff_z = getRealPart(*offsetZ);
 
-/*
-      #pragma omp parallel for schedule(static) default(shared) private(iix, iiy, iiz, kfft, idx)
-      for (size_t ix = 0; ix < size; ix++) {
-        pb.tick();
-        for (size_t iy = 0; iy < size; iy++) {
-          for (size_t iz = 0; iz < size; iz++) {
-
-            idx = (ix * size + iy) * size + iz;
-
-            if (ix > size / 2) iix = static_cast<int>(ix) - size; else iix = ix;
-            if (iy > size / 2) iiy = static_cast<int>(iy) - size; else iiy = iy;
-            if (iz > size / 2) iiz = static_cast<int>(iz) - size; else iiz = iz;
-
-            kfft = (T) (iix * iix + iiy * iiy + iiz * iiz);
-
-            psift1k[idx]*=T(iix)/(kfft*kw);
-            psift2k[idx]*=T(iiy)/(kfft*kw);
-            psift3k[idx]*=T(iiz)/(kfft*kw);
-          }
-        }
-      }
-*/
-      set_zero(psift1k[0]);
-      set_zero(psift2k[0]);
-      set_zero(psift3k[0]);
-
-
-      psift1k.toReal();
-      psift2k.toReal();
-      psift3k.toReal();
-
-      // TODO: following copy operation only necessary for complex implementation
-
-      pOff_x = std::make_shared<TRealField>(grid,false);
-      pOff_y = std::make_shared<TRealField>(grid,false);
-      pOff_z = std::make_shared<TRealField>(grid,false);
-
-      auto & offx_data = pOff_x->getDataVector();
-      auto & offy_data = pOff_y->getDataVector();
-      auto & offz_data = pOff_z->getDataVector();
-
-      //apply ZA:
-#pragma omp parallel for schedule(static) default(shared) private(idx)
-      for (size_t ix = 0; ix < size; ix++) {
-        pb.tick();
-        for (size_t iy = 0; iy < size; iy++) {
-          for (size_t iz = 0; iz < size; iz++) {
-
-            idx = (ix * size + iy) * size + iz;
-
-            // position offset in physical coordinates
-            offx_data[idx] = real_part_if_complex(psift1k[idx]);
-            offy_data[idx] = real_part_if_complex(psift2k[idx]);
-            offz_data[idx] = real_part_if_complex(psift3k[idx]);
-          }
-        }
-      }
     }
 
   public:

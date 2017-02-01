@@ -2,7 +2,7 @@
 
 function runtest {
   rm $1/*.tipsy 2>/dev/null
-  echo "Running test on $1"
+  echo -n "Running test on $1   "
   head -1 $1/paramfile.txt
   cd $1
   ../../IC paramfile.txt > IC_output.txt 2>&1
@@ -24,6 +24,8 @@ function runtest {
       echo
       cat $1/IC_output.txt
       exit
+  else
+      echo
   fi
 }
 

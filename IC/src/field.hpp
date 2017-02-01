@@ -294,8 +294,34 @@ public:
   }
 
 
+
+
+
 };
 
 
+template<typename CoordinateType>
+std::shared_ptr<Field<CoordinateType, CoordinateType>> getRealPart(Field<CoordinateType, CoordinateType> & field) {
+  return field.shared_from_this();
+};
+
+
+template<typename CoordinateType>
+std::shared_ptr<Field<CoordinateType, CoordinateType>> getRealPart(Field<std::complex<CoordinateType>, CoordinateType> & field) {
+  assert(!field.isFourier());
+  auto realPart = make_shared<Field<CoordinateType, CoordinateType>>(field.getGrid(), field.isFourier());
+  auto & realPartData = realPart->getDataVector();
+  auto & complexData = field.getDataVector();
+  size_t size = field.getGrid().size3;
+
+#pragma omp parallel for schedule(static)
+  for (size_t i=0; i<size; ++i) {
+    realPartData[i] = complexData[i].real();
+  }
+
+  return realPart;
+
+
+};
 
 #endif //IC_FIELD_HPP

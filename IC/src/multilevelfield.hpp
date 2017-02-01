@@ -224,8 +224,9 @@ public:
     T weight;
     const Filter<T> *pFiltOther;
     const Grid<T> *pCurrentGrid;
-    const std::vector<DataType> *pFieldThis;
-    const std::vector<DataType> *pFieldOther;
+    const Field<DataType> *pFieldThis;
+    const std::vector<DataType> *pFieldDataThis;
+    const std::vector<DataType> *pFieldDataOther;
     const std::vector<T> *pCov;
 
     auto newLevelCallback = [&](size_t level) {
@@ -233,16 +234,18 @@ public:
       pCurrentGrid = &(multiLevelContext->getGridForLevel(level));
       pCov = &(multiLevelContext->getCovariance(level));
       pFiltOther = &(other.getFilterForLevel(level));
-      pFieldThis = &(this->getFieldForLevel(level).getDataVector());
-      pFieldOther = &(other.getFieldForLevel(level).getDataVector());
-      return pFieldOther->size()>0 && pFieldThis->size()>0;
+      pFieldThis = &(this->getFieldForLevel(level));
+      pFieldDataThis = &(this->getFieldForLevel(level).getDataVector());
+      pFieldDataOther = &(other.getFieldForLevel(level).getDataVector());
+      return pFieldDataOther->size()>0 && pFieldDataThis->size()>0;
     };
 
     auto getCellContribution = [&](size_t component, size_t i, size_t cumu_i) {
       T k_value = pCurrentGrid->getFourierCellAbsK(i);
       T inner_weight = weight * (*pFiltOther)(k_value);
       if(covariance_weighted)  inner_weight*=((*pCov)[i])*weight;
-      return inner_weight*conj((*pFieldThis)[i]) * (*pFieldOther)[i];
+      inner_weight *= fourier::getFourierCellWeight(*pFieldThis,i);
+      return inner_weight*conj((*pFieldDataThis)[i]) * (*pFieldDataOther)[i];
     };
 
     return multiLevelContext->accumulateOverEachCellOfEachLevel(newLevelCallback, getCellContribution);
@@ -358,16 +361,22 @@ private:
     }
   }
 
-  void enforceSpectrumOneGrid(std::vector<DataType> &field,
+  void enforceSpectrumOneGrid(Field<DataType> &field,
                             const std::vector<T> &spectrum,
                             const Grid<T> &grid) {
     T white_noise_norm = sqrt(T(grid.size3));
 
-#pragma omp parallel for
+// #pragma omp parallel for
     for (size_t i = 0; i < grid.size3; i++) {
-      T existing_norm = abs(field[i]);
-      if(existing_norm!=0.0)
-        field[i] *= sqrt(spectrum[i]) * white_noise_norm / existing_norm;
+      int kx,ky,kz;
+      std::tie(kx,ky,kz) = grid.getFourierCellCoordinate(i);
+      complex<T> existingValue = fourier::getFourierCoefficient(field, kx, ky ,kz);
+      T absExistingValue = abs(existingValue);
+      T sqrt_spec = sqrt(spectrum[i]) * white_noise_norm;
+      T a = sqrt_spec * existingValue.real()/absExistingValue;
+      T b = sqrt_spec * existingValue.imag()/absExistingValue;
+
+      fourier::setFourierCoefficient(field, kx, ky, kz, a, b );
     }
   }
 

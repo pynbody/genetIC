@@ -319,7 +319,8 @@ void powsp_noJing(const Field<DataType> & field,
         // determine mode modulus
 
         auto fieldValue = field.evaluateFourierMode({ix,iy,iz});
-        FloatType vabs = fieldValue.real() * fieldValue.real() + fieldValue.imag() * fieldValue.imag();
+        FloatType vabs = (fieldValue.real() * fieldValue.real() + fieldValue.imag() * fieldValue.imag());
+        vabs*=fourier::getFourierCellWeight(field, idx);
 
         int iix, iiy, iiz;
 
