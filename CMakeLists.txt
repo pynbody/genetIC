@@ -14,7 +14,11 @@ set(SOURCE_FILES
         IC/src/ic.hpp
         IC/src/io.hpp
         IC/src/io/grafic.hpp
+        IC/src/io/gadget.hpp
+        IC/src/io/input.hpp
+        IC/src/io/tipsy.hpp
         IC/src/main.cpp
+        IC/src/coordinate.hpp
         IC/src/particles/mapper.hpp
         IC/src/io/numpy.hpp
         IC/src/parser.hpp
