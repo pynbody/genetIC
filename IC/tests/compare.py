@@ -11,7 +11,11 @@ import warnings
 def compare(f1,f2) :
     npt.assert_almost_equal(f1['mass'],f2['mass'],decimal=6)
     npt.assert_almost_equal(f1['eps'],f2['eps'],decimal=6)
-    npt.assert_almost_equal(f1['vel'],f2['vel'],decimal=4)
+
+    # 1/02/2017 - due to a normalisation error fixed in the tipsy output, rather than rewrite all the
+    # reference files, the test here scales the velocities appropriately
+    tipsy_normalisation_error = 1.1571/1.1578
+    npt.assert_almost_equal(f1['vel'],f2['vel']/tipsy_normalisation_error,decimal=4)
     npt.assert_almost_equal(f1['pos'],f2['pos'],decimal=4)
     print "Particle output matches"
 
