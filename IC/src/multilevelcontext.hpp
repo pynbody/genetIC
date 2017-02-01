@@ -10,9 +10,9 @@
 #include <memory>
 
 #include "grid.hpp"
-#include "signaling.hpp"
-#include "field.hpp"
-#include "multilevelfield.hpp"
+#include "src/util/signaling.hpp"
+#include "src/field/field.hpp"
+#include "src/field/multilevelfield.hpp"
 
 // The classes in this file keep track of the multiple grids in a multi-level run
 //
@@ -21,8 +21,10 @@
 //
 // See http://stackoverflow.com/questions/165101/invalid-use-of-incomplete-type-error-with-partial-template-specialization
 
-template<typename T>
-class ConstraintField;
+namespace fields {
+  template<typename T>
+  class ConstraintField;
+}
 
 template<typename T>
 class CAMB;
@@ -143,11 +145,11 @@ public:
   }
 
 
-  auto generateMultilevelFromHighResField(Field<DataType, T> &&data) {
+  auto generateMultilevelFromHighResField(fields::Field<DataType, T> &&data) {
     assert(&data.getGrid() == pGrid.back().get());
 
     // Generate the fields on each level. Fill low-res levels with zeros to start with.
-    vector<Field<DataType, T>> dataOnLevels;
+    vector<fields::Field<DataType, T>> dataOnLevels;
     for (size_t level = 0; level < pGrid.size(); level++) {
       if (level == pGrid.size() - 1) {
         dataOnLevels.emplace_back(std::move(data));
@@ -166,7 +168,7 @@ public:
       }
     }
 
-    return ConstraintField<DataType>(*dynamic_cast<MultiLevelContextInformation<DataType, T>*>(this), std::move(dataOnLevels));
+    return fields::ConstraintField<DataType>(*dynamic_cast<MultiLevelContextInformation<DataType, T>*>(this), std::move(dataOnLevels));
   }
 
   void forEachLevel(std::function<void(Grid<T> &)> newLevelCallback) {

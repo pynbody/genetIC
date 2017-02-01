@@ -4,7 +4,7 @@
 #include <functional>
 #include <climits>
 #include "io.hpp"
-#include "interpolation.hpp"
+#include "src/numerics/interpolation.hpp"
 // #include "realspacecorrelation.hpp"
 
 template<typename FloatType>
@@ -14,7 +14,7 @@ struct CosmologicalParameters {
 };
 
 template<typename FloatType>
-extern FloatType D(FloatType a, FloatType Om, FloatType Ol);
+extern FloatType growthFactor(FloatType a, FloatType Om, FloatType Ol);
 
 template<typename FloatType>
 class CAMB {
@@ -135,9 +135,9 @@ public:
 
 protected:
   void calculateOverallNormalization(const CosmologicalParameters<FloatType> &cosmology) {
-    FloatType growthFactor = D(cosmology.scalefactor, cosmology.OmegaM0, cosmology.OmegaLambda0);
+    FloatType ourGrowthFactor = growthFactor(cosmology.scalefactor, cosmology.OmegaM0, cosmology.OmegaLambda0);
 
-    FloatType growthFactorNormalized = growthFactor / D(1., cosmology.OmegaM0, cosmology.OmegaLambda0);
+    FloatType growthFactorNormalized = ourGrowthFactor / growthFactor(1., cosmology.OmegaM0, cosmology.OmegaLambda0);
 
     FloatType sigma8PreNormalization = sig(8., cosmology.ns);
 
@@ -186,7 +186,7 @@ public:
 
 
 template<typename FloatType>
-FloatType D(FloatType a, FloatType Om, FloatType Ol) {
+FloatType growthFactor(FloatType a, FloatType Om, FloatType Ol) {
 
   FloatType Hsq = Om / powf(a, 3.0) + (1. - Om - Ol) / a / a + Ol;
   FloatType d = 2.5 * a * Om / powf(a, 3.0) / Hsq / (powf(Om / Hsq / a / a / a, 4. / 7.) - Ol / Hsq +
@@ -198,98 +198,9 @@ FloatType D(FloatType a, FloatType Om, FloatType Ol) {
 }
 
 
-template<typename FloatType>
-void powsp(int n, std::complex<FloatType> *ft, const char *out, FloatType Boxlength) {
-
-  int res = n;
-  int nBins = 100;
-  FloatType *inBin = new FloatType[nBins];
-  FloatType *Gx = new FloatType[nBins];
-  FloatType *kbin = new FloatType[nBins];
-  FloatType kmax = M_PI / Boxlength * (FloatType) res, kmin = 2.0f * M_PI / (FloatType) Boxlength, dklog =
-    log10(kmax / kmin) / nBins, kw = 2.0f * M_PI / (FloatType) Boxlength;
-
-  int ix, iy, iz, idx, idx2;
-  FloatType kfft;
-
-  for (ix = 0; ix < nBins; ix++) {
-    inBin[ix] = 0;
-    Gx[ix] = 0.0f;
-    kbin[ix] = 0.0f;
-  }
-
-
-  for (ix = 0; ix < res; ix++)
-    for (iy = 0; iy < res; iy++)
-      for (iz = 0; iz < res; iz++) {
-        idx = (ix * res + iy) * (res) + iz;
-
-        // determine mode modulus
-
-        FloatType vabs = ft[idx].real() * ft[idx].real() + ft[idx].imag() * ft[idx].imag();
-
-        int iix, iiy, iiz;
-
-        if (ix > res / 2) iix = ix - res; else iix = ix;
-        if (iy > res / 2) iiy = iy - res; else iiy = iy;
-        if (iz > res / 2) iiz = iz - res; else iiz = iz;
-
-        kfft = sqrt(iix * iix + iiy * iiy + iiz * iiz);
-        FloatType k = kfft * kw;
-
-        // correct for aliasing, formula from Jing (2005), ApJ 620, 559
-        // assume isotropic aliasing (approx. true for k<kmax=knyquist)
-        // this formula is for CIC interpolation scheme, which we use <- only needed for Powerspectrum
-
-        FloatType JingCorr = (1.0f - 2.0f / 3.0f * sin(M_PI * k / kmax / 2.0f) * sin(M_PI * k / kmax / 2.0f));
-        vabs /= JingCorr;
-
-        //.. logarithmic spacing in k
-        idx2 = (int) ((1.0f / dklog * log10(k / kmin))); //cout<<idx2<<endl;
-
-        if (k >= kmin && k < kmax) {
-
-
-          Gx[idx2] += vabs;
-          kbin[idx2] += k;
-          inBin[idx2]++;
-
-        } else { continue; }
-
-      }
-
-
-  //... convert to physical units ...
-  std::ofstream ofs(out);
-
-  //definition of powerspectrum brings (2pi)^-3, FT+conversion to physical units brings sqrt(Box^3/N^6) per delta1, where ps22~d2*d2~d1*d1*d1*d1 -> (Box^3/N^6)^2
-
-  FloatType psnorm = powf(Boxlength / (2.0 * M_PI), 3.0);
-
-  for (ix = 0; ix < nBins; ix++) {
-
-    if (inBin[ix] > 0) {
-
-
-      ofs << std::setw(16) << pow(10., log10(kmin) + dklog * (ix + 0.5))
-      << std::setw(16) << kbin[ix] / inBin[ix]
-      << std::setw(16) << (FloatType) (Gx[ix] / inBin[ix]) * psnorm
-      << std::setw(16) << inBin[ix]
-      << std::endl;
-
-    }
-  }
-  ofs.close();
-
-  free(inBin);
-  free(kbin);
-  free(Gx);
-
-}
-
 template<typename DataType, typename FloatType=strip_complex<DataType>>
-void powsp_noJing(const Field<DataType> & field,
-                  const std::vector<FloatType> &P0, const char *out, FloatType Boxlength) {
+void dumpPowerSpectrum(const fields::Field<DataType> &field,
+                       const std::vector<FloatType> &P0, const char *out, FloatType Boxlength) {
 
   int res = field.getGrid().size;
   int nBins = 100;
@@ -330,6 +241,15 @@ void powsp_noJing(const Field<DataType> & field,
 
         kfft = sqrt(iix * iix + iiy * iiy + iiz * iiz);
         FloatType k = kfft * kw;
+
+        /*
+        // correct for aliasing, formula from Jing (2005), ApJ 620, 559
+        // assume isotropic aliasing (approx. true for k<kmax=knyquist)
+        // this formula is for CIC interpolation scheme, which we use <- only needed for Powerspectrum
+
+        FloatType JingCorr = (1.0f - 2.0f / 3.0f * sin(M_PI * k / kmax / 2.0f) * sin(M_PI * k / kmax / 2.0f));
+        vabs /= JingCorr;
+         */
 
         //.. logarithmic spacing in k
         idx2 = (int) ((1.0f / dklog * log10(k / kmin)));

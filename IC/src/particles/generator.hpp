@@ -7,7 +7,7 @@
 
 
 #include <complex>
-#include "src/field.hpp"
+#include "src/field/field.hpp"
 #include "src/cosmo.hpp"
 #include "particle.hpp"
 

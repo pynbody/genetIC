@@ -18,7 +18,7 @@
 #endif
 #include "src/grid.hpp"
 #include "src/utils.hpp"
-#include "src/multilevelfield.hpp"
+#include "src/field/multilevelfield.hpp"
 #include "multilevelgenerator.hpp"
 
 // helper function for our debug dumps
@@ -152,7 +152,7 @@ namespace particle {
   public:
 
     template<typename S>
-    auto getField(const MultiLevelField<S> &multiLevelField) const {
+    auto getField(const fields::MultiLevelField<S> &multiLevelField) const {
       const auto q = **this;
       return multiLevelField.getFieldForGrid(*q.first)[q.second];
     }

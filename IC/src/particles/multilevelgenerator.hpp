@@ -5,7 +5,7 @@
 #ifndef IC_MULTILEVELGENERATOR_HPP_HPP
 #define IC_MULTILEVELGENERATOR_HPP_HPP
 
-#include "../multilevelfield.hpp"
+#include "src/field/multilevelfield.hpp"
 #include "../cosmo.hpp"
 #include "generator.hpp"
 #include "zeldovich.hpp"
@@ -131,7 +131,7 @@ namespace particle {
   class MultiLevelParticleGenerator : public AbstractMultiLevelParticleGenerator<GridDataType>
   {
   protected:
-    OutputField<GridDataType> & outputField;
+    fields::OutputField<GridDataType> & outputField;
     const MultiLevelContextInformation<GridDataType> &context;
     std::vector<std::shared_ptr<TParticleGenerator>> pGenerators;
     const CosmologicalParameters<T> &cosmoParams;
@@ -151,7 +151,7 @@ namespace particle {
 
   public:
 
-    MultiLevelParticleGenerator(OutputField<GridDataType> &field, const CosmologicalParameters<T> &params) :
+    MultiLevelParticleGenerator(fields::OutputField<GridDataType> &field, const CosmologicalParameters<T> &params) :
       outputField(field),
       context(field.getContext()),
       cosmoParams(params) {

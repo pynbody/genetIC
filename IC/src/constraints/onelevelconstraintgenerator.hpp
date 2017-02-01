@@ -9,8 +9,8 @@
 #include <complex>
 #include <vector>
 #include <map>
-#include "grid.hpp"
-#include "cosmo.hpp"
+#include "src/grid.hpp"
+#include "src/cosmo.hpp"
 
 template<typename DataType, typename FloatType=strip_complex<DataType>>
 class ConstraintCalculator {

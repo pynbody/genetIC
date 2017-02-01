@@ -1,8 +1,8 @@
 #ifndef _CONSTRAINTAPPLICATOR_HPP
 #define _CONSTRAINTAPPLICATOR_HPP
 
-#include "multilevelcontext.hpp"
-#include "multilevelfield.hpp"
+#include "src/multilevelcontext.hpp"
+#include "src/field/multilevelfield.hpp"
 
 template<typename DataType, typename T=strip_complex<DataType>>
 class ConstraintApplicator {
@@ -10,19 +10,19 @@ private:
 
 
 public:
-  std::vector<ConstraintField<DataType>> alphas;
+  std::vector<fields::ConstraintField<DataType>> alphas;
   std::vector<DataType> values;
   std::vector<DataType> existing_values;
 
   MultiLevelContextInformation<DataType> *underlying;
-  OutputField<DataType> *outputField;
+  fields::OutputField<DataType> *outputField;
 
   ConstraintApplicator(MultiLevelContextInformation<DataType> *underlying_,
-                       OutputField<DataType> *outputField_) : underlying(underlying_), outputField(outputField_) {
+                       fields::OutputField<DataType> *outputField_) : underlying(underlying_), outputField(outputField_) {
 
   }
 
-  void add_constraint(ConstraintField<DataType> &&alpha, DataType value, DataType existing) {
+  void add_constraint(fields::ConstraintField<DataType> &&alpha, DataType value, DataType existing) {
 
     alphas.push_back(std::move(alpha));
     values.push_back(value);
@@ -184,7 +184,7 @@ public:
     outputField->toFourier();
 
     for (size_t i = 0; i < alphas.size(); i++) {
-      MultiLevelField<DataType> &alpha_i = alphas[i];
+      fields::MultiLevelField<DataType> &alpha_i = alphas[i];
       auto dval_i = values[i] - existing_values[i];
       alpha_i.convertToVector();
       alpha_i.toFourier(); // probably already is, but just to be safe

@@ -6,10 +6,10 @@
 #define IC_ZELDOVICH_HPP
 
 #include <complex>
-#include <src/numpy.hpp>
+#include <src/io/numpy.hpp>
 #include "../cosmo.hpp"
 #include "../progress/progress.hpp"
-#include "../field.hpp"
+#include "src/field/field.hpp"
 #include "generator.hpp"
 #include "particle.hpp"
 
@@ -24,8 +24,8 @@ namespace particle {
   template<typename GridDataType, typename T=strip_complex<GridDataType>>
   class ZeldovichParticleGenerator : public ParticleGenerator<GridDataType> {
   protected:
-    using TField = Field<GridDataType, T>;
-    using TRealField = Field<T,T>;
+    using TField = fields::Field<GridDataType, T>;
+    using TRealField = fields::Field<T,T>;
 
     T velocityToOffsetRatio, boxMass;
     TField &linearOverdensityField;

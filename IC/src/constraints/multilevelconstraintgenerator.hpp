@@ -8,11 +8,11 @@
 #include <complex.h>
 #include <vector>
 
-#include "multilevelcontext.hpp"
-#include "grid.hpp"
-#include "vectormath.hpp"
-#include "onelevelconstraint.hpp"
-#include "multilevelfield.hpp"
+#include "src/multilevelcontext.hpp"
+#include "src/grid.hpp"
+#include "src/numerics/vectormath.hpp"
+#include "onelevelconstraintgenerator.hpp"
+#include "src/field/multilevelfield.hpp"
 
 using namespace std;
 
@@ -27,7 +27,7 @@ public:
 
   }
 
-  Field<DataType> calcConstraintVector(string name_in, int level) {
+  fields::Field<DataType> calcConstraintVector(string name_in, int level) {
     auto ar = fieldManager.createEmptyFieldForLevel(level);
 
     calcConstraint(name_in, fieldManager.getGridForLevel(level), cosmology, ar);
@@ -35,7 +35,7 @@ public:
     if (level != 0)
       ar*=pow(fieldManager.getGridForLevel(level).dx / fieldManager.getGridForLevel(0).dx, -3.0);
 
-    return Field<DataType>(fieldManager.getGridForLevel(level), ar, true);
+    return fields::Field<DataType>(fieldManager.getGridForLevel(level), ar, true);
   }
 
   auto calcConstraintForAllLevels(string name) {

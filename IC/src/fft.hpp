@@ -18,8 +18,10 @@
 template<typename T>
 class Grid;
 
-template<typename T, typename S>
-class Field;
+namespace fields {
+  template<typename T, typename S>
+  class Field;
+}
 
 namespace fourier {
   void init_fftw_threads() {
@@ -86,7 +88,7 @@ namespace fourier {
   int getNyquistModeThatMustBeReal(const Grid<T> &g);
 
   template<typename T>
-  std::complex<T> getFourierCoefficient(const Field<T, T> & field, int kx, int ky, int kz) {
+  std::complex<T> getFourierCoefficient(const fields::Field<T, T> & field, int kx, int ky, int kz) {
 
     const Grid<T> &g(field.getGrid());
 
@@ -195,7 +197,7 @@ namespace fourier {
 
 
   template<typename T>
-  void setFourierCoefficient(Field<std::complex<T>, T> &field, int kx, int ky, int kz,
+  void setFourierCoefficient(fields::Field<std::complex<T>, T> &field, int kx, int ky, int kz,
                              T realPart, T imagPart) {
     const Grid<T> &g = field.getGrid();
 
@@ -211,7 +213,7 @@ namespace fourier {
 
 
   template<typename T>
-  void addFourierCoefficient(Field<T,T> &field, int kx, int ky, int kz, T realPart, T imagPart) {
+  void addFourierCoefficient(fields::Field<T,T> &field, int kx, int ky, int kz, T realPart, T imagPart) {
     if(kx<0) {
       kx = -kx;
       ky = -ky;
@@ -308,16 +310,16 @@ namespace fourier {
   }
 
   template<typename T>
-  std::complex<T> getFourierCoefficient(const Field<std::complex<T>, T> & field, int kx, int ky, int kz) {
+  std::complex<T> getFourierCoefficient(const fields::Field<std::complex<T>, T> & field, int kx, int ky, int kz) {
     return field[field.getGrid().getCellIndex(Coordinate<int>(kx,ky,kz))];
   }
 
   template<typename T>
-  Field<ensure_complex<T>, strip_complex<T>> getComplexFourierField(const Field<T, strip_complex<T>> & field) {
+  fields::Field<ensure_complex<T>, strip_complex<T>> getComplexFourierField(const fields::Field<T, strip_complex<T>> & field) {
     using complex_T = ensure_complex<T>;
     using underlying_T = strip_complex<T>;
     const Grid<underlying_T> & g = field.getGrid();
-    Field<complex_T, underlying_T> out(g);
+    fields::Field<complex_T, underlying_T> out(g);
 
     std::cerr << "field-size=" << out.getDataVector().size() << std::endl;
 
@@ -330,7 +332,7 @@ namespace fourier {
   };
 
   template<typename T>
-  void setFourierCoefficient(Field<T, T> &field, int kx, int ky, int kz,
+  void setFourierCoefficient(fields::Field<T, T> &field, int kx, int ky, int kz,
                              strip_complex<T> realPart, strip_complex<T> imagPart) {
     // this may be *horribly* inefficient
     auto existingCoeff = getFourierCoefficient(field, kx, ky, kz);
@@ -346,11 +348,11 @@ namespace fourier {
 
 
   template<typename T>
-  void applyTransformationInFourierBasis(const Field<std::complex<T>, T> & sourceField,
+  void applyTransformationInFourierBasis(const fields::Field<std::complex<T>, T> & sourceField,
                                          std::function<std::tuple<std::complex<T>, std::complex<T>, std::complex<T>>(std::complex<T>, int, int, int)> transformation,
-                                         Field<std::complex<T>, T> & destField1,
-                                         Field<std::complex<T>, T> & destField2,
-                                         Field<std::complex<T>, T> & destField3) {
+                                         fields::Field<std::complex<T>, T> & destField1,
+                                         fields::Field<std::complex<T>, T> & destField2,
+                                         fields::Field<std::complex<T>, T> & destField3) {
 
     const Grid<T> & g = destField1.getGrid();
     assert (&g==&(sourceField.getGrid()));
@@ -365,11 +367,11 @@ namespace fourier {
   }
 
   template<typename T>
-  void applyTransformationInFourierBasis(const Field<T, T> & sourceField,
+  void applyTransformationInFourierBasis(const fields::Field<T, T> & sourceField,
                                          std::function<std::tuple<std::complex<T>, std::complex<T>, std::complex<T>>(std::complex<T>, int, int, int)> transformation,
-                                         Field<T, T> & destField1,
-                                         Field<T, T> & destField2,
-                                         Field<T, T> & destField3) {
+                                         fields::Field<T, T> & destField1,
+                                         fields::Field<T, T> & destField2,
+                                         fields::Field<T, T> & destField3) {
 
     const Grid<T> & g = destField1.getGrid();
     assert (&g==&(sourceField.getGrid()));
@@ -401,7 +403,7 @@ namespace fourier {
   }
 
   template<typename T>
-  int getFourierCellWeight(const Field<T, T> & field, size_t i) {
+  int getFourierCellWeight(const fields::Field<T, T> & field, size_t i) {
     const Grid<T> &grid(field.getGrid());
     int kx, ky, kz;
     std::tie(kx,ky,kz) = grid.getFourierCellCoordinate(i);
@@ -420,7 +422,7 @@ namespace fourier {
   }
 
   template<typename T>
-  int getFourierCellWeight(const Field<std::complex<T>, T> & field, size_t i) {
+  int getFourierCellWeight(const fields::Field<std::complex<T>, T> & field, size_t i) {
     return 1;
   }
 

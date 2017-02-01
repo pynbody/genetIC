@@ -5,33 +5,33 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14  -fopenmp -g -O0")
 
 set(SOURCE_FILES
         IC/src/utils.hpp
-        IC/src/constraintapplicator.hpp
+        IC/src/constraints/constraintapplicator.hpp
         IC/src/cosmo.hpp
         IC/src/dummyic.hpp
         IC/src/fft.hpp
         IC/src/float_types.hpp
         IC/src/grid.hpp
-        IC/src/HDF_IO.hh
         IC/src/ic.hpp
         IC/src/io.hpp
         IC/src/io/grafic.hpp
         IC/src/main.cpp
         IC/src/particles/mapper.hpp
-        IC/src/numpy.hpp
+        IC/src/io/numpy.hpp
         IC/src/parser.hpp
-        IC/src/vectormath.hpp
-        IC/src/signaling.hpp
-        IC/src/randomfieldgenerator.hpp
-        IC/src/filesystem.h
+        IC/src/numerics/vectormath.hpp
+        IC/src/util/signaling.hpp
+        IC/src/field/randomfieldgenerator.hpp
+        IC/src/util/filesystem.h
         IC/src/filter.hpp
         IC/src/multilevelcontext.hpp
-        IC/src/onelevelconstraint.hpp
-        IC/src/filesystem.cpp
-        IC/src/multilevelfield.hpp
+        IC/src/constraints/onelevelconstraintgenerator.hpp
+        IC/src/util/filesystem.cpp
+        IC/src/field/multilevelfield.hpp
         IC/src/particles/particle.hpp
         IC/src/progress/progress.cpp
-        IC/src/field.hpp
-        IC/src/MultiLevelConstraintGenerator.h
+        IC/src/field/field.hpp
+        IC/src/constraints/multilevelconstraintgenerator.hpp
+        IC/src/numerics/interpolation.hpp
         IC/Makefile IC/src/particles/zeldovich.hpp IC/src/particles/generator.hpp IC/src/particles/multilevelgenerator.hpp)
 
 include_directories( /opt/local/include )

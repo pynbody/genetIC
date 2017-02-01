@@ -82,8 +82,8 @@ all: IC
 
 %.o: %.cpp ; $(CC) $(CFLAGS) $(GIT_VARIABLES) -I$(CPATH) $(FFTW) -c $< -o $@
 
-IC: src/multilevelfield.hpp src/main.o src/progress/progress.o src/filesystem.o src/HDF_IO.hh src/ic.hpp src/onelevelconstraint.hpp src/randomfieldgenerator.hpp src/multilevelcontext.hpp src/cosmo.hpp src/fft.hpp src/float_types.hpp src/grid.hpp src/io.hpp src/parser.hpp src/vectormath.hpp src/particles/mapper.hpp src/filter.hpp Makefile
-	$(CC) $(CFLAGS) -o IC $(GIT_VARIABLES) -I$(CPATH) $(FFTW) src/main.o src/filesystem.o src/progress/progress.o -L$(LPATH) -lm $(FFTWLIB) -lgsl -lgslcblas $(HDF5_FLAGS)
+IC: src/main.o src/filesystem.o src/progress/progress.o
+		$(CC) $(CFLAGS) -o IC $(GIT_VARIABLES) -I$(CPATH) $(FFTW) src/main.o src/filesystem.o src/progress/progress.o -L$(LPATH) -lm $(FFTWLIB) -lgsl -lgslcblas $(HDF5_FLAGS)
 
 clean:
 	rm -rf IC

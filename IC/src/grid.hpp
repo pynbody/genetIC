@@ -18,20 +18,19 @@ using namespace std;
 template<typename T>
 class Grid;
 
-template<typename T, typename S>
-class Field;
+namespace field {
+  template<typename T, typename S>
+  class Field;
 
-template<typename T, typename S>
-class Field;
+  template<typename T, typename S>
+  class InterpolatedField;
 
-template<typename T, typename S>
-class InterpolatedField;
+  template<typename T, typename S>
+  class SubsampledField;
 
-template<typename T, typename S>
-class SubsampledField;
-
-template<typename T, typename S>
-class TranslatedField;
+  template<typename T, typename S>
+  class TranslatedField;
+}
 
 template<typename T>
 class SuperSampleGrid;
@@ -53,8 +52,8 @@ template<typename T>
 class Grid : public std::enable_shared_from_this<Grid<T>> {
 public:
 
-  using TField = Field<complex<T>, T>;
-  using TRealField = Field<T, T>;
+  using TField = fields::Field<complex<T>, T>;
+  using TRealField = fields::Field<T, T>;
   using PtrTField = std::shared_ptr<std::vector<std::complex<T>>>;
   using GridPtrType = std::shared_ptr<Grid<T>>;
   using ConstGridPtrType = std::shared_ptr<const Grid<T>>;

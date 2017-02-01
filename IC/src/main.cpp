@@ -21,7 +21,7 @@
 
 
 #include "float_types.hpp"
-#include "vectormath.hpp"
+#include "src/numerics/vectormath.hpp"
 #include "fft.hpp"
 #include "cosmo.hpp"
 #include "parser.hpp"

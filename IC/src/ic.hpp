@@ -11,13 +11,13 @@
 #include <iostream>
 #include <list>
 
-#include "numpy.hpp"
-#include "onelevelconstraint.hpp"
-#include "constraintapplicator.hpp"
-#include "filesystem.h"
-#include "randomfieldgenerator.hpp"
-#include "MultiLevelConstraintGenerator.h"
-#include "multilevelfield.hpp"
+#include "src/io/numpy.hpp"
+#include "src/constraints/onelevelconstraintgenerator.hpp"
+#include "src/constraints/constraintapplicator.hpp"
+#include "src/util/filesystem.h"
+#include "src/field/randomfieldgenerator.hpp"
+#include "src/constraints/multilevelconstraintgenerator.hpp"
+#include "src/field/multilevelfield.hpp"
 #include "particles/generator.hpp"
 #include "particles/multilevelgenerator.hpp"
 #include "parser.hpp"
@@ -47,10 +47,10 @@ protected:
 
   CosmologicalParameters<T> cosmology;
   MultiLevelContextInformation<GridDataType> multiLevelContext;
-  OutputField<GridDataType> outputField;
+  fields::OutputField<GridDataType> outputField;
   ConstraintApplicator<GridDataType> constraintApplicator;
   MultiLevelConstraintGenerator<GridDataType> constraintGenerator;
-  RandomFieldGenerator<GridDataType> randomFieldGenerator;
+  fields::RandomFieldGenerator<GridDataType> randomFieldGenerator;
 
   CAMB<T> spectrum;
 
@@ -362,16 +362,16 @@ public:
   }
 
   virtual void dumpGridFourier(int level=0) {
-    Field<complex<T>, T> fieldToWrite = fourier::getComplexFourierField(outputField.getFieldForLevel(level));
+    fields::Field<complex<T>, T> fieldToWrite = fourier::getComplexFourierField(outputField.getFieldForLevel(level));
     dumpGridData(level, fieldToWrite.getDataVector());
   }
 
   virtual void dumpPS(int level = 0) {
     auto & field = outputField.getFieldForLevel(level);
     field.toFourier();
-    powsp_noJing(field,
-                 multiLevelContext.getCovariance(level),
-                 (getOutputPath() + "_" + ((char) (level + '0')) + ".ps").c_str(), field.getGrid().boxsize);
+    dumpPowerSpectrum(field,
+                      multiLevelContext.getCovariance(level),
+                      (getOutputPath() + "_" + ((char) (level + '0')) + ".ps").c_str(), field.getGrid().boxsize);
   }
 
 

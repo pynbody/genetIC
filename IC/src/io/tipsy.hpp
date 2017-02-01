@@ -24,7 +24,7 @@ namespace io {
     void saveFieldTipsyArray(const std::string &filename,
                              particle::ParticleMapper<GridType> & mapper,
                              particle::AbstractMultiLevelParticleGenerator<GridType> & generator,
-                             MultiLevelField<GridType> &field) {
+                             fields::MultiLevelField<GridType> &field) {
       ofstream outfile(filename.c_str(), ofstream::binary);
       int lengthField = mapper.size();
       outfile.write(reinterpret_cast<char *>(&lengthField), 4);
