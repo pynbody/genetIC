@@ -6,11 +6,14 @@
 #define IC_MULTILEVELGENERATOR_HPP_HPP
 
 #include "src/field/multilevelfield.hpp"
-#include "../cosmo.hpp"
+#include "src/cosmology/parameters.hpp"
 #include "generator.hpp"
 #include "zeldovich.hpp"
 
 namespace particle {
+  using std::cerr;
+  using std::endl;
+
   template<typename GridDataType>
   class AbstractMultiLevelParticleGenerator :
     public std::enable_shared_from_this<AbstractMultiLevelParticleGenerator<GridDataType>> {
@@ -18,9 +21,9 @@ namespace particle {
   public:
     using T = strip_complex<GridDataType>;
     virtual particle::ParticleGenerator<GridDataType> &getGeneratorForLevel(size_t level) = 0;
-    virtual particle::ParticleGenerator<GridDataType> &getGeneratorForGrid(const Grid<T> &grid) =0;
+    virtual particle::ParticleGenerator<GridDataType> &getGeneratorForGrid(const grids::Grid<T> &grid) =0;
 
-    const particle::ParticleGenerator<GridDataType> &getGeneratorForGrid(const Grid<T> &grid) const {
+    const particle::ParticleGenerator<GridDataType> &getGeneratorForGrid(const grids::Grid<T> &grid) const {
       return const_cast<AbstractMultiLevelParticleGenerator<GridDataType>*>(this)->getGeneratorForGrid(grid);
     }
   };
@@ -37,7 +40,7 @@ namespace particle {
       throw std::runtime_error("Attempt to generate particles before they have been calculated");
     }
 
-    virtual particle::ParticleGenerator<GridDataType> &getGeneratorForGrid(const Grid<T> &grid) override {
+    virtual particle::ParticleGenerator<GridDataType> &getGeneratorForGrid(const grids::Grid<T> &grid) override {
       throw std::runtime_error("Attempt to generate particles before they have been calculated");
     }
   };
@@ -134,7 +137,7 @@ namespace particle {
     fields::OutputField<GridDataType> & outputField;
     const MultiLevelContextInformation<GridDataType> &context;
     std::vector<std::shared_ptr<TParticleGenerator>> pGenerators;
-    const CosmologicalParameters<T> &cosmoParams;
+    const cosmology::CosmologicalParameters<T> &cosmoParams;
 
 
     void initialise() {
@@ -151,7 +154,7 @@ namespace particle {
 
   public:
 
-    MultiLevelParticleGenerator(fields::OutputField<GridDataType> &field, const CosmologicalParameters<T> &params) :
+    MultiLevelParticleGenerator(fields::OutputField<GridDataType> &field, const cosmology::CosmologicalParameters<T> &params) :
       outputField(field),
       context(field.getContext()),
       cosmoParams(params) {
@@ -162,7 +165,7 @@ namespace particle {
       return *(pGenerators[level]);
     }
 
-    particle::ParticleGenerator<GridDataType> &getGeneratorForGrid(const Grid<T> &grid) override {
+    particle::ParticleGenerator<GridDataType> &getGeneratorForGrid(const grids::Grid<T> &grid) override {
       for(size_t i=0; i<outputField.getNumLevels(); i++) {
         if(grid.pointsToGrid(&(outputField.getFieldForLevel(i).getGrid())))
           return getGeneratorForLevel(i);

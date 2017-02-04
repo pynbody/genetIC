@@ -11,15 +11,23 @@
 #include <iostream>
 #include <list>
 
-#include "src/io/numpy.hpp"
-#include "src/constraints/onelevelconstraintgenerator.hpp"
-#include "src/constraints/constraintapplicator.hpp"
-#include "src/util/filesystem.h"
-#include "src/field/randomfieldgenerator.hpp"
-#include "src/constraints/multilevelconstraintgenerator.hpp"
-#include "src/field/multilevelfield.hpp"
+#include "io/numpy.hpp"
+
+#include "constraints/onelevelconstraintgenerator.hpp"
+#include "constraints/constraintapplicator.hpp"
+#include "constraints/multilevelconstraintgenerator.hpp"
+
+#include "util/filesystem.h"
+
+#include "field/randomfieldgenerator.hpp"
+#include "field/multilevelfield.hpp"
+
 #include "particles/generator.hpp"
 #include "particles/multilevelgenerator.hpp"
+
+#include "cosmology/parameters.hpp"
+#include "cosmology/camb.hpp"
+
 #include "parser.hpp"
 
 //TODO: remove ugly macro
@@ -40,19 +48,19 @@ class ICGenerator {
 protected:
 
   using T = strip_complex<GridDataType>;
-  using GridPtrType = std::shared_ptr<Grid<T>>;
+  using GridPtrType = std::shared_ptr<grids::Grid<T>>;
 
 
   friend class DummyICGenerator<GridDataType>;
 
-  CosmologicalParameters<T> cosmology;
+  cosmology::CosmologicalParameters<T> cosmology;
   MultiLevelContextInformation<GridDataType> multiLevelContext;
   fields::OutputField<GridDataType> outputField;
-  ConstraintApplicator<GridDataType> constraintApplicator;
-  MultiLevelConstraintGenerator<GridDataType> constraintGenerator;
+  constraints::ConstraintApplicator<GridDataType> constraintApplicator;
+  constraints::MultiLevelConstraintGenerator<GridDataType> constraintGenerator;
   fields::RandomFieldGenerator<GridDataType> randomFieldGenerator;
 
-  CAMB<T> spectrum;
+  cosmology::CAMB<T> spectrum;
 
   int supersample, subsample;               // DM supersampling to perform on zoom grid, and subsampling on base grid
 
@@ -185,7 +193,7 @@ public:
     if(multiLevelContext.getNumLevels()<1)
       throw std::runtime_error("Cannot initialise a zoom grid before initialising the base grid");
 
-    Grid<T> & gridAbove = multiLevelContext.getGridForLevel(multiLevelContext.getNumLevels()-1);
+    grids::Grid<T> & gridAbove = multiLevelContext.getGridForLevel(multiLevelContext.getNumLevels()-1);
     int nAbove = gridAbove.size;
 
     zoomParticleArray.emplace_back();
@@ -237,7 +245,7 @@ public:
 
     addLevelToContext(spectrum, gridAbove.boxsize/zoomfac, n, newOffsetLower);
 
-    Grid<T> &newGrid = multiLevelContext.getGridForLevel(multiLevelContext.getNumLevels()-1);
+    grids::Grid<T> &newGrid = multiLevelContext.getGridForLevel(multiLevelContext.getNumLevels()-1);
 
     cout << "Initialized a zoom region:" << endl;
     cout << "  Subbox length   = " << newGrid.boxsize << " Mpc/h" << endl;
@@ -253,7 +261,7 @@ public:
 
   }
 
-  virtual void addLevelToContext(const CAMB<T> &spectrum, T size, size_t nside, const Coordinate<T> & offset={0,0,0}) {
+  virtual void addLevelToContext(const cosmology::CAMB<T> &spectrum, T size, size_t nside, const Coordinate<T> & offset={0,0,0}) {
     // This forwards to multiLevelContext but is required because it is overriden in DummyICGenerator,
     // which needs to ensure that grids are synchronised between two different contexts
     multiLevelContext.addLevel(spectrum,size,nside,offset);
@@ -328,7 +336,7 @@ public:
 
   template<typename TField>
   void dumpGridData(int level, const TField &data) {
-    Grid<T> & levelGrid = multiLevelContext.getGridForLevel(level);
+    grids::Grid<T> & levelGrid = multiLevelContext.getGridForLevel(level);
     assert(data.size() == levelGrid.size3);
     ostringstream filename;
     filename << outputFolder << "/grid-" << level << ".npy";
@@ -362,16 +370,16 @@ public:
   }
 
   virtual void dumpGridFourier(int level=0) {
-    fields::Field<complex<T>, T> fieldToWrite = fourier::getComplexFourierField(outputField.getFieldForLevel(level));
+    fields::Field<complex<T>, T> fieldToWrite = numerics::fourier::getComplexFourierField(outputField.getFieldForLevel(level));
     dumpGridData(level, fieldToWrite.getDataVector());
   }
 
   virtual void dumpPS(int level = 0) {
     auto & field = outputField.getFieldForLevel(level);
     field.toFourier();
-    dumpPowerSpectrum(field,
-                      multiLevelContext.getCovariance(level),
-                      (getOutputPath() + "_" + ((char) (level + '0')) + ".ps").c_str(), field.getGrid().boxsize);
+    cosmology::dumpPowerSpectrum(field,
+                                 multiLevelContext.getCovariance(level),
+                                 (getOutputPath() + "_" + ((char) (level + '0')) + ".ps").c_str());
   }
 
 
@@ -406,11 +414,11 @@ public:
 
   }
 
-  std::shared_ptr<Grid<T>> getGridWithOutputOffset(int level = 0) {
+  std::shared_ptr<grids::Grid<T>> getGridWithOutputOffset(int level = 0) {
     auto gridForOutput = multiLevelContext.getGridForLevel(level).shared_from_this();
 
     if (xOffOutput != 0 || yOffOutput != 0 || zOffOutput != 0) {
-      gridForOutput = std::make_shared<OffsetGrid<T>>(gridForOutput,
+      gridForOutput = std::make_shared<grids::OffsetGrid<T>>(gridForOutput,
                                                       xOffOutput, yOffOutput, zOffOutput);
     }
     return gridForOutput;
@@ -556,7 +564,7 @@ protected:
     int level = deepestLevelWithParticlesSelected();
 
     std::vector<size_t> particleArray;
-    Grid<T> &grid = multiLevelContext.getGridForLevel(level);
+    grids::Grid<T> &grid = multiLevelContext.getGridForLevel(level);
     grid.getFlaggedCells(particleArray);
 
     auto p0_location = grid.getCellCentroid(particleArray[0]);
@@ -643,7 +651,7 @@ public:
 
     for_each_level(level) {
       std::vector<size_t> particleArray;
-      Grid<T> &grid = multiLevelContext.getGridForLevel(level);
+      grids::Grid<T> &grid = multiLevelContext.getGridForLevel(level);
       size_t N = grid.size3;
       for (size_t i = 0; i < N; i++) {
         std::tie(xp, yp, zp) = grid.getCellCentroid(i);
@@ -685,47 +693,6 @@ public:
 
   auto calcConstraint(string name_in) {
     auto constraint = constraintGenerator.calcConstraintForAllLevels(name_in);
-    constraint.toFourier();
-    /*
-    T norm = constraint.innerProduct(constraint).real();
-    constraint/=sqrt(norm);
-    constraint.convertToVector();
-
-    auto constraint2 = constraintGenerator.calcConstraintForAllLevels(name_in);
-    constraint2/=sqrt(norm);
-    constraint2.toFourier();
-
-
-    // constraint.setStateRecombined();
-
-    constraint.toFourier();
-
-    //constraint.getFieldForLevel(0).applyFilter(constraint.getFilterForLevel(0));
-    //constraint.getFieldForLevel(1).applyFilter(constraint.getFilterForLevel(1));
-    constraint.getFieldForLevel(2).applyFilter(constraint.getFilterForLevel(2));
-
-    constraint.toReal();
-
-    constraint.getFieldForLevel(2).addFieldFromDifferentGridWithFilter(constraint.getFieldForLevel(0),constraint.getFilterForLevel(0));
-    constraint.getFieldForLevel(2).addFieldFromDifferentGrid(constraint.getFieldForLevel(1));
-
-
-    constraint.toFourier();
-
-    constraint.template setupFilters<MultiLevelRecombinedFilterFamily<T>>();
-
-
-    cerr << "THING THING HERE HERE " << constraint2.innerProduct(constraint) << endl;
-    constraint.toReal();
-    for(size_t level=0; level<3; level++) {
-      cerr << level << ": ";
-      constraint.getFilterForLevel(level).debugInfo(cerr);
-      cerr << endl;
-      dumpGridData(level, constraint.getFieldForLevel(level).getDataVector());
-    }
-
-    assert(false);
-    */
     constraint.toFourier();
     return constraint;
   }
@@ -769,7 +736,6 @@ public:
     if(!haveInitialisedRandomComponent)
       initialiseRandomComponent();
 
-    constraintApplicator.prepare();
     constraintApplicator.applyConstraints();
   }
 
@@ -839,7 +805,7 @@ public:
       auto &field = outputField.getFieldForLevel(level);
       field.toFourier();
       auto &fieldData = field.getDataVector();
-      const Grid<T> &grid = field.getGrid();
+      const grids::Grid<T> &grid = field.getGrid();
       size_t tot_modes = grid.size3;
       T k2;
       size_t N = grid.size3;

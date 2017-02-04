@@ -26,8 +26,10 @@ namespace fields {
   class ConstraintField;
 }
 
-template<typename T>
-class CAMB;
+namespace cosmology {
+  template<typename T>
+  class CAMB;
+}
 
 //#include <Eigen/Dense>
 
@@ -37,7 +39,7 @@ class MultiLevelContextInformation;
 template<typename DataType, typename T=strip_complex<DataType>>
 class MultiLevelContextInformationBase : public Signaling {
 private:
-  std::vector<std::shared_ptr<Grid<T>>> pGrid;
+  std::vector<std::shared_ptr<grids::Grid<T>>> pGrid;
   std::vector<std::vector<T>> C0s;
   std::vector<T> weights;
 
@@ -76,20 +78,20 @@ public:
   virtual ~MultiLevelContextInformationBase() {}
 
 
-  void addLevel(const CAMB<T> &spectrum, T size, size_t nside, const Coordinate<T> & offset={0,0,0}) {
+  void addLevel(const cosmology::CAMB<T> &spectrum, T size, size_t nside, const Coordinate<T> & offset={0,0,0}) {
     if(!spectrum.isUsable())
       throw std::runtime_error("Cannot add a grid level until the power spectrum has been specified");
 
     if(nLevels==0)
       simSize = size;
 
-    auto grid = std::make_shared<Grid<T>>(simSize, nside, size/nside, offset.x, offset.y, offset.z);
+    auto grid = std::make_shared<grids::Grid<T>>(simSize, nside, size/nside, offset.x, offset.y, offset.z);
     std::vector<T> C0 = spectrum.getPowerSpectrumForGrid(*grid);
     addLevel(C0, grid);
 
   }
 
-  void addLevel(std::vector<T> C0, std::shared_ptr<Grid<T>> pG) {
+  void addLevel(std::vector<T> C0, std::shared_ptr<grids::Grid<T>> pG) {
     C0s.push_back(std::move(C0));
     if (pGrid.size() == 0) {
       weights.push_back(1.0);
@@ -123,11 +125,11 @@ public:
     return nLevels;
   }
 
-  Grid<T> &getGridForLevel(size_t level) {
+  grids::Grid<T> &getGridForLevel(size_t level) {
     return *pGrid[level];
   }
 
-  const Grid<T> &getGridForLevel(size_t level) const {
+  const grids::Grid<T> &getGridForLevel(size_t level) const {
     return *pGrid[level];
   }
 
@@ -171,13 +173,13 @@ public:
     return fields::ConstraintField<DataType>(*dynamic_cast<MultiLevelContextInformation<DataType, T>*>(this), std::move(dataOnLevels));
   }
 
-  void forEachLevel(std::function<void(Grid<T> &)> newLevelCallback) {
+  void forEachLevel(std::function<void(grids::Grid<T> &)> newLevelCallback) {
     for (size_t level = 0; level < nLevels; level++) {
       newLevelCallback(*pGrid[level]);
     }
   }
 
-  void forEachLevel(std::function<void(const Grid<T> &)> newLevelCallback) const {
+  void forEachLevel(std::function<void(const grids::Grid<T> &)> newLevelCallback) const {
     for (size_t level = 0; level < nLevels; level++) {
       newLevelCallback(*pGrid[level]);
     }
@@ -237,22 +239,22 @@ public:
       if (level > 0) {
         size_t factor = base_factor;
         while (pGrid[level]->dx * factor * 1.001 < pGrid[level - 1]->dx) {
-          cerr << "Adding virtual grid with effective resolution " << neff / factor << endl;
-          auto vGrid = std::make_shared<SubSampleGrid<T>>(pGrid[level], factor);
+          std::cerr << "Adding virtual grid with effective resolution " << neff / factor << std::endl;
+          auto vGrid = std::make_shared<grids::SubSampleGrid<T>>(pGrid[level], factor);
           newStack.addLevel(vector<T>(), vGrid);
           factor *= base_factor;
         }
       } else {
         size_t factor = base_factor;
         for (size_t i = 0; i < extra_lores; ++i) {
-          cerr << "Adding virtual grid with effective resolution " << neff / factor << endl;
-          auto vGrid = std::make_shared<SubSampleGrid<T>>(pGrid[level], factor);
+          std::cerr << "Adding virtual grid with effective resolution " << neff / factor << std::endl;
+          auto vGrid = std::make_shared<grids::SubSampleGrid<T>>(pGrid[level], factor);
           newStack.addLevel(vector<T>(), vGrid);
           factor *= base_factor;
         }
       }
 
-      cerr << "Adding real grid with resolution " << neff << endl;
+      std::cerr << "Adding real grid with resolution " << neff << std::endl;
       newStack.addLevel(C0s[level], pGrid[level]);
 
     }
@@ -339,8 +341,6 @@ public:
   }
 
 };
-
-// TODO: understand why this specialisation can't work for all complex<T>, only complex<double>?
 
 
 #endif

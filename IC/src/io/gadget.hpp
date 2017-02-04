@@ -9,6 +9,9 @@
 
 namespace io {
   namespace gadget {
+    using std::cerr;
+    using std::endl;
+
     template<typename GridDataType, typename FloatType=strip_complex<GridDataType>>
     void getParticleInfo(const particle::AbstractMultiLevelParticleGenerator<GridDataType> &generator,
                          particle::ParticleMapper<GridDataType> &mapper,
@@ -37,7 +40,7 @@ namespace io {
       ngas = mapper.size_gas();
       if (ngas > 0) gas_mass = mapper.beginGas(generator).getMass();
 
-      cout << "gas mass and number of particles in info " << gas_mass << " " << ngas << endl;
+      cerr << "gas mass and number of particles in info " << gas_mass << " " << ngas << endl;
 
 
       for (auto i = mapper.beginDm(generator); i != mapper.endDm(generator); ++i) {
@@ -46,7 +49,7 @@ namespace io {
         if (mass == min_mass) nhigh += 1;
         else if (mass == max_mass) nlow += 1;
         else {
-          cout << "else in mass " << min_mass << " " << max_mass << " " << mass << endl;
+          cerr << "else in mass " << min_mass << " " << max_mass << " " << mass << endl;
           continue;
         }
 
@@ -152,7 +155,7 @@ namespace io {
 
     template<typename FloatType>
     io_header_2 CreateGadget2Header(FloatType *masses, long *npart, double Boxlength,
-                                    const CosmologicalParameters<FloatType> &cosmology) {
+                                    const cosmology::CosmologicalParameters<FloatType> &cosmology) {
       //types 2,3,4 are currently unused (only one zoom level)
       io_header_2 header2;
       header2.npart[0] = npart[0]; //gas
@@ -196,7 +199,7 @@ namespace io {
 
     template<typename FloatType>
     io_header_3 CreateGadget3Header(FloatType *masses, long *npart, double Boxlength,
-                                    const CosmologicalParameters<FloatType> &cosmology) {
+                                    const cosmology::CosmologicalParameters<FloatType> &cosmology) {
 
       //types 2,3,4 are currently unused (only one zoom level)
 
@@ -583,9 +586,9 @@ int save_phases(complex<FloatType> *phk, FloatType* ph, complex<FloatType> *delt
     void save(const std::string &name, double Boxlength,
               particle::ParticleMapper<GridDataType> & mapper,
               particle::AbstractMultiLevelParticleGenerator<GridDataType> & generator,
-              const CosmologicalParameters<FloatType> &cosmology, int gadgetformat) {
+              const cosmology::CosmologicalParameters<FloatType> &cosmology, int gadgetformat) {
 
-      std::cout << "Hello from Gadget output!" << std::endl;
+      std::cerr << "Hello from Gadget output!" << std::endl;
 
       FloatType tot_mass = 0.0;
       FloatType min_mass, max_mass, gas_mass;
@@ -598,8 +601,8 @@ int save_phases(complex<FloatType> *phk, FloatType* ph, complex<FloatType> *delt
 
       getParticleInfo(generator, mapper, min_mass, max_mass, tot_mass, gas_mass, ngas, nlow, nhigh);
 
-      cout << "min and max particle mass : " << min_mass << " " << max_mass << endl;
-      cout << "particle numbers (gas, high, low) : " << ngas << " " << nhigh << " " << nlow << endl;
+      cerr << "min and max particle mass : " << min_mass << " " << max_mass << endl;
+      cerr << "particle numbers (gas, high, low) : " << ngas << " " << nhigh << " " << nlow << endl;
 
       FloatType *masses = (FloatType *) calloc(6, sizeof(FloatType));
       long *npart = (long *) calloc(6, sizeof(long));
@@ -664,7 +667,7 @@ int save_phases(complex<FloatType> *phk, FloatType* ph, complex<FloatType> *delt
       }
       my_fwrite(&dummy, sizeof(dummy), 1, fd); //end of position block
 
-      //cout<< "counter after DM: "<< counter << endl;
+      //cerr<< "counter after DM: "<< counter << endl;
 
       //gas particles velocities
       my_fwrite(&dummy, sizeof(dummy), 1, fd); //beginning of velocity block
@@ -682,7 +685,7 @@ int save_phases(complex<FloatType> *phk, FloatType* ph, complex<FloatType> *delt
       }
       my_fwrite(&dummy, sizeof(dummy), 1, fd); //end of velocity block
 
-      //cout<< "counter after DM vel: "<< counter << endl;
+      //cerr<< "counter after DM vel: "<< counter << endl;
 
       //particle IDs (one for each gas, high res and low res particle)
       dummy = sizeof(long) *
@@ -695,7 +698,7 @@ int save_phases(complex<FloatType> *phk, FloatType* ph, complex<FloatType> *delt
       }
       my_fwrite(&dummy, sizeof(dummy), 1, fd);
 
-      //cout<< "counter after IDs: "<< counter << endl;
+      //cerr<< "counter after IDs: "<< counter << endl;
 
       //IFF we want to save individual particle masses, they would go here, before the gas particle energies
 
@@ -717,7 +720,7 @@ int save_phases(complex<FloatType> *phk, FloatType* ph, complex<FloatType> *delt
       //     const FloatType mu    = (Tini>1.e4) ? 4.0/(8.-5.*YHe) : 4.0/(1.+3.*(1.-YHe));
       //     FloatType ceint = 1.3806e-16/1.6726e-24 * Tini * npol / mu / unitv / unitv;
 
-      //     cout << "gas internal energy " << ceint << endl;
+      //     cerr << "gas internal energy " << ceint << endl;
 
       //     for(auto i=pMapper->beginGas(); i!=pMapper->endGas(); ++i)
       //         my_fwrite(&ceint,sizeof(FloatType),1,fd);

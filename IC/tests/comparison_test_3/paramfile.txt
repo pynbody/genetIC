@@ -8,17 +8,18 @@
 Om  0.279
 Ol  0.721
 s8  0.817
-Boxl	64
 zin	99
-n       192
-output	1
 seed	8896131
-outname test_2
-
-
 camb	../camb_transfer_kmax40_z0.dat
+
+
+basegrid 64.0 192
+
+
+
 outdir	 ./
-gadgetformat 4
+outname test_2
+outformat 4
 
 
 IDfile constrtest.txt

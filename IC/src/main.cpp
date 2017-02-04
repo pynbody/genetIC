@@ -22,8 +22,8 @@
 
 #include "float_types.hpp"
 #include "src/numerics/vectormath.hpp"
-#include "fft.hpp"
-#include "cosmo.hpp"
+#include "src/numerics/fourier.hpp"
+#include "src/cosmology/parameters.hpp"
 #include "parser.hpp"
 #include "grid.hpp"
 #include "multilevelcontext.hpp"

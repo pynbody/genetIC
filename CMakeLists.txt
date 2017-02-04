@@ -6,9 +6,9 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14  -fopenmp -g -O0")
 set(SOURCE_FILES
         IC/src/utils.hpp
         IC/src/constraints/constraintapplicator.hpp
-        IC/src/cosmo.hpp
+        IC/src/cosmology/parameters.hpp
         IC/src/dummyic.hpp
-        IC/src/fft.hpp
+        IC/src/numerics/fourier.hpp
         IC/src/float_types.hpp
         IC/src/grid.hpp
         IC/src/ic.hpp
@@ -19,6 +19,7 @@ set(SOURCE_FILES
         IC/src/io/tipsy.hpp
         IC/src/main.cpp
         IC/src/coordinate.hpp
+        IC/src/cosmology/camb.hpp
         IC/src/particles/mapper.hpp
         IC/src/io/numpy.hpp
         IC/src/parser.hpp

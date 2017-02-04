@@ -3,60 +3,61 @@
 
 #include <type_traits>
 
-template<typename T>
-class Interpolator : std::enable_shared_from_this<Interpolator<T>> {
-  /** Spline interpolation object
-   *
-   * Wraps the GSL spline library
-   */
+namespace numerics {
 
-  // At present, we only have GSL interpolation which _requires_ double arguments
-  static_assert(std::is_same<T, double>::value, "Only support interpolation over doubles");
+  template<typename T>
+  class Interpolator : std::enable_shared_from_this<Interpolator<T>> {
+    /** Spline interpolation object
+     *
+     * Wraps the GSL spline library
+     */
 
-private:
-  gsl_interp_accel* acc;
-  gsl_spline* spline;
+    // At present, we only have GSL interpolation which _requires_ double arguments
+    static_assert(std::is_same<T, double>::value, "Only support interpolation over doubles");
 
-public:
-  Interpolator() {
-    acc = nullptr;
-    spline = nullptr;
-  }
+  private:
+    gsl_interp_accel *acc;
+    gsl_spline *spline;
 
-  Interpolator(std::vector<T> &x, std::vector<T> &y) : Interpolator() {
-    initialise(x,y);
-  }
+  public:
+    Interpolator() {
+      acc = nullptr;
+      spline = nullptr;
+    }
 
-  void initialise(std::vector<T> &x, std::vector<T> &y) {
-    assert(x.size()==y.size());
-    deinitialise();
-    acc = gsl_interp_accel_alloc();
-    spline = gsl_spline_alloc(gsl_interp_cspline, y.size());
-    gsl_spline_init(spline, x.data(), y.data(), x.size());
-  }
+    Interpolator(std::vector<T> &x, std::vector<T> &y) : Interpolator() {
+      initialise(x, y);
+    }
 
-  void deinitialise() {
-    if(spline!=nullptr)
-      gsl_spline_free(spline);
-    if(acc!=nullptr)
-      gsl_interp_accel_free(acc);
-    spline = nullptr;
-    acc = nullptr;
-  }
+    void initialise(std::vector<T> &x, std::vector<T> &y) {
+      assert(x.size() == y.size());
+      deinitialise();
+      acc = gsl_interp_accel_alloc();
+      spline = gsl_spline_alloc(gsl_interp_cspline, y.size());
+      gsl_spline_init(spline, x.data(), y.data(), x.size());
+    }
 
-  ~Interpolator() {
-    deinitialise();
-  }
+    void deinitialise() {
+      if (spline != nullptr)
+        gsl_spline_free(spline);
+      if (acc != nullptr)
+        gsl_interp_accel_free(acc);
+      spline = nullptr;
+      acc = nullptr;
+    }
 
-  T operator()(T x) const {
-    return gsl_spline_eval(spline, x, nullptr); // not able to pass accelerator as final argument because it is not thread-safe
-  }
+    ~Interpolator() {
+      deinitialise();
+    }
+
+    T operator()(T x) const {
+      return gsl_spline_eval(spline, x,
+                             nullptr); // not able to pass accelerator as final argument because it is not thread-safe
+    }
 
 
-
-
-
-};
+  };
+}
 
 #endif
 

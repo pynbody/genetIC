@@ -57,8 +57,8 @@ namespace particle {
 
     using MapType = ParticleMapper<GridDataType>;
     using MapPtrType = std::shared_ptr<MapType>;
-    using GridType = Grid<T>;
-    using ConstGridPtrType = std::shared_ptr<const Grid<T>>;
+    using GridType = grids::Grid<T>;
+    using ConstGridPtrType = std::shared_ptr<const grids::Grid<T>>;
     using DereferenceType = std::pair<ConstGridPtrType, size_t>;
 
     friend class ParticleMapper<GridDataType>;
@@ -253,9 +253,9 @@ namespace particle {
     using T = strip_complex<GridDataType>;
     using MapType = ParticleMapper<GridDataType>;
     using MapPtrType = std::shared_ptr<MapType>;
-    using GridType = Grid<T>;
-    using GridPtrType = std::shared_ptr<Grid<T>>;
-    using ConstGridPtrType = std::shared_ptr<const Grid<T>>;
+    using GridType = grids::Grid<T>;
+    using GridPtrType = std::shared_ptr<grids::Grid<T>>;
+    using ConstGridPtrType = std::shared_ptr<const grids::Grid<T>>;
     using iterator = MapperIterator<GridDataType>;
     using BaseGeneratorType = particle::AbstractMultiLevelParticleGenerator<GridDataType>;
 
@@ -461,14 +461,14 @@ namespace particle {
 
     void debugInfoForIterator(std::ostream &s, int n, const iterator *pIterator) const override {
       indent(s, n);
-      s << "i=" << pIterator->i << " into iterator for grid " << pGrid << endl;
+      s << "i=" << pIterator->i << " into iterator for grid " << pGrid<< endl;
     }
 
-    OneLevelParticleMapper(std::shared_ptr<Grid<T>> &pGrid) : pGrid(pGrid) {
+    OneLevelParticleMapper(std::shared_ptr<grids::Grid<T>> &pGrid) : pGrid(pGrid) {
 
     }
 
-    OneLevelParticleMapper(std::shared_ptr<Grid<T>> &&pGrid) : pGrid(pGrid) {
+    OneLevelParticleMapper(std::shared_ptr<grids::Grid<T>> &&pGrid) : pGrid(pGrid) {
 
     }
 
@@ -516,9 +516,9 @@ namespace particle {
       if (pGrid->pointsToAnyGrid(toGrids)) {
         GridPtrType newGrid;
         if (super)
-          newGrid = std::make_shared<SuperSampleGrid<T>>(this->pGrid, ratio);
+          newGrid = std::make_shared<grids::SuperSampleGrid<T>>(this->pGrid, ratio);
         else
-          newGrid = std::make_shared<SubSampleGrid<T>>(this->pGrid, ratio);
+          newGrid = std::make_shared<grids::SubSampleGrid<T>>(this->pGrid, ratio);
         return std::make_shared<OneLevelParticleMapper<GridDataType>>(newGrid);
       } else {
         return std::make_shared<OneLevelParticleMapper<GridDataType>>(this->pGrid);

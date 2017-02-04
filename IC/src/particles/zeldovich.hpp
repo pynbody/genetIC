@@ -7,14 +7,16 @@
 
 #include <complex>
 #include <src/io/numpy.hpp>
-#include "../cosmo.hpp"
+#include "src/cosmology/parameters.hpp"
 #include "../progress/progress.hpp"
 #include "src/field/field.hpp"
 #include "generator.hpp"
 #include "particle.hpp"
 
-template<typename T>
-struct CosmologicalParameters;
+namespace cosmology {
+  template<typename T>
+  struct CosmologicalParameters;
+}
 
 namespace particle {
 
@@ -29,7 +31,7 @@ namespace particle {
 
     T velocityToOffsetRatio, boxMass;
     TField &linearOverdensityField;
-    const CosmologicalParameters<T> &cosmology;
+    const cosmology::CosmologicalParameters<T> &cosmology;
     using ParticleGenerator<GridDataType>::grid;
 
     // The grid offsets after Zeldovich approximation is applied
@@ -72,17 +74,17 @@ namespace particle {
       auto &pField_k = linearOverdensityField.getDataVector();
 
       // copy three times to start assembling the vx, vy, vz fields
-      auto offsetX = std::make_shared<TField>(const_cast<Grid<T> &>(grid));
-      auto offsetY = std::make_shared<TField>(const_cast<Grid<T> &>(grid));
-      auto offsetZ = std::make_shared<TField>(const_cast<Grid<T> &>(grid));
+      auto offsetX = std::make_shared<TField>(const_cast<grids::Grid<T> &>(grid));
+      auto offsetY = std::make_shared<TField>(const_cast<grids::Grid<T> &>(grid));
+      auto offsetZ = std::make_shared<TField>(const_cast<grids::Grid<T> &>(grid));
 
       T kfft;
       size_t idx;
 
       const T kw = 2. * M_PI / grid.boxsize;
-      const int nyquist = fourier::getNyquistModeThatMustBeReal(grid);
+      const int nyquist = numerics::fourier::getNyquistModeThatMustBeReal(grid);
 
-      fourier::applyTransformationInFourierBasis<T>(linearOverdensityField,
+      numerics::fourier::applyTransformationInFourierBasis<T>(linearOverdensityField,
       [kw, nyquist](complex<T> inputVal, int iix, int iiy, int iiz) -> std::tuple<complex<T>, complex<T>, complex<T>> {
         complex<T> result_x;
         T kfft = (iix * iix + iiy * iiy + iiz * iiz);
@@ -124,7 +126,7 @@ namespace particle {
 
 
     ZeldovichParticleGenerator(TField &linearOverdensityField,
-                               const CosmologicalParameters<T> &cosmology) :
+                               const cosmology::CosmologicalParameters<T> &cosmology) :
       linearOverdensityField(linearOverdensityField),
       cosmology(cosmology),
       ParticleGenerator<GridDataType>(linearOverdensityField.getGrid())
@@ -144,13 +146,13 @@ namespace particle {
       pOff_z->addFieldFromDifferentGrid(*source.pOff_z);
     }
 
-    void addFieldFromDifferentGridWithFilter(ZeldovichParticleGenerator &source, const Filter<T> &filter) {
+    void addFieldFromDifferentGridWithFilter(ZeldovichParticleGenerator &source, const filters::Filter<T> &filter) {
       pOff_x->addFieldFromDifferentGridWithFilter(*source.pOff_x, filter);
       pOff_y->addFieldFromDifferentGridWithFilter(*source.pOff_y, filter);
       pOff_z->addFieldFromDifferentGridWithFilter(*source.pOff_z, filter);
     }
 
-    void applyFilter(const Filter<T> &filter) {
+    void applyFilter(const filters::Filter<T> &filter) {
       pOff_x->applyFilter(filter);
       pOff_y->applyFilter(filter);
       pOff_z->applyFilter(filter);
@@ -162,11 +164,11 @@ namespace particle {
       pOff_z->toReal();
     }
 
-    virtual T getMass(const Grid<T> & onGrid) const override {
+    virtual T getMass(const grids::Grid<T> & onGrid) const override {
       return boxMass*onGrid.cellMassFrac;
     }
 
-    virtual T getEps(const Grid<T> & onGrid) const override  {
+    virtual T getEps(const grids::Grid<T> & onGrid) const override  {
       return onGrid.dx * onGrid.cellSofteningScale * 0.01075; // <-- arbitrary to coincide with normal UW resolution. TODO: Find a way to make this flexible.
     }
 
@@ -178,7 +180,7 @@ namespace particle {
       return std::make_tuple(pOff_x, pOff_y, pOff_z);
     }
 
-    virtual particle::Particle<T> getParticleNoOffset(const Grid<T> &onGrid, size_t id) const override {
+    virtual particle::Particle<T> getParticleNoOffset(const grids::Grid<T> &onGrid, size_t id) const override {
       particle::Particle<T> particle;
 
       assert(!pOff_x->isFourier());
@@ -197,7 +199,7 @@ namespace particle {
       return particle;
     }
 
-    virtual particle::Particle<T> getParticleNoWrap(const Grid<T> &onGrid, size_t id) const override {
+    virtual particle::Particle<T> getParticleNoWrap(const grids::Grid<T> &onGrid, size_t id) const override {
       auto particle = getParticleNoOffset(onGrid, id);
       auto centroid = onGrid.getCellCentroid(id);
       particle.pos+=centroid;

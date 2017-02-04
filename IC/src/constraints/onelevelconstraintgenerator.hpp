@@ -10,251 +10,197 @@
 #include <vector>
 #include <map>
 #include "src/grid.hpp"
-#include "src/cosmo.hpp"
+#include "src/cosmology/parameters.hpp"
 
-template<typename DataType, typename FloatType=strip_complex<DataType>>
-class ConstraintCalculator {
-protected:
-  const Grid<FloatType> &grid;
-  std::vector<DataType> &output;
-  std::vector<size_t> particleArray;
-  const CosmologicalParameters<FloatType> &cosmology;
-  FloatType x0 = 0., y0 = 0., z0 = 0.; //centre coordinates needed for angmom; set in getCentre()
+namespace constraints {
 
-  void cen_deriv4_alpha(long index, int direc, FloatType x0, FloatType y0, FloatType z0) {   //4th order central difference
 
-    FloatType xp = 0., yp = 0., zp = 0.;
-    std::tie(xp,yp,zp) = grid.getCellCentroid(index);
-
-    xp = grid.getWrappedDelta(xp, x0);
-    yp = grid.getWrappedDelta(yp, y0);
-    zp = grid.getWrappedDelta(zp, z0);
-
-    FloatType c[3] = {0, 0, 0};
-    if (direc == 0) {
-      c[2] = yp;
-      c[1] = -zp;
-    }
-    else if (direc == 1) {
-      c[0] = zp;
-      c[2] = -xp;
-    }
-    else if (direc == 2) {
-      c[1] = xp;
-      c[0] = -yp;
-    }
-    else if (direc == 3) {
-      FloatType rp = std::sqrt((xp * xp) + (yp * yp) + (zp * zp));
-      if (rp != 0) {
-        c[0] = xp / rp;
-        c[1] = yp / rp;
-        c[2] = zp / rp;
-      }
-    } // radial velocity
-
-    else {
-      cerr << "Wrong value for parameter 'direc' in function 'cen_deriv4_alpha'." << endl;
-      exit(1);
-    }
-
-    for (int di = 0; di < 3; di++) {
-      long ind_p1, ind_m1, ind_p2, ind_m2;
-      int step1[3] = {0, 0, 0};
-      int neg_step1[3] = {0, 0, 0};
-      step1[di] = 1;
-      neg_step1[di] = -1;
-
-      // N.B. can't wrap - might be on subgrid -> we do it anyway! this will likely break with zoom-in TODO
-      //ind_m1=grid.findNextIndNoWrap(index, neg_step1);
-      //ind_p1=grid.findNextIndNoWrap(index, step1);
-      //ind_m2=grid.findNextIndNoWrap(ind_m1, neg_step1);
-      //ind_p2=grid.findNextIndNoWrap(ind_p1, step1);
-
-      ind_m1 = grid.getIndexFromIndexAndStep(index, neg_step1);
-      ind_p1 = grid.getIndexFromIndexAndStep(index, step1);
-      ind_m2 = grid.getIndexFromIndexAndStep(ind_m1, neg_step1);
-      ind_p2 = grid.getIndexFromIndexAndStep(ind_p1, step1);
-
-      FloatType a = -1. / 12. / grid.dx, b = 2. / 3. / grid.dx;  //the signs here so that L ~ - Nabla Phi
-
-      output[ind_m2] += (c[di] * a);
-      output[ind_m1] += (c[di] * b);
-      output[ind_p1] += (-c[di] * b);
-      output[ind_p2] += (-c[di] * a);
-    }
-
-  }
-
-public:
-  ConstraintCalculator(const Grid<FloatType> &grid, std::vector<DataType> &output,
-                       const CosmologicalParameters<FloatType> &cosmology)
-    : grid(grid), output(output), cosmology(cosmology) {
-    grid.getFlaggedCells(particleArray);
-    output.resize(grid.size3);
-    getCentre();
-  }
-
-  void getCentre() {
-
-    FloatType xa, ya, za, xb, yb, zb, x0 = 0., y0 = 0., z0 = 0.;
+  template<typename DataType, typename FloatType=strip_complex<DataType>>
+  class ConstraintCalculator {
+  protected:
+    const grids::Grid<FloatType> &grid;
+    fields::Field<DataType, FloatType> outputField;
+    std::vector<FloatType> &outputData;
 
     std::vector<size_t> particleArray;
-    grid.getFlaggedCells(particleArray);
+    const cosmology::CosmologicalParameters<FloatType> &cosmology;
+    FloatType x0 = 0., y0 = 0., z0 = 0.; //centre coordinates needed for angmom; set in getCentre()
 
-    std::tie(xa,ya,za) = grid.getCellCentroid(particleArray[0]);
+    void centralDifference4thOrder(long index, int direc, FloatType x0, FloatType y0, FloatType z0) {
 
-    for (size_t i = 0; i < particleArray.size(); i++) {
-      std::tie(xb,yb,zb) = grid.getCellCentroid(particleArray[i]);
+      FloatType xp = 0., yp = 0., zp = 0.;
+      std::tie(xp, yp, zp) = grid.getCellCentroid(index);
 
-      x0 += grid.getWrappedDelta(xb, xa);
-      y0 += grid.getWrappedDelta(yb, ya);
-      z0 += grid.getWrappedDelta(zb, za);
+      xp = grid.getWrappedDelta(xp, x0);
+      yp = grid.getWrappedDelta(yp, y0);
+      zp = grid.getWrappedDelta(zp, z0);
+
+      FloatType c[3] = {0, 0, 0};
+      if (direc == 0) {
+        c[2] = yp;
+        c[1] = -zp;
+      } else if (direc == 1) {
+        c[0] = zp;
+        c[2] = -xp;
+      } else if (direc == 2) {
+        c[1] = xp;
+        c[0] = -yp;
+      } else if (direc == 3) {
+        FloatType rp = std::sqrt((xp * xp) + (yp * yp) + (zp * zp));
+        if (rp != 0) {
+          c[0] = xp / rp;
+          c[1] = yp / rp;
+          c[2] = zp / rp;
+        }
+      } // radial velocity
+
+      else {
+        throw std::runtime_error("Wrong value for parameter 'direc' in function 'cen_deriv4_alpha'");
+      }
+
+      for (int di = 0; di < 3; di++) {
+        long ind_p1, ind_m1, ind_p2, ind_m2;
+        int step1[3] = {0, 0, 0};
+        int neg_step1[3] = {0, 0, 0};
+        step1[di] = 1;
+        neg_step1[di] = -1;
+
+        // N.B. can't wrap - might be on subgrid -> we do it anyway! this will likely break with zoom-in TODO
+        //ind_m1=grid.findNextIndNoWrap(index, neg_step1);
+        //ind_p1=grid.findNextIndNoWrap(index, step1);
+        //ind_m2=grid.findNextIndNoWrap(ind_m1, neg_step1);
+        //ind_p2=grid.findNextIndNoWrap(ind_p1, step1);
+
+        ind_m1 = grid.getIndexFromIndexAndStep(index, neg_step1);
+        ind_p1 = grid.getIndexFromIndexAndStep(index, step1);
+        ind_m2 = grid.getIndexFromIndexAndStep(ind_m1, neg_step1);
+        ind_p2 = grid.getIndexFromIndexAndStep(ind_p1, step1);
+
+        FloatType a = -1. / 12. / grid.dx, b = 2. / 3. / grid.dx;  //the signs here so that L ~ - Nabla Phi
+
+        outputData[ind_m2] += (c[di] * a);
+        outputData[ind_m1] += (c[di] * b);
+        outputData[ind_p1] += (-c[di] * b);
+        outputData[ind_p2] += (-c[di] * a);
+      }
+
     }
 
-    x0 /= particleArray.size();
-    y0 /= particleArray.size();
-    z0 /= particleArray.size();
-    x0 += xa;
-    y0 += ya;
-    z0 += za;
+  public:
+    ConstraintCalculator(const grids::Grid<FloatType> &grid,
+                         const cosmology::CosmologicalParameters<FloatType> &cosmology)
+      : grid(grid), outputField(grid, false),
+        outputData(outputField.getDataVector()),
+        cosmology(cosmology) {
+      grid.getFlaggedCells(particleArray);
+      getCentre();
+    }
 
-    this->x0 = x0;
-    this->y0 = y0;
-    this->z0 = z0;
+    void getCentre() {
+
+      FloatType xa, ya, za, xb, yb, zb, x0 = 0., y0 = 0., z0 = 0.;
+
+      std::vector<size_t> particleArray;
+      grid.getFlaggedCells(particleArray);
+
+      std::tie(xa, ya, za) = grid.getCellCentroid(particleArray[0]);
+
+      for (size_t i = 0; i < particleArray.size(); i++) {
+        std::tie(xb, yb, zb) = grid.getCellCentroid(particleArray[i]);
+
+        x0 += grid.getWrappedDelta(xb, xa);
+        y0 += grid.getWrappedDelta(yb, ya);
+        z0 += grid.getWrappedDelta(zb, za);
+      }
+
+      x0 /= particleArray.size();
+      y0 /= particleArray.size();
+      z0 /= particleArray.size();
+      x0 += xa;
+      y0 += ya;
+      z0 += za;
+
+      this->x0 = x0;
+      this->y0 = y0;
+      this->z0 = z0;
+
+    }
+
+    void overdensity() {
+
+      FloatType w = 1.0 / particleArray.size();
+
+      for (size_t i = 0; i < grid.size3; ++i) {
+        outputData[i] = 0;
+      }
+
+      for (size_t i = 0; i < particleArray.size(); i++) {
+        outputData[particleArray[i]] += w;
+      }
+
+      outputField.toFourier();
+    }
+
+    void phi() {
+      overdensity();
+      densityToPotential(outputField, cosmology);
+    }
+
+    void angmom(int direction) {
+
+      if (direction < 0 || direction > 2)
+        throw std::runtime_error("Angular momentum direction must be 0 (x), 1 (y) or 2 (z)");
+
+      FloatType x0, y0, z0;
+      x0 = this->x0;
+      y0 = this->y0;
+      z0 = this->z0;
+
+      for (size_t i = 0; i < particleArray.size(); i++) {
+        centralDifference4thOrder(particleArray[i], direction, x0, y0, z0);
+      }
+
+      outputField.toFourier();
+
+      // The constraint as derived is on the potential. By considering
+      // unitarity of FT, we can FT the constraint to get the constraint
+      // on the density.
+      densityToPotential(outputField, cosmology);
+
+    }
+
+    fields::Field<DataType, FloatType> getResult() {
+      return std::move(outputField);
+    };
+
+  };
+
+
+  template<typename DataType, typename FloatType=strip_complex<DataType>>
+  fields::Field<DataType, FloatType> calcConstraint(std::string name, const grids::Grid<FloatType> &grid,
+                                                    const cosmology::CosmologicalParameters<FloatType> &cosmology) {
+    typedef ConstraintCalculator<DataType> CC;
+
+    CC calc(grid, cosmology);
+
+    std::transform(name.begin(), name.end(), name.begin(), ::tolower);
+
+    if (name == "overdensity") {
+      calc.overdensity();
+    } else if (name == "phi") {
+      calc.phi();
+    } else if (name == "lx") {
+      calc.angmom(0);
+    } else if (name == "ly") {
+      calc.angmom(1);
+    } else if (name == "lz") {
+      calc.angmom(2);
+    } else {
+      throw std::runtime_error("Unknown constraint type " + name);
+    }
+    return calc.getResult();
 
   }
-
-  void overdensity() {
-
-    FloatType w = 1.0 / particleArray.size();
-
-    for (size_t i = 0; i < grid.size3; ++i) {
-      output[i] = 0;
-    }
-
-    for (size_t i = 0; i < particleArray.size(); i++) {
-      output[particleArray[i]] += w;
-    }
-
-    fourier::fft(output.data(), output.data(), grid.size, 1);
-  }
-
-  void phi() {
-
-    FloatType w = 1.0 / particleArray.size();
-
-
-    for (size_t i = 0; i < grid.size3; ++i) {
-      output[i] = 0;
-    }
-
-    for (size_t i = 0; i < particleArray.size(); i++) {
-      output[particleArray[i]] += w;
-    }
-
-    fourier::fft(output.data(), output.data(), grid.size, 1);
-    poiss(output.data(), output.data(), grid.size, grid.boxsize, cosmology.scalefactor, cosmology.OmegaM0);
-  }
-
-//OLD angular momentum class, temporary fix below (because I couldn't figure out how to pass the direction):
-  void angmom(int direction) {
-    throw std::runtime_error("Angmom cannot run - x0,y0,z0 coordinates not yet passed to new constraint class");
-
-    for (size_t i = 0; i < particleArray.size(); i++) {
-      cen_deriv4_alpha(particleArray[i], direction, x0, y0, z0);
-    }
-
-    fourier::fft(output.data(), output.data(), grid.size, 1);
-    // The constraint as derived is on the potential. By considering
-    // unitarity of FT, we can FT the constraint to get the constraint
-    // on the density.
-    poiss(output.data(), output.data(), grid.size, grid.boxsize,
-          cosmology.scalefactor, cosmology.OmegaM0);
-
-  }
-
-  void angmom0() { //L_x
-
-    FloatType x0, y0, z0;
-    x0 = this->x0;
-    y0 = this->y0;
-    z0 = this->z0;
-
-    for (size_t i = 0; i < particleArray.size(); i++) {
-      cen_deriv4_alpha(particleArray[i], 0, x0, y0, z0);
-    }
-
-    fourier::fft(output.data(), output.data(), grid.size, 1);
-    // The constraint as derived is on the potential. By considering
-    // unitarity of FT, we can FT the constraint to get the constraint
-    // on the density.
-    poiss(output.data(), output.data(), grid.size, grid.boxsize,
-          cosmology.scalefactor, cosmology.OmegaM0);
-
-  }
-
-  void angmom1() { //L_y
-
-    FloatType x0, y0, z0;
-    x0 = this->x0;
-    y0 = this->y0;
-    z0 = this->z0;
-
-    for (size_t i = 0; i < particleArray.size(); i++) {
-      cen_deriv4_alpha(particleArray[i], 1, x0, y0, z0);
-    }
-
-    fourier::fft(output.data(), output.data(), grid.size, 1);
-    // The constraint as derived is on the potential. By considering
-    // unitarity of FT, we can FT the constraint to get the constraint
-    // on the density.
-    poiss(output.data(), output.data(), grid.size, grid.boxsize,
-          cosmology.scalefactor, cosmology.OmegaM0);
-
-  }
-
-  void angmom2() { //L_z
-
-    FloatType x0, y0, z0;
-    x0 = this->x0;
-    y0 = this->y0;
-    z0 = this->z0;
-
-    for (size_t i = 0; i < particleArray.size(); i++) {
-      cen_deriv4_alpha(particleArray[i], 2, x0, y0, z0);
-    }
-
-    fourier::fft(output.data(), output.data(), grid.size, 1);
-    // The constraint as derived is on the potential. By considering
-    // unitarity of FT, we can FT the constraint to get the constraint
-    // on the density.
-    poiss(output.data(), output.data(), grid.size, grid.boxsize,
-          cosmology.scalefactor, cosmology.OmegaM0);
-
-  }
-};
-
-
-template<typename DataType, typename FloatType=strip_complex<DataType>>
-void calcConstraint(const std::string &name, const Grid<FloatType> &grid,
-                    const CosmologicalParameters<FloatType> &cosmology,
-                    std::vector<DataType> &output) {
-  typedef ConstraintCalculator<DataType> CC;
-
-  CC calc(grid, output, cosmology);
-
-
-  InstanceDispatch<CC, void> dispatch(calc);
-
-  dispatch.add_class_route("overdensity", &CC::overdensity);
-  dispatch.add_class_route("phi", &CC::phi);
-  //temporary fix to calculate angular momentum (by Nina): (how to pass the direction here?)
-  dispatch.add_class_route("L0", &CC::angmom0);
-  dispatch.add_class_route("L1", &CC::angmom1);
-  dispatch.add_class_route("L2", &CC::angmom2);
-
-  dispatch.run(name);
-
 }
 
 

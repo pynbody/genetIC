@@ -14,12 +14,12 @@ public:
 
   }
 
-  void addLevelToContext(const CAMB<T> &spectrum, T gridSize, size_t nside, const Coordinate<T> & offset={0,0,0}) override {
+  void addLevelToContext(const cosmology::CAMB<T> &spectrum, T gridSize, size_t nside, const Coordinate<T> & offset={0,0,0}) override {
     size_t newLevel = this->multiLevelContext.getNumLevels();
     if(pUnderlying->multiLevelContext.getNumLevels()<=newLevel)
       throw std::runtime_error("Trying to match particles between incompatible simulation setups (too many levels)");
 
-    Grid<T> & underlyingGrid = pUnderlying->multiLevelContext.getGridForLevel(newLevel);
+    grids::Grid<T> & underlyingGrid = pUnderlying->multiLevelContext.getGridForLevel(newLevel);
     if(underlyingGrid.size!=nside)
       throw std::runtime_error("Trying to match particles between incompatible simulation setups (wrong grid n)");
 

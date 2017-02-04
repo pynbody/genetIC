@@ -13,7 +13,7 @@ namespace io {
     std::ifstream f(filename);
     if (!f.is_open())
       throw std::runtime_error("File " + filename + " not found");
-    string line;
+    std::string line;
     while (!f.eof()) {
       T temp;
       if (f >> temp)

@@ -8,13 +8,19 @@
 #include <memory>
 #include <vector>
 #include <cassert>
-#include "src/grid.hpp"
+
+namespace grids {
+  template<typename T>
+  class Grid;
+}
 
 namespace fields {
   template<typename DataType, typename CoordinateType=strip_complex<DataType>>
   class Field : public std::enable_shared_from_this<Field<DataType, CoordinateType>> {
+    /* Class to manage and evaluate a field defined on a single grid.  */
+
   public:
-    using TGrid = const Grid<CoordinateType>;
+    using TGrid = const grids::Grid<CoordinateType>;
     using TPtrGrid = std::shared_ptr<TGrid>;
     using TData = std::vector<DataType>;
     using value_type = DataType;
@@ -26,6 +32,10 @@ namespace fields {
     bool fourier;
 
   public:
+    Field(Field<DataType, CoordinateType> && move) : pGrid(move.pGrid), data(std::move(move.data)),
+                                                     fourier(move.fourier) {
+
+    }
 
     Field(TGrid &grid, TData &&dataVector, bool fourier = true) : pGrid(grid.shared_from_this()),
                                                                   data(std::move(dataVector)), fourier(fourier) {
@@ -77,11 +87,6 @@ namespace fields {
 
     operator const std::vector<DataType> &() const {
       return getDataVector();
-    }
-
-    void operator*=(DataType x) {
-      for (size_t i = 0; i < data.size(); ++i)
-        data[i] *= x;
     }
 
     /*
@@ -191,17 +196,17 @@ namespace fields {
 
     void toFourier() {
       if (fourier) return;
-      fourier::fft(data.data(), data.data(), this->pGrid->size, 1);
+      numerics::fourier::fft(data.data(), data.data(), this->pGrid->size, 1);
       fourier = true;
     }
 
     void toReal() {
       if (!fourier) return;
-      fourier::fft(data.data(), data.data(), this->pGrid->size, -1);
+      numerics::fourier::fft(data.data(), data.data(), this->pGrid->size, -1);
       fourier = false;
     }
 
-    void applyFilter(const Filter<CoordinateType> &filter) {
+    void applyFilter(const filters::Filter<CoordinateType> &filter) {
       toFourier();
       size_t size3 = pGrid->size3;
 
@@ -212,9 +217,6 @@ namespace fields {
 
     }
 
-    ComplexType evaluateFourierMode(Coordinate<int> kcoords) const {
-      return data[pGrid->getCellIndex(kcoords)];
-    }
 
     void addFieldFromDifferentGrid(const Field<DataType, CoordinateType> &source) {
       assert(!source.isFourier());
@@ -239,7 +241,7 @@ namespace fields {
     // artefacts but (presumably?) fewer artefacts from the grid-level window function
 
     void addFieldFromDifferentGridWithFilter(Field<DataType, CoordinateType> & source,
-                                             const Filter<CoordinateType> & filter) {
+                                             const filters::Filter<CoordinateType> & filter) {
 
 
       Field<DataType, CoordinateType> temporaryField(source);
@@ -262,7 +264,7 @@ namespace fields {
 #else
 
     void addFieldFromDifferentGridWithFilter(Field<DataType, CoordinateType> &source,
-                                             const Filter<CoordinateType> &filter) {
+                                             const filters::Filter<CoordinateType> &filter) {
 
       source.toReal();
       Field<DataType, CoordinateType> temporaryField(getGrid(), false);

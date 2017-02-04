@@ -5,7 +5,7 @@
 #include <fstream>
 #include <cmath>
 #include "../multilevelcontext.hpp"
-#include "../cosmo.hpp"
+#include "src/cosmology/parameters.hpp"
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <list>
@@ -13,6 +13,8 @@
 
 namespace io {
   namespace grafic {
+
+    using std::ofstream;
 
     struct io_header_grafic {
       int nx, ny, nz;
@@ -28,7 +30,7 @@ namespace io {
       std::string outputFilename;
       MultiLevelContextInformation<DataType> context;
       std::shared_ptr<particle::AbstractMultiLevelParticleGenerator<DataType>> generator;
-      const CosmologicalParameters<T> &cosmology;
+      const cosmology::CosmologicalParameters<T> &cosmology;
 
       T lengthFactor;
       T velFactor;
@@ -38,7 +40,7 @@ namespace io {
       GraficOutput(const std::string & fname,
                    MultiLevelContextInformation<DataType> & levelContext,
                    particle::AbstractMultiLevelParticleGenerator<DataType> &particleGenerator,
-                   const CosmologicalParameters<T> &cosmology):
+                   const cosmology::CosmologicalParameters<T> &cosmology):
         outputFilename(fname),
         generator(particleGenerator.shared_from_this()),
         cosmology(cosmology)
@@ -50,16 +52,16 @@ namespace io {
 
       void write() {
         iordOffset=0;
-        context.forEachLevel([&](const Grid<T> & targetGrid) {
+        context.forEachLevel([&](const grids::Grid<T> & targetGrid) {
           writeGrid(targetGrid);
         });
       }
 
     protected:
 
-      void writeGrid(const Grid<T> & targetGrid) {
+      void writeGrid(const grids::Grid<T> & targetGrid) {
         auto & gridGenerator = generator->getGeneratorForGrid(targetGrid);
-        const Grid<T> & baseGrid = context.getGridForLevel(0);
+        const grids::Grid<T> & baseGrid = context.getGridForLevel(0);
         size_t effective_size = getRatioAndAssertPositiveInteger(baseGrid.dx * baseGrid.size, targetGrid.dx);
 	      progress::ProgressBar pb("write grid "+std::to_string(effective_size), targetGrid.size);
 
@@ -76,7 +78,7 @@ namespace io {
 
 
         for(auto filename_i: filenames) {
-          files.emplace_back(thisGridFilename+"/"+filename_i,  ios::binary);
+          files.emplace_back(thisGridFilename+"/"+filename_i,  std::ios::binary);
           writeHeaderForGrid(files.back(), targetGrid);
         }
 
@@ -120,7 +122,7 @@ namespace io {
         }
       }
 
-      void writeHeaderForGrid(std::ofstream &outFile, const Grid<T> &targetGrid) {
+      void writeHeaderForGrid(std::ofstream &outFile, const grids::Grid<T> &targetGrid) {
         io_header_grafic header = getHeaderForGrid(targetGrid);
         int header_length = static_cast<int>(sizeof(io_header_grafic));
         outFile.write((char*)(&header_length), sizeof(int));
@@ -128,7 +130,7 @@ namespace io {
         outFile.write((char*)(&header_length), sizeof(int));
       }
 
-      io_header_grafic getHeaderForGrid(const Grid<T> &targetGrid) const {
+      io_header_grafic getHeaderForGrid(const grids::Grid<T> &targetGrid) const {
         io_header_grafic header;
         header.nx = header.ny = header.nz = targetGrid.size;
         header.dx = targetGrid.dx * lengthFactor;
@@ -148,7 +150,7 @@ namespace io {
     void save(const std::string & filename,
               particle::AbstractMultiLevelParticleGenerator<DataType> &generator,
               MultiLevelContextInformation<DataType> &context,
-              const CosmologicalParameters<T> &cosmology) {
+              const cosmology::CosmologicalParameters<T> &cosmology) {
       GraficOutput<DataType> output(filename,context,
                              generator, cosmology);
       output.write();

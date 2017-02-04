@@ -16,6 +16,7 @@ namespace fields {
 
   template<typename DataType>
   class RandomFieldGenerator {
+    /* This class handles drawing random white noise across all grids in a multi-level field. */
   protected:
     using FloatType=  strip_complex<DataType>;
 
@@ -87,45 +88,52 @@ namespace fields {
       FloatType b = norm * gsl_ran_gaussian_ziggurat(randomState, 1.);
 
       if (reverseRandomDrawOrder)
-        fourier::setFourierCoefficient(field, k1, k2, k3, b, a);
+        numerics::fourier::setFourierCoefficient(field, k1, k2, k3, b, a);
       else
-        fourier::setFourierCoefficient(field, k1, k2, k3, a, b);
+        numerics::fourier::setFourierCoefficient(field, k1, k2, k3, a, b);
 
     }
 
 
-    void drawRandomForSpecifiedGrid(const Grid<FloatType> &g, RefFieldType pField_k) {
+    void drawRandomForSpecifiedGrid(const grids::Grid<FloatType> &g, RefFieldType pField_k) {
+      /* Draw random white noise in real space.
+       *
+       *  Kept for historical compatibility, even though the recommended approach is
+       * to seed in Fourier space (routine drawRandomForSpecifiedGridFourier, accessed using command
+       * seedfourier in the paramfile)
+       *
+       */
       size_t nPartTotal = g.size3;
 
       FloatType sigma = sqrt((FloatType) (nPartTotal));
 
-      cerr << "Drawing random numbers...";
+      std::cerr << "Drawing random numbers...";
 
       // N.B. DO NOT PARALLELIZE this loop - want things to be done in a reliable order
       for (size_t i = 0; i < nPartTotal; i++) {
         pField_k[i] = gsl_ran_gaussian_ziggurat(randomState, 1.) * sigma;
       }
 
-      // this FFT is kept for historical compatibility, even though it could be made
-      // unnecessary by picking random phases directly in fourier space
-      fourier::fft(pField_k, pField_k, 1);
+
+      numerics::fourier::fft(pField_k, pField_k, 1);
 
       set_zero(pField_k[0]);
 
-      cerr << "done" << endl;
+      std::cerr << "done" << std::endl;
     }
 
     void drawRandomForSpecifiedGridFourier(Field<DataType> &field) {
+      /* Draw random white noise in Fourier space. */
       std::vector<DataType> &vec = field.getDataVector();
 
       std::fill(vec.begin(), vec.end(), DataType(0));
 
-      const Grid<FloatType> &g = field.getGrid();
+      const grids::Grid<FloatType> &g = field.getGrid();
 
       progress::ProgressBar pb("");
       FloatType sigma = sqrt((FloatType) (g.size3));
 
-      cerr << "Drawing random numbers in fourier space..." << endl;
+      std::cerr << "Drawing random numbers in fourier space..." << std::endl;
       int ks, k1, k2;
 
       sigma /= sqrt(2.0);

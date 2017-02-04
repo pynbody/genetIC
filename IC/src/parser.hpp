@@ -95,10 +95,11 @@ private:
     if (input_stream.eof())
       throw DispatchError("Insufficient arugments (expected 2, got 0)");
     T1 t1;
+    input_stream >> t1;
     if (input_stream.eof())
       throw DispatchError("Insufficient arugments (expected 2, got 1)");
     T2 t2;
-    input_stream >> t1 >> t2;
+    input_stream >> t2;
     consume_comments(input_stream);
     if (output_stream != nullptr)
       (*output_stream) << t1 << " " << t2 << std::endl;
@@ -113,13 +114,15 @@ private:
     if (input_stream.eof())
       throw DispatchError("Insufficient arugments (expected 3, got 0)");
     T1 t1;
+    input_stream >> t1;
     if (input_stream.eof())
       throw DispatchError("Insufficient arugments (expected 3, got 1)");
     T2 t2;
+    input_stream >> t2;
     if (input_stream.eof())
       throw DispatchError("Insufficient arugments (expected 3, got 2)");
     T3 t3;
-    input_stream >> t1 >> t2 >> t3;
+    input_stream >> t3;
     consume_comments(input_stream);
     if (output_stream != nullptr)
       (*output_stream) << t1 << " " << t2 << " " << t3 << std::endl;

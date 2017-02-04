@@ -6,7 +6,7 @@
 #include <limits>
 
 #include "particles/mapper.hpp"
-#include "cosmo.hpp"
+#include "src/cosmology/parameters.hpp"
 
 
 #ifdef HAVE_HDF5
@@ -16,9 +16,10 @@ hid_t hdf_double = H5Tcopy (H5T_NATIVE_DOUBLE);
 
 // #endif
 
-template<typename FloatType>
-struct CosmologicalParameters;
-
+namespace cosmology {
+  template<typename FloatType>
+  struct CosmologicalParameters;
+}
 
 #include "io/input.hpp"
 #include "io/gadget.hpp"

@@ -25,7 +25,7 @@ namespace io {
                              particle::ParticleMapper<GridType> & mapper,
                              particle::AbstractMultiLevelParticleGenerator<GridType> & generator,
                              fields::MultiLevelField<GridType> &field) {
-      ofstream outfile(filename.c_str(), ofstream::binary);
+      std::ofstream outfile(filename.c_str(), std::ofstream::binary);
       int lengthField = mapper.size();
       outfile.write(reinterpret_cast<char *>(&lengthField), 4);
 
@@ -48,12 +48,12 @@ namespace io {
       };
 
       template<typename T>
-      void initialise(dark &p, const CosmologicalParameters<T> &cosmo) {
+      void initialise(dark &p, const cosmology::CosmologicalParameters<T> &cosmo) {
         p.phi = 0.0;
       }
 
       template<typename T>
-      void initialise(gas &p, const CosmologicalParameters<T> &cosmo) {
+      void initialise(gas &p, const cosmology::CosmologicalParameters<T> &cosmo) {
         p.temp = cosmo.TCMB / cosmo.scalefactor;
         p.metals = 0.0;
         p.rho = 0.0;
@@ -65,13 +65,13 @@ namespace io {
     class TipsyOutput {
     protected:
       FILE *fd;
-      ofstream photogenic_file;
+      std::ofstream photogenic_file;
       size_t iord;
       double pos_factor, vel_factor, mass_factor, min_mass, max_mass;
       double boxLength;
       const particle::AbstractMultiLevelParticleGenerator<GridDataType> &generator;
-      shared_ptr<particle::ParticleMapper<GridDataType>> pMapper;
-      const CosmologicalParameters<FloatType> &cosmology;
+      std::shared_ptr<particle::ParticleMapper<GridDataType>> pMapper;
+      const cosmology::CosmologicalParameters<FloatType> &cosmology;
 
 
       template<typename ParticleType>
@@ -107,7 +107,7 @@ namespace io {
 #else
           if(thisParticle.mass==min_mass)
 #endif
-            photogenic_file << iord << endl;
+            photogenic_file << iord << std::endl;
 
           ++iord;
         }
@@ -158,7 +158,7 @@ namespace io {
           fwrite(&p, sizeof(ParticleType), 1, fd);
 
           if (mass == min_mass) {
-            photogenic_file << iord << endl;
+            photogenic_file << iord << std::endl;
           }
 
           ++iord;
@@ -170,8 +170,8 @@ namespace io {
 
       TipsyOutput(double boxLength,
                   const particle::AbstractMultiLevelParticleGenerator<GridDataType> &generator,
-                  shared_ptr<particle::ParticleMapper<GridDataType>> pMapper,
-                  const CosmologicalParameters<FloatType> &cosmology) : generator(generator),boxLength(boxLength),
+                  std::shared_ptr<particle::ParticleMapper<GridDataType>> pMapper,
+                  const cosmology::CosmologicalParameters<FloatType> &cosmology) : generator(generator),boxLength(boxLength),
                                                                       pMapper(pMapper),
                                                                       cosmology(cosmology) {
 
@@ -224,13 +224,13 @@ namespace io {
         header.nstar = 0;
 
 
-        ofstream paramfile;
+        std::ofstream paramfile;
         paramfile.open("tipsy.param");
 
-        paramfile << "dKpcUnit = " << dKpcUnit << endl;
-        paramfile << "dMsolUnit = " << dMsolUnit << endl;
-        paramfile << "dHubble0 = " << 0.1 * cosmology.hubble * dKpcUnit / dKmsUnit << endl;
-        paramfile << "bComove = 1 " << endl;
+        paramfile << "dKpcUnit = " << dKpcUnit << std::endl;
+        paramfile << "dMsolUnit = " << dMsolUnit << std::endl;
+        paramfile << "dHubble0 = " << 0.1 * cosmology.hubble * dKpcUnit / dKmsUnit << std::endl;
+        paramfile << "bComove = 1 " << std::endl;
 
         paramfile.close();
 
@@ -249,8 +249,8 @@ namespace io {
     template<typename GridDataType, typename T>
     void save(const std::string &filename, double Boxlength,
               const particle::AbstractMultiLevelParticleGenerator<GridDataType> & generator,
-              shared_ptr<particle::ParticleMapper<GridDataType>> pMapper,
-              const CosmologicalParameters<T> &cosmology) {
+              std::shared_ptr<particle::ParticleMapper<GridDataType>> pMapper,
+              const cosmology::CosmologicalParameters<T> &cosmology) {
 
       TipsyOutput<GridDataType> output(Boxlength, generator, pMapper, cosmology);
       output(filename);

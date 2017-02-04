@@ -14,7 +14,7 @@ namespace fields {
   protected:
     using T = strip_complex<DataType>;
     MultiLevelContextInformation<DataType> *multiLevelContext;
-    std::shared_ptr<FilterFamily<T>> pFilters;   // filters to be applied when used as a vector
+    std::shared_ptr<filters::FilterFamily<T>> pFilters;   // filters to be applied when used as a vector
     Signaling::connection_t connection;
     bool isCovector;
 
@@ -36,7 +36,7 @@ namespace fields {
       size_t nLevels = this->multiLevelContext->getNumLevels();
       this->pFilters = make_shared<FilterType>();
       for (size_t level = 0; level < nLevels - 1; ++level) {
-        const Grid<T> &grid0(this->multiLevelContext->getGridForLevel(level));
+        const grids::Grid<T> &grid0(this->multiLevelContext->getGridForLevel(level));
         T k_cut = ((T) grid0.size) * FRACTIONAL_K_SPLIT * 2. * M_PI / grid0.boxsize;
         this->pFilters->addLevel(k_cut);
       }
@@ -61,7 +61,7 @@ namespace fields {
       return const_cast<MultiLevelContextInformation<DataType> &>(*multiLevelContext);
     }
 
-    const FilterFamily<T> &getFilters() const {
+    const filters::FilterFamily<T> &getFilters() const {
       return *pFilters;
     }
 
@@ -70,11 +70,11 @@ namespace fields {
       return fieldsOnLevels[i];
     }
 
-    virtual const Field<DataType, T> &getFieldForGrid(const Grid<T> &grid) const {
+    virtual const Field<DataType, T> &getFieldForGrid(const grids::Grid<T> &grid) const {
       return (const_cast<MultiLevelField<DataType> *>(this))->getFieldForGrid(grid);
     };
 
-    virtual Field<DataType, T> &getFieldForGrid(const Grid<T> &grid) {
+    virtual Field<DataType, T> &getFieldForGrid(const grids::Grid<T> &grid) {
       // TODO: problematically slow implementation
       for (size_t i = 0; i < multiLevelContext->getNumLevels(); ++i) {
         if (&grid == &multiLevelContext->getGridForLevel(i))
@@ -96,15 +96,15 @@ namespace fields {
       return this->getFieldForLevel(i).getDataVector().size() > 0;
     }
 
-    virtual const Filter<T> &getFilterForLevel(size_t i) const {
+    virtual const filters::Filter<T> &getFilterForLevel(size_t i) const {
       return pFilters->getFilterOnLevel(i);
     }
 
-    virtual const Filter<T> &getHighPassFilterForLevel(size_t i) const {
+    virtual const filters::Filter<T> &getHighPassFilterForLevel(size_t i) const {
       return pFilters->getHighPassFilterOnLevel(i);
     }
 
-    virtual const Filter<T> &getLowPassFilterForLevel(size_t i) const {
+    virtual const filters::Filter<T> &getLowPassFilterForLevel(size_t i) const {
       return pFilters->getLowPassFilterOnLevel(i);
     }
 
@@ -141,8 +141,8 @@ namespace fields {
     }
 
     void operator/=(DataType ratio) {
-      const Filter<T> *pFiltThis;
-      const Grid<T> *pCurrentGrid;
+      const filters::Filter<T> *pFiltThis;
+      const grids::Grid<T> *pCurrentGrid;
       vector<DataType> *pFieldThis;
 
 
@@ -161,9 +161,9 @@ namespace fields {
     }
 
     void addScaled(const MultiLevelField &other, DataType scale) {
-      const Filter<T> *pFiltThis;
-      const Filter<T> *pFiltOther;
-      const Grid<T> *pCurrentGrid;
+      const filters::Filter<T> *pFiltThis;
+      const filters::Filter<T> *pFiltOther;
+      const grids::Grid<T> *pCurrentGrid;
       vector<DataType> *pFieldThis;
       const vector<DataType> *pFieldOther;
 
@@ -223,8 +223,8 @@ namespace fields {
         covariance_weighted = true;
 
       T weight;
-      const Filter<T> *pFiltOther;
-      const Grid<T> *pCurrentGrid;
+      const filters::Filter<T> *pFiltOther;
+      const grids::Grid<T> *pCurrentGrid;
       const Field<DataType> *pFieldThis;
       const std::vector<DataType> *pFieldDataThis;
       const std::vector<DataType> *pFieldDataOther;
@@ -245,8 +245,8 @@ namespace fields {
         T k_value = pCurrentGrid->getFourierCellAbsK(i);
         T inner_weight = weight * (*pFiltOther)(k_value);
         if (covariance_weighted) inner_weight *= ((*pCov)[i]) * weight;
-        inner_weight *= fourier::getFourierCellWeight(*pFieldThis, i);
-        return inner_weight * conj((*pFieldDataThis)[i]) * (*pFieldDataOther)[i];
+        inner_weight *= numerics::fourier::getFourierCellWeight(*pFieldThis, i);
+        return inner_weight * std::conj((*pFieldDataThis)[i]) * (*pFieldDataOther)[i];
       };
 
       return multiLevelContext->accumulateOverEachCellOfEachLevel(newLevelCallback, getCellContribution);
@@ -254,8 +254,8 @@ namespace fields {
     }
 
     void applyFilters() {
-      const Filter<T> *pFiltThis;
-      const Grid<T> *pCurrentGrid;
+      const filters::Filter<T> *pFiltThis;
+      const grids::Grid<T> *pCurrentGrid;
       std::vector<DataType> *pFieldThis;
 
       auto newLevel = [&](size_t level) {
@@ -275,7 +275,7 @@ namespace fields {
 
       multiLevelContext->forEachCellOfEachLevel(newLevel, newCell);
 
-      pFilters = make_shared<FilterFamily<T>>(multiLevelContext->getNumLevels());
+      pFilters = make_shared<filters::FilterFamily<T>>(multiLevelContext->getNumLevels());
     }
 
 
@@ -341,7 +341,7 @@ namespace fields {
   private:
     void applySpectrumOneGrid(std::vector<DataType> &field,
                               const std::vector<T> &spectrum,
-                              const Grid<T> &grid) {
+                              const grids::Grid<T> &grid) {
 
 #pragma omp parallel for
       for (size_t i = 0; i < grid.size3; i++) {
@@ -351,7 +351,7 @@ namespace fields {
 
     void multiplyByCovarianceOneGrid(std::vector<DataType> &field,
                                      const std::vector<T> &spectrum,
-                                     const Grid<T> &grid,
+                                     const grids::Grid<T> &grid,
                                      T weight) {
 
 #pragma omp parallel for
@@ -362,20 +362,20 @@ namespace fields {
 
     void enforceSpectrumOneGrid(Field<DataType> &field,
                                 const std::vector<T> &spectrum,
-                                const Grid<T> &grid) {
+                                const grids::Grid<T> &grid) {
       T white_noise_norm = sqrt(T(grid.size3));
 
 // #pragma omp parallel for
       for (size_t i = 0; i < grid.size3; i++) {
         int kx, ky, kz;
         std::tie(kx, ky, kz) = grid.getFourierCellCoordinate(i);
-        complex<T> existingValue = fourier::getFourierCoefficient(field, kx, ky, kz);
+        complex<T> existingValue = numerics::fourier::getFourierCoefficient(field, kx, ky, kz);
         T absExistingValue = abs(existingValue);
         T sqrt_spec = sqrt(spectrum[i]) * white_noise_norm;
         T a = sqrt_spec * existingValue.real() / absExistingValue;
         T b = sqrt_spec * existingValue.imag() / absExistingValue;
 
-        fourier::setFourierCoefficient(field, kx, ky, kz, a, b);
+        numerics::fourier::setFourierCoefficient(field, kx, ky, kz, a, b);
       }
     }
 
@@ -397,7 +397,7 @@ namespace fields {
       this->fieldsOnLevels.emplace_back(
         this->multiLevelContext->getGridForLevel(source.getContext().getNumLevels() - 1));
 
-      this->pFilters = std::make_shared<ResidualFilterFamily<T>>(source.getFilters());
+      this->pFilters = std::make_shared<filters::ResidualFilterFamily<T>>(source.getFilters());
 
     }
 
@@ -430,9 +430,9 @@ namespace fields {
 
     void updateMultiLevelContext() override {
       assert(outputState == PRE_SEPARATION);
-      this->template setupFilters<MultiLevelFilterFamily<T>>();
+      this->template setupFilters<filters::MultiLevelFilterFamily<T>>();
       this->fieldsOnLevels.clear();
-      this->multiLevelContext->forEachLevel([this](Grid<T> &g) {
+      this->multiLevelContext->forEachLevel([this](grids::Grid<T> &g) {
         this->fieldsOnLevels.emplace_back(g);
       });
     }
@@ -447,12 +447,12 @@ namespace fields {
       assert(outputState == SEPARATED);
       outputState = RECOMBINED;
       (*this) += residuals;
-      this->template setupFilters<MultiLevelRecombinedFilterFamily<T>>();
+      this->template setupFilters<filters::MultiLevelRecombinedFilterFamily<T>>();
     }
 
     void setStateRecombined() {
       outputState = RECOMBINED;
-      this->template setupFilters<MultiLevelRecombinedFilterFamily<T>>();
+      this->template setupFilters<filters::MultiLevelRecombinedFilterFamily<T>>();
     }
 
 
@@ -476,7 +476,7 @@ namespace fields {
 
 
     virtual void updateMultiLevelContext() override {
-      this->template setupFilters<MultiLevelDependentFilterFamily<T>>();
+      this->template setupFilters<filters::MultiLevelDependentFilterFamily<T>>();
     }
 
 
