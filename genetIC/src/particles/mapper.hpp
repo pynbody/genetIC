@@ -49,6 +49,8 @@ namespace particle {
   template<typename GridDataType>
   class AbstractMultiLevelParticleGenerator;
 
+
+  /** Class to keep track of where within a list of particles a current process (e.g. writing a file) has got to */
   template<typename GridDataType, typename T=strip_complex<GridDataType>>
   class MapperIterator {
   protected:
@@ -247,6 +249,8 @@ namespace particle {
   };
 
 
+  /** Class to map from linear list of particles (e.g. in a file) to actual locations on a hierarchy of grids.
+   * Subclasses implement specific scenarios for this mapping. */
   template<typename GridDataType>
   class ParticleMapper {
   public:

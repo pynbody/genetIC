@@ -14,7 +14,7 @@
 
 namespace constraints {
 
-
+  /** This class takes responsibility for calculating constraint covectors across a single grid */
   template<typename DataType, typename FloatType=strip_complex<DataType>>
   class ConstraintCalculator {
   protected:

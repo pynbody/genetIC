@@ -21,3 +21,14 @@ type `pip install pynbody`.
 
 Once compiled, enter the `tests` subfolder and type `./run_tests.sh`.
 If all is OK, you will see `Tests seem OK`.
+
+
+Documentation
+-------------
+
+The documentation can be built by doxygen (also available through macports).
+Once doxygen is installed, just type `doxygen` from the genetIC subfolder.
+Then open the HTML it's created in doxygen/html/index.html.
+
+Unfortuantely the documentation is a little sparse at the moment, but
+you can at least take a look through the list of classes.

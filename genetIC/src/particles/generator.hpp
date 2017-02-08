@@ -16,6 +16,9 @@ namespace particle {
   template<typename T>
   class Particle;
 
+  /** A class to generate particles starting from cells of grids. Note this is a pure virtual class because
+   * we require a specific implementation (currently Zeldovich is the only option!)
+   */
   template<typename GT>
   class ParticleGenerator : public std::enable_shared_from_this<ParticleGenerator<GT>> {
   public:

@@ -18,10 +18,12 @@
 
 
 namespace constraints {
+
+  /** This class takes responsibility for calculating constraint covectors across all levels that a field is
+    * defined on. */
   template<typename DataType, typename T = strip_complex<DataType>>
   class MultiLevelConstraintGenerator {
-    /* This class takes responsibility for calculating constraint covectors across all levels that a field is
-     * defined on. */
+
 
   protected:
     MultiLevelContextInformation<DataType> &fieldManager;

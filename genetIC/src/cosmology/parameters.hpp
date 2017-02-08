@@ -36,11 +36,12 @@ namespace cosmology {
     return retVal;
   }
 
+  /** Dump an estimated power spectrum for the field, alongside the specified theory power spectrum, to disk
+    */
   template<typename DataType, typename FloatType=strip_complex<DataType>>
   void dumpPowerSpectrum(const fields::Field<DataType> &field,
                          const std::vector<FloatType> &P0, const std::string &filename) {
-    /* Dump an estimated power spectrum for the field, alongside the specified theory power spectrum, to disk
-     */
+
 
     int res = field.getGrid().size;
     int nBins = 100;
@@ -133,10 +134,10 @@ namespace cosmology {
 
   }
 
+  /** Convert the density field to a potential field, in-place. */
   template<typename DataType, typename FloatType=strip_complex<DataType>>
   void densityToPotential(fields::Field<DataType, FloatType> &field, const CosmologicalParameters<FloatType> &cosmo) {
-    /* Convert the density field to a potential field, in-place.
-     */
+
 
     field.toFourier();
 

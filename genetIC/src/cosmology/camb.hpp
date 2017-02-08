@@ -5,14 +5,14 @@
 #include "../numerics/interpolation.hpp"
 
 namespace cosmology {
+
+  /** Load in and provide interpolation routines for the cosmological power spectrum.
+   *
+   * Currently tied to the CAMB transfer function output format, though this could easily
+   * be relaxed in future by creating an abstract base class and deriving different
+   * classes for alternative approaches. */
   template<typename FloatType>
   class CAMB {
-    /* Load in and provide interpolation routines for the cosmological power spectrum.
-     *
-     * Currently tied to the CAMB transfer function output format, though this could easily
-     * be relaxed in future by creating an abstract base class and deriving different
-     * classes for alternative approaches. */
-
   protected:
     std::vector <FloatType> kcamb;
     std::vector <FloatType> Tcamb;

@@ -5,10 +5,11 @@
 #include "src/field/multilevelfield.hpp"
 
 namespace constraints {
+
+  /** This class takes responsibility for collecting a list of linear constraints (on all grid levels),
+   * orthonormalizing and then applying them to the multi-level field */
   template<typename DataType, typename T=strip_complex<DataType>>
   class ConstraintApplicator {
-    /* This class takes responsibility for collecting a list of linear constraints (on all grid levels),
-     * orthonormalizing and then applying them to the multi-level field */
 
   public:
     std::vector<fields::ConstraintField<DataType>> alphas;

@@ -8,6 +8,7 @@
 
 namespace fields {
 
+  /** Class to manage a field defined across multiple grids. */
   template<typename DataType>
   class MultiLevelField : public std::enable_shared_from_this<MultiLevelField<DataType>> {
 

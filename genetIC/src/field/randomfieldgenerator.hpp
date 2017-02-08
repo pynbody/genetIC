@@ -14,9 +14,9 @@
 
 namespace fields {
 
+  /** This class handles drawing random white noise across all grids in a multi-level field. */
   template<typename DataType>
   class RandomFieldGenerator {
-    /* This class handles drawing random white noise across all grids in a multi-level field. */
   protected:
     using FloatType=  strip_complex<DataType>;
 

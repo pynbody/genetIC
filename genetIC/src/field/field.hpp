@@ -15,10 +15,10 @@ namespace grids {
 }
 
 namespace fields {
+
+  /** Class to manage and evaluate a field defined on a single grid.  */
   template<typename DataType, typename CoordinateType=strip_complex<DataType>>
   class Field : public std::enable_shared_from_this<Field<DataType, CoordinateType>> {
-    /* Class to manage and evaluate a field defined on a single grid.  */
-
   public:
     using TGrid = const grids::Grid<CoordinateType>;
     using TPtrGrid = std::shared_ptr<TGrid>;

@@ -5,12 +5,12 @@
 
 namespace numerics {
 
-  template<typename T>
-  class Interpolator : std::enable_shared_from_this<Interpolator<T>> {
-    /** Spline interpolation object
+  /** Spline interpolation object
      *
      * Wraps the GSL spline library
      */
+  template<typename T>
+  class Interpolator : std::enable_shared_from_this<Interpolator<T>> {
 
     // At present, we only have GSL interpolation which _requires_ double arguments
     static_assert(std::is_same<T, double>::value, "Only support interpolation over doubles");

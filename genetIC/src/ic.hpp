@@ -39,12 +39,12 @@ template<typename T>
 class DummyICGenerator;
 
 
-template<typename GridDataType>
-class ICGenerator {
-  /** The top level object responsible for coordinating the generation of initial conditions, including GM constraints.
+/** The top level object responsible for coordinating the generation of initial conditions, including GM constraints.
    *
    * This class exposes all the methods which are made scriptable by main.cpp
    */
+template<typename GridDataType>
+class ICGenerator {
 protected:
 
   using T = strip_complex<GridDataType>;
