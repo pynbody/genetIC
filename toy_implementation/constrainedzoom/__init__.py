@@ -590,6 +590,7 @@ def deriv_constraint_vector(smooth=None,length=768,position=None) :
     return constraint
 
 def display_cov(G, cov, downgrade=False, vmin=None, vmax=None, pad=0):
+    p.set_cmap('PuOr_r')
     vmin = vmin if vmin is not None else np.min(cov)
     vmax = vmax if vmax is not None else np.max(cov)
 
@@ -632,10 +633,10 @@ def display_cov(G, cov, downgrade=False, vmin=None, vmax=None, pad=0):
     p.plot([offset,offset],[0,G.n1],'k:')
     p.plot([offset+zoom_width,offset+zoom_width],[0,G.n1],'k:')
 
-    p.text(offset+zoom_width,offset,'h-h',horizontalalignment='right',verticalalignment='top',color='white')
-    p.text(G.n1,offset,'h-l',horizontalalignment='right',verticalalignment='top',color='white')
-    p.text(G.n1,offset+zoom_width,'l-l',horizontalalignment='right',verticalalignment='top',color='white')
-    p.text(offset+zoom_width,offset+zoom_width,'l-l',horizontalalignment='right',verticalalignment='top',color='white')
+    p.text(offset+zoom_width,offset,'h-h',horizontalalignment='right',verticalalignment='top',color='black')
+    p.text(G.n1,offset,'h-l',horizontalalignment='right',verticalalignment='top',color='black')
+    p.text(G.n1,offset+zoom_width,'l-l',horizontalalignment='right',verticalalignment='top',color='black')
+    p.text(offset+zoom_width,offset+zoom_width,'l-l',horizontalalignment='right',verticalalignment='top',color='black')
     p.xlim(0,G.n1)
     p.ylim(G.n1,0)
 
