@@ -67,11 +67,12 @@ class ZoomConstrained(object):
         self.n2 = n2
         self.window_size_ratio = hires_window_scale
         self.offset = offset
-        self.k_cut = self.n1*k_cut
         self.delta_low = 1./self.n1
         self.delta_high = 1./(self.n2 * self.window_size_ratio)
         self.k_low = scipy.fftpack.rfftfreq(self.n1,d=self.delta_low)
         self.k_high = scipy.fftpack.rfftfreq(self.n2,d=self.delta_high)
+
+        self.k_cut = self.k_low[-1]*k_cut
 
         # Naive approach:
         self.C_low = self._get_variance_k(self.k_low) * float(self.n1)
@@ -151,16 +152,17 @@ class ZoomConstrained(object):
     def _get_whitenoise(self, white_lo=None, white_hi=None):
         if white_lo is None:
             white_lo, white_hi = np.random.normal(0.0,1.0,size=self.n1), np.random.normal(0.0,self.pixel_size_ratio**self._wn_psr_power,size=self.n2)
-
-        white_lo = FFTArray(np.copy(white_lo))
-        white_hi = FFTArray(np.copy(white_hi))
-        white_lo.fourier=white_hi.fourier=True
-
         # only one nyquist mode is included in DFT but two are physically present
         if len(white_lo) % 2 == 0:
             white_lo[-1] *= np.sqrt(2)
         if len(white_hi) % 2 == 0:
             white_hi[-1] *= np.sqrt(2)
+
+        white_lo = FFTArray(np.copy(white_lo))
+        white_hi = FFTArray(np.copy(white_hi))
+        white_lo.fourier=white_hi.fourier=True
+
+
 
         return white_lo, white_hi
 
@@ -204,7 +206,9 @@ class ZoomConstrained(object):
 
         delta_low, delta_high, memos = self._separate_fields(delta_low, delta_high)
 
+
         delta_low, delta_high = self._apply_constraints(delta_low, delta_high, test)
+
 
         delta_low, delta_high = self._recombine_fields(delta_low, delta_high, memos)
 
@@ -311,10 +315,10 @@ class ZoomConstrained(object):
             yield test_field_lo, test_field_hi
             test_field_hi[i] = 0.0
 
-    def get_cov(self, one_element=False):
+    def get_cov(self, one_element=None):
         cov = np.zeros((self.n1 + self.n2, self.n1 + self.n2))
 
-        element_iterator = self._iter_one_cov_element(one_element) if one_element else self._iter_cov_elements()
+        element_iterator = self._iter_one_cov_element(one_element) if one_element is not None else self._iter_cov_elements()
 
         for test_field_lo, test_field_hi in element_iterator:
             out_lo, out_hi = self.realization(white_noise_lo=test_field_lo, white_noise_hi=test_field_hi)
@@ -517,13 +521,51 @@ class IdealizedZoomConstrained(ZoomConstrained):
 
         yield FFTArray(test_field_lo).in_fourier_space(), test_field_hi
 
-    def realization(self, *args, **kwargs):
-        underlying,_ = self._underlying.realization(*args, **kwargs)
 
+    def realization(self, *args, **kwargs):
+        if 'underlying_realization' in kwargs:
+            underlying = kwargs.pop('underlying_realization')
+        else:
+            underlying,_ = self._underlying.realization(*args, **kwargs)
 
         lores = underlying.reshape((self.n1,self.pixel_size_ratio)).mean(axis=1)
         hires = underlying[self.offset*self.pixel_size_ratio:self.offset*self.pixel_size_ratio+self.n2]
         return lores, hires
+
+
+class FastIdealizedZoomConstrained(IdealizedZoomConstrained):
+
+     def get_cov(self, one_element=False):
+            # the base class implementation does work, but this is optimized for the idealized case
+
+            if one_element:
+                return super(FastIdealizedZoomConstrained, self).get_cov(one_element)
+
+            test_field_lo = np.zeros(self._underlying.n1).view(FFTArray)
+            test_field_hi = np.zeros(self._underlying.n2)
+
+            # in the underlying white noise, just put a single spike at coordinate zero. We will then cycle the result
+            test_field_lo[0] = np.sqrt(2.0)
+            test_field_lo.in_fourier_space()
+            test_field_lo[0]/=np.sqrt(2.0) # constant mode
+            if len(test_field_lo)%2==0:
+                test_field_lo[-1]/=np.sqrt(2.0) # nyquist mode
+
+            underlying_out_0, _ = self._underlying.realization(white_noise_lo=test_field_lo, white_noise_hi = test_field_hi)
+
+            cov = np.zeros((self.n1 + self.n2, self.n1 + self.n2))
+
+            for i in xrange(self._underlying.n1):
+                underlying_out_i = np.roll(underlying_out_0,i)
+
+                out_lo, out_hi = self.realization(underlying_realization=underlying_out_i)
+
+                cov[:self.n1, :self.n1] += np.outer(out_lo, out_lo)
+                cov[self.n1:, self.n1:] += np.outer(out_hi, out_hi)
+                cov[:self.n1, self.n1:] += np.outer(out_lo, out_hi)
+
+            cov[self.n1:, :self.n1] = cov[:self.n1, self.n1:].T
+            return cov
 
 
 class UnfilteredZoomConstrained(ZoomConstrained):
@@ -581,13 +623,17 @@ class HybridZoomConstrained(ZoomConstrained):
         """
 
 
-        remove_modes = delta_high*self.filter_low(self.k_high)**2
-        add_modes = self.upsample_cubic(delta_low.in_fourier_space()*self.filter_low(self.k_low)).in_fourier_space()*self.filter_low(self.k_high)
+        remove_modes = self.upsample_cubic(self.downsample(delta_high)).in_fourier_space()*self.filter_low(self.k_high)
+
+        #remove_modes = delta_high.in_fourier_space()*self.filter_low(self.k_high)
+
+        add_modes = self.upsample_cubic(delta_low).in_fourier_space()*self.filter_low(self.k_high)
         delta_high.in_fourier_space()
 
         #delta_high = 0
         delta_high-=remove_modes
         delta_high+=add_modes
+
 
 
         return delta_low, delta_high
@@ -605,6 +651,7 @@ class HahnAbelZoomConstrained(UnfilteredZoomConstrained):
         B_window_size = self.n2 / (self.pixel_size_ratio) / 2
         offset_B = self.offset + self.n2 / self.pixel_size_ratio / 2 - B_window_size / 2
         return slice(offset_B,offset_B+B_window_size)
+
 
     @in_real_space
     def _separate_whitenoise(self, delta_low, delta_high):
@@ -675,6 +722,21 @@ def deriv_constraint_vector(smooth=None,length=768,position=None) :
 
     constraint/=np.sqrt(np.dot(constraint,constraint))
     return constraint
+
+def display_cov_1D(G, cov, element_offset=0):
+    assert isinstance(G, ZoomConstrained)
+    hires_element = G.n2/2+element_offset+G.pixel_size_ratio/2
+    lores_element = G.offset+hires_element/G.pixel_size_ratio
+    C11 = cov[:G.n1, :G.n1]
+    C22 = cov[G.n1:, G.n1:]
+    C12 = cov[:G.n1, G.n1:]
+
+    x1, x2 = G.xs()
+
+    p.plot(x1,C11[lores_element],"k")
+    p.plot(x2,C22[hires_element],"r")
+
+
 
 def display_cov(G, cov, downgrade=False, vmin=None, vmax=None, pad=0, show_hh=True):
     p.set_cmap('PuOr_r')
@@ -868,7 +930,7 @@ def cov_constraint_demo(downgrade_view=False,plaw=-1.5):
 
 def cov_zoom_demo(n1=64, n2=32, hires_window_scale=4, estimate=False, Ntrials=2000,
                   plaw=-1.5, cl=ZoomConstrained,pad=0,vmin=None,vmax=None,errors=False,
-                  show_hh=True,k_cut=0.3,one_element=False):
+                  show_hh=True,k_cut=0.3,one_element=None):
     p.clf()
     cov_this = functools.partial(globals()['cov'], plaw=plaw)
     X = cl(cov_this, n1=n1, n2=n2, hires_window_scale=hires_window_scale, k_cut=k_cut)
@@ -878,10 +940,16 @@ def cov_zoom_demo(n1=64, n2=32, hires_window_scale=4, estimate=False, Ntrials=20
         cv_est = X.get_cov(one_element=one_element)
 
     if errors:
-        Y = IdealizedZoomConstrained(cov_this, n1=n1, n2=n2, hires_window_scale=hires_window_scale)
+        Y = FastIdealizedZoomConstrained(cov_this, n1=n1, n2=n2, hires_window_scale=hires_window_scale)
         true_cov = Y.get_cov(one_element=one_element)
         cv_est-=true_cov
         cv_est/=true_cov.max() # variance in hi-res region
 
-    display_cov(X, cv_est,pad=pad,vmin=vmin,vmax=vmax,show_hh=show_hh)
-    p.colorbar()
+    if one_element is None:
+        display_cov(X, cv_est,pad=pad,vmin=vmin,vmax=vmax,show_hh=show_hh)
+        p.colorbar()
+    else:
+        display_cov_1D(X, cv_est, one_element)
+
+    return X
+
