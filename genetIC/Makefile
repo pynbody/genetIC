@@ -76,7 +76,11 @@ ifeq ($(HOST), chewb)
 	FFTWLIB = -ldfftw -ldrfftw
 endif
 
-
+ifeq ($(HOST), imac7)
+	CC      = /opt/local/bin/g++-mp-5
+	FFTW    = -DFFTW3 -DFFTW_THREADS
+	FFTWLIB = -lfftw3 -lfftw3_threads
+endif
 
 all: IC
 
