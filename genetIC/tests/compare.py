@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+from __future__ import print_function
 import numpy as np
 import numpy.testing as npt
 import pynbody
@@ -13,7 +14,7 @@ def compare(f1,f2) :
     npt.assert_almost_equal(f1['eps'],f2['eps'],decimal=6)
     npt.assert_almost_equal(f1['vel'],f2['vel'],decimal=5)
     npt.assert_almost_equal(f1['pos'],f2['pos'],decimal=5)
-    print "Particle output matches"
+    print("Particle output matches")
 
 def compare_grids(ref, test):
     list_of_grids = [os.path.basename(x) for x in glob.glob(ref+"grid-?.npy")]
@@ -22,13 +23,13 @@ def compare_grids(ref, test):
         grid_ref = np.load(ref+grid)
         grid_test = np.load(test+grid)
         npt.assert_almost_equal(grid_ref, grid_test, decimal=4)
-    print "Grid output matches"
+    print("Grid output matches")
 
 def compare_ps(ref, test):
     ref_vals = np.loadtxt(ref)
     test_vals = np.loadtxt(test)
     npt.assert_allclose(ref_vals, test_vals, rtol=1e-4)
-    print "Power-spectrum output %s matches"%ref
+    print("Power-spectrum output %s matches" % ref)
 
 
 if __name__=="__main__":
