@@ -5,7 +5,7 @@
 #ifndef IC_MULTILEVELGENERATOR_HPP_HPP
 #define IC_MULTILEVELGENERATOR_HPP_HPP
 
-#include "src/field/multilevelfield.hpp"
+#include "src/simulation/field/multilevelfield.hpp"
 #include "src/cosmology/parameters.hpp"
 #include "generator.hpp"
 #include "zeldovich.hpp"

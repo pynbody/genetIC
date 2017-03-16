@@ -8,8 +8,8 @@
 #include <vector>
 #include <complex>
 #include "src/tools/numerics/fourier.hpp"
-#include "filter.hpp"
-#include "coordinate.hpp"
+#include "src/simulation/filters/filter.hpp"
+#include "src/simulation/coordinate.hpp"
 #include "src/tools/progress/progress.hpp"
 #include "src/tools/util_functions.hpp"
 

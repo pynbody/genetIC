@@ -13,17 +13,17 @@
 
 #include "io/numpy.hpp"
 
-#include "constraints/onelevelconstraintgenerator.hpp"
-#include "constraints/constraintapplicator.hpp"
-#include "constraints/multilevelconstraintgenerator.hpp"
+#include "src/simulation/constraints/onelevelconstraintgenerator.hpp"
+#include "src/simulation/constraints/constraintapplicator.hpp"
+#include "src/simulation/constraints/multilevelconstraintgenerator.hpp"
 
 #include "src/tools/filesystem.h"
 
-#include "field/randomfieldgenerator.hpp"
-#include "field/multilevelfield.hpp"
+#include "src/simulation/field/randomfieldgenerator.hpp"
+#include "src/simulation/field/multilevelfield.hpp"
 
-#include "particles/generator.hpp"
-#include "particles/multilevelgenerator.hpp"
+#include "src/simulation/particles/generator.hpp"
+#include "src/simulation/particles/multilevelgenerator.hpp"
 
 #include "cosmology/parameters.hpp"
 #include "cosmology/camb.hpp"

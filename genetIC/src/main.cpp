@@ -25,7 +25,7 @@
 #include "src/tools/numerics/fourier.hpp"
 #include "src/cosmology/parameters.hpp"
 #include "src/tools/parser.hpp"
-#include "src/particles/mapper.hpp"
+#include "src/simulation/particles/mapper.hpp"
 #include "io.hpp"
 #include "ic.hpp"
 #include "dummyic.hpp"

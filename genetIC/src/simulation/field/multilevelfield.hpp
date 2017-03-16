@@ -1,9 +1,9 @@
 #ifndef IC_MULTILEVELFIELD_HPP
 #define IC_MULTILEVELFIELD_HPP
 
-#include "src/multilevelcontext.hpp"
-#include "src/filter.hpp"
-#include "src/field/field.hpp"
+#include "src/simulation/multilevelcontext.hpp"
+#include "src/simulation/filters/filter.hpp"
+#include "field.hpp"
 
 
 namespace fields {

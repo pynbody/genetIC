@@ -9,10 +9,10 @@
 #include <vector>
 #include <memory>
 
-#include "grid.hpp"
+#include "src/simulation/grid.hpp"
 #include "src/tools/signaling.hpp"
-#include "src/field/field.hpp"
-#include "src/field/multilevelfield.hpp"
+#include "src/simulation/field/field.hpp"
+#include "src/simulation/field/multilevelfield.hpp"
 
 // The classes in this file keep track of the multiple grids in a multi-level run
 //

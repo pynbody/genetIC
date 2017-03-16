@@ -11,7 +11,7 @@
 
 #include <omp.h>
 #include "src/tools/util_functions.hpp"
-#include "src/coordinate.hpp"
+#include "src/simulation/coordinate.hpp"
 
 #endif
 

@@ -8,12 +8,12 @@
 #include <complex.h>
 #include <vector>
 
-#include "src/multilevelcontext.hpp"
-#include "src/grid.hpp"
-#include "../field/field.hpp"
+#include "src/simulation/multilevelcontext.hpp"
+#include "src/simulation/grid.hpp"
+#include "src/simulation/field/field.hpp"
 #include "src/tools/numerics/vectormath.hpp"
 #include "onelevelconstraintgenerator.hpp"
-#include "src/field/multilevelfield.hpp"
+#include "src/simulation/field/multilevelfield.hpp"
 
 
 

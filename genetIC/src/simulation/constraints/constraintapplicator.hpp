@@ -1,8 +1,8 @@
 #ifndef _CONSTRAINTAPPLICATOR_HPP
 #define _CONSTRAINTAPPLICATOR_HPP
 
-#include "src/multilevelcontext.hpp"
-#include "src/field/multilevelfield.hpp"
+#include "src/simulation/multilevelcontext.hpp"
+#include "src/simulation/field/multilevelfield.hpp"
 
 namespace constraints {
 

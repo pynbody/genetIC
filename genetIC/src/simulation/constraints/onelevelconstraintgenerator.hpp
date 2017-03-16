@@ -9,7 +9,7 @@
 #include <complex>
 #include <vector>
 #include <map>
-#include "src/grid.hpp"
+#include "src/simulation/grid.hpp"
 #include "src/cosmology/parameters.hpp"
 
 namespace constraints {

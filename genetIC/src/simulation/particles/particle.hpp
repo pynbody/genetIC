@@ -5,7 +5,7 @@
 #ifndef IC_PARTICLE_HPP
 #define IC_PARTICLE_HPP
 
-#include "../coordinate.hpp"
+#include "src/simulation/coordinate.hpp"
 
 namespace particle {
   template<typename T>
