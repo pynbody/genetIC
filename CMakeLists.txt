@@ -10,7 +10,7 @@ set(SOURCE_FILES
         genetIC/src/dummyic.hpp
         genetIC/src/tools/numerics/fourier.hpp
         genetIC/src/tools/float_types.hpp
-        genetIC/src/simulation/grid.hpp
+        genetIC/src/simulation/grid/grid.hpp
         genetIC/src/ic.hpp
         genetIC/src/io.hpp
         genetIC/src/io/grafic.hpp
@@ -28,7 +28,7 @@ set(SOURCE_FILES
         genetIC/src/simulation/field/randomfieldgenerator.hpp
         genetIC/src/tools/filesystem.h
         genetIC/src/simulation/filters/filter.hpp
-        genetIC/src/simulation/multilevelcontext.hpp
+        genetIC/src/simulation/multilevelcontext/multilevelcontext.hpp
         genetIC/src/simulation/constraints/onelevelconstraintgenerator.hpp
         genetIC/src/tools/filesystem.cpp
         genetIC/src/simulation/field/multilevelfield.hpp

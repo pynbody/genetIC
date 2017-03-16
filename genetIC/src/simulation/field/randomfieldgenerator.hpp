@@ -10,7 +10,7 @@
 #include <gsl/gsl_errno.h>
 #include <gsl/gsl_spline.h>
 
-#include "src/simulation/grid.hpp"
+#include "src/simulation/grid/grid.hpp"
 
 namespace fields {
 

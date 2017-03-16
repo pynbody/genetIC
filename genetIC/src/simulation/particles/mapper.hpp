@@ -16,7 +16,7 @@
 #ifdef _OPENMP
 #include <omp.h>
 #endif
-#include "src/simulation/grid.hpp"
+#include "src/simulation/grid/grid.hpp"
 #include "src/tools/util_functions.hpp"
 #include "src/simulation/field/multilevelfield.hpp"
 #include "multilevelgenerator.hpp"

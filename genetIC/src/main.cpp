@@ -14,10 +14,10 @@
 #include <iterator>
 #include <sys/resource.h>
 
-#include <gsl/gsl_rng.h> //link -lgsl and -lgslcblas at the very end
-#include <gsl/gsl_randist.h> //for the gaussian (and other) distributions
-#include <gsl/gsl_errno.h>
-#include <gsl/gsl_spline.h>
+//#include <gsl/gsl_rng.h> //link -lgsl and -lgslcblas at the very end
+//#include <gsl/gsl_randist.h> //for the gaussian (and other) distributions
+//#include <gsl/gsl_errno.h>
+//#include <gsl/gsl_spline.h>
 
 
 #include "src/tools/float_types.hpp"
@@ -25,7 +25,6 @@
 #include "src/tools/numerics/fourier.hpp"
 #include "src/cosmology/parameters.hpp"
 #include "src/tools/parser.hpp"
-#include "src/simulation/particles/mapper.hpp"
 #include "io.hpp"
 #include "ic.hpp"
 #include "dummyic.hpp"

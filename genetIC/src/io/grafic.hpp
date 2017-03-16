@@ -4,7 +4,7 @@
 
 #include <fstream>
 #include <cmath>
-#include "src/simulation/multilevelcontext.hpp"
+#include "src/simulation/multilevelcontext/multilevelcontext.hpp"
 #include "src/cosmology/parameters.hpp"
 #include <sys/stat.h>
 #include <sys/types.h>
