@@ -10,7 +10,7 @@
 #include <memory>
 
 #include "grid.hpp"
-#include "src/util/signaling.hpp"
+#include "src/tools/signaling.hpp"
 #include "src/field/field.hpp"
 #include "src/field/multilevelfield.hpp"
 

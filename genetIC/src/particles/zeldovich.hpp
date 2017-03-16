@@ -8,7 +8,7 @@
 #include <complex>
 #include <src/io/numpy.hpp>
 #include "src/cosmology/parameters.hpp"
-#include "../progress/progress.hpp"
+#include "src/tools/progress/progress.hpp"
 #include "src/field/field.hpp"
 #include "generator.hpp"
 #include "particle.hpp"

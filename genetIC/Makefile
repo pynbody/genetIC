@@ -86,8 +86,8 @@ all: IC
 
 %.o: %.cpp ; $(CC) $(CFLAGS) $(GIT_VARIABLES) -I$(CPATH) $(FFTW) -c $< -o $@
 
-IC: src/main.o src/util/filesystem.o src/progress/progress.o
-		$(CC) $(CFLAGS) -o IC $(GIT_VARIABLES) -I$(CPATH) $(FFTW) src/main.o src/util/filesystem.o src/progress/progress.o -L$(LPATH) -lm $(FFTWLIB) -lgsl -lgslcblas $(HDF5_FLAGS)
+IC: src/main.o src/tools/filesystem.o src/tools/progress/progress.o
+		$(CC) $(CFLAGS) -o IC $(GIT_VARIABLES) -I$(CPATH) $(FFTW) src/main.o src/tools/filesystem.o src/tools/progress/progress.o -L$(LPATH) -lm $(FFTWLIB) -lgsl -lgslcblas $(HDF5_FLAGS)
 
 clean:
 	rm -rf IC

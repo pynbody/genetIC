@@ -20,11 +20,11 @@
 #include <gsl/gsl_spline.h>
 
 
-#include "float_types.hpp"
-#include "src/numerics/vectormath.hpp"
-#include "src/numerics/fourier.hpp"
+#include "src/tools/float_types.hpp"
+#include "src/tools/numerics/vectormath.hpp"
+#include "src/tools/numerics/fourier.hpp"
 #include "src/cosmology/parameters.hpp"
-#include "parser.hpp"
+#include "src/tools/parser.hpp"
 #include "src/particles/mapper.hpp"
 #include "io.hpp"
 #include "ic.hpp"

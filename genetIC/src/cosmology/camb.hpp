@@ -2,7 +2,7 @@
 #define _CAMB_HPP_INCLUDED
 
 #include "parameters.hpp"
-#include "../numerics/interpolation.hpp"
+#include "src/tools/numerics/interpolation.hpp"
 
 namespace cosmology {
 

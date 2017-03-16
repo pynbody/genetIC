@@ -1,6 +1,6 @@
 genetIC/src/*.o
-genetIC/src/progress/*.o
-genetIC/src/util/*.o
+genetIC/src/tools/progress/*.o
+genetIC/src/tools/*.o
 
 
 genetIC/IC

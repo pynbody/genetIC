@@ -11,7 +11,7 @@
 #include "src/multilevelcontext.hpp"
 #include "src/grid.hpp"
 #include "../field/field.hpp"
-#include "src/numerics/vectormath.hpp"
+#include "src/tools/numerics/vectormath.hpp"
 #include "onelevelconstraintgenerator.hpp"
 #include "src/field/multilevelfield.hpp"
 

@@ -17,7 +17,7 @@
 #include "constraints/constraintapplicator.hpp"
 #include "constraints/multilevelconstraintgenerator.hpp"
 
-#include "util/filesystem.h"
+#include "src/tools/filesystem.h"
 
 #include "field/randomfieldgenerator.hpp"
 #include "field/multilevelfield.hpp"
@@ -28,7 +28,7 @@
 #include "cosmology/parameters.hpp"
 #include "cosmology/camb.hpp"
 
-#include "parser.hpp"
+#include "src/tools/parser.hpp"
 
 //TODO: remove ugly macro
 #define for_each_level(level) for(size_t level=0; level<multiLevelContext.getNumLevels(); ++level)

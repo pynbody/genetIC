@@ -10,7 +10,7 @@
 #ifdef _OPENMP
 
 #include <omp.h>
-#include "src/utils.hpp"
+#include "src/tools/util_functions.hpp"
 #include "src/coordinate.hpp"
 
 #endif

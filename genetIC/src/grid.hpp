@@ -7,11 +7,11 @@
 #include <memory>
 #include <vector>
 #include <complex>
-#include "src/numerics/fourier.hpp"
+#include "src/tools/numerics/fourier.hpp"
 #include "filter.hpp"
 #include "coordinate.hpp"
-#include "progress/progress.hpp"
-#include "utils.hpp"
+#include "src/tools/progress/progress.hpp"
+#include "src/tools/util_functions.hpp"
 
 using std::complex;
 using std::vector;

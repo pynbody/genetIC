@@ -17,7 +17,7 @@
 #include <omp.h>
 #endif
 #include "src/grid.hpp"
-#include "src/utils.hpp"
+#include "src/tools/util_functions.hpp"
 #include "src/field/multilevelfield.hpp"
 #include "multilevelgenerator.hpp"
 

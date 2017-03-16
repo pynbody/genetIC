@@ -8,8 +8,8 @@ set(SOURCE_FILES
         genetIC/src/constraints/constraintapplicator.hpp
         genetIC/src/cosmology/parameters.hpp
         genetIC/src/dummyic.hpp
-        genetIC/src/numerics/fourier.hpp
-        genetIC/src/float_types.hpp
+        genetIC/src/tools/numerics/fourier.hpp
+        genetIC/src/tools/float_types.hpp
         genetIC/src/grid.hpp
         genetIC/src/ic.hpp
         genetIC/src/io.hpp
@@ -22,21 +22,21 @@ set(SOURCE_FILES
         genetIC/src/cosmology/camb.hpp
         genetIC/src/particles/mapper.hpp
         genetIC/src/io/numpy.hpp
-        genetIC/src/parser.hpp
-        genetIC/src/numerics/vectormath.hpp
-        genetIC/src/util/signaling.hpp
+        genetIC/src/tools/parser.hpp
+        genetIC/src/tools/numerics/vectormath.hpp
+        genetIC/src/tools/signaling.hpp
         genetIC/src/field/randomfieldgenerator.hpp
-        genetIC/src/util/filesystem.h
+        genetIC/src/tools/filesystem.h
         genetIC/src/filter.hpp
         genetIC/src/multilevelcontext.hpp
         genetIC/src/constraints/onelevelconstraintgenerator.hpp
-        genetIC/src/util/filesystem.cpp
+        genetIC/src/tools/filesystem.cpp
         genetIC/src/field/multilevelfield.hpp
         genetIC/src/particles/particle.hpp
-        genetIC/src/progress/progress.cpp
+        genetIC/src/tools/progress/progress.cpp
         genetIC/src/field/field.hpp
         genetIC/src/constraints/multilevelconstraintgenerator.hpp
-        genetIC/src/numerics/interpolation.hpp
+        genetIC/src/tools/numerics/interpolation.hpp
         genetIC/Makefile genetIC/src/particles/zeldovich.hpp genetIC/src/particles/generator.hpp genetIC/src/particles/multilevelgenerator.hpp)
 
 include_directories( /opt/local/include )
