@@ -8,6 +8,11 @@
 #include <chrono>
 #include <condition_variable>
 
+/*!
+    \namespace progress
+    \brief Provides a tool to create a progress bar
+
+ */
 namespace progress {
   class ProgressBar {
   protected:

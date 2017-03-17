@@ -21,7 +21,7 @@
 #include "src/simulation/grid/grid.hpp"
 #include "src/tools/util_functions.hpp"
 #include "src/simulation/field/multilevelfield.hpp"
-#include "multilevelgenerator.hpp"
+#include "src/simulation/particles/multilevelgenerator.hpp"
 
 // helper function for our debug dumps
 void indent(std::ostream &s, int level = 0) {
@@ -29,6 +29,12 @@ void indent(std::ostream &s, int level = 0) {
   s << "+ ";
 
 }
+/*!
+    \namespace particle
+    \brief Generate particles for N-body zoomed simulations from multiple levels grids. Implements a mapper to keep
+    track of the correspondance of particles and grid cells.
+
+ */
 
 namespace particle {
 

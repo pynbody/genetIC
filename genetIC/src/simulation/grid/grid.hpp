@@ -31,6 +31,11 @@ namespace fields {
   template<typename T, typename S>
   class TranslatedField;
 }
+/*!
+    \namespace grids
+    \brief Define a grid with given size and resolution. This a building block for fields and constraints.
+
+ */
 
 namespace grids {
   template<typename T>

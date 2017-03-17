@@ -5,7 +5,7 @@
 #include <vector>
 #include <limits>
 
-#include "simulation/particles/mapper.hpp"
+#include "src/simulation/particles/mapper.hpp"
 #include "src/cosmology/parameters.hpp"
 
 
@@ -14,7 +14,6 @@ hid_t hdf_float = H5Tcopy (H5T_NATIVE_DOUBLE);
 hid_t hdf_double = H5Tcopy (H5T_NATIVE_DOUBLE);
 #endif
 
-// #endif
 
 namespace cosmology {
   template<typename FloatType>
@@ -27,6 +26,12 @@ namespace cosmology {
 #include "io/grafic.hpp"
 
 
+/*!
+    \namespace io
+    \brief Input output.
+
+    Manage the different types of data outputs produced by the code. Possibilities are tipsy, grafic, gadget and so on
+ */
 namespace io {
 
   enum class OutputFormat { gadget2=2, gadget3, tipsy, grafic };

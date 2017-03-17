@@ -8,6 +8,11 @@
 #include <cmath>
 #include <functional>
 
+/*!
+    \class Coordinate
+    \brief Lower level building block used to keep track of particles and cells on a grid.
+
+ */
 template<typename T>
 class Coordinate {
 public:

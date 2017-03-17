@@ -3,7 +3,7 @@
 
 #include "src/simulation/multilevelcontext/multilevelcontext.hpp"
 #include "src/simulation/filters/filter.hpp"
-#include "field.hpp"
+#include "src/simulation/field/field.hpp"
 
 
 namespace fields {

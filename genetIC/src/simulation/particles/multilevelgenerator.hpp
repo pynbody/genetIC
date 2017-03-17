@@ -7,8 +7,8 @@
 
 #include "src/simulation/field/multilevelfield.hpp"
 #include "src/cosmology/parameters.hpp"
-#include "generator.hpp"
-#include "zeldovich.hpp"
+#include "src/simulation/particles/generator.hpp"
+#include "src/simulation/particles/zeldovich.hpp"
 
 namespace particle {
   using std::cerr;

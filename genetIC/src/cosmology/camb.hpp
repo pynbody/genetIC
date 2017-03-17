@@ -1,9 +1,16 @@
 #ifndef _CAMB_HPP_INCLUDED
 #define _CAMB_HPP_INCLUDED
 
-#include "parameters.hpp"
+#include "src/cosmology/parameters.hpp"
 #include "src/tools/numerics/interpolation.hpp"
 
+/*!
+    \namespace cosmology
+    \brief Describe the cosmology adopted (parameters and transfer function)
+
+    Allow to use cosmological parameters and to draw random fields with a cosmological power spectrum.
+    The input transfer function is tied to CAMB format.
+ */
 namespace cosmology {
 
   /** Load in and provide interpolation routines for the cosmological power spectrum.

@@ -12,7 +12,7 @@
 #include "src/simulation/grid/grid.hpp"
 #include "src/simulation/field/field.hpp"
 #include "src/tools/numerics/vectormath.hpp"
-#include "onelevelconstraintgenerator.hpp"
+#include "src/simulation/constraints/onelevelconstraintgenerator.hpp"
 #include "src/simulation/field/multilevelfield.hpp"
 
 

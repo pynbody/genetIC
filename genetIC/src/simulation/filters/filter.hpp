@@ -7,7 +7,11 @@
 
 #include <math.h>
 #include <stdexcept>
+/*!
+    \namespace filters
+    \brief Define the filters used to separate low and high k modes in the box
 
+ */
 namespace filters {
 
   template<typename T>

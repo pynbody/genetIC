@@ -9,7 +9,7 @@
 #include <complex>
 #include "src/simulation/field/field.hpp"
 #include "src/cosmology/parameters.hpp"
-#include "particle.hpp"
+#include "src/simulation/particles/particle.hpp"
 
 namespace particle {
 
