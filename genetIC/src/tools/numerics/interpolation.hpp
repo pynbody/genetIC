@@ -3,6 +3,11 @@
 
 #include <type_traits>
 
+/*!
+    \namespace numerics
+    \brief Provides numerical methods such as interpolation or fourier transforms.
+
+ */
 namespace numerics {
 
   /** Spline interpolation object

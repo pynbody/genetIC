@@ -5,7 +5,7 @@
 #ifndef IC_TIPSY_HPP
 #define IC_TIPSY_HPP
 
-#include "../io.hpp"
+#include "src/io.hpp"
 
 namespace io {
   namespace tipsy {

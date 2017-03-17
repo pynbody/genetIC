@@ -1,13 +1,18 @@
 #ifndef _CONSTRAINTAPPLICATOR_HPP
 #define _CONSTRAINTAPPLICATOR_HPP
 
-#include "src/multilevelcontext.hpp"
-#include "src/field/multilevelfield.hpp"
+#include "src/simulation/multilevelcontext/multilevelcontext.hpp"
+#include "src/simulation/field/multilevelfield.hpp"
 
+/*!
+    \namespace constraints
+    \brief Define and compute constraints on the different levels of grid
+
+    In charge of defining physical constraints (density/potential) and carry them onto the multi level grid.
+    Further manage the application of these constraints to the random field on all grid levels, using orthonomalisation.
+ */
 namespace constraints {
 
-  /** This class takes responsibility for collecting a list of linear constraints (on all grid levels),
-   * orthonormalizing and then applying them to the multi-level field */
   template<typename DataType, typename T=strip_complex<DataType>>
   class ConstraintApplicator {
 

@@ -2,6 +2,7 @@
 #define _DUMMYIC_HPP_INCLUDED
 
 #include "ic.hpp"
+#include "src/simulation/coordinate.hpp"
 
 template<typename GridDataType>
 class DummyICGenerator : public ICGenerator<GridDataType> {

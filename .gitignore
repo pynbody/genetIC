@@ -1,0 +1,13 @@
+genetIC/src/*.o
+genetIC/src/tools/progress/*.o
+genetIC/src/tools/*.o
+
+
+genetIC/IC
+genetIC/IC.dSYM
+
+genetIC/doxygen/
+genetIC/tests/
+
+cmake-build-debug/
+.idea/

@@ -7,11 +7,12 @@
 #include <memory>
 #include <vector>
 #include <complex>
-#include "src/numerics/fourier.hpp"
-#include "filter.hpp"
-#include "coordinate.hpp"
-#include "progress/progress.hpp"
-#include "utils.hpp"
+#include "src/tools/numerics/fourier.hpp"
+#include "src/simulation/filters/filter.hpp"
+#include "src/simulation/coordinate.hpp"
+#include "src/tools/progress/progress.hpp"
+#include "src/tools/util_functions.hpp"
+#include "src/tools/data_types/complex.hpp"
 
 using std::complex;
 using std::vector;
@@ -30,6 +31,11 @@ namespace fields {
   template<typename T, typename S>
   class TranslatedField;
 }
+/*!
+    \namespace grids
+    \brief Define a grid with given size and resolution. This a building block for fields and constraints.
+
+ */
 
 namespace grids {
   template<typename T>

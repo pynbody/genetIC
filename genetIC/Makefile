@@ -76,14 +76,18 @@ ifeq ($(HOST), chewb)
 	FFTWLIB = -ldfftw -ldrfftw
 endif
 
-
+ifeq ($(HOST), imac7)
+	CC      = /opt/local/bin/g++-mp-5
+	FFTW    = -DFFTW3 -DFFTW_THREADS
+	FFTWLIB = -lfftw3 -lfftw3_threads
+endif
 
 all: IC
 
 %.o: %.cpp ; $(CC) $(CFLAGS) $(GIT_VARIABLES) -I$(CPATH) $(FFTW) -c $< -o $@
 
-IC: src/main.o src/util/filesystem.o src/progress/progress.o
-		$(CC) $(CFLAGS) -o IC $(GIT_VARIABLES) -I$(CPATH) $(FFTW) src/main.o src/util/filesystem.o src/progress/progress.o -L$(LPATH) -lm $(FFTWLIB) -lgsl -lgslcblas $(HDF5_FLAGS)
+IC: src/main.o src/tools/filesystem.o src/tools/progress/progress.o
+		$(CC) $(CFLAGS) -o IC $(GIT_VARIABLES) -I$(CPATH) $(FFTW) src/main.o src/tools/filesystem.o src/tools/progress/progress.o -L$(LPATH) -lm $(FFTWLIB) -lgsl -lgslcblas $(HDF5_FLAGS)
 
 clean:
 	rm -rf IC

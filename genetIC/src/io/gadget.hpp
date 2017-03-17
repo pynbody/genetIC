@@ -5,7 +5,7 @@
 #ifndef IC_GADGET_HPP
 #define IC_GADGET_HPP
 
-#include "../io.hpp"
+#include "src/io.hpp"
 
 namespace io {
   namespace gadget {

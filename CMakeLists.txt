@@ -4,13 +4,13 @@ project(IC)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14  -fopenmp -g -O0")
 
 set(SOURCE_FILES
-        genetIC/src/utils.hpp
-        genetIC/src/constraints/constraintapplicator.hpp
+        genetIC/src/tools/util_functions.hpp
+        genetIC/src/simulation/constraints/constraintapplicator.hpp
         genetIC/src/cosmology/parameters.hpp
         genetIC/src/dummyic.hpp
-        genetIC/src/numerics/fourier.hpp
-        genetIC/src/float_types.hpp
-        genetIC/src/grid.hpp
+        genetIC/src/tools/numerics/fourier.hpp
+        genetIC/src/tools/data_types/float_types.hpp
+        genetIC/src/simulation/grid/grid.hpp
         genetIC/src/ic.hpp
         genetIC/src/io.hpp
         genetIC/src/io/grafic.hpp
@@ -18,26 +18,30 @@ set(SOURCE_FILES
         genetIC/src/io/input.hpp
         genetIC/src/io/tipsy.hpp
         genetIC/src/main.cpp
-        genetIC/src/coordinate.hpp
+        genetIC/src/simulation/coordinate.hpp
         genetIC/src/cosmology/camb.hpp
-        genetIC/src/particles/mapper.hpp
+        genetIC/src/simulation/particles/mapper.hpp
         genetIC/src/io/numpy.hpp
-        genetIC/src/parser.hpp
-        genetIC/src/numerics/vectormath.hpp
-        genetIC/src/util/signaling.hpp
-        genetIC/src/field/randomfieldgenerator.hpp
-        genetIC/src/util/filesystem.h
-        genetIC/src/filter.hpp
-        genetIC/src/multilevelcontext.hpp
-        genetIC/src/constraints/onelevelconstraintgenerator.hpp
-        genetIC/src/util/filesystem.cpp
-        genetIC/src/field/multilevelfield.hpp
-        genetIC/src/particles/particle.hpp
-        genetIC/src/progress/progress.cpp
-        genetIC/src/field/field.hpp
-        genetIC/src/constraints/multilevelconstraintgenerator.hpp
-        genetIC/src/numerics/interpolation.hpp
-        genetIC/Makefile genetIC/src/particles/zeldovich.hpp genetIC/src/particles/generator.hpp genetIC/src/particles/multilevelgenerator.hpp)
+        genetIC/src/tools/parser.hpp
+        genetIC/src/tools/numerics/vectormath.hpp
+        genetIC/src/tools/signaling.hpp
+        genetIC/src/simulation/field/randomfieldgenerator.hpp
+        genetIC/src/tools/filesystem.h
+        genetIC/src/simulation/filters/filter.hpp
+        genetIC/src/simulation/multilevelcontext/multilevelcontext.hpp
+        genetIC/src/simulation/constraints/onelevelconstraintgenerator.hpp
+        genetIC/src/tools/filesystem.cpp
+        genetIC/src/simulation/field/multilevelfield.hpp
+        genetIC/src/simulation/particles/particle.hpp
+        genetIC/src/tools/progress/progress.cpp
+        genetIC/src/simulation/field/field.hpp
+        genetIC/src/simulation/constraints/multilevelconstraintgenerator.hpp
+        genetIC/src/tools/numerics/interpolation.hpp
+        genetIC/Makefile
+        genetIC/src/simulation/particles/zeldovich.hpp
+        genetIC/src/simulation/particles/generator.hpp
+        genetIC/src/simulation/particles/multilevelgenerator.hpp
+        genetIC/src/tools/data_types/complex.hpp)
 
 include_directories( /opt/local/include )
 link_directories(/opt/local/lib )

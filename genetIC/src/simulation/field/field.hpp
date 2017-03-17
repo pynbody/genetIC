@@ -13,6 +13,10 @@ namespace grids {
   template<typename T>
   class Grid;
 }
+/*!
+    \namespace fields
+    \brief Define random fields on multiple grid levels
+ */
 
 namespace fields {
 

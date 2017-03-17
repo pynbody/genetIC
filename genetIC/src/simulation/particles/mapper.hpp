@@ -11,15 +11,17 @@
 #ifndef __MAPPER_HPP
 #define __MAPPER_HPP
 
-#include <memory>
-#include <typeinfo>
 #ifdef _OPENMP
 #include <omp.h>
 #endif
-#include "src/grid.hpp"
-#include "src/utils.hpp"
-#include "src/field/multilevelfield.hpp"
-#include "multilevelgenerator.hpp"
+
+#include <memory>
+#include <typeinfo>
+#include "src/tools/data_types/complex.hpp"
+#include "src/simulation/grid/grid.hpp"
+#include "src/tools/util_functions.hpp"
+#include "src/simulation/field/multilevelfield.hpp"
+#include "src/simulation/particles/multilevelgenerator.hpp"
 
 // helper function for our debug dumps
 void indent(std::ostream &s, int level = 0) {
@@ -27,6 +29,12 @@ void indent(std::ostream &s, int level = 0) {
   s << "+ ";
 
 }
+/*!
+    \namespace particle
+    \brief Generate particles for N-body zoomed simulations from multiple levels grids. Implements a mapper to keep
+    track of the correspondance of particles and grid cells.
+
+ */
 
 namespace particle {
 
