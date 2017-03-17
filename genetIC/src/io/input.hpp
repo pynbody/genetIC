@@ -5,7 +5,7 @@
 #ifndef IC_INPUT_HPP
 #define IC_INPUT_HPP
 
-#include "../io.hpp"
+#include "src/io.hpp"
 
 namespace io {
   template<typename T>

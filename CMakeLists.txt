@@ -37,7 +37,11 @@ set(SOURCE_FILES
         genetIC/src/simulation/field/field.hpp
         genetIC/src/simulation/constraints/multilevelconstraintgenerator.hpp
         genetIC/src/tools/numerics/interpolation.hpp
-        genetIC/Makefile genetIC/src/simulation/particles/zeldovich.hpp genetIC/src/simulation/particles/generator.hpp genetIC/src/simulation/particles/multilevelgenerator.hpp genetIC/src/tools/data_types/complex.hpp.h)
+        genetIC/Makefile
+        genetIC/src/simulation/particles/zeldovich.hpp
+        genetIC/src/simulation/particles/generator.hpp
+        genetIC/src/simulation/particles/multilevelgenerator.hpp
+        genetIC/src/tools/data_types/complex.hpp)
 
 include_directories( /opt/local/include )
 link_directories(/opt/local/lib )

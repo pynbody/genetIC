@@ -1,7 +1,7 @@
 #ifndef _SIGNALING_HPP
 #define _SIGNALING_HPP
 
-#include "src/tools/boost/signals2.hpp"
+#include "boost/signals2.hpp"
 
 class Signaling {
 public:
