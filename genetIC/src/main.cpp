@@ -20,7 +20,7 @@
 //#include <gsl/gsl_spline.h>
 
 
-#include "src/tools/float_types.hpp"
+#include "src/tools/data_types/float_types.hpp"
 #include "src/tools/numerics/vectormath.hpp"
 #include "src/tools/numerics/fourier.hpp"
 #include "src/cosmology/parameters.hpp"

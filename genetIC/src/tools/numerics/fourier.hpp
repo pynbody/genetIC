@@ -10,8 +10,8 @@
 #ifdef _OPENMP
 
 #include <omp.h>
-#include "src/tools/util_functions.hpp"
 #include "src/simulation/coordinate.hpp"
+#include "src/tools/data_types/complex.hpp"
 
 #endif
 

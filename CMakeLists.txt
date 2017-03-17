@@ -9,7 +9,7 @@ set(SOURCE_FILES
         genetIC/src/cosmology/parameters.hpp
         genetIC/src/dummyic.hpp
         genetIC/src/tools/numerics/fourier.hpp
-        genetIC/src/tools/float_types.hpp
+        genetIC/src/tools/data_types/float_types.hpp
         genetIC/src/simulation/grid/grid.hpp
         genetIC/src/ic.hpp
         genetIC/src/io.hpp
@@ -37,7 +37,7 @@ set(SOURCE_FILES
         genetIC/src/simulation/field/field.hpp
         genetIC/src/simulation/constraints/multilevelconstraintgenerator.hpp
         genetIC/src/tools/numerics/interpolation.hpp
-        genetIC/Makefile genetIC/src/simulation/particles/zeldovich.hpp genetIC/src/simulation/particles/generator.hpp genetIC/src/simulation/particles/multilevelgenerator.hpp)
+        genetIC/Makefile genetIC/src/simulation/particles/zeldovich.hpp genetIC/src/simulation/particles/generator.hpp genetIC/src/simulation/particles/multilevelgenerator.hpp genetIC/src/tools/data_types/complex.hpp.h)
 
 include_directories( /opt/local/include )
 link_directories(/opt/local/lib )

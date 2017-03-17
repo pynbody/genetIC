@@ -11,11 +11,13 @@
 #ifndef __MAPPER_HPP
 #define __MAPPER_HPP
 
-#include <memory>
-#include <typeinfo>
 #ifdef _OPENMP
 #include <omp.h>
 #endif
+
+#include <memory>
+#include <typeinfo>
+#include "src/tools/data_types/complex.hpp"
 #include "src/simulation/grid/grid.hpp"
 #include "src/tools/util_functions.hpp"
 #include "src/simulation/field/multilevelfield.hpp"

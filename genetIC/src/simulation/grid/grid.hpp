@@ -12,6 +12,7 @@
 #include "src/simulation/coordinate.hpp"
 #include "src/tools/progress/progress.hpp"
 #include "src/tools/util_functions.hpp"
+#include "src/tools/data_types/complex.hpp"
 
 using std::complex;
 using std::vector;
