@@ -2,7 +2,7 @@
 #define IC_MULTILEVELFIELD_HPP
 
 #include "src/simulation/multilevelcontext/multilevelcontext.hpp"
-#include "src/simulation/filters/filter.hpp"
+#include "src/simulation/filters/filterfamily.hpp"
 #include "src/simulation/field/field.hpp"
 
 
