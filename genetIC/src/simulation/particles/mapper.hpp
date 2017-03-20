@@ -98,7 +98,7 @@ namespace particle {
 
     MapperIterator(const MapperIterator<GridDataType> &source) :
           i(source.i), extraData(source.extraData), pMapper(source.pMapper),
-          pLastGrid(nullptr), generator(source.generator)
+          generator(source.generator), pLastGrid(nullptr)
     {
       for (const auto &subIterator: source.subIterators) {
         if (subIterator == nullptr)
@@ -707,7 +707,6 @@ namespace particle {
       size_t i0 = pLevel1->size() - zoomParticleArrayForL1mapper.size();
       size_t lr_index;
       size_t lr_mapper_particle;
-      size_t lr_grid_cell;
 
       size_t last_val = 0;
       size_t numSkippedParticlesLR = 0;

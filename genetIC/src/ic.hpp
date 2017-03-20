@@ -238,9 +238,9 @@ public:
     if (x < 0) x = 0;
     if (y < 0) y = 0;
     if (z < 0) z = 0;
-    if (x > nAbove - nAbove / zoomfac) x = nAbove - nAbove / zoomfac;
-    if (y > nAbove - nAbove / zoomfac) y = nAbove - nAbove / zoomfac;
-    if (z > nAbove - nAbove / zoomfac) z = nAbove - nAbove / zoomfac;
+    if ((unsigned)x > nAbove - nAbove / zoomfac) x = nAbove - nAbove / zoomfac;
+    if ((unsigned)y > nAbove - nAbove / zoomfac) y = nAbove - nAbove / zoomfac;
+    if ((unsigned)z > nAbove - nAbove / zoomfac) z = nAbove - nAbove / zoomfac;
 
     Coordinate<T> newOffsetLower = gridAbove.offsetLower + Coordinate<T>(x,y,z)*gridAbove.dx;
 

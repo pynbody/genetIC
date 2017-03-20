@@ -29,10 +29,10 @@ namespace particle {
     using TField = fields::Field<GridDataType, T>;
     using TRealField = fields::Field<T,T>;
 
-    T velocityToOffsetRatio, boxMass;
-    TField &linearOverdensityField;
     const cosmology::CosmologicalParameters<T> &cosmology;
+    TField &linearOverdensityField;
     using ParticleGenerator<GridDataType>::grid;
+    T velocityToOffsetRatio, boxMass;
 
     // The grid offsets after Zeldovich approximation is applied
     // (nullptr before that):
@@ -127,9 +127,10 @@ namespace particle {
 
     ZeldovichParticleGenerator(TField &linearOverdensityField,
                                const cosmology::CosmologicalParameters<T> &cosmology) :
-      linearOverdensityField(linearOverdensityField),
-      cosmology(cosmology),
-      ParticleGenerator<GridDataType>(linearOverdensityField.getGrid())
+
+    ParticleGenerator<GridDataType>(linearOverdensityField.getGrid()),
+    cosmology(cosmology),
+    linearOverdensityField(linearOverdensityField)
     {
       recalculate();
     }
