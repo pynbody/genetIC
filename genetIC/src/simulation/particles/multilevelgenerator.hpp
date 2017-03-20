@@ -135,7 +135,7 @@ namespace particle {
   {
   protected:
     fields::OutputField<GridDataType> & outputField;
-    const MultiLevelContextInformation<GridDataType> &context;
+    const multilevelcontext::MultiLevelContextInformation<GridDataType> &context;
     std::vector<std::shared_ptr<TParticleGenerator>> pGenerators;
     const cosmology::CosmologicalParameters<T> &cosmoParams;
 

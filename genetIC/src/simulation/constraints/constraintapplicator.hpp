@@ -21,10 +21,10 @@ namespace constraints {
     std::vector<DataType> values;
     std::vector<DataType> existing_values;
 
-    MultiLevelContextInformation<DataType> *underlying;
+    multilevelcontext::MultiLevelContextInformation<DataType> *underlying;
     fields::OutputField<DataType> *outputField;
 
-    ConstraintApplicator(MultiLevelContextInformation<DataType> *underlying_,
+    ConstraintApplicator(multilevelcontext::MultiLevelContextInformation<DataType> *underlying_,
                          fields::OutputField<DataType> *outputField_) : underlying(underlying_),
                                                                         outputField(outputField_) {
 

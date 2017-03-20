@@ -26,7 +26,7 @@ namespace constraints {
 
 
   protected:
-    MultiLevelContextInformation<DataType> &fieldManager;
+    multilevelcontext::MultiLevelContextInformation<DataType> &fieldManager;
     cosmology::CosmologicalParameters<T> &cosmology;
 
     fields::Field<DataType> calcConstraintCovectorNormalisedForLevel(std::string name_in, int level) {
@@ -48,7 +48,7 @@ namespace constraints {
     }
 
   public:
-    MultiLevelConstraintGenerator(MultiLevelContextInformation<DataType> &fieldManager,
+    MultiLevelConstraintGenerator(multilevelcontext::MultiLevelContextInformation<DataType> &fieldManager,
                                   cosmology::CosmologicalParameters<T> &cosmology) :
       fieldManager(fieldManager), cosmology(cosmology) {
 

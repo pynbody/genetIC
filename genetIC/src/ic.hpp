@@ -55,7 +55,7 @@ protected:
   friend class DummyICGenerator<GridDataType>;
 
   cosmology::CosmologicalParameters<T> cosmology;
-  MultiLevelContextInformation<GridDataType> multiLevelContext;
+  multilevelcontext::MultiLevelContextInformation<GridDataType> multiLevelContext;
   fields::OutputField<GridDataType> outputField;
   constraints::ConstraintApplicator<GridDataType> constraintApplicator;
   constraints::MultiLevelConstraintGenerator<GridDataType> constraintGenerator;

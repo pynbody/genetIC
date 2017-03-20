@@ -28,7 +28,7 @@ namespace io {
     class GraficOutput {
     protected:
       std::string outputFilename;
-      MultiLevelContextInformation<DataType> context;
+      multilevelcontext::MultiLevelContextInformation<DataType> context;
       std::shared_ptr<particle::AbstractMultiLevelParticleGenerator<DataType>> generator;
       const cosmology::CosmologicalParameters<T> &cosmology;
 
@@ -38,7 +38,7 @@ namespace io {
 
     public:
       GraficOutput(const std::string & fname,
-                   MultiLevelContextInformation<DataType> & levelContext,
+                   multilevelcontext::MultiLevelContextInformation<DataType> & levelContext,
                    particle::AbstractMultiLevelParticleGenerator<DataType> &particleGenerator,
                    const cosmology::CosmologicalParameters<T> &cosmology):
         outputFilename(fname),
@@ -149,7 +149,7 @@ namespace io {
     template<typename DataType, typename T=strip_complex<DataType>>
     void save(const std::string & filename,
               particle::AbstractMultiLevelParticleGenerator<DataType> &generator,
-              MultiLevelContextInformation<DataType> &context,
+              multilevelcontext::MultiLevelContextInformation<DataType> &context,
               const cosmology::CosmologicalParameters<T> &cosmology) {
       GraficOutput<DataType> output(filename,context,
                              generator, cosmology);

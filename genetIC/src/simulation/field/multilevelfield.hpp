@@ -14,7 +14,7 @@ namespace fields {
 
   protected:
     using T = strip_complex<DataType>;
-    MultiLevelContextInformation<DataType> *multiLevelContext;
+    multilevelcontext::MultiLevelContextInformation<DataType> *multiLevelContext;
     std::shared_ptr<filters::FilterFamily<T>> pFilters;   // filters to be applied when used as a vector
     Signaling::connection_t connection;
     bool isCovector;
@@ -44,11 +44,11 @@ namespace fields {
 
     }
 
-    MultiLevelField(MultiLevelContextInformation<DataType> &multiLevelContext) : multiLevelContext(&multiLevelContext) {
+    MultiLevelField(multilevelcontext::MultiLevelContextInformation<DataType> &multiLevelContext) : multiLevelContext(&multiLevelContext) {
       setupConnection();
     }
 
-    MultiLevelField(MultiLevelContextInformation<DataType> &multiLevelContext,
+    MultiLevelField(multilevelcontext::MultiLevelContextInformation<DataType> &multiLevelContext,
                     std::vector<Field<DataType, T>> &&fieldsOnGrids) :
       multiLevelContext(&multiLevelContext), fieldsOnLevels(std::move(fieldsOnGrids)) {
       setupConnection();
@@ -58,8 +58,8 @@ namespace fields {
 
     }
 
-    virtual MultiLevelContextInformation<DataType> &getContext() const {
-      return const_cast<MultiLevelContextInformation<DataType> &>(*multiLevelContext);
+    virtual multilevelcontext::MultiLevelContextInformation<DataType> &getContext() const {
+      return const_cast<multilevelcontext::MultiLevelContextInformation<DataType> &>(*multiLevelContext);
     }
 
     const filters::FilterFamily<T> &getFilters() const {
@@ -424,7 +424,7 @@ namespace fields {
     t_output_state outputState;
 
   public:
-    OutputField(MultiLevelContextInformation<DataType> &multiLevelContext) : MultiLevelField<DataType>(
+    OutputField(multilevelcontext::MultiLevelContextInformation<DataType> &multiLevelContext) : MultiLevelField<DataType>(
       multiLevelContext) {
       outputState = PRE_SEPARATION;
     }
@@ -468,7 +468,7 @@ namespace fields {
 
 
   public:
-    ConstraintField(MultiLevelContextInformation<DataType> &multiLevelContext,
+    ConstraintField(multilevelcontext::MultiLevelContextInformation<DataType> &multiLevelContext,
                     std::vector<Field<DataType, T>> &&fieldsOnGrids)
       : MultiLevelField<DataType>(multiLevelContext, std::move(fieldsOnGrids)) {
       this->isCovector = true;

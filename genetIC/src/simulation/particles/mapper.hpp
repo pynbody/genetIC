@@ -352,7 +352,7 @@ namespace particle {
       throw std::runtime_error("Cannot get particles; no particle->grid mapper available");
     }
 
-    virtual void extendParticleListToUnreferencedGrids(MultiLevelContextInformation<GridDataType> &grids) {
+    virtual void extendParticleListToUnreferencedGrids(multilevelcontext::MultiLevelContextInformation<GridDataType> &grids) {
       /* For any grid that is _not_ referenced by this mapper, generate cell flags by matching
        * to the finest level available in this mapper.
        *
