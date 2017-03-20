@@ -8,6 +8,7 @@
 #include <memory>
 #include <vector>
 #include <cassert>
+#include <src/simulation/filters/filter.hpp>
 
 namespace grids {
   template<typename T>
