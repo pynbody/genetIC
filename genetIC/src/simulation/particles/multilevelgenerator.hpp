@@ -19,7 +19,7 @@ namespace particle {
     public std::enable_shared_from_this<AbstractMultiLevelParticleGenerator<GridDataType>> {
 
   public:
-    using T = strip_complex<GridDataType>;
+    using T = tools::datatypes::strip_complex<GridDataType>;
     virtual particle::ParticleGenerator<GridDataType> &getGeneratorForLevel(size_t level) = 0;
     virtual particle::ParticleGenerator<GridDataType> &getGeneratorForGrid(const grids::Grid<T> &grid) =0;
 
@@ -28,7 +28,7 @@ namespace particle {
     }
   };
 
-  template<typename GridDataType, typename T=strip_complex<GridDataType>>
+  template<typename GridDataType, typename T=tools::datatypes::strip_complex<GridDataType>>
   class NullMultiLevelParticleGenerator: public AbstractMultiLevelParticleGenerator<GridDataType> {
   public:
 
@@ -130,7 +130,7 @@ namespace particle {
 
 
 
-  template<typename GridDataType, typename TParticleGenerator, typename T=strip_complex<GridDataType>>
+  template<typename GridDataType, typename TParticleGenerator, typename T=tools::datatypes::strip_complex<GridDataType>>
   class MultiLevelParticleGenerator : public AbstractMultiLevelParticleGenerator<GridDataType>
   {
   protected:

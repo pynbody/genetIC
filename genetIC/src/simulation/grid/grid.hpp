@@ -101,20 +101,20 @@ namespace grids {
     GridPtrType makeProxyGridToMatch(const Grid<T> &target) const {
       GridPtrType proxy = std::const_pointer_cast<Grid<T>>(this->shared_from_this());
       if (target.dx > dx) {
-        size_t ratio = getRatioAndAssertPositiveInteger(target.dx, dx);
+        size_t ratio = tools::getRatioAndAssertPositiveInteger(target.dx, dx);
         proxy = std::make_shared<SubSampleGrid<T>>(proxy, ratio);
       } else if (target.dx < dx) {
-        size_t ratio = getRatioAndAssertPositiveInteger(dx, target.dx);
+        size_t ratio = tools::getRatioAndAssertPositiveInteger(dx, target.dx);
         proxy = std::make_shared<SuperSampleGrid<T>>(proxy, ratio);
       }
 
       if (target.offsetLower != offsetLower || target.size != proxy->size) {
         proxy = std::make_shared<SectionOfGrid<T>>(proxy,
-                                                   getRatioAndAssertInteger(target.offsetLower.x - offsetLower.x,
+                                                   tools::getRatioAndAssertInteger(target.offsetLower.x - offsetLower.x,
                                                                             proxy->dx),
-                                                   getRatioAndAssertInteger(target.offsetLower.y - offsetLower.y,
+                                                   tools::getRatioAndAssertInteger(target.offsetLower.y - offsetLower.y,
                                                                             proxy->dx),
-                                                   getRatioAndAssertInteger(target.offsetLower.z - offsetLower.z,
+                                                   tools::getRatioAndAssertInteger(target.offsetLower.z - offsetLower.z,
                                                                             proxy->dx),
                                                    target.size);
       }

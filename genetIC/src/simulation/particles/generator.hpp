@@ -22,7 +22,7 @@ namespace particle {
   template<typename GT>
   class ParticleGenerator : public std::enable_shared_from_this<ParticleGenerator<GT>> {
   public:
-    using T = strip_complex<GT>;
+    using T = tools::datatypes::strip_complex<GT>;
 
   protected:
     const grids::Grid <T> &grid;

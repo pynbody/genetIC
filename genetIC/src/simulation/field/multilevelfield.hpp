@@ -13,10 +13,10 @@ namespace fields {
   class MultiLevelField : public std::enable_shared_from_this<MultiLevelField<DataType>> {
 
   protected:
-    using T = strip_complex<DataType>;
+    using T = tools::datatypes::strip_complex<DataType>;
     multilevelcontext::MultiLevelContextInformation<DataType> *multiLevelContext;
     std::shared_ptr<filters::FilterFamily<T>> pFilters;   // filters to be applied when used as a vector
-    Signaling::connection_t connection;
+    tools::Signaling::connection_t connection;
     bool isCovector;
 
     std::vector<Field<DataType, T>> fieldsOnLevels;
@@ -246,7 +246,7 @@ namespace fields {
         T k_value = pCurrentGrid->getFourierCellAbsK(i);
         T inner_weight = weight * (*pFiltOther)(k_value);
         if (covariance_weighted) inner_weight *= ((*pCov)[i]) * weight;
-        inner_weight *= numerics::fourier::getFourierCellWeight(*pFieldThis, i);
+        inner_weight *= tools::numerics::fourier::getFourierCellWeight(*pFieldThis, i);
         return inner_weight * std::conj((*pFieldDataThis)[i]) * (*pFieldDataOther)[i];
       };
 
@@ -370,13 +370,13 @@ namespace fields {
       for (size_t i = 0; i < grid.size3; i++) {
         int kx, ky, kz;
         std::tie(kx, ky, kz) = grid.getFourierCellCoordinate(i);
-        complex<T> existingValue = numerics::fourier::getFourierCoefficient(field, kx, ky, kz);
+        complex<T> existingValue = tools::numerics::fourier::getFourierCoefficient(field, kx, ky, kz);
         T absExistingValue = abs(existingValue);
         T sqrt_spec = sqrt(spectrum[i]) * white_noise_norm;
         T a = sqrt_spec * existingValue.real() / absExistingValue;
         T b = sqrt_spec * existingValue.imag() / absExistingValue;
 
-        numerics::fourier::setFourierCoefficient(field, kx, ky, kz, a, b);
+        tools::numerics::fourier::setFourierCoefficient(field, kx, ky, kz, a, b);
       }
     }
 

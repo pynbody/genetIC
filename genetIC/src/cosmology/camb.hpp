@@ -23,7 +23,7 @@ namespace cosmology {
   protected:
     std::vector <FloatType> kcamb;
     std::vector <FloatType> Tcamb;
-    numerics::Interpolator <FloatType> interpolator;
+    tools::numerics::Interpolator <FloatType> interpolator;
     FloatType amplitude;
     FloatType ns;
     mutable FloatType kcamb_max_in_file;

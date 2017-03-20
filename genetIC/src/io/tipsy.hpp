@@ -21,7 +21,7 @@ namespace io {
 	} header_tipsy;
 
 
-	template<typename GridType, typename FloatType=strip_complex<GridType>>
+	template<typename GridType, typename FloatType=tools::datatypes::strip_complex<GridType>>
 	void saveFieldTipsyArray(const std::string &filename,
 							 particle::mapper::ParticleMapper<GridType> & mapper,
 							 particle::AbstractMultiLevelParticleGenerator<GridType> & generator,
@@ -33,7 +33,7 @@ namespace io {
 	  field.toReal();
 
 	  for (auto i = mapper.begin(generator); i != mapper.end(generator); ++i) {
-		float data = float(real_part_if_complex(i.getField(field)));
+		float data = float(tools::datatypes::real_part_if_complex(i.getField(field)));
 		outfile.write(reinterpret_cast<char *>(&data), 4);
 	  }
 	}
@@ -62,7 +62,7 @@ namespace io {
 	}
 
 
-	template<typename GridDataType, typename FloatType=strip_complex<GridDataType>>
+	template<typename GridDataType, typename FloatType=tools::datatypes::strip_complex<GridDataType>>
 	class TipsyOutput {
 	protected:
         const particle::AbstractMultiLevelParticleGenerator<GridDataType> &generator;

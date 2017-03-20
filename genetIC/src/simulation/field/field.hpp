@@ -22,14 +22,14 @@ namespace grids {
 namespace fields {
 
   /** Class to manage and evaluate a field defined on a single grid.  */
-  template<typename DataType, typename CoordinateType=strip_complex<DataType>>
+  template<typename DataType, typename CoordinateType=tools::datatypes::strip_complex<DataType>>
   class Field : public std::enable_shared_from_this<Field<DataType, CoordinateType>> {
   public:
     using TGrid = const grids::Grid<CoordinateType>;
     using TPtrGrid = std::shared_ptr<TGrid>;
     using TData = std::vector<DataType>;
     using value_type = DataType;
-    using ComplexType = ensure_complex<DataType>;
+    using ComplexType = tools::datatypes::ensure_complex<DataType>;
 
   protected:
     const TPtrGrid pGrid;
@@ -201,13 +201,13 @@ namespace fields {
 
     void toFourier() {
       if (fourier) return;
-      numerics::fourier::fft(data.data(), data.data(), this->pGrid->size, 1);
+      tools::numerics::fourier::fft(data.data(), data.data(), this->pGrid->size, 1);
       fourier = true;
     }
 
     void toReal() {
       if (!fourier) return;
-      numerics::fourier::fft(data.data(), data.data(), this->pGrid->size, -1);
+      tools::numerics::fourier::fft(data.data(), data.data(), this->pGrid->size, -1);
       fourier = false;
     }
 

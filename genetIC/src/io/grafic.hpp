@@ -24,7 +24,7 @@ namespace io {
       float omegaM, omegaL, h0;
     } header_grafic;
 
-    template<typename DataType, typename T=strip_complex<DataType>>
+    template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
     class GraficOutput {
     protected:
       std::string outputFilename;
@@ -62,8 +62,8 @@ namespace io {
       void writeGrid(const grids::Grid<T> & targetGrid) {
         auto & gridGenerator = generator->getGeneratorForGrid(targetGrid);
         const grids::Grid<T> & baseGrid = context.getGridForLevel(0);
-        size_t effective_size = getRatioAndAssertPositiveInteger(baseGrid.dx * baseGrid.size, targetGrid.dx);
-	      progress::ProgressBar pb("write grid "+std::to_string(effective_size), targetGrid.size);
+        size_t effective_size = tools::getRatioAndAssertPositiveInteger(baseGrid.dx * baseGrid.size, targetGrid.dx);
+	      tools::progress::ProgressBar pb("write grid "+std::to_string(effective_size), targetGrid.size);
 
         std::string thisGridFilename = outputFilename+"_"+std::to_string(effective_size);
         mkdir(thisGridFilename.c_str(), 0777);
@@ -146,7 +146,7 @@ namespace io {
 
     };
 
-    template<typename DataType, typename T=strip_complex<DataType>>
+    template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
     void save(const std::string & filename,
               particle::AbstractMultiLevelParticleGenerator<DataType> &generator,
               multilevelcontext::MultiLevelContextInformation<DataType> &context,

@@ -15,7 +15,7 @@
 namespace constraints {
 
   /** This class takes responsibility for calculating constraint covectors across a single grid */
-  template<typename DataType, typename FloatType=strip_complex<DataType>>
+  template<typename DataType, typename FloatType=tools::datatypes::strip_complex<DataType>>
   class ConstraintCalculator {
   protected:
     const grids::Grid<FloatType> &grid;
@@ -176,7 +176,7 @@ namespace constraints {
   };
 
 
-  template<typename DataType, typename FloatType=strip_complex<DataType>>
+  template<typename DataType, typename FloatType=tools::datatypes::strip_complex<DataType>>
   fields::Field<DataType, FloatType> calcConstraint(std::string name, const grids::Grid<FloatType> &grid,
                                                     const cosmology::CosmologicalParameters<FloatType> &cosmology) {
     typedef ConstraintCalculator<DataType> CC;

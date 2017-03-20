@@ -36,11 +36,11 @@ namespace cosmology {
 
  */
 namespace multilevelcontext {
-    template<typename DataType, typename T=strip_complex<DataType>>
+    template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
     class MultiLevelContextInformation;
 
-    template<typename DataType, typename T=strip_complex<DataType>>
-    class MultiLevelContextInformationBase : public Signaling {
+    template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
+    class MultiLevelContextInformationBase : public tools::Signaling {
     private:
         std::vector<std::shared_ptr<grids::Grid<T>>> pGrid;
         std::vector<std::vector<T>> C0s;

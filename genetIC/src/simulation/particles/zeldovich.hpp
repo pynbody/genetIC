@@ -23,7 +23,7 @@ namespace particle {
   template<typename T>
   class Particle;
 
-  template<typename GridDataType, typename T=strip_complex<GridDataType>>
+  template<typename GridDataType, typename T=tools::datatypes::strip_complex<GridDataType>>
   class ZeldovichParticleGenerator : public ParticleGenerator<GridDataType> {
   protected:
     using TField = fields::Field<GridDataType, T>;
@@ -67,7 +67,7 @@ namespace particle {
 
       size_t size = grid.size;
       size_t size3 = grid.size3;
-      progress::ProgressBar pb("zeldovich", size * 2);
+      tools::progress::ProgressBar pb("zeldovich", size * 2);
 
       // get a reference to the density field in fourier space
       linearOverdensityField.toFourier();
@@ -82,9 +82,9 @@ namespace particle {
       size_t idx;
 
       const T kw = 2. * M_PI / grid.boxsize;
-      const int nyquist = numerics::fourier::getNyquistModeThatMustBeReal(grid);
+      const int nyquist = tools::numerics::fourier::getNyquistModeThatMustBeReal(grid);
 
-      numerics::fourier::applyTransformationInFourierBasis<T>(linearOverdensityField,
+      tools::numerics::fourier::applyTransformationInFourierBasis<T>(linearOverdensityField,
       [kw, nyquist](complex<T> inputVal, int iix, int iiy, int iiz) -> std::tuple<complex<T>, complex<T>, complex<T>> {
         complex<T> result_x;
         T kfft = (iix * iix + iiy * iiy + iiz * iiz);

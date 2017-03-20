@@ -53,7 +53,7 @@ namespace particle {
 //        class ParticleGenerator;
 
         /** Class to keep track of where within a list of particles a current process (e.g. writing a file) has got to */
-        template<typename GridDataType, typename T=strip_complex<GridDataType>>
+        template<typename GridDataType, typename T=tools::datatypes::strip_complex<GridDataType>>
         class MapperIterator {
         protected:
             // This is a generic structure used by all subclasses to keep
@@ -254,7 +254,7 @@ namespace particle {
         template<typename GridDataType>
         class ParticleMapper {
         public:
-            using T = strip_complex<GridDataType>;
+            using T = tools::datatypes::strip_complex<GridDataType>;
             using MapType = ParticleMapper<GridDataType>;
             using MapPtrType = std::shared_ptr<MapType>;
             using GridType = grids::Grid<T>;
@@ -647,7 +647,7 @@ namespace particle {
                 if (zoomParticleArrayForL1grid.size() != zoomParticleArrayForL1mapper.size())
                     throw std::runtime_error("The cells to zoom on must all be on the finest level 1 grid");
 
-                n_hr_per_lr = getRatioAndAssertPositiveInteger(pGrid1->dx, pGrid2->dx);
+                n_hr_per_lr = tools::getRatioAndAssertPositiveInteger(pGrid1->dx, pGrid2->dx);
                 n_hr_per_lr *= n_hr_per_lr * n_hr_per_lr;
 
                 totalParticles = pLevel1->size() + (n_hr_per_lr - 1) * zoomParticleArrayForL1mapper.size();
@@ -788,7 +788,7 @@ namespace particle {
                 pLevel2->getFlaggedParticles(grid2particles);
 
                 // get the ordering of the level 2 particles
-                std::vector<size_t> sortIndex = argsort(zoomParticleArrayHiresUnsorted);
+                std::vector<size_t> sortIndex = tools::argsort(zoomParticleArrayHiresUnsorted);
 
 
                 size_t zoomed_i = 0;

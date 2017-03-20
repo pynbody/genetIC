@@ -43,7 +43,7 @@ using ICf = ICGenerator<complex<FloatType>> ;
 using ICf = ICGenerator<FloatType>;
 #endif
 
-void setup_parser(ClassDispatch<ICf, void> &dispatch) {
+void setup_parser(tools::ClassDispatch<ICf, void> &dispatch) {
 
   // Define the commands for the paramfile
   dispatch.add_class_route("TCMB", &ICf::setTCMB);
@@ -137,7 +137,7 @@ int main(int argc, char *argv[]) {
     exit(1);
   }
 
-  ChangeCwdWhileInScope temporary(getDirectoryName(fname));
+  tools::ChangeCwdWhileInScope temporary(tools::getDirectoryName(fname));
 
   ofstream outf;
   outf.open("IC_output.params");
@@ -151,7 +151,7 @@ int main(int argc, char *argv[]) {
   header(cerr);
 
   // Set up the command interpreter to issue commands to main_generator
-  ClassDispatch<ICf, void> dispatch_generator;
+  tools::ClassDispatch<ICf, void> dispatch_generator;
   setup_parser(dispatch_generator);
 
   // The main program is contained in this class:

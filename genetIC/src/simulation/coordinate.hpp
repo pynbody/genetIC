@@ -1,7 +1,3 @@
-//
-// Created by Andrew Pontzen on 16/07/2016.
-//
-
 #ifndef IC_COORDINATE_HPP
 #define IC_COORDINATE_HPP
 

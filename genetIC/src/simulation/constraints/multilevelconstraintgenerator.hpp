@@ -21,7 +21,7 @@ namespace constraints {
 
   /** This class takes responsibility for calculating constraint covectors across all levels that a field is
     * defined on. */
-  template<typename DataType, typename T = strip_complex<DataType>>
+  template<typename DataType, typename T = tools::datatypes::strip_complex<DataType>>
   class MultiLevelConstraintGenerator {
 
 
@@ -33,7 +33,7 @@ namespace constraints {
       /* Get a named constraint covector on a particular level. Normalise such that taking the multi-level inner product
        * will return the correct value (the same as it would if the entire box consisted just of the specified level) */
 
-      using numerics::operator/=;
+      using tools::numerics::operator/=;
 
       // calculate on the finest field
       auto returnField = calcConstraint<DataType>(name_in, fieldManager.getGridForLevel(level), cosmology);

@@ -48,7 +48,7 @@ template<typename GridDataType>
 class ICGenerator {
 protected:
 
-  using T = strip_complex<GridDataType>;
+  using T = tools::datatypes::strip_complex<GridDataType>;
   using GridPtrType = std::shared_ptr<grids::Grid<T>>;
 
 
@@ -88,11 +88,11 @@ protected:
   using RefFieldType = std::vector<GridDataType> &;
   using FieldType = std::vector<GridDataType>;
 
-  ClassDispatch<ICGenerator<GridDataType>, void> &interpreter;
+  tools::ClassDispatch<ICGenerator<GridDataType>, void> &interpreter;
 
 
 public:
-  ICGenerator(ClassDispatch<ICGenerator<GridDataType>, void> &interpreter) :
+  ICGenerator(tools::ClassDispatch<ICGenerator<GridDataType>, void> &interpreter) :
                                                       outputField(multiLevelContext),
                                                       constraintApplicator(&multiLevelContext, &outputField),
                                                       constraintGenerator(multiLevelContext, cosmology),
@@ -309,7 +309,7 @@ public:
   string getOutputPath() {
     ostringstream fname_stream;
     if (outputFilename.size() == 0) {
-      fname_stream << outputFolder << "/IC_" << floatinfo<T>::name << "_z" << cosmology.redshift << "_" << multiLevelContext.getGridForLevel(0).size;
+      fname_stream << outputFolder << "/IC_" << tools::datatypes::floatinfo<T>::name << "_z" << cosmology.redshift << "_" << multiLevelContext.getGridForLevel(0).size;
     } else {
       fname_stream << outputFolder << "/" << outputFilename;
     }
@@ -345,7 +345,7 @@ public:
     int n = levelGrid.size;
 
     const int dim[3] = {n,n,n};
-    numpy::SaveArrayAsNumpy(filename.str(), false, 3, dim, data.data());
+    io::numpy::SaveArrayAsNumpy(filename.str(), false, 3, dim, data.data());
 
     filename.str("");
     filename << outputFolder << "/grid-info-" << level << ".txt";
@@ -371,7 +371,7 @@ public:
   }
 
   virtual void dumpGridFourier(int level=0) {
-    fields::Field<complex<T>, T> fieldToWrite = numerics::fourier::getComplexFourierField(outputField.getFieldForLevel(level));
+    fields::Field<complex<T>, T> fieldToWrite = tools::numerics::fourier::getComplexFourierField(outputField.getFieldForLevel(level));
     dumpGridData(level, fieldToWrite.getDataVector());
   }
 
@@ -406,7 +406,7 @@ public:
       throw std::runtime_error("Cannot open IC paramfile for relative_to command");
     cerr << "******** Running commands in" << fname << " to work out relationship ***********" << endl;
 
-    ChangeCwdWhileInScope temporary(getDirectoryName(fname));
+    tools::ChangeCwdWhileInScope temporary(tools::getDirectoryName(fname));
 
     dispatch.run_loop(inf);
     cerr << *(pseudoICs.pMapper) << endl;

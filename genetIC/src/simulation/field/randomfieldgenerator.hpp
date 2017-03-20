@@ -18,7 +18,7 @@ namespace fields {
   template<typename DataType>
   class RandomFieldGenerator {
   protected:
-    using FloatType=  strip_complex<DataType>;
+    using FloatType = tools::datatypes::strip_complex<DataType>;
 
     gsl_rng *randomState;
     const gsl_rng_type *randomNumberGeneratorType;
@@ -88,9 +88,9 @@ namespace fields {
       FloatType b = norm * gsl_ran_gaussian_ziggurat(randomState, 1.);
 
       if (reverseRandomDrawOrder)
-        numerics::fourier::setFourierCoefficient(field, k1, k2, k3, b, a);
+        tools::numerics::fourier::setFourierCoefficient(field, k1, k2, k3, b, a);
       else
-        numerics::fourier::setFourierCoefficient(field, k1, k2, k3, a, b);
+        tools::numerics::fourier::setFourierCoefficient(field, k1, k2, k3, a, b);
 
     }
 
@@ -115,9 +115,9 @@ namespace fields {
       }
 
 
-      numerics::fourier::fft(pField_k, pField_k, 1);
+      tools::numerics::fourier::fft(pField_k, pField_k, 1);
 
-      set_zero(pField_k[0]);
+      tools::set_zero(pField_k[0]);
 
       std::cerr << "done" << std::endl;
     }
@@ -130,7 +130,7 @@ namespace fields {
 
       const grids::Grid<FloatType> &g = field.getGrid();
 
-      progress::ProgressBar pb("");
+      tools::progress::ProgressBar pb("");
       FloatType sigma = sqrt((FloatType) (g.size3));
 
       std::cerr << "Drawing random numbers in fourier space..." << std::endl;
