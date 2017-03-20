@@ -14,7 +14,7 @@ namespace io {
 
     template<typename GridDataType, typename FloatType=strip_complex<GridDataType>>
     void getParticleInfo(const particle::AbstractMultiLevelParticleGenerator<GridDataType> &generator,
-                         particle::ParticleMapper<GridDataType> &mapper,
+                         particle::mapper::ParticleMapper<GridDataType> &mapper,
                          FloatType &min_mass, FloatType &max_mass,
                          FloatType &tot_mass, FloatType &gas_mass, size_t &ngas, size_t &nlow, size_t &nhigh) {
 
@@ -584,7 +584,7 @@ int save_phases(complex<FloatType> *phk, FloatType* ph, complex<FloatType> *delt
 
     template<typename GridDataType, typename FloatType>
     void save(const std::string &name, double Boxlength,
-              particle::ParticleMapper<GridDataType> & mapper,
+              particle::mapper::ParticleMapper<GridDataType> & mapper,
               particle::AbstractMultiLevelParticleGenerator<GridDataType> & generator,
               const cosmology::CosmologicalParameters<FloatType> &cosmology, int gadgetformat) {
 

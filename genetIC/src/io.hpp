@@ -5,7 +5,7 @@
 #include <vector>
 #include <limits>
 
-#include "src/simulation/particles/mapper.hpp"
+#include "src/simulation/particles/mapper/mapper.hpp"
 #include "src/cosmology/parameters.hpp"
 
 

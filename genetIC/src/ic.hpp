@@ -80,8 +80,8 @@ protected:
 
   T x0, y0, z0;
 
-  shared_ptr<particle::ParticleMapper<GridDataType>> pMapper;
-  shared_ptr<particle::ParticleMapper<GridDataType>> pInputMapper;
+  shared_ptr<particle::mapper::ParticleMapper<GridDataType>> pMapper;
+  shared_ptr<particle::mapper::ParticleMapper<GridDataType>> pInputMapper;
 
   shared_ptr<particle::AbstractMultiLevelParticleGenerator<GridDataType>> pParticleGenerator;
 
@@ -97,7 +97,7 @@ public:
                                                       constraintApplicator(&multiLevelContext, &outputField),
                                                       constraintGenerator(multiLevelContext, cosmology),
                                                       randomFieldGenerator(outputField),
-                                                      pMapper(new particle::ParticleMapper<GridDataType>()),
+                                                      pMapper(new particle::mapper::ParticleMapper<GridDataType>()),
                                                       interpreter(interpreter)
   {
     pInputMapper = nullptr;
@@ -432,7 +432,7 @@ public:
       return;
 
     // make a basic mapper for the coarsest grid
-    pMapper = std::shared_ptr<particle::ParticleMapper<GridDataType>>(new particle::OneLevelParticleMapper<GridDataType>(
+    pMapper = std::shared_ptr<particle::mapper::ParticleMapper<GridDataType>>(new particle::mapper::OneLevelParticleMapper<GridDataType>(
       getGridWithOutputOffset(0)
     ));
 
@@ -441,11 +441,11 @@ public:
 
       for(size_t level=1; level<nLevels; level++) {
 
-        auto pFine = std::shared_ptr<particle::ParticleMapper<GridDataType>>(
-          new particle::OneLevelParticleMapper<GridDataType>(getGridWithOutputOffset(level)));
+        auto pFine = std::shared_ptr<particle::mapper::ParticleMapper<GridDataType>>(
+          new particle::mapper::OneLevelParticleMapper<GridDataType>(getGridWithOutputOffset(level)));
 
-        pMapper = std::shared_ptr<particle::ParticleMapper<GridDataType>>(
-          new particle::TwoLevelParticleMapper<GridDataType>(pMapper, pFine, zoomParticleArray[level-1]));
+        pMapper = std::shared_ptr<particle::mapper::ParticleMapper<GridDataType>>(
+          new particle::mapper::TwoLevelParticleMapper<GridDataType>(pMapper, pFine, zoomParticleArray[level-1]));
       }
     }
 
@@ -460,10 +460,10 @@ public:
 
       // graft the gas particles onto the start of the map
       if (gasFirst)
-        pMapper = std::make_shared<particle::AddGasMapper<GridDataType>>(
+        pMapper = std::make_shared<particle::mapper::AddGasMapper<GridDataType>>(
           gasMapper.first, gasMapper.second, true);
       else
-        pMapper = std::make_shared<particle::AddGasMapper<GridDataType>>(
+        pMapper = std::make_shared<particle::mapper::AddGasMapper<GridDataType>>(
           gasMapper.second, gasMapper.first, false);
 
     }

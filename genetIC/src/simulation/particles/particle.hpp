@@ -1,12 +1,12 @@
-//
-// Created by Andrew Pontzen on 16/07/2016.
-//
-
 #ifndef IC_PARTICLE_HPP
 #define IC_PARTICLE_HPP
 
 #include "src/simulation/coordinate.hpp"
 
+/*!
+    \namespace particle
+    \brief Generate particles for N-body zoomed simulations from multiple levels grids.
+*/
 namespace particle {
   template<typename T>
   class Particle {

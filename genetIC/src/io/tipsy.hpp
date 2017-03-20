@@ -6,6 +6,7 @@
 #define IC_TIPSY_HPP
 
 #include "src/io.hpp"
+#include "src/simulation/particles/mapper/mapper.hpp"
 
 namespace io {
   namespace tipsy {
@@ -22,7 +23,7 @@ namespace io {
 
 	template<typename GridType, typename FloatType=strip_complex<GridType>>
 	void saveFieldTipsyArray(const std::string &filename,
-							 particle::ParticleMapper<GridType> & mapper,
+							 particle::mapper::ParticleMapper<GridType> & mapper,
 							 particle::AbstractMultiLevelParticleGenerator<GridType> & generator,
 							 fields::MultiLevelField<GridType> &field) {
 	  std::ofstream outfile(filename.c_str(), std::ofstream::binary);
@@ -70,7 +71,7 @@ namespace io {
       size_t iord;
       double pos_factor, vel_factor, mass_factor, min_mass, max_mass;
       double boxLength;
-      std::shared_ptr<particle::ParticleMapper<GridDataType>> pMapper;
+      std::shared_ptr<particle::mapper::ParticleMapper<GridDataType>> pMapper;
       const cosmology::CosmologicalParameters<FloatType> &cosmology;
 
 
@@ -116,8 +117,8 @@ namespace io {
 	  }
 
 	  template<typename ParticleType>
-	  void saveTipsyParticles(particle::MapperIterator<GridDataType> &&begin,
-							  particle::MapperIterator<GridDataType> &&end) {
+	  void saveTipsyParticles(particle::mapper::MapperIterator<GridDataType> &&begin,
+							  particle::mapper::MapperIterator<GridDataType> &&end) {
 
 		ParticleType p;
 		TipsyParticle::initialise(p, cosmology);
@@ -136,8 +137,8 @@ namespace io {
 
 
 	  template<typename ParticleType>
-	  void saveTipsyParticlesSingleThread(particle::MapperIterator<GridDataType> &&begin,
-										  particle::MapperIterator<GridDataType> &&end) {
+	  void saveTipsyParticlesSingleThread(particle::mapper::MapperIterator<GridDataType> &&begin,
+										  particle::mapper::MapperIterator<GridDataType> &&end) {
 
 		ParticleType p;
 		FloatType x, y, z, vx, vy, vz, mass, eps;
@@ -170,7 +171,7 @@ namespace io {
 
 	  TipsyOutput(double boxLength,
 				  const particle::AbstractMultiLevelParticleGenerator<GridDataType> &generator,
-				  std::shared_ptr<particle::ParticleMapper<GridDataType>> pMapper,
+				  std::shared_ptr<particle::mapper::ParticleMapper<GridDataType>> pMapper,
 				  const cosmology::CosmologicalParameters<FloatType> &cosmology) : generator(generator),boxLength(boxLength),
 																	  pMapper(pMapper),
 																	  cosmology(cosmology) {
@@ -249,7 +250,7 @@ namespace io {
 	template<typename GridDataType, typename T>
 	void save(const std::string &filename, double Boxlength,
 			  const particle::AbstractMultiLevelParticleGenerator<GridDataType> & generator,
-			  std::shared_ptr<particle::ParticleMapper<GridDataType>> pMapper,
+			  std::shared_ptr<particle::mapper::ParticleMapper<GridDataType>> pMapper,
 			  const cosmology::CosmologicalParameters<T> &cosmology) {
 
 	  TipsyOutput<GridDataType> output(Boxlength, generator, pMapper, cosmology);
