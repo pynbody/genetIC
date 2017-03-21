@@ -154,7 +154,7 @@ namespace fields {
         return pFieldThis->size() > 0;
       };
 
-      auto newCell = [&](size_t level, size_t cell, size_t cumu_i) {
+      auto newCell = [&](size_t, size_t cell, size_t) {
         (*pFieldThis)[cell] /= ratio;
       };
 
@@ -194,7 +194,7 @@ namespace fields {
         return this->hasFieldOnGrid(level) && other.hasFieldOnGrid(level);
       };
 
-      auto newCell = [&](size_t level, size_t cell, size_t cumu_i) {
+      auto newCell = [&](size_t, size_t cell, size_t) {
         T k_value = pCurrentGrid->getFourierCellAbsK(cell);
         T filt = (*pFiltOther)(k_value) / (*pFiltThis)(k_value);
         (*pFieldThis)[cell] += filt * (*pFieldOther)[cell] * scale;
@@ -242,7 +242,7 @@ namespace fields {
         return pFieldDataOther->size() > 0 && pFieldDataThis->size() > 0;
       };
 
-      auto getCellContribution = [&](size_t component, size_t i, size_t cumu_i) {
+      auto getCellContribution = [&](size_t, size_t i, size_t) {
         T k_value = pCurrentGrid->getFourierCellAbsK(i);
         T inner_weight = weight * (*pFiltOther)(k_value);
         if (covariance_weighted) inner_weight *= ((*pCov)[i]) * weight;

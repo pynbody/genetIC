@@ -25,11 +25,11 @@ namespace filters {
 
     Filter() {}
 
-    Filter(T k_cut) {
+    Filter(T /*k_cut*/) {
       // provided for compatibility with filters that do take a wavenumber cut
     }
 
-    virtual T operator()(T x) const {
+    virtual T operator()(T) const {
       return 1.0;
     }
 
@@ -66,11 +66,11 @@ namespace filters {
 
     }
 
-    NullFilter(T k_cut) {
+    NullFilter(T /*k_cut*/) {
       // provided for compatibility with filters that do take a wavenumber cut
     }
 
-    T operator()(T x) const override {
+    T operator()(T /*x*/) const override {
       return 0.0;
     }
 

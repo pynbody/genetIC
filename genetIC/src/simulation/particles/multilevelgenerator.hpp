@@ -36,11 +36,11 @@ namespace particle {
 
     }
 
-    virtual particle::ParticleGenerator<GridDataType> &getGeneratorForLevel(size_t level) override {
+    virtual particle::ParticleGenerator<GridDataType> &getGeneratorForLevel(size_t /*level*/) override {
       throw std::runtime_error("Attempt to generate particles before they have been calculated");
     }
 
-    virtual particle::ParticleGenerator<GridDataType> &getGeneratorForGrid(const grids::Grid<T> &grid) override {
+    virtual particle::ParticleGenerator<GridDataType> &getGeneratorForGrid(const grids::Grid<T>&) override {
       throw std::runtime_error("Attempt to generate particles before they have been calculated");
     }
   };

@@ -65,7 +65,7 @@ namespace tools {
         template<typename... Args>
         static Rtype call_function(const std::function<Rtype()> &f,
                                    std::istream &input_stream,
-                                   std::ostream *output_stream) {
+                                   std::ostream* /* *output_stream*/) {
           consume_comments(input_stream);
           return f();
         }

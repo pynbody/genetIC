@@ -193,8 +193,7 @@ namespace multilevelcontext {
 
         void forEachCellOfEachLevel(
                 std::function<bool(size_t)> levelCallback,
-                std::function<void(size_t, size_t, size_t)> cellCallback,
-                bool kspace = true) {
+                std::function<void(size_t, size_t, size_t)> cellCallback) {
 
 
           for (size_t level = 0; level < nLevels; level++) {
@@ -213,8 +212,7 @@ namespace multilevelcontext {
         }
 
         void forEachCellOfEachLevel(
-                std::function<void(size_t, size_t, size_t, std::vector<DataType> &)> cellCallback,
-                bool kspace = true) {
+                std::function<void(size_t, size_t, size_t, std::vector<DataType> &)> cellCallback) {
 
           forEachCellOfEachLevel([](size_t i) { return true; }, cellCallback);
         }

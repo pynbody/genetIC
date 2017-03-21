@@ -85,8 +85,6 @@ namespace cosmology {
         } else continue;
       }
 
-      size_t nCambLines = kcamb.size();
-
       // Extend high-k range using Meszaros solution
       // This is a very naive approximation and a big warning will be issued if the power is actually evaluated
       // at these high k's (see operator() below).

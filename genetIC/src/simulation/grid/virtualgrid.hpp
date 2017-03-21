@@ -169,11 +169,11 @@ namespace grids{
             s << "OffsetGrid";
         }
 
-        void getFlaggedCells(std::vector<size_t> &targetArray) const override {
+        void getFlaggedCells(std::vector<size_t>& /*&targetArray*/) const override {
             throw (std::runtime_error("getFlaggedCells is not implemented for OffsetGrid"));
         }
 
-        void flagCells(const std::vector<size_t> &sourceArray) override {
+        void flagCells(const std::vector<size_t>& /*&sourceArray*/) override {
             throw (std::runtime_error("flagCells is not implemented for OffsetGrid"));
         }
 
@@ -264,7 +264,7 @@ namespace grids{
             std::sort(targetArray.begin(), targetArray.end());
         }
 
-        void flagCells(const std::vector<size_t> &sourceArray) override {
+        void flagCells(const std::vector<size_t>& /*&sourceArray*/) override {
             throw (std::runtime_error("flagCells is not implemented for OffsetGrid"));
         }
 

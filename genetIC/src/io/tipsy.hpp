@@ -49,7 +49,7 @@ namespace io {
 	  };
 
 	  template<typename T>
-	  void initialise(dark &p, const cosmology::CosmologicalParameters<T> &cosmo) {
+	  void initialise(dark &p, const cosmology::CosmologicalParameters<T>& /*&cosmo*/) {
 		p.phi = 0.0;
 	  }
 

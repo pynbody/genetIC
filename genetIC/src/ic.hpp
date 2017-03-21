@@ -35,15 +35,17 @@
 
 using namespace std;
 
-
 template<typename T>
 class DummyICGenerator;
 
 
-/** The top level object responsible for coordinating the generation of initial conditions, including GM constraints.
-   *
-   * This class exposes all the methods which are made scriptable by main.cpp
-   */
+/*!
+   \class ICGenerator
+   \brief top level object responsible for coordinating the generation of initial conditions, including genetic modifications.
+
+   This class exposes all methods accessible at user level through main.o
+
+*/
 template<typename GridDataType>
 class ICGenerator {
 protected:

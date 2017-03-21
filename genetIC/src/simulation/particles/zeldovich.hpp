@@ -66,20 +66,15 @@ namespace particle {
       // TODO: refactorise this horrible long method
 
       size_t size = grid.size;
-      size_t size3 = grid.size3;
       tools::progress::ProgressBar pb("zeldovich", size * 2);
 
       // get a reference to the density field in fourier space
       linearOverdensityField.toFourier();
-      auto &pField_k = linearOverdensityField.getDataVector();
 
       // copy three times to start assembling the vx, vy, vz fields
       auto offsetX = std::make_shared<TField>(const_cast<grids::Grid<T> &>(grid));
       auto offsetY = std::make_shared<TField>(const_cast<grids::Grid<T> &>(grid));
       auto offsetZ = std::make_shared<TField>(const_cast<grids::Grid<T> &>(grid));
-
-      T kfft;
-      size_t idx;
 
       const T kw = 2. * M_PI / grid.boxsize;
       const int nyquist = tools::numerics::fourier::getNyquistModeThatMustBeReal(grid);

@@ -41,7 +41,10 @@ set(SOURCE_FILES
         genetIC/src/simulation/particles/zeldovich.hpp
         genetIC/src/simulation/particles/generator.hpp
         genetIC/src/simulation/particles/multilevelgenerator.hpp
-        genetIC/src/tools/data_types/complex.hpp genetIC/src/simulation/filters/filterfamily.hpp genetIC/src/simulation/grid/virtualgrid.hpp genetIC/src/simulation/particles/mapper/mapperimplemntation.hpp)
+        genetIC/src/tools/data_types/complex.hpp
+        genetIC/src/simulation/filters/filterfamily.hpp
+        genetIC/src/simulation/grid/virtualgrid.hpp
+        )
 
 include_directories( /opt/local/include )
 link_directories(/opt/local/lib )

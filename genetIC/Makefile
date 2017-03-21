@@ -78,7 +78,7 @@ endif
 
 ifeq ($(HOST), imac7)
 	CC      = /opt/local/bin/g++-mp-5
-	CFLAGS  += -Wextra -Wno-unused -Wfatal-errors
+	CFLAGS  += -Wextra -Werror -Wfatal-errors
 	FFTW    = -DFFTW3 -DFFTW_THREADS
 	FFTWLIB = -lfftw3 -lfftw3_threads
 endif

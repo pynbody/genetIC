@@ -275,11 +275,11 @@ namespace particle {
                 pIterator->i += increment;
             }
 
-            virtual void decrementIteratorBy(iterator *pIterator, size_t increment) const {
+            virtual void decrementIteratorBy(iterator*, size_t) const {
                 throw std::runtime_error("Attempting to reverse in a mapper that does not support random access");
             }
 
-            virtual void dereferenceIterator(const iterator *pIterator, ConstGridPtrType &, size_t &) const {
+            virtual void dereferenceIterator(const iterator*, ConstGridPtrType &, size_t &) const {
                 throw std::runtime_error("There is no grid associated with this particle mapper");
             }
 
@@ -330,7 +330,7 @@ namespace particle {
 
             }
 
-            virtual void flagParticles(const std::vector<size_t> &genericParticleArray) {
+            virtual void flagParticles(const std::vector<size_t>&) {
                 throw std::runtime_error("Cannot interpret particles yet; no particle->grid mapper available");
             }
 
@@ -340,7 +340,7 @@ namespace particle {
                 this->flagParticles(genericParticleArray);
             }
 
-            virtual void getFlaggedParticles(std::vector<size_t> &particleArray) const {
+            virtual void getFlaggedParticles(std::vector<size_t>&) const {
                 throw std::runtime_error("Cannot get particles; no particle->grid mapper available");
             }
 
@@ -418,12 +418,12 @@ namespace particle {
                 return false;
             }
 
-            virtual std::pair<MapPtrType, MapPtrType> addGas(T massRatio, const std::vector<GridPtrType> &toGrids) {
+            virtual std::pair<MapPtrType, MapPtrType> addGas(T /*massratio*/, const std::vector<GridPtrType>& /*&toGrids*/) {
                 throw std::runtime_error("Don't know how to add gas in this context");
             }
 
             virtual MapPtrType
-            superOrSubSampleDM(int ratio, const std::vector<GridPtrType> &toGrids, bool super = true) {
+            superOrSubSampleDM(int /*ratio*/, const std::vector<GridPtrType>& /*&toGrids*/, bool /*super = true*/) {
                 throw std::runtime_error("Don't know how to supersample in this context");
             }
 

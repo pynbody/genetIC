@@ -60,7 +60,7 @@ namespace filters{
 
         }
 
-        virtual void addLevel(T k_cut) {
+        virtual void addLevel(T /*k_cut*/) {
             throw std::runtime_error("Don't know how to add a level to this type of filter family");
         }
     };
