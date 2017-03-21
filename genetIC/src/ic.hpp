@@ -13,7 +13,6 @@
 
 #include "io/numpy.hpp"
 
-#include "src/simulation/constraints/onelevelconstraintgenerator.hpp"
 #include "src/simulation/constraints/constraintapplicator.hpp"
 #include "src/simulation/constraints/multilevelconstraintgenerator.hpp"
 
@@ -22,13 +21,9 @@
 #include "src/simulation/field/randomfieldgenerator.hpp"
 #include "src/simulation/field/multilevelfield.hpp"
 
-#include "src/simulation/particles/generator.hpp"
 #include "src/simulation/particles/multilevelgenerator.hpp"
 
-#include "cosmology/parameters.hpp"
-#include "cosmology/camb.hpp"
-
-#include "src/tools/parser.hpp"
+#include "src/cosmology/camb.hpp"
 
 //TODO: remove ugly macro
 #define for_each_level(level) for(size_t level=0; level<multiLevelContext.getNumLevels(); ++level)

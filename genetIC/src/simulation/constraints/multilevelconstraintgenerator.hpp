@@ -1,7 +1,3 @@
-//
-// Created by Andrew Pontzen on 05/08/15.
-//
-
 #ifndef IC_MULTILEVELCONSTRAINTGENERATOR_H
 #define IC_MULTILEVELCONSTRAINTGENERATOR_H
 

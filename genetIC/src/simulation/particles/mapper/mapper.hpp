@@ -7,12 +7,10 @@
 
 #include <memory>
 #include <typeinfo>
-#include "src/tools/data_types/complex.hpp"
+#include <src/simulation/particles/particle.hpp>
 #include "src/simulation/grid/grid.hpp"
 #include "src/tools/util_functions.hpp"
 #include "src/simulation/field/multilevelfield.hpp"
-#include "src/simulation/particles/multilevelgenerator.hpp"
-#include "src/simulation/particles/generator.hpp"
 
 // helper function for our debug dumps
 void indent(std::ostream &s, int level = 0) {
@@ -22,6 +20,11 @@ void indent(std::ostream &s, int level = 0) {
 }
 
 namespace particle {
+  template<typename GridDataType>
+  class AbstractMultiLevelParticleGenerator;
+
+	template<typename GT>
+	class ParticleGenerator;
 
     /*!
     \namespace particle::mapper
@@ -36,6 +39,8 @@ namespace particle {
      different set-ups.
     */
     namespace mapper {
+			using std::endl;
+			using std::cerr;
         // forward declarations:
         template<typename GT>
         class ParticleMapper;
@@ -139,7 +144,7 @@ namespace particle {
             }
 
 
-            particle::Particle<T> getParticle() const {
+            Particle<T> getParticle() const {
                 ConstGridPtrType pGrid;
                 size_t id;
                 deReference(pGrid, id);
@@ -160,7 +165,7 @@ namespace particle {
             }
 
 
-            size_t getNextNParticles(std::vector<particle::Particle<T>> &particles) {
+            size_t getNextNParticles(std::vector<Particle<T>> &particles) {
                 size_t n = 1024 * 256;
                 if (n + i > pMapper->size())
                     n = pMapper->size() - i;
@@ -261,7 +266,7 @@ namespace particle {
             using GridPtrType = std::shared_ptr<grids::Grid<T>>;
             using ConstGridPtrType = std::shared_ptr<const grids::Grid<T>>;
             using iterator = MapperIterator<GridDataType>;
-            using BaseGeneratorType = particle::AbstractMultiLevelParticleGenerator<GridDataType>;
+            using BaseGeneratorType = AbstractMultiLevelParticleGenerator<GridDataType>;
 
             friend class MapperIterator<GridDataType>;
 

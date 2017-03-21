@@ -1,7 +1,3 @@
-//
-// Created by Andrew Pontzen on 18/11/2016.
-//
-
 #ifndef IC_GADGET_HPP
 #define IC_GADGET_HPP
 

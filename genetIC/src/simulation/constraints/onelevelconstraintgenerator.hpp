@@ -1,7 +1,3 @@
-//
-// Created by Andrew Pontzen on 15/06/15.
-//
-
 #ifndef IC_CONSTRAINT_HPP
 #define IC_CONSTRAINT_HPP
 

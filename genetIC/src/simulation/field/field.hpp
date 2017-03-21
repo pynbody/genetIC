@@ -1,7 +1,3 @@
-//
-// Created by Andrew Pontzen on 17/07/2016.
-//
-
 #ifndef IC_FIELD_HPP
 #define IC_FIELD_HPP
 

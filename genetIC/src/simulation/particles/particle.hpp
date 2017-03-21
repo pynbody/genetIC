@@ -25,4 +25,4 @@ namespace particle {
   };
 }
 
-#endif //IC_PARTICLE_HPP
+#endif

@@ -1,7 +1,3 @@
-//
-// Created by Andrew Pontzen on 27/07/15.
-//
-
 #ifndef IC_RANDOMFIELDGENERATOR_HPP
 #define IC_RANDOMFIELDGENERATOR_HPP
 

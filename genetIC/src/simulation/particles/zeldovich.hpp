@@ -7,11 +7,9 @@
 
 #include <complex>
 #include <src/io/numpy.hpp>
-#include "src/cosmology/parameters.hpp"
 #include "src/tools/progress/progress.hpp"
 #include "src/simulation/field/field.hpp"
 #include "src/simulation/particles/generator.hpp"
-#include "src/simulation/particles/particle.hpp"
 
 namespace cosmology {
   template<typename T>

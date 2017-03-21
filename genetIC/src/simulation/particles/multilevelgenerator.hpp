@@ -1,7 +1,3 @@
-//
-// Created by Andrew Pontzen on 23/12/2016.
-//
-
 #ifndef IC_MULTILEVELGENERATOR_HPP_HPP
 #define IC_MULTILEVELGENERATOR_HPP_HPP
 
@@ -176,13 +172,6 @@ namespace particle {
 
   };
 
-
-
-
-
-
 }
 
-
-
-#endif //IC_MULTILEVELGENERATOR_HPP_HPP
+#endif

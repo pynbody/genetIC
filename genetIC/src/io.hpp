@@ -6,7 +6,6 @@
 #include <limits>
 
 #include "src/simulation/particles/mapper/mapper.hpp"
-#include "src/cosmology/parameters.hpp"
 
 
 #ifdef HAVE_HDF5

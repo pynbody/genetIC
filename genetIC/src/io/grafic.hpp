@@ -1,14 +1,10 @@
-//
-// Created by Andrew Pontzen on 17/11/2016.
-//
-
 #include <fstream>
 #include <cmath>
-#include "src/simulation/multilevelcontext/multilevelcontext.hpp"
-#include "src/cosmology/parameters.hpp"
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <list>
+#include "src/simulation/multilevelcontext/multilevelcontext.hpp"
+#include "src/cosmology/parameters.hpp"
 #include <src/simulation/particles/multilevelgenerator.hpp>
 
 namespace io {
