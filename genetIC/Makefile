@@ -65,9 +65,9 @@ endif
 
 ifeq ($(HOST), dirac)
 	CC	= g++
-	CFLAGS  +=  -m64 -I${MKLROOT}/include -I${MKLROOT}/include/fftw -I${GSL_INC_DIR}
-	FFTW    = -DFFTW3
-	FFTWLIB =  -Wl,--start-group ${MKLROOT}/lib/intel64/libmkl_intel_lp64.a ${MKLROOT}/lib/intel64/libmkl_gnu_thread.a ${MKLROOT}/lib/intel64/libmkl_core.a -Wl,--end-group -lgomp -lpthread -lm -ldl
+	CFLAGS  += -m64 -I${FFTWINCLUDE} -I${GSL_INC_DIR}
+        FFTW    = -DFFTW3
+        FFTWLIB = -lgomp -lpthread -lm -ldl -lfftw3 -L${FFTWDIR} -L${GSL_LIB_DIR}
 endif
 
 ifeq ($(HOST), chewb)
