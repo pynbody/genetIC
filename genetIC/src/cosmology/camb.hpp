@@ -114,8 +114,6 @@ namespace cosmology {
         linearTransfer = 0.0;
 
       if (k > kcamb_max_in_file) {
-        std::cerr << "WARNING: maximum k in CAMB input file is insufficient (" << kcamb_max_in_file << ")" << std::endl;
-        std::cerr << "         extrapolating using naive Meszaros solution" << std::endl;
         kcamb_max_in_file = std::numeric_limits<FloatType>().max();
       }
 
@@ -134,6 +132,11 @@ namespace cosmology {
       for (size_t i = 0; i < grid.size3; ++i) {
         FloatType k = grid.getFourierCellAbsK(i);
         P[i] = (*this)(k) * norm;
+      }
+
+      if(kcamb_max_in_file==std::numeric_limits<FloatType>().max()) {
+	std::cerr << "WARNING: maximum k in CAMB input file is insufficient" << std::endl;
+        std::cerr << "         extrapolating using naive Meszaros solution" << std::endl;
       }
 
       return P;
