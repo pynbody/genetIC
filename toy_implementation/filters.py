@@ -224,6 +224,13 @@ class FilterExplorer(object):
         p.plot(k, self.Pk[:self.npix / 2])
         p.loglog()
 
+    def plot_spectral_index(self):
+        k = self.k[:self.npix / 2]
+        Pk = self.Pk[:self.npix / 2]
+        log_gradient = np.diff(np.log(Pk))/np.diff(np.log(k))
+        p.plot((k[:-1]+k[1:])/2, log_gradient)
+        p.semilogx()
+
     def plot_roundtrip_spectrum(self):
         k = self.k[:self.npix / 2]
         Pk = self.get_Pk_from_xi(self.get_xi()*self.r_filt)

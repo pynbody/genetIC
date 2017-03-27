@@ -36,6 +36,11 @@ class FFTArray(np.ndarray):
 
         return self
 
+def unitary_fft_matrix(n):
+    ki, xi = np.mgrid[:n,:n]
+    return np.exp(-2.j*np.pi*ki*xi/n)/np.sqrt(n)
+
+
 def _converter(fn, call='in_fourier_space'):
     @functools.wraps(fn)
     def wrapped(*args, **kwargs):
@@ -47,7 +52,7 @@ def _converter(fn, call='in_fourier_space'):
             else:
                 new_args.append(a)
 
-        for k, v in kwargs.iteritems():
+        for k, v in kwargs.items():
             if hasattr(v, call):
                 new_kwargs[k] = getattr(v, call)()
             else:
