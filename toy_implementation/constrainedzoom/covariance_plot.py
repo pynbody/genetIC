@@ -3,7 +3,8 @@ import functools
 import numpy as np
 import pylab as p
 
-from . import ZoomConstrained, FastIdealizedZoomConstrained
+from . import ZoomConstrained
+from constrainedzoom.methods.idealized import FastIdealizedZoomConstrained
 from . import fft_wrapper
 
 
@@ -98,8 +99,8 @@ def plot_power_spec(G: ZoomConstrained, cov:np.ndarray, pad=0):
     U2 = fft_wrapper.unitary_fft_matrix(len(C22))
 
     # keep only positive frequency components
-    U1 = U1[:len(U1) / 2]
-    U2 = U2[:len(U2) / 2]
+    U1 = U1[:len(U1) // 2]
+    U2 = U2[:len(U2) // 2]
 
     C11 = U1 @ C11 @ U1.conj().T
     C22 = U2 @ C22 @ U2.conj().T
@@ -135,8 +136,9 @@ def plot_fourier_space(G: ZoomConstrained, cov:np.ndarray, pad=0, vmin=None, vma
     C22 = cov[G.n1:, G.n1:]
 
     if pad>0:
-        C22  = C22[pad:-pad,pad:-pad]
-        C12 = C12[:,pad:-pad]
+        pad2 = pad*G.pixel_size_ratio
+        C22  = C22[pad2:-pad2,pad2:-pad2]
+        C12 = C12[:,pad2:-pad2]
 
     k_nyq_1 = G.n1 # N pi / L, but L=1
     k_nyq_2 = G.n2*G.window_size_ratio
@@ -334,13 +336,14 @@ def cov_zoom_demo(n1=256, n2=256,
                   estimate=False, Ntrials=2000,
                   plaw=-1.5, cl=ZoomConstrained,pad=0,vmin=None,vmax=None,errors=False,
                   show_hh=True,k_cut=0.3,one_element=None,subplot=False,
-                  display_fourier=False):
+                  display_fourier=False,
+                  initialization_kwargs={}):
     if not subplot:
         p.clf()
 
     from . import powerlaw_covariance
     cov_this = functools.partial(powerlaw_covariance, plaw=plaw)
-    X = cl(cov_this, n1=n1, n2=n2, hires_window_scale=hires_window_scale, k_cut=k_cut)
+    X = cl(cov_this, n1=n1, n2=n2, hires_window_scale=hires_window_scale, k_cut=k_cut, **initialization_kwargs)
     if estimate:
         cv_est = X.estimate_cov(Ntrials)
     else:
