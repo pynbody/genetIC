@@ -1,6 +1,7 @@
 import copy
-
-from constrainedzoom import UnfilteredZoomConstrained, in_real_space, FFTArray
+import numpy as np
+from ..fft_wrapper import in_real_space, FFTArray
+from . import UnfilteredZoomConstrained
 
 
 class TraditionalZoomConstrained(UnfilteredZoomConstrained):

@@ -3,8 +3,9 @@ import functools
 import numpy as np
 import pylab as p
 
-from . import ZoomConstrained
-from constrainedzoom.methods.idealized import FastIdealizedZoomConstrained
+from .power_spectrum import powerlaw_covariance
+from .methods import ZoomConstrained
+from .methods.idealized import FastIdealizedZoomConstrained
 from . import fft_wrapper
 
 
@@ -53,8 +54,8 @@ def overplot_boundary_real_space(G: ZoomConstrained, cov: np.ndarray,
     print(slice_1)
 
     xs, _ = G.xs()
-    source_start = xs[slice_1.start]/G.n1
-    source_end = xs[slice_1.stop-1]/G.n1
+    source_start = xs[slice_1.start]
+    source_end = xs[slice_1.stop-1]
 
 
     p.imshow(C11[slice_1,slice_1], extent=[left, left + plot_size,
@@ -341,7 +342,6 @@ def cov_zoom_demo(n1=256, n2=256,
     if not subplot:
         p.clf()
 
-    from . import powerlaw_covariance
     cov_this = functools.partial(powerlaw_covariance, plaw=plaw)
     X = cl(cov_this, n1=n1, n2=n2, hires_window_scale=hires_window_scale, k_cut=k_cut, **initialization_kwargs)
     if estimate:

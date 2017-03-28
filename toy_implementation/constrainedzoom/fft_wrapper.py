@@ -9,6 +9,10 @@ def unitary_fft(x):
 def unitary_inverse_fft(x):
     return scipy.fftpack.irfft(x)*math.sqrt(float(len(x)))
 
+def complex_dot(x,y):
+    """Dot product for packed FFT complex coeffs"""
+    return np.dot(x,y) + np.dot(x[1:],y[1:]) # counts +ve and -ve modes
+
 class FFTArray(np.ndarray):
     def __new__(subtype, data, **kwargs):
         X = np.asarray(data,**kwargs).view(subtype)

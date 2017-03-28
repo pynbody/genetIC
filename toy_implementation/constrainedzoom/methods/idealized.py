@@ -1,16 +1,16 @@
 import copy
+import numpy as np
 
-from Cython.Includes.numpy import __init__
-
-from constrainedzoom import ZoomConstrained, UnfilteredZoomConstrained, powerlaw_covariance, FFTArray
-
+from . import ZoomConstrained, UnfilteredZoomConstrained
+from ..fft_wrapper import FFTArray
+from ..power_spectrum import powerlaw_covariance
 
 class IdealizedZoomConstrained(ZoomConstrained):
     """Calculate the low-res/high-res split by making a full box at the high resolution,
     then downgrading the resolution of the low-res region"""
 
     def __init__(self, cov_fn=powerlaw_covariance, k_cut=0.2, n1=256, n2=768, hires_window_scale=4, offset=10):
-        super(IdealizedZoomConstrained, self).__init__(cov_fn, k_cut, n1, n2, hires_window_scale, offset)
+        super().__init__(cov_fn, k_cut, n1, n2, hires_window_scale, offset)
         self._underlying = UnfilteredZoomConstrained(cov_fn, k_cut, n2*hires_window_scale, n2, hires_window_scale, offset)
 
     def _iter_cov_elements(self):

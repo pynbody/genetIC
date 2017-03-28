@@ -1,9 +1,10 @@
 import copy
 
 import scipy.fftpack
-from Cython.Includes.numpy import __init__
+import numpy as np
 
-from constrainedzoom import UnfilteredZoomConstrained, in_real_space, FFTArray
+from ..fft_wrapper import in_real_space, FFTArray
+from ..methods import UnfilteredZoomConstrained
 
 
 class MLZoomConstrained(UnfilteredZoomConstrained):
