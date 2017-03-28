@@ -20,14 +20,14 @@ class MLZoomConstrained(UnfilteredZoomConstrained):
 
     def realization(self, verbose=False, no_random=False, white_noise_lo=None, white_noise_hi=None):
         white_noise_lo, white_noise_hi = self._get_whitenoise(white_noise_lo, white_noise_hi)
-        white_noise_lo, white_noise_hi = self._separate_whitenoise(white_noise_lo, white_noise_hi)
+        white_noise_lo, white_noise_hi = self._modify_whitenoise(white_noise_lo, white_noise_hi)
 
         delta_low, delta_high = self._apply_transfer_function(white_noise_lo, white_noise_hi)
 
         return delta_low.in_real_space(), delta_high.in_real_space()
 
     @in_real_space
-    def _separate_whitenoise(self, delta_low, delta_high):
+    def _modify_whitenoise(self, delta_low, delta_high):
         assert not delta_high.fourier
         assert not delta_low.fourier
 

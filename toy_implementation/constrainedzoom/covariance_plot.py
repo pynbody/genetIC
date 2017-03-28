@@ -5,6 +5,7 @@ import pylab as p
 
 from .power_spectrum import powerlaw_covariance
 from .methods import ZoomConstrained
+from .methods.filtered import FilteredZoomConstrained
 from .methods.idealized import FastIdealizedZoomConstrained
 from . import fft_wrapper
 
@@ -49,9 +50,6 @@ def overplot_boundary_real_space(G: ZoomConstrained, cov: np.ndarray,
         slice_2 = slice(-zoomin_size*G.pixel_size_ratio-pad*G.pixel_size_ratio,-pad*G.pixel_size_ratio)
     else:
         slice_2 = slice(-zoomin_size * G.pixel_size_ratio, None)
-
-    print(G.offset)
-    print(slice_1)
 
     xs, _ = G.xs()
     source_start = xs[slice_1.start]
@@ -110,8 +108,6 @@ def plot_power_spec(G: ZoomConstrained, cov:np.ndarray, pad=0):
     k1 = np.linspace(0,k_nyq_1-1,len(C11))
     k2 = np.linspace(0,k_nyq_2-1,len(C22))
 
-    print(k1[0], G.k_low[0], k1[1], G.k_low[1])
-
     p.plot(k1, C11.diagonal()/k1[1]/2,"r")
     p.plot(k2, C22.diagonal()/k2[1]/2,"g")
 
@@ -166,7 +162,7 @@ def plot_fourier_space(G: ZoomConstrained, cov:np.ndarray, pad=0, vmin=None, vma
 
     p.sca(hihi_axis)
 
-    p.imshow(C22.real,extent=[0,k_nyq_2+k_pixel_size_2,k_nyq_2+k_pixel_size_2,0],interpolation='nearest',vmin=vmin,vmax=vmax)
+    p.imshow(C22.real,extent=[0,k_nyq_2+k_pixel_size_2,k_nyq_2+k_pixel_size_2,0],interpolation='none',vmin=vmin,vmax=vmax)
     p.plot([k_nyq_1,k_nyq_1,0],[0,k_nyq_1,k_nyq_1],'k:')
 
     p.xlabel("Wavenumber/$\pi$")
@@ -180,8 +176,8 @@ def plot_fourier_space(G: ZoomConstrained, cov:np.ndarray, pad=0, vmin=None, vma
     p.sca(hilo_axis)
     text_offset = k_nyq_2*0.02
 
-    p.imshow(abs(C12).T, extent=[0,k_nyq_1+k_pixel_size_1,k_nyq_2+k_pixel_size_2,0], interpolation='nearest', vmin=vmin, vmax=vmax)
-    p.imshow(C11.real, extent=[0,k_nyq_1+k_pixel_size_1,k_nyq_1+k_pixel_size_1,0], interpolation='nearest', vmin=vmin,vmax=vmax)
+    p.imshow(abs(C12).T, extent=[0,k_nyq_1+k_pixel_size_1,k_nyq_2+k_pixel_size_2,0], interpolation='none', vmin=vmin, vmax=vmax)
+    #p.imshow(C11.real, extent=[0,k_nyq_1+k_pixel_size_1,k_nyq_1+k_pixel_size_1,0], interpolation='none', vmin=vmin,vmax=vmax)
 
     p.text(k_nyq_1-text_offset , k_nyq_1+text_offset, 'Fine $\\times$ \n Coarse', horizontalalignment='right',
            verticalalignment='top', color='black', fontsize=15)
@@ -224,8 +220,6 @@ def plot_real_space(G: ZoomConstrained, cov: np.ndarray,
     offset = G.offset
     n1 = G.n1
 
-    print(C11.shape, C22.shape, C12.shape)
-
     if pad>0:
         pixel_scale = (G.n2*G.window_size_ratio)//G.n1
         pad_fine = pad*pixel_scale
@@ -234,7 +228,7 @@ def plot_real_space(G: ZoomConstrained, cov: np.ndarray,
         zoom_width-=pad*2
         offset+=pad
 
-    p.imshow(C11,extent=[0,1.0,1.0,0],vmin=vmin,vmax=vmax,interpolation='nearest')
+    p.imshow(C11,extent=[0,1.0,1.0,0],vmin=vmin,vmax=vmax,interpolation='none')
     if downgrade:
         zoom_fac = G.window_size_ratio*(G.n2//G.n1)
         print("zoom_fac=",zoom_fac)
@@ -252,11 +246,11 @@ def plot_real_space(G: ZoomConstrained, cov: np.ndarray,
     zoom_window_start_coordinate = offset/n1
     zoom_window_end_coordinate = (offset+zoom_width)/n1
 
-    p.imshow(C12.T,extent=[0,1.0,zoom_window_end_coordinate,zoom_window_start_coordinate],vmin=vmin,vmax=vmax,interpolation='nearest')
+    p.imshow(C12.T,extent=[0,1.0,zoom_window_end_coordinate,zoom_window_start_coordinate],vmin=vmin,vmax=vmax,interpolation='none')
     if show_hh:
         p.imshow(C22,extent=[zoom_window_start_coordinate,zoom_window_end_coordinate,
                              zoom_window_end_coordinate,zoom_window_start_coordinate],
-                 vmin=vmin,vmax=vmax,interpolation='nearest')
+                 vmin=vmin,vmax=vmax,interpolation='none')
 
     p.plot([0,1.0],[zoom_window_start_coordinate]*2,'k:')
     p.plot([0,1.0],[zoom_window_end_coordinate]*2,'k:')
@@ -296,9 +290,8 @@ def combined_plots(G: ZoomConstrained, cov:np.ndarray, pad=0, vmin=None, vmax=No
     k_nyq_2 = G.n2 * G.window_size_ratio
 
     # ideal - but does not seem to work on mac os:
-    # p.gcf().set_size_inches(11.275, 4.925, forward=True)
+    p.gcf().set_size_inches(11.275, 4.925, forward=True)
 
-    p.figure(1, (11.275,4.925))
     gs_fourier = p.GridSpec(2, 1, hspace=0)
 
 
@@ -335,15 +328,15 @@ def combined_plots(G: ZoomConstrained, cov:np.ndarray, pad=0, vmin=None, vmax=No
 def cov_zoom_demo(n1=256, n2=256,
                   hires_window_scale=4,
                   estimate=False, Ntrials=2000,
-                  plaw=-1.5, cl=ZoomConstrained,pad=0,vmin=None,vmax=None,errors=False,
-                  show_hh=True,k_cut=0.3,one_element=None,subplot=False,
+                  plaw=-1.5, cl=FilteredZoomConstrained,pad=0,vmin=None,vmax=None,errors=False,
+                  show_hh=True,one_element=None,subplot=False,
                   display_fourier=False,
                   initialization_kwargs={}):
     if not subplot:
         p.clf()
 
     cov_this = functools.partial(powerlaw_covariance, plaw=plaw)
-    X = cl(cov_this, n1=n1, n2=n2, hires_window_scale=hires_window_scale, k_cut=k_cut, **initialization_kwargs)
+    X = cl(cov_this, n1=n1, n2=n2, hires_window_scale=hires_window_scale, **initialization_kwargs)
     if estimate:
         cv_est = X.estimate_cov(Ntrials)
     else:

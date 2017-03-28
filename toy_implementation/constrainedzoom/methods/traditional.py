@@ -18,7 +18,7 @@ class TraditionalZoomConstrained(UnfilteredZoomConstrained):
 
 
     @in_real_space
-    def _separate_whitenoise(self, delta_low: FFTArray, delta_high: FFTArray):
+    def _modify_whitenoise(self, delta_low: FFTArray, delta_high: FFTArray):
         assert not delta_high.fourier
         assert not delta_low.fourier
 

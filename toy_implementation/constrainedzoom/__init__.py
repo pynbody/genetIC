@@ -11,7 +11,7 @@ from . import covariance_plot
 from . import fft_wrapper
 from . import methods
 
-# for simple reloading
+# auto-reload to make development easier
 reload(fft_wrapper)
 reload(methods)
 reload(covariance_plot)

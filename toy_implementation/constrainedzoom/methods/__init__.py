@@ -1,6 +1,8 @@
 import importlib
 import math
 
+import abc
+
 import scipy.fftpack
 import scipy.integrate
 import scipy.interpolate
@@ -9,11 +11,8 @@ import numpy as np
 from ..fft_wrapper import FFTArray, unitary_fft, unitary_inverse_fft, in_fourier_space, in_real_space, complex_dot
 
 
-
-
-
-class ZoomConstrained(object):
-    def __init__(self, cov_fn = None, k_cut=0.6, n1=256, n2=768, hires_window_scale=4, offset = 10):
+class ZoomConstrained(metaclass=abc.ABCMeta):
+    def __init__(self, cov_fn = None, n1=256, n2=256, hires_window_scale=4, offset = 10):
 
         self.cov_fn = cov_fn
         assert n1%hires_window_scale==0, "Scale must divide n1 to fit pixels exactly"
@@ -27,8 +26,6 @@ class ZoomConstrained(object):
         self.k_low = scipy.fftpack.rfftfreq(self.n1,d=self.delta_low)
         self.k_high = scipy.fftpack.rfftfreq(self.n2,d=self.delta_high)
 
-        self.k_cut = self.k_low[-1]*k_cut
-
         self.C_low = self._get_variance_k(self.k_low) * float(self.n1)
         self.C_high = self._get_variance_k(self.k_high) * float(self.n2)
 
@@ -38,6 +35,8 @@ class ZoomConstrained(object):
         self.constraints_real = []
 
 
+    # Covariance calculation utilities
+    
     def set_Chigh_realspace(self):
         self.C_high = self._calc_transfer_fn_realspace(self.n2)
 
@@ -64,7 +63,6 @@ class ZoomConstrained(object):
         return T_high
 
     def _transfer_to_cov(self, transfer):
-        print(len(transfer))
         sqrt_C_high_apo_re = unitary_fft(transfer)* np.sqrt(len(transfer))
 
         # copy back imaginary parts ready for convolution
@@ -92,36 +90,6 @@ class ZoomConstrained(object):
 
         return Cv
 
-    _wn_psr_power = 0.5
-
-    def _get_whitenoise(self, white_lo=None, white_hi=None):
-        if white_lo is None:
-            white_lo, white_hi = np.random.normal(0.0,1.0,size=self.n1), np.random.normal(0.0,self.pixel_size_ratio**self._wn_psr_power,size=self.n2)
-        # only one nyquist mode is included in DFT but two are physically present
-        if len(white_lo) % 2 == 0:
-            white_lo[-1] *= np.sqrt(2)
-        if len(white_hi) % 2 == 0:
-            white_hi[-1] *= np.sqrt(2)
-
-        white_lo = FFTArray(np.copy(white_lo))
-        white_hi = FFTArray(np.copy(white_hi))
-        white_lo.fourier=white_hi.fourier=True
-
-        return white_lo, white_hi
-
-    def _separate_whitenoise(self, wn_lo, wn_hi):
-        return wn_lo, wn_hi
-
-    @in_fourier_space
-    def _apply_transfer_function(self, white_noise_lo, white_noise_hi=None):
-        result_lo = FFTArray(white_noise_lo * np.sqrt(self.C_low))
-        result_lo.fourier = True
-        if white_noise_hi is not None:
-            result_hi = FFTArray(white_noise_hi * np.sqrt(self.C_high)/self.pixel_size_ratio**self._wn_psr_power)
-            result_hi.fourier = True
-            return result_lo, result_hi
-        else:
-            return result_lo
 
     def xs(self):
         """Return the real-space coordinates of the two outputs"""
@@ -130,7 +98,10 @@ class ZoomConstrained(object):
 
 
     def realization(self, verbose=False, no_random=False, white_noise_lo=None, white_noise_hi=None) -> [FFTArray, FFTArray] :
-        """Generate a realization of the Gaussian random field with constraints, if present
+        """Generate a realization of the Gaussian random field with constraints, if present.
+        
+        This implementation calls a generic sequence of operations which are overriden in base class implementations to
+        achieve different zoom techniques.
         
         :param verbose: if True, print more output
         :param no_random: if True, create a zeroed random field to see effect of constraints in isolation
@@ -145,65 +116,89 @@ class ZoomConstrained(object):
             white_noise_lo = np.zeros_like(k_low)
             white_noise_hi = np.zeros_like(k_high)
         else:
+            # Generate white-noise, or correctly encapsulate the white-noise samples passed in
             white_noise_lo, white_noise_hi = self._get_whitenoise(white_noise_lo, white_noise_hi)
 
-        white_noise_lo, white_noise_hi = self._separate_whitenoise(white_noise_lo, white_noise_hi)
+        # Traditional approaches make the low-frequency and high-frequency white noise compatible
+        white_noise_lo, white_noise_hi = self._modify_whitenoise(white_noise_lo, white_noise_hi)
 
+        # Apply the transfer function as stored in Fourier space as self.C_high and self.C_low
         delta_low, delta_high = self._apply_transfer_function(white_noise_lo,white_noise_hi)
 
-
+        # Filtering approach now pulls only the high-frequency part from delta_high and low-f part from delta_low
         delta_low, delta_high, memos = self._separate_fields(delta_low, delta_high)
 
+        # Now we can apply the constraints
+        if len(self.constraints)>0:
+            delta_low, delta_high = self._apply_constraints(delta_low, delta_high, verbose)
 
-        delta_low, delta_high = self._apply_constraints(delta_low, delta_high, verbose)
-
-
+        # Filtering approach now needs to recombine the low-frequency and high-frequency information for the final output
         delta_low, delta_high = self._recombine_fields(delta_low, delta_high, memos)
 
         return delta_low.in_real_space(), delta_high.in_real_space()
 
-    @in_real_space
-    def _recombine_fields(self, delta_low, delta_high, delta_low_k_plus):
-        delta_high += self.upsample_cubic(delta_low)
-        delta_low += delta_low_k_plus.in_real_space()
-        return delta_low, delta_high
+
+    def _get_whitenoise(self, white_lo=None, white_hi=None):
+        if white_lo is None:
+            white_lo, white_hi = np.random.normal(0.0,1.0,size=self.n1), np.random.normal(0.0,self.pixel_size_ratio**0.5,size=self.n2)
+        # only one nyquist mode is included in DFT but two are physically present
+        if len(white_lo) % 2 == 0:
+            white_lo[-1] *= np.sqrt(2)
+        if len(white_hi) % 2 == 0:
+            white_hi[-1] *= np.sqrt(2)
+
+        white_lo = FFTArray(np.copy(white_lo))
+        white_hi = FFTArray(np.copy(white_hi))
+        white_lo.fourier=white_hi.fourier=True
+
+        return white_lo, white_hi
+    
+    @abc.abstractmethod
+    def _modify_whitenoise(self, wn_lo, wn_hi):
+        """Give subclass an opportunity to modify the whitenoise fields before the transfer function is applied
+ 
+        :param wn_lo: the low-frequency pixelised whitenoise
+        :param wn_hi: the high-frequency windowed whitenoise
+        :return: wn_lo, wn_hi: the same fields, modified
+        """
+        pass
 
     @in_fourier_space
-    def _apply_constraints(self, delta_low_k, delta_high_k, verbose):
-        for (al_low_k, al_high_k), d in zip(self.constraints, self.constraints_val):
-            if self._real_space_filter:
-                raise NotImplementedError("Can't apply constraints when the filter is in real space")
+    def _apply_transfer_function(self, white_noise_lo, white_noise_hi=None):
+        result_lo = FFTArray(white_noise_lo * np.sqrt(self.C_low))
+        result_lo.fourier = True
+        if white_noise_hi is not None:
+            result_hi = FFTArray(white_noise_hi * np.sqrt(self.C_high) / self.pixel_size_ratio ** 0.5)
+            result_hi.fourier = True
+            return result_lo, result_hi
+        else:
+            return result_lo
 
-            if verbose:
-                print("lowdot=", complex_dot(al_low_k, delta_low_k) * self.pixel_size_ratio)
-                print("highdot=", complex_dot(al_high_k, delta_high_k))
-                print("sum=", complex_dot(al_low_k, delta_low_k) * self.pixel_size_ratio + complex_dot(al_high_k,
-                                                                                                       delta_high_k))
-                al_low, al_high = self.harmonic_to_combined_pixel(al_low_k, al_high_k)
-                print("RS simple dot=", np.dot(unitary_inverse_fft(al_high_k), unitary_inverse_fft(delta_high_k)))
-                print("RS dot=", np.dot(al_high, delta_high))
-
-            scale = d - complex_dot(al_low_k, delta_low_k) * self.pixel_size_ratio - complex_dot(al_high_k,
-                                                                                                 delta_high_k)
-
-            if verbose:
-                print("scale=", scale)
-
-            delta_low_k += self.C_low * al_low_k * scale
-            delta_high_k += self.C_high * al_high_k * scale
-        return delta_low_k, delta_high_k
-
-    @in_fourier_space
+    @abc.abstractmethod
     def _separate_fields(self, delta_low_k, delta_high_k):
-        k_high, k_low = self._get_ks()
-        delta_high_k *= np.sqrt(1. - self.filter_low(k_high) ** 2)  # keep original power spectrum
-        delta_low_k_plus = delta_low_k * self.filter_high(
-            k_low)  # store the filtered-out components of the low-res field
-        delta_low_k *= self.filter_low(k_low)
-        return delta_low_k, delta_high_k, delta_low_k_plus
+        """Give subclass an opportunity to apply low and high-pass filters to the specified fields
+        
+        :param delta_low_k: the field in the pixelised basis, to be low-pass filtered
+        :param delta_high_k: the field in the windowed region, to be high-pass filtered
+        :return: delta_low_k, delta_high_k, memos - the two fields plus any additional information 
+                 required for recombining the fields later
+        """
+        pass
 
-    def _filter_fields_real(self, delta_low, delta_high):
-        raise RuntimeError("Incorrect call to _filter_fields_real - should be filtering in harmonic space")
+    @abc.abstractmethod
+    def _recombine_fields(self, delta_low, delta_high, memos):
+        """Give subclass an opportunity to combine information from the low-frequency into the high-frequency field
+        
+        :param delta_low: the field in the pixelised basis, without any high-frequency information
+        :param delta_high: the field in the window region, without any low-frequency information
+        :param memos: any memos returned from _separate_fields at an earlier stage
+        :return: delta_low, delta_high: the final version of the fields
+        """
+        pass
+
+    @abc.abstractmethod
+    def _apply_constraints(self, delta_low_k, delta_high_k, verbose):
+        """Apply the constraints to the low-frequency and high-frequency fields"""
 
     def _get_ks(self):
         pixel_dx_low = 1. / self.n1
@@ -272,7 +267,7 @@ class ZoomConstrained(object):
             test_field_lo[i] = 0.0
 
         for i in range(self.n2):
-            test_field_hi[i] = self.pixel_size_ratio**(self._wn_psr_power)
+            test_field_hi[i] = self.pixel_size_ratio**(0.5)
             yield test_field_lo, test_field_hi
             test_field_hi[i] = 0.0
 
@@ -285,7 +280,7 @@ class ZoomConstrained(object):
 
         if offset>=0:
             # place test delta-function in high-res region
-            test_field_hi[self.n2//2+self.pixel_size_ratio//2+offset]=self.pixel_size_ratio**self._wn_psr_power
+            test_field_hi[self.n2//2+self.pixel_size_ratio//2+offset]=self.pixel_size_ratio**0.5
             test_field_lo = self.downsample(test_field_hi)
         else:
             # place in low-res region just next to high-res region
@@ -296,25 +291,6 @@ class ZoomConstrained(object):
 
 
 
-    def harmonic_to_combined_pixel(self, f_low_k, f_high_k):
-        delta_low, delta_high = self.harmonic_to_pixel(f_low_k, f_high_k)# delta_high does not contain low-frequency contributions.
-
-        # interpolate the low frequency contribution into the high-res window
-        # prepare the data range just around the window ...
-        delta_lowhigh = self.upsample_linear(delta_low)
-
-        delta_high+=delta_lowhigh
-
-        return delta_low, delta_high
-
-    def harmonic_to_pixel(self, f_low_k, f_high_k):
-        delta_low = unitary_inverse_fft(f_low_k)  # *self.filter_low(self.k_low))
-        if f_high_k is not None:
-            delta_high = unitary_inverse_fft(f_high_k)
-        else:
-            delta_high = np.zeros(self.n2)
-
-        return delta_low, delta_high
 
 
 
@@ -392,7 +368,7 @@ class ZoomConstrained(object):
         return vec_lr
 
     def high_k_vector_from_low_k_vector(self, low_harmonics):
-        pixelized_highres = self.harmonic_to_combined_pixel(low_harmonics, None)[1]
+        pixelized_highres = self._harmonic_to_combined_pixel(low_harmonics, None)[1]
         return unitary_fft(pixelized_highres)
 
     def hr_pixel_to_harmonic(self, vec=None):
@@ -447,7 +423,6 @@ class ZoomConstrained(object):
             low-=dotprod*la
             high-=dotprod*ha
             val-=dotprod*va
-            print(self.xCy(la,ha,low,high))
 
 
         norm = self.norm(low,high)
@@ -480,16 +455,26 @@ class UnfilteredZoomConstrained(ZoomConstrained):
         delta_high += self.upsample_zeroorder(delta_low)
         return delta_low, delta_high
 
-from . import idealized, ml, traditional
+    def _apply_constraints(self, delta_low_k, delta_high_k, verbose):
+        raise RuntimeError("Constraints not implemented for UnfilteredZoomConstrained")
 
-# make reloading easier
-importlib.reload(idealized)
-importlib.reload(ml)
-importlib.reload(traditional)
+    def _modify_whitenoise(self, wn_lo, wn_hi):
+        return wn_lo, wn_hi
+
+
+from . import idealized, ml, traditional, filtered
+
+# auto-reload submodules to make development easier
+from importlib import reload
+reload(idealized)
+reload(ml)
+reload(traditional)
+reload(filtered)
 
 from .idealized import FastIdealizedZoomConstrained, IdealizedZoomConstrained
 from .ml import MLZoomConstrained
 from .traditional import TraditionalZoomConstrained
+from .filtered import FilteredZoomConstrained
 
 __all__ = ['FastIdealizedZoomConstrained', 'IdealizedZoomConstrained',
-           'MLZoomConstrained', 'TraditionalZoomConstrained']
+           'MLZoomConstrained', 'TraditionalZoomConstrained', 'FilteredZoomConstrained']

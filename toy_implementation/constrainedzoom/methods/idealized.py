@@ -9,9 +9,9 @@ class IdealizedZoomConstrained(ZoomConstrained):
     """Calculate the low-res/high-res split by making a full box at the high resolution,
     then downgrading the resolution of the low-res region"""
 
-    def __init__(self, cov_fn=powerlaw_covariance, k_cut=0.2, n1=256, n2=768, hires_window_scale=4, offset=10):
-        super().__init__(cov_fn, k_cut, n1, n2, hires_window_scale, offset)
-        self._underlying = UnfilteredZoomConstrained(cov_fn, k_cut, n2*hires_window_scale, n2, hires_window_scale, offset)
+    def __init__(self, cov_fn=powerlaw_covariance, n1=256, n2=768, hires_window_scale=4, offset=10):
+        super().__init__(cov_fn, n1, n2, hires_window_scale, offset)
+        self._underlying = UnfilteredZoomConstrained(cov_fn, n2*hires_window_scale, n2, hires_window_scale, offset)
 
     def _iter_cov_elements(self):
         test_field_lo = np.zeros(self._underlying.n1)
@@ -51,6 +51,21 @@ class IdealizedZoomConstrained(ZoomConstrained):
         lores = underlying_lores.reshape((self.n1,self.pixel_size_ratio)).mean(axis=1)
         hires = underlying[self.offset*self.pixel_size_ratio:self.offset*self.pixel_size_ratio+self.n2]
         return lores, hires
+
+    def _apply_constraints(self, delta_low_k, delta_high_k, verbose):
+        return delta_low_k, delta_high_k # constraints are applied in underlying object
+
+    def _modify_whitenoise(self, wn_lo, wn_hi):
+        return wn_lo, wn_hi
+
+    def _separate_fields(self, delta_low_k, delta_high_k):
+        return delta_low_k, delta_high_k, None
+
+    def _recombine_fields(self, delta_low, delta_high, memos):
+        return delta_low, delta_high
+
+
+
 
 
 class FastIdealizedZoomConstrained(IdealizedZoomConstrained):
