@@ -22,6 +22,9 @@
 #include "src/simulation/field/multilevelfield.hpp"
 
 #include "src/simulation/particles/multilevelgenerator.hpp"
+#include "src/simulation/particles/mapper/onelevelmapper.hpp"
+#include "src/simulation/particles/mapper/twolevelmapper.hpp"
+#include "src/simulation/particles/mapper/gasmapper.hpp"
 
 #include "src/cosmology/camb.hpp"
 

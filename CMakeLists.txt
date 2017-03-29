@@ -44,7 +44,10 @@ set(SOURCE_FILES
         genetIC/src/tools/data_types/complex.hpp
         genetIC/src/simulation/filters/filterfamily.hpp
         genetIC/src/simulation/grid/virtualgrid.hpp
-        )
+        genetIC/src/simulation/particles/mapper/mapperiterator.hpp
+        genetIC/src/simulation/particles/mapper/onelevelmapper.hpp
+        genetIC/src/simulation/particles/mapper/twolevelmapper.hpp
+        genetIC/src/simulation/particles/mapper/gasmapper.hpp)
 
 include_directories( /opt/local/include )
 link_directories(/opt/local/lib )

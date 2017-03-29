@@ -1,0 +1,119 @@
+#ifndef IC_ONELEVELMAPPER_HPP
+#define IC_ONELEVELMAPPER_HPP
+
+#include "src/simulation/particles/mapper/mapper.hpp"
+
+namespace particle {
+
+	namespace mapper {
+		using std::endl;
+		using std::cerr;
+
+
+		template<typename GridDataType>
+		class OneLevelParticleMapper : public ParticleMapper<GridDataType> {
+
+		private:
+
+			using MapType = ParticleMapper<GridDataType>;
+			using typename MapType::T;
+			using typename MapType::MapPtrType;
+			using typename MapType::GridPtrType;
+			using typename MapType::ConstGridPtrType;
+			using typename MapType::GridType;
+			using typename MapType::iterator;
+
+			GridPtrType pGrid;
+
+		protected:
+
+			virtual void
+			dereferenceIterator(const iterator *pIterator, ConstGridPtrType &gp, size_t &i) const override {
+				gp = pGrid;
+				i = pIterator->i;
+			}
+
+			virtual void decrementIteratorBy(iterator *pIterator, size_t increment) const override {
+				pIterator->i -= increment;
+			}
+
+
+		public:
+			virtual void debugInfo(std::ostream &s, int level = 0) const override {
+				tools::indent(s, level);
+				pGrid->debugInfo(s);
+				s << std::endl;
+			}
+
+			void debugInfoForIterator(std::ostream &s, int n, const iterator *pIterator) const override {
+				tools::indent(s, n);
+				s << "i=" << pIterator->i << " into iterator for grid " << pGrid << endl;
+			}
+
+			OneLevelParticleMapper(std::shared_ptr <grids::Grid<T>> &pGrid) : pGrid(pGrid) {
+
+			}
+
+			OneLevelParticleMapper(std::shared_ptr <grids::Grid<T>> &&pGrid) : pGrid(pGrid) {
+
+			}
+
+			size_t size() const override {
+				return pGrid->size3;
+			}
+
+			virtual void unflagAllParticles() override {
+				pGrid->unflagAllCells();
+			}
+
+			void flagParticles(const std::vector <size_t> &genericParticleArray) override {
+				pGrid->flagCells(genericParticleArray);
+			}
+
+			void getFlaggedParticles(std::vector <size_t> &particleArray) const override {
+				pGrid->getFlaggedCells(particleArray);
+			}
+
+			GridPtrType getCoarsestGrid() override {
+				return pGrid;
+			}
+
+			GridPtrType getFinestGrid() override {
+				return pGrid;
+			}
+
+			bool supportsReverseIterator() override {
+				return true;
+			}
+
+			std::pair <MapPtrType, MapPtrType> addGas(T massRatio, const std::vector <GridPtrType> &toGrids) override {
+				if (pGrid->pointsToAnyGrid(toGrids)) {
+					return std::make_pair(
+							std::make_shared<OneLevelParticleMapper<GridDataType>>(
+									this->pGrid->makeScaledMassVersion(massRatio)),
+							std::make_shared<OneLevelParticleMapper<GridDataType>>(
+									this->pGrid->makeScaledMassVersion(1.0 - massRatio)));
+				} else {
+					return std::make_pair(std::shared_ptr<OneLevelParticleMapper<GridDataType>>(nullptr),
+																std::make_shared<OneLevelParticleMapper<GridDataType>>(this->pGrid));
+				}
+			}
+
+			MapPtrType superOrSubSampleDM(int ratio, const std::vector <GridPtrType> &toGrids, bool super) override {
+				if (pGrid->pointsToAnyGrid(toGrids)) {
+					GridPtrType newGrid;
+					if (super)
+						newGrid = std::make_shared < grids::SuperSampleGrid < T >> (this->pGrid, ratio);
+					else
+						newGrid = std::make_shared < grids::SubSampleGrid < T >> (this->pGrid, ratio);
+					return std::make_shared<OneLevelParticleMapper<GridDataType>>(newGrid);
+				} else {
+					return std::make_shared<OneLevelParticleMapper<GridDataType>>(this->pGrid);
+				}
+			}
+
+
+		};
+	}
+}
+#endif

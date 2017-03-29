@@ -51,6 +51,13 @@ namespace tools {
       item.real(0);
       item.imag(0);
     }
+
+  // helper function for dumps in mapper
+  void indent(std::ostream &s, int level = 0) {
+    for (int i = 0; i < level; i++) s << "| ";
+    s << "+ ";
+
+  }
 }
 
 #endif
