@@ -44,11 +44,11 @@ GIT_VARIABLES = -DGIT_VERSION='"$(GIT_VERSION)"' -DGIT_MODIFIED='"$(GIT_MODIFIED
 HOST3	= $(shell hostname | cut -c1-3)
 
 ifeq ($(HOST3), pfe)
-	CC = /nasa/pkgsrc/2015Q1/gcc49/bin/gcc
-	CPATH = /u/apontzen/IC/IC:/nasa/gsl/1.14/include/:/nasa/intel/Compiler/2015.0.090/composer_xe_2015.0.090/mkl/include/fftw/:/nasa/intel/Compiler/2015.0.090/composer_xe_2015.0.090/mkl/include/
-	LPATH =  /nasa/gsl/1.14/lib/:/nasa/intel/Compiler/2015.0.090/composer_xe_2015.0.090/mkl/lib/intel64/
-	FFTWLIB = -lmkl_intel_lp64 -lmkl_core -lmkl_gnu_thread -ldl -lpthread -lm -lstdc++ -lgfortran -lfftw3xc_intel
-	FFTW = -DFFTW3 # intel MKL has its own threading scheme
+	CC = /nasa/pkgsrc/2015Q4/gcc5/bin/g++
+	CPATH = /u/apontzen/genetIC/genetIC:/nasa/gsl/1.14/include/:/u/apontzen/fftw-3.3.6-pl1/include/
+	LPATH =  /nasa/gsl/1.14/lib/ -L/u/apontzen/fftw-3.3.6-pl1/lib/
+	FFTWLIB = -lfftw3 -lfftw3_threads -ldl -lpthread -lm -lstdc++ -lgfortran 
+	FFTW = -DFFTW3 -DFFTW_THREADS
 endif
 
 ifeq ($(HOST), Snowd)
@@ -65,9 +65,9 @@ endif
 
 ifeq ($(HOST), dirac)
 	CC	= g++
-	CFLAGS  +=  -m64 -I${MKLROOT}/include -I${MKLROOT}/include/fftw -I${GSL_INC_DIR}
-	FFTW    = -DFFTW3
-	FFTWLIB =  -Wl,--start-group ${MKLROOT}/lib/intel64/libmkl_intel_lp64.a ${MKLROOT}/lib/intel64/libmkl_gnu_thread.a ${MKLROOT}/lib/intel64/libmkl_core.a -Wl,--end-group -lgomp -lpthread -lm -ldl
+	CFLAGS  += -m64 -I${FFTWINCLUDE} -I${GSL_INC_DIR}
+        FFTW    = -DFFTW3
+        FFTWLIB = -lgomp -lpthread -lm -ldl -lfftw3 -L${FFTWDIR} -L${GSL_LIB_DIR}
 endif
 
 ifeq ($(HOST), chewb)

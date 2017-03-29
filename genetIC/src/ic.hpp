@@ -706,6 +706,9 @@ public:
   }
 
   virtual void constrain(string name, string type, float value) {
+   if(!haveInitialisedRandomComponent)
+      initialiseRandomComponent();
+
     bool relative = false;
     if (strcasecmp(type.c_str(), "relative") == 0) {
       relative = true;
