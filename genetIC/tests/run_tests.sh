@@ -15,7 +15,7 @@ function runtest {
   cd ..
   echo "Testing output"
   # cp $1/*.tipsy $1/reference_output
-  python3 compare.py $1/
+  python compare.py $1/
   if [ $? -ne 0 ]
   then
       echo
