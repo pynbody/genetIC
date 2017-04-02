@@ -133,7 +133,10 @@ namespace grids {
     }
 
     virtual void flagCells(const std::vector<size_t> &sourceArray) {
-      flags.insert(flags.end(), sourceArray.begin(), sourceArray.end());
+      std::vector<size_t> newFlags(flags.size()+sourceArray.size());
+      auto end = std::set_union(flags.begin(), flags.end(), sourceArray.begin(), sourceArray.end(), newFlags.begin());
+      newFlags.resize(end-newFlags.begin());
+      flags = std::move(newFlags);
     }
 
     virtual void unflagAllCells() {

@@ -47,7 +47,9 @@ set(SOURCE_FILES
         genetIC/src/simulation/particles/mapper/mapperiterator.hpp
         genetIC/src/simulation/particles/mapper/onelevelmapper.hpp
         genetIC/src/simulation/particles/mapper/twolevelmapper.hpp
-        genetIC/src/simulation/particles/mapper/gasmapper.hpp)
+        genetIC/src/simulation/particles/mapper/gasmapper.hpp
+        genetIC/src/simulation/particles/mapper/graficmapper.hpp
+        )
 
 include_directories( /opt/local/include )
 link_directories(/opt/local/lib )

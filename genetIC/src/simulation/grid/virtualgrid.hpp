@@ -119,9 +119,10 @@ namespace grids{
         }
 
         void getFlaggedCells(std::vector<size_t> &targetArray) const override {
-            std::vector<size_t> underlyingArray;
+            std::vector<size_t> underlyingArray, upscaledArray;
             this->pUnderlying->getFlaggedCells(underlyingArray);
-            Grid<T>::upscaleCellFlagVector(underlyingArray, targetArray, this->pUnderlying.get(), this);
+            Grid<T>::upscaleCellFlagVector(underlyingArray, upscaledArray, this->pUnderlying.get(), this);
+            targetArray.insert(targetArray.end(), upscaledArray.begin(), upscaledArray.end());
         }
 
         void flagCells(const std::vector<size_t> &sourceArray) override {
@@ -302,9 +303,10 @@ namespace grids{
         }
 
         void getFlaggedCells(std::vector<size_t> &targetArray) const override {
-            std::vector<size_t> underlyingArray;
+            std::vector<size_t> underlyingArray, downscaledArray;
             this->pUnderlying->getFlaggedCells(underlyingArray);
-            Grid<T>::downscaleCellFlagVector(underlyingArray, targetArray, this->pUnderlying.get(), this);
+            Grid<T>::downscaleCellFlagVector(underlyingArray, downscaledArray, this->pUnderlying.get(), this);
+            targetArray.insert(targetArray.end(), downscaledArray.begin(), downscaledArray.end());
             // err << "SubSample getFlaggedCells - underlying = " << underlyingArray.size() << " transformed = " <<targetArray.size() << endl;
         }
 

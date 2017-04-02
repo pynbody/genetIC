@@ -118,6 +118,7 @@ namespace particle {
 
             }
 
+            /** Flag the particles with the given IDs in the mapped view. These IDs must be in ascending order. */
             virtual void flagParticles(const std::vector<size_t>&) {
                 throw std::runtime_error("Cannot interpret particles yet; no particle->grid mapper available");
             }

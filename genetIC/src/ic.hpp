@@ -25,6 +25,7 @@
 #include "src/simulation/particles/mapper/onelevelmapper.hpp"
 #include "src/simulation/particles/mapper/twolevelmapper.hpp"
 #include "src/simulation/particles/mapper/gasmapper.hpp"
+#include "src/simulation/particles/mapper/graficmapper.hpp"
 
 #include "src/cosmology/camb.hpp"
 
@@ -426,10 +427,19 @@ public:
   }
 
   void updateParticleMapper() {
+    // TODO: This routine contains too much format-dependent logic and should be refactored so that the knowledge
+    // resides somewhere in the io namespace
+
     size_t nLevels = multiLevelContext.getNumLevels();
 
     if (nLevels == 0)
       return;
+
+    if (outputFormat==io::OutputFormat::grafic) {
+      // Grafic format just writes out the grids in turn
+      pMapper = std::make_shared<particle::mapper::GraficMapper<GridDataType>>(multiLevelContext);
+      return;
+    }
 
     // make a basic mapper for the coarsest grid
     pMapper = std::shared_ptr<particle::mapper::ParticleMapper<GridDataType>>(new particle::mapper::OneLevelParticleMapper<GridDataType>(
