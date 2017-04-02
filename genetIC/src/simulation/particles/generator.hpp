@@ -1,20 +1,12 @@
-//
-// Created by Andrew Pontzen on 20/12/2016.
-//
-
 #ifndef IC_GENERATOR_HPP
 #define IC_GENERATOR_HPP
 
 
 #include <complex>
 #include "src/simulation/field/field.hpp"
-#include "src/cosmology/parameters.hpp"
 #include "src/simulation/particles/particle.hpp"
 
 namespace particle {
-
-  template<typename T>
-  class Particle;
 
   /** A class to generate particles starting from cells of grids. Note this is a pure virtual class because
    * we require a specific implementation (currently Zeldovich is the only option!)
@@ -22,7 +14,7 @@ namespace particle {
   template<typename GT>
   class ParticleGenerator : public std::enable_shared_from_this<ParticleGenerator<GT>> {
   public:
-    using T = strip_complex<GT>;
+    using T = tools::datatypes::strip_complex<GT>;
 
   protected:
     const grids::Grid <T> &grid;
@@ -47,11 +39,9 @@ namespace particle {
     virtual T getMass(const grids::Grid<T> & onGrid) const =0;
     virtual T getEps(const grids::Grid<T> & onGrid) const =0;
     virtual Particle<T> getParticleNoOffset(const grids::Grid<T> & onGrid, size_t id) const =0;
-    // virtual void getParticleFromOffset(const grids::Grid<T> & onGrid, particle::Particle<T> &particle) const =0;
-
 
   };
 
 
 }
-#endif //IC_GENERATOR_HPP
+#endif

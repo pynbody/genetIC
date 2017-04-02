@@ -2,7 +2,7 @@
 #define IC_MULTILEVELFIELD_HPP
 
 #include "src/simulation/multilevelcontext/multilevelcontext.hpp"
-#include "src/simulation/filters/filter.hpp"
+#include "src/simulation/filters/filterfamily.hpp"
 #include "src/simulation/field/field.hpp"
 
 
@@ -13,10 +13,10 @@ namespace fields {
   class MultiLevelField : public std::enable_shared_from_this<MultiLevelField<DataType>> {
 
   protected:
-    using T = strip_complex<DataType>;
-    MultiLevelContextInformation<DataType> *multiLevelContext;
+    using T = tools::datatypes::strip_complex<DataType>;
+    multilevelcontext::MultiLevelContextInformation<DataType> *multiLevelContext;
     std::shared_ptr<filters::FilterFamily<T>> pFilters;   // filters to be applied when used as a vector
-    Signaling::connection_t connection;
+    tools::Signaling::connection_t connection;
     bool isCovector;
 
     std::vector<Field<DataType, T>> fieldsOnLevels;
@@ -44,11 +44,11 @@ namespace fields {
 
     }
 
-    MultiLevelField(MultiLevelContextInformation<DataType> &multiLevelContext) : multiLevelContext(&multiLevelContext) {
+    MultiLevelField(multilevelcontext::MultiLevelContextInformation<DataType> &multiLevelContext) : multiLevelContext(&multiLevelContext) {
       setupConnection();
     }
 
-    MultiLevelField(MultiLevelContextInformation<DataType> &multiLevelContext,
+    MultiLevelField(multilevelcontext::MultiLevelContextInformation<DataType> &multiLevelContext,
                     std::vector<Field<DataType, T>> &&fieldsOnGrids) :
       multiLevelContext(&multiLevelContext), fieldsOnLevels(std::move(fieldsOnGrids)) {
       setupConnection();
@@ -58,8 +58,8 @@ namespace fields {
 
     }
 
-    virtual MultiLevelContextInformation<DataType> &getContext() const {
-      return const_cast<MultiLevelContextInformation<DataType> &>(*multiLevelContext);
+    virtual multilevelcontext::MultiLevelContextInformation<DataType> &getContext() const {
+      return const_cast<multilevelcontext::MultiLevelContextInformation<DataType> &>(*multiLevelContext);
     }
 
     const filters::FilterFamily<T> &getFilters() const {
@@ -154,7 +154,7 @@ namespace fields {
         return pFieldThis->size() > 0;
       };
 
-      auto newCell = [&](size_t level, size_t cell, size_t cumu_i) {
+      auto newCell = [&](size_t, size_t cell, size_t) {
         (*pFieldThis)[cell] /= ratio;
       };
 
@@ -194,7 +194,7 @@ namespace fields {
         return this->hasFieldOnGrid(level) && other.hasFieldOnGrid(level);
       };
 
-      auto newCell = [&](size_t level, size_t cell, size_t cumu_i) {
+      auto newCell = [&](size_t, size_t cell, size_t) {
         T k_value = pCurrentGrid->getFourierCellAbsK(cell);
         T filt = (*pFiltOther)(k_value) / (*pFiltThis)(k_value);
         (*pFieldThis)[cell] += filt * (*pFieldOther)[cell] * scale;
@@ -242,11 +242,11 @@ namespace fields {
         return pFieldDataOther->size() > 0 && pFieldDataThis->size() > 0;
       };
 
-      auto getCellContribution = [&](size_t component, size_t i, size_t cumu_i) {
+      auto getCellContribution = [&](size_t, size_t i, size_t) {
         T k_value = pCurrentGrid->getFourierCellAbsK(i);
         T inner_weight = weight * (*pFiltOther)(k_value);
         if (covariance_weighted) inner_weight *= ((*pCov)[i]) * weight;
-        inner_weight *= numerics::fourier::getFourierCellWeight(*pFieldThis, i);
+        inner_weight *= tools::numerics::fourier::getFourierCellWeight(*pFieldThis, i);
         return inner_weight * std::conj((*pFieldDataThis)[i]) * (*pFieldDataOther)[i];
       };
 
@@ -370,13 +370,13 @@ namespace fields {
       for (size_t i = 0; i < grid.size3; i++) {
         int kx, ky, kz;
         std::tie(kx, ky, kz) = grid.getFourierCellCoordinate(i);
-        complex<T> existingValue = numerics::fourier::getFourierCoefficient(field, kx, ky, kz);
+        complex<T> existingValue = tools::numerics::fourier::getFourierCoefficient(field, kx, ky, kz);
         T absExistingValue = abs(existingValue);
         T sqrt_spec = sqrt(spectrum[i]) * white_noise_norm;
         T a = sqrt_spec * existingValue.real() / absExistingValue;
         T b = sqrt_spec * existingValue.imag() / absExistingValue;
 
-        numerics::fourier::setFourierCoefficient(field, kx, ky, kz, a, b);
+        tools::numerics::fourier::setFourierCoefficient(field, kx, ky, kz, a, b);
       }
     }
 
@@ -424,7 +424,7 @@ namespace fields {
     t_output_state outputState;
 
   public:
-    OutputField(MultiLevelContextInformation<DataType> &multiLevelContext) : MultiLevelField<DataType>(
+    OutputField(multilevelcontext::MultiLevelContextInformation<DataType> &multiLevelContext) : MultiLevelField<DataType>(
       multiLevelContext) {
       outputState = PRE_SEPARATION;
     }
@@ -468,7 +468,7 @@ namespace fields {
 
 
   public:
-    ConstraintField(MultiLevelContextInformation<DataType> &multiLevelContext,
+    ConstraintField(multilevelcontext::MultiLevelContextInformation<DataType> &multiLevelContext,
                     std::vector<Field<DataType, T>> &&fieldsOnGrids)
       : MultiLevelField<DataType>(multiLevelContext, std::move(fieldsOnGrids)) {
       this->isCovector = true;

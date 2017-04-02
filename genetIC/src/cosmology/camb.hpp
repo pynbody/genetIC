@@ -23,7 +23,7 @@ namespace cosmology {
   protected:
     std::vector <FloatType> kcamb;
     std::vector <FloatType> Tcamb;
-    numerics::Interpolator <FloatType> interpolator;
+    tools::numerics::Interpolator <FloatType> interpolator;
     FloatType amplitude;
     FloatType ns;
     mutable FloatType kcamb_max_in_file;
@@ -84,8 +84,6 @@ namespace cosmology {
           Tcamb.push_back(FloatType(input[c * j + 1]) / ap);
         } else continue;
       }
-
-      size_t nCambLines = kcamb.size();
 
       // Extend high-k range using Meszaros solution
       // This is a very naive approximation and a big warning will be issued if the power is actually evaluated

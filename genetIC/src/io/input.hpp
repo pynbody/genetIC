@@ -1,7 +1,3 @@
-//
-// Created by Andrew Pontzen on 18/11/2016.
-//
-
 #ifndef IC_INPUT_HPP
 #define IC_INPUT_HPP
 

@@ -20,7 +20,7 @@ set(SOURCE_FILES
         genetIC/src/main.cpp
         genetIC/src/simulation/coordinate.hpp
         genetIC/src/cosmology/camb.hpp
-        genetIC/src/simulation/particles/mapper.hpp
+        genetIC/src/simulation/particles/mapper/mapper.hpp
         genetIC/src/io/numpy.hpp
         genetIC/src/tools/parser.hpp
         genetIC/src/tools/numerics/vectormath.hpp
@@ -41,7 +41,13 @@ set(SOURCE_FILES
         genetIC/src/simulation/particles/zeldovich.hpp
         genetIC/src/simulation/particles/generator.hpp
         genetIC/src/simulation/particles/multilevelgenerator.hpp
-        genetIC/src/tools/data_types/complex.hpp)
+        genetIC/src/tools/data_types/complex.hpp
+        genetIC/src/simulation/filters/filterfamily.hpp
+        genetIC/src/simulation/grid/virtualgrid.hpp
+        genetIC/src/simulation/particles/mapper/mapperiterator.hpp
+        genetIC/src/simulation/particles/mapper/onelevelmapper.hpp
+        genetIC/src/simulation/particles/mapper/twolevelmapper.hpp
+        genetIC/src/simulation/particles/mapper/gasmapper.hpp)
 
 include_directories( /opt/local/include )
 link_directories(/opt/local/lib )

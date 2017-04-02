@@ -3,7 +3,7 @@
 
 #include <functional>
 #include <climits>
-#include "src/io.hpp"
+
 
 
 namespace cosmology {
@@ -38,7 +38,7 @@ namespace cosmology {
 
   /** Dump an estimated power spectrum for the field, alongside the specified theory power spectrum, to disk
     */
-  template<typename DataType, typename FloatType=strip_complex<DataType>>
+  template<typename DataType, typename FloatType=tools::datatypes::strip_complex<DataType>>
   void dumpPowerSpectrum(const fields::Field<DataType> &field,
                          const std::vector<FloatType> &P0, const std::string &filename) {
 
@@ -74,7 +74,7 @@ namespace cosmology {
 
           auto fieldValue = field[idx];
           FloatType vabs = std::abs(fieldValue);
-          vabs *= vabs * numerics::fourier::getFourierCellWeight(field, idx);
+          vabs *= vabs * tools::numerics::fourier::getFourierCellWeight(field, idx);
 
           int iix, iiy, iiz;
 
@@ -135,7 +135,7 @@ namespace cosmology {
   }
 
   /** Convert the density field to a potential field, in-place. */
-  template<typename DataType, typename FloatType=strip_complex<DataType>>
+  template<typename DataType, typename FloatType=tools::datatypes::strip_complex<DataType>>
   void densityToPotential(fields::Field<DataType, FloatType> &field, const CosmologicalParameters<FloatType> &cosmo) {
 
 

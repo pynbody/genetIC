@@ -1,7 +1,3 @@
-//
-// Created by Andrew Pontzen on 05/08/15.
-//
-
 #ifndef IC_MULTILEVELCONSTRAINTGENERATOR_H
 #define IC_MULTILEVELCONSTRAINTGENERATOR_H
 
@@ -21,19 +17,19 @@ namespace constraints {
 
   /** This class takes responsibility for calculating constraint covectors across all levels that a field is
     * defined on. */
-  template<typename DataType, typename T = strip_complex<DataType>>
+  template<typename DataType, typename T = tools::datatypes::strip_complex<DataType>>
   class MultiLevelConstraintGenerator {
 
 
   protected:
-    MultiLevelContextInformation<DataType> &fieldManager;
+    multilevelcontext::MultiLevelContextInformation<DataType> &fieldManager;
     cosmology::CosmologicalParameters<T> &cosmology;
 
     fields::Field<DataType> calcConstraintCovectorNormalisedForLevel(std::string name_in, int level) {
       /* Get a named constraint covector on a particular level. Normalise such that taking the multi-level inner product
        * will return the correct value (the same as it would if the entire box consisted just of the specified level) */
 
-      using numerics::operator/=;
+      using tools::numerics::operator/=;
 
       // calculate on the finest field
       auto returnField = calcConstraint<DataType>(name_in, fieldManager.getGridForLevel(level), cosmology);
@@ -48,7 +44,7 @@ namespace constraints {
     }
 
   public:
-    MultiLevelConstraintGenerator(MultiLevelContextInformation<DataType> &fieldManager,
+    MultiLevelConstraintGenerator(multilevelcontext::MultiLevelContextInformation<DataType> &fieldManager,
                                   cosmology::CosmologicalParameters<T> &cosmology) :
       fieldManager(fieldManager), cosmology(cosmology) {
 

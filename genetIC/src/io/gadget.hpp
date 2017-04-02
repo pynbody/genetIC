@@ -1,7 +1,3 @@
-//
-// Created by Andrew Pontzen on 18/11/2016.
-//
-
 #ifndef IC_GADGET_HPP
 #define IC_GADGET_HPP
 
@@ -12,9 +8,9 @@ namespace io {
     using std::cerr;
     using std::endl;
 
-    template<typename GridDataType, typename FloatType=strip_complex<GridDataType>>
+    template<typename GridDataType, typename FloatType=tools::datatypes::strip_complex<GridDataType>>
     void getParticleInfo(const particle::AbstractMultiLevelParticleGenerator<GridDataType> &generator,
-                         particle::ParticleMapper<GridDataType> &mapper,
+                         particle::mapper::ParticleMapper<GridDataType> &mapper,
                          FloatType &min_mass, FloatType &max_mass,
                          FloatType &tot_mass, FloatType &gas_mass, size_t &ngas, size_t &nlow, size_t &nhigh) {
 
@@ -241,7 +237,7 @@ namespace io {
       header3.nPartTotalHighWord[4] = (unsigned int) (npart[4] >> 32);
       header3.nPartTotalHighWord[5] = (unsigned int) (npart[5] >> 32);
       header3.flag_entropy_instead_u = 0; /*!< flags that IC-file contains entropy instead of u */
-      header3.flag_doubleprecision = floatinfo<FloatType>::doubleprecision;
+      header3.flag_doubleprecision = tools::datatypes::floatinfo<FloatType>::doubleprecision;
       header3.flag_ic_info = 1;
       header3.lpt_scalingfactor = 0.; /*!dummy value since we never use ic_info!=1 */
 
@@ -584,7 +580,7 @@ int save_phases(complex<FloatType> *phk, FloatType* ph, complex<FloatType> *delt
 
     template<typename GridDataType, typename FloatType>
     void save(const std::string &name, double Boxlength,
-              particle::ParticleMapper<GridDataType> & mapper,
+              particle::mapper::ParticleMapper<GridDataType> & mapper,
               particle::AbstractMultiLevelParticleGenerator<GridDataType> & generator,
               const cosmology::CosmologicalParameters<FloatType> &cosmology, int gadgetformat) {
 

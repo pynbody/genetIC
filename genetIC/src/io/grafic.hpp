@@ -1,14 +1,10 @@
-//
-// Created by Andrew Pontzen on 17/11/2016.
-//
-
 #include <fstream>
 #include <cmath>
-#include "src/simulation/multilevelcontext/multilevelcontext.hpp"
-#include "src/cosmology/parameters.hpp"
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <list>
+#include "src/simulation/multilevelcontext/multilevelcontext.hpp"
+#include "src/cosmology/parameters.hpp"
 #include <src/simulation/particles/multilevelgenerator.hpp>
 
 namespace io {
@@ -24,11 +20,11 @@ namespace io {
       float omegaM, omegaL, h0;
     } header_grafic;
 
-    template<typename DataType, typename T=strip_complex<DataType>>
+    template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
     class GraficOutput {
     protected:
       std::string outputFilename;
-      MultiLevelContextInformation<DataType> context;
+      multilevelcontext::MultiLevelContextInformation<DataType> context;
       std::shared_ptr<particle::AbstractMultiLevelParticleGenerator<DataType>> generator;
       const cosmology::CosmologicalParameters<T> &cosmology;
 
@@ -38,7 +34,7 @@ namespace io {
 
     public:
       GraficOutput(const std::string & fname,
-                   MultiLevelContextInformation<DataType> & levelContext,
+                   multilevelcontext::MultiLevelContextInformation<DataType> & levelContext,
                    particle::AbstractMultiLevelParticleGenerator<DataType> &particleGenerator,
                    const cosmology::CosmologicalParameters<T> &cosmology):
         outputFilename(fname),
@@ -62,8 +58,8 @@ namespace io {
       void writeGrid(const grids::Grid<T> & targetGrid) {
         auto & gridGenerator = generator->getGeneratorForGrid(targetGrid);
         const grids::Grid<T> & baseGrid = context.getGridForLevel(0);
-        size_t effective_size = getRatioAndAssertPositiveInteger(baseGrid.dx * baseGrid.size, targetGrid.dx);
-	      progress::ProgressBar pb("write grid "+std::to_string(effective_size), targetGrid.size);
+        size_t effective_size = tools::getRatioAndAssertPositiveInteger(baseGrid.dx * baseGrid.size, targetGrid.dx);
+	      tools::progress::ProgressBar pb("write grid "+std::to_string(effective_size), targetGrid.size);
 
         std::string thisGridFilename = outputFilename+"_"+std::to_string(effective_size);
         mkdir(thisGridFilename.c_str(), 0777);
@@ -146,10 +142,10 @@ namespace io {
 
     };
 
-    template<typename DataType, typename T=strip_complex<DataType>>
+    template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
     void save(const std::string & filename,
               particle::AbstractMultiLevelParticleGenerator<DataType> &generator,
-              MultiLevelContextInformation<DataType> &context,
+              multilevelcontext::MultiLevelContextInformation<DataType> &context,
               const cosmology::CosmologicalParameters<T> &cosmology) {
       GraficOutput<DataType> output(filename,context,
                              generator, cosmology);

@@ -7,11 +7,9 @@
 
 #include <complex>
 #include <src/io/numpy.hpp>
-#include "src/cosmology/parameters.hpp"
 #include "src/tools/progress/progress.hpp"
 #include "src/simulation/field/field.hpp"
 #include "src/simulation/particles/generator.hpp"
-#include "src/simulation/particles/particle.hpp"
 
 namespace cosmology {
   template<typename T>
@@ -23,16 +21,16 @@ namespace particle {
   template<typename T>
   class Particle;
 
-  template<typename GridDataType, typename T=strip_complex<GridDataType>>
+  template<typename GridDataType, typename T=tools::datatypes::strip_complex<GridDataType>>
   class ZeldovichParticleGenerator : public ParticleGenerator<GridDataType> {
   protected:
     using TField = fields::Field<GridDataType, T>;
     using TRealField = fields::Field<T,T>;
 
-    T velocityToOffsetRatio, boxMass;
-    TField &linearOverdensityField;
     const cosmology::CosmologicalParameters<T> &cosmology;
+    TField &linearOverdensityField;
     using ParticleGenerator<GridDataType>::grid;
+    T velocityToOffsetRatio, boxMass;
 
     // The grid offsets after Zeldovich approximation is applied
     // (nullptr before that):
@@ -66,25 +64,20 @@ namespace particle {
       // TODO: refactorise this horrible long method
 
       size_t size = grid.size;
-      size_t size3 = grid.size3;
-      progress::ProgressBar pb("zeldovich", size * 2);
+      tools::progress::ProgressBar pb("zeldovich", size * 2);
 
       // get a reference to the density field in fourier space
       linearOverdensityField.toFourier();
-      auto &pField_k = linearOverdensityField.getDataVector();
 
       // copy three times to start assembling the vx, vy, vz fields
       auto offsetX = std::make_shared<TField>(const_cast<grids::Grid<T> &>(grid));
       auto offsetY = std::make_shared<TField>(const_cast<grids::Grid<T> &>(grid));
       auto offsetZ = std::make_shared<TField>(const_cast<grids::Grid<T> &>(grid));
 
-      T kfft;
-      size_t idx;
-
       const T kw = 2. * M_PI / grid.boxsize;
-      const int nyquist = numerics::fourier::getNyquistModeThatMustBeReal(grid);
+      const int nyquist = tools::numerics::fourier::getNyquistModeThatMustBeReal(grid);
 
-      numerics::fourier::applyTransformationInFourierBasis<T>(linearOverdensityField,
+      tools::numerics::fourier::applyTransformationInFourierBasis<T>(linearOverdensityField,
       [kw, nyquist](complex<T> inputVal, int iix, int iiy, int iiz) -> std::tuple<complex<T>, complex<T>, complex<T>> {
         complex<T> result_x;
         T kfft = (iix * iix + iiy * iiy + iiz * iiz);
@@ -127,9 +120,10 @@ namespace particle {
 
     ZeldovichParticleGenerator(TField &linearOverdensityField,
                                const cosmology::CosmologicalParameters<T> &cosmology) :
-      linearOverdensityField(linearOverdensityField),
-      cosmology(cosmology),
-      ParticleGenerator<GridDataType>(linearOverdensityField.getGrid())
+
+    ParticleGenerator<GridDataType>(linearOverdensityField.getGrid()),
+    cosmology(cosmology),
+    linearOverdensityField(linearOverdensityField)
     {
       recalculate();
     }

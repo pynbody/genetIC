@@ -13,7 +13,7 @@
  */
 namespace constraints {
 
-  template<typename DataType, typename T=strip_complex<DataType>>
+  template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
   class ConstraintApplicator {
 
   public:
@@ -21,10 +21,10 @@ namespace constraints {
     std::vector<DataType> values;
     std::vector<DataType> existing_values;
 
-    MultiLevelContextInformation<DataType> *underlying;
+    multilevelcontext::MultiLevelContextInformation<DataType> *underlying;
     fields::OutputField<DataType> *outputField;
 
-    ConstraintApplicator(MultiLevelContextInformation<DataType> *underlying_,
+    ConstraintApplicator(multilevelcontext::MultiLevelContextInformation<DataType> *underlying_,
                          fields::OutputField<DataType> *outputField_) : underlying(underlying_),
                                                                         outputField(outputField_) {
 
@@ -41,7 +41,7 @@ namespace constraints {
       /* This routine is provided mainly for debugging purposes and calculates/displays the covariance matrix
        * alpha_i^dagger alpha_j  */
 
-      progress::ProgressBar pb("calculating covariance");
+      tools::progress::ProgressBar pb("calculating covariance");
 
       size_t n = alphas.size();
       size_t done = 0;
@@ -73,7 +73,7 @@ namespace constraints {
       /* Constraints need to be orthonormal before applying (or alternatively one would need an extra matrix
        * manipulation on them, as in the original HR91 paper, which boils down to the same thing). */
 
-      using namespace numerics;
+      using namespace tools::numerics;
 
       size_t n = alphas.size();
       size_t done = 0;
@@ -95,7 +95,7 @@ namespace constraints {
 
       // Gram-Schmidt orthogonalization in-place
 
-      progress::ProgressBar pb("orthogonalizing constraints");
+      tools::progress::ProgressBar pb("orthogonalizing constraints");
 
       for (size_t i = 0; i < n; i++) {
         auto &alpha_i = alphas[i];

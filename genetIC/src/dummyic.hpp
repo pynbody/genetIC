@@ -2,7 +2,6 @@
 #define _DUMMYIC_HPP_INCLUDED
 
 #include "ic.hpp"
-#include "src/simulation/coordinate.hpp"
 
 template<typename GridDataType>
 class DummyICGenerator : public ICGenerator<GridDataType> {
@@ -15,7 +14,7 @@ public:
 
   }
 
-  void addLevelToContext(const cosmology::CAMB<T> &spectrum, T gridSize, size_t nside, const Coordinate<T> & offset={0,0,0}) override {
+  void addLevelToContext(const cosmology::CAMB<T>& /*&spectrum*/, T gridSize, size_t nside, const Coordinate<T> & offset={0,0,0}) override {
     size_t newLevel = this->multiLevelContext.getNumLevels();
     if(pUnderlying->multiLevelContext.getNumLevels()<=newLevel)
       throw std::runtime_error("Trying to match particles between incompatible simulation setups (too many levels)");
@@ -35,23 +34,23 @@ public:
   }
 
 
-  void zeroLevel(int level) override {
+  void zeroLevel(int /*level*/) override {
 
   }
 
   void applyPowerSpec() override { }
 
-  void dumpGrid(int level) override { }
+  void dumpGrid(int /*level*/) override { }
 
-  void dumpPS(int level) override { }
+  void dumpPS(int /*level*/) override { }
 
   virtual void initialiseParticleGenerator() override { }
 
-  void dumpID(string fname) override { }
+  void dumpID(string /*fname*/) override { }
 
   void write() override { }
 
-  void constrain(string name, string type, float value) override { }
+  void constrain(string /*name*/, string /*string*/, float /*value*/) override { }
 
   void done() override { }
 };

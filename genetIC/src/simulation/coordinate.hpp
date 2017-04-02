@@ -1,7 +1,3 @@
-//
-// Created by Andrew Pontzen on 16/07/2016.
-//
-
 #ifndef IC_COORDINATE_HPP
 #define IC_COORDINATE_HPP
 
@@ -10,7 +6,7 @@
 
 /*!
     \class Coordinate
-    \brief Lower level building block used to keep track of particles and cells on a grid.
+    \brief Definition of coordinates for grid cells and particles.
 
  */
 template<typename T>

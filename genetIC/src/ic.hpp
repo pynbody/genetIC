@@ -13,7 +13,6 @@
 
 #include "io/numpy.hpp"
 
-#include "src/simulation/constraints/onelevelconstraintgenerator.hpp"
 #include "src/simulation/constraints/constraintapplicator.hpp"
 #include "src/simulation/constraints/multilevelconstraintgenerator.hpp"
 
@@ -22,40 +21,41 @@
 #include "src/simulation/field/randomfieldgenerator.hpp"
 #include "src/simulation/field/multilevelfield.hpp"
 
-#include "src/simulation/particles/generator.hpp"
 #include "src/simulation/particles/multilevelgenerator.hpp"
+#include "src/simulation/particles/mapper/onelevelmapper.hpp"
+#include "src/simulation/particles/mapper/twolevelmapper.hpp"
+#include "src/simulation/particles/mapper/gasmapper.hpp"
 
-#include "cosmology/parameters.hpp"
-#include "cosmology/camb.hpp"
-
-#include "src/tools/parser.hpp"
+#include "src/cosmology/camb.hpp"
 
 //TODO: remove ugly macro
 #define for_each_level(level) for(size_t level=0; level<multiLevelContext.getNumLevels(); ++level)
 
 using namespace std;
 
-
 template<typename T>
 class DummyICGenerator;
 
 
-/** The top level object responsible for coordinating the generation of initial conditions, including GM constraints.
-   *
-   * This class exposes all the methods which are made scriptable by main.cpp
-   */
+/*!
+   \class ICGenerator
+   \brief top level object responsible for coordinating the generation of initial conditions, including genetic modifications.
+
+   This class exposes all methods accessible at user level through main.o
+
+*/
 template<typename GridDataType>
 class ICGenerator {
 protected:
 
-  using T = strip_complex<GridDataType>;
+  using T = tools::datatypes::strip_complex<GridDataType>;
   using GridPtrType = std::shared_ptr<grids::Grid<T>>;
 
 
   friend class DummyICGenerator<GridDataType>;
 
   cosmology::CosmologicalParameters<T> cosmology;
-  MultiLevelContextInformation<GridDataType> multiLevelContext;
+  multilevelcontext::MultiLevelContextInformation<GridDataType> multiLevelContext;
   fields::OutputField<GridDataType> outputField;
   constraints::ConstraintApplicator<GridDataType> constraintApplicator;
   constraints::MultiLevelConstraintGenerator<GridDataType> constraintGenerator;
@@ -80,24 +80,24 @@ protected:
 
   T x0, y0, z0;
 
-  shared_ptr<particle::ParticleMapper<GridDataType>> pMapper;
-  shared_ptr<particle::ParticleMapper<GridDataType>> pInputMapper;
+  shared_ptr<particle::mapper::ParticleMapper<GridDataType>> pMapper;
+  shared_ptr<particle::mapper::ParticleMapper<GridDataType>> pInputMapper;
 
   shared_ptr<particle::AbstractMultiLevelParticleGenerator<GridDataType>> pParticleGenerator;
 
   using RefFieldType = std::vector<GridDataType> &;
   using FieldType = std::vector<GridDataType>;
 
-  ClassDispatch<ICGenerator<GridDataType>, void> &interpreter;
+  tools::ClassDispatch<ICGenerator<GridDataType>, void> &interpreter;
 
 
 public:
-  ICGenerator(ClassDispatch<ICGenerator<GridDataType>, void> &interpreter) :
+  ICGenerator(tools::ClassDispatch<ICGenerator<GridDataType>, void> &interpreter) :
                                                       outputField(multiLevelContext),
                                                       constraintApplicator(&multiLevelContext, &outputField),
                                                       constraintGenerator(multiLevelContext, cosmology),
                                                       randomFieldGenerator(outputField),
-                                                      pMapper(new particle::ParticleMapper<GridDataType>()),
+                                                      pMapper(new particle::mapper::ParticleMapper<GridDataType>()),
                                                       interpreter(interpreter)
   {
     pInputMapper = nullptr;
@@ -238,9 +238,9 @@ public:
     if (x < 0) x = 0;
     if (y < 0) y = 0;
     if (z < 0) z = 0;
-    if (x > nAbove - nAbove / zoomfac) x = nAbove - nAbove / zoomfac;
-    if (y > nAbove - nAbove / zoomfac) y = nAbove - nAbove / zoomfac;
-    if (z > nAbove - nAbove / zoomfac) z = nAbove - nAbove / zoomfac;
+    if ((unsigned)x > nAbove - nAbove / zoomfac) x = nAbove - nAbove / zoomfac;
+    if ((unsigned)y > nAbove - nAbove / zoomfac) y = nAbove - nAbove / zoomfac;
+    if ((unsigned)z > nAbove - nAbove / zoomfac) z = nAbove - nAbove / zoomfac;
 
     Coordinate<T> newOffsetLower = gridAbove.offsetLower + Coordinate<T>(x,y,z)*gridAbove.dx;
 
@@ -309,7 +309,7 @@ public:
   string getOutputPath() {
     ostringstream fname_stream;
     if (outputFilename.size() == 0) {
-      fname_stream << outputFolder << "/IC_" << floatinfo<T>::name << "_z" << cosmology.redshift << "_" << multiLevelContext.getGridForLevel(0).size;
+      fname_stream << outputFolder << "/IC_" << tools::datatypes::floatinfo<T>::name << "_z" << cosmology.redshift << "_" << multiLevelContext.getGridForLevel(0).size;
     } else {
       fname_stream << outputFolder << "/" << outputFilename;
     }
@@ -345,7 +345,7 @@ public:
     int n = levelGrid.size;
 
     const int dim[3] = {n,n,n};
-    numpy::SaveArrayAsNumpy(filename.str(), false, 3, dim, data.data());
+    io::numpy::SaveArrayAsNumpy(filename.str(), false, 3, dim, data.data());
 
     filename.str("");
     filename << outputFolder << "/grid-info-" << level << ".txt";
@@ -371,7 +371,7 @@ public:
   }
 
   virtual void dumpGridFourier(int level=0) {
-    fields::Field<complex<T>, T> fieldToWrite = numerics::fourier::getComplexFourierField(outputField.getFieldForLevel(level));
+    fields::Field<complex<T>, T> fieldToWrite = tools::numerics::fourier::getComplexFourierField(outputField.getFieldForLevel(level));
     dumpGridData(level, fieldToWrite.getDataVector());
   }
 
@@ -406,7 +406,7 @@ public:
       throw std::runtime_error("Cannot open IC paramfile for relative_to command");
     cerr << "******** Running commands in" << fname << " to work out relationship ***********" << endl;
 
-    ChangeCwdWhileInScope temporary(getDirectoryName(fname));
+    tools::ChangeCwdWhileInScope temporary(tools::getDirectoryName(fname));
 
     dispatch.run_loop(inf);
     cerr << *(pseudoICs.pMapper) << endl;
@@ -432,7 +432,7 @@ public:
       return;
 
     // make a basic mapper for the coarsest grid
-    pMapper = std::shared_ptr<particle::ParticleMapper<GridDataType>>(new particle::OneLevelParticleMapper<GridDataType>(
+    pMapper = std::shared_ptr<particle::mapper::ParticleMapper<GridDataType>>(new particle::mapper::OneLevelParticleMapper<GridDataType>(
       getGridWithOutputOffset(0)
     ));
 
@@ -441,11 +441,11 @@ public:
 
       for(size_t level=1; level<nLevels; level++) {
 
-        auto pFine = std::shared_ptr<particle::ParticleMapper<GridDataType>>(
-          new particle::OneLevelParticleMapper<GridDataType>(getGridWithOutputOffset(level)));
+        auto pFine = std::shared_ptr<particle::mapper::ParticleMapper<GridDataType>>(
+          new particle::mapper::OneLevelParticleMapper<GridDataType>(getGridWithOutputOffset(level)));
 
-        pMapper = std::shared_ptr<particle::ParticleMapper<GridDataType>>(
-          new particle::TwoLevelParticleMapper<GridDataType>(pMapper, pFine, zoomParticleArray[level-1]));
+        pMapper = std::shared_ptr<particle::mapper::ParticleMapper<GridDataType>>(
+          new particle::mapper::TwoLevelParticleMapper<GridDataType>(pMapper, pFine, zoomParticleArray[level-1]));
       }
     }
 
@@ -460,10 +460,10 @@ public:
 
       // graft the gas particles onto the start of the map
       if (gasFirst)
-        pMapper = std::make_shared<particle::AddGasMapper<GridDataType>>(
+        pMapper = std::make_shared<particle::mapper::AddGasMapper<GridDataType>>(
           gasMapper.first, gasMapper.second, true);
       else
-        pMapper = std::make_shared<particle::AddGasMapper<GridDataType>>(
+        pMapper = std::make_shared<particle::mapper::AddGasMapper<GridDataType>>(
           gasMapper.second, gasMapper.first, false);
 
     }

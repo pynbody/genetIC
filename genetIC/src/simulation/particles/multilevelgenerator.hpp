@@ -1,7 +1,3 @@
-//
-// Created by Andrew Pontzen on 23/12/2016.
-//
-
 #ifndef IC_MULTILEVELGENERATOR_HPP_HPP
 #define IC_MULTILEVELGENERATOR_HPP_HPP
 
@@ -19,7 +15,7 @@ namespace particle {
     public std::enable_shared_from_this<AbstractMultiLevelParticleGenerator<GridDataType>> {
 
   public:
-    using T = strip_complex<GridDataType>;
+    using T = tools::datatypes::strip_complex<GridDataType>;
     virtual particle::ParticleGenerator<GridDataType> &getGeneratorForLevel(size_t level) = 0;
     virtual particle::ParticleGenerator<GridDataType> &getGeneratorForGrid(const grids::Grid<T> &grid) =0;
 
@@ -28,7 +24,7 @@ namespace particle {
     }
   };
 
-  template<typename GridDataType, typename T=strip_complex<GridDataType>>
+  template<typename GridDataType, typename T=tools::datatypes::strip_complex<GridDataType>>
   class NullMultiLevelParticleGenerator: public AbstractMultiLevelParticleGenerator<GridDataType> {
   public:
 
@@ -36,11 +32,11 @@ namespace particle {
 
     }
 
-    virtual particle::ParticleGenerator<GridDataType> &getGeneratorForLevel(size_t level) override {
+    virtual particle::ParticleGenerator<GridDataType> &getGeneratorForLevel(size_t /*level*/) override {
       throw std::runtime_error("Attempt to generate particles before they have been calculated");
     }
 
-    virtual particle::ParticleGenerator<GridDataType> &getGeneratorForGrid(const grids::Grid<T> &grid) override {
+    virtual particle::ParticleGenerator<GridDataType> &getGeneratorForGrid(const grids::Grid<T>&) override {
       throw std::runtime_error("Attempt to generate particles before they have been calculated");
     }
   };
@@ -130,12 +126,12 @@ namespace particle {
 
 
 
-  template<typename GridDataType, typename TParticleGenerator, typename T=strip_complex<GridDataType>>
+  template<typename GridDataType, typename TParticleGenerator, typename T=tools::datatypes::strip_complex<GridDataType>>
   class MultiLevelParticleGenerator : public AbstractMultiLevelParticleGenerator<GridDataType>
   {
   protected:
     fields::OutputField<GridDataType> & outputField;
-    const MultiLevelContextInformation<GridDataType> &context;
+    const multilevelcontext::MultiLevelContextInformation<GridDataType> &context;
     std::vector<std::shared_ptr<TParticleGenerator>> pGenerators;
     const cosmology::CosmologicalParameters<T> &cosmoParams;
 
@@ -176,13 +172,6 @@ namespace particle {
 
   };
 
-
-
-
-
-
 }
 
-
-
-#endif //IC_MULTILEVELGENERATOR_HPP_HPP
+#endif
