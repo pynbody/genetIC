@@ -92,7 +92,7 @@ namespace cosmology {
       FloatType Tcamb_f = Tcamb.back();
       kcamb_max_in_file = kcamb.back();
       FloatType keq = 0.01;
-      while (kcamb.back() < 1000) {
+      while (kcamb.back() < 1e7) {
         kcamb.push_back(kcamb.back() + 1.0);
         FloatType kratio = kcamb.back() / kcamb_max_in_file;
         Tcamb.push_back(Tcamb_f * pow(kratio, -2.0) * log(kcamb.back() / keq) / log(kcamb_max_in_file / keq));
