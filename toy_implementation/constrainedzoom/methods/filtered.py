@@ -125,3 +125,20 @@ class HybridZoomConstrained(FilteredZoomConstrained):
         
         delta_high += delta_low_upsampled
         return delta_low, delta_high
+
+
+class StepFilterZoomConstrained(FilteredZoomConstrained):
+    @in_fourier_space
+    def _separate_fields(self, delta_low_k, delta_high_k):
+        k_high, k_low = self._get_ks()
+        delta_high_k[k_high<=k_low.max()] = 0
+        return delta_low_k, delta_high_k, None
+
+    def _recombine_fields(self, delta_low: FFTArray, delta_high: FFTArray, _):
+        delta_low_window = copy.copy(delta_low.in_real_space()[self.offset:self.offset+self.n1//self.window_size_ratio])
+        delta_low_window.in_fourier_space()
+
+        delta_high.in_fourier_space()
+        delta_high[:len(delta_low_window)] = delta_low_window*np.sqrt(len(delta_high)/len(delta_low_window))
+
+        return delta_low, delta_high

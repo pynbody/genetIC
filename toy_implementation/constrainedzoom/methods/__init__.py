@@ -186,7 +186,7 @@ class ZoomConstrained(metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
-    def _recombine_fields(self, delta_low, delta_high, memos):
+    def _recombine_fields(self, delta_low: FFTArray, delta_high: FFTArray, memos):
         """Give subclass an opportunity to combine information from the low-frequency into the high-frequency field
         
         :param delta_low: the field in the pixelised basis, without any high-frequency information
