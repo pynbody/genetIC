@@ -82,14 +82,15 @@ def overplot_boundary_real_space(G: ZoomConstrained, cov: np.ndarray,
     p.ylim(1.0,0)
 
 
-def plot_power_spec(G: ZoomConstrained, cov:np.ndarray, pad=0):
+def plot_power_spec(G: ZoomConstrained, cov:np.ndarray, pad=0, errors=False):
     C11 = cov[:G.n1, :G.n1]
     C12 = cov[:G.n1, G.n1:]
     C22 = cov[G.n1:, G.n1:]
 
     if pad > 0:
-        C22 = C22[pad:-pad, pad:-pad]
-        C12 = C12[:, pad:-pad]
+        pad_highres = pad*G.pixel_size_ratio
+        C22 = C22[pad_highres:-pad_highres, pad_highres:-pad_highres]
+        C12 = C12[:, pad_highres:-pad_highres]
 
     k_nyq_1 = G.n1/2  # N pi / L, but L=1
     k_nyq_2 = G.n2 * G.window_size_ratio/2
@@ -108,12 +109,25 @@ def plot_power_spec(G: ZoomConstrained, cov:np.ndarray, pad=0):
     k1 = np.linspace(0,k_nyq_1-1,len(C11))
     k2 = np.linspace(0,k_nyq_2-1,len(C22))
 
-    p.plot(k1, C11.diagonal()/k1[1]/2,"r")
-    p.plot(k2, C22.diagonal()/k2[1]/2,"g")
+    actual_P1 = C11.diagonal()/k1[1]
+    actual_P2 = C22.diagonal()/k2[1]
+    target_P1 = 2.*G._get_variance_k(k1)*G.n1
+    target_P2 = 2.*G._get_variance_k(k2)*G.n2/G.window_size_ratio
 
-    p.plot(G.k_low, G.C_low/G.k_low[1], "m:")
-    p.plot(G.k_high, G.C_high/G.k_high[1], "y:")
-    p.loglog()
+    if errors:
+        p.plot(k1, actual_P1, "r")
+        p.plot(k2, actual_P2, "g")
+        p.legend(["Coarse", "Fine"], loc='lower left')
+        p.semilogx()
+    else:
+        p.plot(k1, actual_P1,"r")
+        p.plot(k2, actual_P2,"g")
+
+        p.plot(G.k_low, G.C_low/G.k_low[1], "m:")
+        p.plot(G.k_high, G.C_high/G.k_high[1], "y:")
+
+        p.legend(["Coarse Actual", "Fine Actual", "Coarse Target", "Fine Target"], loc='lower left')
+        p.loglog()
 
 
 def plot_fourier_space(G: ZoomConstrained, cov:np.ndarray, pad=0, vmin=None, vmax=None,
@@ -327,23 +341,46 @@ def combined_plots(G: ZoomConstrained, cov:np.ndarray, pad=0, vmin=None, vmax=No
 
 def cov_zoom_demo(n1=256, n2=256,
                   hires_window_scale=4,
+                  hires_window_offset=10,
                   estimate=False, Ntrials=2000,
                   plaw=-1.5, cl=FilteredZoomConstrained,pad=0,vmin=None,vmax=None,errors=False,
                   show_hh=True,one_element=None,subplot=False,
-                  display_fourier=False,
+                  plot_type='real',
                   initialization_kwargs={}):
+    """End-to-end construction and plotting function for understanding a zoom algorithm
+    
+    :param n1: The number of low-res pixels
+    :param n2: The number of high-res pixels
+    :param hires_window_scale: The size of the high-res window relative to the low-res box
+    :param estimate: if True, use a covariance estimator instead of the exact algorithm (mainly useful for testing the exact algorithm is working)
+    :param Ntrials: if estimate is True, the number of trials to use
+    :param plaw: the power-law to be used for the underlying covariance matrix P(k) propto k^plaw
+    :param cl: the class to be used for constructing the zoom gaussian realisation
+    :param pad: the real-space padding in low-resolution pixels to be used in the analysis
+    :param vmin: passed to imshow routines
+    :param vmax: passed to imshow routines
+    :param errors: if True, show the errors as a fraction of the real-space variance instead of the actual output
+    :param show_hh: if True (default) show the high x high covariance (otherwise shows only low x low and high x low)
+    :param one_element: if not None, show a test of the basic convolution algorithm by using the specified pixel only
+                        in the white-noise construction. See method ZoomConstrained._iter_one_cov_element
+    :param subplot: if True, place the plot into existing axes
+    :param plot_type: one of 'real', 'combined' or 'pspec'. "Real" plots the real-space covariance matrix;
+     "combined" plots both real-space and fourier-space covariance matrices. "pspec" plots the power spectrum.
+    :param initialization_kwargs: kwargs to pass to the target class initialiser
+    :return: the class instance used to construct the plot
+    """
     if not subplot:
         p.clf()
 
     cov_this = functools.partial(powerlaw_covariance, plaw=plaw)
-    X = cl(cov_this, n1=n1, n2=n2, hires_window_scale=hires_window_scale, **initialization_kwargs)
+    X = cl(cov_this, n1=n1, n2=n2, hires_window_scale=hires_window_scale, offset=hires_window_offset, **initialization_kwargs)
     if estimate:
         cv_est = X.estimate_cov(Ntrials)
     else:
         cv_est = X.get_cov(one_element=one_element)
 
     if errors:
-        Y = FastIdealizedZoomConstrained(cov_this, n1=n1, n2=n2, hires_window_scale=hires_window_scale)
+        Y = FastIdealizedZoomConstrained(cov_this, n1=n1, n2=n2, hires_window_scale=hires_window_scale, offset=hires_window_offset)
         true_cov = Y.get_cov(one_element=one_element)
         cv_est-=true_cov
         cv_est/=true_cov.max() # variance in hi-res region
@@ -361,8 +398,10 @@ def cov_zoom_demo(n1=256, n2=256,
 
 
 
-    if display_fourier:
+    if plot_type=='combined':
         combined_plots(X, cv_est, pad, vmin=vmin, vmax=vmax)
+    elif plot_type=='pspec':
+        plot_power_spec(X, cv_est, pad, errors=errors)
     else:
         if one_element is None:
             plot_real_space(X, cv_est, pad=pad, vmin=vmin, vmax=vmax, show_hh=show_hh)

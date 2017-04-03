@@ -43,7 +43,7 @@ class MLZoomConstrained(UnfilteredZoomConstrained):
         raise RuntimeError("MLZoomConstrained does not support constraints")
 
     @in_real_space
-    def _apply_transfer_function(self, white_noise_lo, white_noise_hi):
+    def _apply_transfer_function(self, white_noise_lo, white_noise_hi=None):
 
         C = self.C_underlying
 
