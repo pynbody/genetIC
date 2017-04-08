@@ -351,6 +351,11 @@ namespace particle {
 		protected:
 
 			void syncL2iterator(const size_t &next_zoom, iterator &level2iterator) const {
+        if(next_zoom>=zoomParticleArrayHiresUnsorted.size()) {
+          // beyond end. This is OK because we need to be able to go one beyond the end in an iterator loop
+          assert(next_zoom==zoomParticleArrayHiresUnsorted.size());
+          return;
+        }
 
 				if (zoomParticleArrayHiresUnsorted[next_zoom] > level2iterator.i) {
 					level2iterator += zoomParticleArrayHiresUnsorted[next_zoom] - level2iterator.i;
