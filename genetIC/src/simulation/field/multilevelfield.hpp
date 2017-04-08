@@ -242,12 +242,12 @@ namespace fields {
         return pFieldDataOther->size() > 0 && pFieldDataThis->size() > 0;
       };
 
-      auto getCellContribution = [&](size_t, size_t i, size_t) {
+      auto getCellContribution = [&](size_t, size_t i, size_t) -> tools::datatypes::strip_complex<DataType> {
         T k_value = pCurrentGrid->getFourierCellAbsK(i);
         T inner_weight = weight * (*pFiltOther)(k_value);
         if (covariance_weighted) inner_weight *= ((*pCov)[i]) * weight;
         inner_weight *= tools::numerics::fourier::getFourierCellWeight(*pFieldThis, i);
-        return inner_weight * std::conj((*pFieldDataThis)[i]) * (*pFieldDataOther)[i];
+        return inner_weight * std::real(std::conj((*pFieldDataThis)[i]) * (*pFieldDataOther)[i]);
       };
 
       return multiLevelContext->accumulateOverEachCellOfEachLevel(newLevelCallback, getCellContribution);

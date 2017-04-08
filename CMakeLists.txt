@@ -62,4 +62,4 @@ add_executable(IC ${SOURCE_FILES} )
 
 add_custom_command(TARGET IC
         POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:IC> /Users/app/Science/genetgenetIC/genetIC/IC)
+        COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:IC> /Users/app/Science/genetIC/genetIC/IC)
