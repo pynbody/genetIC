@@ -67,7 +67,7 @@ namespace fields {
           fieldOnGrid.toFourier();
           drawRandomForSpecifiedGridFourier(fieldOnGrid);
         } else {
-          drawRandomForSpecifiedGrid(fieldOnGrid.getGrid(), fieldOnGrid.getDataVector());
+          drawRandomForSpecifiedGrid(fieldOnGrid);
         }
       }
     }
@@ -91,7 +91,7 @@ namespace fields {
     }
 
 
-    void drawRandomForSpecifiedGrid(const grids::Grid<FloatType> &g, RefFieldType pField_k) {
+    void drawRandomForSpecifiedGrid(Field<DataType> &field) {
       /* Draw random white noise in real space.
        *
        *  Kept for historical compatibility, even though the recommended approach is
@@ -99,6 +99,10 @@ namespace fields {
        * seedfourier in the paramfile)
        *
        */
+
+      field.setFourier(false);
+      auto & g = field.getGrid();
+      auto & fieldData = field.getDataVector();
       size_t nPartTotal = g.size3;
 
       FloatType sigma = sqrt((FloatType) (nPartTotal));
@@ -107,13 +111,11 @@ namespace fields {
 
       // N.B. DO NOT PARALLELIZE this loop - want things to be done in a reliable order
       for (size_t i = 0; i < nPartTotal; i++) {
-        pField_k[i] = gsl_ran_gaussian_ziggurat(randomState, 1.) * sigma;
+        fieldData[i] = gsl_ran_gaussian_ziggurat(randomState, 1.) * sigma;
       }
 
-
-      tools::numerics::fourier::fft(pField_k, pField_k, 1);
-
-      tools::set_zero(pField_k[0]);
+      field.toFourier();
+      tools::set_zero(fieldData[0]);
 
       std::cerr << "done" << std::endl;
     }

@@ -5,15 +5,24 @@
 #include <vector>
 #include <cassert>
 #include <src/simulation/filters/filter.hpp>
-
-namespace grids {
-  template<typename T>
-  class Grid;
-}
 /*!
     \namespace fields
     \brief Define random fields on multiple grid levels
  */
+
+
+#include "src/simulation/grid/grid.hpp"
+
+// implementation in fourier.hpp
+namespace tools {
+  namespace numerics {
+    namespace fourier {
+      template<typename T, typename S>
+      void performFFT(fields::Field<T, S> &field, bool toFourier = true);
+    }
+  }
+}
+
 
 namespace fields {
 
@@ -195,15 +204,20 @@ namespace fields {
       return fourier;
     }
 
+    void setFourier(bool fourier) {
+      // Set a flag to indicate whether this field is in Fourier space or not - without actually applying any transform
+      this->fourier = fourier;
+    }
+
     void toFourier() {
       if (fourier) return;
-      tools::numerics::fourier::fft(data.data(), data.data(), this->pGrid->size, 1);
+      tools::numerics::fourier::performFFT(*this, true);
       fourier = true;
     }
 
     void toReal() {
       if (!fourier) return;
-      tools::numerics::fourier::fft(data.data(), data.data(), this->pGrid->size, -1);
+      tools::numerics::fourier::performFFT(*this, false);
       fourier = false;
     }
 

@@ -1,8 +1,6 @@
 #ifndef FFTH_INCLUDED
 #define FFTH_INCLUDED
 
-#ifdef FFTW3
-// FFTW3 VERSION
 
 #include <stdexcept>
 #include <fftw3.h>
@@ -10,21 +8,15 @@
 #ifdef _OPENMP
 
 #include <omp.h>
+#include <src/simulation/field/field.hpp>
 #include "src/simulation/coordinate.hpp"
 #include "src/tools/data_types/complex.hpp"
 #include "src/tools/numerics/vectormath.hpp"
 
 #endif
 
-namespace grids {
-  template<typename T>
-  class Grid;
-}
-
-namespace fields {
-  template<typename T, typename S>
-  class Field;
-}
+#include "src/simulation/grid/grid.hpp"
+#include "src/simulation/field/field.hpp"
 
 namespace tools {
     namespace numerics {
@@ -451,47 +443,52 @@ namespace tools {
             }
 
 
+            template<typename T, typename S>
+            void performFFT(fields::Field<T, S> &field, bool toFourier);
+
             template<>
-            void fft<double>(std::complex<double> *fto, std::complex<double> *ftin,
-                             const unsigned int res, const int dir) {
+            void performFFT(fields::Field<std::complex<double>, double> &field, bool toFourier) {
+
+                auto &fieldData = field.getDataVector();
 
                 init_fftw_threads();
 
                 fftw_plan plan;
                 size_t i;
+
+                int res = static_cast<int>(field.getGrid().size);
+
                 double norm = pow(static_cast<double>(res), 1.5);
                 size_t len = static_cast<size_t>(res * res);
                 len *= res;
 
-                if (dir == 1)
+                if (toFourier)
                     plan = fftw_plan_dft_3d(res, res, res,
-                                            reinterpret_cast<fftw_complex *>(&ftin[0]),
-                                            reinterpret_cast<fftw_complex *>(&fto[0]),
+                                            reinterpret_cast<fftw_complex *>(&fieldData[0]),
+                                            reinterpret_cast<fftw_complex *>(&fieldData[0]),
                                             FFTW_FORWARD, FFTW_ESTIMATE);
 
-                else if (dir == -1)
+                else
                     plan = fftw_plan_dft_3d(res, res, res,
-                                            reinterpret_cast<fftw_complex *>(&ftin[0]),
-                                            reinterpret_cast<fftw_complex *>(&fto[0]),
+                                            reinterpret_cast<fftw_complex *>(&fieldData[0]),
+                                            reinterpret_cast<fftw_complex *>(&fieldData[0]),
                                             FFTW_BACKWARD, FFTW_ESTIMATE);
 
 
-                else throw std::runtime_error("Incorrect direction parameter to fft");
-
                 fftw_execute(plan);
                 fftw_destroy_plan(plan);
 
 #pragma omp parallel for schedule(static) private(i)
                 for (i = 0; i < len; i++)
-                    fto[i] /= norm;
+                    fieldData[i] /= norm;
 
 
             }
 
-            template<>
-            void fft<double>(double *fto, double *ftin,
-                             const unsigned int res, const int dir) {
-
+          template<>
+          void performFFT(fields::Field<double, double> &field, bool toFourier) {
+                auto &fieldData = field.getDataVector();
+                int res = static_cast<int>(field.getGrid().size);
                 init_fftw_threads();
 
                 fftw_plan plan;
@@ -500,194 +497,30 @@ namespace tools {
                 size_t len = static_cast<size_t>(res * res);
                 len *= res;
 
-                if (dir == 1)
+                if (toFourier)
                     plan = fftw_plan_r2r_3d(res, res, res,
-                                            reinterpret_cast<double *>(&ftin[0]),
-                                            reinterpret_cast<double *>(&fto[0]),
+                                            reinterpret_cast<double *>(&fieldData[0]),
+                                            reinterpret_cast<double *>(&fieldData[0]),
                                             FFTW_R2HC, FFTW_R2HC, FFTW_R2HC,
                                             FFTW_ESTIMATE);
 
-                else if (dir == -1)
+                else
                     plan = fftw_plan_r2r_3d(res, res, res,
-                                            reinterpret_cast<double *>(&ftin[0]),
-                                            reinterpret_cast<double *>(&fto[0]),
+                                            reinterpret_cast<double *>(&fieldData[0]),
+                                            reinterpret_cast<double *>(&fieldData[0]),
                                             FFTW_HC2R, FFTW_HC2R, FFTW_HC2R,
                                             FFTW_ESTIMATE);
-
-
-                else throw std::runtime_error("Incorrect direction parameter to fft");
 
                 fftw_execute(plan);
                 fftw_destroy_plan(plan);
 
 #pragma omp parallel for schedule(static) private(i)
                 for (i = 0; i < len; i++)
-                    fto[i] /= norm;
+                    fieldData[i] /= norm;
 
 
             }
 
-            std::vector<std::complex<double> > fft_1d(std::vector<std::complex<double>> input, const int dir) {
-
-                init_fftw_threads();
-
-                fftw_plan plan;
-
-
-                std::vector<std::complex<double>> output;
-                output.resize(input.size());
-                plan = fftw_plan_dft_1d(input.size(),
-                                        reinterpret_cast<fftw_complex *>(&input[0]),
-                                        reinterpret_cast<fftw_complex *>(&output[0]),
-                                        dir, FFTW_ESTIMATE);
-
-
-                fftw_execute(plan);
-                fftw_destroy_plan(plan);
-                using tools::numerics::operator/=;
-                output /= sqrt(double(input.size()));
-                return output;
-            }
-
-            template<>
-            std::vector<std::complex<double> > fft_real_1d<double>(std::vector<double> input) {
-
-                init_fftw_threads();
-
-                fftw_plan plan;
-
-
-                std::vector<std::complex<double>> output;
-                output.resize(input.size() / 2 + 1);
-                plan = fftw_plan_dft_r2c_1d(input.size(),
-                                            &input[0],
-                                            reinterpret_cast<fftw_complex *>(&output[0]),
-                                            FFTW_ESTIMATE);
-
-
-                fftw_execute(plan);
-                fftw_destroy_plan(plan);
-
-                using tools::numerics::operator/=;
-                output /= sqrt(double(input.size()));
-                return output;
-            }
-
-            template<>
-            std::vector<double> reverse_fft_real_1d<double>(std::vector<std::complex<double>> input) {
-
-                init_fftw_threads();
-
-                fftw_plan plan;
-
-
-                std::vector<double> output;
-                if (input.back().imag() == 0)
-                    output.resize(2 * input.size() - 2);
-                else
-                    output.resize(2 * input.size() - 1);
-
-                plan = fftw_plan_dft_c2r_1d(output.size(),
-                                            reinterpret_cast<fftw_complex *>(&input[0]),
-                                            &output[0],
-                                            FFTW_ESTIMATE);
-
-
-                fftw_execute(plan);
-                fftw_destroy_plan(plan);
-
-                output /= sqrt(double(output.size()));
-                return output;
-            }
-
-#else
-
-
-
-            // FFTW2 VERSION
-
-#ifndef DOUBLEPRECISION     /* default is single-precision */
-
-#include <srfftw.h>
-
-#ifdef HAVE_HDF5
-                    hid_t hdf_float = H5Tcopy (H5T_NATIVE_FLOAT);
-                    hid_t hdf_double = H5Tcopy (H5T_NATIVE_FLOAT);
-#endif
-                //#else
-                //#if (DOUBLEPRECISION == 2)   /* mixed precision, do we want to implement this at all? */
-                //typedef float   FloatType;
-                //typedef double  MyDouble;
-                //hid_t hdf_float = H5Tcopy (H5T_NATIVE_FLOAT);
-                //hid_t hdf_double = H5Tcopy (H5T_NATIVE_DOUBLE);
-#else                        /* everything double-precision */
-#ifdef FFTW_TYPE_PREFIX
-#include <drfftw.h>
-#else
-#include <rfftw.h>
-#endif
-#endif
-
-
-
-
-            template<typename FloatType>
-            void fft(std::complex<FloatType> *fto, std::complex<FloatType> *ftin, const int res, const int dir)
-            { //works when fto and ftin and output are the same, but overwrites fto for the backwards transform so we have another temporary array there
-
-                long i;
-
-              if(dir==1){
-                std::complex<FloatType> *fti = (std::complex<FloatType>*)calloc(res*res*res,sizeof(std::complex<FloatType>));
-                for(i=0;i<res*res*res;i++){fti[i]=ftin[i]/sqrt((FloatType)(res*res*res));}
-                //for(i=0;i<res*res*res;i++){fti[i]=ftin[i]/(FloatType)(res*res*res);}
-                fftwnd_plan pf = fftw3d_create_plan( res, res, res, FFTW_FORWARD, FFTW_ESTIMATE );
-                fftwnd_one(pf, reinterpret_cast<fftw_complex*>(&fti[0]), reinterpret_cast<fftw_complex*>(&fto[0]));
-                fftwnd_destroy_plan(pf);
-                free(fti);
-                }
-
-              else if(dir==-1){
-                std::complex<FloatType> *fti = (std::complex<FloatType>*)calloc(res*res*res,sizeof(std::complex<FloatType>));
-                //memcpy(fti,ftin,res*res*res*sizeof(fftw_complex));
-                for(i=0;i<res*res*res;i++){fti[i]=ftin[i]/sqrt((FloatType)(res*res*res));}
-                fftwnd_plan pb;
-                 pb = fftw3d_create_plan( res,res,res, FFTW_BACKWARD, FFTW_ESTIMATE );
-                fftwnd_one(pb, reinterpret_cast<fftw_complex*>(&fti[0]), reinterpret_cast<fftw_complex*>(&fto[0]));
-                fftwnd_destroy_plan(pb);
-                free(fti);
-                  }
-
-              else {std::cerr<<"wrong parameter for direction in fft"<<std::endl;}
-
-            }
-
-#endif
-
-            unsigned int integerCubeRoot(unsigned long x) {
-                int s;
-                unsigned int y;
-                unsigned long b;
-
-                y = 0;
-                for (s = 63; s >= 0; s -= 3) {
-                    y += y;
-                    b = 3 * y * ((unsigned long) y + 1) + 1;
-                    if ((x >> s) >= b) {
-                        x -= b << s;
-                        y++;
-                    }
-                }
-                return y;
-            }
-
-            template<typename T>
-            void fft(std::vector<T> &fto, std::vector<T> &ftin, const int dir) {
-                assert(fto.size() == ftin.size());
-                size_t res = integerCubeRoot(fto.size());
-                assert(res * res * res == fto.size());
-                fft(fto.data(), ftin.data(), res, dir);
-            }
         }
     }
 }
