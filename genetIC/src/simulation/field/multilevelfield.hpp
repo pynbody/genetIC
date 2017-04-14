@@ -218,7 +218,7 @@ namespace fields {
       assert(isFourierOnAllLevels() && other.isFourierOnAllLevels());
       // To take inner product with correct filters, we must have the fields in fourier space
 
-      bool covariance_weighted;
+      bool covariance_weighted = false;
 
       if (other.isCovector)
         covariance_weighted = true;
