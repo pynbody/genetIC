@@ -16,7 +16,7 @@ namespace constraints {
   protected:
     const grids::Grid<FloatType> &grid;
     fields::Field<DataType, FloatType> outputField;
-    std::vector<FloatType> &outputData;
+    std::vector<DataType> &outputData;
 
     std::vector<size_t> particleArray;
     const cosmology::CosmologicalParameters<FloatType> &cosmology;
