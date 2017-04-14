@@ -153,6 +153,11 @@ int main(int argc, char *argv[]) {
 
   auto dispatch = dispatch_generator.specify_instance(generator);
 
+  // Initialising FFTW is not strictly required (it will be done later if missed here) but, since it might print
+  // some output, it's neater to do it straight away:
+  tools::numerics::fourier::initialise();
+
+  // Process commands
   dispatch.run_loop(inf, outf);
 
   return 0;

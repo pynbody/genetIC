@@ -6,31 +6,41 @@
 #include <fftw3.h>
 
 #ifdef _OPENMP
-
 #include <omp.h>
+#endif
+
+#include <iostream>
 #include <src/simulation/field/field.hpp>
+
 #include "src/simulation/coordinate.hpp"
 #include "src/tools/data_types/complex.hpp"
 #include "src/tools/numerics/vectormath.hpp"
-
-#endif
-
 #include "src/simulation/grid/grid.hpp"
 #include "src/simulation/field/field.hpp"
 
 namespace tools {
     namespace numerics {
         namespace fourier {
-            void init_fftw_threads() {
+            bool fftwThreadsInitialised = false;
+
+            void initialise() {
+                if(fftwThreadsInitialised)
+                  return;
+
 #ifdef FFTW_THREADS
                 if (fftw_init_threads() == 0)
                     throw std::runtime_error("Cannot initialize FFTW threads");
 #ifndef _OPENMP
                 fftw_plan_with_nthreads(FFTW_THREADS);
+                cerr << "Note: " << FFTW_THREADS << " FFTW Threads were initialised" << endl;
 #else
-                fftw_plan_with_nthreads(omp_get_num_procs());
+                fftw_plan_with_nthreads(omp_get_max_threads());
+                std::cerr << "Note: " << omp_get_max_threads() << " FFTW Threads (determined by OpenMP) were initialised" << std::endl;
 #endif
+#else
+                cerr << "Note: FFTW Threads are not enabled" << endl;
 #endif
+              fftwThreadsInitialised = true;
             }
 
             template<typename FloatType>
@@ -444,14 +454,14 @@ namespace tools {
 
 
             template<typename T, typename S>
-            void performFFT(fields::Field<T, S> &field, bool toFourier);
+            void performFFT(fields::Field<T, S> &field);
 
             template<>
-            void performFFT(fields::Field<std::complex<double>, double> &field, bool toFourier) {
+            void performFFT(fields::Field<std::complex<double>, double> &field) {
 
                 auto &fieldData = field.getDataVector();
 
-                init_fftw_threads();
+                initialise();
 
                 fftw_plan plan;
                 size_t i;
@@ -462,7 +472,7 @@ namespace tools {
                 size_t len = static_cast<size_t>(res * res);
                 len *= res;
 
-                if (toFourier)
+                if (!field.isFourier())
                     plan = fftw_plan_dft_3d(res, res, res,
                                             reinterpret_cast<fftw_complex *>(&fieldData[0]),
                                             reinterpret_cast<fftw_complex *>(&fieldData[0]),
@@ -482,14 +492,16 @@ namespace tools {
                 for (i = 0; i < len; i++)
                     fieldData[i] /= norm;
 
+                field.setFourier(!field.isFourier());
+
 
             }
 
           template<>
-          void performFFT(fields::Field<double, double> &field, bool toFourier) {
+          void performFFT(fields::Field<double, double> &field) {
                 auto &fieldData = field.getDataVector();
                 int res = static_cast<int>(field.getGrid().size);
-                init_fftw_threads();
+                initialise();
 
                 fftw_plan plan;
                 size_t i;
@@ -497,7 +509,7 @@ namespace tools {
                 size_t len = static_cast<size_t>(res * res);
                 len *= res;
 
-                if (toFourier)
+                if (!field.isFourier())
                     plan = fftw_plan_r2r_3d(res, res, res,
                                             reinterpret_cast<double *>(&fieldData[0]),
                                             reinterpret_cast<double *>(&fieldData[0]),
@@ -517,6 +529,8 @@ namespace tools {
 #pragma omp parallel for schedule(static) private(i)
                 for (i = 0; i < len; i++)
                     fieldData[i] /= norm;
+
+                field.setFourier(!field.isFourier());
 
 
             }

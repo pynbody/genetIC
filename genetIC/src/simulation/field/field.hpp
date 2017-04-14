@@ -18,7 +18,7 @@ namespace tools {
   namespace numerics {
     namespace fourier {
       template<typename T, typename S>
-      void performFFT(fields::Field<T, S> &field, bool toFourier = true);
+      void performFFT(fields::Field<T, S> &field);
     }
   }
 }
@@ -211,14 +211,14 @@ namespace fields {
 
     void toFourier() {
       if (fourier) return;
-      tools::numerics::fourier::performFFT(*this, true);
-      fourier = true;
+      tools::numerics::fourier::performFFT(*this);
+      assert(fourier);
     }
 
     void toReal() {
       if (!fourier) return;
-      tools::numerics::fourier::performFFT(*this, false);
-      fourier = false;
+      tools::numerics::fourier::performFFT(*this);
+      assert(!fourier);
     }
 
     void applyFilter(const filters::Filter<CoordinateType> &filter) {
