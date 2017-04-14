@@ -46,157 +46,181 @@ namespace tools {
         fftwThreadsInitialised = true;
       }
 
-      template<typename FloatType>
-      void repackForReality(std::complex<FloatType> *ft_full, std::complex<FloatType> *ft_reduced, const int nx) {
-        // for testing purposes only!
-        const int nz = nx / 2 + 1;
+      template<>
+      class FieldFourierManager<double> {
+      protected:
+        using T=double;
+        fields::Field<double, double> &field;
+        const grids::Grid<double> &grid;
+        int size;
+        size_t compressed_size;
 
-        for (size_t x = 0; x < nx; x++)
-          for (size_t y = 0; y < nx; y++)
-            for (size_t z = 0; z < nz; z++)
-              ft_reduced[z + nz * y + nz * nx * x] = ft_full[z + nx * y + nx * nx * x];
+        auto getRealCoeffLocationAndConjugation(int kx, int ky, int kz) {
+          bool conjugate = false;
+          if(kz<0) {
+            conjugate = true;
+            kx = -kx;
+            ky = -ky;
+            kz = -kz;
+          }
+          if(ky<0) {
+            ky = size-ky;
+          }
+          if(kx<0) {
+            kx = size-kx;
+          }
+          size_t logical_index = kz + compressed_size*ky + compressed_size*size_t(size*kz);
+          size_t index_re = 2 * logical_index;
+          assert(index_re+1<field.getDataVector().size());
 
-      }
+          return std::make_tuple(conjugate,index_re);
+        }
+      public:
+        FieldFourierManager(fields::Field<double, double> &field) : field(field), grid(field.getGrid()) {
+          size = static_cast<int>(grid.size);
+          compressed_size = grid.size/2+1;
+        }
 
-      template<typename FloatType>
-      void repackForReality(std::complex<FloatType> *ft, const int nx) {
-        repackForReality(ft, ft, nx);
-      }
+        void setFourierCoefficient(int kx, int ky, int kz, const std::complex<T> &val)  {
+          bool conj;
+          size_t index_re;
 
-      template<typename FloatType>
-      void fft(std::complex<FloatType> *fto, std::complex<FloatType> *ftin,
-               const unsigned int res, const int dir) {
-        throw std::runtime_error(
-          "Sorry, the fourier transform has not been implemented for your specified precision");
-        // you'll need to implement an alternative specialisation like the one below for the correct calls
-        // see http://www.fftw.org/doc/Precision.html#Precision
-      }
+          std::tie(conj, index_re) = getRealCoeffLocationAndConjugation(kx, ky, kz);
 
-      template<typename FloatType>
-      void fft(FloatType *fto, FloatType *ftin,
-               const unsigned int res, const int dir) {
-        throw std::runtime_error(
-          "Sorry, the fourier transform has not been implemented for your specified precision");
-        // you'll need to implement an alternative specialisation like the one below for the correct calls
-        // see http://www.fftw.org/doc/Precision.html#Precision
-      }
+          T re = val.real();
+          T imag = val.imag();
 
-      template<typename FloatType>
-      std::vector<std::complex<FloatType>> fft_real_1d(std::vector<FloatType> in) {
-        throw std::runtime_error(
-          "Sorry, the fourier transform has not been implemented for your specified precision");
-        // you'll need to implement an alternative specialisation like the one below for the correct calls
-        // see http://www.fftw.org/doc/Precision.html#Precision
-      }
+          if(conj) imag=-imag;
 
-      template<typename FloatType>
-      std::vector<FloatType> reverse_fft_real_1d(std::vector<std::complex<FloatType>> in) {
-        throw std::runtime_error(
-          "Sorry, the fourier transform has not been implemented for your specified precision");
-        // you'll need to implement an alternative specialisation like the one below for the correct calls
-        // see http://www.fftw.org/doc/Precision.html#Precision
-      }
+          field[index_re] = re;
+          field[index_re+1] = imag;
 
+        }
+
+        std::complex<T> getFourierCoefficient(int kx, int ky, int kz)  {
+          bool conj;
+          size_t index_re;
+
+          std::tie(conj, index_re) = getRealCoeffLocationAndConjugation(kx, ky, kz);
+
+          T re = field[index_re];
+          T im = field[index_re+1];
+          if(conj)
+            im = -im;
+          return std::complex<T>(re,im);
+
+        }
+
+        size_t getRequiredDataSize()  {
+          // for FFTW3 real<->complex FFTs
+          // see http://www.fftw.org/fftw3_doc/Real_002ddata-DFT-Array-Format.html#Real_002ddata-DFT-Array-Format
+          return 2*field.getGrid().size2*(field.getGrid().size/2+1);
+        }
+
+        void performTransform()  {
+          auto &fieldData = field.getDataVector();
+
+          initialise();
+
+          fftw_plan plan;
+          size_t i;
+
+          int res = static_cast<int>(field.getGrid().size);
+          double norm = pow(static_cast<double>(res), 1.5);
+
+          if (!field.isFourier())
+            plan = fftw_plan_dft_r2c_3d(res, res, res,
+                                    &fieldData[0],
+                                    reinterpret_cast<fftw_complex *>(&fieldData[0]),
+                                    FFTW_ESTIMATE);
+
+          else
+            plan = fftw_plan_dft_c2r_3d(res, res, res,
+                                        reinterpret_cast<fftw_complex *>(&fieldData[0]),
+                                        &fieldData[0],
+                                        FFTW_ESTIMATE);
+
+
+          fftw_execute(plan);
+          fftw_destroy_plan(plan);
+
+          using tools::numerics::operator/=;
+          fieldData/=norm;
+
+          field.setFourier(!field.isFourier());
+
+        }
+
+      };
+
+      template<>
+      class FieldFourierManager<std::complex<double>>  {
+      protected:
+        using T=double;
+        fields::Field<std::complex<T>, T> &field;
+        const grids::Grid<T> &grid;
+      public:
+        FieldFourierManager(fields::Field<std::complex<T>, T> &field) : field(field), grid(field.getGrid()) {
+
+        }
+
+        void setFourierCoefficient(int kx, int ky, int kz, const std::complex<T> &val)  {
+          size_t id_k, id_negk;
+
+          id_k = grid.getCellIndex(Coordinate<int>(kx, ky, kz));
+          id_negk = grid.getCellIndex(Coordinate<int>(-kx, -ky, -kz));
+
+          field[id_k] = val;
+          field[id_negk] = std::conj(val);
+        }
+
+        std::complex<T> getFourierCoefficient(int kx, int ky, int kz)  {
+          return field[grid.getCellIndex(Coordinate<int>(kx, ky, kz))];
+        }
+
+        size_t getRequiredDataSize()  {
+          return field.getGrid().size3;
+        }
+
+        void performTransform()  {
+
+          auto &fieldData = field.getDataVector();
+
+          initialise();
+
+          fftw_plan plan;
+          size_t i;
+
+          int res = static_cast<int>(field.getGrid().size);
+          double norm = pow(static_cast<double>(res), 1.5);
+
+          if (!field.isFourier())
+            plan = fftw_plan_dft_3d(res, res, res,
+                                    reinterpret_cast<fftw_complex *>(&fieldData[0]),
+                                    reinterpret_cast<fftw_complex *>(&fieldData[0]),
+                                    FFTW_FORWARD, FFTW_ESTIMATE);
+
+          else
+            plan = fftw_plan_dft_3d(res, res, res,
+                                    reinterpret_cast<fftw_complex *>(&fieldData[0]),
+                                    reinterpret_cast<fftw_complex *>(&fieldData[0]),
+                                    FFTW_BACKWARD, FFTW_ESTIMATE);
+
+
+          fftw_execute(plan);
+          fftw_destroy_plan(plan);
+
+          using tools::numerics::operator/=;
+          fieldData/=norm;
+
+          field.setFourier(!field.isFourier());
+        }
+
+
+      };
 
       template<typename T>
       int getNyquistModeThatMustBeReal(const grids::Grid<T> &g);
-
-      template<typename T>
-      std::complex<T> getFourierCoefficient(const fields::Field<T, T> &field, int kx, int ky, int kz) {
-
-        const grids::Grid<T> &g(field.getGrid());
-
-        int abs_kx = std::abs(kx);
-        int abs_ky = std::abs(ky);
-        int abs_kz = std::abs(kz);
-
-        int even_nyquist = getNyquistModeThatMustBeReal(g);
-
-        size_t id_ppp = g.getCellIndex(Coordinate<int>(abs_kx, abs_ky, abs_kz));
-        size_t id_ppm = g.getCellIndex(Coordinate<int>(abs_kx, abs_ky, -abs_kz));
-        size_t id_pmp = g.getCellIndex(Coordinate<int>(abs_kx, -abs_ky, abs_kz));
-        size_t id_pmm = g.getCellIndex(Coordinate<int>(abs_kx, -abs_ky, -abs_kz));
-        size_t id_mpp = g.getCellIndex(Coordinate<int>(-abs_kx, abs_ky, abs_kz));
-        size_t id_mpm = g.getCellIndex(Coordinate<int>(-abs_kx, abs_ky, -abs_kz));
-        size_t id_mmp = g.getCellIndex(Coordinate<int>(-abs_kx, -abs_ky, abs_kz));
-        size_t id_mmm = g.getCellIndex(Coordinate<int>(-abs_kx, -abs_ky, -abs_kz));
-
-        T field_ppp = field[id_ppp];
-        T field_ppm = field[id_ppm];
-        T field_pmp = field[id_pmp];
-        T field_pmm = field[id_pmm];
-        T field_mpp = field[id_mpp];
-        T field_mpm = field[id_mpm];
-        T field_mmp = field[id_mmp];
-        T field_mmm = field[id_mmm];
-
-        // There is no imaginary part to the zero-frequency component
-
-        if (abs_kx == 0 || abs_kx == even_nyquist) {
-          field_mpp = 0;
-          field_mpm = 0;
-          field_mmp = 0;
-          field_mmm = 0;
-        }
-
-        if (abs_ky == 0 || abs_ky == even_nyquist) {
-          field_pmp = 0;
-          field_pmm = 0;
-          field_mmp = 0;
-          field_mmm = 0;
-        }
-
-        if (abs_kz == 0 || abs_kz == even_nyquist) {
-          field_ppm = 0;
-          field_pmm = 0;
-          field_mpm = 0;
-          field_mmm = 0;
-        }
-
-        T real, imag;
-
-        // Final linear combination into real and imag parts, derived in mathematica
-        if (kx >= 0) {
-          if (ky >= 0) {
-            if (kz >= 0) {
-              real = field_ppp - field_pmm - field_mpm - field_mmp;
-              imag = field_ppm + field_pmp + field_mpp - field_mmm;
-            } else {
-              real = -field_mmp + field_mpm + field_pmm + field_ppp;
-              imag = field_mmm + field_mpp + field_pmp - field_ppm;
-            }
-          } else {
-            if (kz >= 0) {
-              real = field_mmp - field_mpm + field_pmm + field_ppp;
-              imag = field_mmm + field_mpp - field_pmp + field_ppm;
-            } else {
-              real = field_mmp + field_mpm - field_pmm + field_ppp;
-              imag = -field_mmm + field_mpp - field_pmp - field_ppm;
-            }
-          }
-        } else {
-          if (ky >= 0) {
-            if (kz >= 0) {
-              real = field_mmp + field_mpm - field_pmm + field_ppp;
-              imag = field_mmm - field_mpp + field_pmp + field_ppm;
-            } else {
-              real = field_mmp - field_mpm + field_pmm + field_ppp;
-              imag = -field_mmm - field_mpp + field_pmp - field_ppm;
-            }
-          } else {
-            if (kz >= 0) {
-              real = -field_mmp + field_mpm + field_pmm + field_ppp;
-              imag = -field_mmm - field_mpp - field_pmp + field_ppm;
-            } else {
-              real = -field_mmp - field_mpm - field_pmm + field_ppp;
-              imag = field_mmm - field_mpp - field_pmp - field_ppm;
-            }
-          }
-        }
-
-        return std::complex<T>(real, imag);
-
-      }
 
       template<typename T>
       int getNyquistModeThatMustBeReal(const grids::Grid<T> &g) {
@@ -210,140 +234,7 @@ namespace tools {
       }
 
 
-      template<typename T>
-      void setFourierCoefficient(fields::Field<std::complex<T>, T> &field, int kx, int ky, int kz,
-                                 T realPart, T imagPart) {
-        const grids::Grid<T> &g = field.getGrid();
 
-        size_t id_k, id_negk;
-
-        id_k = g.getCellIndex(Coordinate<int>(kx, ky, kz));
-        id_negk = g.getCellIndex(Coordinate<int>(-kx, -ky, -kz));
-
-        field[id_k] = std::complex<T>(realPart, imagPart);
-        field[id_negk] = std::complex<T>(realPart, -imagPart);
-
-      }
-
-
-      template<typename T>
-      void addFourierCoefficient(fields::Field<T, T> &field, int kx, int ky, int kz, T realPart, T imagPart) {
-        if (kx < 0) {
-          kx = -kx;
-          ky = -ky;
-          kz = -kz;
-          imagPart = -imagPart;
-        }
-
-        const grids::Grid<T> &g(field.getGrid());
-
-        int abs_kx = std::abs(kx);
-        int abs_ky = std::abs(ky);
-        int abs_kz = std::abs(kz);
-
-        int even_nyquist = getNyquistModeThatMustBeReal(g);
-
-        size_t id_ppp = g.getCellIndex(Coordinate<int>(abs_kx, abs_ky, abs_kz));
-        size_t id_ppm = g.getCellIndex(Coordinate<int>(abs_kx, abs_ky, -abs_kz));
-        size_t id_pmp = g.getCellIndex(Coordinate<int>(abs_kx, -abs_ky, abs_kz));
-        size_t id_pmm = g.getCellIndex(Coordinate<int>(abs_kx, -abs_ky, -abs_kz));
-        size_t id_mpp = g.getCellIndex(Coordinate<int>(-abs_kx, abs_ky, abs_kz));
-        size_t id_mpm = g.getCellIndex(Coordinate<int>(-abs_kx, abs_ky, -abs_kz));
-        size_t id_mmp = g.getCellIndex(Coordinate<int>(-abs_kx, -abs_ky, abs_kz));
-        size_t id_mmm = g.getCellIndex(Coordinate<int>(-abs_kx, -abs_ky, -abs_kz));
-
-        T ppp_weight, ppm_weight, pmp_weight, pmm_weight, mpp_weight, mpm_weight, mmp_weight, mmm_weight;
-        ppp_weight = ppm_weight = pmp_weight = pmm_weight = mpp_weight = mpm_weight = mmp_weight = mmm_weight = 0.25;
-
-
-        int adjustments = 0;
-
-        if (abs_kx == 0 || abs_kx == even_nyquist) {
-          mpp_weight = 0;
-          mpm_weight = 0;
-          mmp_weight = 0;
-          mmm_weight = 0;
-          ppp_weight *= 2;
-          ppm_weight *= 2;
-          pmp_weight *= 2;
-          pmm_weight *= 2;
-          adjustments++;
-        }
-
-        if (abs_ky == 0 || abs_ky == even_nyquist) {
-          pmp_weight = 0;
-          pmm_weight = 0;
-          mmp_weight = 0;
-          mmm_weight = 0;
-          ppp_weight *= 2;
-          ppm_weight *= 2;
-          mpp_weight *= 2;
-          mpm_weight *= 2;
-          adjustments++;
-        }
-
-        if (abs_kz == 0 || abs_kz == even_nyquist) {
-          ppm_weight = 0;
-          pmm_weight = 0;
-          mpm_weight = 0;
-          mmm_weight = 0;
-          if (adjustments < 2) {
-            ppp_weight *= 2;
-            pmp_weight *= 2;
-            mpp_weight *= 2;
-            mmp_weight *= 2;
-          }
-        }
-
-        if (ky >= 0) {
-          if (kz >= 0) {
-            field[id_ppp] += ppp_weight * realPart;
-            field[id_mpp] += imagPart * mpp_weight;
-            field[id_ppm] += imagPart * ppm_weight;
-            field[id_mpm] += -mpm_weight * realPart;
-            field[id_pmp] += imagPart * pmp_weight;
-            field[id_mmp] += -mmp_weight * realPart;
-            field[id_pmm] += -pmm_weight * realPart;
-            field[id_mmm] += -imagPart * mmm_weight;
-          } else {
-            field[id_ppp] += ppp_weight * realPart;
-            field[id_ppm] += -imagPart * ppm_weight;
-            field[id_pmp] += imagPart * pmp_weight;
-            field[id_pmm] += pmm_weight * realPart;
-            field[id_mpp] += imagPart * mpp_weight;
-            field[id_mpm] += mpm_weight * realPart;
-            field[id_mmp] += -mmp_weight * realPart;
-            field[id_mmm] += imagPart * mmm_weight;
-          }
-        } else {
-          if (kz >= 0) {
-            field[id_ppp] += ppp_weight * realPart;
-            field[id_ppm] += imagPart * ppm_weight;
-            field[id_pmp] += -imagPart * pmp_weight;
-            field[id_pmm] += pmm_weight * realPart;
-            field[id_mpp] += imagPart * mpp_weight;
-            field[id_mpm] += -mpm_weight * realPart;
-            field[id_mmp] += mmp_weight * realPart;
-            field[id_mmm] += imagPart * mmm_weight;
-          } else {
-            field[id_ppp] += ppp_weight * realPart;
-            field[id_ppm] += -imagPart * ppm_weight;
-            field[id_pmp] += -imagPart * pmp_weight;
-            field[id_pmm] += -pmm_weight * realPart;
-            field[id_mpp] += imagPart * mpp_weight;
-            field[id_mpm] += mpm_weight * realPart;
-            field[id_mmp] += mmp_weight * realPart;
-            field[id_mmm] += -imagPart * mmm_weight;
-          }
-        }
-
-      }
-
-      template<typename T>
-      std::complex<T>
-      getFourierCoefficient(const fields::Field<std::complex<T>, T> &field, int kx, int ky, int kz) {
-        return field[field.getGrid().getCellIndex(Coordinate<int>(kx, ky, kz))];
-      }
 
       template<typename T>
       fields::Field<tools::datatypes::ensure_complex<T>, tools::datatypes::strip_complex<T>>
@@ -358,21 +249,11 @@ namespace tools {
         for (size_t i = 0; i < g.size3; ++i) {
           int kx, ky, kz;
           std::tie(kx, ky, kz) = g.getFourierCellCoordinate(i);
-          out[i] = getFourierCoefficient(field, kx, ky, kz);
+          out[i] = field.getFourierCoefficient(kx,ky,kz);
         }
         return out;
       };
 
-      template<typename T>
-      void setFourierCoefficient(fields::Field<T, T> &field, int kx, int ky, int kz,
-                                 tools::datatypes::strip_complex<T> realPart,
-                                 tools::datatypes::strip_complex<T> imagPart) {
-        // this may be *horribly* inefficient
-        auto existingCoeff = getFourierCoefficient(field, kx, ky, kz);
-        addFourierCoefficient(field, kx, ky, kz, realPart - existingCoeff.real(),
-                              imagPart - existingCoeff.imag());
-
-      }
 
 
       template<typename T>
@@ -395,64 +276,16 @@ namespace tools {
         }
       }
 
+
+
+
       template<typename T>
-      void applyTransformationInFourierBasis(const fields::Field<T, T> &sourceField,
-                                             std::function<std::tuple<std::complex<T>, std::complex<T>, std::complex<T>>(
-                                               std::complex<T>, int, int, int)> transformation,
-                                             fields::Field<T, T> &destField1,
-                                             fields::Field<T, T> &destField2,
-                                             fields::Field<T, T> &destField3) {
-
-        const grids::Grid<T> &g = destField1.getGrid();
-        assert (&g == &(sourceField.getGrid()));
-        assert (&g == &(destField2.getGrid()));
-        assert (&g == &(destField3.getGrid()));
-
-        std::fill(destField1.getDataVector().begin(), destField1.getDataVector().end(), 0);
-        std::fill(destField2.getDataVector().begin(), destField2.getDataVector().end(), 0);
-        std::fill(destField3.getDataVector().begin(), destField3.getDataVector().end(), 0);
-
-        int size_by_2 = int(g.size) / 2;
-
-        for (int kx = 0; kx <= size_by_2; kx++) {
-          for (int ky = -size_by_2 + 1; ky <= size_by_2; ky++) {
-            int lower_limit = -size_by_2 + 1;
-            if ((kx == 0 || kx == size_by_2) && (ky == 0 || ky == size_by_2))
-              lower_limit = 0;
-            for (int kz = lower_limit; kz <= size_by_2; kz++) {
-              std::complex<T> res1, res2, res3;
-              auto sourceFieldValue = getFourierCoefficient(sourceField, kx, ky, kz);
-              std::tie(res1, res2, res3) = transformation(sourceFieldValue, kx, ky, kz);
-              setFourierCoefficient(destField1, kx, ky, kz, res1.real(), res1.imag());
-              setFourierCoefficient(destField2, kx, ky, kz, res2.real(), res2.imag());
-              setFourierCoefficient(destField3, kx, ky, kz, res3.real(), res3.imag());
-            }
-          }
-
-        }
+      int getFourierCellWeight(const fields::Field<std::complex<T>, T> &field, size_t i) {
+        return 1;
       }
 
       template<typename T>
       int getFourierCellWeight(const fields::Field<T, T> &field, size_t i) {
-        const grids::Grid<T> &grid(field.getGrid());
-        int kx, ky, kz;
-        std::tie(kx, ky, kz) = grid.getFourierCellCoordinate(i);
-        int even_nyquist = getNyquistModeThatMustBeReal(grid);
-
-        int weight = 8;
-
-        if (kx == 0 || kx == even_nyquist)
-          weight >>= 1;
-        if (ky == 0 || ky == even_nyquist)
-          weight >>= 1;
-        if (kz == 0 || kz == even_nyquist)
-          weight >>= 1;
-
-        return weight;
-      }
-
-      template<typename T>
-      int getFourierCellWeight(const fields::Field<std::complex<T>, T> &field, size_t i) {
         return 1;
       }
 
@@ -501,43 +334,6 @@ namespace tools {
 
       }
 
-      template<>
-      void performFFT(fields::Field<double, double> &field) {
-        auto &fieldData = field.getDataVector();
-        int res = static_cast<int>(field.getGrid().size);
-        initialise();
-
-        fftw_plan plan;
-        size_t i;
-        double norm = pow(static_cast<double>(res), 1.5);
-        size_t len = static_cast<size_t>(res * res);
-        len *= res;
-
-        if (!field.isFourier())
-          plan = fftw_plan_r2r_3d(res, res, res,
-                                  reinterpret_cast<double *>(&fieldData[0]),
-                                  reinterpret_cast<double *>(&fieldData[0]),
-                                  FFTW_R2HC, FFTW_R2HC, FFTW_R2HC,
-                                  FFTW_ESTIMATE);
-
-        else
-          plan = fftw_plan_r2r_3d(res, res, res,
-                                  reinterpret_cast<double *>(&fieldData[0]),
-                                  reinterpret_cast<double *>(&fieldData[0]),
-                                  FFTW_HC2R, FFTW_HC2R, FFTW_HC2R,
-                                  FFTW_ESTIMATE);
-
-        fftw_execute(plan);
-        fftw_destroy_plan(plan);
-
-#pragma omp parallel for schedule(static) private(i)
-        for (i = 0; i < len; i++)
-          fieldData[i] /= norm;
-
-        field.setFourier(!field.isFourier());
-
-
-      }
 
     }
   }

@@ -371,13 +371,12 @@ namespace fields {
       for (size_t i = 0; i < grid.size3; i++) {
         int kx, ky, kz;
         std::tie(kx, ky, kz) = grid.getFourierCellCoordinate(i);
-        complex<T> existingValue = tools::numerics::fourier::getFourierCoefficient(field, kx, ky, kz);
+        complex<T> existingValue = field.getFourierCoefficient(kx,ky,kz);
         T absExistingValue = abs(existingValue);
         T sqrt_spec = sqrt(spectrum[i]) * white_noise_norm;
         T a = sqrt_spec * existingValue.real() / absExistingValue;
         T b = sqrt_spec * existingValue.imag() / absExistingValue;
-
-        tools::numerics::fourier::setFourierCoefficient(field, kx, ky, kz, a, b);
+        field.setFourierCoefficient(kx, ky, kz, complex<T>(a,b));
       }
     }
 

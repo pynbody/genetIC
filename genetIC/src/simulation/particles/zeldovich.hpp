@@ -115,6 +115,17 @@ namespace particle {
       this->pOff_y = getRealPart(*offsetY);
       this->pOff_z = getRealPart(*offsetZ);
 
+
+      // DEBUGGING TEMPORARY STUFF...
+      offsetX->toFourier();
+      this->pOff_x->toFourier();
+      auto testfield = tools::numerics::fourier::getComplexFourierField(*(this->pOff_x));
+      offsetX->dumpGridData("correct-fourier.npy");
+      testfield.dumpGridData("test-fourier.npy");
+      exit(0);
+
+      this->pOff_x->toReal();
+
     }
 
   public:

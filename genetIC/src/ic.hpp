@@ -341,16 +341,14 @@ public:
   template<typename TField>
   void dumpGridData(int level, const TField &data) {
     grids::Grid<T> &levelGrid = multiLevelContext.getGridForLevel(level);
-    assert(data.size() == levelGrid.size3);
+
     ostringstream filename;
     filename << outputFolder << "/grid-" << level << ".npy";
 
-    int n = levelGrid.size;
-
-    const int dim[3] = {n, n, n};
-    io::numpy::SaveArrayAsNumpy(filename.str(), false, 3, dim, data.data());
+    data.dumpGridData(filename.str());
 
     filename.str("");
+
     filename << outputFolder << "/grid-info-" << level << ".txt";
 
     ofstream ifile;
@@ -370,13 +368,13 @@ public:
 
   virtual void dumpGrid(int level = 0) {
     outputField.toReal();
-    dumpGridData(level, outputField.getFieldForLevel(level).getDataVector());
+    dumpGridData(level, outputField.getFieldForLevel(level));
   }
 
   virtual void dumpGridFourier(int level = 0) {
     fields::Field<complex<T>, T> fieldToWrite = tools::numerics::fourier::getComplexFourierField(
       outputField.getFieldForLevel(level));
-    dumpGridData(level, fieldToWrite.getDataVector());
+    dumpGridData(level, fieldToWrite);
   }
 
   virtual void dumpPS(int level = 0) {

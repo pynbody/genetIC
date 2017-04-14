@@ -5,6 +5,8 @@
 #include <vector>
 #include <cassert>
 #include <src/simulation/filters/filter.hpp>
+#include <src/tools/numerics/fourier.hpp>
+#include "src/io/numpy.hpp"
 /*!
     \namespace fields
     \brief Define random fields on multiple grid levels
@@ -17,8 +19,8 @@
 namespace tools {
   namespace numerics {
     namespace fourier {
-      template<typename T, typename S>
-      void performFFT(fields::Field<T, S> &field);
+      template<typename T>
+      class FieldFourierManager;
     }
   }
 }
@@ -36,14 +38,19 @@ namespace fields {
     using value_type = DataType;
     using ComplexType = tools::datatypes::ensure_complex<DataType>;
 
+    using FourierManager = tools::numerics::fourier::FieldFourierManager<DataType>;
+
   protected:
     const TPtrGrid pGrid;
+    std::shared_ptr<FourierManager> fourierManager;
     TData data;
     bool fourier;
 
   public:
     Field(Field<DataType, CoordinateType> &&move) : pGrid(move.pGrid), data(std::move(move.data)),
                                                     fourier(move.fourier) {
+      fourierManager = std::make_shared<FourierManager>(*this);
+      assert(data.size()==fourierManager->getRequiredDataSize());
 
     }
 
@@ -52,7 +59,8 @@ namespace fields {
       /*
        * Construct a field on the specified grid by moving the given data
        */
-      assert(data.size() == grid.size3);
+      fourierManager = std::make_shared<FourierManager>(*this);
+      assert(data.size()==fourierManager->getRequiredDataSize());
 
     }
 
@@ -61,12 +69,14 @@ namespace fields {
       /*
        * Construct a field on the specified grid by copying the given data
        */
-      assert(data.size() == grid.size3);
+      fourierManager = std::make_shared<FourierManager>(*this);
+      assert(data.size()==fourierManager->getRequiredDataSize());
 
     }
 
     Field(TGrid &grid, bool fourier = true) : pGrid(grid.shared_from_this()),
-                                              data(grid.size3, 0),
+                                              fourierManager(std::make_shared<FourierManager>(*this)),
+                                              data(fourierManager->getRequiredDataSize(), 0),
                                               fourier(fourier) {
       /*
        * Construct a zero-filled field on the specified grid
@@ -211,25 +221,47 @@ namespace fields {
 
     void toFourier() {
       if (fourier) return;
-      tools::numerics::fourier::performFFT(*this);
+      fourierManager->performTransform();
       assert(fourier);
     }
 
     void toReal() {
       if (!fourier) return;
-      tools::numerics::fourier::performFFT(*this);
+      fourierManager->performTransform();
       assert(!fourier);
+    }
+
+    ComplexType getFourierCoefficient(int kx, int ky, int kz) const {
+      return fourierManager->getFourierCoefficient(kx, ky, kz);
+    }
+
+    void setFourierCoefficient(int kx, int ky, int kz, const ComplexType & value) {
+      fourierManager->setFourierCoefficient(kx, ky, kz, value);
     }
 
     void applyFilter(const filters::Filter<CoordinateType> &filter) {
       toFourier();
       size_t size3 = pGrid->size3;
+      int size = static_cast<int>(pGrid->size);
 
-#pragma omp parallel for schedule(static)
-      for (size_t i = 0; i < size3; ++i) {
-        data[i] *= filter(pGrid->getFourierCellAbsK(i));
+
+      CoordinateType kMin = getGrid().getFourierKmin();
+      for(int kx=0; kx<size/2+1; kx++) {
+        int ky_lower = -size/2+1;
+        if(kx==0) ky_lower = 0;
+        for(int ky=ky_lower; ky<size/2+1; ky++) {
+          int kz_lower = -size/2+1;
+          if(kx==0 && ky==0)
+            kz_lower = 0;
+
+          for(int kz=kz_lower; kz<size/2+1; kz++) {
+            auto coeff = getFourierCoefficient(kx, ky, kz);
+            CoordinateType k = kMin*sqrt(double(kx*kx+ky*ky+kz*kz));
+            coeff*=filter(k);
+            setFourierCoefficient(kx,ky,kz, coeff);
+          }
+        }
       }
-
     }
 
 
@@ -285,13 +317,12 @@ namespace fields {
       Field<DataType, CoordinateType> temporaryField(getGrid(), false);
       auto &temporaryFieldData = temporaryField.getDataVector();
 
-      size_t tfSize = getGrid().size3;
+      assert(data.size() == temporaryFieldData.size());
 
-      assert(temporaryFieldData.size() == tfSize);
-      assert(data.size() == tfSize);
+      size_t size = source.getGrid().size3;
 
 #pragma omp parallel for schedule(static)
-      for (size_t i = 0; i < tfSize; ++i) {
+      for (size_t i = 0; i < size; ++i) {
         temporaryFieldData[i] = source.evaluateInterpolated(pGrid->getCellCentroid(i));
       }
 
@@ -300,7 +331,7 @@ namespace fields {
       this->matchFourier(temporaryField); // expect that the temporary field is now stored in Fourier space
 
 #pragma omp parallel for schedule(static)
-      for (size_t i = 0; i < tfSize; ++i) {
+      for (size_t i = 0; i < temporaryFieldData.size(); ++i) {
         data[i] += temporaryFieldData[i];
       }
     }
@@ -310,6 +341,12 @@ namespace fields {
     void addFieldFromDifferentGrid(Field<DataType, CoordinateType> &source) {
       source.toReal();
       addFieldFromDifferentGrid(const_cast<const Field<DataType, CoordinateType> &>(source));
+    }
+
+    void dumpGridData(std::string filename) const {
+      int n = static_cast<int>(getGrid().size);
+      const int dim[3] = {n, n, n};
+      io::numpy::SaveArrayAsNumpy(filename, false, 3, dim, data.data());
     }
 
 
@@ -340,6 +377,9 @@ namespace fields {
 
 
   };
+
+
 }
+
 
 #endif //IC_FIELD_HPP

@@ -84,9 +84,9 @@ namespace fields {
       FloatType b = norm * gsl_ran_gaussian_ziggurat(randomState, 1.);
 
       if (reverseRandomDrawOrder)
-        tools::numerics::fourier::setFourierCoefficient(field, k1, k2, k3, b, a);
+        field.setFourierCoefficient(k1, k2, k3, tools::datatypes::ensure_complex<DataType>(b,a));
       else
-        tools::numerics::fourier::setFourierCoefficient(field, k1, k2, k3, a, b);
+        field.setFourierCoefficient(k1, k2, k3, tools::datatypes::ensure_complex<DataType>(a,b));
 
     }
 
