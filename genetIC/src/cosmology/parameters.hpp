@@ -5,7 +5,6 @@
 #include <climits>
 
 
-
 namespace cosmology {
 
   template<typename FloatType>
@@ -29,8 +28,9 @@ namespace cosmology {
     return d;
   }
 
-  template <typename FloatType>
-  CosmologicalParameters<FloatType> cosmologyAtRedshift(const CosmologicalParameters<FloatType> &referenceCosmology, float redshift) {
+  template<typename FloatType>
+  CosmologicalParameters<FloatType>
+  cosmologyAtRedshift(const CosmologicalParameters<FloatType> &referenceCosmology, float redshift) {
     CosmologicalParameters<FloatType> retVal(referenceCosmology);
     retVal.scalefactor = 1. / (1. + redshift);
     return retVal;

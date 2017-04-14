@@ -42,8 +42,8 @@ namespace fields {
     bool fourier;
 
   public:
-    Field(Field<DataType, CoordinateType> && move) : pGrid(move.pGrid), data(std::move(move.data)),
-                                                     fourier(move.fourier) {
+    Field(Field<DataType, CoordinateType> &&move) : pGrid(move.pGrid), data(std::move(move.data)),
+                                                    fourier(move.fourier) {
 
     }
 

@@ -74,323 +74,323 @@
 # error The file aoba/IO/Numpy.hpp needs to be set up for your CPU type.
 #endif
 namespace io {
-    namespace numpy {
+  namespace numpy {
 
-        namespace detail {
-            inline uint16_t ReorderInteger(const uint16_t &x) {
+    namespace detail {
+      inline uint16_t ReorderInteger(const uint16_t &x) {
 #ifdef AOBA_NUMPY_BIG_ENDIAN
-                uint16_t y;
-                const char* rx = reinterpret_cast<const char*>(&x);
-                char* ry = reinterpret_cast<char*>(&y);
-                *ry = *(rx + 1);
-                *(ry + 1) = *rx;
-                return y;
+        uint16_t y;
+        const char* rx = reinterpret_cast<const char*>(&x);
+        char* ry = reinterpret_cast<char*>(&y);
+        *ry = *(rx + 1);
+        *(ry + 1) = *rx;
+        return y;
 #else
-                return x;
+        return x;
 #endif
-            }
+      }
 
-            template<typename Scalar>
-            struct DescriptorDataType {
-            };
-            template<>
-            struct DescriptorDataType<double> {
-                static const char value = 'f';
-            };
-            template<>
-            struct DescriptorDataType<float> {
-                static const char value = 'f';
-            };
-            template<>
-            struct DescriptorDataType<int> {
-                static const char value = 'i';
-            };
-            template<>
-            struct DescriptorDataType<std::complex<float> > {
-                static const char value = 'c';
-            };
-            template<>
-            struct DescriptorDataType<std::complex<double> > {
-                static const char value = 'c';
-            };
+      template<typename Scalar>
+      struct DescriptorDataType {
+      };
+      template<>
+      struct DescriptorDataType<double> {
+        static const char value = 'f';
+      };
+      template<>
+      struct DescriptorDataType<float> {
+        static const char value = 'f';
+      };
+      template<>
+      struct DescriptorDataType<int> {
+        static const char value = 'i';
+      };
+      template<>
+      struct DescriptorDataType<std::complex<float> > {
+        static const char value = 'c';
+      };
+      template<>
+      struct DescriptorDataType<std::complex<double> > {
+        static const char value = 'c';
+      };
 
-            template<typename Scalar>
-            inline std::string CreateDescriptor() {
-                std::string descriptor;
+      template<typename Scalar>
+      inline std::string CreateDescriptor() {
+        std::string descriptor;
 #ifdef AOBA_NUMPY_LITTLE_ENDIAN
-                descriptor.push_back('<');
+        descriptor.push_back('<');
 #else
-                descriptor.push_back('>');
+        descriptor.push_back('>');
 #endif
-                descriptor.push_back(DescriptorDataType<Scalar>::value);
-                std::stringstream stream;
-                stream << sizeof(Scalar);
-                descriptor.append(stream.str());
-                return descriptor;
-            }
+        descriptor.push_back(DescriptorDataType<Scalar>::value);
+        std::stringstream stream;
+        stream << sizeof(Scalar);
+        descriptor.append(stream.str());
+        return descriptor;
+      }
 
-            inline void CreateMetaData(
-                    std::string &preamble, std::string &header,
-                    const std::string &descriptor, bool fortran_order,
-                    int n_dims, const int shape[]) {
-                header = "{'descr': '";
-                header.append(descriptor);
-                if (fortran_order) {
-                    header.append("', 'fortran_order': True, ");
-                } else {
-                    header.append("', 'fortran_order': False, ");
-                }
-                header.append("'shape': (");
-                std::stringstream shape_stream;
-                if (1 < n_dims) {
-                    for (int d = 0; d < n_dims; ++d) {
-                        shape_stream << shape[d];
-                        if (d + 1 != n_dims) {
-                            shape_stream << ",";
-                        }
-                    }
-                } else {
-                    shape_stream << shape[0] << ",";
-                }
-                shape_stream << "), }";
-                header.append(shape_stream.str());
-                const int to_padding = 16 - (10 + header.size() + 1) % 16;
-                for (int m = 0; m < to_padding; ++m) {
-                    header.push_back(' ');
-                }
-                header.push_back('\n');
-
-                preamble = "\x93NUMPY";
-                preamble.push_back((char) 1);
-                preamble.push_back((char) 0);
-                uint16_t header_length = detail::ReorderInteger((uint16_t) header.size());
-                preamble.append(reinterpret_cast<char *>(&header_length), 2);
-            }
-
-        } // namespace detail
-
-        template<typename Scalar>
-        void SaveArrayAsNumpy(
-                const std::string &filename, bool fortran_order,
-                int n_dims, const int shape[], const Scalar *data) {
-            if (n_dims <= 0)
-                throw std::invalid_argument("received an invalid argument");
-
-            std::string preamble, header;
-            std::string descriptor = detail::CreateDescriptor<Scalar>();
-            detail::CreateMetaData(
-                    preamble, header, descriptor, fortran_order, n_dims, shape);
-            const size_t metadata_length = preamble.size() + header.size();
-            if (metadata_length % 16 != 0) {
-                throw std::runtime_error(
-                        "formatting error: metadata length is not divisible by 16.");
-            }
-            std::ofstream stream(
-                    filename.c_str(), std::ios::out | std::ios::binary | std::ios::trunc);
-            if (!stream) {
-                throw std::runtime_error("io error: failed to open a file.");
-            }
-            stream << preamble << header;
-            int size = 1;
-            for (int i = 0; i < n_dims; ++i) { size *= shape[i]; }
-            stream.write(reinterpret_cast<const char *>(data), sizeof(Scalar) * size);
+      inline void CreateMetaData(
+        std::string &preamble, std::string &header,
+        const std::string &descriptor, bool fortran_order,
+        int n_dims, const int shape[]) {
+        header = "{'descr': '";
+        header.append(descriptor);
+        if (fortran_order) {
+          header.append("', 'fortran_order': True, ");
+        } else {
+          header.append("', 'fortran_order': False, ");
         }
-
-        template<typename Scalar>
-        void SaveArrayAsNumpy(
-                const std::string &filename,
-                int n_dims, const int shape[], const Scalar *data) {
-            SaveArrayAsNumpy(
-                    filename, false, n_dims, shape, data);
-        }
-
-        template<typename Scalar>
-        void SaveArrayAsNumpy(
-                const std::string &filename, const std::vector<Scalar> &data) {
-            const int length = (int) data.size();
-            SaveArrayAsNumpy(filename, false, 1, &length, &data[0]);
-        }
-
-        template<typename Scalar>
-        void SaveArrayAsNumpy(
-                const std::string &filename, int x0, const Scalar *data) {
-            SaveArrayAsNumpy(filename, false, 1, &x0, data);
-        }
-
-        template<typename Scalar>
-        void SaveArrayAsNumpy(
-                const std::string &filename, int x0, int x1, const Scalar *data) {
-            const int dim[2] = {x0, x1};
-            SaveArrayAsNumpy(filename, false, 2, dim, data);
-        }
-
-        template<typename Scalar>
-        void SaveArrayAsNumpy(
-                const std::string &filename, int x0, int x1, int x2, const Scalar *data) {
-            const int dim[3] = {x0, x1, x2};
-            SaveArrayAsNumpy(filename, false, 3, dim, data);
-        }
-
-        template<typename Scalar>
-        void SaveArrayAsNumpy(
-                const std::string &filename, int x0, int x1, int x2, int x3, const Scalar *data) {
-            const int dim[4] = {x0, x1, x2, x3};
-            SaveArrayAsNumpy(filename, false, 4, dim, data);
-        }
-
-        template<typename Scalar>
-        void LoadArrayFromNumpy(
-                const std::string &filename, std::vector<int> &shape,
-                std::vector<Scalar> &data) {
-            std::ifstream stream(filename.c_str(), std::ios::in | std::ios::binary);
-            if (!stream) {
-                throw std::runtime_error("io error: failed to open a file.");
+        header.append("'shape': (");
+        std::stringstream shape_stream;
+        if (1 < n_dims) {
+          for (int d = 0; d < n_dims; ++d) {
+            shape_stream << shape[d];
+            if (d + 1 != n_dims) {
+              shape_stream << ",";
             }
-            // check if this file is the valid .npy file
-            std::string valid_preamble = "\x93NUMPY";
-            valid_preamble.push_back(char(1));
-            valid_preamble.push_back(char(0));
-            std::string preamble(8, ' ');
-            stream.read(&preamble[0], 8);
-            if (valid_preamble != preamble) {
-                throw std::runtime_error(
-                        "io error: this file do not have a valid npy format.");
-            }
-            // load header
-            uint16_t header_length;
-            stream.read(reinterpret_cast<char *>(&header_length), sizeof(uint16_t));
-            header_length = detail::ReorderInteger(header_length);
-            if ((header_length + preamble.size() + sizeof(uint16_t)) % 16 != 0) {
-                throw std::runtime_error(
-                        "formatting error: metadata length is not divisible by 16.");
-            }
-            std::string header(header_length, ' ');
-            stream.read(reinterpret_cast<char *>(&header[0]), header_length);
-
-            // load fortran order
-            typedef std::string::size_type size_type;
-            const size_type header_loc = header.find("fortran_order") + 16;
-            const bool fortran_order = (header.substr(header_loc, 4) == "True");
-
-            // load shape
-            const size_type shape_loc1 = header.find("(");
-            const size_type shape_loc2 = header.find(")");
-            std::string shape_str = header.substr(
-                    shape_loc1 + 1, shape_loc2 - shape_loc1 - 1);
-            if (shape_str[shape_str.size() - 1] == ',') shape.resize(1);
-            else shape.resize(std::count(shape_str.begin(), shape_str.end(), ',') + 1);
-            for (size_t i = 0; i < shape.size(); ++i) {
-                std::stringstream ss;
-                const size_type loc = shape_str.find(",");
-                ss << shape_str.substr(0, loc);
-                ss >> shape[i];
-                shape_str = shape_str.substr(loc + 1);
-            }
-            if (fortran_order) {
-                std::reverse(shape.begin(), shape.end());
-            }
-
-            // load descriptor
-            const size_type descr_loc = header.find("descr") + 9;
-            const char endian_str = header[descr_loc];
-            const bool little_endian = (endian_str == '<' || endian_str == '|');
-#ifdef AOBA_NUMPY_BIG_ENDIAN
-            const bool is_same_endian = !little_endian;
-#else
-            const bool is_same_endian = little_endian;
-#endif
-            if (!is_same_endian) {
-                throw std::runtime_error(
-                        "formatting error: difference endian is not supported.");
-            }
-            const char data_type = header[descr_loc + 1];
-            size_t word_size;
-            std::stringstream ss;
-            ss << header[descr_loc + 2];
-            ss >> word_size;
-            if (data_type != detail::DescriptorDataType<Scalar>::value ||
-                word_size != sizeof(Scalar)) {
-                throw std::runtime_error(
-                        "formatting error: the type of .npy file is not equal to that of std::vector<T>");
-            }
-
-            // load data
-            size_t total = 1;
-            for (size_t i = 0; i < shape.size(); ++i) {
-                total *= shape[i];
-            }
-            data.resize(total);
-            stream.read(reinterpret_cast<char *>(&data[0]), word_size * total);
+          }
+        } else {
+          shape_stream << shape[0] << ",";
         }
-
-        template<typename Scalar>
-        void LoadArrayFromNumpy(
-                const std::string &filename, std::vector<Scalar> &data) {
-            std::vector<int> tmp_dim;
-            LoadArrayFromNumpy(filename, tmp_dim, data);
+        shape_stream << "), }";
+        header.append(shape_stream.str());
+        const int to_padding = 16 - (10 + header.size() + 1) % 16;
+        for (int m = 0; m < to_padding; ++m) {
+          header.push_back(' ');
         }
+        header.push_back('\n');
 
-        template<typename Scalar>
-        void LoadArrayFromNumpy(
-                const std::string &filename, int shape[], std::vector<Scalar> &data) {
-            std::vector<int> tmp_dim;
-            LoadArrayFromNumpy(filename, tmp_dim, data);
-            for (size_t i = 0; i < tmp_dim.size(); ++i) shape[i] = tmp_dim[i];
-        }
+        preamble = "\x93NUMPY";
+        preamble.push_back((char) 1);
+        preamble.push_back((char) 0);
+        uint16_t header_length = detail::ReorderInteger((uint16_t) header.size());
+        preamble.append(reinterpret_cast<char *>(&header_length), 2);
+      }
 
-        template<typename Scalar>
-        void LoadArrayFromNumpy(
-                const std::string &filename,
-                int &x0, std::vector<Scalar> &data) {
-            std::vector<int> tmp_dim;
-            LoadArrayFromNumpy(filename, tmp_dim, data);
-            if (tmp_dim.size() != 1) {
-                throw std::runtime_error("io error: the dimension of array is different from the expected one.");
-            }
-            x0 = tmp_dim[0];
-        }
+    } // namespace detail
 
-        template<typename Scalar>
-        void LoadArrayFromNumpy(
-                const std::string &filename,
-                int &x0, int &x1, std::vector<Scalar> &data) {
-            std::vector<int> tmp_dim;
-            LoadArrayFromNumpy(filename, tmp_dim, data);
-            if (tmp_dim.size() != 2) {
-                throw std::runtime_error("io error: the dimension of array is different from the expected one.");
-            }
-            x0 = tmp_dim[0];
-            x1 = tmp_dim[1];
-        }
+    template<typename Scalar>
+    void SaveArrayAsNumpy(
+      const std::string &filename, bool fortran_order,
+      int n_dims, const int shape[], const Scalar *data) {
+      if (n_dims <= 0)
+        throw std::invalid_argument("received an invalid argument");
 
-        template<typename Scalar>
-        void LoadArrayFromNumpy(
-                const std::string &filename,
-                int &x0, int &x1, int &x2, std::vector<Scalar> &data) {
-            std::vector<int> tmp_dim;
-            LoadArrayFromNumpy(filename, tmp_dim, data);
-            if (tmp_dim.size() != 3) {
-                throw std::runtime_error("io error: the dimension of array is different from the expected one.");
-            }
-            x0 = tmp_dim[0];
-            x1 = tmp_dim[1];
-            x2 = tmp_dim[2];
-        }
-
-        template<typename Scalar>
-        void LoadArrayFromNumpy(
-                const std::string &filename,
-                int &x0, int &x1, int &x2, int &x3, std::vector<Scalar> &data) {
-            std::vector<int> tmp_dim;
-            LoadArrayFromNumpy(filename, tmp_dim, data);
-            if (tmp_dim.size() != 4) {
-                throw std::runtime_error("io error: the dimension of array is different from the expected one.");
-            }
-            x0 = tmp_dim[0];
-            x1 = tmp_dim[1];
-            x2 = tmp_dim[2];
-            x3 = tmp_dim[3];
-        }
-
+      std::string preamble, header;
+      std::string descriptor = detail::CreateDescriptor<Scalar>();
+      detail::CreateMetaData(
+        preamble, header, descriptor, fortran_order, n_dims, shape);
+      const size_t metadata_length = preamble.size() + header.size();
+      if (metadata_length % 16 != 0) {
+        throw std::runtime_error(
+          "formatting error: metadata length is not divisible by 16.");
+      }
+      std::ofstream stream(
+        filename.c_str(), std::ios::out | std::ios::binary | std::ios::trunc);
+      if (!stream) {
+        throw std::runtime_error("io error: failed to open a file.");
+      }
+      stream << preamble << header;
+      int size = 1;
+      for (int i = 0; i < n_dims; ++i) { size *= shape[i]; }
+      stream.write(reinterpret_cast<const char *>(data), sizeof(Scalar) * size);
     }
+
+    template<typename Scalar>
+    void SaveArrayAsNumpy(
+      const std::string &filename,
+      int n_dims, const int shape[], const Scalar *data) {
+      SaveArrayAsNumpy(
+        filename, false, n_dims, shape, data);
+    }
+
+    template<typename Scalar>
+    void SaveArrayAsNumpy(
+      const std::string &filename, const std::vector<Scalar> &data) {
+      const int length = (int) data.size();
+      SaveArrayAsNumpy(filename, false, 1, &length, &data[0]);
+    }
+
+    template<typename Scalar>
+    void SaveArrayAsNumpy(
+      const std::string &filename, int x0, const Scalar *data) {
+      SaveArrayAsNumpy(filename, false, 1, &x0, data);
+    }
+
+    template<typename Scalar>
+    void SaveArrayAsNumpy(
+      const std::string &filename, int x0, int x1, const Scalar *data) {
+      const int dim[2] = {x0, x1};
+      SaveArrayAsNumpy(filename, false, 2, dim, data);
+    }
+
+    template<typename Scalar>
+    void SaveArrayAsNumpy(
+      const std::string &filename, int x0, int x1, int x2, const Scalar *data) {
+      const int dim[3] = {x0, x1, x2};
+      SaveArrayAsNumpy(filename, false, 3, dim, data);
+    }
+
+    template<typename Scalar>
+    void SaveArrayAsNumpy(
+      const std::string &filename, int x0, int x1, int x2, int x3, const Scalar *data) {
+      const int dim[4] = {x0, x1, x2, x3};
+      SaveArrayAsNumpy(filename, false, 4, dim, data);
+    }
+
+    template<typename Scalar>
+    void LoadArrayFromNumpy(
+      const std::string &filename, std::vector<int> &shape,
+      std::vector<Scalar> &data) {
+      std::ifstream stream(filename.c_str(), std::ios::in | std::ios::binary);
+      if (!stream) {
+        throw std::runtime_error("io error: failed to open a file.");
+      }
+      // check if this file is the valid .npy file
+      std::string valid_preamble = "\x93NUMPY";
+      valid_preamble.push_back(char(1));
+      valid_preamble.push_back(char(0));
+      std::string preamble(8, ' ');
+      stream.read(&preamble[0], 8);
+      if (valid_preamble != preamble) {
+        throw std::runtime_error(
+          "io error: this file do not have a valid npy format.");
+      }
+      // load header
+      uint16_t header_length;
+      stream.read(reinterpret_cast<char *>(&header_length), sizeof(uint16_t));
+      header_length = detail::ReorderInteger(header_length);
+      if ((header_length + preamble.size() + sizeof(uint16_t)) % 16 != 0) {
+        throw std::runtime_error(
+          "formatting error: metadata length is not divisible by 16.");
+      }
+      std::string header(header_length, ' ');
+      stream.read(reinterpret_cast<char *>(&header[0]), header_length);
+
+      // load fortran order
+      typedef std::string::size_type size_type;
+      const size_type header_loc = header.find("fortran_order") + 16;
+      const bool fortran_order = (header.substr(header_loc, 4) == "True");
+
+      // load shape
+      const size_type shape_loc1 = header.find("(");
+      const size_type shape_loc2 = header.find(")");
+      std::string shape_str = header.substr(
+        shape_loc1 + 1, shape_loc2 - shape_loc1 - 1);
+      if (shape_str[shape_str.size() - 1] == ',') shape.resize(1);
+      else shape.resize(std::count(shape_str.begin(), shape_str.end(), ',') + 1);
+      for (size_t i = 0; i < shape.size(); ++i) {
+        std::stringstream ss;
+        const size_type loc = shape_str.find(",");
+        ss << shape_str.substr(0, loc);
+        ss >> shape[i];
+        shape_str = shape_str.substr(loc + 1);
+      }
+      if (fortran_order) {
+        std::reverse(shape.begin(), shape.end());
+      }
+
+      // load descriptor
+      const size_type descr_loc = header.find("descr") + 9;
+      const char endian_str = header[descr_loc];
+      const bool little_endian = (endian_str == '<' || endian_str == '|');
+#ifdef AOBA_NUMPY_BIG_ENDIAN
+      const bool is_same_endian = !little_endian;
+#else
+      const bool is_same_endian = little_endian;
+#endif
+      if (!is_same_endian) {
+        throw std::runtime_error(
+          "formatting error: difference endian is not supported.");
+      }
+      const char data_type = header[descr_loc + 1];
+      size_t word_size;
+      std::stringstream ss;
+      ss << header[descr_loc + 2];
+      ss >> word_size;
+      if (data_type != detail::DescriptorDataType<Scalar>::value ||
+          word_size != sizeof(Scalar)) {
+        throw std::runtime_error(
+          "formatting error: the type of .npy file is not equal to that of std::vector<T>");
+      }
+
+      // load data
+      size_t total = 1;
+      for (size_t i = 0; i < shape.size(); ++i) {
+        total *= shape[i];
+      }
+      data.resize(total);
+      stream.read(reinterpret_cast<char *>(&data[0]), word_size * total);
+    }
+
+    template<typename Scalar>
+    void LoadArrayFromNumpy(
+      const std::string &filename, std::vector<Scalar> &data) {
+      std::vector<int> tmp_dim;
+      LoadArrayFromNumpy(filename, tmp_dim, data);
+    }
+
+    template<typename Scalar>
+    void LoadArrayFromNumpy(
+      const std::string &filename, int shape[], std::vector<Scalar> &data) {
+      std::vector<int> tmp_dim;
+      LoadArrayFromNumpy(filename, tmp_dim, data);
+      for (size_t i = 0; i < tmp_dim.size(); ++i) shape[i] = tmp_dim[i];
+    }
+
+    template<typename Scalar>
+    void LoadArrayFromNumpy(
+      const std::string &filename,
+      int &x0, std::vector<Scalar> &data) {
+      std::vector<int> tmp_dim;
+      LoadArrayFromNumpy(filename, tmp_dim, data);
+      if (tmp_dim.size() != 1) {
+        throw std::runtime_error("io error: the dimension of array is different from the expected one.");
+      }
+      x0 = tmp_dim[0];
+    }
+
+    template<typename Scalar>
+    void LoadArrayFromNumpy(
+      const std::string &filename,
+      int &x0, int &x1, std::vector<Scalar> &data) {
+      std::vector<int> tmp_dim;
+      LoadArrayFromNumpy(filename, tmp_dim, data);
+      if (tmp_dim.size() != 2) {
+        throw std::runtime_error("io error: the dimension of array is different from the expected one.");
+      }
+      x0 = tmp_dim[0];
+      x1 = tmp_dim[1];
+    }
+
+    template<typename Scalar>
+    void LoadArrayFromNumpy(
+      const std::string &filename,
+      int &x0, int &x1, int &x2, std::vector<Scalar> &data) {
+      std::vector<int> tmp_dim;
+      LoadArrayFromNumpy(filename, tmp_dim, data);
+      if (tmp_dim.size() != 3) {
+        throw std::runtime_error("io error: the dimension of array is different from the expected one.");
+      }
+      x0 = tmp_dim[0];
+      x1 = tmp_dim[1];
+      x2 = tmp_dim[2];
+    }
+
+    template<typename Scalar>
+    void LoadArrayFromNumpy(
+      const std::string &filename,
+      int &x0, int &x1, int &x2, int &x3, std::vector<Scalar> &data) {
+      std::vector<int> tmp_dim;
+      LoadArrayFromNumpy(filename, tmp_dim, data);
+      if (tmp_dim.size() != 4) {
+        throw std::runtime_error("io error: the dimension of array is different from the expected one.");
+      }
+      x0 = tmp_dim[0];
+      x1 = tmp_dim[1];
+      x2 = tmp_dim[2];
+      x3 = tmp_dim[3];
+    }
+
+  }
 }

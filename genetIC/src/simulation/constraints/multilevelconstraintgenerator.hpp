@@ -12,7 +12,6 @@
 #include "src/simulation/field/multilevelfield.hpp"
 
 
-
 namespace constraints {
 
   /** This class takes responsibility for calculating constraint covectors across all levels that a field is

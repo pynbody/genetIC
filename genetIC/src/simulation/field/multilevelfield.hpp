@@ -44,7 +44,8 @@ namespace fields {
 
     }
 
-    MultiLevelField(multilevelcontext::MultiLevelContextInformation<DataType> &multiLevelContext) : multiLevelContext(&multiLevelContext) {
+    MultiLevelField(multilevelcontext::MultiLevelContextInformation<DataType> &multiLevelContext) : multiLevelContext(
+      &multiLevelContext) {
       setupConnection();
     }
 
@@ -424,7 +425,8 @@ namespace fields {
     t_output_state outputState;
 
   public:
-    OutputField(multilevelcontext::MultiLevelContextInformation<DataType> &multiLevelContext) : MultiLevelField<DataType>(
+    OutputField(multilevelcontext::MultiLevelContextInformation<DataType> &multiLevelContext)
+      : MultiLevelField<DataType>(
       multiLevelContext) {
       outputState = PRE_SEPARATION;
     }

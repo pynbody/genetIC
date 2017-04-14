@@ -111,11 +111,11 @@ namespace grids {
       if (target.offsetLower != offsetLower || target.size != proxy->size) {
         proxy = std::make_shared<SectionOfGrid<T>>(proxy,
                                                    tools::getRatioAndAssertInteger(target.offsetLower.x - offsetLower.x,
-                                                                            proxy->dx),
+                                                                                   proxy->dx),
                                                    tools::getRatioAndAssertInteger(target.offsetLower.y - offsetLower.y,
-                                                                            proxy->dx),
+                                                                                   proxy->dx),
                                                    tools::getRatioAndAssertInteger(target.offsetLower.z - offsetLower.z,
-                                                                            proxy->dx),
+                                                                                   proxy->dx),
                                                    target.size);
       }
 
@@ -133,9 +133,9 @@ namespace grids {
     }
 
     virtual void flagCells(const std::vector<size_t> &sourceArray) {
-      std::vector<size_t> newFlags(flags.size()+sourceArray.size());
+      std::vector<size_t> newFlags(flags.size() + sourceArray.size());
       auto end = std::set_union(flags.begin(), flags.end(), sourceArray.begin(), sourceArray.end(), newFlags.begin());
-      newFlags.resize(end-newFlags.begin());
+      newFlags.resize(end - newFlags.begin());
       flags = std::move(newFlags);
     }
 

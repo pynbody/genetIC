@@ -519,7 +519,8 @@ int save_phases(complex<FloatType> *phk, FloatType* ph, complex<FloatType> *delt
 #endif
 
     template<typename FloatType>
-    void SaveGadget2(const char *filename, long nPart, io_header_2 header1, FloatType *Pos1, FloatType *Vel1, FloatType *Pos2,
+    void SaveGadget2(const char *filename, long nPart, io_header_2 header1, FloatType *Pos1, FloatType *Vel1,
+                     FloatType *Pos2,
                      FloatType *Vel2, FloatType *Pos3, FloatType *Vel3, FloatType *Mass = NULL) {
       FILE *fd = fopen(filename, "w");
       if (!fd) throw std::runtime_error("Unable to open file for writing");
@@ -580,8 +581,8 @@ int save_phases(complex<FloatType> *phk, FloatType* ph, complex<FloatType> *delt
 
     template<typename GridDataType, typename FloatType>
     void save(const std::string &name, double Boxlength,
-              particle::mapper::ParticleMapper<GridDataType> & mapper,
-              particle::AbstractMultiLevelParticleGenerator<GridDataType> & generator,
+              particle::mapper::ParticleMapper<GridDataType> &mapper,
+              particle::AbstractMultiLevelParticleGenerator<GridDataType> &generator,
               const cosmology::CosmologicalParameters<FloatType> &cosmology, int gadgetformat) {
 
       std::cerr << "Hello from Gadget output!" << std::endl;
@@ -629,15 +630,13 @@ int save_phases(complex<FloatType> *phk, FloatType* ph, complex<FloatType> *delt
         my_fwrite(&dummy, sizeof(dummy), 1, fd);
         my_fwrite(&header1, sizeof(header1), 1, fd);
         my_fwrite(&dummy, sizeof(dummy), 1, fd);
-      }
-      else if (gadgetformat == 2) {
+      } else if (gadgetformat == 2) {
         io_header_2 header1 = CreateGadget2Header(masses, npart, Boxlength, cosmology);
         dummy = sizeof(header1);
         my_fwrite(&dummy, sizeof(dummy), 1, fd);
         my_fwrite(&header1, sizeof(header1), 1, fd);
         my_fwrite(&dummy, sizeof(dummy), 1, fd);
-      }
-      else {
+      } else {
         cerr << "Wrong format for Gadget output!" << endl;
         exit(1);
       }
@@ -730,7 +729,6 @@ int save_phases(complex<FloatType> *phk, FloatType* ph, complex<FloatType> *delt
       // free(Pos);
 
     }
-
 
 
   }

@@ -56,14 +56,14 @@ namespace particle {
 
       virtual void flagParticles(const std::vector<size_t> &genericParticleArray) {
         size_t gridStart = 0;
-        size_t i=0;
+        size_t i = 0;
         contextInformation.forEachLevel([&genericParticleArray, &i, &gridStart](GridType &targetGrid) {
           std::vector<size_t> gridCellArray;
-          size_t gridEnd = gridStart+targetGrid.size3;
+          size_t gridEnd = gridStart + targetGrid.size3;
 
           // Copy all cells belonging to this grid, offseting the ID appropriately to account for previous grids
-          while(i<genericParticleArray.size() && genericParticleArray[i]<gridEnd) {
-            gridCellArray.push_back(genericParticleArray[i]-gridStart);
+          while (i < genericParticleArray.size() && genericParticleArray[i] < gridEnd) {
+            gridCellArray.push_back(genericParticleArray[i] - gridStart);
             ++i;
           }
 
@@ -73,7 +73,7 @@ namespace particle {
           gridStart = gridEnd;
         });
 
-        if(i!=genericParticleArray.size())
+        if (i != genericParticleArray.size())
           throw std::runtime_error("Ran out of grids when interpreting grafic cell IDs - check IDs?");
       }
 
@@ -92,18 +92,18 @@ namespace particle {
       }
 
       void getFlaggedParticles(std::vector<size_t> &particleArray) const override {
-        size_t offset=0;
+        size_t offset = 0;
         contextInformation.forEachLevel([&particleArray, &offset](const GridType &targetGrid) {
-          size_t last=particleArray.size();
+          size_t last = particleArray.size();
           targetGrid.getFlaggedCells(particleArray);
 
           // Offset according to previous grid sizes
-          for(size_t i=last; i<particleArray.size(); ++i) {
-            particleArray[i]+=offset;
+          for (size_t i = last; i < particleArray.size(); ++i) {
+            particleArray[i] += offset;
           }
 
           // Update offset
-          offset+=targetGrid.size3;
+          offset += targetGrid.size3;
         });
       }
 

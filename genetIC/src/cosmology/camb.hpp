@@ -21,9 +21,9 @@ namespace cosmology {
   template<typename FloatType>
   class CAMB {
   protected:
-    std::vector <FloatType> kcamb;
-    std::vector <FloatType> Tcamb;
-    tools::numerics::Interpolator <FloatType> interpolator;
+    std::vector<FloatType> kcamb;
+    std::vector<FloatType> Tcamb;
+    tools::numerics::Interpolator<FloatType> interpolator;
     FloatType amplitude;
     FloatType ns;
     mutable FloatType kcamb_max_in_file;
@@ -118,13 +118,13 @@ namespace cosmology {
       return amplitude * powf(k, ns) * linearTransfer * linearTransfer;
     }
 
-    std::vector <FloatType> getPowerSpectrumForGrid(const grids::Grid<FloatType> &grid) const {
+    std::vector<FloatType> getPowerSpectrumForGrid(const grids::Grid<FloatType> &grid) const {
       /* Get the variance for each Fourier cell of the specified grid  */
       assert(kcamb.size() == Tcamb.size());
 
       FloatType norm = getPowerSpectrumNormalizationForGrid(grid);
 
-      std::vector <FloatType> P(grid.size3);
+      std::vector<FloatType> P(grid.size3);
 
 #pragma omp parallel for
       for (size_t i = 0; i < grid.size3; ++i) {
@@ -132,8 +132,8 @@ namespace cosmology {
         P[i] = (*this)(k) * norm;
       }
 
-      if(kcamb_max_in_file==std::numeric_limits<FloatType>().max()) {
-	std::cerr << "WARNING: maximum k in CAMB input file is insufficient" << std::endl;
+      if (kcamb_max_in_file == std::numeric_limits<FloatType>().max()) {
+        std::cerr << "WARNING: maximum k in CAMB input file is insufficient" << std::endl;
         std::cerr << "         extrapolating using naive Meszaros solution" << std::endl;
       }
 

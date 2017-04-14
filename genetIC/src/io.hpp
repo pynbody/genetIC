@@ -33,12 +33,11 @@ namespace cosmology {
  */
 namespace io {
 
-  enum class OutputFormat { gadget2=2, gadget3, tipsy, grafic };
+  enum class OutputFormat {
+    gadget2 = 2, gadget3, tipsy, grafic
+  };
 
 }
-
-
-
 
 
 #endif // _IO_INCLUDED

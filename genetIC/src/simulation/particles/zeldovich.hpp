@@ -25,7 +25,7 @@ namespace particle {
   class ZeldovichParticleGenerator : public ParticleGenerator<GridDataType> {
   protected:
     using TField = fields::Field<GridDataType, T>;
-    using TRealField = fields::Field<T,T>;
+    using TRealField = fields::Field<T, T>;
 
     const cosmology::CosmologicalParameters<T> &cosmology;
     TField &linearOverdensityField;
@@ -37,7 +37,6 @@ namespace particle {
     std::shared_ptr<TRealField> pOff_x;
     std::shared_ptr<TRealField> pOff_y;
     std::shared_ptr<TRealField> pOff_z;
-
 
 
     void calculateVelocityToOffsetRatio() {
@@ -78,30 +77,33 @@ namespace particle {
       const int nyquist = tools::numerics::fourier::getNyquistModeThatMustBeReal(grid);
 
       tools::numerics::fourier::applyTransformationInFourierBasis<T>(linearOverdensityField,
-      [kw, nyquist](complex<T> inputVal, int iix, int iiy, int iiz) -> std::tuple<complex<T>, complex<T>, complex<T>> {
-        complex<T> result_x;
-        T kfft = (iix * iix + iiy * iiy + iiz * iiz);
-        result_x.real(-inputVal.imag()/(kfft*kw));
-        result_x.imag(inputVal.real()/(kfft*kw));
-        complex<T> result_y(result_x);
-        complex<T> result_z(result_x);
+                                                                     [kw, nyquist](complex<T> inputVal, int iix,
+                                                                                   int iiy,
+                                                                                   int iiz) -> std::tuple<complex<T>, complex<T>, complex<T>> {
+                                                                       complex<T> result_x;
+                                                                       T kfft = (iix * iix + iiy * iiy + iiz * iiz);
+                                                                       result_x.real(-inputVal.imag() / (kfft * kw));
+                                                                       result_x.imag(inputVal.real() / (kfft * kw));
+                                                                       complex<T> result_y(result_x);
+                                                                       complex<T> result_z(result_x);
 
-        result_x*=iix;
-        result_y*=iiy;
-        result_z*=iiz;
+                                                                       result_x *= iix;
+                                                                       result_y *= iiy;
+                                                                       result_z *= iiz;
 
-        // derivative at nyquist frequency is not defined; set it to zero
-        // potential is also undefined at (0,0,0); set that mode to zero too
-        if(abs(iix)==nyquist || kfft==0)
-          result_x=0;
-        if(abs(iiy)==nyquist || kfft==0)
-          result_y=0;
-        if(abs(iiz)==nyquist || kfft==0)
-          result_z=0;
+                                                                       // derivative at nyquist frequency is not defined; set it to zero
+                                                                       // potential is also undefined at (0,0,0); set that mode to zero too
+                                                                       if (abs(iix) == nyquist || kfft == 0)
+                                                                         result_x = 0;
+                                                                       if (abs(iiy) == nyquist || kfft == 0)
+                                                                         result_y = 0;
+                                                                       if (abs(iiz) == nyquist || kfft == 0)
+                                                                         result_z = 0;
 
-        return std::make_tuple(result_x, result_y, result_z);
-      },
-      *offsetX, *offsetY, *offsetZ);
+                                                                       return std::make_tuple(result_x, result_y,
+                                                                                              result_z);
+                                                                     },
+                                                                     *offsetX, *offsetY, *offsetZ);
 
       offsetX->toReal();
       offsetY->toReal();
@@ -121,10 +123,9 @@ namespace particle {
     ZeldovichParticleGenerator(TField &linearOverdensityField,
                                const cosmology::CosmologicalParameters<T> &cosmology) :
 
-    ParticleGenerator<GridDataType>(linearOverdensityField.getGrid()),
-    cosmology(cosmology),
-    linearOverdensityField(linearOverdensityField)
-    {
+      ParticleGenerator<GridDataType>(linearOverdensityField.getGrid()),
+      cosmology(cosmology),
+      linearOverdensityField(linearOverdensityField) {
       recalculate();
     }
 
@@ -158,12 +159,13 @@ namespace particle {
       pOff_z->toReal();
     }
 
-    virtual T getMass(const grids::Grid<T> & onGrid) const override {
-      return boxMass*onGrid.cellMassFrac;
+    virtual T getMass(const grids::Grid<T> &onGrid) const override {
+      return boxMass * onGrid.cellMassFrac;
     }
 
-    virtual T getEps(const grids::Grid<T> & onGrid) const override  {
-      return onGrid.dx * onGrid.cellSofteningScale * 0.01075; // <-- arbitrary to coincide with normal UW resolution. TODO: Find a way to make this flexible.
+    virtual T getEps(const grids::Grid<T> &onGrid) const override {
+      return onGrid.dx * onGrid.cellSofteningScale *
+             0.01075; // <-- arbitrary to coincide with normal UW resolution. TODO: Find a way to make this flexible.
     }
 
     auto getOffsetFields() {
@@ -185,7 +187,7 @@ namespace particle {
       particle.pos.y = onGrid.getFieldAt(id, *pOff_y);
       particle.pos.z = onGrid.getFieldAt(id, *pOff_z);
 
-      particle.vel = particle.pos*velocityToOffsetRatio;
+      particle.vel = particle.pos * velocityToOffsetRatio;
 
       particle.mass = getMass(onGrid);
       particle.soft = getEps(onGrid);
@@ -196,10 +198,9 @@ namespace particle {
     virtual particle::Particle<T> getParticleNoWrap(const grids::Grid<T> &onGrid, size_t id) const override {
       auto particle = getParticleNoOffset(onGrid, id);
       auto centroid = onGrid.getCellCentroid(id);
-      particle.pos+=centroid;
+      particle.pos += centroid;
       return particle;
     }
-
 
 
   };

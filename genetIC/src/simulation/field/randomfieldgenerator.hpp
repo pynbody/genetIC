@@ -75,7 +75,7 @@ namespace fields {
   protected:
 
 
-    void drawOneFourierMode(Field<DataType> &field, int k1, int k2, int k3,
+    void drawOneFourierMode(Field <DataType> &field, int k1, int k2, int k3,
                             FloatType norm) {
 
       // these need to be initialized in explicit order - can't leave it to compilers
@@ -91,7 +91,7 @@ namespace fields {
     }
 
 
-    void drawRandomForSpecifiedGrid(Field<DataType> &field) {
+    void drawRandomForSpecifiedGrid(Field <DataType> &field) {
       /* Draw random white noise in real space.
        *
        *  Kept for historical compatibility, even though the recommended approach is
@@ -101,8 +101,8 @@ namespace fields {
        */
 
       field.setFourier(false);
-      auto & g = field.getGrid();
-      auto & fieldData = field.getDataVector();
+      auto &g = field.getGrid();
+      auto &fieldData = field.getDataVector();
       size_t nPartTotal = g.size3;
 
       FloatType sigma = sqrt((FloatType) (nPartTotal));
@@ -120,7 +120,7 @@ namespace fields {
       std::cerr << "done" << std::endl;
     }
 
-    void drawRandomForSpecifiedGridFourier(Field<DataType> &field) {
+    void drawRandomForSpecifiedGridFourier(Field <DataType> &field) {
       /* Draw random white noise in Fourier space. */
       std::vector<DataType> &vec = field.getDataVector();
 
