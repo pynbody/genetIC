@@ -319,7 +319,7 @@ namespace fields {
 
       assert(data.size() == temporaryFieldData.size());
 
-      size_t size = source.getGrid().size3;
+      size_t size = pGrid->size3;
 
 #pragma omp parallel for schedule(static)
       for (size_t i = 0; i < size; ++i) {
@@ -352,30 +352,27 @@ namespace fields {
 
   };
 
-
-  template<typename CoordinateType>
-  std::shared_ptr<Field<CoordinateType, CoordinateType>> getRealPart(Field<CoordinateType, CoordinateType> &field) {
-    return field.shared_from_this();
-  };
-
-
-  template<typename CoordinateType>
-  std::shared_ptr<Field<CoordinateType, CoordinateType>>
-  getRealPart(Field<std::complex<CoordinateType>, CoordinateType> &field) {
+  template<typename TargetDataType, typename SourceDataType, typename CoordinateType>
+  std::shared_ptr<Field<TargetDataType, CoordinateType>>
+  convertField(Field<SourceDataType, CoordinateType> &field) {
     assert(!field.isFourier());
-    auto realPart = make_shared<Field<CoordinateType, CoordinateType>>(field.getGrid(), field.isFourier());
-    auto &realPartData = realPart->getDataVector();
-    auto &complexData = field.getDataVector();
+    auto newField = make_shared<Field<TargetDataType, CoordinateType>>(field.getGrid(), field.isFourier());
+    auto &newData = newField->getDataVector();
+    auto &originalData = field.getDataVector();
     size_t size = field.getGrid().size3;
 
 #pragma omp parallel for schedule(static)
     for (size_t i = 0; i < size; ++i) {
-      realPartData[i] = complexData[i].real();
+      newData[i] = tools::datatypes::real_part_if_complex(originalData[i]);
     }
 
-    return realPart;
+    return newField;
+  };
 
-
+  template<typename TargetDataType, typename CoordinateType>
+  std::shared_ptr<Field<TargetDataType, CoordinateType>>
+  convertField(Field<TargetDataType, CoordinateType> &field) {
+    return field.shared_from_this();
   };
 
 

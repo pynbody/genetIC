@@ -34,9 +34,9 @@ namespace particle {
 
     // The grid offsets after Zeldovich approximation is applied
     // (nullptr before that):
-    std::shared_ptr<TRealField> pOff_x;
-    std::shared_ptr<TRealField> pOff_y;
-    std::shared_ptr<TRealField> pOff_z;
+    std::shared_ptr<TField> pOff_x;
+    std::shared_ptr<TField> pOff_y;
+    std::shared_ptr<TField> pOff_z;
 
 
     void calculateVelocityToOffsetRatio() {
@@ -111,21 +111,9 @@ namespace particle {
 
       // if the implementation is complex, at this point get real copies of the fields
       // otherwise just use the offset field we have already constructed
-      this->pOff_x = getRealPart(*offsetX);
-      this->pOff_y = getRealPart(*offsetY);
-      this->pOff_z = getRealPart(*offsetZ);
-
-
-      // DEBUGGING TEMPORARY STUFF...
-      offsetX->toFourier();
-      this->pOff_x->toFourier();
-      auto testfield = tools::numerics::fourier::getComplexFourierField(*(this->pOff_x));
-      offsetX->dumpGridData("correct-fourier.npy");
-      testfield.dumpGridData("test-fourier.npy");
-      exit(0);
-
-      this->pOff_x->toReal();
-
+      this->pOff_x = offsetX;
+      this->pOff_y = offsetY;
+      this->pOff_z = offsetZ;
     }
 
   public:
@@ -194,9 +182,9 @@ namespace particle {
       assert(!pOff_y->isFourier());
       assert(!pOff_z->isFourier());
 
-      particle.pos.x = onGrid.getFieldAt(id, *pOff_x);
-      particle.pos.y = onGrid.getFieldAt(id, *pOff_y);
-      particle.pos.z = onGrid.getFieldAt(id, *pOff_z);
+      particle.pos.x = tools::datatypes::real_part_if_complex(onGrid.getFieldAt(id, *pOff_x));
+      particle.pos.y = tools::datatypes::real_part_if_complex(onGrid.getFieldAt(id, *pOff_y));
+      particle.pos.z = tools::datatypes::real_part_if_complex(onGrid.getFieldAt(id, *pOff_z));
 
       particle.vel = particle.pos * velocityToOffsetRatio;
 

@@ -64,16 +64,87 @@ namespace tools {
             kz = -kz;
           }
           if(ky<0) {
-            ky = size-ky;
+            ky = size+ky;
           }
           if(kx<0) {
-            kx = size-kx;
+            kx = size+kx;
           }
-          size_t logical_index = kz + compressed_size*ky + compressed_size*size_t(size*kz);
+          size_t logical_index = kz + compressed_size*ky + compressed_size*size_t(size*kx);
           size_t index_re = 2 * logical_index;
           assert(index_re+1<field.getDataVector().size());
 
           return std::make_tuple(conjugate,index_re);
+        }
+
+        void mirrorFourierModesForFFTWRealTransform() {
+          // for conceptual ease, the FFTW real transformations contain some duplicate data
+          // see  http://www.fftw.org/fftw3_doc/Multi_002dDimensional-DFTs-of-Real-Data.html
+          //
+          // we always address positive fourier modes where there is an ambiguity, but it is
+          // not clear that FFTW does the same, so before a transform back to real space we need
+          // to fill in the missing modes.
+          size_t sourceLocation, destLocation;
+          bool conj;
+
+          // Copy missing data from kz=0, kx>0 to kz=0, kx<0
+          // Conceptually: field [kx,ky,0] = conj(field[-kx,-ky,0])
+          for(int ky=-size/2; ky<size/2+1; ++ky) {
+            for(int kx=1; kx<size/2+1; ++kx) {
+              std::tie(conj, sourceLocation) = getRealCoeffLocationAndConjugation(kx, ky, 0);
+              std::tie(conj, destLocation) = getRealCoeffLocationAndConjugation(-kx, -ky, 0);
+              field[destLocation] = field[sourceLocation];
+              field[destLocation+1] = -field[sourceLocation+1];
+            }
+          }
+          // Copy missing data from kz=0, ky>0, kx=0 to kz=0, ky<0, kx=0
+          // Conceptually: field[0,ky,0] = conj(field[0,-ky,0])
+          for(int ky=1; ky<size/2+1; ++ky) {
+            std::tie(conj, sourceLocation) = getRealCoeffLocationAndConjugation(0, ky, 0);
+            std::tie(conj, destLocation) = getRealCoeffLocationAndConjugation(0, -ky, 0);
+            field[destLocation] = field[sourceLocation];
+            field[destLocation+1] = -field[sourceLocation+1];
+          }
+        }
+
+        void padForFFTWRealTransform() {
+
+          // convert from our internal array format (which is just a standard column-major rep)
+          // to the FFTW real-packed version which has padding every grid_size
+          //
+          // see http://www.fftw.org/fftw3_doc/Multi_002dDimensional-DFTs-of-Real-Data.html
+          size_t source_range_end = grid.size3;
+          size_t padding_amount = compressed_size*2-grid.size;
+          size_t target_range_end = grid.size*grid.size*2*compressed_size-padding_amount;
+          auto & data = field.getDataVector();
+
+          while(source_range_end>grid.size) {
+            size_t target_range_start = target_range_end - grid.size;
+            size_t source_range_start = source_range_end - grid.size;
+            std::copy_backward(&data[source_range_start], &data[source_range_end], &data[target_range_end]);
+            target_range_end = target_range_start - padding_amount;
+            source_range_end = source_range_start;
+          }
+
+
+        }
+
+        void unpadAfterFFTWRealTransform() {
+          // reverse of padForFFTWRealTransform
+
+          size_t source_range_start = 0;
+          size_t target_range_start = 0;
+          size_t source_max = getRequiredDataSize();
+
+          size_t padding_amount = compressed_size*2-grid.size;
+          auto & data = field.getDataVector();
+
+          while(source_range_start<source_max) {
+            size_t source_range_end = source_range_start + grid.size;
+            std::copy(&data[source_range_start], &data[source_range_end], &data[target_range_start]);
+            source_range_start = source_range_end + padding_amount;
+            target_range_start+=grid.size;
+          }
+
         }
       public:
         FieldFourierManager(fields::Field<double, double> &field) : field(field), grid(field.getGrid()) {
@@ -122,30 +193,41 @@ namespace tools {
 
           initialise();
 
+          bool transformToFourier = !field.isFourier();
+
           fftw_plan plan;
           size_t i;
 
           int res = static_cast<int>(field.getGrid().size);
           double norm = pow(static_cast<double>(res), 1.5);
 
-          if (!field.isFourier())
-            plan = fftw_plan_dft_r2c_3d(res, res, res,
-                                    &fieldData[0],
-                                    reinterpret_cast<fftw_complex *>(&fieldData[0]),
-                                    FFTW_ESTIMATE);
 
-          else
+          if (transformToFourier) {
+            padForFFTWRealTransform();
+            plan = fftw_plan_dft_r2c_3d(res, res, res,
+                                        &fieldData[0],
+                                        reinterpret_cast<fftw_complex *>(&fieldData[0]),
+                                        FFTW_ESTIMATE);
+          } else {
+            mirrorFourierModesForFFTWRealTransform();
             plan = fftw_plan_dft_c2r_3d(res, res, res,
                                         reinterpret_cast<fftw_complex *>(&fieldData[0]),
                                         &fieldData[0],
                                         FFTW_ESTIMATE);
+          }
 
 
           fftw_execute(plan);
           fftw_destroy_plan(plan);
 
+          if(!transformToFourier) {
+            unpadAfterFFTWRealTransform();
+          }
+
           using tools::numerics::operator/=;
           fieldData/=norm;
+
+
 
           field.setFourier(!field.isFourier());
 
