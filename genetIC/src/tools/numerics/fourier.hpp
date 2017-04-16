@@ -34,14 +34,14 @@ namespace tools {
           throw std::runtime_error("Cannot initialize FFTW threads");
 #ifndef _OPENMP
         fftw_plan_with_nthreads(FFTW_THREADS);
-                cerr << "Note: " << FFTW_THREADS << " FFTW Threads were initialised" << endl;
+	std::cerr << "Note: " << FFTW_THREADS << " FFTW Threads were initialised" << std::endl;
 #else
         fftw_plan_with_nthreads(omp_get_max_threads());
         std::cerr << "Note: " << omp_get_max_threads() << " FFTW Threads (determined by OpenMP) were initialised"
                   << std::endl;
 #endif
 #else
-        cerr << "Note: FFTW Threads are not enabled" << endl;
+	std::cerr << "Note: FFTW Threads are not enabled" << std::endl;
 #endif
         fftwThreadsInitialised = true;
       }
