@@ -48,12 +48,14 @@ namespace fields {
     MultiLevelField(multilevelcontext::MultiLevelContextInformation<DataType> &multiLevelContext) : multiLevelContext(
       &multiLevelContext) {
       setupConnection();
+      isCovector = false;
     }
 
     MultiLevelField(multilevelcontext::MultiLevelContextInformation<DataType> &multiLevelContext,
                     std::vector<Field<DataType, T>> &&fieldsOnGrids) :
       multiLevelContext(&multiLevelContext), fieldsOnLevels(std::move(fieldsOnGrids)) {
       setupConnection();
+      isCovector = false;
     }
 
     virtual void updateMultiLevelContext() {
