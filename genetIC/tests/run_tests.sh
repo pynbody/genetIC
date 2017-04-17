@@ -24,7 +24,7 @@ function runtest {
       echo "The IC generator output follows"
       echo
       cat $1/IC_output.txt
-      exit
+      exit 1
   else
       echo
   fi
