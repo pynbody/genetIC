@@ -7,7 +7,9 @@ install:
 before_install:
  - sudo apt-get update -qq
  - sudo apt-get install libfftw3-dev
- - pip install numpy scipy pynbody
+ - pip install numpy
+ - pip install scipy
+ - pip install pynbody
 
 script:
  - cd tests
