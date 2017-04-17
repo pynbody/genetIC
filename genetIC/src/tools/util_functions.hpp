@@ -29,7 +29,7 @@ namespace tools {
     assert(q > 0);
     T ratio = p / q;
     size_t rounded_ratio = size_t(round(ratio));
-    assert(abs(T(rounded_ratio) - ratio) < tolerance);
+    assert(std::abs(T(rounded_ratio) - ratio) < tolerance);
     return rounded_ratio;
   }
 
@@ -37,7 +37,7 @@ namespace tools {
   int getRatioAndAssertInteger(T p, T q, T tolerance = 1e-8) {
     T ratio = p / q;
     int rounded_ratio = int(round(ratio));
-    assert(abs(T(rounded_ratio) - ratio) < tolerance);
+    assert(std::abs(T(rounded_ratio) - ratio) < tolerance);
     return rounded_ratio;
   }
 

@@ -52,7 +52,7 @@ endif
 ifeq ($(HOST), Snowd)
 	CPATH = /sw/include/
 	LPATH = /sw/lib/
-	CXX = /opt/local/bin/g++-mp-5 -lstdc++ -fopenmp -O3 -g -L/opt/local/lib/
+	CXX = /opt/local/bin/g++-mp-6 -lstdc++ -fopenmp -O3 -g -L/opt/local/lib/
 endif
 
 ifeq ($(HOST), Rhodo)
