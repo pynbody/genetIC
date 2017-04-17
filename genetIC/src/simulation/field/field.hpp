@@ -235,33 +235,68 @@ namespace fields {
       return fourierManager->getFourierCoefficient(kx, ky, kz);
     }
 
+    template<typename... Args>
+    auto generateNewFourierFields(Args&&... args) {
+      return fourierManager->generateNewFourierFields(args...);
+    }
+
+    template<typename... Args>
+    void forEachFourierCell(Args&&... args) {
+      /** Iterate (potentially in parallel) over each Fourier cell, potentially updating values.
+       *
+       * The passed function takes arguments (value, kx, ky, kz) where value is the Fourier coeff value
+       * at k-mode kx, ky, kz.
+       *
+       * If the function returns a value, the Fourier coeff in that cell is updated accordingly.
+       */
+      fourierManager->forEachFourierCell(args...);
+    }
+
+    template<typename... Args>
+    void forEachFourierCell(Args&&... args) const {
+      /** Iterate (potentially in parallel) over each Fourier cell, potentially updating values.
+       *
+       * The passed function takes arguments (value, kx, ky, kz) where value is the Fourier coeff value
+       * at k-mode kx, ky, kz.
+       *
+       * If the function returns a value, the Fourier coeff in that cell is updated accordingly.
+       */
+      fourierManager->forEachFourierCell(args...);
+    }
+
+    template<typename... Args>
+    void forEachFourierCellInt(Args&&... args) const {
+      /** Iterate (potentially in parallel) over each Fourier cell, potentially updating values.
+       *
+       * The passed function takes arguments (value, kx, ky, kz) where value is the Fourier coeff value
+       * at k-mode kx, ky, kz.
+       *
+       * If the function returns a value, the Fourier coeff in that cell is updated accordingly.
+       */
+      fourierManager->forEachFourierCellInt(args...);
+    }
+
+    template<typename... Args>
+    auto accumulateForEachFourierCell(Args&&... args) const {
+      /** Iterate (potentially in parallel) over each Fourier cell, potentially updating values.
+       *
+       * The passed function takes arguments (value, kx, ky, kz) where value is the Fourier coeff value
+       * at k-mode kx, ky, kz.
+       *
+       * If the function returns a value, the Fourier coeff in that cell is updated accordingly.
+       */
+      return fourierManager->accumulateForEachFourierCell(args...);
+    }
+
     void setFourierCoefficient(int kx, int ky, int kz, const ComplexType & value) {
       fourierManager->setFourierCoefficient(kx, ky, kz, value);
     }
 
     void applyFilter(const filters::Filter<CoordinateType> &filter) {
-      toFourier();
-      size_t size3 = pGrid->size3;
-      int size = static_cast<int>(pGrid->size);
-
-
-      CoordinateType kMin = getGrid().getFourierKmin();
-      for(int kx=0; kx<size/2+1; kx++) {
-        int ky_lower = -size/2+1;
-        if(kx==0) ky_lower = 0;
-        for(int ky=ky_lower; ky<size/2+1; ky++) {
-          int kz_lower = -size/2+1;
-          if(kx==0 && ky==0)
-            kz_lower = 0;
-
-          for(int kz=kz_lower; kz<size/2+1; kz++) {
-            auto coeff = getFourierCoefficient(kx, ky, kz);
-            CoordinateType k = kMin*sqrt(double(kx*kx+ky*ky+kz*kz));
-            coeff*=filter(k);
-            setFourierCoefficient(kx,ky,kz, coeff);
-          }
-        }
-      }
+      forEachFourierCell([&filter]( ComplexType current_value, CoordinateType kx, CoordinateType ky, CoordinateType kz) {
+        CoordinateType k = sqrt(double(kx*kx+ky*ky+kz*kz));
+        return current_value*filter(k);
+      });
     }
 
 

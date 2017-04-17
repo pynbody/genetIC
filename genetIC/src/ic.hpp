@@ -62,7 +62,7 @@ protected:
   constraints::MultiLevelConstraintGenerator<GridDataType> constraintGenerator;
   fields::RandomFieldGenerator<GridDataType> randomFieldGenerator;
 
-  cosmology::CAMB<T> spectrum;
+  cosmology::CAMB<GridDataType> spectrum;
 
   int supersample, subsample;               // DM supersampling to perform on zoom grid, and subsampling on base grid
 
@@ -263,7 +263,7 @@ public:
   }
 
   virtual void
-  addLevelToContext(const cosmology::CAMB<T> &spectrum, T size, size_t nside, const Coordinate<T> &offset = {0, 0, 0}) {
+  addLevelToContext(const cosmology::CAMB<GridDataType> &spectrum, T size, size_t nside, const Coordinate<T> &offset = {0, 0, 0}) {
     // This forwards to multiLevelContext but is required because it is overriden in DummyICGenerator,
     // which needs to ensure that grids are synchronised between two different contexts
     multiLevelContext.addLevel(spectrum, size, nside, offset);

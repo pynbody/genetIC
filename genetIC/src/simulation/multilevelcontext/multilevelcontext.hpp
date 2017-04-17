@@ -40,7 +40,7 @@ namespace multilevelcontext {
   class MultiLevelContextInformationBase : public tools::Signaling {
   private:
     std::vector<std::shared_ptr<grids::Grid<T>>> pGrid;
-    std::vector<std::vector<T>> C0s;
+    std::vector<std::shared_ptr<const fields::Field<DataType, T>>> C0s;
     std::vector<T> weights;
 
   protected:
@@ -79,7 +79,7 @@ namespace multilevelcontext {
 
 
     void
-    addLevel(const cosmology::CAMB<T> &spectrum, T size, size_t nside, const Coordinate<T> &offset = {0, 0, 0}) {
+    addLevel(const cosmology::CAMB<DataType> &spectrum, T size, size_t nside, const Coordinate<T> &offset = {0, 0, 0}) {
       if (!spectrum.isUsable())
         throw std::runtime_error("Cannot add a grid level until the power spectrum has been specified");
 
@@ -87,13 +87,13 @@ namespace multilevelcontext {
         simSize = size;
 
       auto grid = std::make_shared<grids::Grid<T>>(simSize, nside, size / nside, offset.x, offset.y, offset.z);
-      std::vector<T> C0 = spectrum.getPowerSpectrumForGrid(*grid);
+      auto C0 = spectrum.getPowerSpectrumForGrid(*grid);
       addLevel(C0, grid);
 
     }
 
-    void addLevel(std::vector<T> C0, std::shared_ptr<grids::Grid<T>> pG) {
-      C0s.push_back(std::move(C0));
+    void addLevel(std::shared_ptr<const fields::Field<DataType, T>> C0, std::shared_ptr<grids::Grid<T>> pG) {
+      C0s.push_back(C0);
       if (pGrid.size() == 0) {
         weights.push_back(1.0);
       } else {
@@ -138,15 +138,9 @@ namespace multilevelcontext {
       return weights[level];
     }
 
-    const std::vector<T> &getCovariance(size_t level) const {
-      return C0s[level];
+    const fields::Field<DataType> &getCovariance(size_t level) const {
+      return *C0s[level];
     }
-
-    vector<DataType> createEmptyFieldForLevel(size_t level) const {
-      vector<DataType> ar(pGrid[level]->size3);
-      return ar;
-    }
-
 
     auto generateMultilevelFromHighResField(fields::Field<DataType, T> &&data) {
       assert(&data.getGrid() == pGrid.back().get());
@@ -240,7 +234,7 @@ namespace multilevelcontext {
           while (pGrid[level]->dx * factor * 1.001 < pGrid[level - 1]->dx) {
             std::cerr << "Adding virtual grid with effective resolution " << neff / factor << std::endl;
             auto vGrid = std::make_shared<grids::SubSampleGrid<T>>(pGrid[level], factor);
-            newStack.addLevel(vector<T>(), vGrid);
+            newStack.addLevel(nullptr, vGrid);
             factor *= base_factor;
           }
         } else {
@@ -248,7 +242,7 @@ namespace multilevelcontext {
           for (size_t i = 0; i < extra_lores; ++i) {
             std::cerr << "Adding virtual grid with effective resolution " << neff / factor << std::endl;
             auto vGrid = std::make_shared<grids::SubSampleGrid<T>>(pGrid[level], factor);
-            newStack.addLevel(vector<T>(), vGrid);
+            newStack.addLevel(nullptr, vGrid);
             factor *= base_factor;
           }
         }
@@ -271,9 +265,9 @@ namespace multilevelcontext {
     using MultiLevelContextInformationBase<DataType, T>::nLevels;
 
   public:
-    DataType accumulateOverEachCellOfEachLevel(
-      std::function<bool(size_t)> newLevelCallback,
-      std::function<DataType(size_t, size_t, size_t)> getCellContribution) {
+    DataType accumulateOverEachModeOfEachLevel(
+        std::function<bool(size_t)> newLevelCallback,
+        std::function<DataType(size_t, size_t, size_t)> getCellContribution) {
 
       // real version only - see complex specialization below
 
@@ -311,34 +305,6 @@ namespace multilevelcontext {
 
   public:
 
-    std::complex<T> accumulateOverEachCellOfEachLevel(std::function<bool(size_t)> newLevelCallback,
-                                                      std::function<std::complex<T>(size_t, size_t,
-                                                                                    size_t)> getCellContribution) {
-
-
-      T res_real(0), res_imag(0);
-
-
-      for (size_t level = 0; level < nLevels; level++) {
-
-        if (!newLevelCallback(level))
-          continue;
-
-        size_t level_base = cumu_Ns[level];
-
-#pragma omp parallel for reduction(+:res_real, res_imag)
-        for (size_t i = 0; i < Ns[level]; i++) {
-          size_t i_all_levels = level_base + i;
-          DataType res = getCellContribution(level, i, i_all_levels);
-
-          // accumulate separately - OMP doesn't support complex number reduction :-(
-          res_real += std::real(res);
-          res_imag += std::imag(res);
-        }
-      }
-
-      return DataType(res_real, res_imag);
-    }
 
   };
 };

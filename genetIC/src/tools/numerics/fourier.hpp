@@ -23,6 +23,7 @@
 namespace tools {
   namespace numerics {
     namespace fourier {
+
       bool fftwThreadsInitialised = false;
 
       void initialise() {
@@ -46,16 +47,195 @@ namespace tools {
         fftwThreadsInitialised = true;
       }
 
+      template<typename DataType>
+      class FieldFourierManagerBase {
+      protected:
+        using CoordinateType = tools::datatypes::strip_complex<DataType>;
+        using ComplexType = tools::datatypes::ensure_complex<DataType>;
+        fields::Field<DataType, CoordinateType> &field;
+        const grids::Grid<CoordinateType> &grid;
+        int size;
+        int nyquistIfEvenElseZero;
+        int largestNegativeMode;
+
+
+        FieldFourierManagerBase(fields::Field<DataType, CoordinateType> &field) : field(field), grid(field.getGrid()) {
+          size = static_cast<int>(grid.size);
+          nyquistIfEvenElseZero = size/2;
+          largestNegativeMode = -size/2;
+
+          if(size%2==0)
+            largestNegativeMode+=1;
+          else
+            nyquistIfEvenElseZero = 0;
+        }
+
+        ComplexType iterateFourierCellsWithAccumulation(const std::function<ComplexType(int, int, int)> &callback) const {
+          field.toFourier();
+
+          CoordinateType global_result_real(0), global_result_imag(0);
+
+#pragma omp parallel for reduction(+:global_result_real,global_result_imag)
+          for(int kx=0; kx<size/2+1; kx++) {
+            int ky_lower = largestNegativeMode;
+            int cellWeightX=2;
+            if(kx==0 || kx==nyquistIfEvenElseZero) {
+              ky_lower = 0;
+              cellWeightX=1;
+            }
+
+            for(int ky=ky_lower; ky<size/2+1; ky++) {
+              int cellWeightY = cellWeightX;
+              int kz_lower = largestNegativeMode;
+
+              if((kx==0 || kx==nyquistIfEvenElseZero) && (ky==0 || ky==nyquistIfEvenElseZero)) {
+                kz_lower = 0;
+              }
+
+              if(ky_lower==0 && ky!=0 && ky!=nyquistIfEvenElseZero) {
+                cellWeightY*=2;
+              }
+
+              for(int kz=kz_lower; kz<size/2+1; kz++) {
+                int cellWeightZ = cellWeightY;
+                if(kz_lower==0 && kz!=0 && kz!=nyquistIfEvenElseZero) {
+                  cellWeightZ*=2;
+                }
+                ComplexType result = callback(kx,ky,kz);
+                global_result_real+=result.real()*cellWeightZ;
+                global_result_imag+=result.imag()*cellWeightZ;
+              }
+            }
+          }
+
+          return ComplexType(global_result_real,global_result_imag);
+
+        }
+
+        void iterateFourierCells(const std::function<void(int, int, int)> &callback) const {
+          // TODO: this is good because we only need to implement the loop over fourier cells once,
+          // but bad because functions that are not actually accumulating will waste time accumulating zeros
+          auto callback_wrapper = [&callback](int x, int y, int z) -> ComplexType {
+            callback(x,y,z);
+            return 0;
+          };
+          iterateFourierCellsWithAccumulation(callback_wrapper);
+        }
+
+
+
+
+      public:
+        void forEachFourierCell(const std::function<ComplexType(ComplexType, CoordinateType, CoordinateType, CoordinateType)> &fn) {
+          /** Iterate (potentially in parallel) over each Fourier cell, updating the corresponding value according to the
+           * passed function return value.
+           *
+           * The passed function takes arguments (value, kx, ky, kz) where value is the Fourier coeff value
+           * at k-mode kx, ky, kz. It returns the new value.
+           */
+          CoordinateType kMin = grid.getFourierKmin();
+          iterateFourierCells([&fn, this, kMin](int kx, int ky, int kz) {
+            ComplexType value = getFourierCoefficient(kx, ky, kz);
+            value = fn(value, kx*kMin, ky*kMin, kz*kMin);
+            setFourierCoefficient(kx, ky, kz, value);
+          });
+        }
+
+
+        void forEachFourierCell(const std::function<void(ComplexType, CoordinateType, CoordinateType, CoordinateType)> &fn) const {
+          /** Iterate (potentially in parallel) over each Fourier cell.
+           *
+           * The passed function takes arguments (value, kx, ky, kz) where value is the Fourier coeff value
+           * at k-mode kx, ky, kz.
+           */
+          CoordinateType kMin = grid.getFourierKmin();
+          iterateFourierCells([&fn, this, kMin](int kx, int ky, int kz) {
+            ComplexType value = getFourierCoefficient(kx, ky, kz);
+            fn(value, kx*kMin, ky*kMin, kz*kMin);
+          });
+        }
+
+        void forEachFourierCellInt(const std::function<void(ComplexType, int, int, int)> &fn) const {
+          /** Iterate (potentially in parallel) over each Fourier cell.
+           *
+           * The passed function takes arguments (value, kx, ky, kz) where value is the Fourier coeff value
+           * at k-mode corresponding to the integer wavenumbers kx*grid.getFourierKmin() etc
+           */
+          CoordinateType kMin = grid.getFourierKmin();
+          iterateFourierCells([&fn, this, kMin](int kx, int ky, int kz) {
+            ComplexType value = getFourierCoefficient(kx, ky, kz);
+            fn(value, kx, ky, kz);
+          });
+        }
+
+        void forEachFourierCellInt(const std::function<ComplexType(ComplexType, int, int, int)> &fn)  {
+          /** Iterate over, and update the value in, each Fourier cell. Possibly executed in parallel.
+           *
+           * The passed function takes arguments (value, kx, ky, kz) where value is the Fourier coeff value
+           * at k-mode corresponding to the integer wavenumbers kx*grid.getFourierKmin() etc.
+           * It must return the updated value.
+           */
+          CoordinateType kMin = grid.getFourierKmin();
+          iterateFourierCells([&fn, this, kMin](int kx, int ky, int kz) {
+            ComplexType value = getFourierCoefficient(kx, ky, kz);
+            auto retval = fn(value, kx, ky, kz);
+            setFourierCoefficient(kx, ky, kz, retval);
+          });
+        }
+
+        ComplexType accumulateForEachFourierCell(const std::function<ComplexType(ComplexType, int, int, int)> &callback) const {
+          /** Iterate (potentially in parallel) and accumulate a complex number over each Fourier cell.
+           *
+           * The passed function takes arguments (value, kx, ky, kz). The return value is accumulated.
+           */
+          field.toFourier();
+          auto result = iterateFourierCellsWithAccumulation([&callback, this](int kx, int ky, int kz) -> ComplexType {
+            ComplexType value = getFourierCoefficient(kx, ky, kz);
+            return callback(value, kx, ky, kz);
+          });
+
+          return result;
+
+        }
+
+
+        auto generateNewFourierFields(
+            const std::function<std::tuple<ComplexType, ComplexType, ComplexType>(ComplexType, CoordinateType, CoordinateType, CoordinateType)> & fn ) {
+          using Field = fields::Field<DataType, CoordinateType>;
+          // TODO: ought to be possible to generalise away from ugly 3D-specific case using template programming
+          auto ret1 = std::make_shared<Field>(grid);
+          auto ret2 = std::make_shared<Field>(grid);
+          auto ret3 = std::make_shared<Field>(grid);
+          CoordinateType kMin = grid.getFourierKmin();
+          iterateFourierCells([&fn, this, kMin, ret1, ret2, ret3](int kx, int ky, int kz) {
+            ComplexType v1, v2, v3;
+            ComplexType value = getFourierCoefficient(kx,ky,kz);
+            std::tie(v1, v2, v3) = fn(value, kx * kMin, ky * kMin, kz * kMin);
+            ret1->setFourierCoefficient(kx, ky, kz, v1);
+            ret2->setFourierCoefficient(kx, ky, kz, v2);
+            ret3->setFourierCoefficient(kx, ky, kz, v3);
+          });
+
+          return std::make_tuple(ret1, ret2, ret3);
+
+        }
+
+
+
+      public:
+
+        virtual void setFourierCoefficient(int kx, int ky, int kz, const ComplexType &val)=0;
+        virtual ComplexType getFourierCoefficient(int kx, int ky, int kz) const=0;
+      };
+
       template<>
-      class FieldFourierManager<double> {
+      class FieldFourierManager<double> : public FieldFourierManagerBase<double> {
       protected:
         using T=double;
-        fields::Field<double, double> &field;
-        const grids::Grid<double> &grid;
         int size;
         size_t compressed_size;
 
-        auto getRealCoeffLocationAndConjugation(int kx, int ky, int kz) {
+        auto getRealCoeffLocationAndConjugation(int kx, int ky, int kz) const {
           bool conjugate = false;
           if(kz<0) {
             conjugate = true;
@@ -71,7 +251,7 @@ namespace tools {
           }
           size_t logical_index = kz + compressed_size*ky + compressed_size*size_t(size*kx);
           size_t index_re = 2 * logical_index;
-          assert(index_re+1<field.getDataVector().size());
+          assert(index_re+1 < FieldFourierManagerBase::field.getDataVector().size());
 
           return std::make_tuple(conjugate,index_re);
         }
@@ -92,8 +272,8 @@ namespace tools {
             for(int kx=1; kx<size/2+1; ++kx) {
               std::tie(conj, sourceLocation) = getRealCoeffLocationAndConjugation(kx, ky, 0);
               std::tie(conj, destLocation) = getRealCoeffLocationAndConjugation(-kx, -ky, 0);
-              field[destLocation] = field[sourceLocation];
-              field[destLocation+1] = -field[sourceLocation+1];
+              FieldFourierManagerBase::field[destLocation] = FieldFourierManagerBase::field[sourceLocation];
+              FieldFourierManagerBase::field[destLocation + 1] = -FieldFourierManagerBase::field[sourceLocation + 1];
             }
           }
           // Copy missing data from kz=0, ky>0, kx=0 to kz=0, ky<0, kx=0
@@ -101,8 +281,8 @@ namespace tools {
           for(int ky=1; ky<size/2+1; ++ky) {
             std::tie(conj, sourceLocation) = getRealCoeffLocationAndConjugation(0, ky, 0);
             std::tie(conj, destLocation) = getRealCoeffLocationAndConjugation(0, -ky, 0);
-            field[destLocation] = field[sourceLocation];
-            field[destLocation+1] = -field[sourceLocation+1];
+            FieldFourierManagerBase::field[destLocation] = FieldFourierManagerBase::field[sourceLocation];
+            FieldFourierManagerBase::field[destLocation + 1] = -FieldFourierManagerBase::field[sourceLocation + 1];
           }
         }
 
@@ -112,14 +292,14 @@ namespace tools {
           // to the FFTW real-packed version which has padding every grid_size
           //
           // see http://www.fftw.org/fftw3_doc/Multi_002dDimensional-DFTs-of-Real-Data.html
-          size_t source_range_end = grid.size3;
-          size_t padding_amount = compressed_size*2-grid.size;
-          size_t target_range_end = grid.size*grid.size*2*compressed_size-padding_amount;
-          auto & data = field.getDataVector();
+          size_t source_range_end = FieldFourierManagerBase::grid.size3;
+          size_t padding_amount = compressed_size*2 - FieldFourierManagerBase::grid.size;
+          size_t target_range_end = FieldFourierManagerBase::grid.size * FieldFourierManagerBase::grid.size * 2 * compressed_size - padding_amount;
+          auto & data = FieldFourierManagerBase::field.getDataVector();
 
-          while(source_range_end>grid.size) {
-            size_t target_range_start = target_range_end - grid.size;
-            size_t source_range_start = source_range_end - grid.size;
+          while(source_range_end > FieldFourierManagerBase::grid.size) {
+            size_t target_range_start = target_range_end - FieldFourierManagerBase::grid.size;
+            size_t source_range_start = source_range_end - FieldFourierManagerBase::grid.size;
             std::copy_backward(&data[source_range_start], &data[source_range_end], &data[target_range_end]);
             target_range_end = target_range_start - padding_amount;
             source_range_end = source_range_start;
@@ -135,24 +315,24 @@ namespace tools {
           size_t target_range_start = 0;
           size_t source_max = getRequiredDataSize();
 
-          size_t padding_amount = compressed_size*2-grid.size;
-          auto & data = field.getDataVector();
+          size_t padding_amount = compressed_size*2 - FieldFourierManagerBase::grid.size;
+          auto & data = FieldFourierManagerBase::field.getDataVector();
 
           while(source_range_start<source_max) {
-            size_t source_range_end = source_range_start + grid.size;
+            size_t source_range_end = source_range_start + FieldFourierManagerBase::grid.size;
             std::copy(&data[source_range_start], &data[source_range_end], &data[target_range_start]);
             source_range_start = source_range_end + padding_amount;
-            target_range_start+=grid.size;
+            target_range_start+= FieldFourierManagerBase::grid.size;
           }
 
         }
       public:
-        FieldFourierManager(fields::Field<double, double> &field) : field(field), grid(field.getGrid()) {
-          size = static_cast<int>(grid.size);
-          compressed_size = grid.size/2+1;
+        FieldFourierManager(fields::Field<double, double> &field) : FieldFourierManagerBase(field) {
+          size = static_cast<int>(FieldFourierManagerBase::grid.size);
+          compressed_size = FieldFourierManagerBase::grid.size / 2 + 1;
         }
 
-        void setFourierCoefficient(int kx, int ky, int kz, const std::complex<T> &val)  {
+        void setFourierCoefficient(int kx, int ky, int kz, const std::complex<T> &val) override {
           bool conj;
           size_t index_re;
 
@@ -163,19 +343,19 @@ namespace tools {
 
           if(conj) imag=-imag;
 
-          field[index_re] = re;
-          field[index_re+1] = imag;
+          FieldFourierManagerBase::field[index_re] = re;
+          FieldFourierManagerBase::field[index_re + 1] = imag;
 
         }
 
-        std::complex<T> getFourierCoefficient(int kx, int ky, int kz)  {
+        std::complex<T> getFourierCoefficient(int kx, int ky, int kz) const override {
           bool conj;
           size_t index_re;
 
           std::tie(conj, index_re) = getRealCoeffLocationAndConjugation(kx, ky, kz);
 
-          T re = field[index_re];
-          T im = field[index_re+1];
+          T re = FieldFourierManagerBase::field[index_re];
+          T im = FieldFourierManagerBase::field[index_re + 1];
           if(conj)
             im = -im;
           return std::complex<T>(re,im);
@@ -185,20 +365,21 @@ namespace tools {
         size_t getRequiredDataSize()  {
           // for FFTW3 real<->complex FFTs
           // see http://www.fftw.org/fftw3_doc/Real_002ddata-DFT-Array-Format.html#Real_002ddata-DFT-Array-Format
-          return 2*field.getGrid().size2*(field.getGrid().size/2+1);
+          return 2 * FieldFourierManagerBase::field.getGrid().size2 * (
+              FieldFourierManagerBase::field.getGrid().size / 2 + 1);
         }
 
         void performTransform()  {
-          auto &fieldData = field.getDataVector();
+          auto &fieldData = FieldFourierManagerBase::field.getDataVector();
 
           initialise();
 
-          bool transformToFourier = !field.isFourier();
+          bool transformToFourier = !FieldFourierManagerBase::field.isFourier();
 
           fftw_plan plan;
           size_t i;
 
-          int res = static_cast<int>(field.getGrid().size);
+          int res = static_cast<int>(FieldFourierManagerBase::field.getGrid().size);
           double norm = pow(static_cast<double>(res), 1.5);
 
 
@@ -229,20 +410,19 @@ namespace tools {
 
 
 
-          field.setFourier(!field.isFourier());
+          FieldFourierManagerBase::field.setFourier(!FieldFourierManagerBase::field.isFourier());
 
         }
+
+
 
       };
 
       template<>
-      class FieldFourierManager<std::complex<double>>  {
-      protected:
+      class FieldFourierManager<std::complex<double>> : public FieldFourierManagerBase<std::complex<double>> {
         using T=double;
-        fields::Field<std::complex<T>, T> &field;
-        const grids::Grid<T> &grid;
       public:
-        FieldFourierManager(fields::Field<std::complex<T>, T> &field) : field(field), grid(field.getGrid()) {
+        FieldFourierManager(fields::Field<std::complex<T>, T> &field) : FieldFourierManagerBase(field) {
 
         }
 
@@ -256,7 +436,7 @@ namespace tools {
           field[id_negk] = std::conj(val);
         }
 
-        std::complex<T> getFourierCoefficient(int kx, int ky, int kz)  {
+        std::complex<T> getFourierCoefficient(int kx, int ky, int kz) const  {
           return field[grid.getCellIndex(Coordinate<int>(kx, ky, kz))];
         }
 
@@ -318,6 +498,7 @@ namespace tools {
 
 
 
+
       template<typename T>
       fields::Field<tools::datatypes::ensure_complex<T>, tools::datatypes::strip_complex<T>>
       getComplexFourierField(const fields::Field<T, tools::datatypes::strip_complex<T>> &field) {
@@ -326,37 +507,13 @@ namespace tools {
         const grids::Grid<underlying_T> &g = field.getGrid();
         fields::Field<complex_T, underlying_T> out(g);
 
-        std::cerr << "field-size=" << out.getDataVector().size() << std::endl;
+        field.forEachFourierCellInt([&out](tools::datatypes::ensure_complex<T> value,int kx, int ky, int kz) {
+          out.setFourierCoefficient(kx,ky,kz,value);
+        });
 
-        for (size_t i = 0; i < g.size3; ++i) {
-          int kx, ky, kz;
-          std::tie(kx, ky, kz) = g.getFourierCellCoordinate(i);
-          out[i] = field.getFourierCoefficient(kx,ky,kz);
-        }
         return out;
       };
 
-
-
-      template<typename T>
-      void applyTransformationInFourierBasis(const fields::Field<std::complex<T>, T> &sourceField,
-                                             std::function<std::tuple<std::complex<T>, std::complex<T>, std::complex<T>>(
-                                               std::complex<T>, int, int, int)> transformation,
-                                             fields::Field<std::complex<T>, T> &destField1,
-                                             fields::Field<std::complex<T>, T> &destField2,
-                                             fields::Field<std::complex<T>, T> &destField3) {
-
-        const grids::Grid<T> &g = destField1.getGrid();
-        assert (&g == &(sourceField.getGrid()));
-        assert (&g == &(destField2.getGrid()));
-        assert (&g == &(destField3.getGrid()));
-
-        for (size_t i = 0; i < g.size3; ++i) {
-          int kx, ky, kz;
-          std::tie(kx, ky, kz) = g.getFourierCellCoordinate(i);
-          std::tie(destField1[i], destField2[i], destField3[i]) = transformation(sourceField[i], kx, ky, kz);
-        }
-      }
 
 
 

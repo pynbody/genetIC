@@ -14,6 +14,7 @@ namespace fields {
 
   protected:
     using T = tools::datatypes::strip_complex<DataType>;
+    using ComplexType = tools::datatypes::ensure_complex<DataType>;
     multilevelcontext::MultiLevelContextInformation<DataType> *multiLevelContext;
     std::shared_ptr<filters::FilterFamily<T>> pFilters;   // filters to be applied when used as a vector
     tools::Signaling::connection_t connection;
@@ -204,7 +205,7 @@ namespace fields {
       multiLevelContext->forEachCellOfEachLevel(newLevel, newCell);
     }
 
-    DataType innerProduct(const MultiLevelField<DataType> &other) const {
+    ComplexType innerProduct(const MultiLevelField<DataType> &other) const {
 
       assert(isCompatible(other));
       if (!isCovector)
@@ -227,32 +228,33 @@ namespace fields {
       T weight;
       const filters::Filter<T> *pFiltOther;
       const grids::Grid<T> *pCurrentGrid;
-      const Field<DataType> *pFieldThis;
+      const Field<DataType> *pFieldThis, *pFieldOther;
       const std::vector<DataType> *pFieldDataThis;
-      const std::vector<DataType> *pFieldDataOther;
-      const std::vector<T> *pCov;
+      const Field<DataType> *pCov;
 
-      auto newLevelCallback = [&](size_t level) {
+      ComplexType result(0,0);
+
+      for(size_t level=0; level<getNumLevels(); ++level) {
         weight = multiLevelContext->getWeightForLevel(level);
         pCurrentGrid = &(multiLevelContext->getGridForLevel(level));
         pCov = &(multiLevelContext->getCovariance(level));
         pFiltOther = &(other.getFilterForLevel(level));
         pFieldThis = &(this->getFieldForLevel(level));
         pFieldDataThis = &(this->getFieldForLevel(level).getDataVector());
-        pFieldDataOther = &(other.getFieldForLevel(level).getDataVector());
-        return pFieldDataOther->size() > 0 && pFieldDataThis->size() > 0;
-      };
-
-      auto getCellContribution = [&](size_t, size_t i, size_t) -> tools::datatypes::strip_complex<DataType> {
-        T k_value = pCurrentGrid->getFourierCellAbsK(i);
-        T inner_weight = weight * (*pFiltOther)(k_value);
-        if (covariance_weighted) inner_weight *= ((*pCov)[i]) * weight;
-        inner_weight *= tools::numerics::fourier::getFourierCellWeight(*pFieldThis, i);
-        return inner_weight * std::real(std::conj((*pFieldDataThis)[i]) * (*pFieldDataOther)[i]);
-      };
-
-      return multiLevelContext->accumulateOverEachCellOfEachLevel(newLevelCallback, getCellContribution);
-
+        pFieldOther = &(other.getFieldForLevel(level));
+        T kMin = pCurrentGrid->getFourierKmin();
+        if(pFieldOther!=nullptr && pFieldDataThis->size() > 0) {
+          result+=pFieldThis->accumulateForEachFourierCell([&](tools::datatypes::ensure_complex<DataType> thisFieldVal,
+                                                int kx, int ky, int kz) {
+            auto otherFieldVal = pFieldOther->getFourierCoefficient(kx,ky,kz);
+            T k_value = kMin*sqrt(T(kx)*T(kx)+T(ky)*T(ky)+T(kz)*T(kz));
+            T inner_weight = weight * (*pFiltOther)(k_value);
+            if (covariance_weighted) inner_weight *= (pCov->getFourierCoefficient(kx,ky,kz).real()) * weight;
+            return inner_weight * std::real(std::conj(thisFieldVal)*otherFieldVal);
+          });
+        }
+      }
+      return result;
     }
 
     void applyFilters() {
@@ -324,60 +326,49 @@ namespace fields {
 
       T chi2 = 0;
 
-      for (size_t i = 0; i < multiLevelContext->getNumLevels(); ++i) {
-
-        auto &field = getFieldForLevel(i).getDataVector();
-        const auto &spectrum = multiLevelContext->getCovariance(i);
-        T norm = T(field.size());
-
-        for (size_t j = 0; j < field.size(); ++j) {
-          if (spectrum[j] != 0)
-            chi2 += pow(abs(field[j]), 2.0) / (spectrum[j] * norm);
-        }
-      }
 
       return chi2;
 
     }
 
   private:
-    void applySpectrumOneGrid(std::vector<DataType> &field,
-                              const std::vector<T> &spectrum,
+    void applySpectrumOneGrid(Field<DataType> &field,
+                              const Field<DataType> &spectrum,
                               const grids::Grid<T> &grid) {
 
-#pragma omp parallel for
-      for (size_t i = 0; i < grid.size3; i++) {
-        field[i] *= sqrt(spectrum[i]);
-      }
+      field.forEachFourierCellInt([&grid, &field, &spectrum]
+                                   (complex<T> existingValue, int kx, int ky, int kz) {
+        T sqrt_spec = sqrt(spectrum.getFourierCoefficient(kx,ky,kz).real());
+        return existingValue*sqrt_spec;
+      });
     }
 
-    void multiplyByCovarianceOneGrid(std::vector<DataType> &field,
-                                     const std::vector<T> &spectrum,
+    void multiplyByCovarianceOneGrid(Field<DataType> &field,
+                                     const Field<DataType> &spectrum,
                                      const grids::Grid<T> &grid,
                                      T weight) {
 
-#pragma omp parallel for
-      for (size_t i = 0; i < grid.size3; i++) {
-        field[i] *= weight * spectrum[i];
-      }
+      field.forEachFourierCellInt([weight, &grid, &field, &spectrum]
+                                   (complex<T> existingValue, int kx, int ky, int kz) {
+        T spec = spectrum.getFourierCoefficient(kx,ky,kz).real() * weight;
+        return existingValue*spec;
+      });
     }
 
     void enforceSpectrumOneGrid(Field<DataType> &field,
-                                const std::vector<T> &spectrum,
+                                const Field<DataType> &spectrum,
                                 const grids::Grid<T> &grid) {
       T white_noise_norm = sqrt(T(grid.size3));
 
-// #pragma omp parallel for
-      for (size_t i = 0; i < grid.size3; i++) {
-        int kx, ky, kz;
-        std::tie(kx, ky, kz) = grid.getFourierCellCoordinate(i);
-        complex<T> existingValue = field.getFourierCoefficient(kx,ky,kz);
+      field.forEachFourierCell([white_noise_norm, &grid, &field, &spectrum]
+                                   (complex<T> existingValue, int kx, int ky, int kz) {
         T absExistingValue = abs(existingValue);
-        T sqrt_spec = sqrt(spectrum[i]) * white_noise_norm;
+        T sqrt_spec = sqrt(spectrum.getFourierCoefficient(kx,ky,kz).real()) * white_noise_norm;
         T a = sqrt_spec * existingValue.real() / absExistingValue;
         T b = sqrt_spec * existingValue.imag() / absExistingValue;
-        field.setFourierCoefficient(kx, ky, kz, complex<T>(a,b));
-      }
+        return complex<T>(a,b);
+      });
+
     }
 
 

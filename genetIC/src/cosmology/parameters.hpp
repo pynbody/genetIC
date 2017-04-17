@@ -40,7 +40,7 @@ namespace cosmology {
     */
   template<typename DataType, typename FloatType=tools::datatypes::strip_complex<DataType>>
   void dumpPowerSpectrum(const fields::Field<DataType> &field,
-                         const std::vector<FloatType> &P0, const std::string &filename) {
+                         const fields::Field<DataType> &P0, const std::string &filename) {
 
 
     int res = field.getGrid().size;
@@ -65,24 +65,14 @@ namespace cosmology {
     }
 
 
-    for (ix = 0; ix < res; ix++)
-      for (iy = 0; iy < res; iy++)
-        for (iz = 0; iz < res; iz++) {
-          idx = (ix * res + iy) * (res) + iz;
-
-          // determine mode modulus
-
-          auto fieldValue = field[idx];
+    for (ix = -res/2; ix < res/2+1; ix++)
+      for (iy = -res/2; iy < res/2+1; iy++)
+        for (iz = -res/2; iz < res/2+1; iz++) {
+          auto fieldValue = field.getFourierCoefficient(ix, iy, iz);
           FloatType vabs = std::abs(fieldValue);
-          vabs *= vabs * tools::numerics::fourier::getFourierCellWeight(field, idx);
+          vabs *= vabs * tools::numerics::fourier::getFourierCellWeight(field, 0);
 
-          int iix, iiy, iiz;
-
-          if (ix > res / 2) iix = ix - res; else iix = ix;
-          if (iy > res / 2) iiy = iy - res; else iiy = iy;
-          if (iz > res / 2) iiz = iz - res; else iiz = iz;
-
-          kfft = sqrt(iix * iix + iiy * iiy + iiz * iiz);
+          kfft = sqrt(ix * ix + iy * iy + iz * iz);
           FloatType k = kfft * kw;
 
           /*
@@ -100,7 +90,7 @@ namespace cosmology {
           if (k >= kmin && k < kmax) {
 
             Gx[idx2] += vabs / (FloatType) (res * res * res); //because FFT is now normalised with 1/sqrt(Ntot)
-            Px[idx2] += P0[idx];
+            Px[idx2] += P0.getFourierCoefficient(ix,iy,iz).real();
             kbin[idx2] += k;
             inBin[idx2]++;
 

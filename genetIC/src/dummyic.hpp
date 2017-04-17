@@ -15,7 +15,7 @@ public:
 
   }
 
-  void addLevelToContext(const cosmology::CAMB<T> & /*&spectrum*/, T gridSize, size_t nside,
+  void addLevelToContext(const cosmology::CAMB<GridDataType> & /*&spectrum*/, T gridSize, size_t nside,
                          const Coordinate<T> &offset = {0, 0, 0}) override {
     size_t newLevel = this->multiLevelContext.getNumLevels();
     if (pUnderlying->multiLevelContext.getNumLevels() <= newLevel)
@@ -31,7 +31,7 @@ public:
     if (underlyingGrid.offsetLower != offset)
       throw std::runtime_error("Trying to match particles between incompatible simulation setups (wrong grid origin)");
 
-    this->multiLevelContext.addLevel(pUnderlying->multiLevelContext.getCovariance(newLevel),
+    this->multiLevelContext.addLevel(pUnderlying->multiLevelContext.getCovariance(newLevel).shared_from_this(),
                                      underlyingGrid.shared_from_this());
   }
 

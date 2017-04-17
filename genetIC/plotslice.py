@@ -116,7 +116,7 @@ def plotslice_pynbody(f, slice=0.0,vmin=-0.15,vmax=0.15):
 
     return f
 
-def plot_ps(f):
+def plot_ps(f, with_theory=False):
     for level in range(3):
         search = f+"/*_%d.ps"%level
         ps_fname = glob.glob(search)
@@ -125,4 +125,7 @@ def plot_ps(f):
         print search,"->",ps_fname
         k, Pk = np.loadtxt(ps_fname[0],unpack=True,usecols=(0,3))
         p.plot(k,Pk)
+        if with_theory:
+            k, Pk = np.loadtxt(ps_fname[0],unpack=True,usecols=(0,2))
+            p.plot(k,Pk,":")
     p.loglog()
