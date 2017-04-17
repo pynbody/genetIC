@@ -84,10 +84,24 @@ namespace fields {
       FloatType b = norm * gsl_ran_gaussian_ziggurat(randomState, 1.);
 
       if (reverseRandomDrawOrder)
-        tools::numerics::fourier::setFourierCoefficient(field, k1, k2, k3, b, a);
+        field.setFourierCoefficient(k1, k2, k3, tools::datatypes::ensure_complex<DataType>(b,a));
       else
-        tools::numerics::fourier::setFourierCoefficient(field, k1, k2, k3, a, b);
+        field.setFourierCoefficient(k1, k2, k3, tools::datatypes::ensure_complex<DataType>(a,b));
 
+      int nyquist = int(field.getGrid().size)/2;
+
+      if(k1==0 || k1==nyquist || k2==0 || k2==nyquist || k3==0 || k3==nyquist) {
+        // Due to poor original implementation of drawRandomForSpecifiedGridFourier (which we're now stuck with
+        // for historical compatibility), we need to ensure the _last_ mode written to a field (which may, due to
+        // symmetries in the Fourier coeffs at 0 or nyquist modes, overwrite a previous draw) persists.
+        //
+        // The above condition probably catches too many cases, but if there is a risk, let's also explicitly write
+        // the related coeff.
+        if (reverseRandomDrawOrder)
+          field.setFourierCoefficient(-k1, -k2, -k3, tools::datatypes::ensure_complex<DataType>(b,-a));
+        else
+          field.setFourierCoefficient(-k1, -k2, -k3, tools::datatypes::ensure_complex<DataType>(a,-b));
+      }
     }
 
 

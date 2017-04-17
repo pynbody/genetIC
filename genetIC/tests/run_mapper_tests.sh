@@ -25,7 +25,7 @@ do
         echo "The IC generator output follows"
         echo
         cat $i/IC_output.txt
-        exit
+        exit 1
     fi
 done
 

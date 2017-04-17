@@ -34,9 +34,9 @@ namespace particle {
 
     // The grid offsets after Zeldovich approximation is applied
     // (nullptr before that):
-    std::shared_ptr<TRealField> pOff_x;
-    std::shared_ptr<TRealField> pOff_y;
-    std::shared_ptr<TRealField> pOff_z;
+    std::shared_ptr<TField> pOff_x;
+    std::shared_ptr<TField> pOff_y;
+    std::shared_ptr<TField> pOff_z;
 
 
     void calculateVelocityToOffsetRatio() {
@@ -68,52 +68,40 @@ namespace particle {
       // get a reference to the density field in fourier space
       linearOverdensityField.toFourier();
 
-      // copy three times to start assembling the vx, vy, vz fields
-      auto offsetX = std::make_shared<TField>(const_cast<grids::Grid<T> &>(grid));
-      auto offsetY = std::make_shared<TField>(const_cast<grids::Grid<T> &>(grid));
-      auto offsetZ = std::make_shared<TField>(const_cast<grids::Grid<T> &>(grid));
 
-      const T kw = 2. * M_PI / grid.boxsize;
-      const int nyquist = tools::numerics::fourier::getNyquistModeThatMustBeReal(grid);
+      const T nyquist = tools::numerics::fourier::getNyquistModeThatMustBeReal(grid)*grid.getFourierKmin();
 
-      tools::numerics::fourier::applyTransformationInFourierBasis<T>(linearOverdensityField,
-                                                                     [kw, nyquist](complex<T> inputVal, int iix,
-                                                                                   int iiy,
-                                                                                   int iiz) -> std::tuple<complex<T>, complex<T>, complex<T>> {
-                                                                       complex<T> result_x;
-                                                                       T kfft = (iix * iix + iiy * iiy + iiz * iiz);
-                                                                       result_x.real(-inputVal.imag() / (kfft * kw));
-                                                                       result_x.imag(inputVal.real() / (kfft * kw));
-                                                                       complex<T> result_y(result_x);
-                                                                       complex<T> result_z(result_x);
+      auto zeldovichOffsetFields = linearOverdensityField.generateNewFourierFields(
+          [nyquist](complex<T> inputVal, T kx, T ky, T kz) -> std::tuple<complex<T>, complex<T>, complex<T>>
+          {
+        complex<T> result_x;
+        T kfft = kx*kx+ky*ky+kz*kz;
 
-                                                                       result_x *= iix;
-                                                                       result_y *= iiy;
-                                                                       result_z *= iiz;
+        result_x.real(-inputVal.imag() / (kfft ));
+        result_x.imag(inputVal.real() / (kfft ));
+        complex<T> result_y(result_x);
+        complex<T> result_z(result_x);
 
-                                                                       // derivative at nyquist frequency is not defined; set it to zero
-                                                                       // potential is also undefined at (0,0,0); set that mode to zero too
-                                                                       if (abs(iix) == nyquist || kfft == 0)
-                                                                         result_x = 0;
-                                                                       if (abs(iiy) == nyquist || kfft == 0)
-                                                                         result_y = 0;
-                                                                       if (abs(iiz) == nyquist || kfft == 0)
-                                                                         result_z = 0;
+        result_x *= kx;
+        result_y *= ky;
+        result_z *= kz;
 
-                                                                       return std::make_tuple(result_x, result_y,
-                                                                                              result_z);
-                                                                     },
-                                                                     *offsetX, *offsetY, *offsetZ);
+        // derivative at nyquist frequency is not defined; set it to zero
+        // potential is also undefined at (0,0,0); set that mode to zero too
+        if (kx == nyquist || kfft == 0)
+          result_x = 0;
+        if (ky == nyquist || kfft == 0)
+          result_y = 0;
+        if (kz  == nyquist || kfft == 0)
+          result_z = 0;
 
-      offsetX->toReal();
-      offsetY->toReal();
-      offsetZ->toReal();
+        return std::make_tuple(result_x, result_y, result_z);
+      });
 
-      // if the implementation is complex, at this point get real copies of the fields
-      // otherwise just use the offset field we have already constructed
-      this->pOff_x = getRealPart(*offsetX);
-      this->pOff_y = getRealPart(*offsetY);
-      this->pOff_z = getRealPart(*offsetZ);
+      std::tie(this->pOff_x, this->pOff_y, this->pOff_z) = zeldovichOffsetFields;
+      this->pOff_x->toReal();
+      this->pOff_y->toReal();
+      this->pOff_z->toReal();
 
     }
 
@@ -183,9 +171,9 @@ namespace particle {
       assert(!pOff_y->isFourier());
       assert(!pOff_z->isFourier());
 
-      particle.pos.x = onGrid.getFieldAt(id, *pOff_x);
-      particle.pos.y = onGrid.getFieldAt(id, *pOff_y);
-      particle.pos.z = onGrid.getFieldAt(id, *pOff_z);
+      particle.pos.x = tools::datatypes::real_part_if_complex(onGrid.getFieldAt(id, *pOff_x));
+      particle.pos.y = tools::datatypes::real_part_if_complex(onGrid.getFieldAt(id, *pOff_y));
+      particle.pos.z = tools::datatypes::real_part_if_complex(onGrid.getFieldAt(id, *pOff_z));
 
       particle.vel = particle.pos * velocityToOffsetRatio;
 

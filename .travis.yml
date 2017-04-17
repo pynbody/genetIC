@@ -1,0 +1,29 @@
+language: cpp
+dist: trusty
+sudo: require
+
+addons:
+  apt:
+    sources:
+      - ubuntu-toolchain-r-test
+
+install:
+ - cd genetIC
+ - make
+
+before_install:
+ - sudo apt-get update -qq
+ - sudo apt-get install libfftw3-dev
+ - sudo apt-get install g++-6
+ - sudo apt-get install libgsl0-dev
+ - export CXX="g++-6"
+ - pip install numpy
+ - pip install scipy
+ - pip install cython
+ - pip install git+git://github.com/pynbody/pynbody.git
+
+script:
+ - cd tests
+ - ./run_tests.sh
+ - ./run_mapper_tests.sh
+ 

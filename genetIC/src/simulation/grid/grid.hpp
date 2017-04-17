@@ -279,6 +279,10 @@ namespace grids {
       return sqrt(getFourierCellKSquared(id));
     }
 
+    T getFourierKmin() const {
+      return kMin;
+    }
+
 
     Coordinate<T> getCellCentroid(size_t id) const {
       Coordinate<T> coord = getCellCoordinate(id);

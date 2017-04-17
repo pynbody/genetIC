@@ -18,8 +18,10 @@ namespace constraints {
 
   public:
     std::vector<fields::ConstraintField<DataType>> alphas;
-    std::vector<DataType> values;
-    std::vector<DataType> existing_values;
+    std::vector<T> values;
+    std::vector<T> existing_values;
+
+    using ComplexType = tools::datatypes::ensure_complex<DataType>;
 
     multilevelcontext::MultiLevelContextInformation<DataType> *underlying;
     fields::OutputField<DataType> *outputField;
@@ -102,7 +104,7 @@ namespace constraints {
         for (size_t j = 0; j < i; j++) {
           auto &alpha_j = alphas[j];
           pb.setProgress(((float) done * 2) / (n * (1 + n)));
-          DataType result = alpha_i.innerProduct(alpha_j);
+          T result = alpha_i.innerProduct(alpha_j).real();
 
           alpha_i.addScaled(alpha_j, -result);
 
@@ -118,7 +120,7 @@ namespace constraints {
         }
 
         // normalize
-        DataType norm = sqrt(alpha_i.innerProduct(alpha_i));
+        T norm = sqrt(alpha_i.innerProduct(alpha_i).real());
 
         alpha_i /= norm;
         values[i] /= norm;
@@ -138,7 +140,7 @@ namespace constraints {
       existing_values.clear();
       for (size_t i = 0; i < n; i++) {
         auto &alpha_i = alphas[i];
-        existing_values.push_back(alpha_i.innerProduct(*outputField));
+        existing_values.push_back(alpha_i.innerProduct(*outputField).real());
       }
 
 
