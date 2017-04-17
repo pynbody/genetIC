@@ -1,0 +1,16 @@
+language: c++
+
+install:
+ - cd genetIC
+ - make
+
+before_install:
+ - sudo apt-get update -qq
+ - sudo apt-get install libfftw3-dev
+ - pip install numpy scipy pynbody
+
+script:
+ - cd tests
+ - ./run_tests.sh
+ - ./run_mapper_tests.sh
+ 
