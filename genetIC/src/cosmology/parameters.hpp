@@ -42,6 +42,8 @@ namespace cosmology {
   void dumpPowerSpectrum(const fields::Field<DataType> &field,
                          const fields::Field<DataType> &P0, const std::string &filename) {
 
+    field.ensureFourierModesAreMirrored();
+    P0.ensureFourierModesAreMirrored();
 
     int res = field.getGrid().size;
     int nBins = 100;
@@ -70,7 +72,7 @@ namespace cosmology {
         for (iz = -res/2; iz < res/2+1; iz++) {
           auto fieldValue = field.getFourierCoefficient(ix, iy, iz);
           FloatType vabs = std::abs(fieldValue);
-          vabs *= vabs * tools::numerics::fourier::getFourierCellWeight(field, 0);
+          vabs *= vabs;
 
           kfft = sqrt(ix * ix + iy * iy + iz * iz);
           FloatType k = kfft * kw;

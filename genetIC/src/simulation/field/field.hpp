@@ -292,6 +292,17 @@ namespace fields {
       fourierManager->setFourierCoefficient(kx, ky, kz, value);
     }
 
+    void ensureFourierModesAreMirrored() const {
+      /** Ensure that the Fourier modes in this field are correctly 'mirrored', i.e. where there is duplication,
+       * consistent values are stored. This likely only becomes an issue for real FFTs.
+       */
+      assert(isFourier());
+
+      // Logically this is a const operation, even though actually it will potentially change internal state. So our
+      // externally visible method is const, but the actual manipulation is non-const.
+      const_cast<FourierManager&>(*fourierManager).ensureFourierModesAreMirrored();
+    }
+
     void applyFilter(const filters::Filter<CoordinateType> &filter) {
       forEachFourierCell([&filter]( ComplexType current_value, CoordinateType kx, CoordinateType ky, CoordinateType kz) {
         CoordinateType k = sqrt(double(kx*kx+ky*ky+kz*kz));

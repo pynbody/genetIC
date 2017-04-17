@@ -182,33 +182,6 @@ namespace multilevelcontext {
     }
 
 
-    void forEachCellOfEachLevel(
-      std::function<bool(size_t)> levelCallback,
-      std::function<void(size_t, size_t, size_t)> cellCallback) {
-
-
-      for (size_t level = 0; level < nLevels; level++) {
-
-        if (!levelCallback(level))
-          continue;
-        size_t level_base = cumu_Ns[level];
-
-#pragma omp parallel for
-        for (size_t i = 0; i < Ns[level]; i++) {
-          size_t i_all_levels = level_base + i;
-          cellCallback(level, i, i_all_levels);
-        }
-      }
-
-    }
-
-    void forEachCellOfEachLevel(
-      std::function<void(size_t, size_t, size_t, std::vector<DataType> & )> cellCallback) {
-
-      forEachCellOfEachLevel([](size_t i) { return true; }, cellCallback);
-    }
-
-
     void copyContextWithIntermediateResolutionGrids(MultiLevelContextInformation<DataType> &newStack,
                                                     size_t base_factor = 2,
                                                     size_t extra_lores = 1) const {

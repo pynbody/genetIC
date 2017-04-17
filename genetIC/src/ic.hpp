@@ -731,7 +731,7 @@ public:
     GridDataType constraint = value;
     auto vec = calcConstraint(name);
 
-    GridDataType initv = vec.innerProduct(outputField);
+    GridDataType initv = vec.innerProduct(outputField).real();
 
     if (relative) constraint *= initv;
 

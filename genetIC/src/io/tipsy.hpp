@@ -104,10 +104,10 @@ namespace io {
 #else
             if(thisParticle.mass==min_mass)
 #endif
-            photogenic_file << iord << std::endl;
+            photogenic_file << iord + i << std::endl;
 
-          ++iord;
         }
+        iord+=n;
 
         fwrite(p.data(), sizeof(ParticleType), n, fd);
       }
@@ -171,7 +171,7 @@ namespace io {
                   const cosmology::CosmologicalParameters<FloatType> &cosmology) : generator(generator),
                                                                                    boxLength(boxLength),
                                                                                    pMapper(pMapper),
-                                                                                   cosmology(cosmology) {
+                                                                                   cosmology(cosmology), iord(0) {
 
       }
 

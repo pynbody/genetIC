@@ -33,7 +33,7 @@ typedef float FloatType;
 #ifdef USE_COMPLEX_FFT
 using ICf = ICGenerator<complex<FloatType>> ;
 #else
-using ICf = ICGenerator<complex<FloatType>>;
+using ICf = ICGenerator<FloatType>;
 #endif
 
 void setup_parser(tools::ClassDispatch<ICf, void> &dispatch) {

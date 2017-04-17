@@ -144,65 +144,34 @@ namespace fields {
     }
 
     void operator/=(DataType ratio) {
-      const filters::Filter<T> *pFiltThis;
-      const grids::Grid<T> *pCurrentGrid;
-      vector<DataType> *pFieldThis;
+      using namespace tools::numerics;
 
-
-      auto newLevel = [&](size_t level) {
-        pCurrentGrid = &(multiLevelContext->getGridForLevel(level));
-        pFiltThis = &(getFilterForLevel(level));
-        pFieldThis = &(getFieldForLevel(level).getDataVector());
-        return pFieldThis->size() > 0;
-      };
-
-      auto newCell = [&](size_t, size_t cell, size_t) {
-        (*pFieldThis)[cell] /= ratio;
-      };
-
-      multiLevelContext->forEachCellOfEachLevel(newLevel, newCell);
+      for(size_t level=0; level<getNumLevels(); level++) {
+        auto & data = getFieldForLevel(level).getDataVector();
+        data/=ratio;
+      }
     }
 
     void addScaled(const MultiLevelField &other, DataType scale) {
-      const filters::Filter<T> *pFiltThis;
-      const filters::Filter<T> *pFiltOther;
-      const grids::Grid<T> *pCurrentGrid;
-      vector<DataType> *pFieldThis;
-      const vector<DataType> *pFieldOther;
+      assert(other.isFourierOnAllLevels());
+      toFourier();
 
-      auto newLevel = [&](size_t level) {
-        pCurrentGrid = &(multiLevelContext->getGridForLevel(level));
-        pFiltThis = &(getFilterForLevel(level));
-        pFiltOther = &(other.getFilterForLevel(level));
+      for(size_t level=0; level<getNumLevels(); level++) {
+        if(hasFieldOnGrid(level) && other.hasFieldOnGrid(level)) {
+          Field<DataType> &fieldThis = getFieldForLevel(level);
+          const Field<DataType> &fieldOther = other.getFieldForLevel(level);
+          auto &filtOther = (other.getFilterForLevel(level));
+          auto &filtThis = getFilterForLevel(level);
+          T kMin = fieldThis.getGrid().getFourierKmin();
+          fieldThis.forEachFourierCellInt([&fieldOther, &filtOther, &filtThis, kMin, scale]
+                                              (ComplexType currentVal, int kx, int ky, int kz) {
+            T k_value = kMin * sqrt(T(kx * kx) + T(ky * ky) + T(kz * kz));
+            T filt = filtOther(k_value) / filtThis(k_value);
+            return currentVal + scale*filt * fieldOther.getFourierCoefficient(kx, ky, kz);
+          });
+        }
+      }
 
-        // adjust our field's fourier/real convention to match the other field
-        if (other.getFieldForLevel(level).isFourier())
-          getFieldForLevel(level).toFourier();
-        else
-          getFieldForLevel(level).toReal();
-
-        // check we did that right!
-        assert (getFieldForLevel(level).isFourier() == other.getFieldForLevel(level).isFourier());
-
-        pFieldThis = &(getFieldForLevel(level).getDataVector());
-        pFieldOther = &(other.getFieldForLevel(level).getDataVector());
-
-        /* cerr << "addScaled " << level << ":";
-        pFiltThis->debugInfo(cerr);
-        cerr << " -> ";
-        pFiltOther->debugInfo(cerr);
-        cerr << endl;*/
-
-        return this->hasFieldOnGrid(level) && other.hasFieldOnGrid(level);
-      };
-
-      auto newCell = [&](size_t, size_t cell, size_t) {
-        T k_value = pCurrentGrid->getFourierCellAbsK(cell);
-        T filt = (*pFiltOther)(k_value) / (*pFiltThis)(k_value);
-        (*pFieldThis)[cell] += filt * (*pFieldOther)[cell] * scale;
-      };
-
-      multiLevelContext->forEachCellOfEachLevel(newLevel, newCell);
     }
 
     ComplexType innerProduct(const MultiLevelField<DataType> &other) const {
@@ -258,26 +227,11 @@ namespace fields {
     }
 
     void applyFilters() {
-      const filters::Filter<T> *pFiltThis;
-      const grids::Grid<T> *pCurrentGrid;
-      std::vector<DataType> *pFieldThis;
-
-      auto newLevel = [&](size_t level) {
-        pCurrentGrid = &(multiLevelContext->getGridForLevel(level));
-        pFiltThis = &(this->getFilterForLevel(level));
-        /*cerr << level << " ";
-        pFiltThis->debugInfo(cerr);
-        cerr <<  endl;*/
-        pFieldThis = &(this->getFieldForLevel(level).getDataVector());
-        return pFieldThis->size() > 0;
-      };
-
-      auto newCell = [&](size_t level, size_t cell, size_t cumu_i) {
-        T k_value = pCurrentGrid->getFourierCellAbsK(cell);
-        (*pFieldThis)[cell] *= (*pFiltThis)(k_value);
-      };
-
-      multiLevelContext->forEachCellOfEachLevel(newLevel, newCell);
+      for(size_t level=0; level<getNumLevels(); ++level) {
+        if(hasFieldOnGrid(level)) {
+          getFieldForLevel(level).applyFilter(getFilterForLevel(level));
+        }
+      }
 
       pFilters = make_shared<filters::FilterFamily<T>>(multiLevelContext->getNumLevels());
     }

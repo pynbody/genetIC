@@ -126,6 +126,11 @@ namespace tools {
 
 
       public:
+
+        virtual void ensureFourierModesAreMirrored() {
+
+        }
+
         void forEachFourierCell(const std::function<ComplexType(ComplexType, CoordinateType, CoordinateType, CoordinateType)> &fn) {
           /** Iterate (potentially in parallel) over each Fourier cell, updating the corresponding value according to the
            * passed function return value.
@@ -256,35 +261,41 @@ namespace tools {
           return std::make_tuple(conjugate,index_re);
         }
 
-        void mirrorFourierModesForFFTWRealTransform() {
+      public:
+        void ensureFourierModesAreMirrored() override {
           // for conceptual ease, the FFTW real transformations contain some duplicate data
           // see  http://www.fftw.org/fftw3_doc/Multi_002dDimensional-DFTs-of-Real-Data.html
           //
           // we always address positive fourier modes where there is an ambiguity, but it is
           // not clear that FFTW does the same, so before a transform back to real space we need
           // to fill in the missing modes.
-          size_t sourceLocation, destLocation;
-          bool conj;
 
-          // Copy missing data from kz=0, kx>0 to kz=0, kx<0
-          // Conceptually: field [kx,ky,0] = conj(field[-kx,-ky,0])
-          for(int ky=-size/2; ky<size/2+1; ++ky) {
-            for(int kx=1; kx<size/2+1; ++kx) {
-              std::tie(conj, sourceLocation) = getRealCoeffLocationAndConjugation(kx, ky, 0);
-              std::tie(conj, destLocation) = getRealCoeffLocationAndConjugation(-kx, -ky, 0);
-              FieldFourierManagerBase::field[destLocation] = FieldFourierManagerBase::field[sourceLocation];
-              FieldFourierManagerBase::field[destLocation + 1] = -FieldFourierManagerBase::field[sourceLocation + 1];
+          bool unused;
+
+#pragma omp parallel for
+          for(int kx=0; kx<size/2+1; ++kx) {
+            size_t loc_source;
+            size_t loc_dest;
+
+            // N.B. take y loop in reverse order so that it copes with zero and nyquist kx modes naturally
+            // (where we MUST copy +ve modes into -ve modes, not the opposite)
+            for(int ky=size/2; ky>-size/2; --ky) {
+              std::tie(unused, loc_source) = getRealCoeffLocationAndConjugation(kx, ky, 0);
+              std::tie(unused, loc_dest) = getRealCoeffLocationAndConjugation(-kx, -ky, 0);
+              field[loc_dest] = field[loc_source];
+              field[loc_dest + 1] = -field[loc_source + 1];
+
+              // on an odd-sized grid, the following is a null op. On an even sized-grid, it sorts out the kz
+              // nyquist mode.
+              std::tie(unused, loc_source) = getRealCoeffLocationAndConjugation(kx, ky, this->nyquistIfEvenElseZero);
+              std::tie(unused, loc_dest) = getRealCoeffLocationAndConjugation(-kx, -ky, this->nyquistIfEvenElseZero);
+              field[loc_dest] = field[loc_source];
+              field[loc_dest + 1] = -field[loc_source + 1];
             }
           }
-          // Copy missing data from kz=0, ky>0, kx=0 to kz=0, ky<0, kx=0
-          // Conceptually: field[0,ky,0] = conj(field[0,-ky,0])
-          for(int ky=1; ky<size/2+1; ++ky) {
-            std::tie(conj, sourceLocation) = getRealCoeffLocationAndConjugation(0, ky, 0);
-            std::tie(conj, destLocation) = getRealCoeffLocationAndConjugation(0, -ky, 0);
-            FieldFourierManagerBase::field[destLocation] = FieldFourierManagerBase::field[sourceLocation];
-            FieldFourierManagerBase::field[destLocation + 1] = -FieldFourierManagerBase::field[sourceLocation + 1];
-          }
         }
+
+      protected:
 
         void padForFFTWRealTransform() {
 
@@ -390,7 +401,7 @@ namespace tools {
                                         reinterpret_cast<fftw_complex *>(&fieldData[0]),
                                         FFTW_ESTIMATE);
           } else {
-            mirrorFourierModesForFFTWRealTransform();
+            ensureFourierModesAreMirrored();
             plan = fftw_plan_dft_c2r_3d(res, res, res,
                                         reinterpret_cast<fftw_complex *>(&fieldData[0]),
                                         &fieldData[0],
@@ -516,17 +527,6 @@ namespace tools {
 
 
 
-
-
-      template<typename T>
-      int getFourierCellWeight(const fields::Field<std::complex<T>, T> &field, size_t i) {
-        return 1;
-      }
-
-      template<typename T>
-      int getFourierCellWeight(const fields::Field<T, T> &field, size_t i) {
-        return 1;
-      }
 
 
       template<typename T, typename S>
