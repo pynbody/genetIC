@@ -10,7 +10,7 @@ function runtest {
   then
       echo "--> TEST ERRORED"
       cat IC_output.txt
-      exit
+      exit 1
   fi
   cd ..
   echo "Testing output"

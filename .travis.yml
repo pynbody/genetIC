@@ -17,9 +17,9 @@ before_install:
  - sudo apt-get install g++-6
  - sudo apt-get install libgsl0-dev
  - export CXX="g++-6"
- - sudo pip install numpy
- - sudo pip install scipy
- - sudo pip install pynbody
+ - pip install numpy
+ - pip install scipy
+ - pip install pynbody
 
 script:
  - cd tests
