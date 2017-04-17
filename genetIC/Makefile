@@ -1,6 +1,4 @@
 # Reasonably sensible defaults
-CC    	= g++
-C		= gcc
 CFLAGS	= -Wall -g -Og -fopenmp -std=c++14   -fdiagnostics-color=auto -I`pwd` -DOPENMP -DDOUBLEPRECISION -DOUTPUT_IN_DOUBLEPRECISION
 CPATH 	= /opt/local/include/
 LPATH   = /opt/local/lib
@@ -44,7 +42,7 @@ GIT_VARIABLES = -DGIT_VERSION='"$(GIT_VERSION)"' -DGIT_MODIFIED='"$(GIT_MODIFIED
 HOST3	= $(shell hostname | cut -c1-3)
 
 ifeq ($(HOST3), pfe)
-	CC = /nasa/pkgsrc/2015Q4/gcc5/bin/g++
+	CXX = /nasa/pkgsrc/2015Q4/gcc5/bin/g++
 	CPATH = /u/apontzen/genetIC/genetIC:/nasa/gsl/1.14/include/:/u/apontzen/fftw-3.3.6-pl1/include/
 	LPATH =  /nasa/gsl/1.14/lib/ -L/u/apontzen/fftw-3.3.6-pl1/lib/
 	FFTWLIB = -lfftw3 -lfftw3_threads -ldl -lpthread -lm -lstdc++ -lgfortran 
@@ -54,30 +52,28 @@ endif
 ifeq ($(HOST), Snowd)
 	CPATH = /sw/include/
 	LPATH = /sw/lib/
-	C = /opt/local/bin/g++-mp-5
-	CC = /opt/local/bin/g++-mp-5 -lstdc++ -fopenmp -O3 -g -L/opt/local/lib/
+	CXX = /opt/local/bin/g++-mp-5 -lstdc++ -fopenmp -O3 -g -L/opt/local/lib/
 endif
 
 ifeq ($(HOST), Rhodo)
-	C = /usr/local/bin/g++
-	CC = /usr/local/bin/g++ -lstdc++ -fopenmp -O3 -g -L/usr/local/lib/
+	CXX = /usr/local/bin/g++ -lstdc++ -fopenmp -O3 -g -L/usr/local/lib/
 endif
 
 ifeq ($(HOST), dirac)
-	CC	= g++
+	CXX	= g++
 	CFLAGS  += -m64 -I${FFTWINCLUDE} -I${GSL_INC_DIR}
         FFTW    = -DFFTW3
         FFTWLIB = -lgomp -lpthread -lm -ldl -lfftw3 -L${FFTWDIR} -L${GSL_LIB_DIR}
 endif
 
 ifeq ($(HOST), chewb)
-	CC      = /usr/local/bin/g++
+	CXX      = /usr/local/bin/g++
 	FFTW    = -DFFTW_TYPE_PREFIX=1
 	FFTWLIB = -ldfftw -ldrfftw
 endif
 
 ifeq ($(HOST), imac7)
-	CC      = /opt/local/bin/g++-mp-5
+	CXX      = /opt/local/bin/g++-mp-5
 	CFLAGS  += -Wextra -Werror -Wfatal-errors
 	FFTW    = -DFFTW3 -DFFTW_THREADS
 	FFTWLIB = -lfftw3 -lfftw3_threads
@@ -85,10 +81,10 @@ endif
 
 all: IC
 
-%.o: %.cpp ; $(CC) $(CFLAGS) $(GIT_VARIABLES) -I$(CPATH) $(FFTW) -c $< -o $@
+%.o: %.cpp ; $(CXX) $(CFLAGS) $(GIT_VARIABLES) -I$(CPATH) $(FFTW) -c $< -o $@
 
 IC: src/main.o src/tools/filesystem.o src/tools/progress/progress.o
-		$(CC) $(CFLAGS) -o IC $(GIT_VARIABLES) -I$(CPATH) $(FFTW) src/main.o src/tools/filesystem.o src/tools/progress/progress.o -L$(LPATH) -lm $(FFTWLIB) -lgsl -lgslcblas $(HDF5_FLAGS)
+		$(CXX) $(CFLAGS) -o IC $(GIT_VARIABLES) -I$(CPATH) $(FFTW) src/main.o src/tools/filesystem.o src/tools/progress/progress.o -L$(LPATH) -lm $(FFTWLIB) -lgsl -lgslcblas $(HDF5_FLAGS)
 
 clean:
 	rm -rf IC
