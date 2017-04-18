@@ -57,7 +57,7 @@ namespace cosmology {
     FloatType kmax = M_PI / Boxlength * (FloatType) res, kmin = 2.0f * M_PI / (FloatType) Boxlength, dklog =
       log10(kmax / kmin) / nBins, kw = 2.0f * M_PI / (FloatType) Boxlength;
 
-    int ix, iy, iz, idx, idx2;
+    int ix, iy, iz, idx;
     FloatType kfft;
 
     for (ix = 0; ix < nBins; ix++) {
@@ -87,14 +87,14 @@ namespace cosmology {
            */
 
           //.. logarithmic spacing in k
-          idx2 = (int) ((1.0f / dklog * log10(k / kmin)));
+          idx = (int) ((1.0f / dklog * log10(k / kmin)));
 
           if (k >= kmin && k < kmax) {
 
-            Gx[idx2] += vabs / (FloatType) (res * res * res); //because FFT is now normalised with 1/sqrt(Ntot)
-            Px[idx2] += P0.getFourierCoefficient(ix,iy,iz).real();
-            kbin[idx2] += k;
-            inBin[idx2]++;
+            Gx[idx] += vabs / (FloatType) (res * res * res); //because FFT is now normalised with 1/sqrt(Ntot)
+            Px[idx] += P0.getFourierCoefficient(ix,iy,iz).real();
+            kbin[idx] += k;
+            inBin[idx]++;
 
           } else { continue; }
 

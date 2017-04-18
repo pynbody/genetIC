@@ -388,7 +388,6 @@ namespace tools {
           bool transformToFourier = !FieldFourierManagerBase::field.isFourier();
 
           fftw_plan plan;
-          size_t i;
 
           int res = static_cast<int>(FieldFourierManagerBase::field.getGrid().size);
           double norm = pow(static_cast<double>(res), 1.5);
@@ -462,7 +461,6 @@ namespace tools {
           initialise();
 
           fftw_plan plan;
-          size_t i;
 
           int res = static_cast<int>(field.getGrid().size);
           double norm = pow(static_cast<double>(res), 1.5);

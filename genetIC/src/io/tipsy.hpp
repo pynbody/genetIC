@@ -169,9 +169,10 @@ namespace io {
                   const particle::AbstractMultiLevelParticleGenerator<GridDataType> &generator,
                   std::shared_ptr<particle::mapper::ParticleMapper<GridDataType>> pMapper,
                   const cosmology::CosmologicalParameters<FloatType> &cosmology) : generator(generator),
+                                                                                   iord(0),
                                                                                    boxLength(boxLength),
                                                                                    pMapper(pMapper),
-                                                                                   cosmology(cosmology), iord(0) {
+                                                                                   cosmology(cosmology) {
 
       }
 
