@@ -42,11 +42,11 @@ GIT_VARIABLES = -DGIT_VERSION='"$(GIT_VERSION)"' -DGIT_MODIFIED='"$(GIT_MODIFIED
 HOST3	= $(shell hostname | cut -c1-3)
 
 ifeq ($(HOST3), pfe)
-	CXX = /nasa/pkgsrc/2015Q4/gcc5/bin/g++
-	CPATH = /u/apontzen/genetIC/genetIC:/nasa/gsl/1.14/include/:/u/apontzen/fftw-3.3.6-pl1/include/
-	LPATH =  /nasa/gsl/1.14/lib/ -L/u/apontzen/fftw-3.3.6-pl1/lib
-	CFLAGS = -Wall -O3 -fopenmp -std=c++14 -fdiagnostics-color=auto -I`pwd` -DOPENMP -DDOUBLEPRECISION -DUSE_COMPLEX_FFT
-	FFTWLIB = -lfftw3 -lfftw3_threads -ldl -lpthread -lm -lstdc++ -lgfortran 
+	CXX = /nasa/pkgsrc/2016Q2/gcc5/bin/g++
+	CPATH = /u/apontzen/genetIC/genetIC:/nasa/gsl/1.14/include/:/nasa/intel/Compiler/2016.2.181/compilers_and_libraries_2016.2.181/linux/mkl/include/fftw
+	LPATH =  /nasa/gsl/1.14/lib/:/nasa/intel/Compiler/2016.2.181/compilers_and_libraries_2016.2.181/linux/mkl/lib/intel64/
+	CFLAGS = -Wall -g -O3 -fopenmp -std=c++14 -fdiagnostics-color=auto -I`pwd` -DOPENMP -DDOUBLEPRECISION 
+	FFTWLIB = -ldl -lpthread -lm -lstdc++ -lgfortran -lmkl_intel_ilp64 -lmkl_gnu_thread -lmkl_core
 	FFTW = -DFFTW3 -DFFTW_THREADS
 endif
 
