@@ -31,9 +31,8 @@ def compare_ps(ref, test):
     npt.assert_allclose(ref_vals, test_vals, rtol=1e-4)
     print("Power-spectrum output %s matches" % ref)
 
+def default_comparisons():
 
-if __name__=="__main__":
-    warnings.simplefilter("ignore")
     assert len(sys.argv)==2
     if os.path.exists(sys.argv[1]+"/reference_grid"):
         compare_grids(sys.argv[1]+"/reference_grid/",sys.argv[1]+"/")
@@ -46,3 +45,10 @@ if __name__=="__main__":
     output_file = glob.glob(sys.argv[1]+"/*.tipsy")
     assert len(output_file)==1, "Could not find a unique output file to test against"
     compare(pynbody.load(output_file[0]),pynbody.load(sys.argv[1]+"/reference_output"))
+
+if __name__=="__main__":
+    warnings.simplefilter("ignore")
+    if len(sys.argv)==2:
+        default_comparisons()
+    else:
+        compare(pynbody.load(sys.argv[1]), pynbody.load(sys.argv[2]))
