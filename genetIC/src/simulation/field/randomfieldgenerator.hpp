@@ -155,7 +155,7 @@ namespace fields {
       // resolution can be scaled by factors of 2 and we still get
       // the 'same' field
       for (ks = 0; ks < int(g.size / 2); ks++) {
-        pb.setProgress(float(ks * 2) / g.size);
+        pb.setProgress(float(ks*ks)*(ks*8) / g.size3);
         for (k1 = -ks; k1 < ks; k1++) {
           for (k2 = -ks; k2 < ks; k2++) {
             drawOneFourierMode(field, ks, k1, k2, sigma);

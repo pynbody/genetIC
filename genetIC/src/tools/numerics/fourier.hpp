@@ -127,6 +127,10 @@ namespace tools {
 
       public:
 
+        virtual ~FieldFourierManagerBase() {
+
+        }
+
         virtual void ensureFourierModesAreMirrored() {
 
         }
@@ -239,6 +243,8 @@ namespace tools {
         using T=double;
         int size;
         size_t compressed_size;
+        fftw_plan forwardPlan;
+        fftw_plan reversePlan;
 
         auto getRealCoeffLocationAndConjugation(int kx, int ky, int kz) const {
           bool conjugate = false;
@@ -341,6 +347,19 @@ namespace tools {
         FieldFourierManager(fields::Field<double, double> &field) : FieldFourierManagerBase(field) {
           size = static_cast<int>(FieldFourierManagerBase::grid.size);
           compressed_size = FieldFourierManagerBase::grid.size / 2 + 1;
+          forwardPlan = nullptr;
+          reversePlan = nullptr;
+        }
+
+        virtual ~FieldFourierManager() {
+          if(forwardPlan!=nullptr) {
+            fftw_destroy_plan(forwardPlan);
+            forwardPlan = nullptr;
+          }
+          if(reversePlan!=nullptr) {
+            fftw_destroy_plan(reversePlan);
+            reversePlan=nullptr;
+          }
         }
 
         void setFourierCoefficient(int kx, int ky, int kz, const std::complex<T> &val) override {
@@ -395,21 +414,25 @@ namespace tools {
 
           if (transformToFourier) {
             padForFFTWRealTransform();
-            plan = fftw_plan_dft_r2c_3d(res, res, res,
-                                        &fieldData[0],
-                                        reinterpret_cast<fftw_complex *>(&fieldData[0]),
-                                        FFTW_ESTIMATE);
+            if(forwardPlan==nullptr)
+              forwardPlan = fftw_plan_dft_r2c_3d(res, res, res,
+                                          &fieldData[0],
+                                          reinterpret_cast<fftw_complex *>(&fieldData[0]),
+                                          FFTW_ESTIMATE);
+            plan = forwardPlan;
           } else {
             ensureFourierModesAreMirrored();
-            plan = fftw_plan_dft_c2r_3d(res, res, res,
-                                        reinterpret_cast<fftw_complex *>(&fieldData[0]),
-                                        &fieldData[0],
-                                        FFTW_ESTIMATE);
+            if(reversePlan==nullptr)
+              reversePlan = fftw_plan_dft_c2r_3d(res, res, res,
+                                          reinterpret_cast<fftw_complex *>(&fieldData[0]),
+                                          &fieldData[0],
+                                          FFTW_ESTIMATE);
+            plan = reversePlan;
           }
 
 
           fftw_execute(plan);
-          fftw_destroy_plan(plan);
+
 
           if(!transformToFourier) {
             unpadAfterFFTWRealTransform();

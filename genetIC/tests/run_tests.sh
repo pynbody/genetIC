@@ -5,7 +5,9 @@ function runtest {
   echo -n "Running test on $1   "
   head -1 $1/paramfile.txt
   cd $1
-  ../../IC paramfile.txt > IC_output.txt 2>&1
+  IC=${IC:-../../IC}
+  command="$IC paramfile.txt > IC_output.txt 2>&1"
+  eval "$command"
   if [ $? -ne 0 ]
   then
       echo "--> TEST ERRORED"

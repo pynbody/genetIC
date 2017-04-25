@@ -1,0 +1,42 @@
+# Test zooming with TWO refinement levels
+
+
+# output parameters
+outdir	 ./
+outformat 4
+outname test_9
+
+# cosmology:
+Om  0.279
+Ol  0.721
+s8  0.817
+zin	99
+camb	../camb_transfer_kmax40_z0.dat
+
+# basegrid 50 Mpc/h, 64^3
+basegrid 50.0 256
+
+# fourier seeding
+seedfourier 1512351
+
+# zoom level 1:
+centre 25 25 25
+select_sphere 5
+zoomgrid 2 256
+
+# zoom level 2
+centre 25 25 25
+select_sphere 3
+zoomgrid 2 256
+
+centre 25 25 25.1
+select_nearest
+constrain overdensity relative 1.1
+
+centre 25 25 24.9
+select_nearest
+constrain overdensity relative 0.9
+
+
+done
+

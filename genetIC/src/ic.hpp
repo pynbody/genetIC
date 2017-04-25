@@ -728,10 +728,10 @@ public:
       throw runtime_error("Constraint type must be either 'relative' or 'absolute'");
     }
 
-    GridDataType constraint = value;
+    T constraint = value;
     auto vec = calcConstraint(name);
 
-    GridDataType initv = vec.innerProduct(outputField).real();
+    T initv = vec.innerProduct(outputField).real();
 
     if (relative) constraint *= initv;
 

@@ -63,6 +63,14 @@ add_definitions(-DFFTW3 -DFFTW_THREADS -DOPENMP -DGIT_VERSION -DGIT_MODIFIED -DD
 add_compile_options(-Wno-deprecated-declarations)
 add_executable(IC ${SOURCE_FILES} )
 
+add_executable(IC_CFFT ${SOURCE_FILES} )
+
+target_compile_definitions(IC_CFFT PUBLIC -DUSE_COMPLEX_FFT)
+
 add_custom_command(TARGET IC
         POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:IC> /Users/app/Science/genetIC/genetIC/IC)
+
+add_custom_command(TARGET IC_CFFT
+        POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:IC_CFFT> /Users/app/Science/genetIC/genetIC/IC_CFFT)
