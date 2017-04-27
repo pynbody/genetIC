@@ -416,11 +416,6 @@ namespace particle {
 
 
         } else {
-          // do normal particles
-          //
-          // N.B. should never reach here if level1iterator is NULL
-
-          assert((&level1iterator) != nullptr);
 
           ++level1iterator;
 
