@@ -19,7 +19,7 @@ public:
                          const Coordinate<T> &offset = {0, 0, 0}) override {
     size_t newLevel = this->multiLevelContext.getNumLevels();
     std::shared_ptr<grids::Grid<T>> underlyingGrid;
-    std::shared_ptr<const fields::Field<GridDataType, T>> covarianceField;
+    std::shared_ptr<const fields::Field<GridDataType, T>> covarianceFieldPtr;
 
     if (pUnderlying->multiLevelContext.getNumLevels() <= newLevel) {
       // source file has extra zoom levels compared to us. Make a grid with our specifications, then
@@ -27,11 +27,17 @@ public:
       grids::Grid<T> & deepestUnderlyingGrid =
         pUnderlying->multiLevelContext.getGridForLevel(this->multiLevelContext.getNumLevels()-1);
       grids::Grid<T> gridSpecification(deepestUnderlyingGrid.simsize, nside, gridSize / nside, offset.x, offset.y, offset.z);
-      covarianceField = nullptr;
+      covarianceFieldPtr = nullptr;
       underlyingGrid = deepestUnderlyingGrid.makeProxyGridToMatch(gridSpecification);
     } else {
       underlyingGrid = pUnderlying->multiLevelContext.getGridForLevel(newLevel).shared_from_this();
-      covarianceField = pUnderlying->multiLevelContext.getCovariance(newLevel).shared_from_this();
+      auto & covarianceField = pUnderlying->multiLevelContext.getCovariance(newLevel);
+
+      // TODO: neaten ugly kludge (copes with case that no underlying covariance is known without segfaulting):
+      if(&covarianceField==nullptr)
+        covarianceFieldPtr = nullptr;
+      else
+        covarianceFieldPtr = covarianceField.shared_from_this();
     }
 
     if (underlyingGrid->size != nside)
@@ -43,7 +49,7 @@ public:
     if (!underlyingGrid->offsetLower.almostEqual(offset))
       throw std::runtime_error("Trying to match particles between incompatible simulation setups (wrong grid origin)");
 
-    this->multiLevelContext.addLevel(covarianceField,underlyingGrid);
+    this->multiLevelContext.addLevel(covarianceFieldPtr,underlyingGrid);
   }
 
 
