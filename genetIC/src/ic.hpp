@@ -194,17 +194,16 @@ public:
       throw std::runtime_error("Cannot initialise a zoom grid before initialising the base grid");
 
     grids::Grid<T> &gridAbove = multiLevelContext.getGridForLevel(multiLevelContext.getNumLevels() - 1);
-    int nAbove = gridAbove.size;
+    int nAbove = (int) gridAbove.size;
 
-    zoomParticleArray.emplace_back();
+    storeCurrentCellFlagsAsZoomMask(multiLevelContext.getNumLevels());
     vector<size_t> &newLevelZoomParticleArray = zoomParticleArray.back();
-    gridAbove.getFlaggedCells(newLevelZoomParticleArray);
 
     // find boundaries
     int x0, x1, y0, y1, z0, z1;
     int x, y, z;
 
-    x0 = y0 = z0 = gridAbove.size;
+    x0 = y0 = z0 = (int) gridAbove.size;
     x1 = y1 = z1 = 0;
 
     // TO DO: wrap the box sensibly
@@ -229,11 +228,12 @@ public:
     // the correct offset to get the particles near the centre of the
     // zoom box.
 
-    // Here is the bottom left of the box:
+    // Here is the bottom left of the box (assuming things actually fit):
     x = (x0 + x1) / 2 - nAbove / (2 * zoomfac);
     y = (y0 + y1) / 2 - nAbove / (2 * zoomfac);
     z = (z0 + z1) / 2 - nAbove / (2 * zoomfac);
 
+    // Box can't go outside the corners of the parent box (as above, wrapping still to be implemented)
     if (x < 0) x = 0;
     if (y < 0) y = 0;
     if (z < 0) z = 0;
@@ -241,25 +241,64 @@ public:
     if ((unsigned) y > nAbove - nAbove / zoomfac) y = nAbove - nAbove / zoomfac;
     if ((unsigned) z > nAbove - nAbove / zoomfac) z = nAbove - nAbove / zoomfac;
 
-    Coordinate<T> newOffsetLower = gridAbove.offsetLower + Coordinate<T>(x, y, z) * gridAbove.dx;
+    initZoomGridWithOriginAt(x, y, z, zoomfac, n);
 
-    addLevelToContext(spectrum, gridAbove.boxsize / zoomfac, n, newOffsetLower);
+  }
+
+  void storeCurrentCellFlagsAsZoomMask(size_t level) {
+    assert(level>0);
+
+    if(zoomParticleArray.size()<level)
+      zoomParticleArray.emplace_back();
+
+    assert(zoomParticleArray.size()>=level);
+
+    grids::Grid<T> &gridAbove = multiLevelContext.getGridForLevel(level-1);
+
+    vector<size_t> &levelZoomParticleArray = zoomParticleArray[level-1];
+    levelZoomParticleArray.clear();
+    gridAbove.getFlaggedCells(levelZoomParticleArray);
+  }
+
+  void initZoomGridWithOriginAt(int x0, int y0, int z0, size_t zoomfac, size_t n) {
+    grids::Grid<T> &gridAbove = multiLevelContext.getGridForLevel(multiLevelContext.getNumLevels() - 1);
+    int nAbove = int(gridAbove.size);
+    storeCurrentCellFlagsAsZoomMask(multiLevelContext.getNumLevels());
+    vector<size_t> &newLevelZoomParticleArray = zoomParticleArray.back();
+
+    int nCoarseCellsOfZoomGrid = nAbove / int(zoomfac);
+    int x1, y1, z1;
+    x1 = x0+nCoarseCellsOfZoomGrid;
+    y1 = y0+nCoarseCellsOfZoomGrid;
+    z1 = z0+nCoarseCellsOfZoomGrid;
+
+    // check particles fit in box
+    for (size_t i = 0; i < newLevelZoomParticleArray.size(); i++) {
+      int xp, yp, zp;
+      std::tie(xp, yp, zp) = gridAbove.getCellCoordinate(newLevelZoomParticleArray[i]);
+      if (xp < x0 || yp < y0 || zp < z0 || xp >= x1 || yp >= y1 || zp >= z1)
+        throw std::runtime_error("Marked particles do not fit in the requested zoom box");
+    }
+
+    Coordinate<T> newOffsetLower = gridAbove.offsetLower + Coordinate<T>(x0, y0, z0) * gridAbove.dx;
+
+    this->addLevelToContext(spectrum, gridAbove.boxsize / zoomfac, n, newOffsetLower);
 
     grids::Grid<T> &newGrid = multiLevelContext.getGridForLevel(multiLevelContext.getNumLevels() - 1);
 
     cout << "Initialized a zoom region:" << endl;
-    cout << "  Subbox length   = " << newGrid.boxsize << " Mpc/h" << endl;
-    cout << "  n               = " << newGrid.size << endl;
-    cout << "  dx              = " << newGrid.dx << endl;
-    cout << "  Zoom factor     = " << zoomfac << endl;
-    cout << "  Low-left corner = " << newGrid.offsetLower.x << ", " << newGrid.offsetLower.y << ", "
+    cout << "  Subbox length         = " << newGrid.boxsize << " Mpc/h" << endl;
+    cout << "  n                     = " << newGrid.size << endl;
+    cout << "  dx                    = " << newGrid.dx << endl;
+    cout << "  Zoom factor           = " << zoomfac << endl;
+    cout << "  Origin in parent grid = " << x0 << ", " << y0 << ", " << z0 << endl;
+    cout << "  Low-left corner       = " << newGrid.offsetLower.x << ", " << newGrid.offsetLower.y << ", "
          << newGrid.offsetLower.z << endl;
-    cout << "  Num particles   = " << newLevelZoomParticleArray.size() << endl;
+    cout << "  Num particles         = " << newLevelZoomParticleArray.size() << endl;
 
     updateParticleMapper();
 
     cout << "  Total particles = " << pMapper->size() << endl;
-
   }
 
   virtual void
