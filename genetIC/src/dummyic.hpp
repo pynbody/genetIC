@@ -18,21 +18,32 @@ public:
   void addLevelToContext(const cosmology::CAMB<GridDataType> & /*&spectrum*/, T gridSize, size_t nside,
                          const Coordinate<T> &offset = {0, 0, 0}) override {
     size_t newLevel = this->multiLevelContext.getNumLevels();
-    if (pUnderlying->multiLevelContext.getNumLevels() <= newLevel)
-      throw std::runtime_error("Trying to match particles between incompatible simulation setups (too many levels)");
+    std::shared_ptr<grids::Grid<T>> underlyingGrid;
+    std::shared_ptr<const fields::Field<GridDataType, T>> covarianceField;
 
-    grids::Grid<T> &underlyingGrid = pUnderlying->multiLevelContext.getGridForLevel(newLevel);
-    if (underlyingGrid.size != nside)
+    if (pUnderlying->multiLevelContext.getNumLevels() <= newLevel) {
+      // source file has extra zoom levels compared to us. Make a grid with our specifications, then
+      // make a proxy grid to point into the existing deepest level.
+      grids::Grid<T> & deepestUnderlyingGrid =
+        pUnderlying->multiLevelContext.getGridForLevel(this->multiLevelContext.getNumLevels()-1);
+      grids::Grid<T> gridSpecification(deepestUnderlyingGrid.simsize, nside, gridSize / nside, offset.x, offset.y, offset.z);
+      covarianceField = nullptr;
+      underlyingGrid = deepestUnderlyingGrid.makeProxyGridToMatch(gridSpecification);
+    } else {
+      underlyingGrid = pUnderlying->multiLevelContext.getGridForLevel(newLevel).shared_from_this();
+      covarianceField = pUnderlying->multiLevelContext.getCovariance(newLevel).shared_from_this();
+    }
+
+    if (underlyingGrid->size != nside)
       throw std::runtime_error("Trying to match particles between incompatible simulation setups (wrong grid n)");
 
-    if (underlyingGrid.boxsize != gridSize)
+    if (underlyingGrid->boxsize != gridSize)
       throw std::runtime_error("Trying to match particles between incompatible simulation setups (wrong grid size)");
 
-    if (underlyingGrid.offsetLower != offset)
+    if (underlyingGrid->offsetLower != offset)
       throw std::runtime_error("Trying to match particles between incompatible simulation setups (wrong grid origin)");
 
-    this->multiLevelContext.addLevel(pUnderlying->multiLevelContext.getCovariance(newLevel).shared_from_this(),
-                                     underlyingGrid.shared_from_this());
+    this->multiLevelContext.addLevel(covarianceField,underlyingGrid);
   }
 
 

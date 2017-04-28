@@ -1,0 +1,35 @@
+# Test that we can get back coarse (unzoomed) pixels from referencing a zoom
+#
+# Tests input has certain special values -
+# 108381: just before zoom
+# 108382: the first particle adjusted because of the zoom (maps onto 108386 in underlying grid)
+# 200000, 200001: two particles after the zoom particles are all over (maps onto +1081 in underlying grid)
+# 276828: HR particle
+
+Om  0.279
+Ol  0.721
+#Ob  0.04
+s8  0.817
+zin	99
+seed	8896131
+camb	../camb_transfer_kmax40_z0.dat
+
+basegrid 50.0 64
+
+
+
+outname mappertest
+
+relative_to ../mapper_test_1/paramfile.txt # the zoom simulation
+
+
+outdir	 ./
+outformat 4
+
+
+IDfile ../mapper_test_1/reference.txt
+dump_IDfile output.txt
+
+
+
+done

@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 
-for i in mapper_test_*
-do
+function runtest {
     rm $i/map_out.txt 2>/dev/null
     echo "Running test on $i"
     head -1 $i/paramfile.txt
@@ -27,6 +26,20 @@ do
         cat $i/IC_output.txt
         exit 1
     fi
-done
+}
+
+
+if [ "$#" -eq 0 ]; then
+  for i in mapper_test_*
+  do
+    runtest $i
+  done
+else
+  for i in $@
+  do
+    runtest $i
+  done
+fi
+
 
 echo "Tests seem OK"
