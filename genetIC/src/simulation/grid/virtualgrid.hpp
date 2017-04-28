@@ -57,7 +57,7 @@ namespace grids {
     }
 
     bool pointsToGrid(const Grid<T> *pOther) const override {
-      return pUnderlying.get() == pOther || pUnderlying->pointsToGrid(pOther);
+      return this == pOther || pUnderlying.get() == pOther || pUnderlying->pointsToGrid(pOther);
     }
 
     virtual T getFieldAt(size_t i, const TRealField &field) const override {
