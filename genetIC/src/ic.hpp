@@ -266,11 +266,16 @@ public:
   void initZoomGridWithOriginAt(int x0, int y0, int z0, size_t zoomfac, size_t n) {
     grids::Grid<T> &gridAbove = multiLevelContext.getGridForLevel(multiLevelContext.getNumLevels() - 1);
     int nAbove = int(gridAbove.size);
+
     storeCurrentCellFlagsAsZoomMask(multiLevelContext.getNumLevels());
+
+    vector<size_t> trimmedParticleArray;
     vector<size_t> &newLevelZoomParticleArray = zoomParticleArray.back();
 
     int nCoarseCellsOfZoomGrid = nAbove / int(zoomfac);
     int x1, y1, z1;
+    size_t missed_particle=0;
+
     x1 = x0+nCoarseCellsOfZoomGrid;
     y1 = y0+nCoarseCellsOfZoomGrid;
     z1 = z0+nCoarseCellsOfZoomGrid;
@@ -279,9 +284,21 @@ public:
     for (size_t i = 0; i < newLevelZoomParticleArray.size(); i++) {
       int xp, yp, zp;
       std::tie(xp, yp, zp) = gridAbove.getCellCoordinate(newLevelZoomParticleArray[i]);
-      if (xp < x0 || yp < y0 || zp < z0 || xp >= x1 || yp >= y1 || zp >= z1)
-        throw std::runtime_error("Marked particles do not fit in the requested zoom box");
+      if (xp < x0 || yp < y0 || zp < z0 || xp >= x1 || yp >= y1 || zp >= z1) {
+        missed_particle+=1;
+      } else {
+        trimmedParticleArray.push_back(newLevelZoomParticleArray[i]);
+      }
     }
+
+    if(missed_particle>0) {
+      cerr << "WARNING: the requested zoom particles do not all fit in the requested zoom window" << endl;
+      cerr << "         of " << newLevelZoomParticleArray.size() << " particles, " << missed_particle << " have been ommitted" << endl;
+      cerr << "         to make a new zoom flag list of " << trimmedParticleArray.size() << endl;
+    }
+
+    zoomParticleArray.pop_back();
+    zoomParticleArray.emplace_back(std::move(trimmedParticleArray));
 
     Coordinate<T> newOffsetLower = gridAbove.offsetLower + Coordinate<T>(x0, y0, z0) * gridAbove.dx;
 
