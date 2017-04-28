@@ -27,8 +27,8 @@ public:
       grids::Grid<T> & deepestUnderlyingGrid =
         pUnderlying->multiLevelContext.getGridForLevel(this->multiLevelContext.getNumLevels()-1);
       grids::Grid<T> gridSpecification(deepestUnderlyingGrid.simsize, nside, gridSize / nside, offset.x, offset.y, offset.z);
-      covarianceFieldPtr =spectrum.getPowerSpectrumForGrid(gridSpecification);
       underlyingGrid = deepestUnderlyingGrid.makeProxyGridToMatch(gridSpecification);
+      covarianceFieldPtr =spectrum.getPowerSpectrumForGrid(*underlyingGrid);
     } else {
       underlyingGrid = pUnderlying->multiLevelContext.getGridForLevel(newLevel).shared_from_this();
       covarianceFieldPtr = pUnderlying->multiLevelContext.getCovariance(newLevel).shared_from_this();
