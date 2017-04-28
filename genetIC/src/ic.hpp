@@ -57,6 +57,7 @@ protected:
 
   cosmology::CosmologicalParameters<T> cosmology;
   multilevelcontext::MultiLevelContextInformation<GridDataType> multiLevelContext;
+
   fields::OutputField<GridDataType> outputField;
   constraints::ConstraintApplicator<GridDataType> constraintApplicator;
   constraints::MultiLevelConstraintGenerator<GridDataType> constraintGenerator;
@@ -83,6 +84,7 @@ protected:
 
   shared_ptr<particle::mapper::ParticleMapper<GridDataType>> pMapper;
   shared_ptr<particle::mapper::ParticleMapper<GridDataType>> pInputMapper;
+  shared_ptr<multilevelcontext::MultiLevelContextInformation<GridDataType>> pInputMultiLevelContext;
 
   shared_ptr<particle::AbstractMultiLevelParticleGenerator<GridDataType>> pParticleGenerator;
 
@@ -101,6 +103,7 @@ public:
     pMapper(new particle::mapper::ParticleMapper<GridDataType>()),
     interpreter(interpreter) {
     pInputMapper = nullptr;
+    pInputMultiLevelContext = nullptr;
     cosmology.hubble = 0.701;   // old default
     cosmology.OmegaBaryons0 = -1.0;
     cosmology.ns = 0.96;      // old default
@@ -453,7 +456,8 @@ public:
     cerr << *(pseudoICs.pMapper) << endl;
     cerr << "******** Finished with" << fname << " ***********" << endl;
     pInputMapper = pseudoICs.pMapper;
-
+    pInputMultiLevelContext = std::make_shared<multilevelcontext::MultiLevelContextInformation<GridDataType>>
+      (pseudoICs.multiLevelContext);
   }
 
   std::shared_ptr<grids::Grid<T>> getGridWithOutputOffset(int level = 0) {
@@ -537,6 +541,7 @@ public:
       pMapper->unflagAllParticles();
       pInputMapper->flagParticles(flaggedParticles);
       pInputMapper->extendParticleListToUnreferencedGrids(multiLevelContext);
+      pMapper->extendParticleListToUnreferencedGrids(*pInputMultiLevelContext);
     } else {
       pMapper->unflagAllParticles();
       pMapper->flagParticles(flaggedParticles);
