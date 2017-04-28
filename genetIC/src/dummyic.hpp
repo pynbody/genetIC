@@ -40,7 +40,7 @@ public:
     if (underlyingGrid->boxsize != gridSize)
       throw std::runtime_error("Trying to match particles between incompatible simulation setups (wrong grid size)");
 
-    if (underlyingGrid->offsetLower != offset)
+    if (underlyingGrid->offsetLower.almostEqual(offset))
       throw std::runtime_error("Trying to match particles between incompatible simulation setups (wrong grid origin)");
 
     this->multiLevelContext.addLevel(covarianceField,underlyingGrid);
