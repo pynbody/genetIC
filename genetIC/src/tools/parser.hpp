@@ -23,15 +23,58 @@
 #include <cctype>
 
 namespace tools {
+  class DispatchError : public std::runtime_error {
+  public:
+    DispatchError(const char *x) : runtime_error(x) {}
+
+  };
+
+  void consume_comments(std::istream &input_stream) {
+    std::string s;
+    input_stream >> s;
+    if (s[0] == '#' || s[0] == '%') {
+      while (!input_stream.eof()) {
+        input_stream >> s;
+      }
+    } else {
+      if (s.size() != 0)
+        throw DispatchError("Too many arguments");
+    }
+  }
+
+  template<typename Rtype, typename... Args>
+  Rtype call_function(const std::function<Rtype( Args...)> &f, std::istream &input_stream,
+                             std::ostream * output_stream);
+
+  template<typename Rtype>
+  Rtype call_function(const std::function<Rtype()> &f,
+                             std::istream &input_stream,
+                             std::ostream * /* *output_stream*/) {
+    consume_comments(input_stream);
+    return f();
+  }
+
+  template<typename Rtype, typename T1, typename... Args>
+  Rtype call_function(const std::function<Rtype(T1, Args...)> &f, std::istream &input_stream,
+                             std::ostream * output_stream) {
+    T1 arg1;
+    if (input_stream.eof())
+      throw DispatchError("Insufficient arugments");
+    input_stream >> arg1;
+
+    if (output_stream != nullptr)
+      (*output_stream) << arg1 << " " << std::endl;
+
+    std::function<Rtype(Args...)> bound_f = [&f, arg1](auto&&... args) { return f(arg1, args...); };
+
+    call_function<Rtype, Args...>(bound_f, input_stream, output_stream);
+
+  };
+
+
   template<typename Rtype>
   class Dispatch {
   private:
-
-    class DispatchError : public std::runtime_error {
-    public:
-      DispatchError(const char *x) : runtime_error(x) {}
-
-    };
 
     struct Base {
       virtual ~Base() {}
@@ -48,87 +91,6 @@ namespace tools {
     std::map<std::string,
       std::pair<std::shared_ptr<Base>, callerfn> > _map;
 
-    static void consume_comments(std::istream &input_stream) {
-      std::string s;
-      input_stream >> s;
-      if (s[0] == '#' || s[0] == '%') {
-        while (!input_stream.eof()) {
-          input_stream >> s;
-        }
-      } else {
-        if (s.size() != 0)
-          throw DispatchError("Too many arguments");
-      }
-    }
-
-
-    template<typename... Args>
-    static Rtype call_function(const std::function<Rtype()> &f,
-                               std::istream &input_stream,
-                               std::ostream * /* *output_stream*/) {
-      consume_comments(input_stream);
-      return f();
-    }
-
-    template<typename T1>
-    static Rtype call_function(const std::function<Rtype(T1)> &f,
-                               std::istream &input_stream,
-                               std::ostream *output_stream) {
-      T1 t1;
-
-      if (input_stream.eof())
-        throw DispatchError("Insufficient arugments (expected 1, got 0)");
-      input_stream >> t1;
-
-      consume_comments(input_stream);
-
-      if (output_stream != nullptr)
-        (*output_stream) << t1 << std::endl;
-
-      return f(t1);
-    }
-
-    template<typename T1, typename T2>
-    static Rtype call_function(const std::function<Rtype(T1, T2)> &f,
-                               std::istream &input_stream,
-                               std::ostream *output_stream) {
-
-      if (input_stream.eof())
-        throw DispatchError("Insufficient arugments (expected 2, got 0)");
-      T1 t1;
-      input_stream >> t1;
-      if (input_stream.eof())
-        throw DispatchError("Insufficient arugments (expected 2, got 1)");
-      T2 t2;
-      input_stream >> t2;
-      consume_comments(input_stream);
-      if (output_stream != nullptr)
-        (*output_stream) << t1 << " " << t2 << std::endl;
-      return f(t1, t2);
-    }
-
-    template<typename T1, typename T2, typename T3>
-    static Rtype call_function(const std::function<Rtype(T1, T2, T3)> &f,
-                               std::istream &input_stream,
-                               std::ostream *output_stream) {
-
-      if (input_stream.eof())
-        throw DispatchError("Insufficient arugments (expected 3, got 0)");
-      T1 t1;
-      input_stream >> t1;
-      if (input_stream.eof())
-        throw DispatchError("Insufficient arugments (expected 3, got 1)");
-      T2 t2;
-      input_stream >> t2;
-      if (input_stream.eof())
-        throw DispatchError("Insufficient arugments (expected 3, got 2)");
-      T3 t3;
-      input_stream >> t3;
-      consume_comments(input_stream);
-      if (output_stream != nullptr)
-        (*output_stream) << t1 << " " << t2 << " " << t3 << std::endl;
-      return f(t1, t2, t3);
-    }
 
     template<typename... Args>
     static Rtype unpack_and_call_function(const Base *fobj,
@@ -141,7 +103,7 @@ namespace tools {
       auto pfunc = dynamic_cast<const Func<Rtype, Args...> *>(fobj);
 
       if (pfunc)
-        return call_function<Args...>(pfunc->f, input_stream, output_stream);
+        return call_function<Rtype, Args...>(pfunc->f, input_stream, output_stream);
       else
         throw DispatchError("Wrong type");
     }
