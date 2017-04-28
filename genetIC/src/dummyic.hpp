@@ -22,16 +22,27 @@ public:
     std::shared_ptr<const fields::Field<GridDataType, T>> covarianceFieldPtr;
 
     if (pUnderlying->multiLevelContext.getNumLevels() <= newLevel) {
-      // source file has extra zoom levels compared to us. Make a grid with our specifications, then
-      // make a proxy grid to point into the existing deepest level.
+      // source file has extra zoom levels compared to us. Make a grid with our specifications, and any
+      // flags deposited onto it will have to be manually copied over later.
       grids::Grid<T> & deepestUnderlyingGrid =
         pUnderlying->multiLevelContext.getGridForLevel(this->multiLevelContext.getNumLevels()-1);
-      grids::Grid<T> gridSpecification(deepestUnderlyingGrid.simsize, nside, gridSize / nside, offset.x, offset.y, offset.z);
-      underlyingGrid = deepestUnderlyingGrid.makeProxyGridToMatch(gridSpecification);
-      covarianceFieldPtr =spectrum.getPowerSpectrumForGrid(*underlyingGrid);
+
+      covarianceFieldPtr = nullptr;
+
+      underlyingGrid = std::make_shared<grids::Grid<T>>(deepestUnderlyingGrid.simsize, nside,
+                                                        gridSize / nside, offset.x, offset.y, offset.z);
     } else {
       underlyingGrid = pUnderlying->multiLevelContext.getGridForLevel(newLevel).shared_from_this();
+      auto & covarianceField = pUnderlying->multiLevelContext.getCovariance(newLevel);
+
+      // TODO: neaten ugly kludge (copes with case that no underlying covariance is known without segfaulting):
+      if(&covarianceField==nullptr)
+        covarianceFieldPtr = nullptr;
+      else
+        covarianceFieldPtr = covarianceField.shared_from_this();
+
       covarianceFieldPtr = pUnderlying->multiLevelContext.getCovariance(newLevel).shared_from_this();
+
     }
 
     if (underlyingGrid->size != nside)
