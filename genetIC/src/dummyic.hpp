@@ -41,8 +41,6 @@ public:
       else
         covarianceFieldPtr = covarianceField.shared_from_this();
 
-      covarianceFieldPtr = pUnderlying->multiLevelContext.getCovariance(newLevel).shared_from_this();
-
     }
 
     if (underlyingGrid->size != nside)
