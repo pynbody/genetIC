@@ -47,6 +47,7 @@ void setup_parser(tools::ClassDispatch<ICf, void> &dispatch) {
   dispatch.add_class_route("s8", &ICf::setSigma8);
   dispatch.add_class_route("basegrid", &ICf::initBaseGrid);
   dispatch.add_class_route("zoomgrid", &ICf::initZoomGrid);
+  dispatch.add_class_route("zoomgrid_with_origin_at", &ICf::initZoomGridWithOriginAt);
   // dispatch.add_class_route("Boxl", &ICf::setBoxLen);
   dispatch.add_class_route("zin", &ICf::setZ0);
   // dispatch.add_class_route("n", &ICf::setn);

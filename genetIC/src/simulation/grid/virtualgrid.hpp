@@ -57,7 +57,7 @@ namespace grids {
     }
 
     bool pointsToGrid(const Grid<T> *pOther) const override {
-      return pUnderlying.get() == pOther || pUnderlying->pointsToGrid(pOther);
+      return this == pOther || pUnderlying.get() == pOther || pUnderlying->pointsToGrid(pOther);
     }
 
     virtual T getFieldAt(size_t i, const TRealField &field) const override {
@@ -265,8 +265,17 @@ namespace grids {
       std::sort(targetArray.begin(), targetArray.end());
     }
 
-    void flagCells(const std::vector<size_t> & /*&sourceArray*/) override {
-      throw (std::runtime_error("flagCells is not implemented for OffsetGrid"));
+    void flagCells(const std::vector<size_t> & sourceArray) override {
+      std::vector<size_t> underlyingArray;
+      for (size_t ptcl: sourceArray) {
+        try {
+          underlyingArray.push_back(this->mapIndexToUnderlying(ptcl));
+        } catch (std::out_of_range &e) {
+          continue;
+        }
+      }
+      std::sort(underlyingArray.begin(), underlyingArray.end());
+      this->pUnderlying->flagCells(underlyingArray);
     }
 
 

@@ -105,6 +105,10 @@ public:
     return !((*this) == other);
   }
 
+  bool almostEqual(const Coordinate<T> &other, T tol=1e-10) const {
+    return std::abs(x-other.x)<tol && std::abs(y-other.y)<tol && std::abs(z-other.z)<tol;
+  }
+
 
 };
 

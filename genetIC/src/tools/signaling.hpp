@@ -14,6 +14,13 @@ namespace tools {
       return connection_t(signal.connect(subscriber));
     }
 
+    Signaling(const Signaling & copy) {
+
+    }
+
+    Signaling () {
+
+    }
 
   protected:
     void changed() {

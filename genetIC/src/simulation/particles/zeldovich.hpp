@@ -60,14 +60,8 @@ namespace particle {
     }
 
     virtual void calculateOffsetFields() {
-      // TODO: refactorise this horrible long method
-
       size_t size = grid.size;
       tools::progress::ProgressBar pb("zeldovich", size * 2);
-
-      // get a reference to the density field in fourier space
-      linearOverdensityField.toFourier();
-
 
       const T nyquist = tools::numerics::fourier::getNyquistModeThatMustBeReal(grid)*grid.getFourierKmin();
 
