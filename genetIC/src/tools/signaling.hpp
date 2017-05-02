@@ -14,7 +14,7 @@ namespace tools {
       return connection_t(signal.connect(subscriber));
     }
 
-    Signaling(const Signaling & copy) {
+    Signaling(const Signaling& /* copy*/) {
 
     }
 

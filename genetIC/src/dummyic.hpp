@@ -15,7 +15,7 @@ public:
 
   }
 
-  void addLevelToContext(const cosmology::CAMB<GridDataType> &spectrum, T gridSize, size_t nside,
+  void addLevelToContext(const cosmology::CAMB<GridDataType>& /*spectrum*/, T gridSize, size_t nside,
                          const Coordinate<T> &offset = {0, 0, 0}) override {
     size_t newLevel = this->multiLevelContext.getNumLevels();
     std::shared_ptr<grids::Grid<T>> underlyingGrid;
