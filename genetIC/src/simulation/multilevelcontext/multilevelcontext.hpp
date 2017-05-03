@@ -139,7 +139,10 @@ namespace multilevelcontext {
     }
 
     const fields::Field<DataType> &getCovariance(size_t level) const {
-      return *C0s[level];
+      if(C0s.size()>level && C0s[level]!=nullptr)
+        return *C0s[level];
+      else
+        throw std::out_of_range("No covariance yet specified for this level");
     }
 
     auto generateMultilevelFromHighResField(fields::Field<DataType, T> &&data) {

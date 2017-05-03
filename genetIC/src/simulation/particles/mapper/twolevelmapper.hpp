@@ -54,6 +54,12 @@ namespace particle {
         pGrid2->appendIdsInCubeToVector(x0, y0, z0, pGrid1->dx, ids);
       }
 
+      void insertMappedIdsInVector(size_t id0, std::vector<size_t>::iterator start) const {
+        T x0, y0, z0;
+        std::tie(x0, y0, z0) = pGrid1->getCellCentroid(id0);
+        pGrid2->insertCubeIdsIntoVector(x0, y0, z0, pGrid1->dx, start);
+      }
+
       std::vector<size_t> getMappedIds(size_t id0) const {
         std::vector<size_t> ids;
         appendMappedIdsToVector(id0, ids);
@@ -168,59 +174,82 @@ namespace particle {
       void flagParticles(const std::vector<size_t> &orderedParticleIndices) override {
 
         std::vector<size_t> level1particles;
-        std::vector<size_t> level2particles;
 
         if (pLevel1->size() < zoomParticleArrayForL1mapper.size())
           throw std::runtime_error("Zoom particle list is longer than the grid it refers to");
 
-        size_t i0 = pLevel1->size() - zoomParticleArrayForL1mapper.size();
-        size_t lr_index;
-        size_t lr_mapper_particle;
+        size_t firstHiresParticleInMapper = pLevel1->size() - zoomParticleArrayForL1mapper.size();
+
 
         size_t last_val = 0;
         size_t numSkippedParticlesLR = 0;
         size_t nZoomParticles = zoomParticleArrayForL1mapper.size();
+        size_t firstHrParticleInInput = std::numeric_limits<size_t>::max();
 
-        for (size_t i : orderedParticleIndices) {
-          if (i < last_val)
+
+
+        for (size_t i=0; i<orderedParticleIndices.size(); ++i) {
+          size_t thisParticle = orderedParticleIndices[i];
+          if (thisParticle < last_val)
             throw std::runtime_error("The particle list must be in ascending order");
-          last_val = (i);
+          last_val = (thisParticle);
 
-          if (i < i0) {
+          if (thisParticle < firstHiresParticleInMapper) {
             // particle in low res region. We need to count how many skipped
             // particles there are to work out the address in the original
             // file ordering. NB this approach assumes the input particle array is
             // in ascending order (and the zoomParticleArray).
             while (numSkippedParticlesLR < nZoomParticles &&
-                   zoomParticleArrayForL1mapper[numSkippedParticlesLR] <= i + numSkippedParticlesLR)
+                   zoomParticleArrayForL1mapper[numSkippedParticlesLR] <= thisParticle + numSkippedParticlesLR)
               ++numSkippedParticlesLR;
 
-            level1particles.push_back(i + numSkippedParticlesLR);
+            level1particles.push_back(thisParticle + numSkippedParticlesLR);
 
           } else {
-            // particle in high res region
-            lr_index = (i - i0) / n_hr_per_lr;
+            // particle in high res region. This is now handled by the separate loop below.
+            // The loop for high-res particles is parallelised (unlike the low-res particles)
+            // because generating the right indices was found to be slow during profiling.
+            firstHrParticleInInput = i;
+            break;
+          }
+        }
+
+
+        std::vector<size_t> level2particles;
+        level2particles.resize(orderedParticleIndices.size()-firstHrParticleInInput);
+
+#pragma omp parallel
+        {
+          std::vector<size_t> hrParticlesCache;
+          hrParticlesCache.resize(n_hr_per_lr);
+          size_t lrParticleLastAccessed = std::numeric_limits<size_t>::max();
+
+#pragma omp for schedule(dynamic, n_hr_per_lr*10)
+          for (size_t i = firstHrParticleInInput; i < orderedParticleIndices.size(); ++i) {
+            size_t thisParticle = orderedParticleIndices[i];
+            size_t lr_index = (thisParticle - firstHiresParticleInMapper) / n_hr_per_lr;
 
             if (lr_index >= zoomParticleArrayForL1mapper.size())
               throw std::runtime_error("Particle ID out of range");
 
-            // find the low-res particle. Note that we push it onto the list
-            // without searching to see if it's already there, i.e. we assume that
-            // duplicates don't matter.
+            // find the low-res particle.
 
-            lr_mapper_particle = zoomParticleArrayForL1mapper[lr_index];
-            level1particles.push_back(lr_mapper_particle);
-
-            // get all the HR particles
-            std::vector<size_t> hr_particles = getMappedIds(zoomParticleArrayForL1grid[lr_index]);
-            assert(hr_particles.size() == n_hr_per_lr);
+            if (lrParticleLastAccessed != zoomParticleArrayForL1mapper[lr_index]) {
+              lrParticleLastAccessed = zoomParticleArrayForL1mapper[lr_index];
+#pragma omp critical
+              {
+                level1particles.push_back(lrParticleLastAccessed);
+              }
+              // get all the HR particles
+              insertMappedIdsInVector(zoomParticleArrayForL1grid[lr_index], hrParticlesCache.begin());
+            }
 
             // work out which of these this particle must be and push it onto
             // the HR list
-            size_t offset = (i - i0) % n_hr_per_lr;
-            level2particles.push_back(hr_particles[offset]);
-          }
+            size_t offset = (thisParticle - firstHiresParticleInMapper) % n_hr_per_lr;
+            level2particles[i - firstHrParticleInInput] = hrParticlesCache[offset];
 
+          }
         }
 
         // Some routines need these lists to be sorted (e.g. getFlaggedParticles below,
@@ -463,11 +492,12 @@ namespace particle {
 
       void calculateHiresParticleList() const {
 
-        zoomParticleArrayHiresUnsorted.reserve(zoomParticleArrayForL1mapper.size() * n_hr_per_lr);
+        zoomParticleArrayHiresUnsorted.resize(zoomParticleArrayForL1mapper.size() * n_hr_per_lr);
 
-        for (size_t i : zoomParticleArrayForL1grid) {
-          appendMappedIdsToVector(i, zoomParticleArrayHiresUnsorted);
-
+#pragma omp parallel for
+        for(size_t i=0; i<zoomParticleArrayForL1grid.size(); ++i) {
+          insertMappedIdsInVector(zoomParticleArrayForL1grid[i],
+                                  zoomParticleArrayHiresUnsorted.begin()+(i*n_hr_per_lr));
         }
 
         if (!pLevel2->supportsReverseIterator()) {

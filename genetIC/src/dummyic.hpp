@@ -33,13 +33,11 @@ public:
                                                         gridSize / nside, offset.x, offset.y, offset.z);
     } else {
       underlyingGrid = pUnderlying->multiLevelContext.getGridForLevel(newLevel).shared_from_this();
-      auto & covarianceField = pUnderlying->multiLevelContext.getCovariance(newLevel);
-
-      // TODO: neaten ugly kludge (copes with case that no underlying covariance is known without segfaulting):
-      if(&covarianceField==nullptr)
-        covarianceFieldPtr = nullptr;
-      else
-        covarianceFieldPtr = covarianceField.shared_from_this();
+      try {
+        covarianceFieldPtr = pUnderlying->multiLevelContext.getCovariance(newLevel).shared_from_this();
+      } catch(const std::out_of_range &e) {
+        // leave covarianceFieldPtr as nullptr
+      }
 
     }
 
