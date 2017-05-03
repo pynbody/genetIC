@@ -72,6 +72,7 @@ namespace fields {
 
 
     virtual const Field<DataType, T> &getFieldForLevel(size_t i) const {
+      assert(i<fieldsOnLevels.size());
       return fieldsOnLevels[i];
     }
 
@@ -369,21 +370,33 @@ namespace fields {
     } t_output_state;
 
     t_output_state outputState;
+    bool fieldsOnLevelsPopulated;
+
+    void populateFieldsOnLevels() {
+      this->multiLevelContext->forEachLevel([this](grids::Grid<T> &g) {
+        this->fieldsOnLevels.emplace_back(g);
+      });
+      fieldsOnLevelsPopulated=true;
+    }
+
+    void populateFieldsOnLevelsIfRequired() {
+      if(!fieldsOnLevelsPopulated)
+        populateFieldsOnLevels();
+    }
 
   public:
     OutputField(multilevelcontext::MultiLevelContextInformation<DataType> &multiLevelContext)
       : MultiLevelField<DataType>(
       multiLevelContext) {
       outputState = PRE_SEPARATION;
+      fieldsOnLevelsPopulated=false;
     }
 
     void updateMultiLevelContext() override {
       assert(outputState == PRE_SEPARATION);
       this->template setupFilters<filters::MultiLevelFilterFamily<T>>();
       this->fieldsOnLevels.clear();
-      this->multiLevelContext->forEachLevel([this](grids::Grid<T> &g) {
-        this->fieldsOnLevels.emplace_back(g);
-      });
+      fieldsOnLevelsPopulated=false;
     }
 
     auto getHighKResiduals() {
@@ -402,6 +415,11 @@ namespace fields {
     void setStateRecombined() {
       outputState = RECOMBINED;
       this->template setupFilters<filters::MultiLevelRecombinedFilterFamily<T>>();
+    }
+
+    Field<DataType, T> &getFieldForLevel(size_t i) override {
+      populateFieldsOnLevelsIfRequired();
+      return this->fieldsOnLevels[i];
     }
 
 
