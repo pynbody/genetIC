@@ -218,13 +218,17 @@ namespace particle {
         std::vector<size_t> level2particles;
         level2particles.resize(orderedParticleIndices.size()-firstHrParticleInInput);
 
+        // N.B. the following parallelism does not seem to achieve much speed-up.
+        // Is this because it is memory access bound, or some more subtle reason?
+
 #pragma omp parallel
         {
           std::vector<size_t> hrParticlesCache;
+          std::vector<size_t> localLrParticles;
           hrParticlesCache.resize(n_hr_per_lr);
           size_t lrParticleLastAccessed = std::numeric_limits<size_t>::max();
 
-#pragma omp for schedule(dynamic, n_hr_per_lr*10)
+#pragma omp for schedule(static, n_hr_per_lr*10)
           for (size_t i = firstHrParticleInInput; i < orderedParticleIndices.size(); ++i) {
             size_t thisParticle = orderedParticleIndices[i];
             size_t lr_index = (thisParticle - firstHiresParticleInMapper) / n_hr_per_lr;
@@ -236,10 +240,7 @@ namespace particle {
 
             if (lrParticleLastAccessed != zoomParticleArrayForL1mapper[lr_index]) {
               lrParticleLastAccessed = zoomParticleArrayForL1mapper[lr_index];
-#pragma omp critical
-              {
-                level1particles.push_back(lrParticleLastAccessed);
-              }
+              localLrParticles.push_back(lrParticleLastAccessed);
               // get all the HR particles
               insertMappedIdsInVector(zoomParticleArrayForL1grid[lr_index], hrParticlesCache.begin());
             }
@@ -250,6 +251,12 @@ namespace particle {
             level2particles[i - firstHrParticleInInput] = hrParticlesCache[offset];
 
           }
+
+#pragma omp critical
+          {
+            level1particles.insert(level1particles.end(), localLrParticles.begin(), localLrParticles.end());
+          }
+
         }
 
         // Some routines need these lists to be sorted (e.g. getFlaggedParticles below,
@@ -491,7 +498,6 @@ namespace particle {
       }
 
       void calculateHiresParticleList() const {
-
         zoomParticleArrayHiresUnsorted.resize(zoomParticleArrayForL1mapper.size() * n_hr_per_lr);
 
 #pragma omp parallel for

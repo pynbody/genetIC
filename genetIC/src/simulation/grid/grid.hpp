@@ -320,7 +320,7 @@ namespace grids {
 
       iterateOverCube<int>(Coordinate<int>(xa, ya, za),
                            Coordinate<int>(xb, yb, zb) + 1,
-                           [&start, this](const Coordinate<int> &cellCoord, int i) {
+                           [&start, this](const Coordinate<int> &cellCoord) {
                              (*start) = getCellIndex(cellCoord);
                              ++start;
                            });

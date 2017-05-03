@@ -126,22 +126,6 @@ void iterateOverCube(const Coordinate<T> &lowerCornerInclusive, const Coordinate
   }
 }
 
-template<typename T>
-void iterateOverCube(const Coordinate<T> &lowerCornerInclusive, const Coordinate<T> &upperCornerExclusive,
-                     std::function<void(const Coordinate<T> &, T)> callback) {
-
-  const T Nx = upperCornerExclusive.x-lowerCornerInclusive.x;
-  const T Ny = upperCornerExclusive.y-lowerCornerInclusive.y;
-  const T Nz = upperCornerExclusive.z-lowerCornerInclusive.z;
-  const T N = Nx*Ny*Nz;
-
-  for(T i=0; i<N; ++i) {
-    T x = lowerCornerInclusive.x+i%Nx;
-    T y = lowerCornerInclusive.y+(i/Nx)%Ny;
-    T z = lowerCornerInclusive.z+(i/(Nx*Ny))%Nz;
-    callback(Coordinate<T>(x, y, z),i);
-  }
-}
 
 template<typename T>
 Coordinate<int> floor(const Coordinate<T> &coord) {
