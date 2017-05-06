@@ -22,6 +22,7 @@ seed	8896131
 
 
 idfile zoomtest.txt
+dump_idfile zoomtest_crosscheck.txt
 zoomgrid 3 64
 
 
@@ -30,7 +31,6 @@ zoomgrid 3 64
 
 
 done
-dump test_2.tipsy.overdensity
 dumpgrid 0
 dumpgrid 1
 dumpps 0
