@@ -52,7 +52,7 @@ set(SOURCE_FILES
         genetIC/src/simulation/particles/mapper/twolevelmapper.hpp
         genetIC/src/simulation/particles/mapper/gasmapper.hpp
         genetIC/src/simulation/particles/mapper/graficmapper.hpp
-        )
+        genetIC/src/simulation/field/evaluator.hpp)
 
 include_directories( /opt/local/include )
 link_directories(/opt/local/lib )

@@ -3,6 +3,7 @@
 
 #include <memory>
 #include <typeinfo>
+#include <src/simulation/particles/generator.hpp>
 
 namespace particle {
   template<typename GridDataType>
@@ -61,7 +62,7 @@ namespace particle {
       const ParticleMapper<GridDataType> *pMapper;
       const AbstractMultiLevelParticleGenerator<GridDataType> &generator;
       mutable ConstGridPtrType pLastGrid;
-      mutable std::shared_ptr<const ParticleGenerator<GridDataType>> pLastGridGenerator;
+      mutable std::shared_ptr<const ParticleEvaluator<GridDataType>> pLastGridEvaluator;
 
       MapperIterator(const ParticleMapper<GridDataType> *pMapper,
                      const AbstractMultiLevelParticleGenerator<GridDataType> &generator) :
@@ -124,12 +125,12 @@ namespace particle {
         ConstGridPtrType pGrid;
         size_t id;
         deReference(pGrid, id);
-        return pLastGridGenerator->getParticle(*pGrid, id);
+        return pLastGridEvaluator->getParticle(id);
       }
 
     protected:
       void updateGridReference() const {
-        pLastGridGenerator = generator.getGeneratorForGrid(*pLastGrid).shared_from_this();
+        pLastGridEvaluator = generator.getGeneratorForGrid(*pLastGrid).getEvaluator(*pLastGrid);
       }
 
     public:
@@ -137,13 +138,13 @@ namespace particle {
       template<typename S>
       auto getField(const fields::MultiLevelField<S> &multiLevelField) const {
         const auto q = **this;
-        return multiLevelField.getFieldForGrid(*q.first)[q.second];
+        // TODO - BROKEN
+        // return q.first->getFieldAt(q.second, multiLevelField.getFieldForGrid(*q.first));
+        return 0;
       }
 
 
-      size_t getNextNParticles(std::vector<Particle < T>>
-
-      &particles) {
+      size_t getNextNParticles(std::vector<Particle<T>> &particles) {
         size_t n = 1024 * 256;
         if (n + i > pMapper->size())
           n = pMapper->size() - i;
@@ -211,7 +212,7 @@ namespace particle {
         ConstGridPtrType pGrid;
         size_t id;
         deReference(pGrid, id);
-        return pLastGridGenerator->getMass(*pGrid);
+        return pLastGridEvaluator->getMass();
       }
 
       std::unique_ptr<DereferenceType> operator->() const {

@@ -20,6 +20,7 @@
 
 #include "src/simulation/field/randomfieldgenerator.hpp"
 #include "src/simulation/field/multilevelfield.hpp"
+#include "src/simulation/field/evaluator.hpp"
 
 #include "src/simulation/particles/multilevelgenerator.hpp"
 #include "src/simulation/particles/mapper/onelevelmapper.hpp"
@@ -74,7 +75,14 @@ protected:
   string outputFolder, outputFilename;
 
   bool haveInitialisedRandomComponent;
+  // track whether the random realisation has yet been made
+
   bool exactPowerSpectrum;
+  // enforce the exact power spectrum, as in Angulo & Pontzen 2016
+
+  bool allowStrayParticles;
+  // "stray" particles are high-res particles outside a high-res grid,
+  // constructed through interpolation of the surrounding low-res grid. By default these will be disallowed.
 
   std::vector<size_t> flaggedParticles;
   std::vector<std::vector<size_t>> zoomParticleArray;
@@ -115,6 +123,7 @@ public:
     yOffOutput = 0;
     zOffOutput = 0;
     exactPowerSpectrum = false;
+    allowStrayParticles=false;
     pParticleGenerator = std::make_shared<particle::NullMultiLevelParticleGenerator<GridDataType>>();
   }
 
@@ -142,6 +151,10 @@ public:
 
   void setHubble(T in) {
     cosmology.hubble = in;
+  }
+
+  void setStraysOn() {
+    allowStrayParticles = true;
   }
 
   void offsetOutput(T x, T y, T z) {
@@ -223,7 +236,7 @@ public:
 
     // Now see if the zoom the user chose is OK
     int n_user = nAbove / zoomfac;
-    if ((x1 - x0) > n_user || (y1 - y0) > n_user || (z1 - z0) > n_user) {
+    if (((x1 - x0) > n_user || (y1 - y0) > n_user || (z1 - z0) > n_user) && !allowStrayParticles) {
       throw (std::runtime_error(
         "Zoom particles do not fit in specified sub-box. Decrease zoom, or choose different particles. (NB wrapping not yet implemented)"));
     }
@@ -282,18 +295,27 @@ public:
 
     // check particles fit in box
     for (size_t i = 0; i < newLevelZoomParticleArray.size(); i++) {
+      bool include=true;
       int xp, yp, zp;
       std::tie(xp, yp, zp) = gridAbove.getCellCoordinate(newLevelZoomParticleArray[i]);
       if (xp < x0 || yp < y0 || zp < z0 || xp >= x1 || yp >= y1 || zp >= z1) {
         missed_particle+=1;
-      } else {
+        include = false;
+      }
+
+      if(include || allowStrayParticles) {
         trimmedParticleArray.push_back(newLevelZoomParticleArray[i]);
       }
     }
 
     if(missed_particle>0) {
       cerr << "WARNING: the requested zoom particles do not all fit in the requested zoom window" << endl;
-      cerr << "         of " << newLevelZoomParticleArray.size() << " particles, " << missed_particle << " have been ommitted" << endl;
+      if(allowStrayParticles) {
+        cerr << "         of " << newLevelZoomParticleArray.size() << " particles, " << missed_particle << " will be interpolated from LR grid (stray particle mode)" << endl;
+      } else {
+        cerr << "         of " << newLevelZoomParticleArray.size() << " particles, " << missed_particle << " have been ommitted" << endl;
+      }
+
       cerr << "         to make a new zoom flag list of " << trimmedParticleArray.size() << endl;
     }
 
@@ -477,12 +499,22 @@ public:
       (pseudoICs.multiLevelContext);
   }
 
-  std::shared_ptr<grids::Grid<T>> getGridWithOutputOffset(int level = 0) {
+  /*! Get the grid on which the output is defined for a particular level.
+   *
+   * This may differ from the grid on which the fields are defined either because there is an offset or
+   * there are differences in the resolution between the output and the literal fields.
+   *
+   */
+  std::shared_ptr<grids::Grid<T>> getOutputGrid(int level = 0) {
     auto gridForOutput = multiLevelContext.getGridForLevel(level).shared_from_this();
 
     if (xOffOutput != 0 || yOffOutput != 0 || zOffOutput != 0) {
       gridForOutput = std::make_shared<grids::OffsetGrid<T>>(gridForOutput,
                                                              xOffOutput, yOffOutput, zOffOutput);
+    }
+    if(allowStrayParticles && level>0) {
+      gridForOutput = std::make_shared<grids::ResolutionMatchingGrid<T>>(gridForOutput,
+                                                                         getOutputGrid(level - 1));
     }
     return gridForOutput;
   }
@@ -505,7 +537,7 @@ public:
     // make a basic mapper for the coarsest grid
     pMapper = std::shared_ptr<particle::mapper::ParticleMapper<GridDataType>>(
       new particle::mapper::OneLevelParticleMapper<GridDataType>(
-        getGridWithOutputOffset(0)
+          getOutputGrid(0)
       ));
 
 
@@ -514,7 +546,7 @@ public:
       for (size_t level = 1; level < nLevels; level++) {
 
         auto pFine = std::shared_ptr<particle::mapper::ParticleMapper<GridDataType>>(
-          new particle::mapper::OneLevelParticleMapper<GridDataType>(getGridWithOutputOffset(level)));
+          new particle::mapper::OneLevelParticleMapper<GridDataType>(getOutputGrid(level)));
 
         pMapper = std::shared_ptr<particle::mapper::ParticleMapper<GridDataType>>(
           new particle::mapper::TwoLevelParticleMapper<GridDataType>(pMapper, pFine, zoomParticleArray[level - 1]));
@@ -720,21 +752,26 @@ public:
     flaggedParticles.clear();
 
 
+    // unflag all grids first. This can't be in the loop below in case there are subtle
+    // relationships between grids (in particular the ResolutionMatchingGrid which actually
+    // points to two levels simultaneously).
+    for_each_level(level) {
+      getOutputGrid(level)->unflagAllCells();
+    }
+
     for_each_level(level) {
       std::vector<size_t> particleArray;
-      grids::Grid<T> &grid = multiLevelContext.getGridForLevel(level);
-      size_t N = grid.size3;
+      auto grid = getOutputGrid(level);
+      size_t N = grid->size3;
       for (size_t i = 0; i < N; i++) {
-        std::tie(xp, yp, zp) = grid.getCellCentroid(i);
+        std::tie(xp, yp, zp) = grid->getCellCentroid(i);
         delta_x = get_wrapped_delta(xp, x0);
         delta_y = get_wrapped_delta(yp, y0);
         delta_z = get_wrapped_delta(zp, z0);
         if (inclusionFunction(delta_x, delta_y, delta_z))
           particleArray.push_back(i);
       }
-
-      grid.unflagAllCells();
-      grid.flagCells(particleArray);
+      grid->flagCells(particleArray);
 
     }
   }

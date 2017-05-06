@@ -22,10 +22,75 @@ namespace particle {
   class Particle;
 
   template<typename GridDataType, typename T=tools::datatypes::strip_complex<GridDataType>>
+  class ZeldovichParticleGenerator;
+
+  template<typename GridDataType, typename T=tools::datatypes::strip_complex<GridDataType>>
+  class ZeldovichParticleEvaluator : public ParticleEvaluator<GridDataType> {
+  protected:
+    using EvaluatorType = std::shared_ptr<fields::EvaluatorBase<GridDataType,T>>;
+    using GridType = grids::Grid<T>;
+    using TField = fields::Field<GridDataType, T>;
+    EvaluatorType pOffsetXEvaluator;
+    EvaluatorType pOffsetYEvaluator;
+    EvaluatorType pOffsetZEvaluator;
+
+    std::shared_ptr<const ZeldovichParticleGenerator<GridDataType>> pGenerator;
+    std::shared_ptr<const GridType> onGrid;
+
+  public:
+    ZeldovichParticleEvaluator(const ZeldovichParticleGenerator<GridDataType> & generator, const GridType & grid)
+        : ParticleEvaluator<GridDataType>(grid) {
+      pGenerator = std::dynamic_pointer_cast<const ZeldovichParticleGenerator<GridDataType>>(generator.shared_from_this());
+      std::shared_ptr<TField> pOff_x, pOff_y, pOff_z;
+      std::tie(pOff_x, pOff_y, pOff_z) = generator.getOffsetFields();
+      pOffsetXEvaluator = fields::makeEvaluator(*pOff_x, grid);
+      pOffsetYEvaluator = fields::makeEvaluator(*pOff_y, grid);
+      pOffsetZEvaluator = fields::makeEvaluator(*pOff_z, grid);
+      onGrid = grid.shared_from_this();
+    }
+
+    virtual particle::Particle<T> getParticleNoOffset(size_t id) const override {
+
+      particle::Particle<T> particle;
+
+      particle.pos.x = tools::datatypes::real_part_if_complex((*pOffsetXEvaluator)[id]);
+      particle.pos.y = tools::datatypes::real_part_if_complex((*pOffsetYEvaluator)[id]);
+      particle.pos.z = tools::datatypes::real_part_if_complex((*pOffsetZEvaluator)[id]);
+
+      particle.vel = particle.pos * pGenerator->velocityToOffsetRatio;
+
+      particle.mass = getMass();
+      particle.soft = getEps();
+
+      return particle;
+    }
+
+    virtual particle::Particle<T> getParticleNoWrap(size_t id) const override {
+      auto particle = getParticleNoOffset(id);
+      auto centroid = onGrid->getCellCentroid(id);
+      particle.pos += centroid;
+      return particle;
+    }
+
+    virtual T getMass() const override {
+      return pGenerator->boxMass * onGrid->cellMassFrac;
+    }
+
+    virtual T getEps() const override {
+      return onGrid->dx * onGrid->cellSofteningScale *
+             0.01075; // <-- arbitrary to coincide with normal UW resolution. TODO: Find a way to make this flexible.
+    }
+
+  };
+
+
+
+  template<typename GridDataType, typename T>
   class ZeldovichParticleGenerator : public ParticleGenerator<GridDataType> {
   protected:
     using TField = fields::Field<GridDataType, T>;
     using TRealField = fields::Field<T, T>;
+    friend class ZeldovichParticleEvaluator<GridDataType, T>;
 
     const cosmology::CosmologicalParameters<T> &cosmology;
     TField &linearOverdensityField;
@@ -37,7 +102,6 @@ namespace particle {
     std::shared_ptr<TField> pOff_x;
     std::shared_ptr<TField> pOff_y;
     std::shared_ptr<TField> pOff_z;
-
 
     void calculateVelocityToOffsetRatio() {
 
@@ -97,6 +161,7 @@ namespace particle {
       this->pOff_y->toReal();
       this->pOff_z->toReal();
 
+
     }
 
   public:
@@ -141,15 +206,6 @@ namespace particle {
       pOff_z->toReal();
     }
 
-    virtual T getMass(const grids::Grid<T> &onGrid) const override {
-      return boxMass * onGrid.cellMassFrac;
-    }
-
-    virtual T getEps(const grids::Grid<T> &onGrid) const override {
-      return onGrid.dx * onGrid.cellSofteningScale *
-             0.01075; // <-- arbitrary to coincide with normal UW resolution. TODO: Find a way to make this flexible.
-    }
-
     auto getOffsetFields() {
       return std::make_tuple(pOff_x, pOff_y, pOff_z);
     }
@@ -158,31 +214,10 @@ namespace particle {
       return std::make_tuple(pOff_x, pOff_y, pOff_z);
     }
 
-    virtual particle::Particle<T> getParticleNoOffset(const grids::Grid<T> &onGrid, size_t id) const override {
-      particle::Particle<T> particle;
-
-      assert(!pOff_x->isFourier());
-      assert(!pOff_y->isFourier());
-      assert(!pOff_z->isFourier());
-
-      particle.pos.x = tools::datatypes::real_part_if_complex(onGrid.getFieldAt(id, *pOff_x));
-      particle.pos.y = tools::datatypes::real_part_if_complex(onGrid.getFieldAt(id, *pOff_y));
-      particle.pos.z = tools::datatypes::real_part_if_complex(onGrid.getFieldAt(id, *pOff_z));
-
-      particle.vel = particle.pos * velocityToOffsetRatio;
-
-      particle.mass = getMass(onGrid);
-      particle.soft = getEps(onGrid);
-
-      return particle;
+    std::shared_ptr<ParticleEvaluator<GridDataType>> getEvaluator(const grids::Grid<T> &forGrid) const override {
+      return std::make_shared<ZeldovichParticleEvaluator<GridDataType>>(*this, forGrid);
     }
 
-    virtual particle::Particle<T> getParticleNoWrap(const grids::Grid<T> &onGrid, size_t id) const override {
-      auto particle = getParticleNoOffset(onGrid, id);
-      auto centroid = onGrid.getCellCentroid(id);
-      particle.pos += centroid;
-      return particle;
-    }
 
 
   };

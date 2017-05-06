@@ -9,6 +9,7 @@
 #include <complex>
 
 #include "src/simulation/coordinate.hpp"
+#include "grid.hpp"
 
 
 using std::complex;
@@ -23,10 +24,8 @@ namespace grids {
   template<typename T>
   class VirtualGrid : public Grid<T> {
   protected:
-    using typename Grid<T>::TField;
-    using typename Grid<T>::TRealField;
-    using typename Grid<T>::PtrTField;
     using typename Grid<T>::GridPtrType;
+    using typename Grid<T>::ConstGridPtrType;
     GridPtrType pUnderlying;
 
   public:
@@ -60,14 +59,6 @@ namespace grids {
       return this == pOther || pUnderlying.get() == pOther || pUnderlying->pointsToGrid(pOther);
     }
 
-    virtual T getFieldAt(size_t i, const TRealField &field) const override {
-      return pUnderlying->getFieldAt(i, field);
-    }
-
-    virtual complex<T> getFieldAt(size_t i, const TField &field) const override {
-      return pUnderlying->getFieldAt(i, field);
-    }
-
     void getFlaggedCells(std::vector<size_t> &targetArray) const override {
       pUnderlying->getFlaggedCells(targetArray);
     }
@@ -84,6 +75,10 @@ namespace grids {
       return pUnderlying->hasFlaggedCells();
     }
 
+    ConstGridPtrType getUnderlying() const {
+      return pUnderlying;
+    }
+
 
   };
 
@@ -94,9 +89,6 @@ namespace grids {
     int factor3;
 
   protected:
-    using typename Grid<T>::TField;
-    using typename Grid<T>::TRealField;
-    using typename Grid<T>::PtrTField;
     using typename Grid<T>::GridPtrType;
 
   public:
@@ -131,25 +123,96 @@ namespace grids {
       this->pUnderlying->flagCells(targetArray);
     }
 
-    virtual T getFieldAt(size_t i, const TRealField &field) const override {
-      auto centroid = this->getCellCentroid(i);
-      return field.evaluateInterpolated(centroid);
+
+  };
+
+  template<typename T>
+  class ResolutionMatchingGrid : public VirtualGrid<T> {
+  protected:
+    using typename Grid<T>::GridPtrType;
+
+    GridPtrType pUnderlyingHiRes, pUnderlyingLoResInterpolated;
+    Coordinate<int> windowLowerCornerInclusive;
+    Coordinate<int> windowUpperCornerExclusive;
+
+  public:
+
+    ResolutionMatchingGrid(GridPtrType pUnderlyingHiRes, GridPtrType pUnderlyingLoRes) :
+        VirtualGrid<T>(pUnderlyingHiRes,
+                       pUnderlyingLoRes->simsize,
+                       pUnderlyingLoRes->size * tools::getRatioAndAssertInteger(pUnderlyingLoRes->dx, pUnderlyingHiRes->dx),
+                       pUnderlyingHiRes->dx,
+                       pUnderlyingLoRes->offsetLower.x,
+                       pUnderlyingLoRes->offsetLower.y,
+                       pUnderlyingLoRes->offsetLower.z,
+                       pUnderlyingHiRes->cellMassFrac,
+                       pUnderlyingHiRes->cellSofteningScale),
+        pUnderlyingHiRes(pUnderlyingHiRes)
+    {
+      pUnderlyingLoResInterpolated = std::make_shared<SuperSampleGrid<T>>(pUnderlyingLoRes,
+                                                                          this->size/pUnderlyingLoRes->size);
+      this->pUnderlying = pUnderlyingLoResInterpolated;
+
+      auto offsetLowerRelative = pUnderlyingHiRes->offsetLower - pUnderlyingLoRes->offsetLower;
+      windowLowerCornerInclusive = round<int>(offsetLowerRelative/this->dx);
+
+      auto offsetLowerRelativeCheck = Coordinate<T>(windowLowerCornerInclusive)*this->dx;
+      assert(offsetLowerRelativeCheck.almostEqual(offsetLowerRelative)); // if this doesn't match, the grids don't line up
+
+      windowUpperCornerExclusive = windowLowerCornerInclusive + pUnderlyingHiRes->size;
+
     }
 
-    virtual complex<T> getFieldAt(size_t i, const TField &field) const override {
-      auto centroid = this->getCellCentroid(i);
-      return field.evaluateInterpolated(centroid);
+    void debugName(std::ostream &s) const override {
+      s << "ResolutionMatchingGrid";
+    }
+
+    void getFlaggedCells(std::vector<size_t> &targetArray) const override {
+      std::vector<size_t> interpolatedCellsArray;
+      this->pUnderlyingHiRes->getFlaggedCells(targetArray);
+      this->pUnderlyingLoResInterpolated->getFlaggedCells(interpolatedCellsArray);
+      for(size_t i=0; i<targetArray.size(); ++i) {
+        auto coordinate = this->pUnderlyingHiRes->getCellCoordinate(targetArray[i]) + this->windowLowerCornerInclusive;
+        targetArray[i] = this->pUnderlyingLoResInterpolated->getCellIndex(coordinate);
+      }
+
+      for(size_t i=0; i<interpolatedCellsArray.size(); ++i) {
+        size_t thisCell = interpolatedCellsArray[i];
+        auto coordinate = pUnderlyingLoResInterpolated->getCellCoordinate(thisCell);
+        if(!coordinate.inWindow(windowLowerCornerInclusive, windowUpperCornerExclusive)) {
+          targetArray.push_back(thisCell);
+        }
+      }
+
+      std::sort(targetArray.begin(), targetArray.end());
+    }
+
+    void flagCells(const std::vector<size_t> &sourceArray) override {
+      std::vector<size_t> interpolatedCellsArray;
+      std::vector<size_t> hiresCellsArray;
+
+      for(size_t i=0; i<sourceArray.size(); ++i) {
+        size_t thisCell = sourceArray[i];
+        auto coordinate = pUnderlyingLoResInterpolated->getCellCoordinate(thisCell);
+        if(coordinate.inWindow(windowLowerCornerInclusive, windowUpperCornerExclusive)) {
+          size_t hiresCell = pUnderlyingHiRes->getCellIndex(coordinate-windowLowerCornerInclusive);
+          hiresCellsArray.push_back(hiresCell);
+        } else {
+          interpolatedCellsArray.push_back(thisCell);
+        }
+      }
+
+      pUnderlyingLoResInterpolated->flagCells(interpolatedCellsArray);
+      pUnderlyingHiRes->flagCells(hiresCellsArray);
     }
 
   };
+
 
   template<typename T>
   class OffsetGrid : public VirtualGrid<T> {
 
   protected:
-    using typename Grid<T>::TField;
-    using typename Grid<T>::TRealField;
-    using typename Grid<T>::PtrTField;
     using typename Grid<T>::GridPtrType;
 
 
@@ -190,12 +253,10 @@ namespace grids {
     Coordinate<T> posOffset;
 
   protected:
-    using typename Grid<T>::TField;
-    using typename Grid<T>::TRealField;
-    using typename Grid<T>::PtrTField;
     using typename Grid<T>::GridPtrType;
 
 
+  public:
     size_t mapIndexToUnderlying(size_t sec_id) const {
       auto coord = this->getCellCoordinate(sec_id);
       coord += cellOffset;
@@ -214,7 +275,6 @@ namespace grids {
       return this->getCellIndex(coord);
     }
 
-  public:
     SectionOfGrid(GridPtrType pUnderlying, int deltax, int deltay, int deltaz, size_t size) :
       VirtualGrid<T>(pUnderlying,
                      pUnderlying->simsize, size,
@@ -242,14 +302,6 @@ namespace grids {
 
     virtual void debugName(std::ostream &s) const override {
       s << "SectionOfGrid";
-    }
-
-    virtual T getFieldAt(size_t i, const TRealField &field) const override {
-      return this->pUnderlying->getFieldAt(mapIndexToUnderlying(i), field);
-    }
-
-    virtual complex<T> getFieldAt(size_t i, const TField &field) const override {
-      return this->pUnderlying->getFieldAt(mapIndexToUnderlying(i), field);
     }
 
     void getFlaggedCells(std::vector<size_t> &targetArray) const override {
@@ -287,11 +339,6 @@ namespace grids {
   private:
     int factor;
     int factor3;
-
-  protected:
-    using typename Grid<T>::TField;
-    using typename Grid<T>::TRealField;
-    using typename Grid<T>::PtrTField;
 
   public:
     SubSampleGrid(std::shared_ptr<Grid<T>> pUnderlying, int factor) :
@@ -357,32 +404,12 @@ namespace grids {
     }
 
 
-    virtual complex<T> getFieldAt(size_t i, const TField &field) const override {
-      complex<T> returnVal(0);
-      int localFactor3 = forEachSubcell(i, [this, &returnVal, &field](size_t local_id) {
-        returnVal += field[local_id];
-      });
-      return returnVal / T(localFactor3);
-    }
-
-    virtual T getFieldAt(size_t i, const TRealField &field) const override {
-      T returnVal(0);
-      int localFactor3 = forEachSubcell(i, [this, &returnVal, &field](size_t local_id) {
-        returnVal += field[local_id];
-      });
-      return returnVal / localFactor3;
-    }
-
-
   };
 
 
   template<typename T>
   class MassScaledGrid : public VirtualGrid<T> {
   protected:
-    using typename Grid<T>::TField;
-    using typename Grid<T>::TRealField;
-    using typename Grid<T>::PtrTField;
     using typename Grid<T>::GridPtrType;
 
 

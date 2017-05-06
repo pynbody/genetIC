@@ -83,7 +83,7 @@ namespace fields {
     virtual Field<DataType, T> &getFieldForGrid(const grids::Grid<T> &grid) {
       // TODO: problematically slow implementation
       for (size_t i = 0; i < multiLevelContext->getNumLevels(); ++i) {
-        if (&grid == &multiLevelContext->getGridForLevel(i))
+        if(grid.pointsToGrid(&multiLevelContext->getGridForLevel(i)))
           return getFieldForLevel(i);
       }
       throw (std::runtime_error("Cannot find a field for the specified grid"));

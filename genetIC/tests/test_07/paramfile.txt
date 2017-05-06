@@ -29,3 +29,4 @@ done
 
 dumpgrid 0
 dumpgrid 1 
+dump test_7.tipsy.overdensity
