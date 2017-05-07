@@ -5,6 +5,7 @@
 #include "../grid/grid.hpp"
 #include "../grid/virtualgrid.hpp"
 #include "field.hpp"
+#include "../multilevelcontext/multilevelcontext.hpp"
 #include <string>
 
 namespace fields {
@@ -154,20 +155,92 @@ namespace fields {
     }
   };
 
+  template<typename DataType, typename CoordinateType = tools::datatypes::strip_complex<DataType>>
+  class ResolutionMatchingEvaluator : public EvaluatorBase<DataType, CoordinateType> {
+
+  protected:
+    using MyGridType = const grids::ResolutionMatchingGrid<CoordinateType>;
+    const std::shared_ptr<MyGridType> grid;
+    const std::shared_ptr<const grids::Grid<CoordinateType>> hiresRegionGrid;
+    const std::shared_ptr<const EvaluatorBase<DataType, CoordinateType>> underlyingLoRes;
+    const std::shared_ptr<const EvaluatorBase<DataType, CoordinateType>> underlyingHiRes;
+
+  public:
+    ResolutionMatchingEvaluator(std::shared_ptr<const EvaluatorBase<DataType, CoordinateType>> underlyingLoRes,
+                                std::shared_ptr<const EvaluatorBase<DataType, CoordinateType>> underlyingHiRes,
+                               const grids::VirtualGrid<CoordinateType> &grid) :
+        underlyingLoRes(underlyingLoRes), underlyingHiRes(underlyingHiRes),
+        grid(std::dynamic_pointer_cast<MyGridType>(grid.shared_from_this()))
+    {
+
+    }
+
+    virtual DataType operator[](size_t i) const override {
+      auto coordinate = grid->getCellCoordinate(i);
+      if(grid->isInHiResWindow(coordinate)) {
+        size_t mapped_index = grid->getIndexInHiResWindow(coordinate);
+        return (*underlyingHiRes)[mapped_index];
+      } else {
+        return (*underlyingLoRes)[i];
+      }
+    }
+
+    DataType operator()(const Coordinate<CoordinateType> &at) const override {
+      if(grid->isInHiResWindow(at))
+        return (*underlyingHiRes)(at);
+      else
+        return (*underlyingLoRes)(at);
+    }
+
+    bool contains(size_t i) const override {
+      return i<grid->size3;
+    }
+  };
 
 
+  //! Return an object suitable for evaluating the specified field at coordinates on the specified grid
   template<typename DataType, typename CoordinateType>
   std::shared_ptr<EvaluatorBase<DataType, CoordinateType>> makeEvaluator(const Field<DataType, CoordinateType> &field,
                                                const grids::Grid<CoordinateType> &grid) {
-    if(!grid.pointsToGrid(&field.getGrid())) {
-      throw std::runtime_error("Cannot evaluate this Field on the specified Grid because the grids do not have a well-defined relationship to each other.");
-    }
+
+    multilevelcontext::MultiLevelContextInformation<DataType> dummyContext;
+    dummyContext.addLevel(nullptr, const_cast<grids::Grid<CoordinateType> &>(field.getGrid()).shared_from_this());
+    MultiLevelField<DataType> dummyMultiField(dummyContext, {const_cast<Field<DataType, CoordinateType> &>(field).shared_from_this()});
+    return makeEvaluator(dummyMultiField, grid);
+
+  };
+
+  //! Return an object suitable for evaluating the specified field at coordinates on the specified grid
+  template<typename DataType, typename CoordinateType>
+  std::shared_ptr<EvaluatorBase<DataType, CoordinateType>> makeEvaluator(const MultiLevelField<DataType> &field,
+                                               const grids::Grid<CoordinateType> &grid) {
+
+    // TODO: this routine, complete with use of RTTI, is really ugly and could do with being rethought.
 
     auto &runtimeType = typeid(grid);
 
     if(runtimeType==typeid(grids::Grid<CoordinateType>)) {
-      return std::make_shared<DirectEvaluator<DataType, CoordinateType>>(field);
+      // Simplest case: the field is actually stored directly on this grid.
+      return std::make_shared<DirectEvaluator<DataType, CoordinateType>>(field.getFieldForGrid(grid));
     } else {
+      // Special case: ResolutionMatchingGrid points to TWO underlying grids
+      if(runtimeType==typeid(grids::ResolutionMatchingGrid<CoordinateType>)) {
+        const grids::ResolutionMatchingGrid<CoordinateType> &rmGrid =
+            dynamic_cast<const grids::ResolutionMatchingGrid<CoordinateType> &>(grid);
+
+        auto underlyingLoResGrid = rmGrid.getUnderlyingLoResInterpolated();
+        auto underlyingHiResGrid = rmGrid.getUnderlyingHiRes();
+
+        auto underlyingLoResEvaluator = makeEvaluator(field, *underlyingLoResGrid);
+        auto underlyingHiResEvaluator = makeEvaluator(field, *underlyingHiResGrid);
+
+        return std::make_shared<ResolutionMatchingEvaluator<DataType, CoordinateType>>
+            (underlyingLoResEvaluator, underlyingHiResEvaluator, rmGrid);
+
+      }
+
+      // In all other cases, there is one underlying grid that we need the evaluator for, then we place an adaptor
+      // around that.
       const grids::VirtualGrid<CoordinateType> &virtualGrid = dynamic_cast<const grids::VirtualGrid<CoordinateType> &>(grid);
       auto & underlyingGrid = *(virtualGrid.getUnderlying());
       auto underlyingEvaluator = makeEvaluator(field, underlyingGrid);
@@ -179,11 +252,15 @@ namespace fields {
       } else if(runtimeType==typeid(grids::SubSampleGrid<CoordinateType>)) {
         return std::make_shared<SubSampleEvaluator<DataType, CoordinateType>>(underlyingEvaluator, virtualGrid);
       } else if(runtimeType==typeid(grids::OffsetGrid<CoordinateType>) ||
-          runtimeType==typeid(grids::MassScaledGrid<CoordinateType>)) {
+                runtimeType==typeid(grids::MassScaledGrid<CoordinateType>)) {
         return underlyingEvaluator;
       }
     }
     throw std::runtime_error(std::string("Don't know how to evaluate field on grid of type ")+runtimeType.name());
+
+
+     return makeEvaluator(field.getFieldForGrid(grid), grid);
+
   };
 
 

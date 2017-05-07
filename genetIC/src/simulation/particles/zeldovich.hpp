@@ -34,19 +34,42 @@ namespace particle {
     EvaluatorType pOffsetYEvaluator;
     EvaluatorType pOffsetZEvaluator;
 
-    std::shared_ptr<const ZeldovichParticleGenerator<GridDataType>> pGenerator;
+    const cosmology::CosmologicalParameters<T> &cosmology;
+
+    T velocityToOffsetRatio, boxMass;
+
     std::shared_ptr<const GridType> onGrid;
 
+    void calculateVelocityToOffsetRatio() {
+
+      velocityToOffsetRatio = 1. * 100. * sqrt(
+          cosmology.OmegaM0 / cosmology.scalefactor / cosmology.scalefactor / cosmology.scalefactor +
+          cosmology.OmegaLambda0) * sqrt(
+          cosmology.scalefactor);
+
+      //this should be f*H(t)*a, but gadget wants vel/sqrt(a), so we use H(t)*sqrt(a)
+      //TODO: hardcoded value of f=1 is inaccurate - should be a function of omega
+
+    }
+
+    void calculateSimulationMass() {
+      // The mass of the entire simulation:
+      // sqrt(3*(100 h km/s/Mpc)^2/(8 pi G))
+      //
+      // Gadget units are used internally, so express as Msol h
+      boxMass = 27.744948 * cosmology.OmegaM0 * powf(onGrid->simsize, 3.0);
+    }
+
   public:
-    ZeldovichParticleEvaluator(const ZeldovichParticleGenerator<GridDataType> & generator, const GridType & grid)
-        : ParticleEvaluator<GridDataType>(grid) {
-      pGenerator = std::dynamic_pointer_cast<const ZeldovichParticleGenerator<GridDataType>>(generator.shared_from_this());
-      std::shared_ptr<TField> pOff_x, pOff_y, pOff_z;
-      std::tie(pOff_x, pOff_y, pOff_z) = generator.getOffsetFields();
-      pOffsetXEvaluator = fields::makeEvaluator(*pOff_x, grid);
-      pOffsetYEvaluator = fields::makeEvaluator(*pOff_y, grid);
-      pOffsetZEvaluator = fields::makeEvaluator(*pOff_z, grid);
+    ZeldovichParticleEvaluator(EvaluatorType evalOffX, EvaluatorType evalOffY, EvaluatorType evalOffZ,
+                               const GridType & grid, const cosmology::CosmologicalParameters<T> &cosmology)
+        : ParticleEvaluator<GridDataType>(grid), cosmology(cosmology) {
+      pOffsetXEvaluator = evalOffX;
+      pOffsetYEvaluator = evalOffY;
+      pOffsetZEvaluator = evalOffZ;
       onGrid = grid.shared_from_this();
+      calculateSimulationMass();
+      calculateVelocityToOffsetRatio();
     }
 
     virtual particle::Particle<T> getParticleNoOffset(size_t id) const override {
@@ -57,7 +80,7 @@ namespace particle {
       particle.pos.y = tools::datatypes::real_part_if_complex((*pOffsetYEvaluator)[id]);
       particle.pos.z = tools::datatypes::real_part_if_complex((*pOffsetZEvaluator)[id]);
 
-      particle.vel = particle.pos * pGenerator->velocityToOffsetRatio;
+      particle.vel = particle.pos * velocityToOffsetRatio;
 
       particle.mass = getMass();
       particle.soft = getEps();
@@ -73,7 +96,7 @@ namespace particle {
     }
 
     virtual T getMass() const override {
-      return pGenerator->boxMass * onGrid->cellMassFrac;
+      return boxMass * onGrid->cellMassFrac;
     }
 
     virtual T getEps() const override {
@@ -92,10 +115,9 @@ namespace particle {
     using TRealField = fields::Field<T, T>;
     friend class ZeldovichParticleEvaluator<GridDataType, T>;
 
-    const cosmology::CosmologicalParameters<T> &cosmology;
     TField &linearOverdensityField;
     using ParticleGenerator<GridDataType>::grid;
-    T velocityToOffsetRatio, boxMass;
+
 
     // The grid offsets after Zeldovich approximation is applied
     // (nullptr before that):
@@ -103,25 +125,7 @@ namespace particle {
     std::shared_ptr<TField> pOff_y;
     std::shared_ptr<TField> pOff_z;
 
-    void calculateVelocityToOffsetRatio() {
 
-      velocityToOffsetRatio = 1. * 100. * sqrt(
-        cosmology.OmegaM0 / cosmology.scalefactor / cosmology.scalefactor / cosmology.scalefactor +
-        cosmology.OmegaLambda0) * sqrt(
-        cosmology.scalefactor);
-
-      //this should be f*H(t)*a, but gadget wants vel/sqrt(a), so we use H(t)*sqrt(a)
-      //TODO: hardcoded value of f=1 is inaccurate - should be a function of omega
-
-    }
-
-    void calculateSimulationMass() {
-      // The mass of the entire simulation:
-      // sqrt(3*(100 h km/s/Mpc)^2/(8 pi G))
-      //
-      // Gadget units are used internally, so express as Msol h
-      boxMass = 27.744948 * cosmology.OmegaM0 * powf(grid.simsize, 3.0);
-    }
 
     virtual void calculateOffsetFields() {
       size_t size = grid.size;
@@ -167,18 +171,13 @@ namespace particle {
   public:
 
 
-    ZeldovichParticleGenerator(TField &linearOverdensityField,
-                               const cosmology::CosmologicalParameters<T> &cosmology) :
-
+    ZeldovichParticleGenerator(TField &linearOverdensityField) :
       ParticleGenerator<GridDataType>(linearOverdensityField.getGrid()),
-      cosmology(cosmology),
       linearOverdensityField(linearOverdensityField) {
       recalculate();
     }
 
     void recalculate() override {
-      calculateVelocityToOffsetRatio();
-      calculateSimulationMass();
       calculateOffsetFields();
     }
 
@@ -206,18 +205,9 @@ namespace particle {
       pOff_z->toReal();
     }
 
-    auto getOffsetFields() {
-      return std::make_tuple(pOff_x, pOff_y, pOff_z);
+    std::vector<std::shared_ptr<fields::Field<GridDataType>>> getGeneratedFields() override {
+      return {pOff_x, pOff_y, pOff_z};
     }
-
-    auto getOffsetFields() const {
-      return std::make_tuple(pOff_x, pOff_y, pOff_z);
-    }
-
-    std::shared_ptr<ParticleEvaluator<GridDataType>> getEvaluator(const grids::Grid<T> &forGrid) const override {
-      return std::make_shared<ZeldovichParticleEvaluator<GridDataType>>(*this, forGrid);
-    }
-
 
 
   };

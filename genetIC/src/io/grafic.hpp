@@ -55,8 +55,7 @@ namespace io {
     protected:
 
       void writeGrid(const grids::Grid<T> &targetGrid) {
-        auto &gridGenerator = generator->getGeneratorForGrid(targetGrid);
-        auto evaluator = gridGenerator.getEvaluator(targetGrid);
+        auto evaluator = generator->makeEvaluatorForGrid(targetGrid);
 
         const grids::Grid<T> &baseGrid = context.getGridForLevel(0);
         size_t effective_size = tools::getRatioAndAssertPositiveInteger(baseGrid.dx * baseGrid.size, targetGrid.dx);

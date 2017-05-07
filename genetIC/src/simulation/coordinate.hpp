@@ -109,7 +109,7 @@ public:
     return std::abs(x-other.x)<tol && std::abs(y-other.y)<tol && std::abs(z-other.z)<tol;
   }
 
-  bool inWindow(const Coordinate<T> &lowerCornerInclusive, const Coordinate<T> &upperCornerExclusive) {
+  bool inWindow(const Coordinate<T> &lowerCornerInclusive, const Coordinate<T> &upperCornerExclusive) const {
     return x>=lowerCornerInclusive.x && x<upperCornerExclusive.x &&
         y>=lowerCornerInclusive.y && y<upperCornerExclusive.y &&
         z>=lowerCornerInclusive.z && z<upperCornerExclusive.z;

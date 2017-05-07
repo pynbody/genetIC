@@ -130,10 +130,13 @@ namespace grids {
   class ResolutionMatchingGrid : public VirtualGrid<T> {
   protected:
     using typename Grid<T>::GridPtrType;
+    using typename Grid<T>::ConstGridPtrType;
 
     GridPtrType pUnderlyingHiRes, pUnderlyingLoResInterpolated;
     Coordinate<int> windowLowerCornerInclusive;
     Coordinate<int> windowUpperCornerExclusive;
+    Coordinate<T> windowLowerCorner;
+    Coordinate<T> windowUpperCorner;
 
   public:
 
@@ -155,16 +158,37 @@ namespace grids {
 
       auto offsetLowerRelative = pUnderlyingHiRes->offsetLower - pUnderlyingLoRes->offsetLower;
       windowLowerCornerInclusive = round<int>(offsetLowerRelative/this->dx);
+      windowLowerCorner = this->getCellCentroid(windowLowerCornerInclusive)-this->dx/2;
 
       auto offsetLowerRelativeCheck = Coordinate<T>(windowLowerCornerInclusive)*this->dx;
       assert(offsetLowerRelativeCheck.almostEqual(offsetLowerRelative)); // if this doesn't match, the grids don't line up
 
       windowUpperCornerExclusive = windowLowerCornerInclusive + pUnderlyingHiRes->size;
+      windowUpperCorner = this->getCellCentroid(windowUpperCornerExclusive)-this->dx/2;
 
+    }
+
+    ConstGridPtrType getUnderlyingLoResInterpolated() const {
+      return pUnderlyingLoResInterpolated;
+    }
+
+    ConstGridPtrType getUnderlyingHiRes() const {
+      return pUnderlyingHiRes;
+    }
+
+    bool pointsToGrid(const Grid<T> *pOther) const override {
+      return this == pOther || pUnderlyingLoResInterpolated->pointsToGrid(pOther) ||
+          pUnderlyingHiRes->pointsToGrid(pOther);
     }
 
     void debugName(std::ostream &s) const override {
       s << "ResolutionMatchingGrid";
+    }
+
+    virtual void debugInfo(std::ostream &s) const override {
+      debugName(s);
+      s << " of side " << this->size << " address " << this << " referencing (for genuine hi-res part) ";
+      pUnderlyingHiRes->debugInfo(s);
     }
 
     void getFlaggedCells(std::vector<size_t> &targetArray) const override {
@@ -194,8 +218,8 @@ namespace grids {
       for(size_t i=0; i<sourceArray.size(); ++i) {
         size_t thisCell = sourceArray[i];
         auto coordinate = pUnderlyingLoResInterpolated->getCellCoordinate(thisCell);
-        if(coordinate.inWindow(windowLowerCornerInclusive, windowUpperCornerExclusive)) {
-          size_t hiresCell = pUnderlyingHiRes->getCellIndex(coordinate-windowLowerCornerInclusive);
+        if(isInHiResWindow(coordinate)) {
+          size_t hiresCell = getIndexInHiResWindow(coordinate);
           hiresCellsArray.push_back(hiresCell);
         } else {
           interpolatedCellsArray.push_back(thisCell);
@@ -205,6 +229,19 @@ namespace grids {
       pUnderlyingLoResInterpolated->flagCells(interpolatedCellsArray);
       pUnderlyingHiRes->flagCells(hiresCellsArray);
     }
+
+    bool isInHiResWindow(const Coordinate<int> &coordinate) const {
+      return coordinate.inWindow(windowLowerCornerInclusive, windowUpperCornerExclusive);
+    }
+
+    bool isInHiResWindow(const Coordinate<T> &location) const {
+      return location.inWindow(windowLowerCorner, windowUpperCorner);
+    }
+
+    size_t getIndexInHiResWindow(const Coordinate<int> &coordinate) const {
+      return pUnderlyingHiRes->getCellIndex(coordinate-windowLowerCornerInclusive);
+    }
+
 
   };
 

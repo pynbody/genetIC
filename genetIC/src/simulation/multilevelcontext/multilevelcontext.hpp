@@ -168,14 +168,8 @@ namespace multilevelcontext {
         }
       }
 
-      // TODO: the following temporary fix to reconcile use/non-use of shared_ptr should be removed by
-      // improving the interface to ConstraintField constructor
-      vector<fields::Field<DataType, T>> dataOnLevelsNoPointers;
-      for(auto ptr : dataOnLevels) {
-        dataOnLevelsNoPointers.emplace_back(std::move(*ptr));
-      }
       return fields::ConstraintField<DataType>(*dynamic_cast<MultiLevelContextInformation<DataType, T> *>(this),
-                                               std::move(dataOnLevelsNoPointers));
+                                               dataOnLevels);
     }
 
     void forEachLevel(std::function<void(grids::Grid<T> &)> newLevelCallback) {

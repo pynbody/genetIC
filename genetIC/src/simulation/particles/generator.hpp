@@ -64,7 +64,7 @@ namespace particle {
 
     virtual void recalculate() = 0;
 
-    virtual std::shared_ptr<ParticleEvaluator<GT>> getEvaluator(const grids::Grid<T> &forGrid) const =0;
+    virtual std::vector<std::shared_ptr<fields::Field<GT>>> getGeneratedFields() = 0;
 
   };
 

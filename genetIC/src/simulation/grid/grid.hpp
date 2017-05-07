@@ -268,10 +268,15 @@ namespace grids {
 
     Coordinate<T> getCellCentroid(size_t id) const {
       Coordinate<T> coord = getCellCoordinate(id);
-      coord *= dx;
-      coord += offsetLower;
-      coord += dx / 2;
-      return coord;
+      return getCellCentroid(coord);
+    }
+
+    Coordinate<T> getCellCentroid(const Coordinate<int> & coord) const {
+      Coordinate<T> result = coord;
+      result *= dx;
+      result += offsetLower;
+      result += dx / 2;
+      return result;
     }
 
     size_t getClosestIdNoWrap(Coordinate<T> coord) {

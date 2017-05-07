@@ -15,6 +15,7 @@
 
 #include "src/simulation/grid/grid.hpp"
 
+
 // implementation in fourier.hpp
 namespace tools {
   namespace numerics {
@@ -34,8 +35,15 @@ namespace fields {
   template<typename D, typename C>
   class Field;
 
+  template<typename D>
+  class MultiLevelField;
+
   template<typename DataType, typename CoordinateType = tools::datatypes::strip_complex<DataType>>
   std::shared_ptr<EvaluatorBase<DataType, CoordinateType>> makeEvaluator(const Field<DataType, CoordinateType> &field,
+                                               const grids::Grid<CoordinateType> &grid);
+
+  template<typename DataType, typename CoordinateType = tools::datatypes::strip_complex<DataType>>
+  std::shared_ptr<EvaluatorBase<DataType, CoordinateType>> makeEvaluator(const MultiLevelField<DataType> &field,
                                                const grids::Grid<CoordinateType> &grid);
 
   /** Class to manage and evaluate a field defined on a single grid.  */
