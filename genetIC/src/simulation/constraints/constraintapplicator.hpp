@@ -17,14 +17,14 @@ namespace constraints {
   class ConstraintApplicator {
 
   public:
-    std::vector<fields::ConstraintField<DataType>> alphas;
-    std::vector<T> values;
-    std::vector<T> existing_values;
+    std::vector<fields::ConstraintField<DataType>> alphas;  //!< Constraint covectors
+    std::vector<T> values;                                  //!< Target constrained values
+    std::vector<T> existing_values;                         //!< Current field values
 
     using ComplexType = tools::datatypes::ensure_complex<DataType>;
 
-    multilevelcontext::MultiLevelContextInformation<DataType> *underlying;
-    fields::OutputField<DataType> *outputField;
+    multilevelcontext::MultiLevelContextInformation<DataType> *underlying;  //!< Underlying Multigrid context
+    fields::OutputField<DataType> *outputField;                             //!< Constrained field
 
     ConstraintApplicator(multilevelcontext::MultiLevelContextInformation<DataType> *underlying_,
                          fields::OutputField<DataType> *outputField_) : underlying(underlying_),
