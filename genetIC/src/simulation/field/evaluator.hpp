@@ -69,9 +69,10 @@ namespace fields {
     const std::shared_ptr<const EvaluatorBase<DataType, CoordinateType>> underlying;
 
   public:
-    SuperSampleEvaluator(std::shared_ptr<const EvaluatorBase<DataType, CoordinateType>> underlying,
-    const grids::VirtualGrid<CoordinateType> &grid) :
-    underlying(underlying), grid(std::dynamic_pointer_cast<MyGridType>(grid.shared_from_this()))
+    SuperSampleEvaluator(const grids::VirtualGrid<CoordinateType> &grid,
+												 std::shared_ptr<const EvaluatorBase<DataType, CoordinateType>> underlying) :
+				grid(std::dynamic_pointer_cast<MyGridType>(grid.shared_from_this())),
+				underlying(underlying)
     {
 
     }
@@ -100,9 +101,10 @@ namespace fields {
     const std::shared_ptr<const EvaluatorBase<DataType, CoordinateType>> underlying;
 
   public:
-    SectionEvaluator(std::shared_ptr<const EvaluatorBase<DataType, CoordinateType>> underlying,
-                     const grids::VirtualGrid<CoordinateType> &grid) :
-        underlying(underlying), grid(std::dynamic_pointer_cast<MyGridType>(grid.shared_from_this()))
+    SectionEvaluator(const grids::VirtualGrid<CoordinateType> &grid,
+									 		std::shared_ptr<const EvaluatorBase<DataType, CoordinateType>> underlying) :
+         grid(std::dynamic_pointer_cast<MyGridType>(grid.shared_from_this())),
+				 underlying(underlying)
     {
 
     }
@@ -131,10 +133,11 @@ namespace fields {
     const std::shared_ptr<const EvaluatorBase<DataType, CoordinateType>> underlying;
 
   public:
-    SubSampleEvaluator(std::shared_ptr<const EvaluatorBase<DataType, CoordinateType>> underlying,
-    const grids::VirtualGrid<CoordinateType> &grid) :
-    underlying(underlying), grid(std::dynamic_pointer_cast<MyGridType>(grid.shared_from_this()))
-    {
+    SubSampleEvaluator(const grids::VirtualGrid<CoordinateType> &grid,
+											 std::shared_ptr<const EvaluatorBase<DataType, CoordinateType>> underlying) :
+    grid(std::dynamic_pointer_cast<MyGridType>(grid.shared_from_this())),
+		underlying(underlying)
+		{
 
     }
 
@@ -166,11 +169,12 @@ namespace fields {
     const std::shared_ptr<const EvaluatorBase<DataType, CoordinateType>> underlyingHiRes;
 
   public:
-    ResolutionMatchingEvaluator(std::shared_ptr<const EvaluatorBase<DataType, CoordinateType>> underlyingLoRes,
-                                std::shared_ptr<const EvaluatorBase<DataType, CoordinateType>> underlyingHiRes,
-                               const grids::VirtualGrid<CoordinateType> &grid) :
-        underlyingLoRes(underlyingLoRes), underlyingHiRes(underlyingHiRes),
-        grid(std::dynamic_pointer_cast<MyGridType>(grid.shared_from_this()))
+    ResolutionMatchingEvaluator(const grids::VirtualGrid<CoordinateType> &grid,
+																std::shared_ptr<const EvaluatorBase<DataType, CoordinateType>> underlyingLoRes,
+                                std::shared_ptr<const EvaluatorBase<DataType, CoordinateType>> underlyingHiRes) :
+
+        grid(std::dynamic_pointer_cast<MyGridType>(grid.shared_from_this())),
+				underlyingLoRes(underlyingLoRes), underlyingHiRes(underlyingHiRes)
     {
 
     }
@@ -235,7 +239,7 @@ namespace fields {
         auto underlyingHiResEvaluator = makeEvaluator(field, *underlyingHiResGrid);
 
         return std::make_shared<ResolutionMatchingEvaluator<DataType, CoordinateType>>
-            (underlyingLoResEvaluator, underlyingHiResEvaluator, rmGrid);
+            (rmGrid, underlyingLoResEvaluator, underlyingHiResEvaluator);
 
       }
 
@@ -246,11 +250,11 @@ namespace fields {
       auto underlyingEvaluator = makeEvaluator(field, underlyingGrid);
 
       if(runtimeType==typeid(grids::SectionOfGrid<CoordinateType>)) {
-        return std::make_shared<SectionEvaluator<DataType, CoordinateType>>(underlyingEvaluator, virtualGrid);
+        return std::make_shared<SectionEvaluator<DataType, CoordinateType>>(virtualGrid, underlyingEvaluator);
       } else if(runtimeType==typeid(grids::SuperSampleGrid<CoordinateType>)) {
-        return std::make_shared<SuperSampleEvaluator<DataType, CoordinateType>>(underlyingEvaluator, virtualGrid);
+        return std::make_shared<SuperSampleEvaluator<DataType, CoordinateType>>(virtualGrid, underlyingEvaluator);
       } else if(runtimeType==typeid(grids::SubSampleGrid<CoordinateType>)) {
-        return std::make_shared<SubSampleEvaluator<DataType, CoordinateType>>(underlyingEvaluator, virtualGrid);
+        return std::make_shared<SubSampleEvaluator<DataType, CoordinateType>>(virtualGrid, underlyingEvaluator);
       } else if(runtimeType==typeid(grids::OffsetGrid<CoordinateType>) ||
                 runtimeType==typeid(grids::MassScaledGrid<CoordinateType>)) {
         return underlyingEvaluator;
