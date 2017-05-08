@@ -18,12 +18,6 @@ using std::complex;
 using std::vector;
 using std::make_shared;
 
-
-namespace fields {
-  template<typename T, typename S>
-  class Field;
-
-}
 /*!
     \namespace grids
     \brief Define a grid with given size and resolution. This a building block for fields and constraints.
@@ -36,9 +30,6 @@ namespace grids {
   class Grid : public std::enable_shared_from_this<Grid<T>> {
   public:
 
-    using TField = ::fields::Field<std::complex<T>, T>;
-    using TRealField = ::fields::Field<T, T>;
-    using PtrTField = std::shared_ptr<std::vector<std::complex<T>>>;
     using GridPtrType = std::shared_ptr<Grid<T>>;
     using ConstGridPtrType = std::shared_ptr<const Grid<T>>;
 
@@ -169,14 +160,6 @@ namespace grids {
       return i < size3;
     }
 
-    virtual complex<T> getFieldAt(size_t i, const TField &field) const {
-      return field[i];
-    }
-
-    virtual T getFieldAt(size_t i, const TRealField &field) const {
-      return field[i];
-    }
-
     virtual std::shared_ptr<Grid<T>> makeScaledMassVersion(T massRatio) {
       return std::make_shared<MassScaledGrid<T>>(this->shared_from_this(), massRatio);
     }
@@ -285,10 +268,15 @@ namespace grids {
 
     Coordinate<T> getCellCentroid(size_t id) const {
       Coordinate<T> coord = getCellCoordinate(id);
-      coord *= dx;
-      coord += offsetLower;
-      coord += dx / 2;
-      return coord;
+      return getCellCentroid(coord);
+    }
+
+    Coordinate<T> getCellCentroid(const Coordinate<int> & coord) const {
+      Coordinate<T> result = coord;
+      result *= dx;
+      result += offsetLower;
+      result += dx / 2;
+      return result;
     }
 
     size_t getClosestIdNoWrap(Coordinate<T> coord) {

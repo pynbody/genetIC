@@ -152,7 +152,7 @@ namespace tools {
         ss.str(str);
         try {
           run(ss, output_stream);
-        } catch (std::exception &e) {
+        } catch (std::runtime_error &e) {
           std::cerr << "Error \"" << e.what() << "\" on line " << line << " (\"" << str << "\")" << std::endl;
           exit(1);
         }

@@ -149,27 +149,27 @@ namespace multilevelcontext {
       assert(&data.getGrid() == pGrid.back().get());
 
       // Generate the fields on each level. Fill low-res levels with zeros to start with.
-      vector<fields::Field<DataType, T>> dataOnLevels;
+      vector<std::shared_ptr<fields::Field<DataType, T>>> dataOnLevels;
       for (size_t level = 0; level < pGrid.size(); level++) {
         if (level == pGrid.size() - 1) {
-          dataOnLevels.emplace_back(std::move(data));
+          dataOnLevels.emplace_back(std::make_shared<fields::Field<DataType,T>>(std::move(data)));
         } else {
-          dataOnLevels.emplace_back(*pGrid[level], false);
+          dataOnLevels.emplace_back(std::make_shared<fields::Field<DataType,T>>(*pGrid[level], false));
         }
       }
 
       // Now interpolate the high-res level down into lower-res levels
       size_t levelmax = dataOnLevels.size() - 1;
       if (levelmax > 0) {
-        assert(dataOnLevels.back().isFourier());
-        dataOnLevels.back().toReal();
+        assert(dataOnLevels.back()->isFourier());
+        dataOnLevels.back()->toReal();
         for (int level = levelmax - 1; level >= 0; --level) {
-          dataOnLevels[level].addFieldFromDifferentGrid(dataOnLevels[level+1]);
+          dataOnLevels[level]->addFieldFromDifferentGrid(*(dataOnLevels[level+1]));
         }
       }
 
       return fields::ConstraintField<DataType>(*dynamic_cast<MultiLevelContextInformation<DataType, T> *>(this),
-                                               std::move(dataOnLevels));
+                                               dataOnLevels);
     }
 
     void forEachLevel(std::function<void(grids::Grid<T> &)> newLevelCallback) {

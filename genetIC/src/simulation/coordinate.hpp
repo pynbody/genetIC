@@ -109,6 +109,12 @@ public:
     return std::abs(x-other.x)<tol && std::abs(y-other.y)<tol && std::abs(z-other.z)<tol;
   }
 
+  bool inWindow(const Coordinate<T> &lowerCornerInclusive, const Coordinate<T> &upperCornerExclusive) const {
+    return x>=lowerCornerInclusive.x && x<upperCornerExclusive.x &&
+        y>=lowerCornerInclusive.y && y<upperCornerExclusive.y &&
+        z>=lowerCornerInclusive.z && z<upperCornerExclusive.z;
+  }
+
 
 };
 
@@ -132,6 +138,14 @@ Coordinate<int> floor(const Coordinate<T> &coord) {
   return Coordinate<int>(int(std::floor(coord.x)),
                          int(std::floor(coord.y)),
                          int(std::floor(coord.z)));
+
+}
+
+template<typename OutputType, typename T>
+Coordinate<OutputType> round(const Coordinate<T> &coord) {
+  return Coordinate<OutputType>(OutputType(std::round(coord.x)),
+                                OutputType(std::round(coord.y)),
+                                OutputType(std::round(coord.z)));
 
 }
 

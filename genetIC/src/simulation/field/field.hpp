@@ -15,6 +15,7 @@
 
 #include "src/simulation/grid/grid.hpp"
 
+
 // implementation in fourier.hpp
 namespace tools {
   namespace numerics {
@@ -27,6 +28,23 @@ namespace tools {
 
 
 namespace fields {
+
+  template<typename D, typename C>
+  class EvaluatorBase;
+
+  template<typename D, typename C>
+  class Field;
+
+  template<typename D>
+  class MultiLevelField;
+
+  template<typename DataType, typename CoordinateType = tools::datatypes::strip_complex<DataType>>
+  std::shared_ptr<EvaluatorBase<DataType, CoordinateType>> makeEvaluator(const Field<DataType, CoordinateType> &field,
+                                               const grids::Grid<CoordinateType> &grid);
+
+  template<typename DataType, typename CoordinateType = tools::datatypes::strip_complex<DataType>>
+  std::shared_ptr<EvaluatorBase<DataType, CoordinateType>> makeEvaluator(const MultiLevelField<DataType> &field,
+                                               const grids::Grid<CoordinateType> &grid);
 
   /** Class to manage and evaluate a field defined on a single grid.  */
   template<typename DataType, typename CoordinateType=tools::datatypes::strip_complex<DataType>>
@@ -316,14 +334,8 @@ namespace fields {
       toReal();
       TPtrGrid pSourceProxyGrid = source.getGrid().makeProxyGridToMatch(getGrid());
 
-      size_t size3 = getGrid().size3;
-
-#pragma omp parallel for schedule(static)
-      for (size_t ind_l = 0; ind_l < size3; ind_l++) {
-        if (pSourceProxyGrid->containsCell(ind_l))
-          data[ind_l] += pSourceProxyGrid->getFieldAt(ind_l, source);
-      }
-
+      auto evaluator = makeEvaluator(source, *pSourceProxyGrid);
+      evaluator->addTo(*this);
 
     }
 
