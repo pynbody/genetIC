@@ -15,6 +15,9 @@ def compare(f1,f2) :
     npt.assert_almost_equal(f1['vel'],f2['vel'],decimal=5)
     npt.assert_almost_equal(f1['pos'],f2['pos'],decimal=5)
     print("Particle output matches")
+    if 'overdensity' in f1.loadable_keys():
+        npt.assert_almost_equal(f1['overdensity'],f2['overdensity'],decimal=5)
+        print("Overdensity array output matches")
 
 def compare_grids(ref, test):
     list_of_grids = [os.path.basename(x) for x in glob.glob(ref+"grid-?.npy")]

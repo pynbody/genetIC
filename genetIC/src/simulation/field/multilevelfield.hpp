@@ -20,7 +20,7 @@ namespace fields {
     tools::Signaling::connection_t connection;
     bool isCovector;
 
-    std::vector<Field<DataType, T>> fieldsOnLevels;
+    std::vector<std::shared_ptr<Field<DataType, T>>> fieldsOnLevels;
 
     void setupConnection() {
       connection = multiLevelContext->connect([this]() {
@@ -52,8 +52,8 @@ namespace fields {
     }
 
     MultiLevelField(multilevelcontext::MultiLevelContextInformation<DataType> &multiLevelContext,
-                    std::vector<Field<DataType, T>> &&fieldsOnGrids) :
-      multiLevelContext(&multiLevelContext), fieldsOnLevels(std::move(fieldsOnGrids)) {
+                    const std::vector<std::shared_ptr<Field<DataType, T>>> &fieldsOnGrids) :
+      multiLevelContext(&multiLevelContext), fieldsOnLevels(fieldsOnGrids) {
       setupConnection();
       isCovector = false;
     }
@@ -72,7 +72,8 @@ namespace fields {
 
 
     virtual const Field<DataType, T> &getFieldForLevel(size_t i) const {
-      return fieldsOnLevels[i];
+      assert(i<fieldsOnLevels.size());
+      return *(fieldsOnLevels[i]);
     }
 
     virtual const Field<DataType, T> &getFieldForGrid(const grids::Grid<T> &grid) const {
@@ -82,14 +83,14 @@ namespace fields {
     virtual Field<DataType, T> &getFieldForGrid(const grids::Grid<T> &grid) {
       // TODO: problematically slow implementation
       for (size_t i = 0; i < multiLevelContext->getNumLevels(); ++i) {
-        if (&grid == &multiLevelContext->getGridForLevel(i))
+        if(grid.pointsToGrid(&multiLevelContext->getGridForLevel(i)))
           return getFieldForLevel(i);
       }
       throw (std::runtime_error("Cannot find a field for the specified grid"));
     };
 
     virtual Field<DataType, T> &getFieldForLevel(size_t i) {
-      return fieldsOnLevels[i];
+      return *(fieldsOnLevels[i]);
     }
 
 
@@ -340,10 +341,13 @@ namespace fields {
     ResidualField(const MultiLevelField<DataType> &source)
       : MultiLevelField<DataType>(source.getContext()) {
       for (size_t i = 0; i < source.getContext().getNumLevels() - 1; ++i) {
-        this->fieldsOnLevels.emplace_back(this->multiLevelContext->getGridForLevel(i), source.getFieldForLevel(i));
+        this->fieldsOnLevels.emplace_back(
+            std::make_shared<Field<DataType, T>>(this->multiLevelContext->getGridForLevel(i), source.getFieldForLevel(i))
+        );
       }
       this->fieldsOnLevels.emplace_back(
-        this->multiLevelContext->getGridForLevel(source.getContext().getNumLevels() - 1));
+        std::make_shared<Field<DataType, T>>(this->multiLevelContext->getGridForLevel(source.getContext().getNumLevels() - 1))
+        );
 
       this->pFilters = std::make_shared<filters::ResidualFilterFamily<T>>(source.getFilters());
 
@@ -369,21 +373,33 @@ namespace fields {
     } t_output_state;
 
     t_output_state outputState;
+    bool fieldsOnLevelsPopulated;
+
+    void populateFieldsOnLevels() {
+      this->multiLevelContext->forEachLevel([this](grids::Grid<T> &g) {
+        this->fieldsOnLevels.emplace_back(std::make_shared<Field<DataType, T>>(g));
+      });
+      fieldsOnLevelsPopulated=true;
+    }
+
+    void populateFieldsOnLevelsIfRequired() {
+      if(!fieldsOnLevelsPopulated)
+        populateFieldsOnLevels();
+    }
 
   public:
     OutputField(multilevelcontext::MultiLevelContextInformation<DataType> &multiLevelContext)
       : MultiLevelField<DataType>(
       multiLevelContext) {
       outputState = PRE_SEPARATION;
+      fieldsOnLevelsPopulated=false;
     }
 
     void updateMultiLevelContext() override {
       assert(outputState == PRE_SEPARATION);
       this->template setupFilters<filters::MultiLevelFilterFamily<T>>();
       this->fieldsOnLevels.clear();
-      this->multiLevelContext->forEachLevel([this](grids::Grid<T> &g) {
-        this->fieldsOnLevels.emplace_back(g);
-      });
+      fieldsOnLevelsPopulated=false;
     }
 
     auto getHighKResiduals() {
@@ -404,6 +420,11 @@ namespace fields {
       this->template setupFilters<filters::MultiLevelRecombinedFilterFamily<T>>();
     }
 
+    Field<DataType, T> &getFieldForLevel(size_t i) override {
+      populateFieldsOnLevelsIfRequired();
+      return *(this->fieldsOnLevels[i]);
+    }
+
 
   };
 
@@ -417,7 +438,7 @@ namespace fields {
 
   public:
     ConstraintField(multilevelcontext::MultiLevelContextInformation<DataType> &multiLevelContext,
-                    std::vector<Field<DataType, T>> &&fieldsOnGrids)
+                    const std::vector<std::shared_ptr<Field<DataType, T>>> &fieldsOnGrids)
       : MultiLevelField<DataType>(multiLevelContext, std::move(fieldsOnGrids)) {
       this->isCovector = true;
       updateMultiLevelContext();

@@ -18,12 +18,6 @@ using std::complex;
 using std::vector;
 using std::make_shared;
 
-
-namespace fields {
-  template<typename T, typename S>
-  class Field;
-
-}
 /*!
     \namespace grids
     \brief Define a grid with given size and resolution. This a building block for fields and constraints.
@@ -36,9 +30,6 @@ namespace grids {
   class Grid : public std::enable_shared_from_this<Grid<T>> {
   public:
 
-    using TField = ::fields::Field<std::complex<T>, T>;
-    using TRealField = ::fields::Field<T, T>;
-    using PtrTField = std::shared_ptr<std::vector<std::complex<T>>>;
     using GridPtrType = std::shared_ptr<Grid<T>>;
     using ConstGridPtrType = std::shared_ptr<const Grid<T>>;
 
@@ -169,14 +160,6 @@ namespace grids {
       return i < size3;
     }
 
-    virtual complex<T> getFieldAt(size_t i, const TField &field) const {
-      return field[i];
-    }
-
-    virtual T getFieldAt(size_t i, const TRealField &field) const {
-      return field[i];
-    }
-
     virtual std::shared_ptr<Grid<T>> makeScaledMassVersion(T massRatio) {
       return std::make_shared<MassScaledGrid<T>>(this->shared_from_this(), massRatio);
     }
@@ -242,19 +225,18 @@ namespace grids {
 
 
     Coordinate<int> getCellCoordinate(size_t id) const {
-      int x, y, z;
+      size_t x, y;
 
       if (id >= size3) throw std::runtime_error("Index out of range");
 
       // The following implementation is a little faster than using the
       // modulo operator.
-      x = int(id / size2);
-      id -= size_t(x) * size2;
-      y = int(id / size);
-      id -= size_t(y) * size;
-      z = int(id);
+      x = id / size2;
+      id -= x * size2;
+      y = id / size;
+      id -= y * size;
 
-      return Coordinate<int>(x, y, z);
+      return Coordinate<int>(x, y, id);
     }
 
     Coordinate<int> getFourierCellCoordinate(size_t id) const {
@@ -286,10 +268,15 @@ namespace grids {
 
     Coordinate<T> getCellCentroid(size_t id) const {
       Coordinate<T> coord = getCellCoordinate(id);
-      coord *= dx;
-      coord += offsetLower;
-      coord += dx / 2;
-      return coord;
+      return getCellCentroid(coord);
+    }
+
+    Coordinate<T> getCellCentroid(const Coordinate<int> & coord) const {
+      Coordinate<T> result = coord;
+      result *= dx;
+      result += offsetLower;
+      result += dx / 2;
+      return result;
     }
 
     size_t getClosestIdNoWrap(Coordinate<T> coord) {
@@ -298,6 +285,14 @@ namespace grids {
     }
 
     void appendIdsInCubeToVector(T x0c, T y0c, T z0c, T dxc, vector<size_t> &ids) {
+      size_t offset = ids.size();
+      int added_size = std::round(dxc/dx);
+      added_size*=added_size*added_size;
+      ids.resize(offset+added_size);
+      insertCubeIdsIntoVector(x0c, y0c, z0c, dxc, ids.begin()+offset);
+    }
+
+    void insertCubeIdsIntoVector(T x0c, T y0c, T z0c, T dxc, vector<size_t>::iterator start) {
       // return all the grid IDs whose centres lie within the specified cube
 
       // TODO: optimization, set the storage size of ids here.
@@ -310,10 +305,12 @@ namespace grids {
       int yb = ((int) floor((y0c - offsetLower.y + dxc / 2 - dx / 2) / dx));
       int zb = ((int) floor((z0c - offsetLower.z + dxc / 2 - dx / 2) / dx));
 
+
       iterateOverCube<int>(Coordinate<int>(xa, ya, za),
                            Coordinate<int>(xb, yb, zb) + 1,
-                           [&ids, this](const Coordinate<int> &cellCoord) {
-                             ids.emplace_back(getCellIndex(cellCoord));
+                           [&start, this](const Coordinate<int> &cellCoord) {
+                             (*start) = getCellIndex(cellCoord);
+                             ++start;
                            });
 
     }
@@ -348,19 +345,26 @@ namespace grids {
                                         const Grid<T> *target) {
 
 
-      std::set<size_t> targetSet;
+      targetArray.clear();
+      targetArray.resize(sourceArray.size());
 
       assert(source->size >= target->size);
       assert(source->offsetLower == target->offsetLower);
 
       size_t factor = tools::getRatioAndAssertPositiveInteger(target->dx, source->dx);
 
-      for (auto id: sourceArray) {
+      // it's not clear that the following parallelisation actually speeds much up
+#pragma omp parallel for
+      for (size_t i=0; i<sourceArray.size(); ++i) {
+        size_t id = sourceArray[i];
         auto coord = source->getCellCoordinate(id);
-        targetSet.insert(target->getCellIndexNoWrap(coord / factor));
+        targetArray[i] = target->getCellIndexNoWrap(coord / factor);
       }
-      targetArray.clear();
-      targetArray.insert(targetArray.end(), targetSet.begin(), targetSet.end());
+
+      // this sort seems to be the slowest step. In C++17 we can make it parallel... or is there a
+      // better overall algorithm?
+      std::sort(targetArray.begin(),targetArray.end());
+      targetArray.erase(std::unique(targetArray.begin(),targetArray.end()),targetArray.end());
     }
 
 

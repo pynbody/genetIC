@@ -96,7 +96,7 @@ def plotslice(prefix="output/",maxgrid=10,slice=None,plot_b=True,vmin=-0.15,vmax
 
 
 
-def plotslice_pynbody(f, slice=0.0,vmin=-0.15,vmax=0.15):
+def plotslice_pynbody(f, slice=0.0,vmin=-0.15,vmax=0.15,use_overdensity=False):
     import pynbody
     f = pynbody.load(f)
     f.physical_units("Mpc a h^-1")
@@ -106,12 +106,17 @@ def plotslice_pynbody(f, slice=0.0,vmin=-0.15,vmax=0.15):
     f.dm['delta'] = (f.dm['rho']-rho_mean)/rho_mean
     f.dm['delta'].convert_units("1")
 
+    if use_overdensity:
+        use_qty = 'overdensity'
+    else:
+        use_qty = 'delta'
+
     assert abs(f.dm['z'].max().in_units(f.properties['boxsize'])
                - f.dm['z'].min().in_units(f.properties['boxsize']) - 1.0)<0.03
 
     f.dm['z']-=slice
 
-    pynbody.plot.sph.image(f.dm,qty='delta',width=f.properties['boxsize'],log=False,vmin=vmin,vmax=vmax,denoise=True,
+    pynbody.plot.sph.image(f.dm,qty=use_qty,width=f.properties['boxsize'],log=False,vmin=vmin,vmax=vmax,denoise=True,
                            show_cbar=False)
 
     return f

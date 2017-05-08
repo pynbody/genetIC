@@ -55,7 +55,8 @@ namespace io {
     protected:
 
       void writeGrid(const grids::Grid<T> &targetGrid) {
-        auto &gridGenerator = generator->getGeneratorForGrid(targetGrid);
+        auto evaluator = generator->makeEvaluatorForGrid(targetGrid);
+
         const grids::Grid<T> &baseGrid = context.getGridForLevel(0);
         size_t effective_size = tools::getRatioAndAssertPositiveInteger(baseGrid.dx * baseGrid.size, targetGrid.dx);
         tools::progress::ProgressBar pb("write grid " + std::to_string(effective_size), targetGrid.size);
@@ -80,6 +81,8 @@ namespace io {
         }
 
 
+
+
         for (size_t i_z = 0; i_z < targetGrid.size; ++i_z) {
           pb.tick();
           writeBlockHeaderFooter(block_lengths, files);
@@ -87,7 +90,7 @@ namespace io {
             for (size_t i_x = 0; i_x < targetGrid.size; ++i_x) {
               size_t i = targetGrid.getCellIndexNoWrap(i_x, i_y, i_z);
               size_t global_index = i + iordOffset;
-              auto particle = gridGenerator.getParticleNoOffset(targetGrid, i);
+              auto particle = evaluator->getParticleNoOffset(i);
 
               Coordinate<float> velScaled = particle.vel * velFactor;
               Coordinate<float> posScaled = particle.pos * lengthFactor;

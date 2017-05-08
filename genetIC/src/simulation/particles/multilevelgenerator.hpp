@@ -19,10 +19,10 @@ namespace particle {
 
     virtual particle::ParticleGenerator<GridDataType> &getGeneratorForLevel(size_t level) = 0;
 
-    virtual particle::ParticleGenerator<GridDataType> &getGeneratorForGrid(const grids::Grid<T> &grid) =0;
+    virtual std::shared_ptr<particle::ParticleEvaluator<GridDataType>> makeEvaluatorForGrid(const grids::Grid<T> &grid) =0;
 
-    const particle::ParticleGenerator<GridDataType> &getGeneratorForGrid(const grids::Grid<T> &grid) const {
-      return const_cast<AbstractMultiLevelParticleGenerator<GridDataType> *>(this)->getGeneratorForGrid(grid);
+    std::shared_ptr<const particle::ParticleEvaluator<GridDataType>> makeEvaluatorForGrid(const grids::Grid<T> &grid) const {
+      return const_cast<AbstractMultiLevelParticleGenerator<GridDataType> *>(this)->makeEvaluatorForGrid(grid);
     }
   };
 
@@ -38,7 +38,7 @@ namespace particle {
       throw std::runtime_error("Attempt to generate particles before they have been calculated");
     }
 
-    virtual particle::ParticleGenerator<GridDataType> &getGeneratorForGrid(const grids::Grid<T> &) override {
+    virtual std::shared_ptr<particle::ParticleEvaluator<GridDataType>> makeEvaluatorForGrid(const grids::Grid<T> &) override {
       throw std::runtime_error("Attempt to generate particles before they have been calculated");
     }
   };
@@ -59,7 +59,7 @@ namespace particle {
       throw std::runtime_error("Trying to apply zeldovich approximation, but no grids have been created");
     } else if (nlevels == 1) {
       generator.pGenerators.emplace_back(
-        std::make_shared<ZPG>(generator.outputField.getFieldForLevel(0), generator.cosmoParams));
+        std::make_shared<ZPG>(generator.outputField.getFieldForLevel(0)));
     } else if (nlevels >= 2) {
       cerr << "Zeldovich approximation on successive levels...";
 
@@ -74,7 +74,7 @@ namespace particle {
 
       for (size_t level = 0; level < nlevels; ++level)
         generator.pGenerators.emplace_back(
-          std::make_shared<ZPG>(generator.outputField.getFieldForLevel(level), generator.cosmoParams));
+          std::make_shared<ZPG>(generator.outputField.getFieldForLevel(level)));
 
       cerr << "Interpolating low-frequency information into zoom regions...";
 
@@ -131,25 +131,70 @@ namespace particle {
     }
   }
 
+  template<typename GridDataType, typename T>
+  std::shared_ptr<particle::ParticleEvaluator<GridDataType>> makeParticleEvaluatorBasedOnTemplate(
+      MultiLevelParticleGenerator<GridDataType, ZeldovichParticleGenerator<GridDataType>, T> &generator,
+      const grids::Grid<T> &grid)
+  {
+    auto fieldEvaluators = generator.getOutputFieldEvaluatorsForGrid(grid);
+    return std::make_shared<ZeldovichParticleEvaluator<GridDataType>>(fieldEvaluators[0], fieldEvaluators[1], fieldEvaluators[2],
+                                                    grid, generator.cosmoParams);
+  };
+
 
   template<typename GridDataType, typename TParticleGenerator, typename T=tools::datatypes::strip_complex<GridDataType>>
   class MultiLevelParticleGenerator : public AbstractMultiLevelParticleGenerator<GridDataType> {
   protected:
+    using ContextType = multilevelcontext::MultiLevelContextInformation<GridDataType>;
     fields::OutputField<GridDataType> &outputField;
-    const multilevelcontext::MultiLevelContextInformation<GridDataType> &context;
+    const ContextType &context;
     std::vector<std::shared_ptr<TParticleGenerator>> pGenerators;
     const cosmology::CosmologicalParameters<T> &cosmoParams;
+    std::vector<std::shared_ptr<fields::MultiLevelField<GridDataType>>> outputFields;
 
 
     void initialise() {
       // Dispatch to correct initialiser.
       // This is required because partial specialization is not allowed at class level.
       initialiseParticleGeneratorBasedOnTemplate(*this);
+      gatherOutputFields();
+    }
+
+    size_t getNumFields() {
+      std::vector<std::shared_ptr<fields::Field<GridDataType>>> fieldsOnLevel0 = pGenerators[0]->getGeneratedFields();
+      return fieldsOnLevel0.size();
+    }
+
+    void gatherOutputFields() {
+      size_t numFields = getNumFields();
+      for(size_t field=0; field<numFields; ++field) {
+        std::vector<std::shared_ptr<fields::Field<GridDataType>>> fieldsAcrossLevels;
+        for(size_t level=0; level<context.getNumLevels(); level++) {
+          fieldsAcrossLevels.push_back(pGenerators[level]->getGeneratedFields()[field]);
+        }
+        outputFields.emplace_back(std::make_shared<fields::MultiLevelField<GridDataType>>(
+            const_cast<ContextType &>(context), fieldsAcrossLevels));
+      }
+    }
+
+    std::vector<std::shared_ptr<fields::EvaluatorBase<GridDataType, T>>> getOutputFieldEvaluatorsForGrid(const grids::Grid<T> &grid)  {
+      std::vector<std::shared_ptr<fields::EvaluatorBase<GridDataType, T>>> fieldEvaluators;
+
+      for(auto field : outputFields) {
+        fieldEvaluators.emplace_back(fields::makeEvaluator(*field, grid));
+      }
+
+      return fieldEvaluators;
     }
 
 
     friend void initialiseParticleGeneratorBasedOnTemplate<>(
       MultiLevelParticleGenerator<GridDataType, TParticleGenerator, T> &generator);
+
+    friend std::shared_ptr<particle::ParticleEvaluator<GridDataType>> makeParticleEvaluatorBasedOnTemplate<>(
+        MultiLevelParticleGenerator<GridDataType, TParticleGenerator, T> &generator,
+        const grids::Grid<T> &grid
+    );
 
 
   public:
@@ -166,12 +211,10 @@ namespace particle {
       return *(pGenerators[level]);
     }
 
-    particle::ParticleGenerator<GridDataType> &getGeneratorForGrid(const grids::Grid<T> &grid) override {
-      for (size_t i = 0; i < outputField.getNumLevels(); i++) {
-        if (grid.pointsToGrid(&(outputField.getFieldForLevel(i).getGrid())))
-          return getGeneratorForLevel(i);
-      }
-      throw std::runtime_error("Attempt to get a generator for a grid which is not related to the field");
+    std::shared_ptr<particle::ParticleEvaluator<GridDataType>> makeEvaluatorForGrid(const grids::Grid<T> &grid) override {
+
+
+      return makeParticleEvaluatorBasedOnTemplate(*this, grid);
     }
 
 
