@@ -184,12 +184,6 @@ namespace constraints {
       }
     }
 
-		int findNumberSteps(){
-			//! Determine the (precision dependent) number of steps for quadratic algorithm
-			int N_steps=0;
-			return N_steps;
-		}
-
 		void applyQuadraticModifications(int N_steps) {
 			N_steps++;
       /*
@@ -208,6 +202,17 @@ namespace constraints {
 			int N_steps = findNumberSteps();
 			applyQuadraticModifications(N_steps);
 		}
+
+  private:
+    int findNumberSteps(){
+      //! Determine the (precision dependent) number of steps for quadratic algorithm.
+      int N_steps=0;
+      return N_steps;
+    }
+
+    bool isPrecisionGoodEnough(){
+      return 0;
+    }
 
   };
 }

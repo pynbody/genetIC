@@ -7,7 +7,6 @@ genetIC/IC
 genetIC/IC.dSYM
 
 genetIC/doxygen/
-genetIC/tests/
 
 cmake-build-debug/
 .idea/
