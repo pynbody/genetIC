@@ -293,7 +293,9 @@ public:
     y1 = y0+nCoarseCellsOfZoomGrid;
     z1 = z0+nCoarseCellsOfZoomGrid;
 
-    // check particles fit in box
+    // Make list of the particles, excluding those that fall outside the new high-res box. Alternatively,
+    // if allowStrayParticles is true, keep even those outside the high-res box but report the number
+    // in this category.
     for (size_t i = 0; i < newLevelZoomParticleArray.size(); i++) {
       bool include=true;
       int xp, yp, zp;
@@ -313,7 +315,7 @@ public:
       if(allowStrayParticles) {
         cerr << "         of " << newLevelZoomParticleArray.size() << " particles, " << missed_particle << " will be interpolated from LR grid (stray particle mode)" << endl;
       } else {
-        cerr << "         of " << newLevelZoomParticleArray.size() << " particles, " << missed_particle << " have been ommitted" << endl;
+        cerr << "         of " << newLevelZoomParticleArray.size() << " particles, " << missed_particle << " have been omitted" << endl;
       }
 
       cerr << "         to make a new zoom flag list of " << trimmedParticleArray.size() << endl;
