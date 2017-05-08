@@ -849,7 +849,7 @@ public:
     if (!haveInitialisedRandomComponent)
       initialiseRandomComponent();
 
-    constraintApplicator.applyConstraints();
+    constraintApplicator.applyModifications();
   }
 
   virtual void done() {

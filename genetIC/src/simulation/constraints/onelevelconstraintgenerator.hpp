@@ -165,6 +165,10 @@ namespace constraints {
 
     }
 
+    void variance(){
+
+    }
+
     fields::Field<DataType, FloatType> getResult() {
       return std::move(outputField);
     };
@@ -191,6 +195,8 @@ namespace constraints {
       calc.angmom(1);
     } else if (name == "lz") {
       calc.angmom(2);
+    } else if (name == "variance") {
+      calc.variance();
     } else {
       throw std::runtime_error("Unknown constraint type " + name);
     }

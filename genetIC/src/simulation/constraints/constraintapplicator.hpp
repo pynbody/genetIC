@@ -166,7 +166,7 @@ namespace constraints {
     }
 
 
-    void applyConstraints() {
+    void applyLinearModifications() {
 
       orthonormaliseConstraints();
       outputField->toFourier();
@@ -183,6 +183,31 @@ namespace constraints {
         outputField->addScaled(alpha_i, dval_i);
       }
     }
+
+		int findNumberSteps(){
+			//! Determine the (precision dependent) number of steps for quadratic algorithm
+			int N_steps=0;
+			return N_steps;
+		}
+
+		void applyQuadraticModifications(int N_steps) {
+			N_steps++;
+      /*
+       * for i<N_steps
+       * add linearised quadratic to alphas
+       * orthonormalise constraints
+       * apply linear constraints
+       * repeat
+       */
+		}
+
+
+		void applyModifications() {
+
+			applyLinearModifications();
+			int N_steps = findNumberSteps();
+			applyQuadraticModifications(N_steps);
+		}
 
   };
 }
