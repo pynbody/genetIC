@@ -50,9 +50,11 @@ namespace constraints {
       std::vector<std::vector<std::complex<T>>> c_matrix(n, std::vector<std::complex<T>>(n, 0));
 
       for (size_t i = 0; i < n; i++) {
+				auto &alpha_i = alphas[i];
         for (size_t j = 0; j <= i; j++) {
           pb.setProgress(((float) done * 2) / (n * (1 + n)));
-          c_matrix[i][j] = alphas[i].innerProduct(alphas[j]);
+					auto &alpha_j = alphas[j];
+          c_matrix[i][j] = alpha_i.innerProduct(alpha_j).real();
           c_matrix[j][i] = c_matrix[i][j];
           done += 1;
         }

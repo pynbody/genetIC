@@ -20,7 +20,7 @@ namespace constraints {
 
     std::vector<size_t> particleArray;
     const cosmology::CosmologicalParameters<FloatType> &cosmology;
-    FloatType x0 = 0., y0 = 0., z0 = 0.; //centre coordinates needed for angmom; set in getCentre()
+    FloatType x0 = 0., y0 = 0., z0 = 0.; //!< centre coordinates needed for angmom; set in getCentre()
 
     void centralDifference4thOrder(long index, int direc, FloatType x0, FloatType y0, FloatType z0) {
 
