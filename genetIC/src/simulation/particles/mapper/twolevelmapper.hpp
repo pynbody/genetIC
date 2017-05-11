@@ -68,7 +68,7 @@ namespace particle {
 
       size_t reverseMapId(size_t id2) const {
         auto coord = pGrid2->getCellCentroid(id2);
-        return pGrid1->getClosestIdNoWrap(coord);
+        return pGrid1->getClosestId(coord);
       }
 
 

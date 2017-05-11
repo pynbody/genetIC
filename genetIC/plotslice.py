@@ -40,7 +40,17 @@ def plot1dslice(prefix="output/",ps="-",slice_z=None,slice_y=None,maxgrid=2,vmin
     p.xlim(0,aL)
 
 
-def plotslice_onegrid(prefix="output/",grid=0,slice=None,vmin=-0.15,vmax=0.15,padcells=0,offset=None):
+def plotslice_onegrid_with_wrapping(*args, **kwargs):
+    wrap = float(open(args[0]+"grid-info-0.txt").readline().split()[3])
+    for x in [-wrap,0,wrap]:
+        for y in [-wrap,0,wrap]:
+            kwargs['plot_offset']=(x,y)
+            X = plotslice_onegrid(*args,**kwargs)
+    p.xlim(-wrap/2,wrap/2)
+    p.ylim(-wrap/2,wrap/2)
+    return X
+
+def plotslice_onegrid(prefix="output/",grid=0,slice=None,vmin=-0.15,vmax=0.15,padcells=0,offset=None,plot_offset=(0,0)):
     new_plot = p.gcf().axes == []
     a = np.load(prefix+"grid-%d.npy"%grid)
 
@@ -48,8 +58,8 @@ def plotslice_onegrid(prefix="output/",grid=0,slice=None,vmin=-0.15,vmax=0.15,pa
 
     if offset is None:
         offset=(-aL/2,-aL/2)
-    ax+=offset[0]
-    ay+=offset[1]
+    ax+=offset[0]+plot_offset[0]
+    ay+=offset[1]+plot_offset[1]
 
     if slice is None:
         slice = az+aL/2
@@ -60,7 +70,7 @@ def plotslice_onegrid(prefix="output/",grid=0,slice=None,vmin=-0.15,vmax=0.15,pa
         print "Grid %d is not contained in this z-slice"%grid
         return
 
-    a = a[a_sl]
+    a = a[:,:,a_sl].T
 
 
     if vmin is None:
@@ -85,14 +95,19 @@ def plotslice_onegrid(prefix="output/",grid=0,slice=None,vmin=-0.15,vmax=0.15,pa
     return slice, vmin, vmax, offset
 
 
-def plotslice(prefix="output/",maxgrid=10,slice=None,plot_b=True,vmin=-0.15,vmax=0.15,padcells=4, offset=None):
+def plotslice(prefix="output/",maxgrid=10,slice=None,onelevel=False,vmin=-0.15,vmax=0.15,padcells=4, offset=None):
     maxgrid_on_disk = len(glob.glob(prefix+"grid-?.npy"))
     print maxgrid_on_disk
     if maxgrid_on_disk<maxgrid:
         maxgrid = maxgrid_on_disk
 
-    for level in range(maxgrid):
-        slice, vmin, vmax, offset = plotslice_onegrid(prefix,level,slice,vmin,vmax,padcells=0 if level==0 else padcells, offset=offset)
+    levels = range(maxgrid)
+    if onelevel:
+        levels = [0]
+
+    for level in levels:
+        slice, vmin, vmax, offset = plotslice_onegrid_with_wrapping(prefix,level,slice,vmin,vmax,
+                                                      padcells=0 if level==0 else padcells, offset=offset)
 
 
 

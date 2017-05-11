@@ -92,8 +92,8 @@ namespace io {
               size_t global_index = i + iordOffset;
               auto particle = evaluator->getParticleNoOffset(i);
 
-              Coordinate<float> velScaled = particle.vel * velFactor;
-              Coordinate<float> posScaled = particle.pos * lengthFactor;
+              Coordinate<float> velScaled(particle.vel * velFactor);
+              Coordinate<float> posScaled(particle.pos * lengthFactor);
 
               // Eek. The following code is horrible. Is there a way to make it neater?
               files[0].write((char *) (&velScaled.x), sizeof(float));

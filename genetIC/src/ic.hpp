@@ -29,6 +29,7 @@
 #include "src/simulation/particles/mapper/graficmapper.hpp"
 
 #include "src/cosmology/camb.hpp"
+#include "src/simulation/window.hpp"
 
 //TODO: remove ugly macro
 #define for_each_level(level) for(size_t level=0; level<multiLevelContext.getNumLevels(); ++level)
@@ -215,49 +216,31 @@ public:
     storeCurrentCellFlagsAsZoomMask(multiLevelContext.getNumLevels());
     vector<size_t> &newLevelZoomParticleArray = zoomParticleArray.back();
 
+    if(newLevelZoomParticleArray.size()==0)
+      throw std::runtime_error("Cannot initialise zoom without marking particles to be replaced");
+
     // find boundaries
-    int x0, x1, y0, y1, z0, z1;
-    int x, y, z;
+    Window<int> zoomWindow(gridAbove.getEffectiveSimulationSize(), gridAbove.getCellCoordinate(newLevelZoomParticleArray[0]));
 
-    x0 = y0 = z0 = (int) gridAbove.size;
-    x1 = y1 = z1 = 0;
-
-    // TO DO: wrap the box sensibly
-
-    for (size_t i = 0; i < newLevelZoomParticleArray.size(); i++) {
-      std::tie(x, y, z) = gridAbove.getCellCoordinate(newLevelZoomParticleArray[i]);
-      if (x < x0) x0 = x;
-      if (y < y0) y0 = y;
-      if (z < z0) z0 = z;
-      if (x > x1) x1 = x;
-      if (y > y1) y1 = y;
-      if (z > z1) z1 = z;
+    for (auto cell_id : newLevelZoomParticleArray) {
+      zoomWindow.expandToInclude(gridAbove.getCellCoordinate(cell_id));
     }
+
+    int n_required = zoomWindow.getMaximumDimension();
 
     // Now see if the zoom the user chose is OK
     int n_user = nAbove / zoomfac;
-    if (((x1 - x0) > n_user || (y1 - y0) > n_user || (z1 - z0) > n_user) && !allowStrayParticles) {
+    if (n_required>n_user && !allowStrayParticles) {
       throw (std::runtime_error(
-        "Zoom particles do not fit in specified sub-box. Decrease zoom, or choose different particles. (NB wrapping not yet implemented)"));
+        "Zoom particles do not fit in specified sub-box. Decrease zoom, or choose different particles"));
     }
-    // At this point we know things fit. All we need to do is choose
-    // the correct offset to get the particles near the centre of the
-    // zoom box.
 
-    // Here is the bottom left of the box (assuming things actually fit):
-    x = (x0 + x1) / 2 - nAbove / (2 * zoomfac);
-    y = (y0 + y1) / 2 - nAbove / (2 * zoomfac);
-    z = (z0 + z1) / 2 - nAbove / (2 * zoomfac);
+    if(n_required<n_user && !allowStrayParticles)
+      zoomWindow.expandSymmetricallyToSize(n_user);
 
-    // Box can't go outside the corners of the parent box (as above, wrapping still to be implemented)
-    if (x < 0) x = 0;
-    if (y < 0) y = 0;
-    if (z < 0) z = 0;
-    if ((unsigned) x > nAbove - nAbove / zoomfac) x = nAbove - nAbove / zoomfac;
-    if ((unsigned) y > nAbove - nAbove / zoomfac) y = nAbove - nAbove / zoomfac;
-    if ((unsigned) z > nAbove - nAbove / zoomfac) z = nAbove - nAbove / zoomfac;
+    auto lci = zoomWindow.getLowerCornerInclusive();
 
-    initZoomGridWithOriginAt(x, y, z, zoomfac, n);
+    initZoomGridWithOriginAt(lci.x, lci.y, lci.z, zoomfac, n);
 
   }
 
@@ -284,23 +267,32 @@ public:
 
     vector<size_t> trimmedParticleArray;
     vector<size_t> &newLevelZoomParticleArray = zoomParticleArray.back();
-
     int nCoarseCellsOfZoomGrid = nAbove / int(zoomfac);
-    int x1, y1, z1;
+
+    Coordinate<int> lowerCorner(x0,y0,z0);
+    Coordinate<int> upperCornerExclusive = lowerCorner+nCoarseCellsOfZoomGrid;
+
+    if(gridAbove.coversFullSimulation())
+      upperCornerExclusive = gridAbove.wrapCoordinate(upperCornerExclusive);
+    else {
+      if (upperCornerExclusive.x>nAbove || upperCornerExclusive.y>nAbove || upperCornerExclusive.z>nAbove)
+        throw std::runtime_error("Attempting to initialise a zoom grid that falls outside the parent grid");
+    }
+
+
     size_t missed_particle=0;
 
-    x1 = x0+nCoarseCellsOfZoomGrid;
-    y1 = y0+nCoarseCellsOfZoomGrid;
-    z1 = z0+nCoarseCellsOfZoomGrid;
+    Window<int> zoomWindow = Window<int>(gridAbove.getEffectiveSimulationSize(),
+                                         lowerCorner, upperCornerExclusive);
+
 
     // Make list of the particles, excluding those that fall outside the new high-res box. Alternatively,
     // if allowStrayParticles is true, keep even those outside the high-res box but report the number
     // in this category.
     for (size_t i = 0; i < newLevelZoomParticleArray.size(); i++) {
       bool include=true;
-      int xp, yp, zp;
-      std::tie(xp, yp, zp) = gridAbove.getCellCoordinate(newLevelZoomParticleArray[i]);
-      if (xp < x0 || yp < y0 || zp < z0 || xp >= x1 || yp >= y1 || zp >= z1) {
+      auto coord = gridAbove.getCellCoordinate(newLevelZoomParticleArray[i]);
+      if(!zoomWindow.contains(coord)) {
         missed_particle+=1;
         include = false;
       }
@@ -335,7 +327,7 @@ public:
     cout << "  n                     = " << newGrid.size << endl;
     cout << "  dx                    = " << newGrid.dx << endl;
     cout << "  Zoom factor           = " << zoomfac << endl;
-    cout << "  Origin in parent grid = " << x0 << ", " << y0 << ", " << z0 << endl;
+    cout << "  Origin in parent grid = " << lowerCorner << endl;
     cout << "  Low-left corner       = " << newGrid.offsetLower.x << ", " << newGrid.offsetLower.y << ", "
          << newGrid.offsetLower.z << endl;
     cout << "  Num particles         = " << newLevelZoomParticleArray.size() << endl;
@@ -741,7 +733,7 @@ public:
   void selectNearest() {
     auto &grid = multiLevelContext.getGridForLevel(deepestLevel() - 1);
     pMapper->unflagAllParticles();
-    size_t id = grid.getClosestIdNoWrap(Coordinate<T>(x0, y0, z0));
+    size_t id = grid.getClosestId(Coordinate<T>(x0, y0, z0));
     cerr << "selectNearest " << x0 << " " << y0 << " " << z0 << " " << id << " " << endl;
     grid.flagCells({id});
 

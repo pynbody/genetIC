@@ -52,7 +52,8 @@ set(SOURCE_FILES
         genetIC/src/simulation/particles/mapper/twolevelmapper.hpp
         genetIC/src/simulation/particles/mapper/gasmapper.hpp
         genetIC/src/simulation/particles/mapper/graficmapper.hpp
-        genetIC/src/simulation/field/evaluator.hpp)
+        genetIC/src/simulation/field/evaluator.hpp
+        genetIC/src/simulation/window.hpp)
 
 include_directories( /opt/local/include )
 link_directories(/opt/local/lib )
@@ -61,7 +62,7 @@ link_libraries(fftw3 m fftw3 fftw3_threads gsl gslcblas)
 
 add_definitions(-DFFTW3 -DFFTW_THREADS -DOPENMP -DGIT_VERSION -DGIT_MODIFIED -DDOUBLEPRECISION -DOUTPUT_IN_DOUBLEPRECISION)
 add_compile_options(-Wno-deprecated-declarations)
-add_executable(IC ${SOURCE_FILES} )
+add_executable(IC ${SOURCE_FILES})
 
 add_executable(IC_CFFT ${SOURCE_FILES} )
 

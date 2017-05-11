@@ -43,6 +43,7 @@ namespace grids {
     const size_t size; ///<the number of cells on a side
     const size_t size2; ///< the number of cells on a face
     const size_t size3; ///< the total number of cells in the grid cube
+    const size_t simEquivalentSize; ///< the total number of cells on the box side of a simulation if it were all at this resolution
     const T cellMassFrac; ///< the fraction of mass of the full simulation in a single cell of this grid
     const T cellSofteningScale; ///< normally 1.0; scales softening relative to dx
 
@@ -51,6 +52,7 @@ namespace grids {
       simsize(simsize), boxsize(dx * n),
       dx(dx), offsetLower(x0, y0, z0),
       size(n), size2(n * n), size3(n * n * n),
+      simEquivalentSize((unsigned) tools::getRatioAndAssertInteger(simsize,dx)),
       cellMassFrac(massFrac == 0.0 ? pow(dx / simsize, 3.0) : massFrac),
       cellSofteningScale(softScale) {
       // cerr << "Grid ctor " << this <<  endl;
@@ -60,7 +62,7 @@ namespace grids {
 
     Grid(size_t n) : simsize(0), boxsize(n),
                      dx(1.0), offsetLower(0, 0, 0),
-                     size(n), size2(n * n), size3(n * n * n), cellMassFrac(0.0),
+                     size(n), size2(n * n), size3(n * n * n), simEquivalentSize(0), cellMassFrac(0.0),
                      cellSofteningScale(1.0) {
       // cerr << "Grid ctor size-only" << endl;
       setKmin();
@@ -78,6 +80,10 @@ namespace grids {
 
   public:
 
+    bool coversFullSimulation() const {
+      return simsize==boxsize;
+    }
+
     T getWrappedDelta(T x0, T x1) const {
       T result = x0 - x1;
       if (result > simsize / 2) {
@@ -87,6 +93,10 @@ namespace grids {
         result += simsize;
       }
       return result;
+    }
+
+    Coordinate<T> getWrappedDelta(const Coordinate<T> a, const Coordinate<T> b) const {
+      return Coordinate<T>(getWrappedDelta(a.x,b.x), getWrappedDelta(a.y, b.y), getWrappedDelta(a.z, b.z));
     }
 
     GridPtrType makeProxyGridToMatch(const Grid<T> &target) const {
@@ -100,12 +110,13 @@ namespace grids {
       }
 
       if (target.offsetLower != offsetLower || target.size != proxy->size) {
+        auto relativeOffset = target.offsetLower-offsetLower;
         proxy = std::make_shared<SectionOfGrid<T>>(proxy,
-                                                   tools::getRatioAndAssertInteger(target.offsetLower.x - offsetLower.x,
+                                                   tools::getRatioAndAssertInteger(relativeOffset.x,
                                                                                    proxy->dx),
-                                                   tools::getRatioAndAssertInteger(target.offsetLower.y - offsetLower.y,
+                                                   tools::getRatioAndAssertInteger(relativeOffset.y,
                                                                                    proxy->dx),
-                                                   tools::getRatioAndAssertInteger(target.offsetLower.z - offsetLower.z,
+                                                   tools::getRatioAndAssertInteger(relativeOffset.z,
                                                                                    proxy->dx),
                                                    target.size);
       }
@@ -124,6 +135,10 @@ namespace grids {
     }
 
     virtual void flagCells(const std::vector<size_t> &sourceArray) {
+      // DEBUG:
+      for(size_t x: sourceArray) {
+        assert(x<size3);
+      }
       std::vector<size_t> newFlags(flags.size() + sourceArray.size());
       auto end = std::set_union(flags.begin(), flags.end(), sourceArray.begin(), sourceArray.end(), newFlags.begin());
       newFlags.resize(end - newFlags.begin());
@@ -151,7 +166,12 @@ namespace grids {
       return false;
     }
 
-    virtual bool containsCell(const Coordinate<T> &coord) const {
+    virtual bool containsPoint(const Coordinate<T> &coord) const {
+      return coord.x >= offsetLower.x && coord.y >= offsetLower.y && coord.z >= offsetLower.z &&
+             coord.x < boxsize + offsetLower.x && coord.y < boxsize + offsetLower.y && coord.z < boxsize + offsetLower.z;
+    }
+
+    virtual bool containsCellWithCoordinate(const Coordinate<int> &coord) const {
       return coord.x >= 0 && coord.y >= 0 && coord.z >= 0 &&
              coord.x < size && coord.y < size && coord.z < size;
     }
@@ -175,7 +195,7 @@ namespace grids {
       return this->getCellIndex(coord); // N.B. does wrapping inside getIndex
     }
 
-    void simWrap(Coordinate<T> &pos) const {
+    Coordinate<T> wrapPoint(Coordinate<T> pos) const {
       // TODO: this doesn't belong in the Grid class
       pos.x = fmod(pos.x, simsize);
       if (pos.x < 0) pos.x += simsize;
@@ -183,26 +203,28 @@ namespace grids {
       if (pos.y < 0) pos.y += simsize;
       pos.z = fmod(pos.z, simsize);
       if (pos.z < 0) pos.z += simsize;
+      return pos;
     }
 
-    void cellWrap(Coordinate<int> &index) const {
+    Coordinate<int> wrapCoordinate(Coordinate<int> index) const {
 #ifdef SAFER_SLOWER
-      index.x = index.x%size;
-      index.y = index.y%size;
-      index.z = index.z%size;
+      index.x = index.x%simEquivalentSize;
+      index.y = index.y%simEquivalentSize;
+      index.z = index.z%simEquivalentSize;
 #else
-      if (index.x > (signed) size - 1) index.x -= size;
-      if (index.y > (signed) size - 1) index.y -= size;
-      if (index.z > (signed) size - 1) index.z -= size;
+      if (index.x > (signed) simEquivalentSize - 1) index.x -= simEquivalentSize;
+      if (index.y > (signed) simEquivalentSize - 1) index.y -= simEquivalentSize;
+      if (index.z > (signed) simEquivalentSize - 1) index.z -= simEquivalentSize;
 #endif
-      if (index.x < 0) index.x += size;
-      if (index.y < 0) index.y += size;
-      if (index.z < 0) index.z += size;
+      if (index.x < 0) index.x += simEquivalentSize;
+      if (index.y < 0) index.y += simEquivalentSize;
+      if (index.z < 0) index.z += simEquivalentSize;
+      return index;
     }
 
 
     size_t getCellIndex(Coordinate<int> coord) const {
-      cellWrap(coord);
+      coord = wrapCoordinate(coord);
       return getCellIndexNoWrap(coord);
     }
 
@@ -227,7 +249,9 @@ namespace grids {
     Coordinate<int> getCellCoordinate(size_t id) const {
       size_t x, y;
 
-      if (id >= size3) throw std::runtime_error("Index out of range");
+      if (id >= size3) {
+        throw std::runtime_error("Index out of range");
+      }
 
       // The following implementation is a little faster than using the
       // modulo operator.
@@ -267,20 +291,20 @@ namespace grids {
 
 
     Coordinate<T> getCellCentroid(size_t id) const {
-      Coordinate<T> coord = getCellCoordinate(id);
+      Coordinate<int> coord = getCellCoordinate(id);
       return getCellCentroid(coord);
     }
 
     Coordinate<T> getCellCentroid(const Coordinate<int> & coord) const {
-      Coordinate<T> result = coord;
+      Coordinate<T> result(coord);
       result *= dx;
       result += offsetLower;
       result += dx / 2;
       return result;
     }
 
-    size_t getClosestIdNoWrap(Coordinate<T> coord) {
-      auto coords = floor((coord - offsetLower - dx / 2) / dx);
+    size_t getClosestId(Coordinate<T> coord) {
+      auto coords = floor(wrapPoint(coord - offsetLower - dx / 2) / dx);
       return getCellIndexNoWrap(coords);
     }
 
@@ -297,22 +321,29 @@ namespace grids {
 
       // TODO: optimization, set the storage size of ids here.
 
-      int xa = ((int) floor((x0c - offsetLower.x - dxc / 2 + dx / 2) / dx));
-      int ya = ((int) floor((y0c - offsetLower.y - dxc / 2 + dx / 2) / dx));
-      int za = ((int) floor((z0c - offsetLower.z - dxc / 2 + dx / 2) / dx));
+      std::tie(x0c, y0c, z0c) = wrapPoint(Coordinate<T>(x0c, y0c, z0c) - offsetLower);
 
-      int xb = ((int) floor((x0c - offsetLower.x + dxc / 2 - dx / 2) / dx));
-      int yb = ((int) floor((y0c - offsetLower.y + dxc / 2 - dx / 2) / dx));
-      int zb = ((int) floor((z0c - offsetLower.z + dxc / 2 - dx / 2) / dx));
+      int xa = ((int) floor((x0c - dxc / 2 + dx / 2) / dx));
+      int ya = ((int) floor((y0c - dxc / 2 + dx / 2) / dx));
+      int za = ((int) floor((z0c - dxc / 2 + dx / 2) / dx));
+
+      int xb = ((int) floor((x0c + dxc / 2 - dx / 2) / dx));
+      int yb = ((int) floor((y0c + dxc / 2 - dx / 2) / dx));
+      int zb = ((int) floor((z0c + dxc / 2 - dx / 2) / dx));
 
 
       iterateOverCube<int>(Coordinate<int>(xa, ya, za),
                            Coordinate<int>(xb, yb, zb) + 1,
                            [&start, this](const Coordinate<int> &cellCoord) {
                              (*start) = getCellIndex(cellCoord);
+                             assert(*start<size3);
                              ++start;
                            });
 
+    }
+
+    int getEffectiveSimulationSize() const {
+      return tools::getRatioAndAssertInteger(simsize, dx);
     }
 
 

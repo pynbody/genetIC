@@ -145,16 +145,18 @@ namespace fields {
     }
 
 
-    DataType evaluateInterpolated(const Coordinate<CoordinateType> &location) const {
+    DataType evaluateInterpolated(Coordinate<CoordinateType> location) const {
       auto offsetLower = pGrid->offsetLower;
       int x_p_0, y_p_0, z_p_0, x_p_1, y_p_1, z_p_1;
 
+      bool allowWrap = pGrid->coversFullSimulation();
+
+      location-=offsetLower;
+      location = pGrid->wrapPoint(location);
 
       // grid coordinates of parent cell starting to bottom-left
       // of our current point
-      x_p_0 = (int) floor(((location.x - offsetLower.x) / pGrid->dx - 0.5));
-      y_p_0 = (int) floor(((location.y - offsetLower.y) / pGrid->dx - 0.5));
-      z_p_0 = (int) floor(((location.z - offsetLower.z) / pGrid->dx - 0.5));
+      std::tie(x_p_0, y_p_0, z_p_0) = floor(location/pGrid->dx - 0.5);
 
       // grid coordinates of top-right
       x_p_1 = x_p_0 + 1;
@@ -165,9 +167,9 @@ namespace fields {
       // upper-right cell, in grid units (-> maximum 1)
 
       CoordinateType xw0, yw0, zw0, xw1, yw1, zw1;
-      xw0 = ((CoordinateType) x_p_1 + 0.5) - ((location.x - offsetLower.x) / pGrid->dx);
-      yw0 = ((CoordinateType) y_p_1 + 0.5) - ((location.y - offsetLower.y) / pGrid->dx);
-      zw0 = ((CoordinateType) z_p_1 + 0.5) - ((location.z - offsetLower.z) / pGrid->dx);
+      xw0 = ((CoordinateType) x_p_1 + 0.5) - (location.x / pGrid->dx);
+      yw0 = ((CoordinateType) y_p_1 + 0.5) - (location.y / pGrid->dx);
+      zw0 = ((CoordinateType) z_p_1 + 0.5) - (location.z / pGrid->dx);
 
       xw1 = 1. - xw0;
       yw1 = 1. - yw0;
@@ -175,27 +177,34 @@ namespace fields {
 
       assert(xw0 <= 1.0 && xw0 >= 0.0);
 
-      // allow things on the boundary to 'saturate' value, but beyond boundary
-      // is not acceptable
-      //
-      // TODO - in some circumstances we may wish to replace this with wrapping
-      // but not all circumstances!
       int size_i = static_cast<int>(pGrid->size);
-      assert(x_p_1 <= size_i);
-      if (x_p_1 == size_i) x_p_1 = size_i - 1;
-      assert(y_p_1 <= size_i);
-      if (y_p_1 == size_i) y_p_1 = size_i - 1;
-      assert(z_p_1 <= size_i);
-      if (z_p_1 == size_i) z_p_1 = size_i - 1;
 
-      assert(x_p_0 >= -1);
-      if (x_p_0 == -1) x_p_0 = 0;
-      assert(y_p_0 >= -1);
-      if (y_p_0 == -1) y_p_0 = 0;
-      assert(z_p_0 >= -1);
-      if (z_p_0 == -1) z_p_0 = 0;
+      if(allowWrap) {
+        std::tie(x_p_0,y_p_0,z_p_0) = pGrid->wrapCoordinate({x_p_0, y_p_0, z_p_0});
+        std::tie(x_p_1,y_p_1,z_p_1) = pGrid->wrapCoordinate({x_p_1, y_p_1, z_p_1});
 
-      // return (*this)[pGrid->getCellIndexNoWrap(x_p_0, y_p_0, z_p_0)];
+      } else {
+        // allow things on the boundary to 'saturate' value, but beyond boundary
+        // is not acceptable
+        assert(x_p_1 <= size_i);
+        if (x_p_1 == size_i) x_p_1 = size_i - 1;
+        assert(y_p_1 <= size_i);
+        if (y_p_1 == size_i) y_p_1 = size_i - 1;
+        assert(z_p_1 <= size_i);
+        if (z_p_1 == size_i) z_p_1 = size_i - 1;
+        assert(x_p_0 >= -1);
+        if (x_p_0 == -1) x_p_0 = 0;
+        assert(y_p_0 >= -1);
+        if (y_p_0 == -1) y_p_0 = 0;
+        assert(z_p_0 >= -1);
+        if (z_p_0 == -1) z_p_0 = 0;
+
+      }
+
+      // at this point every evaluation about to take place should be at a proper grid location
+      assert(x_p_0<size_i && x_p_0>=0 && x_p_1<size_i && x_p_1>=0);
+      assert(y_p_0<size_i && y_p_0>=0 && y_p_1<size_i && y_p_1>=0);
+      assert(z_p_0<size_i && z_p_0>=0 && z_p_1<size_i && z_p_1>=0);
 
 
       return xw0 * yw0 * zw1 * (*this)[pGrid->getCellIndexNoWrap(x_p_0, y_p_0, z_p_1)] +

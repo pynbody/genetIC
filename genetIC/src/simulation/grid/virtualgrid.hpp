@@ -10,7 +10,7 @@
 
 #include "src/simulation/coordinate.hpp"
 #include "grid.hpp"
-
+#include "src/simulation/window.hpp"
 
 using std::complex;
 using std::vector;
@@ -297,16 +297,18 @@ namespace grids {
     size_t mapIndexToUnderlying(size_t sec_id) const {
       auto coord = this->getCellCoordinate(sec_id);
       coord += cellOffset;
-      if (!this->pUnderlying->containsCell(coord))
+      coord = this->wrapCoordinate(coord);
+      if (!this->pUnderlying->containsCellWithCoordinate(coord))
         throw std::out_of_range("Out of range in SectionOfGrid::mapIndexToUnderlying");
       return this->pUnderlying->getCellIndex(coord);
     }
 
     size_t mapIndexFromUnderlying(size_t underlying_id) const {
-      auto coord = this->pUnderlying->getCellCoordinate(underlying_id);
+      Coordinate<int> coord = this->pUnderlying->getCellCoordinate(underlying_id);
       coord -= cellOffset;
+      coord = this->wrapCoordinate(coord);
 
-      if (!this->containsCell(coord))
+      if (!this->containsCellWithCoordinate(coord))
         throw std::out_of_range("Out of range in SectionOfGrid::mapIndexFromUnderlying");
 
       return this->getCellIndex(coord);
@@ -327,14 +329,19 @@ namespace grids {
     }
 
 
-    virtual bool containsCell(size_t i) const override {
-      return containsCell(this->getCellCoordinate(i));
+    virtual bool containsPoint(const Coordinate<T> &coord) const override {
+      return VirtualGrid<T>::containsPoint(coord) && this->pUnderlying->containsPoint(coord);
     }
 
-    virtual bool containsCell(const Coordinate<T> &coord) const override {
-      auto translated_coord = coord + cellOffset;
-      return this->pUnderlying->containsCell(translated_coord);
+    virtual bool containsCellWithCoordinate(const Coordinate<int> &coord) const {
+      return VirtualGrid<T>::containsCellWithCoordinate(coord) && this->pUnderlying->containsCellWithCoordinate(coord+cellOffset);
     }
+
+    virtual bool containsCell(size_t i) const {
+      auto coord = this->getCellCoordinate(i);
+      return containsCellWithCoordinate(coord);
+    }
+
 
 
     virtual void debugName(std::ostream &s) const override {
@@ -347,6 +354,7 @@ namespace grids {
       for (size_t ptcl: underlyingArray) {
         try {
           targetArray.push_back(this->mapIndexFromUnderlying(ptcl));
+          assert(targetArray.back()<this->size3);
         } catch (std::out_of_range &e) {
           continue;
         }
