@@ -1,0 +1,43 @@
+# Test wrapping zoom region
+
+
+# output parameters
+outdir	 ./
+outformat 4
+outname test_12
+
+# cosmology:
+Om  0.279
+Ol  0.721
+s8  0.817
+zin	99
+camb	../camb_transfer_kmax40_z0.dat
+
+# basegrid 50 Mpc/h, 64^3
+basegrid 50.0 32
+
+# fourier seeding
+seed	8896131
+
+
+centre 1 10 25
+select_sphere 5.0
+zoomgrid 4 32
+
+select_sphere 1.0
+zoomgrid 4 32
+
+
+select_sphere 0.4
+constrain overdensity absolute 0.25
+
+done
+
+calculate overdensity
+
+dump test_12.tipsy.overdensity
+
+dumpgrid 0
+dumpgrid 1
+dumpgrid 2
+

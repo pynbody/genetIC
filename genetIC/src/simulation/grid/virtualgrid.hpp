@@ -334,7 +334,8 @@ namespace grids {
     }
 
     virtual bool containsCellWithCoordinate(const Coordinate<int> &coord) const {
-      return VirtualGrid<T>::containsCellWithCoordinate(coord) && this->pUnderlying->containsCellWithCoordinate(coord+cellOffset);
+      return VirtualGrid<T>::containsCellWithCoordinate(coord) &&
+          this->pUnderlying->containsCellWithCoordinate(this->wrapCoordinate(coord+cellOffset));
     }
 
     virtual bool containsCell(size_t i) const {

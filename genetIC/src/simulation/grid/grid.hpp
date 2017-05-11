@@ -167,11 +167,10 @@ namespace grids {
     }
 
     virtual bool containsPoint(const Coordinate<T> &coord) const {
-      return coord.x >= offsetLower.x && coord.y >= offsetLower.y && coord.z >= offsetLower.z &&
-             coord.x < boxsize + offsetLower.x && coord.y < boxsize + offsetLower.y && coord.z < boxsize + offsetLower.z;
+      return Window<T>(simsize,offsetLower,offsetLower+boxsize).contains(coord);
     }
 
-    virtual bool containsCellWithCoordinate(const Coordinate<int> &coord) const {
+    virtual bool containsCellWithCoordinate(Coordinate<int> coord) const {
       return coord.x >= 0 && coord.y >= 0 && coord.z >= 0 &&
              coord.x < size && coord.y < size && coord.z < size;
     }
