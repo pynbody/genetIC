@@ -22,6 +22,14 @@ using std::make_shared;
     \namespace grids
     \brief Define a grid with given size and resolution. This a building block for fields and constraints.
 
+    Grids contain cells which can be referred to by either
+
+     * a coordinate, which is defined as integers with (0,0,0) being the bottom-left corner, (size-1,size-1,size-1)
+       being the top right;
+     * an index, which is defined as size_t from 0 to size^3
+     * a point, which is defined as a floating point (type T) triple. The bottom-left corner of the grid is given by
+       offsetLower, and the top right by offsetLower + thisGridSize.
+
  */
 
 namespace grids {
@@ -38,7 +46,7 @@ namespace grids {
     std::vector<size_t> flags;
 
   public:
-    const T simsize, boxsize, dx;
+    const T periodicDomainSize, thisGridSize, cellSize;
     const Coordinate<T> offsetLower;
     const size_t size; ///<the number of cells on a side
     const size_t size2; ///< the number of cells on a face
@@ -49,8 +57,8 @@ namespace grids {
 
     Grid(T simsize, size_t n, T dx = 1.0, T x0 = 0.0, T y0 = 0.0, T z0 = 0.0,
          T massFrac = 0.0, T softScale = 1.0) :
-      simsize(simsize), boxsize(dx * n),
-      dx(dx), offsetLower(x0, y0, z0),
+      periodicDomainSize(simsize), thisGridSize(dx * n),
+      cellSize(dx), offsetLower(x0, y0, z0),
       size(n), size2(n * n), size3(n * n * n),
       simEquivalentSize((unsigned) tools::getRatioAndAssertInteger(simsize,dx)),
       cellMassFrac(massFrac == 0.0 ? pow(dx / simsize, 3.0) : massFrac),
@@ -60,8 +68,8 @@ namespace grids {
     }
 
 
-    Grid(size_t n) : simsize(0), boxsize(n),
-                     dx(1.0), offsetLower(0, 0, 0),
+    Grid(size_t n) : periodicDomainSize(0), thisGridSize(n),
+                     cellSize(1.0), offsetLower(0, 0, 0),
                      size(n), size2(n * n), size3(n * n * n), simEquivalentSize(0), cellMassFrac(0.0),
                      cellSofteningScale(1.0) {
       // cerr << "Grid ctor size-only" << endl;
@@ -74,38 +82,40 @@ namespace grids {
 
   protected:
     void setKmin() {
-      kMin = 2. * M_PI / boxsize;
+      kMin = 2. * M_PI / thisGridSize;
       kMinSquared = kMin * kMin;
     }
 
   public:
 
     bool coversFullSimulation() const {
-      return simsize==boxsize;
+      return periodicDomainSize==thisGridSize;
     }
 
-    T getWrappedDelta(T x0, T x1) const {
+    T getWrappedOffset(T x0, T x1) const {
       T result = x0 - x1;
-      if (result > simsize / 2) {
-        result -= simsize;
+      if (result > periodicDomainSize / 2) {
+        result -= periodicDomainSize;
       }
-      if (result < -simsize / 2) {
-        result += simsize;
+      if (result < -periodicDomainSize / 2) {
+        result += periodicDomainSize;
       }
       return result;
     }
 
-    Coordinate<T> getWrappedDelta(const Coordinate<T> a, const Coordinate<T> b) const {
-      return Coordinate<T>(getWrappedDelta(a.x,b.x), getWrappedDelta(a.y, b.y), getWrappedDelta(a.z, b.z));
+    Coordinate<T> getWrappedOffset(const Coordinate<T> a, const Coordinate<T> b) const {
+      return Coordinate<T>(getWrappedOffset(a.x, b.x), getWrappedOffset(a.y, b.y), getWrappedOffset(a.z, b.z));
     }
 
+    /*! Make a VirtualGrid pointing to this grid, but with a resolution and range matching target.
+    */
     GridPtrType makeProxyGridToMatch(const Grid<T> &target) const {
       GridPtrType proxy = std::const_pointer_cast<Grid<T>>(this->shared_from_this());
-      if (target.dx > dx) {
-        size_t ratio = tools::getRatioAndAssertPositiveInteger(target.dx, dx);
+      if (target.cellSize > cellSize) {
+        size_t ratio = tools::getRatioAndAssertPositiveInteger(target.cellSize, cellSize);
         proxy = std::make_shared<SubSampleGrid<T>>(proxy, ratio);
-      } else if (target.dx < dx) {
-        size_t ratio = tools::getRatioAndAssertPositiveInteger(dx, target.dx);
+      } else if (target.cellSize < cellSize) {
+        size_t ratio = tools::getRatioAndAssertPositiveInteger(cellSize, target.cellSize);
         proxy = std::make_shared<SuperSampleGrid<T>>(proxy, ratio);
       }
 
@@ -113,11 +123,11 @@ namespace grids {
         auto relativeOffset = target.offsetLower-offsetLower;
         proxy = std::make_shared<SectionOfGrid<T>>(proxy,
                                                    tools::getRatioAndAssertInteger(relativeOffset.x,
-                                                                                   proxy->dx),
+                                                                                   proxy->cellSize),
                                                    tools::getRatioAndAssertInteger(relativeOffset.y,
-                                                                                   proxy->dx),
+                                                                                   proxy->cellSize),
                                                    tools::getRatioAndAssertInteger(relativeOffset.z,
-                                                                                   proxy->dx),
+                                                                                   proxy->cellSize),
                                                    target.size);
       }
 
@@ -135,10 +145,6 @@ namespace grids {
     }
 
     virtual void flagCells(const std::vector<size_t> &sourceArray) {
-      // DEBUG:
-      for(size_t x: sourceArray) {
-        assert(x<size3);
-      }
       std::vector<size_t> newFlags(flags.size() + sourceArray.size());
       auto end = std::set_union(flags.begin(), flags.end(), sourceArray.begin(), sourceArray.end(), newFlags.begin());
       newFlags.resize(end - newFlags.begin());
@@ -153,7 +159,8 @@ namespace grids {
       return flags.size() > 0;
     }
 
-
+    /*! Return true if this grid has a known relationship to pOther, in the sense that a field defined on pOther
+     * could be evaluated on this grid. */
     virtual bool pointsToGrid(const Grid *pOther) const {
       return this == pOther;
     }
@@ -167,7 +174,17 @@ namespace grids {
     }
 
     virtual bool containsPoint(const Coordinate<T> &coord) const {
-      return Window<T>(simsize,offsetLower,offsetLower+boxsize).contains(coord);
+      return Window<T>(periodicDomainSize,offsetLower,offsetLower+thisGridSize).contains(coord);
+    }
+
+    Coordinate<T> wrapPoint(Coordinate<T> pos) const {
+      pos.x = fmod(pos.x, periodicDomainSize);
+      if (pos.x < 0) pos.x += periodicDomainSize;
+      pos.y = fmod(pos.y, periodicDomainSize);
+      if (pos.y < 0) pos.y += periodicDomainSize;
+      pos.z = fmod(pos.z, periodicDomainSize);
+      if (pos.z < 0) pos.z += periodicDomainSize;
+      return pos;
     }
 
     virtual bool containsCellWithCoordinate(Coordinate<int> coord) const {
@@ -184,9 +201,7 @@ namespace grids {
     }
 
 
-    ///////////////////////////////////////
-    //  Index manipulation routines
-    ///////////////////////////////////////
+
 
     size_t getIndexFromIndexAndStep(size_t index, const Coordinate<int> &step) const {
       auto coord = getCellCoordinate(index);
@@ -194,27 +209,16 @@ namespace grids {
       return this->getCellIndex(coord); // N.B. does wrapping inside getIndex
     }
 
-    Coordinate<T> wrapPoint(Coordinate<T> pos) const {
-      // TODO: this doesn't belong in the Grid class
-      pos.x = fmod(pos.x, simsize);
-      if (pos.x < 0) pos.x += simsize;
-      pos.y = fmod(pos.y, simsize);
-      if (pos.y < 0) pos.y += simsize;
-      pos.z = fmod(pos.z, simsize);
-      if (pos.z < 0) pos.z += simsize;
-      return pos;
-    }
 
+
+  /*! Wrap the coordinate such that it lies within [0,size) if this is possible.
+   *
+   * Note that for efficiency this routine only "corrects" coordinates within one boxsize of the fundamental domain.
+   */
     Coordinate<int> wrapCoordinate(Coordinate<int> index) const {
-#ifdef SAFER_SLOWER
-      index.x = index.x%simEquivalentSize;
-      index.y = index.y%simEquivalentSize;
-      index.z = index.z%simEquivalentSize;
-#else
       if (index.x > (signed) simEquivalentSize - 1) index.x -= simEquivalentSize;
       if (index.y > (signed) simEquivalentSize - 1) index.y -= simEquivalentSize;
       if (index.z > (signed) simEquivalentSize - 1) index.z -= simEquivalentSize;
-#endif
       if (index.x < 0) index.x += simEquivalentSize;
       if (index.y < 0) index.y += simEquivalentSize;
       if (index.z < 0) index.z += simEquivalentSize;
@@ -262,28 +266,6 @@ namespace grids {
       return Coordinate<int>(x, y, id);
     }
 
-    Coordinate<int> getFourierCellCoordinate(size_t id) const {
-
-      auto coord = getCellCoordinate(id);
-      if (coord.x > (signed) size / 2) coord.x -= size;
-      if (coord.y > (signed) size / 2) coord.y -= size;
-      if (coord.z > (signed) size / 2) coord.z -= size;
-
-      return coord;
-    }
-
-    T getFourierCellKSquared(size_t id) const {
-      T res;
-      auto coords = getFourierCellCoordinate(id);
-      res = coords.x * coords.x + coords.y * coords.y + coords.z * coords.z;
-      res *= kMinSquared;
-      return res;
-    }
-
-    T getFourierCellAbsK(size_t id) const {
-      return sqrt(getFourierCellKSquared(id));
-    }
-
     T getFourierKmin() const {
       return kMin;
     }
@@ -296,20 +278,20 @@ namespace grids {
 
     Coordinate<T> getCellCentroid(const Coordinate<int> & coord) const {
       Coordinate<T> result(coord);
-      result *= dx;
+      result *= cellSize;
       result += offsetLower;
-      result += dx / 2;
+      result += cellSize / 2;
       return result;
     }
 
-    size_t getClosestId(Coordinate<T> coord) {
-      auto coords = floor(wrapPoint(coord - offsetLower - dx / 2) / dx);
+    size_t getCellContainingPoint(Coordinate<T> point) {
+      auto coords = floor(wrapPoint(point - offsetLower - cellSize / 2) / cellSize);
       return getCellIndexNoWrap(coords);
     }
 
     void appendIdsInCubeToVector(T x0c, T y0c, T z0c, T dxc, vector<size_t> &ids) {
       size_t offset = ids.size();
-      int added_size = std::round(dxc/dx);
+      int added_size = std::round(dxc/cellSize);
       added_size*=added_size*added_size;
       ids.resize(offset+added_size);
       insertCubeIdsIntoVector(x0c, y0c, z0c, dxc, ids.begin()+offset);
@@ -322,13 +304,13 @@ namespace grids {
 
       std::tie(x0c, y0c, z0c) = wrapPoint(Coordinate<T>(x0c, y0c, z0c) - offsetLower);
 
-      int xa = ((int) floor((x0c - dxc / 2 + dx / 2) / dx));
-      int ya = ((int) floor((y0c - dxc / 2 + dx / 2) / dx));
-      int za = ((int) floor((z0c - dxc / 2 + dx / 2) / dx));
+      int xa = ((int) floor((x0c - dxc / 2 + cellSize / 2) / cellSize));
+      int ya = ((int) floor((y0c - dxc / 2 + cellSize / 2) / cellSize));
+      int za = ((int) floor((z0c - dxc / 2 + cellSize / 2) / cellSize));
 
-      int xb = ((int) floor((x0c + dxc / 2 - dx / 2) / dx));
-      int yb = ((int) floor((y0c + dxc / 2 - dx / 2) / dx));
-      int zb = ((int) floor((z0c + dxc / 2 - dx / 2) / dx));
+      int xb = ((int) floor((x0c + dxc / 2 - cellSize / 2) / cellSize));
+      int yb = ((int) floor((y0c + dxc / 2 - cellSize / 2) / cellSize));
+      int zb = ((int) floor((z0c + dxc / 2 - cellSize / 2) / cellSize));
 
 
       iterateOverCube<int>(Coordinate<int>(xa, ya, za),
@@ -342,7 +324,7 @@ namespace grids {
     }
 
     int getEffectiveSimulationSize() const {
-      return tools::getRatioAndAssertInteger(simsize, dx);
+      return tools::getRatioAndAssertInteger(periodicDomainSize, cellSize);
     }
 
 
@@ -381,7 +363,7 @@ namespace grids {
       assert(source->size >= target->size);
       assert(source->offsetLower == target->offsetLower);
 
-      size_t factor = tools::getRatioAndAssertPositiveInteger(target->dx, source->dx);
+      size_t factor = tools::getRatioAndAssertPositiveInteger(target->cellSize, source->cellSize);
 
       // it's not clear that the following parallelisation actually speeds much up
 #pragma omp parallel for

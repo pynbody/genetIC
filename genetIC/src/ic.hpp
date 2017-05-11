@@ -97,8 +97,7 @@ protected:
 
   shared_ptr<particle::AbstractMultiLevelParticleGenerator<GridDataType>> pParticleGenerator;
 
-  using RefFieldType = std::vector<GridDataType> &;
-  using FieldType = std::vector<GridDataType>;
+  using FieldType = fields::Field<GridDataType>;
 
   tools::ClassDispatch<ICGenerator<GridDataType>, void> &interpreter;
 
@@ -316,16 +315,16 @@ public:
     zoomParticleArray.pop_back();
     zoomParticleArray.emplace_back(std::move(trimmedParticleArray));
 
-    Coordinate<T> newOffsetLower = gridAbove.offsetLower + Coordinate<T>(x0, y0, z0) * gridAbove.dx;
+    Coordinate<T> newOffsetLower = gridAbove.offsetLower + Coordinate<T>(x0, y0, z0) * gridAbove.cellSize;
 
-    this->addLevelToContext(spectrum, gridAbove.boxsize / zoomfac, n, newOffsetLower);
+    this->addLevelToContext(spectrum, gridAbove.thisGridSize / zoomfac, n, newOffsetLower);
 
     grids::Grid<T> &newGrid = multiLevelContext.getGridForLevel(multiLevelContext.getNumLevels() - 1);
 
     cout << "Initialized a zoom region:" << endl;
-    cout << "  Subbox length         = " << newGrid.boxsize << " Mpc/h" << endl;
+    cout << "  Subbox length         = " << newGrid.thisGridSize << " Mpc/h" << endl;
     cout << "  n                     = " << newGrid.size << endl;
-    cout << "  dx                    = " << newGrid.dx << endl;
+    cout << "  dx                    = " << newGrid.cellSize << endl;
     cout << "  Zoom factor           = " << zoomfac << endl;
     cout << "  Origin in parent grid = " << lowerCorner << endl;
     cout << "  Low-left corner       = " << newGrid.offsetLower.x << ", " << newGrid.offsetLower.y << ", "
@@ -431,7 +430,7 @@ public:
     cerr << "Writing to " << filename.str() << endl;
 
     ifile << levelGrid.offsetLower.x << " " << levelGrid.offsetLower.y << " "
-          << levelGrid.offsetLower.z << " " << levelGrid.boxsize << endl;
+          << levelGrid.offsetLower.z << " " << levelGrid.thisGridSize << endl;
     ifile << "The line above contains information about grid level " << level << endl;
     ifile << "It gives the x-offset, y-offset and z-offset of the low-left corner and also the box length" << endl;
     ifile.close();
@@ -603,7 +602,7 @@ public:
     cerr << "Write, ndm=" << pMapper->size_dm() << ", ngas=" << pMapper->size_gas() << endl;
     cerr << (*pMapper);
 
-    T boxlen = multiLevelContext.getGridForLevel(0).simsize;
+    T boxlen = multiLevelContext.getGridForLevel(0).periodicDomainSize;
 
     switch (outputFormat) {
       case OutputFormat::gadget2:
@@ -652,7 +651,7 @@ protected:
   }
 
   T get_wrapped_delta(T x0, T x1) {
-    return multiLevelContext.getGridForLevel(0).getWrappedDelta(x0, x1);
+    return multiLevelContext.getGridForLevel(0).getWrappedOffset(x0, x1);
   }
 
 
@@ -733,7 +732,7 @@ public:
   void selectNearest() {
     auto &grid = multiLevelContext.getGridForLevel(deepestLevel() - 1);
     pMapper->unflagAllParticles();
-    size_t id = grid.getClosestId(Coordinate<T>(x0, y0, z0));
+    size_t id = grid.getCellContainingPoint(Coordinate<T>(x0, y0, z0));
     cerr << "selectNearest " << x0 << " " << y0 << " " << z0 << " " << id << " " << endl;
     grid.flagCells({id});
 
@@ -868,6 +867,7 @@ public:
 
     T k2max = kmax * kmax;
 
+
     // take a copy of all the fields
     std::vector<FieldType> fieldCopies;
     for_each_level(level) {
@@ -882,18 +882,16 @@ public:
 
     // copy back the old field
     for_each_level(level) {
-      auto &fieldOriginal = fieldCopies[level];
+      FieldType &oldField = fieldCopies[level];
       auto &field = outputField.getFieldForLevel(level);
-      auto &grid = field.getGrid();
-      field.toFourier();
-      T k2;
-      size_t N = grid.size3;
-      for (size_t i = 0; i < N; i++) {
-        k2 = grid.getFourierCellKSquared(i);
-        if (k2 > k2max && k2 != 0) {
-          field[i] = fieldOriginal[i];
+      int k2max_i = tools::getRatioAndAssertInteger(k2max,field.getGrid().getFourierKmin());
+      field.forEachFourierCell([k2max_i, &oldField](std::complex<T> val, int kx, int ky, int kz) {
+        int k2_i = kx * kx + ky * ky + kz * kz;
+        if (k2_i < k2max_i && k2_i != 0) {
+          val = oldField.getFourierCoefficient(kx,ky,kz);
         }
-      }
+        return val;
+      });
     }
 
   }
@@ -902,32 +900,20 @@ public:
 
     T k2max = kmax * kmax;
 
-
     for_each_level(level) {
-      T k2_g_min = std::numeric_limits<T>::max();
-      T k2_g_max = 0.0;
-      size_t modes_reversed = 0;
       auto &field = outputField.getFieldForLevel(level);
       field.toFourier();
       auto &fieldData = field.getDataVector();
-      const grids::Grid<T> &grid = field.getGrid();
-      size_t tot_modes = grid.size3;
-      T k2;
-      size_t N = grid.size3;
-      for (size_t i = 0; i < N; i++) {
-        k2 = grid.getFourierCellKSquared(i);
+
+      field.forEachFourierCell([k2max](std::complex<T> val, T kx, T ky, T kz) {
+        T k2 = kx*kx+ky*ky+kz*kz;
         if (k2 < k2max && k2 != 0) {
-          fieldData[i] = -fieldData[i];
-          modes_reversed++;
+          val = -val;
         }
-        if (k2 < k2_g_min && k2 != 0)
-          k2_g_min = k2;
-        if (k2 > k2_g_max)
-          k2_g_max = k2;
-      }
-      cerr << "reverseSmallK: k reversal at " << sqrt(k2max) << "; grid was in range " << sqrt(k2_g_min) << " to " <<
-           sqrt(k2_g_max) << endl;
-      cerr << "               modes reversed = " << modes_reversed << " of " << tot_modes << endl;
+        return val;
+      });
+
+      cerr << "reverseSmallK: k reversal at " << sqrt(k2max) << endl;
     }
 
   }

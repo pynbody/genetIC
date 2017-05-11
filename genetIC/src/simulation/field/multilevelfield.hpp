@@ -39,7 +39,7 @@ namespace fields {
       this->pFilters = make_shared<FilterType>();
       for (size_t level = 0; level < nLevels - 1; ++level) {
         const grids::Grid<T> &grid0(this->multiLevelContext->getGridForLevel(level));
-        T k_cut = ((T) grid0.size) * FRACTIONAL_K_SPLIT * 2. * M_PI / grid0.boxsize;
+        T k_cut = ((T) grid0.size) * FRACTIONAL_K_SPLIT * 2. * M_PI / grid0.thisGridSize;
         this->pFilters->addLevel(k_cut);
       }
 

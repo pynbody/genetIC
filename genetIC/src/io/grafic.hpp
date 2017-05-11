@@ -58,7 +58,7 @@ namespace io {
         auto evaluator = generator->makeEvaluatorForGrid(targetGrid);
 
         const grids::Grid<T> &baseGrid = context.getGridForLevel(0);
-        size_t effective_size = tools::getRatioAndAssertPositiveInteger(baseGrid.dx * baseGrid.size, targetGrid.dx);
+        size_t effective_size = tools::getRatioAndAssertPositiveInteger(baseGrid.cellSize * baseGrid.size, targetGrid.cellSize);
         tools::progress::ProgressBar pb("write grid " + std::to_string(effective_size), targetGrid.size);
 
         std::string thisGridFilename = outputFilename + "_" + std::to_string(effective_size);
@@ -133,7 +133,7 @@ namespace io {
       io_header_grafic getHeaderForGrid(const grids::Grid<T> &targetGrid) const {
         io_header_grafic header;
         header.nx = header.ny = header.nz = targetGrid.size;
-        header.dx = targetGrid.dx * lengthFactor;
+        header.dx = targetGrid.cellSize * lengthFactor;
         header.xOffset = targetGrid.offsetLower.x * lengthFactor;
         header.yOffset = targetGrid.offsetLower.y * lengthFactor;
         header.zOffset = targetGrid.offsetLower.z * lengthFactor;

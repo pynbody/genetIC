@@ -51,13 +51,13 @@ namespace particle {
         // particle at level1
         T x0, y0, z0;
         std::tie(x0, y0, z0) = pGrid1->getCellCentroid(id0);
-        pGrid2->appendIdsInCubeToVector(x0, y0, z0, pGrid1->dx, ids);
+        pGrid2->appendIdsInCubeToVector(x0, y0, z0, pGrid1->cellSize, ids);
       }
 
       void insertMappedIdsInVector(size_t id0, std::vector<size_t>::iterator start) const {
         T x0, y0, z0;
         std::tie(x0, y0, z0) = pGrid1->getCellCentroid(id0);
-        pGrid2->insertCubeIdsIntoVector(x0, y0, z0, pGrid1->dx, start);
+        pGrid2->insertCubeIdsIntoVector(x0, y0, z0, pGrid1->cellSize, start);
       }
 
       std::vector<size_t> getMappedIds(size_t id0) const {
@@ -68,7 +68,7 @@ namespace particle {
 
       size_t reverseMapId(size_t id2) const {
         auto coord = pGrid2->getCellCentroid(id2);
-        return pGrid1->getClosestId(coord);
+        return pGrid1->getCellContainingPoint(coord);
       }
 
 
@@ -126,7 +126,7 @@ namespace particle {
         if (zoomParticleArrayForL1grid.size() != zoomParticleArrayForL1mapper.size())
           throw std::runtime_error("The cells to zoom on must all be on the finest level 1 grid");
 
-        n_hr_per_lr = tools::getRatioAndAssertPositiveInteger(pGrid1->dx, pGrid2->dx);
+        n_hr_per_lr = tools::getRatioAndAssertPositiveInteger(pGrid1->cellSize, pGrid2->cellSize);
         n_hr_per_lr *= n_hr_per_lr * n_hr_per_lr;
 
         totalParticles = pLevel1->size() + (n_hr_per_lr - 1) * zoomParticleArrayForL1mapper.size();

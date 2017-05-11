@@ -69,7 +69,12 @@ namespace fields {
                                                     fourier(move.fourier) {
       fourierManager = std::make_shared<FourierManager>(*this);
       assert(data.size()==fourierManager->getRequiredDataSize());
+    }
 
+    Field(const Field<DataType, CoordinateType> &copy) : pGrid(copy.pGrid), data(copy.data),
+                                                    fourier(copy.fourier) {
+      fourierManager = std::make_shared<FourierManager>(*this);
+      assert(data.size()==fourierManager->getRequiredDataSize());
     }
 
     Field(TGrid &grid, TData &&dataVector, bool fourier = true) : pGrid(grid.shared_from_this()),
@@ -137,9 +142,9 @@ namespace fields {
 
 
       // grid coordinates of parent cell that we're in
-      x_p_0 = (int) floor(((location.x - offsetLower.x) / pGrid->dx));
-      y_p_0 = (int) floor(((location.y - offsetLower.y) / pGrid->dx));
-      z_p_0 = (int) floor(((location.z - offsetLower.z) / pGrid->dx));
+      x_p_0 = (int) floor(((location.x - offsetLower.x) / pGrid->cellSize));
+      y_p_0 = (int) floor(((location.y - offsetLower.y) / pGrid->cellSize));
+      z_p_0 = (int) floor(((location.z - offsetLower.z) / pGrid->cellSize));
 
       return (*this)[pGrid->getCellIndex(Coordinate<int>(x_p_0, y_p_0, z_p_0))];
     }
@@ -156,7 +161,7 @@ namespace fields {
 
       // grid coordinates of parent cell starting to bottom-left
       // of our current point
-      std::tie(x_p_0, y_p_0, z_p_0) = floor(location/pGrid->dx - 0.5);
+      std::tie(x_p_0, y_p_0, z_p_0) = floor(location/pGrid->cellSize - 0.5);
 
       // grid coordinates of top-right
       x_p_1 = x_p_0 + 1;
@@ -167,9 +172,9 @@ namespace fields {
       // upper-right cell, in grid units (-> maximum 1)
 
       CoordinateType xw0, yw0, zw0, xw1, yw1, zw1;
-      xw0 = ((CoordinateType) x_p_1 + 0.5) - (location.x / pGrid->dx);
-      yw0 = ((CoordinateType) y_p_1 + 0.5) - (location.y / pGrid->dx);
-      zw0 = ((CoordinateType) z_p_1 + 0.5) - (location.z / pGrid->dx);
+      xw0 = ((CoordinateType) x_p_1 + 0.5) - (location.x / pGrid->cellSize);
+      yw0 = ((CoordinateType) y_p_1 + 0.5) - (location.y / pGrid->cellSize);
+      zw0 = ((CoordinateType) z_p_1 + 0.5) - (location.z / pGrid->cellSize);
 
       xw1 = 1. - xw0;
       yw1 = 1. - yw0;

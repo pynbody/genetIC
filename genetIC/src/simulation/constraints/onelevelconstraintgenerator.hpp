@@ -27,9 +27,9 @@ namespace constraints {
       FloatType xp = 0., yp = 0., zp = 0.;
       std::tie(xp, yp, zp) = grid.getCellCentroid(index);
 
-      xp = grid.getWrappedDelta(xp, x0);
-      yp = grid.getWrappedDelta(yp, y0);
-      zp = grid.getWrappedDelta(zp, z0);
+      xp = grid.getWrappedOffset(xp, x0);
+      yp = grid.getWrappedOffset(yp, y0);
+      zp = grid.getWrappedOffset(zp, z0);
 
       FloatType c[3] = {0, 0, 0};
       if (direc == 0) {
@@ -72,7 +72,7 @@ namespace constraints {
         ind_m2 = grid.getIndexFromIndexAndStep(ind_m1, neg_step1);
         ind_p2 = grid.getIndexFromIndexAndStep(ind_p1, step1);
 
-        FloatType a = -1. / 12. / grid.dx, b = 2. / 3. / grid.dx;  //the signs here so that L ~ - Nabla Phi
+        FloatType a = -1. / 12. / grid.cellSize, b = 2. / 3. / grid.cellSize;  //the signs here so that L ~ - Nabla Phi
 
         outputData[ind_m2] += (c[di] * a);
         outputData[ind_m1] += (c[di] * b);
@@ -104,9 +104,9 @@ namespace constraints {
       for (size_t i = 0; i < particleArray.size(); i++) {
         std::tie(xb, yb, zb) = grid.getCellCentroid(particleArray[i]);
 
-        x0 += grid.getWrappedDelta(xb, xa);
-        y0 += grid.getWrappedDelta(yb, ya);
-        z0 += grid.getWrappedDelta(zb, za);
+        x0 += grid.getWrappedOffset(xb, xa);
+        y0 += grid.getWrappedOffset(yb, ya);
+        z0 += grid.getWrappedOffset(zb, za);
       }
 
       x0 /= particleArray.size();
