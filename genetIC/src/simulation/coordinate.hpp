@@ -27,7 +27,7 @@ public:
   }
 
   template<typename S>
-  Coordinate(const Coordinate<S> &other) : x(other.x), y(other.y), z(other.z) {}
+  explicit Coordinate(const Coordinate<S> &other) : x(other.x), y(other.y), z(other.z) {}
 
 
   Coordinate<T> operator+(const Coordinate<T> &other) const {
@@ -147,6 +147,12 @@ Coordinate<OutputType> round(const Coordinate<T> &coord) {
                                 OutputType(std::round(coord.y)),
                                 OutputType(std::round(coord.z)));
 
+}
+
+template<typename T>
+std::ostream & operator<<(std::ostream & stream, const Coordinate<T> &coord) {
+  stream << "(" << coord.x << ", " << coord.y << ", " << coord.z << ")";
+  return stream;
 }
 
 #endif //IC_COORDINATE_HPP

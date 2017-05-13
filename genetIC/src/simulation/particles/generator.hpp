@@ -36,7 +36,7 @@ namespace particle {
 
     Particle <T> getParticle(size_t id) const {
       Particle<T> particle = getParticleNoWrap(id);
-      grid.simWrap(particle.pos);
+      particle.pos = grid.wrapPoint(particle.pos);
       return particle;
     }
   };
