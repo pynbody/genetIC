@@ -4,6 +4,7 @@
 #include <string>
 #include "multilevelconstraintgenerator.hpp"
 #include "constraintapplicator.hpp"
+#include "constraint.hpp"
 
 namespace constraints {
 
@@ -14,8 +15,8 @@ namespace constraints {
 		MultiLevelConstraintGenerator<DataType> generator;
 		ConstraintApplicator<DataType> applicator;
 		fields::OutputField<DataType> *outputField;
-		std::vector<LinearConstraint<T>> linearList;
-		std::vector<QuadraticConstraint<T>> quadraticList;
+		std::vector<LinearConstraint<DataType,T>> linearList;
+		std::vector<QuadraticConstraint<DataType,T>> quadraticList;
 
 
 
@@ -32,26 +33,36 @@ namespace constraints {
 
 		void addConstrainToLinearList(std::string name, std::string type, float target){
 
-			bool relative = false;
-			if (strcasecmp(type.c_str(), "relative") == 0) {
-				relative = true;
-			} else if (strcasecmp(type.c_str(), "absolute") != 0) {
-				throw std::runtime_error("Constraint type must be either 'relative' or 'absolute'");
-			}
+			bool relative = isRelative(type);
 
-			if (name != "overdensity" && name != "phi" && name != "lx" && name != "ly" && name != "lz"){
+			if (name != "overdensity" || name != "phi" || name != "lx" || name != "ly" || name != "lz"){
 				throw std::runtime_error(name + "is not an implemented linear constraint'");
 			}
 
 			auto existing = calculateCurrentValue(name,outputField);
 			if (relative) target *= existing;
-			LinearConstraint constraint = LinearConstraint(name,type,target,existing);
+			LinearConstraint<DataType,T> constraint = LinearConstraint<DataType,T>(name,type,target,existing);
 			constraint.setAlphas(generator.calcConstraintForAllLevels(name));
 
 		}
 
+
+
 		void addConstrainToQuadList(std::string name, std::string type, float target,
-																int initNumberSteps, float precision, float filterscale);
+																int initNumberSteps, float precision, float filterscale){
+
+			bool relative = isRelative(type);
+
+			if (name != "variance"){
+				throw std::runtime_error(name + "is not an implemented quadratic constraint'");
+			}
+
+			auto existing = calculateCurrentValue(name,outputField);
+			if (relative) target *= existing;
+			QuadraticConstraint<DataType,T> constraint = QuadraticConstraint<DataType,T>(name, type, target, existing,
+																																									 initNumberSteps, precision, filterscale);
+			constraint.setAlphas(generator.calcConstraintForAllLevels(name));
+		}
 
 		T calculateCurrentValue(std::string name, Field);
 
@@ -60,6 +71,16 @@ namespace constraints {
 		void applyAllConstraints();
 
 
+	private:
+		bool isRelative(std::string type){
+			bool relative = false;
+			if (strcasecmp(type.c_str(), "relative") == 0) {
+				relative = true;
+			} else if (strcasecmp(type.c_str(), "absolute") != 0) {
+				throw std::runtime_error("Constraint type must be either 'relative' or 'absolute'");
+			}
+			return relative;
+		}
 
 
 
