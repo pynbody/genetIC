@@ -13,8 +13,7 @@
 
 #include "io/numpy.hpp"
 
-#include "src/simulation/constraints/constraintapplicator.hpp"
-#include "src/simulation/constraints/multilevelconstraintgenerator.hpp"
+#include "src/simulation/constraints/constraintmanager.hpp"
 
 #include "src/tools/filesystem.h"
 
@@ -61,8 +60,7 @@ protected:
   multilevelcontext::MultiLevelContextInformation<GridDataType> multiLevelContext;
 
   fields::OutputField<GridDataType> outputField;
-  constraints::ConstraintApplicator<GridDataType> constraintApplicator;
-  constraints::MultiLevelConstraintGenerator<GridDataType> constraintGenerator;
+  constraints::ConstraintManager<GridDataType> constraintManager;
   fields::RandomFieldGenerator<GridDataType> randomFieldGenerator;
 
   cosmology::CAMB<GridDataType> spectrum;
@@ -112,8 +110,7 @@ protected:
 public:
   ICGenerator(tools::ClassDispatch<ICGenerator<GridDataType>, void> &interpreter) :
     outputField(multiLevelContext),
-    constraintApplicator(&multiLevelContext, &outputField),
-    constraintGenerator(multiLevelContext, cosmology),
+    constraintManager(multiLevelContext, cosmology, &outputField),
     randomFieldGenerator(outputField),
     pMapper(new particle::mapper::ParticleMapper<GridDataType>()),
     interpreter(interpreter) {
@@ -799,47 +796,57 @@ public:
     z0 = zin;
   }
 
-  auto calcConstraint(string name_in) {
-    auto constraint = constraintGenerator.calcConstraintForAllLevels(name_in);
-    constraint.toFourier();
-    return constraint;
-  }
+//  auto calcConstraint(string name_in) {
+//    auto constraint = constraintGenerator.calcConstraintForAllLevels(name_in);
+//    constraint.toFourier();
+//    return constraint;
+//  }
 
   void calculate(string name) {
     if (!haveInitialisedRandomComponent)
       initialiseRandomComponent();
 
-    auto constraint_field = calcConstraint(name);
-    auto val = constraint_field.innerProduct(outputField);
+		//TODO Must support variable argument numbers for variance calculation
+		auto val = constraintManager.calculateCurrentValue(name, outputField);
+
+		//TODO Hide this in manager
+		if (name == "overdensity" && name == "potential" && name == "lx" && name == "ly" && name == "lz"){
+			constraintManager()
+		}
+
+//    auto constraint_field = calcConstraint(name);
+//    auto val = constraint_field.innerProduct(outputField);
 
     cout << name << ": calculated value = " << val << endl;
   }
 
-  virtual void constrain(string name, string type, float value) {
+  virtual void linearlyconstrain(string name, string type, float target) {
     if (!haveInitialisedRandomComponent)
       initialiseRandomComponent();
 
-    bool relative = false;
-    if (strcasecmp(type.c_str(), "relative") == 0) {
-      relative = true;
-    } else if (strcasecmp(type.c_str(), "absolute") != 0) {
-      throw runtime_error("Constraint type must be either 'relative' or 'absolute'");
-    }
+		constraintManager.addConstrainToLinearList(name, type, target);
 
-    T constraint = value;
-    auto vec = calcConstraint(name);
-
-    T initv = vec.innerProduct(outputField).real();
-
-    if (relative) constraint *= initv;
-
-    cout << name << ": initial value = " << initv << ", constraining to " << constraint << endl;
-    constraintApplicator.add_constraint(std::move(vec), constraint, initv);
+//    T constraint = value;
+//    auto vec = calcConstraint(name);
+//
+//    T initv = vec.innerProduct(outputField).real();
+//
+//    if (relative) constraint *= initv;
+//
+//    cout << name << ": initial value = " << initv << ", constraining to " << constraint << endl;
+//    constraintApplicator.add_constraint(std::move(vec), constraint, initv);
 
   }
 
+	virtual void quadraticallyconstrain(string name, string type, float target, int initNumberSteps, float precision, float filterscale){
+		constraintManager.addConstrainToQuadList(name, type, target, initNumberSteps,precision,filterscale);
+	}
+
+
+
+
   void cov() {
-    constraintApplicator.print_covariance();
+    constraintManager.constraintApplicator.print_covariance();
   }
 
 
@@ -847,7 +854,7 @@ public:
     if (!haveInitialisedRandomComponent)
       initialiseRandomComponent();
 
-    constraintApplicator.applyModifications();
+    constraintManager.applyAllConstraints();
   }
 
   virtual void done() {
