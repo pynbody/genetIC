@@ -37,7 +37,7 @@ seed	8896131
 
 centre 25 25 25
 select_sphere 9.0
-zoomgrid 4 64 # zoom grid intentionally too small
+zoomgrid_with_origin_at 23 23 23 4 64 # zoom grid intentionally too small
 
 
 

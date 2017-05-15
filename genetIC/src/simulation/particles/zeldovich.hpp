@@ -57,7 +57,7 @@ namespace particle {
       // sqrt(3*(100 h km/s/Mpc)^2/(8 pi G))
       //
       // Gadget units are used internally, so express as Msol h
-      boxMass = 27.744948 * cosmology.OmegaM0 * powf(onGrid->simsize, 3.0);
+      boxMass = 27.744948 * cosmology.OmegaM0 * powf(onGrid->periodicDomainSize, 3.0);
     }
 
   public:
@@ -100,7 +100,7 @@ namespace particle {
     }
 
     virtual T getEps() const override {
-      return onGrid->dx * onGrid->cellSofteningScale *
+      return onGrid->cellSize * onGrid->cellSofteningScale *
              0.01075; // <-- arbitrary to coincide with normal UW resolution. TODO: Find a way to make this flexible.
     }
 

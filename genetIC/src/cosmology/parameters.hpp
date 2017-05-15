@@ -52,7 +52,7 @@ namespace cosmology {
     std::vector<FloatType> Gx(nBins);
     std::vector<FloatType> Px(nBins);
 
-    const FloatType Boxlength = field.getGrid().boxsize;
+    const FloatType Boxlength = field.getGrid().thisGridSize;
 
     FloatType kmax = M_PI / Boxlength * (FloatType) res, kmin = 2.0f * M_PI / (FloatType) Boxlength, dklog =
       log10(kmax / kmin) / nBins, kw = 2.0f * M_PI / (FloatType) Boxlength;
@@ -133,7 +133,7 @@ namespace cosmology {
 
     field.toFourier();
 
-    const FloatType Boxlength = field.getGrid().boxsize;
+    const FloatType Boxlength = field.getGrid().thisGridSize;
     const FloatType a = cosmo.scalefactor;
     const FloatType Om = cosmo.OmegaM0;
     const size_t res = field.getGrid().size;

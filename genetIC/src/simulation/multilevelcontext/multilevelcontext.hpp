@@ -97,7 +97,7 @@ namespace multilevelcontext {
       if (pGrid.size() == 0) {
         weights.push_back(1.0);
       } else {
-        weights.push_back(pow(pG->dx / pGrid[0]->dx, 3.0));
+        weights.push_back(pow(pG->cellSize / pGrid[0]->cellSize, 3.0));
       }
       pGrid.push_back(pG);
       Ns.push_back(pG->size3);
@@ -204,10 +204,10 @@ namespace multilevelcontext {
       newStack.clear();
 
       for (size_t level = 0; level < nLevels; ++level) {
-        size_t neff = size_t(round(pGrid[0]->dx / pGrid[level]->dx)) * pGrid[0]->size;
+        size_t neff = size_t(round(pGrid[0]->cellSize / pGrid[level]->cellSize)) * pGrid[0]->size;
         if (level > 0) {
           size_t factor = base_factor;
-          while (pGrid[level]->dx * factor * 1.001 < pGrid[level - 1]->dx) {
+          while (pGrid[level]->cellSize * factor * 1.001 < pGrid[level - 1]->cellSize) {
             std::cerr << "Adding virtual grid with effective resolution " << neff / factor << std::endl;
             auto vGrid = std::make_shared<grids::SubSampleGrid<T>>(pGrid[level], factor);
             newStack.addLevel(nullptr, vGrid);

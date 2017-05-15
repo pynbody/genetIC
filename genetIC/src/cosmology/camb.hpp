@@ -157,7 +157,7 @@ namespace cosmology {
 
     CoordinateType getPowerSpectrumNormalizationForGrid(const grids::Grid<CoordinateType> &grid) const {
 
-      CoordinateType kw = 2. * M_PI / grid.boxsize;
+      CoordinateType kw = 2. * M_PI / grid.thisGridSize;
       CoordinateType norm = kw * kw * kw / powf(2. * M_PI, 3.); //since kw=2pi/L, this is just 1/V_box
 
       return norm;

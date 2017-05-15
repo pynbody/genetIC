@@ -29,7 +29,7 @@ public:
 
       covarianceFieldPtr = nullptr;
 
-      underlyingGrid = std::make_shared<grids::Grid<T>>(deepestUnderlyingGrid.simsize, nside,
+      underlyingGrid = std::make_shared<grids::Grid<T>>(deepestUnderlyingGrid.periodicDomainSize, nside,
                                                         gridSize / nside, offset.x, offset.y, offset.z);
     } else {
       underlyingGrid = pUnderlying->multiLevelContext.getGridForLevel(newLevel).shared_from_this();
@@ -44,7 +44,7 @@ public:
     if (underlyingGrid->size != nside)
       throw std::runtime_error("Trying to match particles between incompatible simulation setups (wrong grid n)");
 
-    if (underlyingGrid->boxsize != gridSize)
+    if (underlyingGrid->thisGridSize != gridSize)
       throw std::runtime_error("Trying to match particles between incompatible simulation setups (wrong grid size)");
 
     if (!underlyingGrid->offsetLower.almostEqual(offset))

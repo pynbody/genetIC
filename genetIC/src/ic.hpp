@@ -29,6 +29,7 @@
 #include "src/simulation/particles/mapper/graficmapper.hpp"
 
 #include "src/cosmology/camb.hpp"
+#include "src/simulation/window.hpp"
 
 //TODO: remove ugly macro
 #define for_each_level(level) for(size_t level=0; level<multiLevelContext.getNumLevels(); ++level)
@@ -103,8 +104,7 @@ protected:
 
   shared_ptr<particle::AbstractMultiLevelParticleGenerator<GridDataType>> pParticleGenerator;
 
-  using RefFieldType = std::vector<GridDataType> &;
-  using FieldType = std::vector<GridDataType>;
+  using FieldType = fields::Field<GridDataType>;
 
   tools::ClassDispatch<ICGenerator<GridDataType>, void> &interpreter;
 
@@ -222,49 +222,31 @@ public:
     storeCurrentCellFlagsAsZoomMask(multiLevelContext.getNumLevels());
     vector<size_t> &newLevelZoomParticleArray = zoomParticleArray.back();
 
+    if(newLevelZoomParticleArray.size()==0)
+      throw std::runtime_error("Cannot initialise zoom without marking particles to be replaced");
+
     // find boundaries
-    int x0, x1, y0, y1, z0, z1;
-    int x, y, z;
+    Window<int> zoomWindow(gridAbove.getEffectiveSimulationSize(), gridAbove.getCellCoordinate(newLevelZoomParticleArray[0]));
 
-    x0 = y0 = z0 = (int) gridAbove.size;
-    x1 = y1 = z1 = 0;
-
-    // TO DO: wrap the box sensibly
-
-    for (size_t i = 0; i < newLevelZoomParticleArray.size(); i++) {
-      std::tie(x, y, z) = gridAbove.getCellCoordinate(newLevelZoomParticleArray[i]);
-      if (x < x0) x0 = x;
-      if (y < y0) y0 = y;
-      if (z < z0) z0 = z;
-      if (x > x1) x1 = x;
-      if (y > y1) y1 = y;
-      if (z > z1) z1 = z;
+    for (auto cell_id : newLevelZoomParticleArray) {
+      zoomWindow.expandToInclude(gridAbove.getCellCoordinate(cell_id));
     }
+
+    int n_required = zoomWindow.getMaximumDimension();
 
     // Now see if the zoom the user chose is OK
     int n_user = nAbove / zoomfac;
-    if (((x1 - x0) > n_user || (y1 - y0) > n_user || (z1 - z0) > n_user) && !allowStrayParticles) {
+    if (n_required>n_user && !allowStrayParticles) {
       throw (std::runtime_error(
-        "Zoom particles do not fit in specified sub-box. Decrease zoom, or choose different particles. (NB wrapping not yet implemented)"));
+        "Zoom particles do not fit in specified sub-box. Decrease zoom, or choose different particles"));
     }
-    // At this point we know things fit. All we need to do is choose
-    // the correct offset to get the particles near the centre of the
-    // zoom box.
 
-    // Here is the bottom left of the box (assuming things actually fit):
-    x = (x0 + x1) / 2 - nAbove / (2 * zoomfac);
-    y = (y0 + y1) / 2 - nAbove / (2 * zoomfac);
-    z = (z0 + z1) / 2 - nAbove / (2 * zoomfac);
+    if(n_required<n_user && !allowStrayParticles)
+      zoomWindow.expandSymmetricallyToSize(n_user);
 
-    // Box can't go outside the corners of the parent box (as above, wrapping still to be implemented)
-    if (x < 0) x = 0;
-    if (y < 0) y = 0;
-    if (z < 0) z = 0;
-    if ((unsigned) x > nAbove - nAbove / zoomfac) x = nAbove - nAbove / zoomfac;
-    if ((unsigned) y > nAbove - nAbove / zoomfac) y = nAbove - nAbove / zoomfac;
-    if ((unsigned) z > nAbove - nAbove / zoomfac) z = nAbove - nAbove / zoomfac;
+    auto lci = zoomWindow.getLowerCornerInclusive();
 
-    initZoomGridWithOriginAt(x, y, z, zoomfac, n);
+    initZoomGridWithOriginAt(lci.x, lci.y, lci.z, zoomfac, n);
 
   }
 
@@ -291,23 +273,32 @@ public:
 
     vector<size_t> trimmedParticleArray;
     vector<size_t> &newLevelZoomParticleArray = zoomParticleArray.back();
-
     int nCoarseCellsOfZoomGrid = nAbove / int(zoomfac);
-    int x1, y1, z1;
+
+    Coordinate<int> lowerCorner(x0,y0,z0);
+    Coordinate<int> upperCornerExclusive = lowerCorner+nCoarseCellsOfZoomGrid;
+
+    if(gridAbove.coversFullSimulation())
+      upperCornerExclusive = gridAbove.wrapCoordinate(upperCornerExclusive);
+    else {
+      if (upperCornerExclusive.x>nAbove || upperCornerExclusive.y>nAbove || upperCornerExclusive.z>nAbove)
+        throw std::runtime_error("Attempting to initialise a zoom grid that falls outside the parent grid");
+    }
+
+
     size_t missed_particle=0;
 
-    x1 = x0+nCoarseCellsOfZoomGrid;
-    y1 = y0+nCoarseCellsOfZoomGrid;
-    z1 = z0+nCoarseCellsOfZoomGrid;
+    Window<int> zoomWindow = Window<int>(gridAbove.getEffectiveSimulationSize(),
+                                         lowerCorner, upperCornerExclusive);
+
 
     // Make list of the particles, excluding those that fall outside the new high-res box. Alternatively,
     // if allowStrayParticles is true, keep even those outside the high-res box but report the number
     // in this category.
     for (size_t i = 0; i < newLevelZoomParticleArray.size(); i++) {
       bool include=true;
-      int xp, yp, zp;
-      std::tie(xp, yp, zp) = gridAbove.getCellCoordinate(newLevelZoomParticleArray[i]);
-      if (xp < x0 || yp < y0 || zp < z0 || xp >= x1 || yp >= y1 || zp >= z1) {
+      auto coord = gridAbove.getCellCoordinate(newLevelZoomParticleArray[i]);
+      if(!zoomWindow.contains(coord)) {
         missed_particle+=1;
         include = false;
       }
@@ -331,18 +322,18 @@ public:
     zoomParticleArray.pop_back();
     zoomParticleArray.emplace_back(std::move(trimmedParticleArray));
 
-    Coordinate<T> newOffsetLower = gridAbove.offsetLower + Coordinate<T>(x0, y0, z0) * gridAbove.dx;
+    Coordinate<T> newOffsetLower = gridAbove.offsetLower + Coordinate<T>(x0, y0, z0) * gridAbove.cellSize;
 
-    this->addLevelToContext(spectrum, gridAbove.boxsize / zoomfac, n, newOffsetLower);
+    this->addLevelToContext(spectrum, gridAbove.thisGridSize / zoomfac, n, newOffsetLower);
 
     grids::Grid<T> &newGrid = multiLevelContext.getGridForLevel(multiLevelContext.getNumLevels() - 1);
 
     cout << "Initialized a zoom region:" << endl;
-    cout << "  Subbox length         = " << newGrid.boxsize << " Mpc/h" << endl;
+    cout << "  Subbox length         = " << newGrid.thisGridSize << " Mpc/h" << endl;
     cout << "  n                     = " << newGrid.size << endl;
-    cout << "  dx                    = " << newGrid.dx << endl;
+    cout << "  dx                    = " << newGrid.cellSize << endl;
     cout << "  Zoom factor           = " << zoomfac << endl;
-    cout << "  Origin in parent grid = " << x0 << ", " << y0 << ", " << z0 << endl;
+    cout << "  Origin in parent grid = " << lowerCorner << endl;
     cout << "  Low-left corner       = " << newGrid.offsetLower.x << ", " << newGrid.offsetLower.y << ", "
          << newGrid.offsetLower.z << endl;
     cout << "  Num particles         = " << newLevelZoomParticleArray.size() << endl;
@@ -446,7 +437,7 @@ public:
     cerr << "Writing to " << filename.str() << endl;
 
     ifile << levelGrid.offsetLower.x << " " << levelGrid.offsetLower.y << " "
-          << levelGrid.offsetLower.z << " " << levelGrid.boxsize << endl;
+          << levelGrid.offsetLower.z << " " << levelGrid.thisGridSize << endl;
     ifile << "The line above contains information about grid level " << level << endl;
     ifile << "It gives the x-offset, y-offset and z-offset of the low-left corner and also the box length" << endl;
     ifile.close();
@@ -618,7 +609,7 @@ public:
     cerr << "Write, ndm=" << pMapper->size_dm() << ", ngas=" << pMapper->size_gas() << endl;
     cerr << (*pMapper);
 
-    T boxlen = multiLevelContext.getGridForLevel(0).simsize;
+    T boxlen = multiLevelContext.getGridForLevel(0).periodicDomainSize;
 
     switch (outputFormat) {
       case OutputFormat::gadget2:
@@ -667,7 +658,7 @@ protected:
   }
 
   T get_wrapped_delta(T x0, T x1) {
-    return multiLevelContext.getGridForLevel(0).getWrappedDelta(x0, x1);
+    return multiLevelContext.getGridForLevel(0).getWrappedOffset(x0, x1);
   }
 
 
@@ -748,7 +739,7 @@ public:
   void selectNearest() {
     auto &grid = multiLevelContext.getGridForLevel(deepestLevel() - 1);
     pMapper->unflagAllParticles();
-    size_t id = grid.getClosestIdNoWrap(Coordinate<T>(x0, y0, z0));
+    size_t id = grid.getCellContainingPoint(Coordinate<T>(x0, y0, z0));
     cerr << "selectNearest " << x0 << " " << y0 << " " << z0 << " " << id << " " << endl;
     grid.flagCells({id});
 
@@ -883,6 +874,7 @@ public:
 
     T k2max = kmax * kmax;
 
+
     // take a copy of all the fields
     std::vector<FieldType> fieldCopies;
     for_each_level(level) {
@@ -897,18 +889,16 @@ public:
 
     // copy back the old field
     for_each_level(level) {
-      auto &fieldOriginal = fieldCopies[level];
+      FieldType &oldField = fieldCopies[level];
       auto &field = outputField.getFieldForLevel(level);
-      auto &grid = field.getGrid();
-      field.toFourier();
-      T k2;
-      size_t N = grid.size3;
-      for (size_t i = 0; i < N; i++) {
-        k2 = grid.getFourierCellKSquared(i);
-        if (k2 > k2max && k2 != 0) {
-          field[i] = fieldOriginal[i];
+      int k2max_i = tools::getRatioAndAssertInteger(k2max,field.getGrid().getFourierKmin());
+      field.forEachFourierCell([k2max_i, &oldField](std::complex<T> val, int kx, int ky, int kz) {
+        int k2_i = kx * kx + ky * ky + kz * kz;
+        if (k2_i < k2max_i && k2_i != 0) {
+          val = oldField.getFourierCoefficient(kx,ky,kz);
         }
-      }
+        return val;
+      });
     }
 
   }
@@ -917,32 +907,19 @@ public:
 
     T k2max = kmax * kmax;
 
-
     for_each_level(level) {
-      T k2_g_min = std::numeric_limits<T>::max();
-      T k2_g_max = 0.0;
-      size_t modes_reversed = 0;
       auto &field = outputField.getFieldForLevel(level);
       field.toFourier();
-      auto &fieldData = field.getDataVector();
-      const grids::Grid<T> &grid = field.getGrid();
-      size_t tot_modes = grid.size3;
-      T k2;
-      size_t N = grid.size3;
-      for (size_t i = 0; i < N; i++) {
-        k2 = grid.getFourierCellKSquared(i);
+
+      field.forEachFourierCell([k2max](std::complex<T> val, T kx, T ky, T kz) {
+        T k2 = kx*kx+ky*ky+kz*kz;
         if (k2 < k2max && k2 != 0) {
-          fieldData[i] = -fieldData[i];
-          modes_reversed++;
+          val = -val;
         }
-        if (k2 < k2_g_min && k2 != 0)
-          k2_g_min = k2;
-        if (k2 > k2_g_max)
-          k2_g_max = k2;
-      }
-      cerr << "reverseSmallK: k reversal at " << sqrt(k2max) << "; grid was in range " << sqrt(k2_g_min) << " to " <<
-           sqrt(k2_g_max) << endl;
-      cerr << "               modes reversed = " << modes_reversed << " of " << tot_modes << endl;
+        return val;
+      });
+
+      cerr << "reverseSmallK: k reversal at " << sqrt(k2max) << endl;
     }
 
   }
