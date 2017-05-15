@@ -18,7 +18,7 @@ namespace constraints {
 
   public:
     std::vector<fields::ConstraintField<DataType>> alphas;  //!< Constraint covectors
-    std::vector<T> values;                                  //!< Target constrained values
+    std::vector<T> targets;                                  //!< Target constrained values
     std::vector<T> existing_values;                         //!< Current field values
 
     using ComplexType = tools::datatypes::ensure_complex<DataType>;
@@ -35,7 +35,7 @@ namespace constraints {
     void add_constraint(fields::ConstraintField<DataType> &&alpha, T value, T existing) {
 
       alphas.push_back(std::move(alpha));
-      values.push_back(value);
+      targets.push_back(value);
       existing_values.push_back(existing);
     }
 
@@ -86,7 +86,7 @@ namespace constraints {
 
       // It can be helpful to see a summary of the constraints being applied, with the starting and target values
       std::cout << "v0=" << real(existing_values) << std::endl;
-      std::cout << "v1=" << real(values) << std::endl;
+      std::cout << "v1=" << real(targets) << std::endl;
 
       // Store transformation matrix, just for display purposes
       std::vector<std::vector<std::complex<T>>> t_matrix(n, std::vector<std::complex<T>>(n, 0));
@@ -117,7 +117,7 @@ namespace constraints {
             t_matrix[i][k] -= result * t_matrix[j][k];
 
           // update constraining value
-          values[i] -= result * values[j];
+          targets[i] -= result * targets[j];
           done += 1; // one op for each of the orthognalizing constraints
         }
 
@@ -125,7 +125,7 @@ namespace constraints {
         T norm = sqrt(alpha_i.innerProduct(alpha_i).real());
 
         alpha_i /= norm;
-        values[i] /= norm;
+        targets[i] /= norm;
 
 
         for (size_t j = 0; j < n; j++) {
@@ -168,14 +168,14 @@ namespace constraints {
     }
 
 
-    void applyLinearModifications() {
+    void applyLinearConstraints() {
 
       orthonormaliseConstraints();
       outputField->toFourier();
 
       for (size_t i = 0; i < alphas.size(); i++) {
         fields::MultiLevelField<DataType> &alpha_i = alphas[i];
-        auto dval_i = values[i] - existing_values[i];
+        auto dval_i = targets[i] - existing_values[i];
 
         // Constraints are essentially covectors. Convert to a vector, with correct weighting/filtering.
         // See discussion of why it's convenient to regard constraints as covectors in multilevelfield.hpp
@@ -186,7 +186,7 @@ namespace constraints {
       }
     }
 
-		void applyQuadraticModifications(int N_steps) {
+		void applyQuadraticConstraints(int N_steps) {
 			N_steps++;
       /*
        * for i<N_steps
@@ -198,11 +198,11 @@ namespace constraints {
 		}
 
 
-		void applyModifications() {
+		void applyConstraints() {
 
-			applyLinearModifications();
+			applyLinearConstraints();
 			int N_steps = findNumberSteps();
-			applyQuadraticModifications(N_steps);
+			applyQuadraticConstraints(N_steps);
 		}
 
   private:

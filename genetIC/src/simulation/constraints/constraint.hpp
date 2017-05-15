@@ -1,5 +1,5 @@
-#ifndef IC_CONSTRAINT_HPP
-#define IC_CONSTRAINT_HPP
+#ifndef CONSTRAINT_HPP
+#define CONSTRAINT_HPP
 
 #include <string>
 #include <src/tools/data_types/complex.hpp>
