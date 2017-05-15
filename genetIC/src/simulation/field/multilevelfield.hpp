@@ -155,6 +155,11 @@ namespace fields {
       }
     }
 
+    //! Add a scaled multilevel field to the current one
+    /*!
+        The two fields can have different filters on each level,
+        hence the need to compensate filter normalization.
+     */
     void addScaled(const MultiLevelField &other, DataType scale) {
       assert(other.isFourierOnAllLevels());
       toFourier();

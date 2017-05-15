@@ -189,7 +189,7 @@ namespace grids {
 
     virtual bool containsCellWithCoordinate(Coordinate<int> coord) const {
       return coord.x >= 0 && coord.y >= 0 && coord.z >= 0 &&
-             coord.x < size && coord.y < size && coord.z < size;
+          (unsigned) coord.x < size && (unsigned) coord.y < size && (unsigned) coord.z < size;
     }
 
     virtual bool containsCell(size_t i) const {

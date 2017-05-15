@@ -17,14 +17,14 @@ namespace constraints {
   class ConstraintApplicator {
 
   public:
-    std::vector<fields::ConstraintField<DataType>> alphas;
-    std::vector<T> values;
-    std::vector<T> existing_values;
+    std::vector<fields::ConstraintField<DataType>> alphas;  //!< Constraint covectors
+    std::vector<T> values;                                  //!< Target constrained values
+    std::vector<T> existing_values;                         //!< Current field values
 
     using ComplexType = tools::datatypes::ensure_complex<DataType>;
 
-    multilevelcontext::MultiLevelContextInformation<DataType> *underlying;
-    fields::OutputField<DataType> *outputField;
+    multilevelcontext::MultiLevelContextInformation<DataType> *underlying;  //!< Underlying Multigrid context
+    fields::OutputField<DataType> *outputField;                             //!< Constrained field
 
     ConstraintApplicator(multilevelcontext::MultiLevelContextInformation<DataType> *underlying_,
                          fields::OutputField<DataType> *outputField_) : underlying(underlying_),
@@ -50,9 +50,11 @@ namespace constraints {
       std::vector<std::vector<std::complex<T>>> c_matrix(n, std::vector<std::complex<T>>(n, 0));
 
       for (size_t i = 0; i < n; i++) {
+				auto &alpha_i = alphas[i];
         for (size_t j = 0; j <= i; j++) {
           pb.setProgress(((float) done * 2) / (n * (1 + n)));
-          c_matrix[i][j] = alphas[i].innerProduct(alphas[j]);
+					auto &alpha_j = alphas[j];
+          c_matrix[i][j] = alpha_i.innerProduct(alpha_j).real();
           c_matrix[j][i] = c_matrix[i][j];
           done += 1;
         }
@@ -166,7 +168,7 @@ namespace constraints {
     }
 
 
-    void applyConstraints() {
+    void applyLinearModifications() {
 
       orthonormaliseConstraints();
       outputField->toFourier();
@@ -182,6 +184,36 @@ namespace constraints {
         alpha_i.toFourier(); // almost certainly already is in Fourier space, but just to be safe
         outputField->addScaled(alpha_i, dval_i);
       }
+    }
+
+		void applyQuadraticModifications(int N_steps) {
+			N_steps++;
+      /*
+       * for i<N_steps
+       * add linearised quadratic to alphas
+       * orthonormalise constraints
+       * apply linear constraints
+       * repeat
+       */
+		}
+
+
+		void applyModifications() {
+
+			applyLinearModifications();
+			int N_steps = findNumberSteps();
+			applyQuadraticModifications(N_steps);
+		}
+
+  private:
+    int findNumberSteps(){
+      //! Determine the (precision dependent) number of steps for quadratic algorithm.
+      int N_steps=0;
+      return N_steps;
+    }
+
+    bool isPrecisionGoodEnough(){
+      return 0;
     }
 
   };

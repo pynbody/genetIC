@@ -206,9 +206,8 @@ namespace particle {
             pThreadLocalIterator = new MapperIterator(*this);
 
 #pragma omp barrier
-          if (thread_num < n) {
-            (*pThreadLocalIterator) += thread_num;
-
+	  if((unsigned) thread_num<n) {
+	    (*pThreadLocalIterator) += thread_num;
 
             for (size_t local_i = thread_num; local_i < n; local_i += num_threads) {
               callback(local_i, *pThreadLocalIterator);

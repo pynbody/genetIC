@@ -108,7 +108,7 @@ namespace particle {
       }
 
       virtual void
-      dereferenceIterator(const iterator *pIterator, ConstGridPtrType &gp, size_t &i) const override {
+      dereferenceIterator(const iterator* /* *pIterator */, ConstGridPtrType& /*&gp*/, size_t& /*&i*/) const override {
         // Grafic files are written out at the grid level and iterators should not be involved.
         throw std::runtime_error("Iterators are not supported by GraficMapper");
       }

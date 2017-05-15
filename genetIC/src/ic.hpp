@@ -67,7 +67,11 @@ protected:
 
   cosmology::CAMB<GridDataType> spectrum;
 
-  int supersample, subsample;               // DM supersampling to perform on zoom grid, and subsampling on base grid
+  //! DM supersampling to perform on zoom grid
+  int supersample;
+
+  //! Subsampling on base grid
+  int subsample;
 
   T xOffOutput, yOffOutput, zOffOutput;
 
@@ -75,15 +79,18 @@ protected:
   io::OutputFormat outputFormat;
   string outputFolder, outputFilename;
 
+	//! Track whether the random realisation has yet been made
   bool haveInitialisedRandomComponent;
-  // track whether the random realisation has yet been made
 
+  //! Enforce the exact power spectrum, as in Angulo & Pontzen 2016
   bool exactPowerSpectrum;
-  // enforce the exact power spectrum, as in Angulo & Pontzen 2016
 
+  /*!
+   Stray" particles are high-res particles outside a high-res grid,
+   constructed through interpolation of the surrounding low-res grid. Disabled by default.
+   */
   bool allowStrayParticles;
-  // "stray" particles are high-res particles outside a high-res grid,
-  // constructed through interpolation of the surrounding low-res grid. By default these will be disallowed.
+
 
   std::vector<size_t> flaggedParticles;
   std::vector<std::vector<size_t>> zoomParticleArray;
@@ -840,7 +847,7 @@ public:
     if (!haveInitialisedRandomComponent)
       initialiseRandomComponent();
 
-    constraintApplicator.applyConstraints();
+    constraintApplicator.applyModifications();
   }
 
   virtual void done() {
@@ -903,7 +910,6 @@ public:
     for_each_level(level) {
       auto &field = outputField.getFieldForLevel(level);
       field.toFourier();
-      auto &fieldData = field.getDataVector();
 
       field.forEachFourierCell([k2max](std::complex<T> val, T kx, T ky, T kz) {
         T k2 = kx*kx+ky*ky+kz*kz;

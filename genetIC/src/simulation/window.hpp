@@ -1,7 +1,3 @@
-//
-// Created by Andrew Pontzen on 08/05/2017.
-//
-
 #ifndef IC_WINDOW_HPP
 #define IC_WINDOW_HPP
 
@@ -11,10 +7,10 @@
 template<typename T>
 class Window {
 protected:
+	T wrapLength;
   Coordinate<T> upperCornerExclusive;
   Coordinate<T> lowerCornerInclusive;
 
-  T wrapLength;
 
   bool withinWrapped(T lowInclusive, T highExclusive, T testVal) {
     if(highExclusive>=lowInclusive)
@@ -58,7 +54,7 @@ public:
   }
 
   Window(T wrapLength, Coordinate<T> lowerCornerInclusive, Coordinate<T> upperCornerExclusive) :
-      wrapLength(wrapLength), lowerCornerInclusive(lowerCornerInclusive), upperCornerExclusive(upperCornerExclusive) {
+      wrapLength(wrapLength), upperCornerExclusive(upperCornerExclusive), lowerCornerInclusive(lowerCornerInclusive) {
 
   }
 

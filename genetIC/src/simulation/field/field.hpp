@@ -46,7 +46,7 @@ namespace fields {
   std::shared_ptr<EvaluatorBase<DataType, CoordinateType>> makeEvaluator(const MultiLevelField<DataType> &field,
                                                const grids::Grid<CoordinateType> &grid);
 
-  /** Class to manage and evaluate a field defined on a single grid.  */
+  //! Class to manage and evaluate a field defined on a single grid.
   template<typename DataType, typename CoordinateType=tools::datatypes::strip_complex<DataType>>
   class Field : public std::enable_shared_from_this<Field<DataType, CoordinateType>> {
   public:
@@ -65,45 +65,43 @@ namespace fields {
     bool fourier;
 
   public:
+		//! Construct a field on the specified grid by moving the given field
     Field(Field<DataType, CoordinateType> &&move) : pGrid(move.pGrid), data(std::move(move.data)),
                                                     fourier(move.fourier) {
       fourierManager = std::make_shared<FourierManager>(*this);
       assert(data.size()==fourierManager->getRequiredDataSize());
     }
 
-    Field(const Field<DataType, CoordinateType> &copy) : pGrid(copy.pGrid), data(copy.data),
+    Field(const Field<DataType, CoordinateType> &copy) : std::enable_shared_from_this<Field<DataType, CoordinateType>>(),
+                                                      pGrid(copy.pGrid), data(copy.data),
                                                     fourier(copy.fourier) {
       fourierManager = std::make_shared<FourierManager>(*this);
       assert(data.size()==fourierManager->getRequiredDataSize());
     }
 
+    //! Construct a field on the specified grid by moving the given data
     Field(TGrid &grid, TData &&dataVector, bool fourier = true) : pGrid(grid.shared_from_this()),
                                                                   data(std::move(dataVector)), fourier(fourier) {
-      /*
-       * Construct a field on the specified grid by moving the given data
-       */
+
       fourierManager = std::make_shared<FourierManager>(*this);
       assert(data.size()==fourierManager->getRequiredDataSize());
 
     }
 
+    //! Construct a field on the specified grid by copying the given data
     Field(TGrid &grid, const TData &dataVector, bool fourier = true) : pGrid(grid.shared_from_this()),
                                                                        data(dataVector), fourier(fourier) {
-      /*
-       * Construct a field on the specified grid by copying the given data
-       */
+
       fourierManager = std::make_shared<FourierManager>(*this);
       assert(data.size()==fourierManager->getRequiredDataSize());
 
     }
 
+    //! Construct a zero-filled field on the specified grid
     Field(TGrid &grid, bool fourier = true) : pGrid(grid.shared_from_this()),
                                               fourierManager(std::make_shared<FourierManager>(*this)),
                                               data(fourierManager->getRequiredDataSize(), 0),
                                               fourier(fourier) {
-      /*
-       * Construct a zero-filled field on the specified grid
-       */
     }
 
   public:
@@ -111,10 +109,6 @@ namespace fields {
     TGrid &getGrid() const {
       return const_cast<TGrid &>(*pGrid);
     }
-
-    /*
-     * ACCESS TO UNDERLYING DATA VECTOR
-     */
 
     TData &getDataVector() {
       return data;
@@ -132,9 +126,6 @@ namespace fields {
       return getDataVector();
     }
 
-    /*
-     * EVALUATION OPERATIONS
-     */
 
     DataType evaluateNearest(const Coordinate<CoordinateType> &location) const {
       auto offsetLower = pGrid->offsetLower;
@@ -272,51 +263,33 @@ namespace fields {
       return fourierManager->generateNewFourierFields(args...);
     }
 
+    //! Iterate (potentially in parallel) over each Fourier cell.
+    /*!
+		 * The passed function takes arguments (value, kx, ky, kz) where value is the Fourier coeff value
+		 * at k-mode kx, ky, kz.
+		 * If the function returns a value, the Fourier coeff in that cell is updated accordingly.
+		 */
     template<typename... Args>
     void forEachFourierCell(Args&&... args) {
-      /** Iterate (potentially in parallel) over each Fourier cell, potentially updating values.
-       *
-       * The passed function takes arguments (value, kx, ky, kz) where value is the Fourier coeff value
-       * at k-mode kx, ky, kz.
-       *
-       * If the function returns a value, the Fourier coeff in that cell is updated accordingly.
-       */
       fourierManager->forEachFourierCell(args...);
     }
 
     template<typename... Args>
     void forEachFourierCell(Args&&... args) const {
-      /** Iterate (potentially in parallel) over each Fourier cell, potentially updating values.
-       *
-       * The passed function takes arguments (value, kx, ky, kz) where value is the Fourier coeff value
-       * at k-mode kx, ky, kz.
-       *
-       * If the function returns a value, the Fourier coeff in that cell is updated accordingly.
-       */
       fourierManager->forEachFourierCell(args...);
     }
 
     template<typename... Args>
     void forEachFourierCellInt(Args&&... args) const {
-      /** Iterate (potentially in parallel) over each Fourier cell, potentially updating values.
-       *
-       * The passed function takes arguments (value, kx, ky, kz) where value is the Fourier coeff value
-       * at k-mode kx, ky, kz.
-       *
-       * If the function returns a value, the Fourier coeff in that cell is updated accordingly.
-       */
       fourierManager->forEachFourierCellInt(args...);
     }
 
+    //! Iterate (potentially in parallel) over each Fourier cell, accumulate a complex number over each Fourier cell
+    /*!
+    The passed function takes arguments (value, kx, ky, kz). The return value is accumulated.
+    */
     template<typename... Args>
     auto accumulateForEachFourierCell(Args&&... args) const {
-      /** Iterate (potentially in parallel) over each Fourier cell, potentially updating values.
-       *
-       * The passed function takes arguments (value, kx, ky, kz) where value is the Fourier coeff value
-       * at k-mode kx, ky, kz.
-       *
-       * If the function returns a value, the Fourier coeff in that cell is updated accordingly.
-       */
       return fourierManager->accumulateForEachFourierCell(args...);
     }
 
@@ -324,10 +297,10 @@ namespace fields {
       fourierManager->setFourierCoefficient(kx, ky, kz, value);
     }
 
+		/*! Ensure that the Fourier modes in this field are correctly 'mirrored', i.e. where there is duplication,
+		 * consistent values are stored. This likely only becomes an issue for real FFTs.
+		 */
     void ensureFourierModesAreMirrored() const {
-      /** Ensure that the Fourier modes in this field are correctly 'mirrored', i.e. where there is duplication,
-       * consistent values are stored. This likely only becomes an issue for real FFTs.
-       */
       assert(isFourier());
 
       // Logically this is a const operation, even though actually it will potentially change internal state. So our
