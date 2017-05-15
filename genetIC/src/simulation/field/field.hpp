@@ -263,7 +263,7 @@ namespace fields {
       return fourierManager->generateNewFourierFields(args...);
     }
 
-    //! Iterate (in parallel) over each Fourier cell.
+    //! Iterate (potentially in parallel) over each Fourier cell.
     /*!
 		 * The passed function takes arguments (value, kx, ky, kz) where value is the Fourier coeff value
 		 * at k-mode kx, ky, kz.
