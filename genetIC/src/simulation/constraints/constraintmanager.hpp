@@ -30,8 +30,14 @@ namespace constraints {
 
 
 		T calculateCurrentValueByName(std::string name){
+			std::cout << "2" << std::endl;
+//			std::cout << &generator<< std::endl;
 			auto covector = generator.calcConstraintForAllLevels(name);
+			std::cout << "3" << std::endl;
+			covector.toFourier();
+			std::cout << "4" << std::endl;
 			T value = outputField->innerProduct(covector).real();
+			std::cout << "5" << std::endl;
 			return value;
 		}
 

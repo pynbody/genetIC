@@ -807,8 +807,9 @@ public:
       initialiseRandomComponent();
 
 		//TODO Must support variable argument numbers for variance calculation
+    cout << "1" << endl;
 		T val = constraintManager.calculateCurrentValueByName(name);
-
+    cout << "10" << endl;
 		//TODO Hide this in manager
 //		if (name == "overdensity" && name == "potential" && name == "lx" && name == "ly" && name == "lz"){
 //			constraintManager()
