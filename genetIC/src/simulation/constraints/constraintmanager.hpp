@@ -12,9 +12,10 @@ namespace constraints {
 	class ConstraintManager {
 
 	public:
+		fields::OutputField<DataType>* outputField;
 		MultiLevelConstraintGenerator<DataType,T> generator;
 		ConstraintApplicator<DataType,T> applicator;
-		fields::OutputField<DataType> *outputField;
+
 		std::vector<LinearConstraint<DataType,T>> linearList;
 		std::vector<QuadraticConstraint<DataType,T>> quadraticList;
 
@@ -22,14 +23,17 @@ namespace constraints {
 
 		ConstraintManager(multilevelcontext::MultiLevelContextInformation<DataType> multiLevelContext,
 											cosmology::CosmologicalParameters<T> cosmology,
-											fields::OutputField<DataType> *outputField_in):
-											applicator(&multiLevelContext, outputField_in),
-											generator(multiLevelContext, cosmology){
-											outputField = outputField_in;
+											fields::OutputField<DataType>* outputField_in):
+											outputField(outputField_in),
+											generator(multiLevelContext, cosmology),
+											applicator(&multiLevelContext, outputField) {}
+
+
+		T calculateCurrentValueByName(std::string name){
+			auto covector = generator.calcConstraintForAllLevels(name);
+			T value = outputField->innerProduct(covector).real();
+			return value;
 		}
-
-
-
 
 		void addConstrainToLinearList(std::string name, std::string type, float target){
 
@@ -39,11 +43,11 @@ namespace constraints {
 				throw std::runtime_error(name + "is not an implemented linear constraint'");
 			}
 
-			auto existing = calculateCurrentValue(name, *outputField);
+			auto existing = calculateCurrentValueByName(name);
 			if (relative) target *= existing;
 			LinearConstraint<DataType,T> constraint = LinearConstraint<DataType,T>(name, type, target, existing);
 			auto covector = generator.calcConstraintForAllLevels(name);
-			constraint.alpha = &covector;
+			constraint.setAlpha(&covector);
 			linearList.push_back(constraint);
 		}
 
@@ -58,27 +62,17 @@ namespace constraints {
 				throw std::runtime_error(name + "is not an implemented quadratic constraint'");
 			}
 
-			auto existing = calculateCurrentValue(name,outputField);
+			T existing = calculateCurrentValueByName(name);
 			if (relative) target *= existing;
 			QuadraticConstraint<DataType,T> constraint = QuadraticConstraint<DataType,T>(name, type, target, existing,
 																																									 initNumberSteps, precision, filterscale);
 		}
 
-		T calculateCurrentValue(std::string name, fields::OutputField<DataType> field){
-			auto covector = generator.calcConstraintForAllLevels(name);
-			T value = covector.innerProduct(field);
-			return value;
-		}
-
-		T calculateCurrentValue(LinearConstraint<DataType,T> constraint, fields::OutputField<DataType> field){
-			auto covector = generator.calcConstraintForAllLevels(constraint.name);
-			constraint.alpha = &covector;
-
-		}
-
 		void applyAllConstraints(){
 			for (auto it = linearList.begin(); it != linearList.end(); ++it){
-				applicator.add_constraint(linearList[*it].alpha, linearList[*it].target, linearList[*it].existing);
+				auto a = (*it).alpha;
+
+				applicator.add_constraint(std::move(*a), (*it).target, (*it).existing);
 			}
 			applicator.applyConstraints();
 		}

@@ -807,12 +807,12 @@ public:
       initialiseRandomComponent();
 
 		//TODO Must support variable argument numbers for variance calculation
-		auto val = constraintManager.calculateCurrentValue(name, outputField);
+		T val = constraintManager.calculateCurrentValueByName(name);
 
 		//TODO Hide this in manager
-		if (name == "overdensity" && name == "potential" && name == "lx" && name == "ly" && name == "lz"){
-			constraintManager()
-		}
+//		if (name == "overdensity" && name == "potential" && name == "lx" && name == "ly" && name == "lz"){
+//			constraintManager()
+//		}
 
 //    auto constraint_field = calcConstraint(name);
 //    auto val = constraint_field.innerProduct(outputField);
@@ -846,7 +846,7 @@ public:
 
 
   void cov() {
-    constraintManager.constraintApplicator.print_covariance();
+    constraintManager.applicator.print_covariance();
   }
 
 

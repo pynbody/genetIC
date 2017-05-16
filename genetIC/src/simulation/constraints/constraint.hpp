@@ -43,12 +43,14 @@ namespace constraints {
 			if (name == "variance") {
 				return true;
 			}
+			return false;
 		}
 
 		bool isLinear(std::string name) {
 			if (name == "overdensity" || name == "phi" || name == "lx" || name == "ly" || name == "lz") {
 				return true;
 			}
+			return false;
 		}
 
 		int getOrder(){
@@ -66,6 +68,10 @@ namespace constraints {
 				Constraint<DataType,T>(name_in,type_in,target_in,existing_in), alpha(NULL){
 		}
 
+		void setAlpha(fields::ConstraintField<DataType>* alpha_in){
+			alpha = alpha_in;
+		}
+
 	};
 
 
@@ -78,8 +84,8 @@ namespace constraints {
 		float precision;
 
 		QuadraticConstraint(std::string name_in, std::string type_in, T target_in,
-												T exisitng_in, float precision_in, float filter_in, int number_in):
-				Constraint<DataType,T>(name_in,type_in,target_in,existing_in){
+												T existing_in, float precision_in, float filter_in, int number_in):
+				Constraint<DataType,T>(name_in,type_in,target_in, existing_in){
 				filter_scale = filter_in;
 				initialNumberSteps = number_in;
 				precision = precision_in;
