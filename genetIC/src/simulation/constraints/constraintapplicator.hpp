@@ -32,9 +32,9 @@ namespace constraints {
 
     }
 
-    void add_constraint(fields::ConstraintField<DataType> &&alpha, T value, T existing) {
+    void add_constraint(fields::ConstraintField<DataType> alpha, T value, T existing) {
 
-      alphas.push_back(std::move(alpha));
+      alphas.push_back(alpha);
       targets.push_back(value);
       existing_values.push_back(existing);
     }

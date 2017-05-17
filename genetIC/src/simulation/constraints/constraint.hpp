@@ -10,67 +10,88 @@ namespace constraints {
 	template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
 	class Constraint {
 
-	//TODO Useless attribute ?
-	private:
-		int order;
 
 	public:
 		std::string name;
-		std::string type;
-		T target;
-		T existing;
+//		std::string type;
+//		T target;
+//		T existing;
 
-		Constraint() {
-			name = "";
-			type = "";
-			target = 0;
-			order = 0;
+		Constraint(std::string name_) {
+			name = name_;
+//			type = "";
+//			target = 0;
 		}
 
-		Constraint(std::string name_in, std::string type_in, T target_in, T existing_in){
-			name = name_in;
-			type = type_in;
-			target = target_in;
-			existing = existing_in;
-
-			if (isQuadratic(name)){order = 2;}
-			else if (isLinear(name)){order = 1;}
-			else {throw std::runtime_error("Only linear and quadratic constraints are supported");}
-
+		virtual void calcCurrentValue(fields::OutputField<DataType> field) {
 		}
 
-		bool isQuadratic(std::string name) {
-			if (name == "variance") {
-				return true;
-			}
-			return false;
-		}
 
-		bool isLinear(std::string name) {
-			if (name == "overdensity" || name == "phi" || name == "lx" || name == "ly" || name == "lz") {
-				return true;
-			}
-			return false;
-		}
 
-		int getOrder(){
-			return order;
-		}
+//		Constraint(std::string name_in, std::string type_in, T target_in, T existing_in){
+//			name = name_in;
+//			type = type_in;
+//			target = target_in;
+//			existing = existing_in;
+
+//			if (isQuadratic(name)){order = 2;}
+//			else if (isLinear(name)){order = 1;}
+//			else {throw std::runtime_error("Only linear and quadratic constraints are supported");}
+
+
+
+//		bool isQuadratic(std::string name) {
+//			if (name == "variance") {
+//				return true;
+//			}
+//			return false;
+//		}
+//
+//		bool isLinear(std::string name) {
+//			if (name == "overdensity" || name == "phi" || name == "lx" || name == "ly" || name == "lz") {
+//				return true;
+//			}
+//			return false;
+//		}
+
+//		int getOrder(){
+//			return order;
+//		}
+
+
+
+
 
 	};
 
 	template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
 	class LinearConstraint : public Constraint<DataType, T> {
 	public:
-		fields::ConstraintField<DataType>* alpha;
+		fields::ConstraintField<DataType> alpha;
 
-		LinearConstraint(std::string name_in, std::string type_in, T target_in, T existing_in):
-				Constraint<DataType,T>(name_in,type_in,target_in,existing_in){
+		LinearConstraint(std::string name_in):
+				Constraint<DataType,T>(name_in){
 		}
 
-		void setAlpha(fields::ConstraintField<DataType>* alpha_in){
-			alpha = alpha_in;
+//		void setAlpha(fields::ConstraintField<DataType>* alpha_in) {
+//			alpha = alpha_in;
+//		}
+
+		void calcCurrentValue(fields::OutputField<DataType> field) override {
+
+
 		}
+
+		void calcConstraintForAllLevels(){
+
+		}
+
+
+	protected:
+		T calculateConstraintOnOneLevel(){
+
+		}
+
 
 	};
 

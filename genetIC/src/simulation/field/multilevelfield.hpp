@@ -194,6 +194,8 @@ namespace fields {
        * TODO: translate these notes into the paper or into inline documentation here
        * */
 
+			std::cout << isFourierOnAllLevels() << std::endl;
+			std::cout << other.isFourierOnAllLevels() << std::endl;
       assert(isFourierOnAllLevels() && other.isFourierOnAllLevels());
       // To take inner product with correct filters, we must have the fields in fourier space
 

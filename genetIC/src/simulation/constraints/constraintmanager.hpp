@@ -47,7 +47,6 @@ namespace constraints {
 				LinearConstraint<DataType, T> constraint = LinearConstraint<DataType, T>(name, type, target, existing);
 				auto covector = generator.calcConstraintForAllLevels(name);
 				covector.toFourier();
-				constraint.setAlpha(&covector);
 				linearList.push_back(std::move(constraint));
 			} else{
 				throw std::runtime_error(name + "" +  "is not an implemented linear constraint'");
@@ -76,7 +75,7 @@ namespace constraints {
 			for (auto it = linearList.begin(); it != linearList.end(); ++it){
 				auto a = (*it).alpha;
 				std::cout << "Ending loop" << std::endl;
-				applicator.add_constraint(std::move(*a), (*it).target, (*it).existing);
+				applicator.add_constraint(a, (*it).target, (*it).existing);
 			}
 			std::cout << "Entering applicator.applyConstraints" << std::endl;
 			applicator.applyConstraints();

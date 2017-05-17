@@ -62,7 +62,7 @@ link_libraries(fftw3 m fftw3 fftw3_threads gsl gslcblas)
 
 add_definitions(-DFFTW3 -DFFTW_THREADS -DOPENMP -DGIT_VERSION -DGIT_MODIFIED -DDOUBLEPRECISION -DOUTPUT_IN_DOUBLEPRECISION)
 add_compile_options(-Wno-deprecated-declarations)
-add_executable(IC ${SOURCE_FILES} genetIC/src/simulation/constraints/constraintmanager.hpp genetIC/src/simulation/constraints/constraint.hpp)
+add_executable(IC ${SOURCE_FILES} genetIC/src/simulation/constraints/constraintmanager.hpp genetIC/src/simulation/constraints/constraint.hpp genetIC/src/simulation/modifications/modification.hpp genetIC/src/simulation/modifications/modificationmanager.hpp genetIC/src/simulation/modifications/linearmodification.hpp)
 
 add_executable(IC_CFFT ${SOURCE_FILES} )
 
