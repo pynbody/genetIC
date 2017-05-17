@@ -29,12 +29,6 @@ namespace constraints {
        * will return the correct value (the same as it would if the entire box consisted just of the specified level) */
 
       using tools::numerics::operator/=;
-
-      // calculate on the finest field
-//			std::cout << "3" << std::endl;
-//			std::cout << level << std::endl;
-//			auto grid = fieldManager.getGridForLevel(level);
-//			std::cout << "3" << std::endl;
       auto returnField = calcConstraint<DataType>(name_in, fieldManager.getGridForLevel(level), cosmology);
       // When taking inner products, cells on fine levels get a weight proportional to their volume element. However,
       // we want to regard the covector just calculated on the finest level as definitive, so this weight

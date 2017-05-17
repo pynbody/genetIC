@@ -110,7 +110,7 @@ protected:
 public:
   ICGenerator(tools::ClassDispatch<ICGenerator<GridDataType>, void> &interpreter) :
     outputField(multiLevelContext),
-    constraintManager(multiLevelContext, cosmology, &outputField),
+    constraintManager(&multiLevelContext, cosmology, &outputField),
     randomFieldGenerator(outputField),
     pMapper(new particle::mapper::ParticleMapper<GridDataType>()),
     interpreter(interpreter) {
@@ -807,16 +807,9 @@ public:
       initialiseRandomComponent();
 
 		//TODO Must support variable argument numbers for variance calculation
-    cout << "1" << endl;
+		cout << "Entering current value" << endl;
 		T val = constraintManager.calculateCurrentValueByName(name);
-    cout << "10" << endl;
-		//TODO Hide this in manager
-//		if (name == "overdensity" && name == "potential" && name == "lx" && name == "ly" && name == "lz"){
-//			constraintManager()
-//		}
-
-//    auto constraint_field = calcConstraint(name);
-//    auto val = constraint_field.innerProduct(outputField);
+		cout << "Leaving current value" << endl;
 
     cout << name << ": calculated value = " << val << endl;
   }
@@ -825,7 +818,9 @@ public:
     if (!haveInitialisedRandomComponent)
       initialiseRandomComponent();
 
+		cout << "Entering add Constraint" << endl;
 		constraintManager.addConstrainToLinearList(name, type, target);
+		cout << "Leaving add Constraint" << endl;
 
 //    T constraint = value;
 //    auto vec = calcConstraint(name);
@@ -855,7 +850,9 @@ public:
     if (!haveInitialisedRandomComponent)
       initialiseRandomComponent();
 
+		cout << "Entering apply constraints" << endl;
     constraintManager.applyAllConstraints();
+		cout << "Entering apply constraints" << endl;
   }
 
   virtual void done() {

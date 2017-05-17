@@ -89,8 +89,10 @@ namespace constraints {
       std::cout << "v1=" << real(targets) << std::endl;
 
       // Store transformation matrix, just for display purposes
+			std::cout << "Define matrix" << std::endl;
       std::vector<std::vector<std::complex<T>>> t_matrix(n, std::vector<std::complex<T>>(n, 0));
 
+			std::cout << "First loop" <<  std::endl;
       for (size_t i = 0; i < n; i++) {
         for (size_t j = 0; j < n; j++) {
           if (i == j) t_matrix[i][j] = 1.0; else t_matrix[i][j] = 0.0;
@@ -105,6 +107,7 @@ namespace constraints {
         auto &alpha_i = alphas[i];
         for (size_t j = 0; j < i; j++) {
           auto &alpha_j = alphas[j];
+					std::cout << alpha_j.isFourierOnAllLevels() << std::endl;
           pb.setProgress(((float) done * 2) / (n * (1 + n)));
           T result = alpha_i.innerProduct(alpha_j).real();
 
@@ -122,12 +125,15 @@ namespace constraints {
         }
 
         // normalize
+				std::cout << "Normalize" << std::endl;
+				std::cout << alpha_i.isFourierOnAllLevels() << std::endl;
         T norm = sqrt(alpha_i.innerProduct(alpha_i).real());
+				std::cout << "End Normalize" << std::endl;
 
         alpha_i /= norm;
         targets[i] /= norm;
 
-
+				std::cout << "Final normalization loop" << std::endl;
         for (size_t j = 0; j < n; j++) {
           t_matrix[i][j] /= norm;
         }
@@ -139,6 +145,7 @@ namespace constraints {
       // Re-calculate them.
       // TODO: rather than recalculate them, it would save CPU time to update them alongside the vectors/target values.
       // This is actually pretty trivial but needs to be carefully tested.
+			std::cout << "Recalculate existing" << std::endl;
       existing_values.clear();
       for (size_t i = 0; i < n; i++) {
         auto &alpha_i = alphas[i];
@@ -170,9 +177,13 @@ namespace constraints {
 
     void applyLinearConstraints() {
 
+			std::cout << "Starting ortho" << std::endl;
       orthonormaliseConstraints();
+			std::cout << "Finishing ortho" << std::endl;
+			std::cout << "Pointer to Fourier" << std::endl;
       outputField->toFourier();
 
+			std::cout << "Applying constraints" << std::endl;
       for (size_t i = 0; i < alphas.size(); i++) {
         fields::MultiLevelField<DataType> &alpha_i = alphas[i];
         auto dval_i = targets[i] - existing_values[i];

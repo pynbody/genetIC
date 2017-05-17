@@ -27,11 +27,11 @@ namespace constraints {
 			order = 0;
 		}
 
-		Constraint(std::string name_in, std::string type_in, T target_in, T exisiting_in){
+		Constraint(std::string name_in, std::string type_in, T target_in, T existing_in){
 			name = name_in;
 			type = type_in;
 			target = target_in;
-			existing = exisiting_in;
+			existing = existing_in;
 
 			if (isQuadratic(name)){order = 2;}
 			else if (isLinear(name)){order = 1;}
@@ -65,7 +65,7 @@ namespace constraints {
 		fields::ConstraintField<DataType>* alpha;
 
 		LinearConstraint(std::string name_in, std::string type_in, T target_in, T existing_in):
-				Constraint<DataType,T>(name_in,type_in,target_in,existing_in), alpha(NULL){
+				Constraint<DataType,T>(name_in,type_in,target_in,existing_in){
 		}
 
 		void setAlpha(fields::ConstraintField<DataType>* alpha_in){

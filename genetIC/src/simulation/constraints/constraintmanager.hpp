@@ -21,23 +21,18 @@ namespace constraints {
 
 
 
-		ConstraintManager(multilevelcontext::MultiLevelContextInformation<DataType> multiLevelContext,
+		ConstraintManager(multilevelcontext::MultiLevelContextInformation<DataType>* multiLevelContext,
 											cosmology::CosmologicalParameters<T> cosmology,
 											fields::OutputField<DataType>* outputField_in):
 											outputField(outputField_in),
-											generator(multiLevelContext, cosmology),
-											applicator(&multiLevelContext, outputField) {}
+											generator(*multiLevelContext, cosmology),
+											applicator(multiLevelContext, outputField) {}
 
 
 		T calculateCurrentValueByName(std::string name){
-			std::cout << "2" << std::endl;
-//			std::cout << &generator<< std::endl;
 			auto covector = generator.calcConstraintForAllLevels(name);
-			std::cout << "3" << std::endl;
 			covector.toFourier();
-			std::cout << "4" << std::endl;
-			T value = outputField->innerProduct(covector).real();
-			std::cout << "5" << std::endl;
+			T value = covector.innerProduct(*outputField).real();
 			return value;
 		}
 
@@ -45,16 +40,18 @@ namespace constraints {
 
 			bool relative = isRelative(type);
 
-			if (name != "overdensity" || name != "phi" || name != "lx" || name != "ly" || name != "lz"){
-				throw std::runtime_error(name + "is not an implemented linear constraint'");
-			}
+			if (name == "overdensity" || name == "phi" || name == "lx" || name == "ly" || name == "lz") {
 
-			auto existing = calculateCurrentValueByName(name);
-			if (relative) target *= existing;
-			LinearConstraint<DataType,T> constraint = LinearConstraint<DataType,T>(name, type, target, existing);
-			auto covector = generator.calcConstraintForAllLevels(name);
-			constraint.setAlpha(&covector);
-			linearList.push_back(constraint);
+				auto existing = calculateCurrentValueByName(name);
+				if (relative) target *= existing;
+				LinearConstraint<DataType, T> constraint = LinearConstraint<DataType, T>(name, type, target, existing);
+				auto covector = generator.calcConstraintForAllLevels(name);
+				covector.toFourier();
+				constraint.setAlpha(&covector);
+				linearList.push_back(std::move(constraint));
+			} else{
+				throw std::runtime_error(name + "" +  "is not an implemented linear constraint'");
+			}
 		}
 
 
@@ -75,12 +72,15 @@ namespace constraints {
 		}
 
 		void applyAllConstraints(){
+			std::cout << "Starting loop" << std::endl;
 			for (auto it = linearList.begin(); it != linearList.end(); ++it){
 				auto a = (*it).alpha;
-
+				std::cout << "Ending loop" << std::endl;
 				applicator.add_constraint(std::move(*a), (*it).target, (*it).existing);
 			}
+			std::cout << "Entering applicator.applyConstraints" << std::endl;
 			applicator.applyConstraints();
+			std::cout << "Leaving applicator.applyConstraints" << std::endl;
 		}
 
 
