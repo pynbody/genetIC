@@ -13,7 +13,7 @@
 
 #include "io/numpy.hpp"
 
-#include "src/simulation/constraints/constraintmanager.hpp"
+#include <src/simulation/modifications/modificationmanager.hpp>
 
 #include "src/tools/filesystem.h"
 
@@ -60,7 +60,7 @@ protected:
   multilevelcontext::MultiLevelContextInformation<GridDataType> multiLevelContext;
 
   fields::OutputField<GridDataType> outputField;
-  constraints::ConstraintManager<GridDataType> constraintManager;
+  modifications::ModificationManager<GridDataType> modificationManager;
   fields::RandomFieldGenerator<GridDataType> randomFieldGenerator;
 
   cosmology::CAMB<GridDataType> spectrum;
@@ -110,7 +110,7 @@ protected:
 public:
   ICGenerator(tools::ClassDispatch<ICGenerator<GridDataType>, void> &interpreter) :
     outputField(multiLevelContext),
-    constraintManager(&multiLevelContext, cosmology, &outputField),
+    modificationManager(multiLevelContext, cosmology, &outputField),
     randomFieldGenerator(outputField),
     pMapper(new particle::mapper::ParticleMapper<GridDataType>()),
     interpreter(interpreter) {
@@ -806,9 +806,8 @@ public:
     if (!haveInitialisedRandomComponent)
       initialiseRandomComponent();
 
-		//TODO Must support variable argument numbers for variance calculation
 		cout << "Entering current value" << endl;
-		T val = constraintManager.calculateCurrentValueByName(name);
+		T val = modificationManager.calculateCurrentValueByName(name);
 		cout << "Leaving current value" << endl;
 
     cout << name << ": calculated value = " << val << endl;
@@ -819,7 +818,7 @@ public:
       initialiseRandomComponent();
 
 		cout << "Entering add Constraint" << endl;
-		constraintManager.addConstrainToLinearList(name, type, target);
+		modificationManager.addModificationToList(name, type, target);
 		cout << "Leaving add Constraint" << endl;
 
 //    T constraint = value;
@@ -834,16 +833,16 @@ public:
 
   }
 
-	virtual void quadraticallyconstrain(string name, string type, float target, int initNumberSteps, float precision, float filterscale){
-		constraintManager.addConstrainToQuadList(name, type, target, initNumberSteps,precision,filterscale);
-	}
+//	virtual void quadraticallyconstrain(string name, string type, float target, int initNumberSteps, float precision, float filterscale){
+//		modiManager.addConstrainToQuadList(name, type, target, initNumberSteps,precision,filterscale);
+//	}
 
 
 
-
-  void cov() {
-    constraintManager.applicator.print_covariance();
-  }
+// TODO Add this method to manager
+//  void cov() {
+//   	modificationManager.print_covariance();
+//  }
 
 
   virtual void fixConstraints() {
@@ -851,7 +850,7 @@ public:
       initialiseRandomComponent();
 
 		cout << "Entering apply constraints" << endl;
-    constraintManager.applyAllConstraints();
+    modificationManager.applyModifications();
 		cout << "Entering apply constraints" << endl;
   }
 

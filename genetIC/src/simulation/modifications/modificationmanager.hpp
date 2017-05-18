@@ -26,14 +26,26 @@ namespace modifications{
 
 		}
 
-		auto calculateValuebyName(std::string name_){
+		auto calculateCurrentValueByName(std::string name_){
 			auto modification = getModificationFromName(name_);
-			auto value = modification.calculateCurrentValue(*outputField);
+			auto value = modification.calculateCurrentValue(*outputField, cosmology);
+			//TODO Make sure modification is freed in memory
 			return value;
 		}
 
-		void addModificationToList(){
+		void addModificationToList(std::string name_, std::string type_ , T target_){
+			bool relative = isRelative(type_);
+			auto modification = getModificationFromName(name_);
+			auto value = modification.calculateCurrentValue(*outputField, cosmology);
 
+			T target = target_;
+			if(relative) target *= value;
+
+			modification.setTarget(target);
+
+			//TODO Make sure covector is calculated and stored in modif.covector
+
+			modificationList.push_back(std::move(modification));
 		}
 
 		void applyModifications(){
@@ -64,7 +76,7 @@ namespace modifications{
 		}
 
 		std::vector<LinearModification<DataType,T>> createLinearList(){
-
+// TODO Implement a way to extract linear modif in a list.
 		}
 
 //		std::vector<QuadraticModification<DataType,T>> createQuadraticList(){
@@ -173,12 +185,16 @@ namespace modifications{
 		}
 
 		void applyLinearModif(){
-			auto linearList = createLinearList();
 
-			// TODO Translate linear list into vectors of alphas, targets and existing
-			std::vector<fields::ConstraintField<DataType>> alphas = createAlphaList();
-			std::vector<T> targets = createTargetsList();
-			std::vector<T> existing_values = createExistingList();
+
+			std::vector<fields::ConstraintField<DataType>> alphas;
+			std::vector<T> targets, existing_values;
+
+			for (auto it = modificationList.begin(); it != modificationList.end(); ++it) {
+				alphas[it] = (*it).alpha;
+				targets[it] = (*it).target;
+				existing_values[it] = (*it).calculateCurrentValue(*outputField);
+			}
 
 
 			std::cout << "Starting ortho" << std::endl;
@@ -202,6 +218,7 @@ namespace modifications{
 		}
 
 		void applyQuadModif(){
+			// TODO Implement quadratic algorithm
 			/*
 			 * for i<N_steps
 			 * add linearised quadratic to alphas
@@ -211,7 +228,19 @@ namespace modifications{
 			 */
 		}
 
+		bool isRelative(std::string type){
+			bool relative = false;
+			if (strcasecmp(type.c_str(), "relative") == 0) {
+				relative = true;
+			} else if (strcasecmp(type.c_str(), "absolute") != 0) {
+				throw std::runtime_error("Modification type must be either 'relative' or 'absolute'");
+			}
+			return relative;
+		}
 
+		bool areInputCorrect(){
+			//TODO Method to check variable arguments are correct in addModiftolist.
+		}
 
 
 	};
