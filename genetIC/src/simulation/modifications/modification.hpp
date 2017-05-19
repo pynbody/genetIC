@@ -13,7 +13,8 @@ namespace modifications{
 		T target;
 
 	public:
-		virtual T calculateCurrentValue(fields::MultiLevelField<DataType> /* field */,
+		virtual T calculateCurrentValue(fields::MultiLevelField<DataType>* /* field */,
+																		multilevelcontext::MultiLevelContextInformation<DataType>& /*&underlying*/,
 																		cosmology::CosmologicalParameters<T>& /* &cosmology*/) = 0;
 
 		T getTarget(){

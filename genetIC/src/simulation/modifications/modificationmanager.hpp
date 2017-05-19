@@ -17,7 +17,7 @@ namespace modifications{
 		fields::OutputField<DataType>* outputField;
 		multilevelcontext::MultiLevelContextInformation<DataType> &underlying;
 		cosmology::CosmologicalParameters<T> cosmology;
-		std::vector<Modification<DataType,T>> modificationList;
+		std::vector<Modification<DataType,T>*> modificationList;
 
 		ModificationManager(multilevelcontext::MultiLevelContextInformation<DataType> multiLevelContext_,
 												cosmology::CosmologicalParameters<T> cosmology_,
@@ -28,7 +28,7 @@ namespace modifications{
 
 		auto calculateCurrentValueByName(std::string name_){
 			auto modification = getModificationFromName(name_);
-			auto value = modification.calculateCurrentValue(*outputField, cosmology);
+			auto value = modification->calculateCurrentValue(outputField, underlying, cosmology);
 			//TODO Make sure modification is freed in memory
 			return value;
 		}
@@ -36,14 +36,12 @@ namespace modifications{
 		void addModificationToList(std::string name_, std::string type_ , T target_){
 			bool relative = isRelative(type_);
 			auto modification = getModificationFromName(name_);
-			auto value = modification.calculateCurrentValue(*outputField, cosmology);
+			auto value = modification->calculateCurrentValue(outputField, underlying, cosmology);
 
 			T target = target_;
 			if(relative) target *= value;
 
-			modification.setTarget(target);
-
-			//TODO Make sure covector is calculated and stored in modif.covector
+			modification->setTarget(target);
 
 			modificationList.push_back(std::move(modification));
 		}
@@ -54,22 +52,17 @@ namespace modifications{
 		}
 
 	private:
-		Modification<DataType,T> getModificationFromName(std::string name_){
+		Modification<DataType,T>* getModificationFromName(std::string name_){
 			if ((strcasecmp(name_.c_str(), "overdensity") == 0)){
-				auto modif = OverdensityModification<DataType,T>();
-				return modif;
-			} else if ((strcasecmp(name_.c_str(), "potential") == 0)) {
-				auto modif = PotentialModification<DataType,T>();
-				return modif;
-			} else if ((strcasecmp(name_.c_str(), "lx") == 0)) {
-				auto modif = LxModification<DataType,T>();
-				return modif;
-			} else if ((strcasecmp(name_.c_str(), "ly") == 0)) {
-				auto modif = LyModification<DataType,T>();
-				return modif;
-			} else if ((strcasecmp(name_.c_str(), "lz") == 0)) {
-				auto modif = LzModification<DataType,T>();
-				return modif;
+				return new OverdensityModification<DataType,T>();
+//			} else if ((strcasecmp(name_.c_str(), "potential") == 0)) {
+//				return new PotentialModification<DataType,T>();
+//			} else if ((strcasecmp(name_.c_str(), "lx") == 0)) {
+//				return new LxModification<DataType,T>();
+//			} else if ((strcasecmp(name_.c_str(), "ly") == 0)) {
+//				return new LyModification<DataType,T>();
+//			} else if ((strcasecmp(name_.c_str(), "lz") == 0)) {
+//				return new LzModification<DataType,T>();
 			} else{
 				std::runtime_error(name_ + "" + "is an unknown modification name");
 			}
@@ -77,13 +70,60 @@ namespace modifications{
 
 		std::vector<LinearModification<DataType,T>> createLinearList(){
 // TODO Implement a way to extract linear modif in a list.
+			return std::vector<LinearModification<DataType,T>>();
 		}
 
 //		std::vector<QuadraticModification<DataType,T>> createQuadraticList(){
 //		}
 
+		void applyLinearModif(){
+
+
+			std::vector<fields::ConstraintField<DataType>> alphas;
+			std::vector<T> targets, existing_values;
+			std::vector<LinearModification<DataType,T>> linearList;
+
+			linearList = createLinearList();
+
+			for (size_t i = 0; i < linearList.size(); i++) {
+				alphas.push_back(std::move(linearList[i].calculateCovectorOnAllLevels(underlying,cosmology)));
+				targets[i] = linearList[i].getTarget();
+				existing_values[i] = linearList[i].calculateCurrentValue(outputField,underlying, cosmology);
+			}
+
+
+			std::cout << "Starting ortho" << std::endl;
+			orthonormaliseModifications(alphas, targets, existing_values);
+			std::cout << "Finishing ortho" << std::endl;
+			std::cout << "Pointer to Fourier" << std::endl;
+			outputField->toFourier();
+
+			std::cout << "Applying constraints" << std::endl;
+			for (size_t i = 0; i < alphas.size(); i++) {
+				fields::MultiLevelField<DataType> &alpha_i = alphas[i];
+				auto dval_i = targets[i] - existing_values[i];
+
+				// Constraints are essentially covectors. Convert to a vector, with correct weighting/filtering.
+				// See discussion of why it's convenient to regard constraints as covectors in multilevelfield.hpp
+				alpha_i.convertToVector();
+
+				alpha_i.toFourier(); // almost certainly already is in Fourier space, but just to be safe
+				outputField->addScaled(alpha_i, dval_i);
+			}
+		}
+
+		void applyQuadModif(){
+			// TODO Implement quadratic algorithm
+			/*
+			 * for i<N_steps
+			 * add linearised quadratic to alphas
+			 * orthonormalise constraints
+			 * apply linear constraints
+			 * repeat
+			 */
+		}
 		void orthonormaliseModifications(std::vector<fields::ConstraintField<DataType>> alphas,
-																			std::vector<T> targets, std::vector<T> existing_values) {
+																		 std::vector<T> targets, std::vector<T> existing_values) {
 			/* Constraints need to be orthonormal before applying (or alternatively one would need an extra matrix
 			 * manipulation on them, as in the original HR91 paper, which boils down to the same thing). */
 
@@ -184,50 +224,6 @@ namespace modifications{
 			std::cout << "]" << std::endl;
 		}
 
-		void applyLinearModif(){
-
-
-			std::vector<fields::ConstraintField<DataType>> alphas;
-			std::vector<T> targets, existing_values;
-
-			for (auto it = modificationList.begin(); it != modificationList.end(); ++it) {
-				alphas[it] = (*it).alpha;
-				targets[it] = (*it).target;
-				existing_values[it] = (*it).calculateCurrentValue(*outputField);
-			}
-
-
-			std::cout << "Starting ortho" << std::endl;
-			orthonormaliseModifications(alphas, targets, existing_values);
-			std::cout << "Finishing ortho" << std::endl;
-			std::cout << "Pointer to Fourier" << std::endl;
-			outputField->toFourier();
-
-			std::cout << "Applying constraints" << std::endl;
-			for (size_t i = 0; i < alphas.size(); i++) {
-				fields::MultiLevelField<DataType> &alpha_i = alphas[i];
-				auto dval_i = targets[i] - existing_values[i];
-
-				// Constraints are essentially covectors. Convert to a vector, with correct weighting/filtering.
-				// See discussion of why it's convenient to regard constraints as covectors in multilevelfield.hpp
-				alpha_i.convertToVector();
-
-				alpha_i.toFourier(); // almost certainly already is in Fourier space, but just to be safe
-				outputField->addScaled(alpha_i, dval_i);
-			}
-		}
-
-		void applyQuadModif(){
-			// TODO Implement quadratic algorithm
-			/*
-			 * for i<N_steps
-			 * add linearised quadratic to alphas
-			 * orthonormalise constraints
-			 * apply linear constraints
-			 * repeat
-			 */
-		}
-
 		bool isRelative(std::string type){
 			bool relative = false;
 			if (strcasecmp(type.c_str(), "relative") == 0) {
@@ -240,6 +236,7 @@ namespace modifications{
 
 		bool areInputCorrect(){
 			//TODO Method to check variable arguments are correct in addModiftolist.
+			return false;
 		}
 
 

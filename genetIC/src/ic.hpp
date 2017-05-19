@@ -840,9 +840,9 @@ public:
 
 
 // TODO Add this method to manager
-//  void cov() {
+  void cov() {
 //   	modificationManager.print_covariance();
-//  }
+  }
 
 
   virtual void fixConstraints() {

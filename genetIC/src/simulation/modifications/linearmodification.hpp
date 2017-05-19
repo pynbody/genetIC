@@ -10,22 +10,25 @@ namespace modifications {
 
 	template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
 	class LinearModification : public Modification<DataType, T> {
-	protected:
-		fields::ConstraintField<DataType> covector;
-
-		bool isCovectorInitialised(){
-
-		}
 
 	public:
-		T calculateCurrentValue(fields::MultiLevelField<DataType> field,
-														cosmology::CosmologicalParameters<T> &cosmology_) override {
-			calculateCovectorOnAllLevels(field.getContext(), cosmology_);
-			T val = covector.innerProduct(field);
+//		fields::ConstraintField<DataType> covector;
+
+
+//		LinearModification(multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
+//											 cosmology::CosmologicalParameters<T> &cosmology_){
+//			covector = std::move(calculateCovectorOnAllLevels(underlying_,cosmology_));
+//		}
+
+		DataType calculateCurrentValue(fields::MultiLevelField<DataType>* field,
+														multilevelcontext::MultiLevelContextInformation<DataType> &underlying,
+														cosmology::CosmologicalParameters<T> &cosmology) override {
+			auto covector = calculateCovectorOnAllLevels(underlying, cosmology);
+			DataType val = (field->innerProduct(covector)).real();
 			return val;
 		}
 
-		void calculateCovectorOnAllLevels(multilevelcontext::MultiLevelContextInformation<DataType> &underlying,
+		fields::ConstraintField<DataType> calculateCovectorOnAllLevels(multilevelcontext::MultiLevelContextInformation<DataType> &underlying,
 																			cosmology::CosmologicalParameters<T> &cosmology) {
 
 			int level = underlying.getNumLevels() - 1;
@@ -36,17 +39,14 @@ namespace modifications {
 			if (level != 0)
 				highResConstraint.getDataVector() /= underlying.getWeightForLevel(level);
 
-			covector = std::move(underlying.generateMultilevelFromHighResField(std::move(highResConstraint)));
+			auto covector = underlying.generateMultilevelFromHighResField(std::move(highResConstraint));
+			return covector;
 		}
 
 
-
-
 	protected:
-
 		virtual fields::Field<DataType, T> calculateCovectorOnOneLevel(cosmology::CosmologicalParameters<T> &cosmology,
 																																	 grids::Grid<DataType> &grid) = 0;
-
 	};
 
 	template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
@@ -55,7 +55,7 @@ namespace modifications {
 		fields::Field<DataType, T> calculateCovectorOnOneLevel(cosmology::CosmologicalParameters<T> &cosmology,
 																													 grids::Grid<DataType> &grid) override {
 
-			fields::Field<DataType, T> outputField = fields::Field(grid,false);
+			fields::Field<DataType, T> outputField = fields::Field<DataType, T>(grid,false);
 			std::vector<DataType> outputData = outputField.getDataVector();
 			std::vector<size_t> particleArray;
 			grid.getFlaggedCells(particleArray);
@@ -75,42 +75,42 @@ namespace modifications {
 		}
 	};
 
-	template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
-	class PotentialModification : public LinearModification<DataType, T> {
-	public:
-		void
-		calculateCovectorOnOneLevel(cosmology::CosmologicalParameters<T> &cosmology, grids::Grid<DataType> &grid) override {
-
-		}
-	};
-
-	template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
-	class LxModification : public LinearModification<DataType, T> {
-	public:
-		void
-		calculateCovectorOnOneLevel(cosmology::CosmologicalParameters<T> &cosmology, grids::Grid<DataType> &grid) override {
-
-		}
-	};
-
-	template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
-	class LyModification : public LinearModification<DataType, T> {
-	public:
-		void
-		calculateCovectorOnOneLevel(cosmology::CosmologicalParameters<T> &cosmology, grids::Grid<DataType> &grid) override {
-
-		}
-	};
-
-	template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
-	class LzModification : public LinearModification<DataType, T> {
-	public:
-		void
-		calculateCovectorOnOneLevel(cosmology::CosmologicalParameters<T> &cosmology, grids::Grid<DataType> &grid) override {
-
-		}
-
-	};
+//	template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
+//	class PotentialModification : public LinearModification<DataType, T> {
+//	public:
+//		fields::Field<DataType, T> calculateCovectorOnOneLevel(cosmology::CosmologicalParameters<T> &cosmology,
+//																													 grids::Grid<DataType> &grid) override {
+//
+//		}
+//	};
+//
+//	template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
+//	class LxModification : public LinearModification<DataType, T> {
+//	public:
+//		fields::Field<DataType, T> calculateCovectorOnOneLevel(cosmology::CosmologicalParameters<T> &cosmology,
+//																													 grids::Grid<DataType> &grid) override {
+//
+//		}
+//	};
+//
+//	template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
+//	class LyModification : public LinearModification<DataType, T> {
+//	public:
+//		fields::Field<DataType, T> calculateCovectorOnOneLevel(cosmology::CosmologicalParameters<T> &cosmology,
+//																													 grids::Grid<DataType> &grid) override {
+//
+//		}
+//	};
+//
+//	template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
+//	class LzModification : public LinearModification<DataType, T> {
+//	public:
+//		fields::Field<DataType, T> calculateCovectorOnOneLevel(cosmology::CosmologicalParameters<T> &cosmology,
+//																													 grids::Grid<DataType> &grid) override {
+//
+//		}
+//
+//	};
 
 }
 
