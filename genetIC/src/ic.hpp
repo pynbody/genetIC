@@ -821,16 +821,6 @@ public:
 		modificationManager.addModificationToList(name, type, target);
 		cout << "Leaving add Constraint" << endl;
 
-//    T constraint = value;
-//    auto vec = calcConstraint(name);
-//
-//    T initv = vec.innerProduct(outputField).real();
-//
-//    if (relative) constraint *= initv;
-//
-//    cout << name << ": initial value = " << initv << ", constraining to " << constraint << endl;
-//    constraintApplicator.add_constraint(std::move(vec), constraint, initv);
-
   }
 
 //	virtual void quadraticallyconstrain(string name, string type, float target, int initNumberSteps, float precision, float filterscale){

@@ -19,7 +19,7 @@ namespace modifications{
 		const cosmology::CosmologicalParameters<T> &cosmology;
 		std::vector<LinearModification<DataType,T>*> modificationList;
 
-		ModificationManager(multilevelcontext::MultiLevelContextInformation<DataType> multiLevelContext_,
+		ModificationManager(multilevelcontext::MultiLevelContextInformation<DataType> &multiLevelContext_,
 												cosmology::CosmologicalParameters<T> cosmology_,
 												fields::OutputField<DataType>* outputField_):
 				outputField(outputField_), underlying(multiLevelContext_), cosmology(cosmology_){
@@ -27,8 +27,15 @@ namespace modifications{
 		}
 
 		T calculateCurrentValueByName(std::string name_){
+			size_t level = underlying.getNumLevels();
+			std::cout << level << std::endl;
+
+			std::cout << "Declaring modif pointer" << std::endl;
 			LinearModification<DataType,T>* modification = getModificationFromName(name_);
+
+			std::cout << "Calculate current" << std::endl;
 			T value = modification->calculateCurrentValue(outputField, underlying);
+			std::cout << "Finished calculate current" << std::endl;
 			//TODO Make sure modification is freed in memory
 			return value;
 		}

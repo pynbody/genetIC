@@ -4,6 +4,8 @@
 #include <src/tools/data_types/complex.hpp>
 #include <memory>
 
+#include <src/simulation/field/multilevelfield.hpp>
+#include <src/cosmology/parameters.hpp>
 
 namespace modifications{
 
