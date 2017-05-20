@@ -16,8 +16,8 @@ namespace modifications{
 	public:
 		fields::OutputField<DataType>* outputField;
 		multilevelcontext::MultiLevelContextInformation<DataType> &underlying;
-		cosmology::CosmologicalParameters<T> cosmology;
-		std::vector<Modification<DataType,T>*> modificationList;
+		const cosmology::CosmologicalParameters<T> &cosmology;
+		std::vector<LinearModification<DataType,T>*> modificationList;
 
 		ModificationManager(multilevelcontext::MultiLevelContextInformation<DataType> multiLevelContext_,
 												cosmology::CosmologicalParameters<T> cosmology_,
@@ -26,17 +26,18 @@ namespace modifications{
 
 		}
 
-		auto calculateCurrentValueByName(std::string name_){
-			auto modification = getModificationFromName(name_);
-			auto value = modification->calculateCurrentValue(outputField, underlying, cosmology);
+		T calculateCurrentValueByName(std::string name_){
+			LinearModification<DataType,T>* modification = getModificationFromName(name_);
+			T value = modification->calculateCurrentValue(outputField, underlying);
 			//TODO Make sure modification is freed in memory
 			return value;
 		}
 
 		void addModificationToList(std::string name_, std::string type_ , T target_){
+			//TODO Either allow multiple arguments or create a different function for lin and quad
 			bool relative = isRelative(type_);
-			auto modification = getModificationFromName(name_);
-			auto value = modification->calculateCurrentValue(outputField, underlying, cosmology);
+			LinearModification<DataType,T>* modification = getModificationFromName(name_);
+			T value = modification->calculateCurrentValue(outputField, underlying);
 
 			T target = target_;
 			if(relative) target *= value;
@@ -52,43 +53,37 @@ namespace modifications{
 		}
 
 	private:
-		Modification<DataType,T>* getModificationFromName(std::string name_){
+		LinearModification<DataType,T>* getModificationFromName(std::string name_){
 			if ((strcasecmp(name_.c_str(), "overdensity") == 0)){
-				return new OverdensityModification<DataType,T>();
-//			} else if ((strcasecmp(name_.c_str(), "potential") == 0)) {
-//				return new PotentialModification<DataType,T>();
-//			} else if ((strcasecmp(name_.c_str(), "lx") == 0)) {
-//				return new LxModification<DataType,T>();
-//			} else if ((strcasecmp(name_.c_str(), "ly") == 0)) {
-//				return new LyModification<DataType,T>();
-//			} else if ((strcasecmp(name_.c_str(), "lz") == 0)) {
-//				return new LzModification<DataType,T>();
+				return new OverdensityModification<DataType,T>(cosmology);
+			} else if ((strcasecmp(name_.c_str(), "potential") == 0)) {
+				return new PotentialModification<DataType,T>(cosmology);
+			} else if ((strcasecmp(name_.c_str(), "lx") == 0)) {
+				return new AngMomentumModification<DataType,T>(cosmology, 0);
+			} else if ((strcasecmp(name_.c_str(), "ly") == 0)) {
+				return new AngMomentumModification<DataType,T>(cosmology, 1);
+			} else if ((strcasecmp(name_.c_str(), "lz") == 0)) {
+				return new AngMomentumModification<DataType,T>(cosmology, 2);
 			} else{
 				std::runtime_error(name_ + "" + "is an unknown modification name");
+				return NULL;
 			}
 		}
 
-		std::vector<LinearModification<DataType,T>> createLinearList(){
-// TODO Implement a way to extract linear modif in a list.
-			return std::vector<LinearModification<DataType,T>>();
-		}
-
-//		std::vector<QuadraticModification<DataType,T>> createQuadraticList(){
+//		std::vector<LinearModification<DataType,T>> createLinearList(){
+//// TODO Implement a way to extract linear modif in a list.
+//			return (std::vector<LinearModification<DataType,T>*>) modificationList;
 //		}
 
 		void applyLinearModif(){
 
-
 			std::vector<fields::ConstraintField<DataType>> alphas;
 			std::vector<T> targets, existing_values;
-			std::vector<LinearModification<DataType,T>> linearList;
 
-			linearList = createLinearList();
-
-			for (size_t i = 0; i < linearList.size(); i++) {
-				alphas.push_back(std::move(linearList[i].calculateCovectorOnAllLevels(underlying,cosmology)));
-				targets[i] = linearList[i].getTarget();
-				existing_values[i] = linearList[i].calculateCurrentValue(outputField,underlying, cosmology);
+			for (size_t i = 0; i < modificationList.size(); i++) {
+				alphas.push_back(std::move(modificationList[i]->calculateCovectorOnAllLevels(underlying)));
+				targets[i] = modificationList[i]->getTarget();
+				existing_values[i] = modificationList[i]->calculateCurrentValue(outputField,underlying);
 			}
 
 
@@ -122,8 +117,8 @@ namespace modifications{
 			 * repeat
 			 */
 		}
-		void orthonormaliseModifications(std::vector<fields::ConstraintField<DataType>> alphas,
-																		 std::vector<T> targets, std::vector<T> existing_values) {
+		void orthonormaliseModifications(std::vector<fields::ConstraintField<DataType>> &alphas,
+																		 std::vector<T> &targets, std::vector<T> &existing_values) {
 			/* Constraints need to be orthonormal before applying (or alternatively one would need an extra matrix
 			 * manipulation on them, as in the original HR91 paper, which boils down to the same thing). */
 
@@ -232,6 +227,28 @@ namespace modifications{
 				throw std::runtime_error("Modification type must be either 'relative' or 'absolute'");
 			}
 			return relative;
+		}
+
+		bool isLinear(std::string name_){
+			bool linear = false;
+			if (strcasecmp(name_.c_str(), "overdensity") == 0 || strcasecmp(name_.c_str(), "potential") == 0 ||
+					strcasecmp(name_.c_str(), "lx") == 0 || strcasecmp(name_.c_str(), "ly") == 0
+					|| strcasecmp(name_.c_str(), "lz") == 0 ){
+				linear = true;
+			} else{
+				throw std::runtime_error(name_ + "" + " is not an implemented linear modification");
+			}
+			return linear;
+		}
+
+		bool isQuadratic(std::string name_){
+			bool linear = false;
+			if (strcasecmp(name_.c_str(), "variance") == 0){
+				linear = true;
+			} else{
+				throw std::runtime_error(name_ + "" + " is not an implemented quadratic modification");
+			}
+			return linear;
 		}
 
 		bool areInputCorrect(){

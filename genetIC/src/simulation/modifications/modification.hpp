@@ -12,10 +12,14 @@ namespace modifications{
 	private:
 		T target;
 
+	protected:
+		const cosmology::CosmologicalParameters<T> &cosmology;
+
 	public:
+		Modification(const cosmology::CosmologicalParameters<T> &cosmology_):cosmology(cosmology_){};
+
 		virtual T calculateCurrentValue(fields::MultiLevelField<DataType>* /* field */,
-																		multilevelcontext::MultiLevelContextInformation<DataType>& /*&underlying*/,
-																		cosmology::CosmologicalParameters<T>& /* &cosmology*/) = 0;
+																		multilevelcontext::MultiLevelContextInformation<DataType>& /*&underlying*/) = 0;
 
 		T getTarget(){
 			return target;
