@@ -813,7 +813,7 @@ public:
     cout << name << ": calculated value = " << val << endl;
   }
 
-  virtual void linearlyconstrain(string name, string type, float target) {
+  virtual void constrain(string name, string type, float target) {
     if (!haveInitialisedRandomComponent)
       initialiseRandomComponent();
 

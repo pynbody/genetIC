@@ -16,29 +16,25 @@ namespace modifications {
 		DataType calculateCurrentValue(fields::MultiLevelField<DataType>* field,
 														multilevelcontext::MultiLevelContextInformation<DataType> &underlying) override {
 			//TODO Decide whether context should be extracted from field or passed as an extra argument
-			std::cout << "Calculate covector" << std::endl;
 			auto covector = calculateCovectorOnAllLevels(underlying);
-			std::cout << "Taking inner Product" << std::endl;
-			DataType val = (field->innerProduct(covector)).real();
+			covector.toFourier();
+			DataType val = covector.innerProduct(*field).real();
 			return val;
 		}
 
 		fields::ConstraintField<DataType> calculateCovectorOnAllLevels(multilevelcontext::MultiLevelContextInformation<DataType> &underlying) {
 
-			size_t level = underlying.getNumLevels();
+			size_t level = underlying.getNumLevels() - 1;
 
 			using tools::numerics::operator/=;
-			std::cout << "Calculate highRes" << std::endl;
 			auto highResConstraint = calculateCovectorOnOneLevel(this->cosmology, underlying.getGridForLevel(level));
-			std::cout << "Leaving OneLevel" << std::endl;
 
 			if (level != 0) {
-				std::cout << "divide by weight" << std::endl;
 				highResConstraint.getDataVector() /= underlying.getWeightForLevel(level);
 			}
 
-			std::cout << "Generate multigrid covector" << std::endl;
 			auto covector = underlying.generateMultilevelFromHighResField(std::move(highResConstraint));
+			covector.toFourier();
 			return covector;
 		}
 
@@ -57,14 +53,12 @@ namespace modifications {
 		fields::Field<DataType, T> calculateCovectorOnOneLevel(const cosmology::CosmologicalParameters<T> & /*&cosmology*/,
 																													 grids::Grid<DataType> &grid) override {
 
-			std::cout << "Declare one level" << std::endl;
+
 			fields::Field<DataType, T> outputField = fields::Field<DataType, T>(grid,false);
-			std::cout << "Declare output" << std::endl;
 			std::vector<DataType> outputData = outputField.getDataVector();
-			std::cout << "Declare partcile array" << std::endl;
 			std::vector<size_t> particleArray;
-			std::cout << "get Flagged" << std::endl;
 			grid.getFlaggedCells(particleArray);
+
 
 			T w = 1.0 / particleArray.size();
 

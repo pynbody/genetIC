@@ -27,15 +27,9 @@ namespace modifications{
 		}
 
 		T calculateCurrentValueByName(std::string name_){
-			size_t level = underlying.getNumLevels();
-			std::cout << level << std::endl;
 
-			std::cout << "Declaring modif pointer" << std::endl;
 			LinearModification<DataType,T>* modification = getModificationFromName(name_);
-
-			std::cout << "Calculate current" << std::endl;
 			T value = modification->calculateCurrentValue(outputField, underlying);
-			std::cout << "Finished calculate current" << std::endl;
 			//TODO Make sure modification is freed in memory
 			return value;
 		}
@@ -87,22 +81,34 @@ namespace modifications{
 			std::vector<fields::ConstraintField<DataType>> alphas;
 			std::vector<T> targets, existing_values;
 
+			std::cout << "Extract in vectors" << std::endl;
 			for (size_t i = 0; i < modificationList.size(); i++) {
+
+				std::cout << modificationList.size() << std::endl;
+				std::cout << i << std::endl;
+
+				std::cout << "Extract covectors" << std::endl;
 				alphas.push_back(std::move(modificationList[i]->calculateCovectorOnAllLevels(underlying)));
-				targets[i] = modificationList[i]->getTarget();
-				existing_values[i] = modificationList[i]->calculateCurrentValue(outputField,underlying);
+				std::cout << "Extract target " << std::endl;
+				targets.push_back(modificationList[i]->getTarget());
+				std::cout << "Extract values" << std::endl;
+				existing_values.push_back(modificationList[i]->calculateCurrentValue(outputField,underlying));
+
+				std::cout << "target = " << targets[i] << std::endl;
+				std::cout << "current = " << existing_values[i] << std::endl;
 			}
 
 
 			std::cout << "Starting ortho" << std::endl;
 			orthonormaliseModifications(alphas, targets, existing_values);
 			std::cout << "Finishing ortho" << std::endl;
-			std::cout << "Pointer to Fourier" << std::endl;
 			outputField->toFourier();
 
 			std::cout << "Applying constraints" << std::endl;
 			for (size_t i = 0; i < alphas.size(); i++) {
 				fields::MultiLevelField<DataType> &alpha_i = alphas[i];
+				std::cout << "target = " << targets[i] << std::endl;
+				std::cout << "current = " << existing_values[i] << std::endl;
 				auto dval_i = targets[i] - existing_values[i];
 
 				// Constraints are essentially covectors. Convert to a vector, with correct weighting/filtering.

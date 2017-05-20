@@ -35,7 +35,7 @@ dump_IDfile check_constr.txt
 
 # calculate the existing overdensity (should be 0), set it to 1.0
 calculate overdensity
-linearlyconstrain overdensity absolute 1.0
+constrain overdensity absolute 1.0
 
 # apply the constraints
 done

@@ -70,7 +70,7 @@ public:
 
   void write() override {}
 
-  void linearlyconstrain(string /*name*/, string /*string*/, float /*value*/) override {}
+  void constrain(string /*name*/, string /*string*/, float /*value*/) override {}
 
   void done() override {}
 };
