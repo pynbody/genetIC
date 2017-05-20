@@ -84,9 +84,6 @@ namespace modifications{
 			std::cout << "Extract in vectors" << std::endl;
 			for (size_t i = 0; i < modificationList.size(); i++) {
 
-				std::cout << modificationList.size() << std::endl;
-				std::cout << i << std::endl;
-
 				std::cout << "Extract covectors" << std::endl;
 				alphas.push_back(std::move(modificationList[i]->calculateCovectorOnAllLevels(underlying)));
 				std::cout << "Extract target " << std::endl;
@@ -138,6 +135,7 @@ namespace modifications{
 			using namespace tools::numerics;
 
 			size_t n = alphas.size();
+			std::cout << n << std::endl;
 			size_t done = 0;
 
 			size_t nCells = underlying.getNumCells();
@@ -147,10 +145,8 @@ namespace modifications{
 			std::cout << "v1=" << real(targets) << std::endl;
 
 			// Store transformation matrix, just for display purposes
-			std::cout << "Define matrix" << std::endl;
 			std::vector<std::vector<std::complex<T>>> t_matrix(n, std::vector<std::complex<T>>(n, 0));
 
-			std::cout << "First loop" <<  std::endl;
 			for (size_t i = 0; i < n; i++) {
 				for (size_t j = 0; j < n; j++) {
 					if (i == j) t_matrix[i][j] = 1.0; else t_matrix[i][j] = 0.0;
@@ -165,9 +161,9 @@ namespace modifications{
 				auto &alpha_i = alphas[i];
 				for (size_t j = 0; j < i; j++) {
 					auto &alpha_j = alphas[j];
-					std::cout << alpha_j.isFourierOnAllLevels() << std::endl;
 					pb.setProgress(((float) done * 2) / (n * (1 + n)));
 					T result = alpha_i.innerProduct(alpha_j).real();
+					std::cout << "result=" << result << std::endl;
 
 					alpha_i.addScaled(alpha_j, -result);
 
@@ -184,14 +180,14 @@ namespace modifications{
 
 				// normalize
 				std::cout << "Normalize" << std::endl;
-				std::cout << alpha_i.isFourierOnAllLevels() << std::endl;
 				T norm = sqrt(alpha_i.innerProduct(alpha_i).real());
+				std::cout << "norm=" << norm << std::endl;
 				std::cout << "End Normalize" << std::endl;
 
 				alpha_i /= norm;
 				targets[i] /= norm;
 
-				std::cout << "Final normalization loop" << std::endl;
+				std::cout << "Normalise matrix" << std::endl;
 				for (size_t j = 0; j < n; j++) {
 					t_matrix[i][j] /= norm;
 				}

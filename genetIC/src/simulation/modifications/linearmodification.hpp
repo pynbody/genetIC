@@ -57,6 +57,8 @@ namespace modifications {
 			fields::Field<DataType, T> outputField = fields::Field<DataType, T>(grid,false);
 			std::vector<DataType> outputData = outputField.getDataVector();
 			std::vector<size_t> particleArray;
+
+			// Get the region of interest and store in particle array
 			grid.getFlaggedCells(particleArray);
 
 
@@ -69,8 +71,9 @@ namespace modifications {
 			for (size_t i = 0; i < particleArray.size(); i++) {
 				outputData[particleArray[i]] += w;
 			}
-			std::cout << "to Fourier" << std::endl;
+
 			outputField.toFourier();
+
 			return outputField;
 		}
 	};
