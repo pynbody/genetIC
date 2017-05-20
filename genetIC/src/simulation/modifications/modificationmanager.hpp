@@ -135,7 +135,6 @@ namespace modifications{
 			using namespace tools::numerics;
 
 			size_t n = alphas.size();
-			std::cout << n << std::endl;
 			size_t done = 0;
 
 			size_t nCells = underlying.getNumCells();
@@ -163,7 +162,6 @@ namespace modifications{
 					auto &alpha_j = alphas[j];
 					pb.setProgress(((float) done * 2) / (n * (1 + n)));
 					T result = alpha_i.innerProduct(alpha_j).real();
-					std::cout << "result=" << result << std::endl;
 
 					alpha_i.addScaled(alpha_j, -result);
 
