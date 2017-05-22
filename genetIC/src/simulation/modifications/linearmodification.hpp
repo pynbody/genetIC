@@ -35,7 +35,7 @@ namespace modifications {
 
 			auto covector = underlying.generateMultilevelFromHighResField(std::move(highResConstraint));
 			covector.toFourier();
-			return covector;
+			return std::move(covector);
 		}
 
 
@@ -60,6 +60,8 @@ namespace modifications {
 
 			// Get the region of interest and store in particle array
 			grid.getFlaggedCells(particleArray);
+			for (auto i = particleArray.begin(); i != particleArray.end(); ++i)
+				std::cout << *i << ' ';
 
 
 			T w = 1.0 / particleArray.size();
