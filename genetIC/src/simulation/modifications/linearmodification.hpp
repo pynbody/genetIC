@@ -11,7 +11,9 @@ namespace modifications {
 
 	public:
 
-		LinearModification(const cosmology::CosmologicalParameters<T> &cosmology_):Modification<DataType,T>(cosmology_){};
+		//TODO underlying could be a const reference depending on what Andrew says
+		LinearModification(multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
+											 const cosmology::CosmologicalParameters<T> &cosmology_): Modification<DataType,T>(underlying_, cosmology_){};
 
 		DataType calculateCurrentValue(fields::MultiLevelField<DataType>* field,
 														multilevelcontext::MultiLevelContextInformation<DataType> &underlying) override {
@@ -48,11 +50,11 @@ namespace modifications {
 	class OverdensityModification : public LinearModification<DataType, T> {
 	public:
 
-		OverdensityModification(const cosmology::CosmologicalParameters<T> &cosmology_):LinearModification<DataType,T>(cosmology_){};
+		OverdensityModification(multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
+														const cosmology::CosmologicalParameters<T> &cosmology_): LinearModification<DataType,T>(underlying_, cosmology_){};
 
 		fields::Field<DataType, T> calculateCovectorOnOneLevel(const cosmology::CosmologicalParameters<T> & /*&cosmology*/,
 																													 grids::Grid<DataType> &grid) override {
-
 
 			fields::Field<DataType, T> outputField = fields::Field<DataType, T>(grid,false);
 			std::vector<DataType> &outputData = outputField.getDataVector();
@@ -75,7 +77,6 @@ namespace modifications {
 			}
 
 			outputField.toFourier();
-
 			return outputField;
 		}
 	};
@@ -83,7 +84,8 @@ namespace modifications {
 	template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
 	class PotentialModification : public LinearModification<DataType, T> {
 	public:
-		PotentialModification(const cosmology::CosmologicalParameters<T> &cosmology_):LinearModification<DataType,T>(cosmology_){};
+		PotentialModification(multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
+													const cosmology::CosmologicalParameters<T> &cosmology_): LinearModification<DataType,T>(underlying_, cosmology_){};
 
 		fields::Field<DataType, T> calculateCovectorOnOneLevel(const cosmology::CosmologicalParameters<T> & /*&cosmology*/,
 																													 grids::Grid<DataType> &grid) override {
@@ -99,7 +101,9 @@ namespace modifications {
 		int direction;
 
 	public:
-		AngMomentumModification(const cosmology::CosmologicalParameters<T> &cosmology_, int direction_):LinearModification<DataType,T>(cosmology_){
+		AngMomentumModification(multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
+														const cosmology::CosmologicalParameters<T> &cosmology_, int direction_):
+			LinearModification<DataType,T>(underlying_, cosmology_){
 			direction = direction_;
 		};
 

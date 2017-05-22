@@ -56,15 +56,15 @@ namespace modifications{
 		//TODO Make sure modification is freed in memory
 		LinearModification<DataType,T>* getModificationFromName(std::string name_){
 			if ((strcasecmp(name_.c_str(), "overdensity") == 0)){
-				return new OverdensityModification<DataType,T>(cosmology);
+				return new OverdensityModification<DataType,T>(underlying, cosmology);
 			} else if ((strcasecmp(name_.c_str(), "potential") == 0)) {
-				return new PotentialModification<DataType,T>(cosmology);
+				return new PotentialModification<DataType,T>(underlying, cosmology);
 			} else if ((strcasecmp(name_.c_str(), "lx") == 0)) {
-				return new AngMomentumModification<DataType,T>(cosmology, 0);
+				return new AngMomentumModification<DataType,T>(underlying, cosmology, 0);
 			} else if ((strcasecmp(name_.c_str(), "ly") == 0)) {
-				return new AngMomentumModification<DataType,T>(cosmology, 1);
+				return new AngMomentumModification<DataType,T>(underlying, cosmology, 1);
 			} else if ((strcasecmp(name_.c_str(), "lz") == 0)) {
-				return new AngMomentumModification<DataType,T>(cosmology, 2);
+				return new AngMomentumModification<DataType,T>(underlying, cosmology, 2);
 			} else{
 				std::runtime_error(name_ + "" + "is an unknown modification name");
 				return NULL;

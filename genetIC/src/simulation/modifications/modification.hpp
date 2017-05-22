@@ -15,10 +15,13 @@ namespace modifications{
 		T target;
 
 	protected:
+		multilevelcontext::MultiLevelContextInformation<DataType> &underlying;
 		const cosmology::CosmologicalParameters<T> &cosmology;
 
+
 	public:
-		Modification(const cosmology::CosmologicalParameters<T> &cosmology_):cosmology(cosmology_){};
+		Modification(multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
+								 const cosmology::CosmologicalParameters<T> &cosmology_): underlying(underlying_), cosmology(cosmology_){};
 
 		virtual T calculateCurrentValue(fields::MultiLevelField<DataType>* /* field */,
 																		multilevelcontext::MultiLevelContextInformation<DataType>& /*&underlying*/) = 0;
