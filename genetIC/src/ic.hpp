@@ -841,7 +841,7 @@ public:
 
 		cout << "Entering apply constraints" << endl;
     modificationManager.applyModifications();
-		cout << "Entering apply constraints" << endl;
+		cout << "Leaving apply constraints" << endl;
   }
 
   virtual void done() {
