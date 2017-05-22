@@ -81,18 +81,11 @@ namespace modifications{
 			std::vector<fields::ConstraintField<DataType>> alphas;
 			std::vector<T> targets, existing_values;
 
-			std::cout << "Extract in vectors" << std::endl;
+			// Extract A, b and A*delta_0 from modification list
 			for (size_t i = 0; i < modificationList.size(); i++) {
-
-				std::cout << "Extract covectors" << std::endl;
 				alphas.push_back(std::move(modificationList[i]->calculateCovectorOnAllLevels(underlying)));
-				std::cout << "Extract target " << std::endl;
 				targets.push_back(modificationList[i]->getTarget());
-				std::cout << "Extract values" << std::endl;
 				existing_values.push_back(modificationList[i]->calculateCurrentValue(outputField,underlying));
-
-				std::cout << "target = " << targets[i] << std::endl;
-				std::cout << "current = " << existing_values[i] << std::endl;
 			}
 
 
@@ -153,7 +146,6 @@ namespace modifications{
 			}
 
 			// Gram-Schmidt orthogonalization in-place
-
 			tools::progress::ProgressBar pb("orthogonalizing constraints");
 
 			for (size_t i = 0; i < n; i++) {
@@ -162,12 +154,13 @@ namespace modifications{
 					auto &alpha_j = alphas[j];
 					pb.setProgress(((float) done * 2) / (n * (1 + n)));
 					T result = alpha_i.innerProduct(alpha_j).real();
+					std::cout << result << std::endl;
 
 					alpha_i.addScaled(alpha_j, -result);
 
 
 					// update display matrix accordingly such that at each step
-					// our current values array is equal to t_matrix . input_values
+					// our current values array is equal to t_matrix.
 					for (size_t k = 0; k <= j; k++)
 						t_matrix[i][k] -= result * t_matrix[j][k];
 

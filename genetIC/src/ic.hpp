@@ -796,19 +796,11 @@ public:
     z0 = zin;
   }
 
-//  auto calcConstraint(string name_in) {
-//    auto constraint = constraintGenerator.calcConstraintForAllLevels(name_in);
-//    constraint.toFourier();
-//    return constraint;
-//  }
-
   void calculate(string name) {
     if (!haveInitialisedRandomComponent)
       initialiseRandomComponent();
 
-		cout << "Entering current value" << endl;
 		T val = modificationManager.calculateCurrentValueByName(name);
-		cout << "Leaving current value" << endl;
 
     cout << name << ": calculated value = " << val << endl;
   }
@@ -817,9 +809,7 @@ public:
     if (!haveInitialisedRandomComponent)
       initialiseRandomComponent();
 
-		cout << "Entering add Constraint" << endl;
 		modificationManager.addModificationToList(name, type, target);
-		cout << "Leaving add Constraint" << endl;
 
   }
 
