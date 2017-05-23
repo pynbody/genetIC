@@ -17,15 +17,15 @@ namespace modifications {
 
 		DataType calculateCurrentValue(fields::MultiLevelField<DataType>* field) override {
 			//TODO Decide whether context should be extracted from field or passed as an extra argument
-			auto covector = calculateCovectorOnAllLevels(this->underlying);
+			auto covector = calculateCovectorOnAllLevels();
 			covector.toFourier();
 			DataType val = covector.innerProduct(*field).real();
 			return val;
 		}
 
-		fields::ConstraintField<DataType> calculateCovectorOnAllLevels(multilevelcontext::MultiLevelContextInformation<DataType> &underlying) {
+		fields::ConstraintField<DataType> calculateCovectorOnAllLevels() {
 
-			size_t level = underlying.getNumLevels() - 1;
+			size_t level = this->underlying.getNumLevels() - 1;
 
 			using tools::numerics::operator/=;
 			auto highResConstraint = calculateCovectorOnOneLevel(this->cosmology, this->underlying.getGridForLevel(level));

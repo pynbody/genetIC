@@ -83,7 +83,7 @@ namespace modifications{
 
 			// Extract A, b and A*delta_0 from modification list
 			for (size_t i = 0; i < modificationList.size(); i++) {
-				alphas.push_back(std::move(modificationList[i]->calculateCovectorOnAllLevels(underlying)));
+				alphas.push_back(std::move(modificationList[i]->calculateCovectorOnAllLevels()));
 				targets.push_back(modificationList[i]->getTarget());
 				existing_values.push_back(modificationList[i]->calculateCurrentValue(outputField));
 			}
