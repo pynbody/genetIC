@@ -29,7 +29,7 @@ namespace modifications{
 		T calculateCurrentValueByName(std::string name_){
 
 			LinearModification<DataType,T>* modification = getModificationFromName(name_);
-			T value = modification->calculateCurrentValue(outputField, underlying);
+			T value = modification->calculateCurrentValue(outputField);
 			return value;
 		}
 
@@ -37,7 +37,7 @@ namespace modifications{
 			//TODO Either allow multiple arguments or create a different function for lin and quad
 			bool relative = isRelative(type_);
 			LinearModification<DataType,T>* modification = getModificationFromName(name_);
-			T value = modification->calculateCurrentValue(outputField, underlying);
+			T value = modification->calculateCurrentValue(outputField);
 
 			T target = target_;
 			if(relative) target *= value;
@@ -85,7 +85,7 @@ namespace modifications{
 			for (size_t i = 0; i < modificationList.size(); i++) {
 				alphas.push_back(std::move(modificationList[i]->calculateCovectorOnAllLevels(underlying)));
 				targets.push_back(modificationList[i]->getTarget());
-				existing_values.push_back(modificationList[i]->calculateCurrentValue(outputField,underlying));
+				existing_values.push_back(modificationList[i]->calculateCurrentValue(outputField));
 			}
 
 

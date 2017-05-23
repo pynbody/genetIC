@@ -15,10 +15,9 @@ namespace modifications {
 		LinearModification(multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
 											 const cosmology::CosmologicalParameters<T> &cosmology_): Modification<DataType,T>(underlying_, cosmology_){};
 
-		DataType calculateCurrentValue(fields::MultiLevelField<DataType>* field,
-														multilevelcontext::MultiLevelContextInformation<DataType> &underlying) override {
+		DataType calculateCurrentValue(fields::MultiLevelField<DataType>* field) override {
 			//TODO Decide whether context should be extracted from field or passed as an extra argument
-			auto covector = calculateCovectorOnAllLevels(underlying);
+			auto covector = calculateCovectorOnAllLevels(this->underlying);
 			covector.toFourier();
 			DataType val = covector.innerProduct(*field).real();
 			return val;
@@ -29,13 +28,13 @@ namespace modifications {
 			size_t level = underlying.getNumLevels() - 1;
 
 			using tools::numerics::operator/=;
-			auto highResConstraint = calculateCovectorOnOneLevel(this->cosmology, underlying.getGridForLevel(level));
+			auto highResConstraint = calculateCovectorOnOneLevel(this->cosmology, this->underlying.getGridForLevel(level));
 
 			if (level != 0) {
-				highResConstraint.getDataVector() /= underlying.getWeightForLevel(level);
+				highResConstraint.getDataVector() /= this->underlying.getWeightForLevel(level);
 			}
 
-			auto covector = underlying.generateMultilevelFromHighResField(std::move(highResConstraint));
+			auto covector = this->underlying.generateMultilevelFromHighResField(std::move(highResConstraint));
 			covector.toFourier();
 			return std::move(covector);
 		}

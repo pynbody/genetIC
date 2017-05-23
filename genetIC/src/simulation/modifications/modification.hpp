@@ -23,8 +23,7 @@ namespace modifications{
 		Modification(multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
 								 const cosmology::CosmologicalParameters<T> &cosmology_): underlying(underlying_), cosmology(cosmology_){};
 
-		virtual T calculateCurrentValue(fields::MultiLevelField<DataType>* /* field */,
-																		multilevelcontext::MultiLevelContextInformation<DataType>& /*&underlying*/) = 0;
+		virtual T calculateCurrentValue(fields::MultiLevelField<DataType>* /* field */) = 0;
 
 		T getTarget(){
 			return target;
