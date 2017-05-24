@@ -75,7 +75,8 @@ void setup_parser(tools::ClassDispatch<ICf, void> &dispatch) {
   // dispatch.add_class_route("truncate", &ICf::truncateBuffer);
   dispatch.add_class_route("calculate", &ICf::calculate);
   dispatch.add_class_route("modify", &ICf::modify);
-  dispatch.add_class_route("cov", &ICf::cov);
+  dispatch.add_class_route("dumpmodifs", &ICf::dump_modifs);
+	dispatch.add_class_route("cov", &ICf::cov);
   dispatch.add_class_route("done", &ICf::done);
   dispatch.add_class_route("fix_modifs", &ICf::fixModifs);
   dispatch.add_class_route("offset_output", &ICf::offsetOutput);

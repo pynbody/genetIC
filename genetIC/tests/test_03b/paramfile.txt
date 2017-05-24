@@ -38,6 +38,7 @@ modify overdensity relative -10.0
 # apply the modifs
 done
 
+dumpmodifs
 
 # dump diagnostic output
 dumpgrid 0

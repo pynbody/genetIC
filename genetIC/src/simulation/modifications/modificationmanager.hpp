@@ -48,14 +48,11 @@ namespace modifications{
 		void applyModifications(){
 			applyLinearModif();
 
-			std::cout << "Clearing modification list" << std::endl;
-			modificationList.clear();
-
 		}
 
 		//! Calculate and displays the covariance matrix of the modification covectors
 		/*!
-		 * Mostly for debugging pruposes
+		 * Mostly for debugging purposes
  		*/
 		void print_covariance() {
 
@@ -95,7 +92,10 @@ namespace modifications{
 			std::cout << "]" << std::endl;
 		}
 
-
+		void dumpModifications(){
+			std::cout << "Clearing modification list" << std::endl;
+			modificationList.clear();
+		}
 
 
 

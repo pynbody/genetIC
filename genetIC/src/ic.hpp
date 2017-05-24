@@ -821,6 +821,10 @@ public:
   	modificationManager.print_covariance();
   }
 
+	void dump_modifs() {
+		modificationManager.dumpModifications();
+	}
+
 
   virtual void fixModifs() {
     if (!haveInitialisedRandomComponent)

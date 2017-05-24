@@ -33,6 +33,8 @@ modify overdensity absolute 0.1
 done
 calculate overdensity
 
+dumpmodifs
+
 dumpgrid 0
 dumpgrid 1
 dumpPS 0
