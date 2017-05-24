@@ -28,13 +28,13 @@ namespace modifications {
 			size_t level = this->underlying.getNumLevels() - 1;
 
 			using tools::numerics::operator/=;
-			auto highResConstraint = calculateCovectorOnOneLevel(this->underlying.getGridForLevel(level));
+			auto highResModif = calculateCovectorOnOneLevel(this->underlying.getGridForLevel(level));
 
 			if (level != 0) {
-				highResConstraint.getDataVector() /= this->underlying.getWeightForLevel(level);
+				highResModif.getDataVector() /= this->underlying.getWeightForLevel(level);
 			}
 
-			auto covector = this->underlying.generateMultilevelFromHighResField(std::move(highResConstraint));
+			auto covector = this->underlying.generateMultilevelFromHighResField(std::move(highResModif));
 			covector.toFourier();
 			return std::move(covector);
 		}
@@ -248,9 +248,8 @@ namespace modifications {
 
 			outputField.toFourier();
 
-			// The constraint as derived is on the potential. By considering
-			// unitarity of FT, we can FT the constraint to get the constraint
-			// on the density.
+			// The modification as derived is on the potential. By considering
+			// unitarity of FT, we can FT it to obtain the modified density
 			densityToPotential(outputField, this->cosmology);
 
 			return outputField;

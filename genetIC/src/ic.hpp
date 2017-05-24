@@ -805,7 +805,7 @@ public:
     cout << name << ": calculated value = " << val << endl;
   }
 
-  virtual void constrain(string name, string type, float target) {
+  virtual void modify(string name, string type, float target) {
     if (!haveInitialisedRandomComponent)
       initialiseRandomComponent();
 
@@ -817,30 +817,25 @@ public:
 //		modiManager.addConstrainToQuadList(name, type, target, initNumberSteps,precision,filterscale);
 //	}
 
-
-
-// TODO Add this method to manager
   void cov() {
-//   	modificationManager.print_covariance();
+  	modificationManager.print_covariance();
   }
 
 
-  virtual void fixConstraints() {
+  virtual void fixModifs() {
     if (!haveInitialisedRandomComponent)
       initialiseRandomComponent();
 
-		cout << "Entering apply constraints" << endl;
     modificationManager.applyModifications();
-		cout << "Leaving apply constraints" << endl;
   }
 
   virtual void done() {
-    T pre_constraint_chi2 = outputField.getChi2();
-    cerr << "BEFORE constraints chi^2=" << pre_constraint_chi2 << endl;
-    fixConstraints();
-    T post_constraint_chi2 = outputField.getChi2();
-    cerr << "AFTER  constraints chi^2=" << post_constraint_chi2 << endl;
-    cerr << "             delta-chi^2=" << post_constraint_chi2 - pre_constraint_chi2 << endl;
+    T pre_modif_chi2 = outputField.getChi2();
+    cerr << "BEFORE modifications chi^2=" << pre_modif_chi2 << endl;
+    fixModifs();
+    T post_modif_chi2 = outputField.getChi2();
+    cerr << "AFTER  modifications chi^2=" << post_modif_chi2 << endl;
+    cerr << "             delta-chi^2=" << post_modif_chi2 - pre_modif_chi2 << endl;
     write();
   }
 

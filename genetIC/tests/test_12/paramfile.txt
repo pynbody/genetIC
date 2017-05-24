@@ -29,7 +29,7 @@ zoomgrid 4 32
 
 
 select_sphere 0.4
-constrain overdensity absolute 0.25
+modify overdensity absolute 0.25
 
 done
 

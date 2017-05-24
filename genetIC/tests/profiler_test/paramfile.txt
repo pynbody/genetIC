@@ -31,11 +31,11 @@ zoomgrid 2 256
 
 centre 25 25 25.1
 select_nearest
-constrain overdensity relative 1.1
+modify overdensity relative 1.1
 
 centre 25 25 24.9
 select_nearest
-constrain overdensity relative 0.9
+modify overdensity relative 0.9
 
 
 done

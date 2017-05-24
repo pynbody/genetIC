@@ -1,4 +1,4 @@
-# Test zooming with a constraint but pre-zeroing random component
+# Test zooming with a modification but pre-zeroing random component
 
 # cosmology:
 Om  0.279
@@ -26,7 +26,7 @@ zoomgrid 3 64
 zerolevel 0
 zerolevel 1
 
-# select a single cell to apply the constraint to
+# select a single cell to apply the modif to
 centre 32.5 32.5 32.5
 select_nearest
 
@@ -35,12 +35,12 @@ dump_IDfile check_constr.txt
 
 # calculate the existing overdensity (should be 0), set it to 1.0
 calculate overdensity
-constrain overdensity absolute 1.0
+modify overdensity absolute 1.0
 
-# apply the constraints
+# apply the modifs
 done
 
-# check overdensity was correctly constrained
+# check overdensity was correctly modified
 calculate overdensity
 
 # dump diagnostic output

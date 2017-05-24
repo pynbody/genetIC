@@ -53,6 +53,52 @@ namespace modifications{
 
 		}
 
+		//! Calculate and displays the covariance matrix of the modification covectors
+		/*!
+		 * Mostly for debugging pruposes
+ 		*/
+		void print_covariance() {
+
+			tools::progress::ProgressBar pb("calculating covariance");
+
+			std::vector<fields::ConstraintField<DataType>> alphas;
+
+			for (size_t i = 0; i < modificationList.size(); i++) {
+				alphas.push_back(std::move(modificationList[i]->calculateCovectorOnAllLevels()));
+			}
+
+			size_t n = alphas.size();
+			size_t done = 0;
+			std::vector<std::vector<std::complex<T>>> c_matrix(n, std::vector<std::complex<T>>(n, 0));
+
+			for (size_t i = 0; i < n; i++) {
+				auto &alpha_i = alphas[i];
+				for (size_t j = 0; j <= i; j++) {
+					pb.setProgress(((float) done * 2) / (n * (1 + n)));
+					auto &alpha_j = alphas[j];
+					c_matrix[i][j] = alpha_i.innerProduct(alpha_j).real();
+					c_matrix[j][i] = c_matrix[i][j];
+					done += 1;
+				}
+			}
+
+			std::cout << std::endl << "cov_matr = [";
+			for (size_t i = 0; i < n; i++) {
+				std::cout << "[";
+				for (size_t j = 0; j < n; j++) {
+					std::cout << std::real(c_matrix[i][j]);
+					if (j < n - 1) std::cout << ",";
+				}
+				std::cout << "]";
+				if (i < n - 1) std::cout << "," << std::endl;
+			}
+			std::cout << "]" << std::endl;
+		}
+
+
+
+
+
 	private:
 		//TODO Make sure modification is freed in memory
 		LinearModification<DataType,T>* getModificationFromName(std::string name_){
@@ -90,20 +136,14 @@ namespace modifications{
 			}
 
 
-			std::cout << "Starting ortho" << std::endl;
 			orthonormaliseModifications(alphas, targets, existing_values);
-			std::cout << "Finishing ortho" << std::endl;
 			outputField->toFourier();
 
-			std::cout << "Applying constraints" << std::endl;
 			for (size_t i = 0; i < alphas.size(); i++) {
 				fields::MultiLevelField<DataType> &alpha_i = alphas[i];
-				std::cout << "target = " << targets[i] << std::endl;
-				std::cout << "current = " << existing_values[i] << std::endl;
 				auto dval_i = targets[i] - existing_values[i];
 
 				// Constraints are essentially covectors. Convert to a vector, with correct weighting/filtering.
-				// See discussion of why it's convenient to regard constraints as covectors in multilevelfield.hpp
 				alpha_i.convertToVector();
 
 				alpha_i.toFourier(); // almost certainly already is in Fourier space, but just to be safe
@@ -123,7 +163,7 @@ namespace modifications{
 		}
 		void orthonormaliseModifications(std::vector<fields::ConstraintField<DataType>> &alphas,
 																		 std::vector<T> &targets, std::vector<T> &existing_values) {
-			/* Constraints need to be orthonormal before applying (or alternatively one would need an extra matrix
+			/* Modifications need to be orthonormal before applying (or alternatively one would need an extra matrix
 			 * manipulation on them, as in the original HR91 paper, which boils down to the same thing). */
 
 			using namespace tools::numerics;
@@ -134,7 +174,7 @@ namespace modifications{
 
 			size_t nCells = underlying.getNumCells();
 
-			// It can be helpful to see a summary of the constraints being applied, with the starting and target values
+			// Summary of modifs to be applied
 			std::cout << "v0=" << real(existing_values) << std::endl;
 			std::cout << "v1=" << real(targets) << std::endl;
 
@@ -148,7 +188,7 @@ namespace modifications{
 			}
 
 			// Gram-Schmidt orthogonalization in-place
-			tools::progress::ProgressBar pb("orthogonalizing constraints");
+			tools::progress::ProgressBar pb("orthogonalizing modifications");
 
 			for (size_t i = 0; i < n; i++) {
 				auto &alpha_i = alphas[i];
@@ -170,19 +210,15 @@ namespace modifications{
 
 					// update constraining value
 					targets[i] -= result * targets[j];
-					done += 1; // one op for each of the orthognalizing constraints
+					done += 1; // one op for each of the orthognalizing modifs
 				}
 
 				// normalize
-				std::cout << "Normalize" << std::endl;
 				T norm = sqrt(alpha_i.innerProduct(alpha_i).real());
-				std::cout << "norm=" << norm << std::endl;
-				std::cout << "End Normalize" << std::endl;
 
 				alpha_i /= norm;
 				targets[i] /= norm;
 
-				std::cout << "Normalise matrix" << std::endl;
 				for (size_t j = 0; j < n; j++) {
 					t_matrix[i][j] /= norm;
 				}
@@ -190,11 +226,8 @@ namespace modifications{
 
 			}
 
-			// The existing values are now invalid because the constraint vectors have been changed.
-			// Re-calculate them.
+			// The existing values are now invalid because the covectors have been changed.
 			// TODO: rather than recalculate them, it would save CPU time to update them alongside the vectors/target values.
-			// This is actually pretty trivial but needs to be carefully tested.
-			std::cout << "Recalculate existing" << std::endl;
 			existing_values.clear();
 			for (size_t i = 0; i < n; i++) {
 				auto &alpha_i = alphas[i];
