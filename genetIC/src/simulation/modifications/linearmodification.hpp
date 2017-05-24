@@ -154,9 +154,6 @@ namespace modifications {
 			fields::Field<DataType, T> outputField = fields::Field<DataType, T>(grid,false);
 			std::vector<DataType> &outputData = outputField.getDataVector();
 
-			for (auto i = this->flaggedCells.begin(); i != this->flaggedCells.end(); ++i)
-				std::cout << *i << ' ';
-
 
 			T w = 1.0 / this->flaggedCells.size();
 
@@ -191,10 +188,6 @@ namespace modifications {
 		fields::Field<DataType, T> calculateCovectorOnOneLevel(grids::Grid<DataType> &grid) override {
 			fields::Field<DataType, T> outputField = fields::Field<DataType, T>(grid,false);
 			std::vector<DataType> &outputData = outputField.getDataVector();
-
-			for (auto i = this->flaggedCells.begin(); i != this->flaggedCells.end(); ++i)
-				std::cout << *i << ' ';
-
 
 			T w = 1.0 / this->flaggedCells.size();
 

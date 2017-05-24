@@ -1,0 +1,39 @@
+# Test zooming with a potential constraint
+
+# cosmology:
+Om  0.279
+Ol  0.721
+s8  0.817
+zin	99
+camb	../camb_transfer_kmax40_z0.dat
+seed	8896131
+
+
+# output:
+outname test_03c
+outdir	 ./
+outformat 4
+
+
+# 64 Mpc/h, 64 cells
+basegrid 64.0 64
+
+
+centre 32.5 32.5 32.5
+select_sphere 10
+zoomgrid 3 64
+
+centre 32.5 32.5 32.5
+select_nearest
+dump_IDfile check_constr.txt
+
+calculate potential
+constrain potential absolute 0.1
+
+done
+calculate potential
+
+dumpgrid 0
+dumpgrid 1
+dumpPS 0
+dumpPS 1

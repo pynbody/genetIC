@@ -107,6 +107,9 @@ namespace modifications{
 
 				alpha_i.toFourier(); // almost certainly already is in Fourier space, but just to be safe
 				outputField->addScaled(alpha_i, dval_i);
+
+				std::cout << "Clearing modification list" << std::endl;
+				modificationList.clear();
 			}
 		}
 
