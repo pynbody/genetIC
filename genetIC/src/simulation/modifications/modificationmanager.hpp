@@ -20,11 +20,9 @@ namespace modifications{
 		std::vector<LinearModification<DataType,T>*> modificationList;
 
 		ModificationManager(multilevelcontext::MultiLevelContextInformation<DataType> &multiLevelContext_,
-												cosmology::CosmologicalParameters<T> cosmology_,
+												const cosmology::CosmologicalParameters<T> &cosmology_,
 												fields::OutputField<DataType>* outputField_):
-				outputField(outputField_), underlying(multiLevelContext_), cosmology(cosmology_){
-
-		}
+				outputField(outputField_), underlying(multiLevelContext_), cosmology(cosmology_){}
 
 		T calculateCurrentValueByName(std::string name_){
 
@@ -49,6 +47,9 @@ namespace modifications{
 
 		void applyModifications(){
 			applyLinearModif();
+
+			std::cout << "Clearing modification list" << std::endl;
+			modificationList.clear();
 
 		}
 
@@ -107,9 +108,6 @@ namespace modifications{
 
 				alpha_i.toFourier(); // almost certainly already is in Fourier space, but just to be safe
 				outputField->addScaled(alpha_i, dval_i);
-
-				std::cout << "Clearing modification list" << std::endl;
-				modificationList.clear();
 			}
 		}
 

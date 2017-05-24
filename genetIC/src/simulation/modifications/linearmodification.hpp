@@ -199,7 +199,6 @@ namespace modifications {
 				outputData[this->flaggedCells[i]] += w;
 			}
 
-			outputField.toFourier();
 			densityToPotential(outputField, this->cosmology);
 			return outputField;
 
