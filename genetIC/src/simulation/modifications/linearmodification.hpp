@@ -17,7 +17,6 @@ namespace modifications {
 				Modification<DataType,T>(underlying_, cosmology_){};
 
 		DataType calculateCurrentValue(fields::MultiLevelField<DataType>* field) override {
-			//TODO Decide whether context should be extracted from field or passed as an extra argument
 			auto covector = calculateCovectorOnAllLevels();
 			covector.toFourier();
 			DataType val = covector.innerProduct(*field).real();
@@ -53,22 +52,20 @@ namespace modifications {
 
 			T xa, ya, za, xb, yb, zb, x0 = 0., y0 = 0., z0 = 0.;
 
-			std::vector<size_t> particleArray;
-			grid.getFlaggedCells(particleArray);
 
-			std::tie(xa, ya, za) = grid.getCellCentroid(particleArray[0]);
+			std::tie(xa, ya, za) = grid.getCellCentroid(this->flaggedCells[0]);
 
-			for (size_t i = 0; i < particleArray.size(); i++) {
-				std::tie(xb, yb, zb) = grid.getCellCentroid(particleArray[i]);
+			for (size_t i = 0; i < this->flaggedCells.size(); i++) {
+				std::tie(xb, yb, zb) = grid.getCellCentroid(this->flaggedCells[i]);
 
 				x0 += grid.getWrappedOffset(xb, xa);
 				y0 += grid.getWrappedOffset(yb, ya);
 				z0 += grid.getWrappedOffset(zb, za);
 			}
 
-			x0 /= particleArray.size();
-			y0 /= particleArray.size();
-			z0 /= particleArray.size();
+			x0 /= this->flaggedCells.size();
+			y0 /= this->flaggedCells.size();
+			z0 /= this->flaggedCells.size();
 			x0 += xa;
 			y0 += ya;
 			z0 += za;
@@ -156,22 +153,19 @@ namespace modifications {
 
 			fields::Field<DataType, T> outputField = fields::Field<DataType, T>(grid,false);
 			std::vector<DataType> &outputData = outputField.getDataVector();
-			std::vector<size_t> particleArray;
 
-			// Get the region of interest and store in particle array
-			grid.getFlaggedCells(particleArray);
-			for (auto i = particleArray.begin(); i != particleArray.end(); ++i)
+			for (auto i = this->flaggedCells.begin(); i != this->flaggedCells.end(); ++i)
 				std::cout << *i << ' ';
 
 
-			T w = 1.0 / particleArray.size();
+			T w = 1.0 / this->flaggedCells.size();
 
 			for (size_t i = 0; i < grid.size3; ++i) {
 				outputData[i] = 0;
 			}
 
-			for (size_t i = 0; i < particleArray.size(); i++) {
-				outputData[particleArray[i]] += w;
+			for (size_t i = 0; i < this->flaggedCells.size(); i++) {
+				outputData[this->flaggedCells[i]] += w;
 			}
 
 			outputField.toFourier();
@@ -197,22 +191,19 @@ namespace modifications {
 		fields::Field<DataType, T> calculateCovectorOnOneLevel(grids::Grid<DataType> &grid) override {
 			fields::Field<DataType, T> outputField = fields::Field<DataType, T>(grid,false);
 			std::vector<DataType> &outputData = outputField.getDataVector();
-			std::vector<size_t> particleArray;
 
-			// Get the region of interest and store in particle array
-			grid.getFlaggedCells(particleArray);
-			for (auto i = particleArray.begin(); i != particleArray.end(); ++i)
+			for (auto i = this->flaggedCells.begin(); i != this->flaggedCells.end(); ++i)
 				std::cout << *i << ' ';
 
 
-			T w = 1.0 / particleArray.size();
+			T w = 1.0 / this->flaggedCells.size();
 
 			for (size_t i = 0; i < grid.size3; ++i) {
 				outputData[i] = 0;
 			}
 
-			for (size_t i = 0; i < particleArray.size(); i++) {
-				outputData[particleArray[i]] += w;
+			for (size_t i = 0; i < this->flaggedCells.size(); i++) {
+				outputData[this->flaggedCells[i]] += w;
 			}
 
 			outputField.toFourier();
@@ -252,7 +243,6 @@ namespace modifications {
 
 			fields::Field<DataType, T> outputField = fields::Field<DataType, T>(grid,false);
 			std::vector<DataType> &outputData = outputField.getDataVector();
-			std::vector<size_t> particleArray;
 
 
 			T x0, y0, z0;
@@ -260,8 +250,8 @@ namespace modifications {
 			y0 = this->getCentre(grid).y;
 			z0 = this->getCentre(grid).z;
 
-			for (size_t i = 0; i < particleArray.size(); i++) {
-				this->centralDifference4thOrder(grid, outputData, particleArray[i], this->direction, x0, y0, z0);
+			for (size_t i = 0; i < this->flaggedCells.size(); i++) {
+				this->centralDifference4thOrder(grid, outputData, this->flaggedCells[i], this->direction, x0, y0, z0);
 			}
 
 			outputField.toFourier();

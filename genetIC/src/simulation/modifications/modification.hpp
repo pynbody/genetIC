@@ -17,11 +17,17 @@ namespace modifications{
 	protected:
 		multilevelcontext::MultiLevelContextInformation<DataType> &underlying;
 		const cosmology::CosmologicalParameters<T> &cosmology;
+		std::vector<size_t> flaggedCells;
 
 
 	public:
 		Modification(multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
-								 const cosmology::CosmologicalParameters<T> &cosmology_): underlying(underlying_), cosmology(cosmology_){};
+								 const cosmology::CosmologicalParameters<T> &cosmology_): underlying(underlying_), cosmology(cosmology_){
+
+			size_t finestlevel = this->underlying.getNumLevels() - 1;
+			auto finestgrid = this->underlying.getGridForLevel(finestlevel);
+			finestgrid.getFlaggedCells(flaggedCells);
+		};
 
 		virtual T calculateCurrentValue(fields::MultiLevelField<DataType>* /* field */) = 0;
 
