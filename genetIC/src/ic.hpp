@@ -800,7 +800,7 @@ public:
     if (!haveInitialisedRandomComponent)
       initialiseRandomComponent();
 
-		T val = modificationManager.calculateCurrentValueByName(name);
+		GridDataType val = modificationManager.calculateCurrentValueByName(name);
 
     cout << name << ": calculated value = " << val << endl;
   }

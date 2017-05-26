@@ -16,10 +16,10 @@ namespace modifications {
 											 const cosmology::CosmologicalParameters<T> &cosmology_):
 				Modification<DataType,T>(underlying_, cosmology_){};
 
-		DataType calculateCurrentValue(fields::MultiLevelField<DataType>* field) override {
+		T calculateCurrentValue(fields::MultiLevelField<DataType>* field) override {
 			auto covector = calculateCovectorOnAllLevels();
 			covector.toFourier();
-			DataType val = covector.innerProduct(*field).real();
+			T val = covector.innerProduct(*field).real();
 			return val;
 		}
 
@@ -43,12 +43,12 @@ namespace modifications {
 
 	protected:
 
-		virtual fields::Field<DataType, T> calculateCovectorOnOneLevel(grids::Grid<DataType> &grid) = 0;
+		virtual fields::Field<DataType, T> calculateCovectorOnOneLevel(grids::Grid<T> &grid) = 0;
 
 
 
 
-		Coordinate<T> getCentre(grids::Grid<DataType> &grid) {
+		Coordinate<T> getCentre(grids::Grid<T> &grid) {
 
 			T xa, ya, za, xb, yb, zb, x0 = 0., y0 = 0., z0 = 0.;
 
@@ -74,7 +74,7 @@ namespace modifications {
 			return result;
 		}
 
-		void centralDifference4thOrder(grids::Grid<DataType> &grid, std::vector<DataType> &outputData, long index, int direc, T x0, T y0, T z0) {
+		void centralDifference4thOrder(grids::Grid<T> &grid, std::vector<DataType> &outputData, long index, int direc, T x0, T y0, T z0) {
 
 			T xp = 0., yp = 0., zp = 0.;
 			std::tie(xp, yp, zp) = grid.getCellCentroid(index);
@@ -149,7 +149,7 @@ namespace modifications {
 														const cosmology::CosmologicalParameters<T> &cosmology_):
 				LinearModification<DataType,T>(underlying_, cosmology_){};
 
-		fields::Field<DataType, T> calculateCovectorOnOneLevel(grids::Grid<DataType> &grid) override {
+		fields::Field<DataType, T> calculateCovectorOnOneLevel(grids::Grid<T> &grid) override {
 
 			fields::Field<DataType, T> outputField = fields::Field<DataType, T>(grid,false);
 			std::vector<DataType> &outputData = outputField.getDataVector();
@@ -185,7 +185,7 @@ namespace modifications {
 		PotentialModification(multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
 													const cosmology::CosmologicalParameters<T> &cosmology_): LinearModification<DataType,T>(underlying_, cosmology_){};
 
-		fields::Field<DataType, T> calculateCovectorOnOneLevel(grids::Grid<DataType> &grid) override {
+		fields::Field<DataType, T> calculateCovectorOnOneLevel(grids::Grid<T> &grid) override {
 			fields::Field<DataType, T> outputField = fields::Field<DataType, T>(grid,false);
 			std::vector<DataType> &outputData = outputField.getDataVector();
 
@@ -229,7 +229,7 @@ namespace modifications {
 			direction = direction_;
 		};
 
-		fields::Field<DataType, T> calculateCovectorOnOneLevel(grids::Grid<DataType> &grid) override {
+		fields::Field<DataType, T> calculateCovectorOnOneLevel(grids::Grid<T> &grid) override {
 
 
 
