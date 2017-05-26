@@ -8,7 +8,5 @@ genetIC/IC.dSYM
 
 genetIC/doxygen/
 
-CMakeLists.txt
-
 cmake-build-debug/
 .idea/
