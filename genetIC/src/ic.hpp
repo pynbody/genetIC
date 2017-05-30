@@ -821,12 +821,12 @@ public:
   	modificationManager.print_covariance();
   }
 
-	void dump_modifs() {
+	void dumpModifications() {
 		modificationManager.dumpModifications();
 	}
 
 
-  virtual void fixModifs() {
+  virtual void fixModifications() {
     if (!haveInitialisedRandomComponent)
       initialiseRandomComponent();
 
@@ -836,7 +836,7 @@ public:
   virtual void done() {
     T pre_modif_chi2 = outputField.getChi2();
     cerr << "BEFORE modifications chi^2=" << pre_modif_chi2 << endl;
-    fixModifs();
+    fixModifications();
     T post_modif_chi2 = outputField.getChi2();
     cerr << "AFTER  modifications chi^2=" << post_modif_chi2 << endl;
     cerr << "             delta-chi^2=" << post_modif_chi2 - pre_modif_chi2 << endl;

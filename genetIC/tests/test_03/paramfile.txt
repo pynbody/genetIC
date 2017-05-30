@@ -44,8 +44,8 @@ done
 calculate overdensity
 
 # dump diagnostic output
-dumpmodifs
-dumpgrid 0
-dumpgrid 1
-dumpPS 0
-dumpPS 1
+dump_modifications
+dump_grid 0
+dump_grid 1
+dump_ps 0
+dump_ps 1

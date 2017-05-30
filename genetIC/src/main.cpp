@@ -75,16 +75,16 @@ void setup_parser(tools::ClassDispatch<ICf, void> &dispatch) {
   // dispatch.add_class_route("truncate", &ICf::truncateBuffer);
   dispatch.add_class_route("calculate", &ICf::calculate);
   dispatch.add_class_route("modify", &ICf::modify);
-  dispatch.add_class_route("dumpmodifs", &ICf::dump_modifs);
+  dispatch.add_class_route("dump_modifications", &ICf::dumpModifications);
 	dispatch.add_class_route("cov", &ICf::cov);
   dispatch.add_class_route("done", &ICf::done);
-  dispatch.add_class_route("fix_modifs", &ICf::fixModifs);
+  dispatch.add_class_route("fix_modifications", &ICf::fixModifications);
   dispatch.add_class_route("offset_output", &ICf::offsetOutput);
   dispatch.add_class_route("reverse", &ICf::reverse);
   dispatch.add_class_route("reverse_small_k", &ICf::reverseSmallK);
   dispatch.add_class_route("reseed_small_k", &ICf::reseedSmallK);
-  dispatch.add_class_route("dumpgrid", &ICf::dumpGrid);
-  dispatch.add_class_route("dumpps", &ICf::dumpPS);
+  dispatch.add_class_route("dump_grid", &ICf::dumpGrid);
+  dispatch.add_class_route("dump_ps", &ICf::dumpPS);
   dispatch.add_class_route("exact_power_spectrum_enforcement", &ICf::setExactPowerSpectrumEnforcement);
 
   dispatch.add_class_route("relative_to", &ICf::setInputMapper);

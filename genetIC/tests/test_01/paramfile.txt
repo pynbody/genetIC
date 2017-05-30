@@ -20,5 +20,5 @@ basegrid 50.0 64
 
 
 done
-dumpps 0
-dumpgrid 0
+dump_ps 0
+dump_grid 0

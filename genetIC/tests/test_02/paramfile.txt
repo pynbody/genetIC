@@ -31,7 +31,7 @@ zoomgrid 3 64
 
 
 done
-dumpgrid 0
-dumpgrid 1
-dumpps 0
-dumpps 1
+dump_grid 0
+dump_grid 1
+dump_ps 0
+dump_ps 1
