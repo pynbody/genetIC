@@ -1,8 +1,6 @@
 #ifndef IC_FILTERFAMILY_HPP
 #define IC_FILTERFAMILY_HPP
 
-#endif //IC_FILTERFAMILY_HPP
-
 #include <memory>
 #include <vector>
 #include <stdexcept>
@@ -158,3 +156,4 @@ namespace filters {
     }
   }
 }
+#endif

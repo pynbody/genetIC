@@ -42,7 +42,7 @@ namespace modifications {
 			return this->underlying.generateMultilevelFromHighResField(std::move(highResModif));
 		}
 
-		//! To be overriden with specific implementations of linear properties
+		//! To be overridden with specific implementations of linear properties
 		virtual fields::Field<DataType, T> calculateCovectorOnOneLevel(grids::Grid<T> &grid) = 0;
 
 
