@@ -4,7 +4,7 @@ set(CMAKE_CXX_COMPILER /opt/local/bin/g++-mp6)
 
 project(IC)
 
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY $CMAKE_SOURCE_DIR/genetIC)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/genetIC)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14  -fopenmp -g ")
 
@@ -13,7 +13,6 @@ set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")
 
 set(SOURCE_FILES
         genetIC/src/tools/util_functions.hpp
-        genetIC/src/simulation/constraints/constraintapplicator.hpp
         genetIC/src/cosmology/parameters.hpp
         genetIC/src/dummyic.hpp
         genetIC/src/tools/numerics/fourier.hpp
@@ -37,13 +36,11 @@ set(SOURCE_FILES
         genetIC/src/tools/filesystem.h
         genetIC/src/simulation/filters/filter.hpp
         genetIC/src/simulation/multilevelcontext/multilevelcontext.hpp
-        genetIC/src/simulation/constraints/onelevelconstraintgenerator.hpp
         genetIC/src/tools/filesystem.cpp
         genetIC/src/simulation/field/multilevelfield.hpp
         genetIC/src/simulation/particles/particle.hpp
         genetIC/src/tools/progress/progress.cpp
         genetIC/src/simulation/field/field.hpp
-        genetIC/src/simulation/constraints/multilevelconstraintgenerator.hpp
         genetIC/src/tools/numerics/interpolation.hpp
         genetIC/Makefile
         genetIC/src/simulation/particles/zeldovich.hpp

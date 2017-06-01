@@ -11,19 +11,25 @@ namespace modifications {
 
 	public:
 
-		//TODO underlying could be a const reference depending on what Andrew says
 		LinearModification(multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
 											 const cosmology::CosmologicalParameters<T> &cosmology_):
 				Modification<DataType,T>(underlying_, cosmology_){};
 
 		T calculateCurrentValue(fields::MultiLevelField<DataType>* field) override {
-			auto covector = calculateCovectorOnAllLevels();
-			covector.toFourier();
-			T val = covector.innerProduct(*field).real();
+			T val = this->covector->innerProduct(*field).real();
 			return val;
 		}
 
-		fields::ConstraintField<DataType> calculateCovectorOnAllLevels() {
+		std::shared_ptr<fields::ConstraintField<DataType>> getCovector(){
+			return this->covector;
+		}
+
+
+	protected:
+		std::shared_ptr<fields::ConstraintField<DataType>> covector;			/*!< Linear modification can be described as covectors */
+
+		//! Calculate covector on finest level and generate from it the multi-grid field
+		std::shared_ptr<fields::ConstraintField<DataType>> calculateCovectorOnAllLevels() {
 
 			size_t level = this->underlying.getNumLevels() - 1;
 
@@ -33,21 +39,17 @@ namespace modifications {
 			if (level != 0) {
 				highResModif.getDataVector() /= this->underlying.getWeightForLevel(level);
 			}
-
-			auto covector = this->underlying.generateMultilevelFromHighResField(std::move(highResModif));
-			covector.toFourier();
-			return std::move(covector);
+			return this->underlying.generateMultilevelFromHighResField(std::move(highResModif));
 		}
 
-
-
-	protected:
-
+		//! To be overriden with specific implementations of linear properties
 		virtual fields::Field<DataType, T> calculateCovectorOnOneLevel(grids::Grid<T> &grid) = 0;
 
 
-
-
+		//! Obtain centre of region of interest
+		/*!
+		 * Mostly useful for angular momentum modifications
+		 */
 		Coordinate<T> getCentre(grids::Grid<T> &grid) {
 
 			T xa, ya, za, xb, yb, zb, x0 = 0., y0 = 0., z0 = 0.;
@@ -74,6 +76,10 @@ namespace modifications {
 			return result;
 		}
 
+
+		/*!
+		 * Mostly useful for angular momentum modifications
+		 */
 		void centralDifference4thOrder(grids::Grid<T> &grid, std::vector<DataType> &outputData, long index, int direc, T x0, T y0, T z0) {
 
 			T xp = 0., yp = 0., zp = 0.;
@@ -147,7 +153,10 @@ namespace modifications {
 
 		OverdensityModification(multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
 														const cosmology::CosmologicalParameters<T> &cosmology_):
-				LinearModification<DataType,T>(underlying_, cosmology_){};
+				LinearModification<DataType,T>(underlying_, cosmology_){
+			this->covector = this->calculateCovectorOnAllLevels();
+			this->covector->toFourier();
+		};
 
 		fields::Field<DataType, T> calculateCovectorOnOneLevel(grids::Grid<T> &grid) override {
 
@@ -212,7 +221,8 @@ namespace modifications {
 
 
 
-
+	//! WARNING : Unfinished and not working implementation
+	//TODO
 	template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
 	class AngMomentumModification : public LinearModification<DataType, T> {
 	public:

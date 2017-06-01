@@ -8,22 +8,25 @@
 
 #include <src/simulation/modifications/linearmodification.hpp>
 
+//! Deals with the creation of genetically modified fields
 namespace modifications{
 
+	//! Keep track of modifications to be applied. Construct the modified field from these modifications.
 	template<typename DataType, typename T=tools::datatypes::strip_complex <DataType>>
 	class ModificationManager {
 
 	public:
-		fields::OutputField<DataType>* outputField;
-		multilevelcontext::MultiLevelContextInformation<DataType> &underlying;
-		const cosmology::CosmologicalParameters<T> &cosmology;
-		std::vector<LinearModification<DataType,T>*> modificationList;
+		fields::OutputField<DataType>* outputField;																			/*!< Will become the modified field */
+		multilevelcontext::MultiLevelContextInformation<DataType> &underlying;					/*!< Grid context in which modifications take place */
+		const cosmology::CosmologicalParameters<T> &cosmology;													/*!< Cosmology context in which modifications take place */
+		std::vector<LinearModification<DataType,T>*> modificationList;									/*!< Modifications to be applied */
 
 		ModificationManager(multilevelcontext::MultiLevelContextInformation<DataType> &multiLevelContext_,
 												const cosmology::CosmologicalParameters<T> &cosmology_,
 												fields::OutputField<DataType>* outputField_):
 				outputField(outputField_), underlying(multiLevelContext_), cosmology(cosmology_){}
 
+		//! Calculate existing value of the quantity defined by name
 		T calculateCurrentValueByName(std::string name_){
 
 			LinearModification<DataType,T>* modification = getModificationFromName(name_);
@@ -31,6 +34,10 @@ namespace modifications{
 			return value;
 		}
 
+		/*!
+				\param type_ Modification can be relative to existing value or absolute
+				\param target_ Absolute target or factor by which the existing will be multiplied
+			*/
 		void addModificationToList(std::string name_, std::string type_ , T target_){
 			//TODO Either allow multiple arguments or create a different function for lin and quad
 			bool relative = isRelative(type_);
@@ -45,6 +52,7 @@ namespace modifications{
 			modificationList.push_back(std::move(modification));
 		}
 
+		//! Construct the modified field with all modifications present in the modification list
 		void applyModifications(){
 			applyLinearModif();
 
@@ -58,10 +66,10 @@ namespace modifications{
 
 			tools::progress::ProgressBar pb("calculating covariance");
 
-			std::vector<fields::ConstraintField<DataType>> alphas;
+			std::vector<std::shared_ptr<fields::ConstraintField<DataType>>> alphas;
 
 			for (size_t i = 0; i < modificationList.size(); i++) {
-				alphas.push_back(std::move(modificationList[i]->calculateCovectorOnAllLevels()));
+				alphas.push_back(modificationList[i]->getCovector());
 			}
 
 			size_t n = alphas.size();
@@ -69,10 +77,10 @@ namespace modifications{
 			std::vector<std::vector<std::complex<T>>> c_matrix(n, std::vector<std::complex<T>>(n, 0));
 
 			for (size_t i = 0; i < n; i++) {
-				auto &alpha_i = alphas[i];
+				auto &alpha_i = *(alphas[i]);
 				for (size_t j = 0; j <= i; j++) {
 					pb.setProgress(((float) done * 2) / (n * (1 + n)));
-					auto &alpha_j = alphas[j];
+					auto &alpha_j = *(alphas[j]);
 					c_matrix[i][j] = alpha_i.innerProduct(alpha_j).real();
 					c_matrix[j][i] = c_matrix[i][j];
 					done += 1;
@@ -123,14 +131,19 @@ namespace modifications{
 //			return (std::vector<LinearModification<DataType,T>*>) modificationList;
 //		}
 
+
+		/*!
+		 * Linear modifications are applied by orthonormalisation and adding the
+		 * correction term. See Roth et al 2016 for details
+		 */
 		void applyLinearModif(){
 
-			std::vector<fields::ConstraintField<DataType>> alphas;
+			std::vector<std::shared_ptr<fields::ConstraintField<DataType>>> alphas;
 			std::vector<T> targets, existing_values;
 
 			// Extract A, b and A*delta_0 from modification list
 			for (size_t i = 0; i < modificationList.size(); i++) {
-				alphas.push_back(std::move(modificationList[i]->calculateCovectorOnAllLevels()));
+				alphas.push_back(modificationList[i]->getCovector());
 				targets.push_back(modificationList[i]->getTarget());
 				existing_values.push_back(modificationList[i]->calculateCurrentValue(outputField));
 			}
@@ -140,7 +153,7 @@ namespace modifications{
 			outputField->toFourier();
 
 			for (size_t i = 0; i < alphas.size(); i++) {
-				fields::MultiLevelField<DataType> &alpha_i = alphas[i];
+				auto &alpha_i = *(alphas[i]);
 				auto dval_i = targets[i] - existing_values[i];
 
 				// Constraints are essentially covectors. Convert to a vector, with correct weighting/filtering.
@@ -161,10 +174,10 @@ namespace modifications{
 			 * repeat
 			 */
 		}
-		void orthonormaliseModifications(std::vector<fields::ConstraintField<DataType>> &alphas,
+
+		//! Graam-Schmidt procedure to orthonormalise the modification covectors
+		void orthonormaliseModifications(std::vector<std::shared_ptr<fields::ConstraintField<DataType>>> alphas,
 																		 std::vector<T> &targets, std::vector<T> &existing_values) {
-			/* Modifications need to be orthonormal before applying (or alternatively one would need an extra matrix
-			 * manipulation on them, as in the original HR91 paper, which boils down to the same thing). */
 
 			using namespace tools::numerics;
 
@@ -190,9 +203,9 @@ namespace modifications{
 			tools::progress::ProgressBar pb("orthogonalizing modifications");
 
 			for (size_t i = 0; i < n; i++) {
-				auto &alpha_i = alphas[i];
+				auto &alpha_i = *(alphas[i]);
 				for (size_t j = 0; j < i; j++) {
-					auto &alpha_j = alphas[j];
+					auto &alpha_j = *(alphas[j]);
 					pb.setProgress(((float) done * 2) / (n * (1 + n)));
 					T result = alpha_i.innerProduct(alpha_j).real();
 
@@ -226,7 +239,7 @@ namespace modifications{
 			// TODO: rather than recalculate them, it would save CPU time to update them alongside the vectors/target values.
 			existing_values.clear();
 			for (size_t i = 0; i < n; i++) {
-				auto &alpha_i = alphas[i];
+				auto &alpha_i = *(alphas[i]);
 				existing_values.push_back(alpha_i.innerProduct(*outputField).real());
 			}
 
