@@ -805,6 +805,11 @@ public:
     cout << name << ": calculated value = " << val << endl;
   }
 
+  void calculateVariance(T filterscale){
+    GridDataType val = modificationManager.calculateVariance(filterscale);
+    cout << "variance" << ": calculated value = " << val << endl;
+  }
+
   virtual void modify(string name, string type, float target) {
     if (!haveInitialisedRandomComponent)
       initialiseRandomComponent();
@@ -813,9 +818,9 @@ public:
 
   }
 
-//	virtual void quadraticallyconstrain(string name, string type, float target, int initNumberSteps, float precision, float filterscale){
-//		modiManager.addConstrainToQuadList(name, type, target, initNumberSteps,precision,filterscale);
-//	}
+	virtual void quadraticallyModify(string name, string type, T target, int initNumberSteps, T precision, T filterscale){
+		modificationManager.addQuadModificationToList(name, type, target, initNumberSteps, precision, filterscale);
+	}
 
   void cov() {
   	modificationManager.print_covariance();

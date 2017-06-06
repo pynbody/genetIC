@@ -1,4 +1,4 @@
-# Test basic input for quadratic constraint
+# Test variance calculation on one level
 
 Om  0.279
 Ol  0.721
@@ -14,11 +14,12 @@ outdir	 ./
 outformat 4
 
 
-basegrid 50.0 64
+basegrid 64 64
 
+centre 32.5 32.5 32.5
+select_sphere 10
 
+calculate_variance 0
 
-
-done
-dumpps 0
-dumpgrid 0
+dump_ps 0
+dump_grid 0

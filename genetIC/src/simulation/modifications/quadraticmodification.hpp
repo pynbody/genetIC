@@ -11,12 +11,12 @@ namespace modifications {
 	class QuadraticModification : public Modification<DataType, T> {
 	private:
 		int initNumberSteps;
-		float targetPrecision;
+		T targetPrecision;
 
 	public:
 		QuadraticModification(multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
 													const cosmology::CosmologicalParameters<T> &cosmology_,
-													int initNumberSteps_, float targetPrecision_) :
+													int initNumberSteps_, T targetPrecision_) :
 				Modification<DataType, T>(underlying_, cosmology_) {
 			this->initNumberSteps = initNumberSteps_;
 			this->targetPrecision = targetPrecision_;
@@ -26,23 +26,33 @@ namespace modifications {
 			return this->initNumberSteps;
 		}
 
-		float getTargetPrecision(){
+		T getTargetPrecision(){
 			return this->targetPrecision;
 		}
 
-		T calculateCurrentValue(fields::MultiLevelField<DataType>* /* field */) override {
-			//TODO Implement delta dagger inner product of( Q delta)
-			T value = 0;
+		T calculateCurrentValue(fields::MultiLevelField<DataType>*  field) override {
+			auto pushedField = pushMultiLevelFieldThroughMatrix(*field);
+			T value = field->euclidianInnerProduct(pushedField);
+			//TODO implement euclidian inner product
 			return value;
 		}
 
 		fields::MultiLevelField<DataType> pushMultiLevelFieldThroughMatrix(const fields::MultiLevelField<DataType> &field ){
-			//TODO Implement generate multi level from high res
-			return field;
+			//TODO Implement generate multi level from high res or push each level through
+			std::vector<std::shared_ptr<fields::Field<DataType, T>>> oneLevelFieldsVector;
+
+			for (size_t level = 0; level < this->underlying.getNumLevels(); ++level){
+				auto pushedOneLevel = pushOneLevelFieldThroughMatrix(field.getFieldForLevel(level));
+				oneLevelFieldsVector.push_back(pushedOneLevel);
+			}
+
+			fields::MultiLevelField<DataType> multiLevelPushed = fields::MultiLevelField<DataType>(this->underlying,
+																																														 oneLevelFieldsVector);
+			return multiLevelPushed;
 		}
 
 	protected:
-		virtual fields::Field<DataType, T> pushOneLevelFieldThroughMatrix(const fields::Field<DataType, T> &/* field */) = 0;
+		virtual std::shared_ptr<fields::Field<DataType, T>> pushOneLevelFieldThroughMatrix(const fields::Field<DataType, T> &/* field */) = 0;
 	};
 
 	template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
@@ -52,12 +62,14 @@ namespace modifications {
 
 		FilteredVarianceModification(multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
 		const cosmology::CosmologicalParameters<T> &cosmology_,
-		int initNumberSteps_, float targetPrecision_, float scale_) :
-		QuadraticModification<DataType, T>(underlying_, cosmology_, initNumberSteps_, targetPrecision_) {
-			this->scale = scale_;
+		int initNumberSteps_, T targetPrecision_) :
+		QuadraticModification<DataType, T>(underlying_, cosmology_, initNumberSteps_, targetPrecision_) {}
+
+		void setFilterScale(T scale_){
+			this->scale =scale_;
 		}
 
-		fields::Field<DataType, T> pushOneLevelFieldThroughMatrix(const fields::Field<DataType, T> &field) override {
+		std::shared_ptr<fields::Field<DataType, T>> pushOneLevelFieldThroughMatrix(const fields::Field<DataType, T> &field) override {
 			// Window field : extract flagged components and fill rest with zero in new field
 			// Filter field : method apply filter. Discuss which filter should be the best with Andrew
 			// Variance
@@ -67,11 +79,11 @@ namespace modifications {
 			windowOperator(pushedField);
 			varianceOperator(pushedField);
 			windowOperator(pushedField);
-			return pushedField;
+			return std::make_shared<fields::Field<DataType, T>>(pushedField);
 		}
 
 	private:
-		float scale;
+		T scale;
 
 		void windowOperator(fields::Field<DataType, T> &field) {
 
@@ -101,7 +113,7 @@ namespace modifications {
 
 			for (size_t i = 0; i < regionSize; i++) {
 				fieldData[this->flaggedCells[i]] *= (1 / regionSize);
-				fieldData[this->flaggedCells[i]] += (1 / regionSize)^2 * sum;
+				fieldData[this->flaggedCells[i]] += pow(1 / regionSize, 2) * sum;
 			}
 
 		}

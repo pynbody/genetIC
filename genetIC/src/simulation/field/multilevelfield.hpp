@@ -234,6 +234,10 @@ namespace fields {
       return result;
     }
 
+    T euclidianInnerProduct(const MultiLevelField<DataType> &other){
+      // TODO implement this with std library
+    }
+
     void applyFilters() {
       for(size_t level=0; level<getNumLevels(); ++level) {
         if(hasFieldOnGrid(level)) {

@@ -55,7 +55,11 @@ set(SOURCE_FILES
         genetIC/src/simulation/particles/mapper/gasmapper.hpp
         genetIC/src/simulation/particles/mapper/graficmapper.hpp
         genetIC/src/simulation/field/evaluator.hpp
-        genetIC/src/simulation/window.hpp)
+        genetIC/src/simulation/window.hpp
+        genetIC/src/simulation/modifications/modification.hpp
+        genetIC/src/simulation/modifications/linearmodification.hpp
+        genetIC/src/simulation/modifications/quadraticmodification.hpp
+        genetIC/src/simulation/modifications/modificationmanager.hpp)
 
 include_directories( /opt/local/include )
 link_directories(/opt/local/lib )

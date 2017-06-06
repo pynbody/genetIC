@@ -7,6 +7,7 @@
 #include <src/cosmology/parameters.hpp>
 
 #include <src/simulation/modifications/linearmodification.hpp>
+#include <src/simulation/modifications/quadraticmodification.hpp>
 
 //! Deals with the creation of genetically modified fields
 namespace modifications{
@@ -19,7 +20,8 @@ namespace modifications{
 		fields::OutputField<DataType>* outputField;																			/*!< Will become the modified field */
 		multilevelcontext::MultiLevelContextInformation<DataType> &underlying;					/*!< Grid context in which modifications take place */
 		const cosmology::CosmologicalParameters<T> &cosmology;													/*!< Cosmology context in which modifications take place */
-		std::vector<LinearModification<DataType,T>*> modificationList;									/*!< Modifications to be applied */
+		std::vector<LinearModification<DataType,T>*> linearModificationList;
+		std::vector<QuadraticModification<DataType,T>*> quadraticModificationList;
 
 		ModificationManager(multilevelcontext::MultiLevelContextInformation<DataType> &multiLevelContext_,
 												const cosmology::CosmologicalParameters<T> &cosmology_,
@@ -29,7 +31,15 @@ namespace modifications{
 		//! Calculate existing value of the quantity defined by name
 		T calculateCurrentValueByName(std::string name_){
 
-			LinearModification<DataType,T>* modification = getModificationFromName(name_);
+			Modification<DataType,T>* modification = getLinearModificationFromName(name_);
+			T value = modification->calculateCurrentValue(outputField);
+			return value;
+		}
+
+		T calculateVariance(T scale_){
+
+			FilteredVarianceModification<DataType,T>* modification = new FilteredVarianceModification<DataType,T>(underlying, cosmology,0,0);
+			modification->setFilterScale(scale_);
 			T value = modification->calculateCurrentValue(outputField);
 			return value;
 		}
@@ -41,7 +51,7 @@ namespace modifications{
 		void addModificationToList(std::string name_, std::string type_ , T target_){
 			//TODO Either allow multiple arguments or create a different function for lin and quad
 			bool relative = isRelative(type_);
-			LinearModification<DataType,T>* modification = getModificationFromName(name_);
+			LinearModification<DataType,T>* modification = getLinearModificationFromName(name_);
 			T value = modification->calculateCurrentValue(outputField);
 
 			T target = target_;
@@ -49,7 +59,22 @@ namespace modifications{
 
 			modification->setTarget(target);
 
-			modificationList.push_back(std::move(modification));
+			linearModificationList.push_back(std::move(modification));
+		}
+
+
+		void addQuadModificationToList(std::string name_, std::string type_ , T target_, int initNsteps_, T precision, T scale = 0){
+
+			bool relative = isRelative(type_);
+			LinearModification<DataType,T>* modification = getLinearModificationFromName(name_);
+			T value = modification->calculateCurrentValue(outputField);
+
+			T target = target_;
+			if(relative) target *= value;
+
+			modification->setTarget(target);
+
+			linearModificationList.push_back(std::move(modification));
 		}
 
 		//! Construct the modified field with all modifications present in the modification list
@@ -68,8 +93,8 @@ namespace modifications{
 
 			std::vector<std::shared_ptr<fields::ConstraintField<DataType>>> alphas;
 
-			for (size_t i = 0; i < modificationList.size(); i++) {
-				alphas.push_back(modificationList[i]->getCovector());
+			for (size_t i = 0; i < linearModificationList.size(); i++) {
+				alphas.push_back(linearModificationList[i]->getCovector());
 			}
 
 			size_t n = alphas.size();
@@ -102,14 +127,29 @@ namespace modifications{
 
 		void dumpModifications(){
 			std::cout << "Clearing modification list" << std::endl;
-			modificationList.clear();
+			linearModificationList.clear();
 		}
 
 
 
 	private:
-		//TODO Make sure modification is freed in memory
-		LinearModification<DataType,T>* getModificationFromName(std::string name_){
+		Modification<DataType,T>* getModificationFromName(std::string name_){
+			try{
+				auto modification = getLinearModificationFromName(name_);
+				return modification;
+			} catch( std::runtime_error &e) {
+				try {
+					auto modification = getQuadraticModificationFromName(name_);
+					return modification;
+				} catch (std::runtime_error &e) {
+					std::cerr << e.what() << std::endl;
+					throw;
+				}
+			}
+
+		}
+
+		LinearModification<DataType,T>* getLinearModificationFromName(std::string name_){
 			if ((strcasecmp(name_.c_str(), "overdensity") == 0)){
 				return new OverdensityModification<DataType,T>(underlying, cosmology);
 			} else if ((strcasecmp(name_.c_str(), "potential") == 0)) {
@@ -121,6 +161,15 @@ namespace modifications{
 			} else if ((strcasecmp(name_.c_str(), "lz") == 0)) {
 				return new AngMomentumModification<DataType,T>(underlying, cosmology, 2);
 			} else{
+				std::runtime_error(name_ + "" + "is an unknown modification name");
+				return NULL;
+			}
+		}
+
+		QuadraticModification<DataType,T>* getQuadraticModificationFromName(std::string name_){
+			if ((strcasecmp(name_.c_str(), "variance") == 0)){
+				return new FilteredVarianceModification<DataType,T>(underlying, cosmology, 0, 0);
+			}  else{
 				std::runtime_error(name_ + "" + "is an unknown modification name");
 				return NULL;
 			}
@@ -142,10 +191,10 @@ namespace modifications{
 			std::vector<T> targets, existing_values;
 
 			// Extract A, b and A*delta_0 from modification list
-			for (size_t i = 0; i < modificationList.size(); i++) {
-				alphas.push_back(modificationList[i]->getCovector());
-				targets.push_back(modificationList[i]->getTarget());
-				existing_values.push_back(modificationList[i]->calculateCurrentValue(outputField));
+			for (size_t i = 0; i < linearModificationList.size(); i++) {
+				alphas.push_back(linearModificationList[i]->getCovector());
+				targets.push_back(linearModificationList[i]->getTarget());
+				existing_values.push_back(linearModificationList[i]->calculateCurrentValue(outputField));
 			}
 
 
