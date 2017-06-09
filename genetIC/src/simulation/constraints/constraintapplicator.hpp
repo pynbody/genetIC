@@ -184,6 +184,9 @@ namespace constraints {
         alpha_i.toFourier(); // almost certainly already is in Fourier space, but just to be safe
         outputField->addScaled(alpha_i, dval_i);
       }
+      alphas.clear();
+      values.clear();
+      existing_values.clear();
     }
 
 		void applyQuadraticModifications(int N_steps) {
