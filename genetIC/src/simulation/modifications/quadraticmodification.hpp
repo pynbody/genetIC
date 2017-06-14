@@ -17,7 +17,7 @@ namespace modifications {
 		QuadraticModification(multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
 													const cosmology::CosmologicalParameters<T> &cosmology_,
 													int initNumberSteps_, T targetPrecision_) :
-				Modification<DataType, T>(underlying_, cosmology_) {
+				Modification<DataType, T>(underlying_, cosmology_), order(2) {
 			this->initNumberSteps = initNumberSteps_;
 			this->targetPrecision = targetPrecision_;
 		};
@@ -28,6 +28,10 @@ namespace modifications {
 
 		T getTargetPrecision(){
 			return this->targetPrecision;
+		}
+
+		unsigned int getOrder(){
+			return this->order;
 		}
 
 		T calculateCurrentValue(fields::MultiLevelField<DataType>*  field) override {
@@ -53,6 +57,8 @@ namespace modifications {
 
 	protected:
 		virtual std::shared_ptr<fields::Field<DataType, T>> pushOneLevelFieldThroughMatrix(const fields::Field<DataType, T> &/* field */) = 0;
+
+		unsigned int order; /*!< Quadratic are modif or order two */
 	};
 
 	template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>

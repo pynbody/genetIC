@@ -13,7 +13,7 @@ namespace modifications {
 
 		LinearModification(multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
 											 const cosmology::CosmologicalParameters<T> &cosmology_):
-				Modification<DataType,T>(underlying_, cosmology_){};
+				Modification<DataType,T>(underlying_, cosmology_), order(1){};
 
 		T calculateCurrentValue(fields::MultiLevelField<DataType>* field) override {
 			T val = this->covector->innerProduct(*field).real();
@@ -24,9 +24,15 @@ namespace modifications {
 			return this->covector;
 		}
 
+		unsigned int getOrder(){
+			return this->order;
+		}
+
 
 	protected:
 		std::shared_ptr<fields::ConstraintField<DataType>> covector;			/*!< Linear modification can be described as covectors */
+
+		unsigned int order; /*!< Linear are modif or order one */
 
 		//! Calculate covector on finest level and generate from it the multi-grid field
 		std::shared_ptr<fields::ConstraintField<DataType>> calculateCovectorOnAllLevels() {

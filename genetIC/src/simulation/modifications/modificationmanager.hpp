@@ -133,6 +133,9 @@ namespace modifications{
 
 
 	private:
+		//TODO This a very dangerous structure as if any runtime error arises
+		// when creating the linear modif, it will get swallowed. Best way would be
+		// to create a custom exception of unknown modif
 		Modification<DataType,T>* getModificationFromName(std::string name_){
 			try{
 				auto modification = getLinearModificationFromName(name_);

@@ -182,6 +182,7 @@ namespace fields {
 
     }
 
+		// TODO Most important function of the code. Should be documented step by step (Args are very hard to undertsand)
     ComplexType innerProduct(const MultiLevelField<DataType> &other) const {
 
       assert(isCompatible(other));

@@ -10,6 +10,7 @@ namespace filters {
   template<typename T>
   class ResidualFilterFamily;
 
+  // TODO There could be documentation on mutlilevel filter here.
   template<typename T>
   class FilterFamily {
   protected:
