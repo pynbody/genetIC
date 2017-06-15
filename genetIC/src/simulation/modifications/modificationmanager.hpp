@@ -100,7 +100,7 @@ namespace modifications{
 			std::cout << "]" << std::endl;
 		}
 
-		void dumpModifications(){
+		void clearModifications(){
 			std::cout << "Clearing modification list" << std::endl;
 			modificationList.clear();
 		}

@@ -34,10 +34,10 @@ calculate overdensity
 modify overdensity absolute 1.0
 
 # apply the first set of constraints
-fix_modifications
+apply_modifications
 
 # Clear the modification list
-dump_modifications
+clear_modifications
 
 centre 36.5 32.5 32.5
 select_nearest

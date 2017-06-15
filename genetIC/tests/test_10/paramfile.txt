@@ -52,7 +52,7 @@ done
 # check overdensity was correctly constrained
 calculate overdensity
 
-dump_modifications
+clear_modifications
 
 # dump diagnostic output
 dump_grid 0
