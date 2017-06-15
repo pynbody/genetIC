@@ -67,7 +67,7 @@ include_directories( genetIC/  )
 link_libraries(fftw3 m fftw3 fftw3_threads gsl gslcblas)
 
 add_definitions(-DFFTW3 -DFFTW_THREADS -DOPENMP -DGIT_VERSION -DGIT_MODIFIED -DDOUBLEPRECISION -DOUTPUT_IN_DOUBLEPRECISION)
-add_compile_options(-Wextra -Werror -Wfatal-errors)
+add_compile_options(-Wextra)
 add_executable(IC ${SOURCE_FILES})
 
 add_executable(IC_CFFT ${SOURCE_FILES} )

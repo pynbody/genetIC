@@ -1,11 +1,6 @@
 #ifndef IC_MODIFICATIONMANAGER_HPP
 #define IC_MODIFICATIONMANAGER_HPP
 
-#include <string>
-#include <src/tools/data_types/complex.hpp>
-#include <src/simulation/field/multilevelfield.hpp>
-#include <src/cosmology/parameters.hpp>
-
 #include <src/simulation/modifications/linearmodification.hpp>
 
 //! Deals with the creation of genetically modified fields
