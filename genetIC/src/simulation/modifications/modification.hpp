@@ -43,6 +43,23 @@ namespace modifications{
 
 	};
 
+
+	class UnknownModificationException: public std::exception {
+	public:
+
+		explicit UnknownModificationException(const char *message_) : message(message_) {}
+
+		explicit UnknownModificationException(const std::string &message_) : message(message_) {}
+
+		virtual ~UnknownModificationException() throw() {}
+
+		virtual const char *what() const throw() {
+			return message.c_str();
+		}
+
+	protected:
+		std::string message;
+	};
 };
 
 
