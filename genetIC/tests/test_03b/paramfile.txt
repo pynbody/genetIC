@@ -1,4 +1,4 @@
-# Test zooming with a DOUBLE constraint
+# Test zooming with two modifications
 
 # cosmology:
 Om  0.279
@@ -21,24 +21,25 @@ basegrid 64.0 64
 idfile zoomtest.txt
 zoomgrid 3 64
 
-# select a single cell to apply the constraint to
+# select a single cell to apply the modification to
 centre 32.5 31.5 32.5
 select_nearest
 
 
 calculate overdensity
-constrain overdensity relative 10.0
+modify overdensity relative 10.0
 
 centre 32.5 33.5 32.5
 select_nearest
 
 calculate overdensity
-constrain overdensity relative -10.0
+modify overdensity relative -10.0
 
-# apply the constraints
+# apply the modifs
 done
 
+clear_modifications
 
 # dump diagnostic output
-dumpgrid 0
-dumpgrid 1
+dump_grid 0
+dump_grid 1

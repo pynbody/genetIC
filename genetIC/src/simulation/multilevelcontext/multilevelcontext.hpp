@@ -145,7 +145,8 @@ namespace multilevelcontext {
         throw std::out_of_range("No covariance yet specified for this level");
     }
 
-    auto generateMultilevelFromHighResField(fields::Field<DataType, T> &&data) {
+		//! From finest level, use interpolation to construct other levels
+    std::shared_ptr<fields::ConstraintField<DataType>> generateMultilevelFromHighResField(fields::Field<DataType, T> &&data) {
       assert(&data.getGrid() == pGrid.back().get());
 
       // Generate the fields on each level. Fill low-res levels with zeros to start with.
@@ -168,7 +169,7 @@ namespace multilevelcontext {
         }
       }
 
-      return fields::ConstraintField<DataType>(*dynamic_cast<MultiLevelContextInformation<DataType, T> *>(this),
+      return std::make_shared<fields::ConstraintField<DataType>>(*dynamic_cast<MultiLevelContextInformation<DataType, T> *>(this),
                                                dataOnLevels);
     }
 

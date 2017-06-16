@@ -13,8 +13,7 @@
 
 #include "io/numpy.hpp"
 
-#include "src/simulation/constraints/constraintapplicator.hpp"
-#include "src/simulation/constraints/multilevelconstraintgenerator.hpp"
+#include <src/simulation/modifications/modificationmanager.hpp>
 
 #include "src/tools/filesystem.h"
 
@@ -61,8 +60,7 @@ protected:
   multilevelcontext::MultiLevelContextInformation<GridDataType> multiLevelContext;
 
   fields::OutputField<GridDataType> outputField;
-  constraints::ConstraintApplicator<GridDataType> constraintApplicator;
-  constraints::MultiLevelConstraintGenerator<GridDataType> constraintGenerator;
+  modifications::ModificationManager<GridDataType> modificationManager;
   fields::RandomFieldGenerator<GridDataType> randomFieldGenerator;
 
   cosmology::CAMB<GridDataType> spectrum;
@@ -112,8 +110,7 @@ protected:
 public:
   ICGenerator(tools::ClassDispatch<ICGenerator<GridDataType>, void> &interpreter) :
     outputField(multiLevelContext),
-    constraintApplicator(&multiLevelContext, &outputField),
-    constraintGenerator(multiLevelContext, cosmology),
+    modificationManager(multiLevelContext, cosmology, &outputField),
     randomFieldGenerator(outputField),
     pMapper(new particle::mapper::ParticleMapper<GridDataType>()),
     interpreter(interpreter) {
@@ -799,64 +796,50 @@ public:
     z0 = zin;
   }
 
-  auto calcConstraint(string name_in) {
-    auto constraint = constraintGenerator.calcConstraintForAllLevels(name_in);
-    constraint.toFourier();
-    return constraint;
-  }
-
   void calculate(string name) {
     if (!haveInitialisedRandomComponent)
       initialiseRandomComponent();
 
-    auto constraint_field = calcConstraint(name);
-    auto val = constraint_field.innerProduct(outputField);
+		GridDataType val = modificationManager.calculateCurrentValueByName(name);
 
     cout << name << ": calculated value = " << val << endl;
   }
 
-  virtual void constrain(string name, string type, float value) {
+  virtual void modify(string name, string type, float target) {
     if (!haveInitialisedRandomComponent)
       initialiseRandomComponent();
 
-    bool relative = false;
-    if (strcasecmp(type.c_str(), "relative") == 0) {
-      relative = true;
-    } else if (strcasecmp(type.c_str(), "absolute") != 0) {
-      throw runtime_error("Constraint type must be either 'relative' or 'absolute'");
-    }
-
-    T constraint = value;
-    auto vec = calcConstraint(name);
-
-    T initv = vec.innerProduct(outputField).real();
-
-    if (relative) constraint *= initv;
-
-    cout << name << ": initial value = " << initv << ", constraining to " << constraint << endl;
-    constraintApplicator.add_constraint(std::move(vec), constraint, initv);
+		modificationManager.addModificationToList(name, type, target);
 
   }
+
+//	virtual void quadraticallyconstrain(string name, string type, float target, int initNumberSteps, float precision, float filterscale){
+//		modiManager.addConstrainToQuadList(name, type, target, initNumberSteps,precision,filterscale);
+//	}
 
   void cov() {
-    constraintApplicator.print_covariance();
+  	modificationManager.print_covariance();
   }
 
+	void clearModifications() {
+		modificationManager.clearModifications();
+	}
 
-  virtual void fixConstraints() {
+
+  virtual void applyModifications() {
     if (!haveInitialisedRandomComponent)
       initialiseRandomComponent();
 
-    constraintApplicator.applyModifications();
+    modificationManager.applyModifications();
   }
 
   virtual void done() {
-    T pre_constraint_chi2 = outputField.getChi2();
-    cerr << "BEFORE constraints chi^2=" << pre_constraint_chi2 << endl;
-    fixConstraints();
-    T post_constraint_chi2 = outputField.getChi2();
-    cerr << "AFTER  constraints chi^2=" << post_constraint_chi2 << endl;
-    cerr << "             delta-chi^2=" << post_constraint_chi2 - pre_constraint_chi2 << endl;
+    T pre_modif_chi2 = outputField.getChi2();
+    cerr << "BEFORE modifications chi^2=" << pre_modif_chi2 << endl;
+    applyModifications();
+    T post_modif_chi2 = outputField.getChi2();
+    cerr << "AFTER  modifications chi^2=" << post_modif_chi2 << endl;
+    cerr << "             delta-chi^2=" << post_modif_chi2 - pre_modif_chi2 << endl;
     write();
   }
 

@@ -1,4 +1,4 @@
-# Test zooming with a constraint and non-zero random field
+# Test zooming with a modification and non-zero random field
 
 # cosmology:
 Om  0.279
@@ -28,12 +28,14 @@ select_nearest
 dump_IDfile check_constr.txt
 
 calculate overdensity
-constrain overdensity absolute 0.1
+modify overdensity absolute 0.1
 
 done
 calculate overdensity
 
-dumpgrid 0
-dumpgrid 1
-dumpPS 0
-dumpPS 1
+clear_modifications
+
+dump_grid 0
+dump_grid 1
+dump_ps 0
+dump_ps 1

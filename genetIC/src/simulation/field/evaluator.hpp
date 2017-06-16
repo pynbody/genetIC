@@ -143,7 +143,7 @@ namespace fields {
 
     virtual DataType operator[](size_t i) const override {
       DataType returnVal(0);
-      int localFactor3 = grid->forEachSubcell(i, [this, &returnVal](size_t local_id) {
+      CoordinateType localFactor3 = grid->forEachSubcell(i, [this, &returnVal](size_t local_id) {
         returnVal += (*(this->underlying))[local_id];
       });
       return returnVal / localFactor3;
