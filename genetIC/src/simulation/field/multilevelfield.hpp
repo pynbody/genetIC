@@ -235,10 +235,39 @@ namespace fields {
       return result;
     }
 
-    T euclidianInnerProduct(const MultiLevelField<DataType>& /*&other*/){
-      // TODO implement this with std library
-      return 0;
-    }
+    ComplexType euclidianInnerProduct(const MultiLevelField<DataType> &other){
+
+			assert(isFourierOnAllLevels() && other.isFourierOnAllLevels());
+
+
+			T weight;
+			const filters::Filter<T> *pFiltOther;
+			const grids::Grid<T> *pCurrentGrid;
+			const Field<DataType> *pFieldThis, *pFieldOther;
+			const std::vector<DataType> *pFieldDataThis;
+
+			ComplexType result(0,0);
+
+			for(size_t level=0; level<getNumLevels(); ++level) {
+				weight = multiLevelContext->getWeightForLevel(level);
+				pCurrentGrid = &(multiLevelContext->getGridForLevel(level));
+				pFiltOther = &(other.getFilterForLevel(level));
+				pFieldThis = &(this->getFieldForLevel(level));
+				pFieldDataThis = &(this->getFieldForLevel(level).getDataVector());
+				pFieldOther = &(other.getFieldForLevel(level));
+				T kMin = pCurrentGrid->getFourierKmin();
+				if(pFieldOther!=nullptr && pFieldDataThis->size() > 0) {
+					result+=pFieldThis->accumulateForEachFourierCell([&](tools::datatypes::ensure_complex<DataType> thisFieldVal,
+																															 int kx, int ky, int kz) {
+						auto otherFieldVal = pFieldOther->getFourierCoefficient(kx,ky,kz);
+						T k_value = kMin*sqrt(T(kx)*T(kx)+T(ky)*T(ky)+T(kz)*T(kz));
+						T inner_weight = weight * (*pFiltOther)(k_value);
+						return inner_weight * std::real(std::conj(thisFieldVal)*otherFieldVal);
+					});
+				}
+			}
+			return result;
+		}
 
     void applyFilters() {
       for(size_t level=0; level<getNumLevels(); ++level) {

@@ -37,9 +37,15 @@ namespace modifications {
 
 
 		T calculateCurrentValue(fields::MultiLevelField<DataType>*  field) override {
+
+			if(!field->isFourierOnAllLevels()){
+				field->toFourier();
+			}
+
 			auto pushedField = pushMultiLevelFieldThroughMatrix(*field);
-			T value = field->euclidianInnerProduct(pushedField);
-			//TODO implement euclidian inner product
+			pushedField.toFourier();
+
+			T value = pushedField.euclidianInnerProduct(*field).real();
 			return value;
 		}
 
@@ -74,14 +80,26 @@ namespace modifications {
 		}
 
 		std::shared_ptr<fields::Field<DataType, T>> pushOneLevelFieldThroughMatrix(const fields::Field<DataType, T> &field) override {
-			// Window field : extract flagged components and fill rest with zero in new field
-			// Filter field : method apply filter. Discuss which filter should be the best with Andrew
-			// Variance
-			// Keep pushing
 
 			fields::Field<DataType, T> pushedField = fields::Field<DataType, T>(field);
+
+			pushedField.toReal();
 			windowOperator(pushedField);
+
+//			pushedField.toFourier();
+//			for (auto i = pushedField.getDataVector().begin(); i != pushedField.getDataVector().end(); ++i){
+//				std::cout << std::distance(pushedField.getDataVector().begin(), i) << ' '<< std::endl;
+//				std::cout << *i << ' '<< std::endl;
+//			}
+//
+//			for (auto i = field.getDataVector().begin(); i != field.getDataVector().end(); ++i){
+//				std::cout << std::distance(field.getDataVector().begin(), i) << ' '<< std::endl;
+//				std::cout << *i << ' '<< std::endl;
+//			}
+
 			varianceOperator(pushedField);
+
+
 			windowOperator(pushedField);
 			return std::make_shared<fields::Field<DataType, T>>(pushedField);
 		}
@@ -91,13 +109,14 @@ namespace modifications {
 
 		void windowOperator(fields::Field<DataType, T> &field) {
 
+			assert(! field.isFourier()); // Windowing is done in real space
+
 			std::vector<DataType> &fieldData = field.getDataVector();
 
-			for (size_t i = 0; i < field.getGrid().size3; ++i) {
-
-				// TODO Check if condition, not quite sure it works
-				if (std::find(this->flaggedCells.begin(), this->flaggedCells.end(), i) != this->flaggedCells.end())
-					fieldData[i] = 0;
+			for (size_t i = 0; i < fieldData.size(); ++i) {
+				// If cell is not a flagged cell, zero it
+				if (!(std::binary_search(this->flaggedCells.begin(), this->flaggedCells.end(), i)) ){
+					fieldData[i] = 0;}
 			}
 		}
 

@@ -9,17 +9,19 @@ zin	99
 seed	8896131
 camb	../camb_transfer_kmax40_z0.dat
 
-outname test_1
+outname quadratic_test_1
 outdir	 ./
 outformat 4
 
 
-basegrid 64 64
+basegrid 3 3
 
-centre 32.5 32.5 32.5
-select_sphere 10
+centre  1 1 1
+select_sphere 1
 
 calculate_variance 0
+
+done
 
 dump_ps 0
 dump_grid 0
