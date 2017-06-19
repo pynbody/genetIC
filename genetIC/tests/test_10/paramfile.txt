@@ -1,4 +1,4 @@
-# Test double-zooming with a constraint, pre-zeroed random component
+# Test double-zooming with a modification, pre-zeroed random component
 
 # cosmology:
 Om  0.279
@@ -44,15 +44,17 @@ dump_IDfile check_constr.txt
 
 # calculate the existing overdensity (should be 0), set it to 1.0
 calculate overdensity
-constrain overdensity absolute 1.0
+modify overdensity absolute 1.0
 
-# apply the constraints
+# apply the modification
 done
 
 # check overdensity was correctly constrained
 calculate overdensity
 
+clear_modifications
+
 # dump diagnostic output
-dumpgrid 0
-dumpgrid 1
-dumpgrid 2
+dump_grid 0
+dump_grid 1
+dump_grid 2

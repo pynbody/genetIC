@@ -63,14 +63,6 @@ namespace particle {
     } else if (nlevels >= 2) {
       cerr << "Zeldovich approximation on successive levels...";
 
-#define NEWMETHOD
-
-#ifndef NEWMETHOD
-      // remove all the unwanted k-modes from grids, but keep a record of them so we can reinstate them on the
-      // coarser levels later
-      auto residuals = outputField.getHighKResiduals();
-      outputField.applyFilters();
-#endif
 
       for (size_t level = 0; level < nlevels; ++level)
         generator.pGenerators.emplace_back(
@@ -80,7 +72,6 @@ namespace particle {
 
       for (size_t level = 1; level < nlevels; ++level) {
 
-#ifdef NEWMETHOD
         // remove the low-frequency information from this level
         generator.outputField.getFieldForLevel(level).applyFilter(
           generator.outputField.getHighPassFilterForLevel(level));
@@ -100,28 +91,12 @@ namespace particle {
                                                                             level - 1));
 
 
-#else
-        generator.outputField.getFieldForLevel(level).addFieldFromDifferentGrid(generator.outputField.getFieldForLevel(level - 1));
-        generator.pGenerators[level]->addFieldFromDifferentGrid(*generator.pGenerators[level - 1]);
-#endif
-
 
       }
 
       generator.outputField.toFourier();
 
-#ifdef NEWMETHOD
       generator.outputField.setStateRecombined();
-#else
-      cerr << "Re-introducing high-k modes into low-res region...";
-
-      generator.outputField.recombineHighKResiduals(residuals);
-
-      for(size_t level=0; level<nlevels-1; ++level) {
-        generator.pGenerators[level]->recalculate();
-      }
-
-#endif
 
       for (size_t i = 0; i < nlevels; ++i)
         generator.pGenerators[i]->toReal();

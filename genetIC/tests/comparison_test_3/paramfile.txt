@@ -32,4 +32,4 @@ constrain overdensity absolute 1.0
 
 done
 
-dumpgrid 0
+dump_grid 0
