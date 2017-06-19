@@ -27,7 +27,7 @@ namespace modifications{
 		//! Calculate existing value of the quantity defined by name
 		T calculateCurrentValueByName(std::string name_){
 
-			std::shared_ptr<LinearModification<DataType,T>> modification = getLinearModificationFromName(name_);
+			std::shared_ptr<Modification<DataType,T>> modification = getModificationFromName(name_);
 			T value = modification->calculateCurrentValue(outputField);
 			return value;
 		}
@@ -35,7 +35,7 @@ namespace modifications{
 		T calculateVariance(T scale_){
 
 			std::shared_ptr<FilteredVarianceModification<DataType,T>> modification =
-					make_shared<FilteredVarianceModification<DataType,T>>(underlying, cosmology,0,0);
+					make_shared<FilteredVarianceModification<DataType,T>>(underlying, cosmology);
 			modification->setFilterScale(scale_);
 			T value = modification->calculateCurrentValue(outputField);
 			return value;
@@ -46,9 +46,8 @@ namespace modifications{
 				\param target_ Absolute target or factor by which the existing will be multiplied
 			*/
 		void addModificationToList(std::string name_, std::string type_ , T target_){
-			//TODO Either allow multiple arguments or create a different function for lin and quad
       
-			std::shared_ptr<LinearModification<DataType,T>> modification = getLinearModificationFromName(name_);
+			std::shared_ptr<Modification<DataType,T>> modification = getModificationFromName(name_);
 
 			bool relative = isRelative(type_);
 			T target = target_;
@@ -59,23 +58,24 @@ namespace modifications{
 			}
 
 			modification->setTarget(target);
-			linearModificationList.push_back(modification);
 
-//			if(modification->getOrder() == 1 ){
-//				linearModificationList.push_back(dynamic_cast<std::shared_ptr<LinearModification<DataType,T>>>(modification));
-//			} else if (modification->getOrder() == 2){
-//				quadraticModificationList.push_back(dynamic_cast<std::shared_ptr<QuadraticModification<DataType,T>>>(modification));
-//			} else{
-//				throw std::runtime_error( " Could not add modification to list");
-//			}
+			if(modification->getOrder() == 1 ){
+				linearModificationList.push_back(std::dynamic_pointer_cast<LinearModification<DataType,T>>(modification));
+			} else if (modification->getOrder() == 2){
+				quadraticModificationList.push_back(std::dynamic_pointer_cast<QuadraticModification<DataType,T>>(modification));
+			} else{
+				throw std::runtime_error( " Could not add modification to list");
+			}
 		}
 
 
-		void addQuadModificationToList(std::string /*name_*/, std::string type_ , T target_, int initNsteps_, T precision, T scale_ = 0){
+		void addQuadModificationToList(std::string /*name_*/, std::string type_ , T target_, int initNsteps_, T precision_, T scale_ = 0){
 
 			std::shared_ptr<FilteredVarianceModification<DataType,T>> modification =
-									make_shared<FilteredVarianceModification<DataType,T>>(underlying, cosmology, initNsteps_, precision);
+									make_shared<FilteredVarianceModification<DataType,T>>(underlying, cosmology);
 
+			modification->setInitNumberSteps(initNsteps_);
+			modification->setTargetPrecision(precision_);
 			modification->setFilterScale(scale_);
 
 			bool relative = isRelative(type_);
@@ -147,28 +147,23 @@ namespace modifications{
 
 
 	private:
-
-		//TODO This a very dangerous structure as if any runtime error arises
-		// when creating the linear modif, it will get swallowed. Best way would be
-		// to create a custom exception of unknown modif
 		std::shared_ptr<Modification<DataType,T>> getModificationFromName(std::string name_){
 			try{
 				auto modification = getLinearModificationFromName(name_);
 				return modification;
-			} catch( std::runtime_error &e) {
+			} catch( UnknownModificationException &e) {
+				// If modification is unknwon, it might be quadratic so swallow exception for now.
 				try {
 					auto modification = getQuadraticModificationFromName(name_);
 					return modification;
-				} catch (std::runtime_error &e) {
-					std::cerr << e.what() << std::endl;
-					throw;
+				} catch (UnknownModificationException &e2) {
+					throw e2;
 				}
 			}
 
 		}
 
 
-		//TODO Make sure modification is freed in memory
 		std::shared_ptr<LinearModification<DataType,T>> getLinearModificationFromName(std::string name_){
 			if ((strcasecmp(name_.c_str(), "overdensity") == 0)){
 				return make_shared<OverdensityModification<DataType,T>>(underlying, cosmology);
@@ -182,23 +177,16 @@ namespace modifications{
 				return make_shared<AngMomentumModification<DataType,T>>(underlying, cosmology, 2);
 			} else{
 				throw UnknownModificationException(name_ + " " + "is an unknown modification name");
-				return NULL;
 			}
 		}
 
-		QuadraticModification<DataType,T>* getQuadraticModificationFromName(std::string name_){
+		std::shared_ptr<QuadraticModification<DataType,T>> getQuadraticModificationFromName(std::string name_){
 			if ((strcasecmp(name_.c_str(), "variance") == 0)){
-				return new FilteredVarianceModification<DataType,T>(underlying, cosmology, 0, 0);
+				return make_shared<FilteredVarianceModification<DataType,T>>(underlying, cosmology);
 			}  else{
-				std::runtime_error(name_ + "" + "is an unknown modification name");
-				return NULL;
+				throw UnknownModificationException(name_ + " " + "is an unknown modification name");
 			}
 		}
-
-//		std::vector<LinearModification<DataType,T>> createLinearList(){
-//// TODO Implement a way to extract linear modif in a list.
-//			return (std::vector<LinearModification<DataType,T>*>) modificationList;
-//		}
 
 
 		/*!

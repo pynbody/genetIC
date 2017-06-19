@@ -14,11 +14,8 @@ namespace modifications {
 
 	public:
 		QuadraticModification(multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
-													const cosmology::CosmologicalParameters<T> &cosmology_,
-													int initNumberSteps_, T targetPrecision_) :
+													const cosmology::CosmologicalParameters<T> &cosmology_) :
 				Modification<DataType, T>(underlying_, cosmology_) {
-			this->initNumberSteps = initNumberSteps_;
-			this->targetPrecision = targetPrecision_;
 			this->order = 2;
 		};
 
@@ -30,6 +27,14 @@ namespace modifications {
 			return this->targetPrecision;
 		}
 
+		void setInitNumberSteps(int initNumberSteps_){
+			this->initNumberSteps = initNumberSteps_;
+		}
+
+		void setTargetPrecision(T targetPrecision_){
+			this->targetPrecision = targetPrecision_;
+		}
+
 
 		T calculateCurrentValue(fields::MultiLevelField<DataType>*  field) override {
 			auto pushedField = pushMultiLevelFieldThroughMatrix(*field);
@@ -39,9 +44,8 @@ namespace modifications {
 		}
 
 		fields::MultiLevelField<DataType> pushMultiLevelFieldThroughMatrix(const fields::MultiLevelField<DataType> &field ){
-			//TODO Implement generate multi level from high res or push each level through
-			std::vector<std::shared_ptr<fields::Field<DataType, T>>> oneLevelFieldsVector;
 
+			std::vector<std::shared_ptr<fields::Field<DataType, T>>> oneLevelFieldsVector;
 			for (size_t level = 0; level < this->underlying.getNumLevels(); ++level){
 				auto pushedOneLevel = pushOneLevelFieldThroughMatrix(field.getFieldForLevel(level));
 				oneLevelFieldsVector.push_back(pushedOneLevel);
@@ -62,9 +66,8 @@ namespace modifications {
 	public:
 
 		FilteredVarianceModification(multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
-		const cosmology::CosmologicalParameters<T> &cosmology_,
-		int initNumberSteps_, T targetPrecision_) :
-		QuadraticModification<DataType, T>(underlying_, cosmology_, initNumberSteps_, targetPrecision_) {}
+		const cosmology::CosmologicalParameters<T> &cosmology_) :
+		QuadraticModification<DataType, T>(underlying_, cosmology_) {}
 
 		void setFilterScale(T scale_){
 			this->scale =scale_;

@@ -806,6 +806,9 @@ public:
   }
 
   void calculateVariance(T filterscale){
+    if (!haveInitialisedRandomComponent)
+      initialiseRandomComponent();
+
     GridDataType val = modificationManager.calculateVariance(filterscale);
     cout << "variance" << ": calculated value = " << val << endl;
   }
