@@ -15,6 +15,7 @@ namespace modifications{
 		multilevelcontext::MultiLevelContextInformation<DataType> &underlying;
 		const cosmology::CosmologicalParameters<T> &cosmology;
 		std::vector<size_t> flaggedCells;		/*!< Region targeted by the modification */
+		unsigned int order;									/*!< Linear are first order, qudartic are second etc */
 
 
 	public:
@@ -35,6 +36,10 @@ namespace modifications{
 
 		void setTarget(T target_){
 			target = target_;
+		}
+
+		unsigned int getOrder(){
+			return this->order;
 		}
 
 	};

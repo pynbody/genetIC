@@ -27,14 +27,15 @@ namespace modifications{
 		//! Calculate existing value of the quantity defined by name
 		T calculateCurrentValueByName(std::string name_){
 
-			std::shared_ptr<LinearModification<DataType,T>> = getLinearModificationFromName(name_);
+			std::shared_ptr<LinearModification<DataType,T>> modification = getLinearModificationFromName(name_);
 			T value = modification->calculateCurrentValue(outputField);
 			return value;
 		}
 
 		T calculateVariance(T scale_){
 
-			FilteredVarianceModification<DataType,T>* modification = new FilteredVarianceModification<DataType,T>(underlying, cosmology,0,0);
+			std::shared_ptr<FilteredVarianceModification<DataType,T>> modification =
+					make_shared<FilteredVarianceModification<DataType,T>>(underlying, cosmology,0,0);
 			modification->setFilterScale(scale_);
 			T value = modification->calculateCurrentValue(outputField);
 			return value;
@@ -47,7 +48,35 @@ namespace modifications{
 		void addModificationToList(std::string name_, std::string type_ , T target_){
 			//TODO Either allow multiple arguments or create a different function for lin and quad
       
-			std::shared_ptr<LinearModification<DataType,T>> modification = getModificationFromName(name_);
+			std::shared_ptr<LinearModification<DataType,T>> modification = getLinearModificationFromName(name_);
+
+			bool relative = isRelative(type_);
+			T target = target_;
+
+			if(relative){
+				T value = modification->calculateCurrentValue(outputField);
+				target *= value;
+			}
+
+			modification->setTarget(target);
+			linearModificationList.push_back(modification);
+
+//			if(modification->getOrder() == 1 ){
+//				linearModificationList.push_back(dynamic_cast<std::shared_ptr<LinearModification<DataType,T>>>(modification));
+//			} else if (modification->getOrder() == 2){
+//				quadraticModificationList.push_back(dynamic_cast<std::shared_ptr<QuadraticModification<DataType,T>>>(modification));
+//			} else{
+//				throw std::runtime_error( " Could not add modification to list");
+//			}
+		}
+
+
+		void addQuadModificationToList(std::string /*name_*/, std::string type_ , T target_, int initNsteps_, T precision, T scale_ = 0){
+
+			std::shared_ptr<FilteredVarianceModification<DataType,T>> modification =
+									make_shared<FilteredVarianceModification<DataType,T>>(underlying, cosmology, initNsteps_, precision);
+
+			modification->setFilterScale(scale_);
 
 			bool relative = isRelative(type_);
 			T target = target_;
@@ -59,22 +88,7 @@ namespace modifications{
 
 			modification->setTarget(target);
 
-			linearModificationList.push_back(modification);
-		}
-
-
-		void addQuadModificationToList(std::string name_, std::string type_ , T target_, int initNsteps_, T precision, T scale = 0){
-
-			bool relative = isRelative(type_);
-			std::shared_ptr<LinearModification<DataType,T>> modification = getLinearModificationFromName(name_);
-			T value = modification->calculateCurrentValue(outputField);
-
-			T target = target_;
-			if(relative) target *= value;
-
-			modification->setTarget(target);
-
-			linearModificationList.push_back(modification);
+			quadraticModificationList.push_back(modification);
 		}
 
 		//! Construct the modified field with all modifications present in the modification list

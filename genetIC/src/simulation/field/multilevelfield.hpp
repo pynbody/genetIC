@@ -235,8 +235,9 @@ namespace fields {
       return result;
     }
 
-    T euclidianInnerProduct(const MultiLevelField<DataType> &other){
+    T euclidianInnerProduct(const MultiLevelField<DataType>& /*&other*/){
       // TODO implement this with std library
+      return 0;
     }
 
     void applyFilters() {
