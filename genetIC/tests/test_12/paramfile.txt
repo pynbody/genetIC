@@ -35,9 +35,10 @@ done
 
 calculate overdensity
 
+clear_modifications
+
 dump test_12.tipsy.overdensity
 
-dump_modifications
 dump_grid 0
 dump_grid 1
 dump_grid 2

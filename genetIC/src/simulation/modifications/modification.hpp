@@ -2,16 +2,12 @@
 #define IC_MODIFICATION_HPP
 
 #include <src/tools/data_types/complex.hpp>
-#include <memory>
-
-#include <src/simulation/field/multilevelfield.hpp>
-#include <src/cosmology/parameters.hpp>
 
 namespace modifications{
 
 	//! Abstract definition of a modification
 	template<typename DataType, typename T=tools::datatypes::strip_complex <DataType>>
-	class Modification : public std::enable_shared_from_this<Modification<DataType,T>>{
+	class Modification {
 	private:
 		T target;		/*!< Target to be achieved by the modification */
 
@@ -43,6 +39,23 @@ namespace modifications{
 
 	};
 
+
+	class UnknownModificationException: public std::exception {
+	public:
+
+		explicit UnknownModificationException(const char *message_) : message(message_) {}
+
+		explicit UnknownModificationException(const std::string &message_) : message(message_) {}
+
+		virtual ~UnknownModificationException() throw() {}
+
+		virtual const char *what() const throw() {
+			return message.c_str();
+		}
+
+	protected:
+		std::string message;
+	};
 };
 
 

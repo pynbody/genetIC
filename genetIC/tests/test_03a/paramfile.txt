@@ -33,7 +33,7 @@ modify overdensity absolute 0.1
 done
 calculate overdensity
 
-dump_modifications
+clear_modifications
 
 dump_grid 0
 dump_grid 1

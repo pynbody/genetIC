@@ -43,8 +43,9 @@ done
 # check overdensity was correctly modified
 calculate overdensity
 
+clear_modifications
+
 # dump diagnostic output
-dump_modifications
 dump_grid 0
 dump_grid 1
 dump_ps 0

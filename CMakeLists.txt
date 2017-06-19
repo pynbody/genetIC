@@ -57,9 +57,9 @@ set(SOURCE_FILES
         genetIC/src/simulation/field/evaluator.hpp
         genetIC/src/simulation/window.hpp
         genetIC/src/simulation/modifications/modification.hpp
+        genetIC/src/simulation/modifications/modificationmanager.hpp
         genetIC/src/simulation/modifications/linearmodification.hpp
-        genetIC/src/simulation/modifications/quadraticmodification.hpp
-        genetIC/src/simulation/modifications/modificationmanager.hpp)
+        genetIC/src/simulation/modifications/quadraticmodification.hpp)
 
 include_directories( /opt/local/include )
 link_directories(/opt/local/lib )
@@ -67,7 +67,7 @@ include_directories( genetIC/  )
 link_libraries(fftw3 m fftw3 fftw3_threads gsl gslcblas)
 
 add_definitions(-DFFTW3 -DFFTW_THREADS -DOPENMP -DGIT_VERSION -DGIT_MODIFIED -DDOUBLEPRECISION -DOUTPUT_IN_DOUBLEPRECISION)
-add_compile_options(-Wno-deprecated-declarations)
+add_compile_options(-Wextra)
 add_executable(IC ${SOURCE_FILES})
 
 add_executable(IC_CFFT ${SOURCE_FILES} )

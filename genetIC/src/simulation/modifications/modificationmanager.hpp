@@ -1,11 +1,6 @@
 #ifndef IC_MODIFICATIONMANAGER_HPP
 #define IC_MODIFICATIONMANAGER_HPP
 
-#include <string>
-#include <src/tools/data_types/complex.hpp>
-#include <src/simulation/field/multilevelfield.hpp>
-#include <src/cosmology/parameters.hpp>
-
 #include <src/simulation/modifications/linearmodification.hpp>
 #include <src/simulation/modifications/quadraticmodification.hpp>
 
@@ -20,8 +15,9 @@ namespace modifications{
 		fields::OutputField<DataType>* outputField;																			/*!< Will become the modified field */
 		multilevelcontext::MultiLevelContextInformation<DataType> &underlying;					/*!< Grid context in which modifications take place */
 		const cosmology::CosmologicalParameters<T> &cosmology;													/*!< Cosmology context in which modifications take place */
-		std::vector<LinearModification<DataType,T>*> linearModificationList;
-		std::vector<QuadraticModification<DataType,T>*> quadraticModificationList;
+
+		std::vector<std::shared_ptr<LinearModification<DataType,T>>> linearModificationList;  /*!< Modifications to be applied */
+		std::vector<std::shared_ptr<QuadraticModification<DataType,T>>> quadraticModificationList;
 
 		ModificationManager(multilevelcontext::MultiLevelContextInformation<DataType> &multiLevelContext_,
 												const cosmology::CosmologicalParameters<T> &cosmology_,
@@ -31,7 +27,7 @@ namespace modifications{
 		//! Calculate existing value of the quantity defined by name
 		T calculateCurrentValueByName(std::string name_){
 
-			Modification<DataType,T>* modification = getLinearModificationFromName(name_);
+			std::shared_ptr<LinearModification<DataType,T>> = getLinearModificationFromName(name_);
 			T value = modification->calculateCurrentValue(outputField);
 			return value;
 		}
@@ -50,23 +46,27 @@ namespace modifications{
 			*/
 		void addModificationToList(std::string name_, std::string type_ , T target_){
 			//TODO Either allow multiple arguments or create a different function for lin and quad
-			bool relative = isRelative(type_);
-			LinearModification<DataType,T>* modification = getLinearModificationFromName(name_);
-			T value = modification->calculateCurrentValue(outputField);
+      
+			std::shared_ptr<LinearModification<DataType,T>> modification = getModificationFromName(name_);
 
+			bool relative = isRelative(type_);
 			T target = target_;
-			if(relative) target *= value;
+
+			if(relative){
+				T value = modification->calculateCurrentValue(outputField);
+				target *= value;
+			}
 
 			modification->setTarget(target);
 
-			linearModificationList.push_back(std::move(modification));
+			linearModificationList.push_back(modification);
 		}
 
 
 		void addQuadModificationToList(std::string name_, std::string type_ , T target_, int initNsteps_, T precision, T scale = 0){
 
 			bool relative = isRelative(type_);
-			LinearModification<DataType,T>* modification = getLinearModificationFromName(name_);
+			std::shared_ptr<LinearModification<DataType,T>> modification = getLinearModificationFromName(name_);
 			T value = modification->calculateCurrentValue(outputField);
 
 			T target = target_;
@@ -74,7 +74,7 @@ namespace modifications{
 
 			modification->setTarget(target);
 
-			linearModificationList.push_back(std::move(modification));
+			linearModificationList.push_back(modification);
 		}
 
 		//! Construct the modified field with all modifications present in the modification list
@@ -125,7 +125,7 @@ namespace modifications{
 			std::cout << "]" << std::endl;
 		}
 
-		void dumpModifications(){
+		void clearModifications(){
 			std::cout << "Clearing modification list" << std::endl;
 			linearModificationList.clear();
 		}
@@ -133,10 +133,11 @@ namespace modifications{
 
 
 	private:
+
 		//TODO This a very dangerous structure as if any runtime error arises
 		// when creating the linear modif, it will get swallowed. Best way would be
 		// to create a custom exception of unknown modif
-		Modification<DataType,T>* getModificationFromName(std::string name_){
+		std::shared_ptr<Modification<DataType,T>> getModificationFromName(std::string name_){
 			try{
 				auto modification = getLinearModificationFromName(name_);
 				return modification;
@@ -152,19 +153,21 @@ namespace modifications{
 
 		}
 
-		LinearModification<DataType,T>* getLinearModificationFromName(std::string name_){
+
+		//TODO Make sure modification is freed in memory
+		std::shared_ptr<LinearModification<DataType,T>> getLinearModificationFromName(std::string name_){
 			if ((strcasecmp(name_.c_str(), "overdensity") == 0)){
-				return new OverdensityModification<DataType,T>(underlying, cosmology);
+				return make_shared<OverdensityModification<DataType,T>>(underlying, cosmology);
 			} else if ((strcasecmp(name_.c_str(), "potential") == 0)) {
-				return new PotentialModification<DataType,T>(underlying, cosmology);
+				return make_shared<PotentialModification<DataType,T>>(underlying, cosmology);
 			} else if ((strcasecmp(name_.c_str(), "lx") == 0)) {
-				return new AngMomentumModification<DataType,T>(underlying, cosmology, 0);
+				return make_shared<AngMomentumModification<DataType,T>>(underlying, cosmology, 0);
 			} else if ((strcasecmp(name_.c_str(), "ly") == 0)) {
-				return new AngMomentumModification<DataType,T>(underlying, cosmology, 1);
+				return make_shared<AngMomentumModification<DataType,T>>(underlying, cosmology, 1);
 			} else if ((strcasecmp(name_.c_str(), "lz") == 0)) {
-				return new AngMomentumModification<DataType,T>(underlying, cosmology, 2);
+				return make_shared<AngMomentumModification<DataType,T>>(underlying, cosmology, 2);
 			} else{
-				std::runtime_error(name_ + "" + "is an unknown modification name");
+				throw UnknownModificationException(name_ + " " + "is an unknown modification name");
 				return NULL;
 			}
 		}
@@ -327,28 +330,6 @@ namespace modifications{
 			return relative;
 		}
 
-		bool isLinear(std::string name_){
-			bool linear = false;
-			if (strcasecmp(name_.c_str(), "overdensity") == 0 || strcasecmp(name_.c_str(), "potential") == 0 ||
-					strcasecmp(name_.c_str(), "lx") == 0 || strcasecmp(name_.c_str(), "ly") == 0
-					|| strcasecmp(name_.c_str(), "lz") == 0 ){
-				linear = true;
-			} else{
-				throw std::runtime_error(name_ + "" + " is not an implemented linear modification");
-			}
-			return linear;
-		}
-
-		bool isQuadratic(std::string name_){
-			bool linear = false;
-			if (strcasecmp(name_.c_str(), "variance") == 0){
-				linear = true;
-			} else{
-				throw std::runtime_error(name_ + "" + " is not an implemented quadratic modification");
-			}
-			return linear;
-		}
-
 		bool areInputCorrect(){
 			//TODO Method to check variable arguments are correct in addModiftolist.
 			return false;
@@ -361,7 +342,6 @@ namespace modifications{
 
 
 }
-
 
 
 

@@ -77,10 +77,10 @@ void setup_parser(tools::ClassDispatch<ICf, void> &dispatch) {
   dispatch.add_class_route("calculate_variance", &ICf::calculateVariance);
   dispatch.add_class_route("modify", &ICf::modify);
   dispatch.add_class_route("quadratically_modify", &ICf::quadraticallyModify);
-  dispatch.add_class_route("dump_modifications", &ICf::dumpModifications);
+  dispatch.add_class_route("clear_modifications", &ICf::clearModifications);
 	dispatch.add_class_route("cov", &ICf::cov);
   dispatch.add_class_route("done", &ICf::done);
-  dispatch.add_class_route("fix_modifications", &ICf::fixModifications);
+  dispatch.add_class_route("apply_modifications", &ICf::applyModifications);
   dispatch.add_class_route("offset_output", &ICf::offsetOutput);
   dispatch.add_class_route("reverse", &ICf::reverse);
   dispatch.add_class_route("reverse_small_k", &ICf::reverseSmallK);

@@ -1,7 +1,6 @@
 #ifndef IC_QUADRATICMODIFICATION_HPP
 #define IC_QUADRATICMODIFICATION_HPP
 
-#include <src/tools/data_types/complex.hpp>
 #include <src/simulation/modifications/modification.hpp>
 
 namespace modifications {
