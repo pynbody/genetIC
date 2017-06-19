@@ -86,19 +86,7 @@ namespace modifications {
 			pushedField.toReal();
 			windowOperator(pushedField);
 
-//			pushedField.toFourier();
-//			for (auto i = pushedField.getDataVector().begin(); i != pushedField.getDataVector().end(); ++i){
-//				std::cout << std::distance(pushedField.getDataVector().begin(), i) << ' '<< std::endl;
-//				std::cout << *i << ' '<< std::endl;
-//			}
-//
-//			for (auto i = field.getDataVector().begin(); i != field.getDataVector().end(); ++i){
-//				std::cout << std::distance(field.getDataVector().begin(), i) << ' '<< std::endl;
-//				std::cout << *i << ' '<< std::endl;
-//			}
-
 			varianceOperator(pushedField);
-
 
 			windowOperator(pushedField);
 			return std::make_shared<fields::Field<DataType, T>>(pushedField);
@@ -123,6 +111,9 @@ namespace modifications {
 		void filterOperator(fields::Field<DataType, T> &field){}
 
 		void varianceOperator(fields::Field<DataType, T> &field){
+
+			assert(! field.isFourier()); // Variance is calculated in real space
+
 			windowOperator(field);
 
 			std::vector<DataType> &fieldData = field.getDataVector();
@@ -135,10 +126,9 @@ namespace modifications {
 			}
 
 			for (size_t i = 0; i < regionSize; i++) {
-				fieldData[this->flaggedCells[i]] *= (1 / regionSize);
-				fieldData[this->flaggedCells[i]] += pow(1 / regionSize, 2) * sum;
+				fieldData[this->flaggedCells[i]] -= sum / regionSize;
+				fieldData[this->flaggedCells[i]] /= regionSize;
 			}
-
 		}
 
 	};

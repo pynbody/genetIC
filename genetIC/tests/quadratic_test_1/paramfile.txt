@@ -14,9 +14,9 @@ outdir	 ./
 outformat 4
 
 
-basegrid 3 3
+basegrid 4 4
 
-centre  1 1 1
+centre  2 2 2
 select_sphere 1
 
 calculate_variance 0
