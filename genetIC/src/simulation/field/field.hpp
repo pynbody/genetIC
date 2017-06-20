@@ -311,7 +311,7 @@ namespace fields {
     void applyFilter(const filters::Filter<CoordinateType> &filter) {
       forEachFourierCell([&filter]( ComplexType current_value, CoordinateType kx, CoordinateType ky, CoordinateType kz) {
         CoordinateType k = sqrt(double(kx*kx+ky*ky+kz*kz));
-        return current_value*filter(k);
+        return current_value * filter(k);
       });
     }
 

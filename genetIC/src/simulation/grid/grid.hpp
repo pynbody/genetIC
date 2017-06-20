@@ -42,11 +42,13 @@ namespace grids {
     using ConstGridPtrType = std::shared_ptr<const Grid<T>>;
 
   private:
-    T kMin, kMinSquared;
-    std::vector<size_t> flags;
+    T kMin; /*!< Fundamental mode of the box */
+    std::vector<size_t> flags;  /*!< Flagged cells on this grid */
 
   public:
-    const T periodicDomainSize, thisGridSize, cellSize;
+    const T periodicDomainSize;
+    const T thisGridSize;   /*!< Grid (one side) size in Mpc */
+    const T cellSize;
     const Coordinate<T> offsetLower;
     const size_t size; ///<the number of cells on a side
     const size_t size2; ///< the number of cells on a face
@@ -63,7 +65,6 @@ namespace grids {
       simEquivalentSize((unsigned) tools::getRatioAndAssertInteger(simsize,dx)),
       cellMassFrac(massFrac == 0.0 ? pow(dx / simsize, 3.0) : massFrac),
       cellSofteningScale(softScale) {
-      // cerr << "Grid ctor " << this <<  endl;
       setKmin();
     }
 
@@ -72,18 +73,15 @@ namespace grids {
                      cellSize(1.0), offsetLower(0, 0, 0),
                      size(n), size2(n * n), size3(n * n * n), simEquivalentSize(0), cellMassFrac(0.0),
                      cellSofteningScale(1.0) {
-      // cerr << "Grid ctor size-only" << endl;
       setKmin();
     }
 
     virtual ~Grid() {
-      // cerr << "~Grid " << this << endl;
     }
 
   protected:
     void setKmin() {
       kMin = 2. * M_PI / thisGridSize;
-      kMinSquared = kMin * kMin;
     }
 
   public:

@@ -86,9 +86,18 @@ namespace modifications {
 			pushedField.toReal();
 			windowOperator(pushedField);
 
+			pushedField.toFourier();
+			filterOperator(pushedField);
+
+			pushedField.toReal();
 			varianceOperator(pushedField);
 
+			pushedField.toFourier();
+			filterOperator(pushedField);
+
+			pushedField.toReal();
 			windowOperator(pushedField);
+
 			return std::make_shared<fields::Field<DataType, T>>(pushedField);
 		}
 
@@ -108,7 +117,16 @@ namespace modifications {
 			}
 		}
 
-		void filterOperator(fields::Field<DataType, T> &field){}
+		void filterOperator(fields::Field<DataType, T> &field){
+
+			assert(field.isFourier());	//Filtering must be done in Fourier space
+
+			T k_cut = 2 * M_PI / scale;
+
+			auto highPassFermi = filters::ComplementaryFilterAdaptor<filters::LowPassFermiFilter<T>>(k_cut);
+
+			field.applyFilter(highPassFermi);
+		}
 
 		void varianceOperator(fields::Field<DataType, T> &field){
 

@@ -1,7 +1,6 @@
 #ifndef IC_FILTER_HPP
 #define IC_FILTER_HPP
 
-//#include <math.h>
 #include <stdexcept>
 /*!
     \namespace filters
