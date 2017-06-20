@@ -230,6 +230,31 @@ namespace modifications{
 			 * apply linear constraints
 			 * repeat
 			 */
+
+			size_t numberQuadraticModifs = quadraticModificationList.size();
+			//TODO Check quadratic are indepednent ?
+
+			for (size_t i=0; i<numberQuadraticModifs; i++){
+				std::shared_ptr<QuadraticModification<DataType,T>> modif_i = quadraticModificationList[i];
+
+				T starting_value = modif_i->calculateCurrentValue(this->outputField);
+				T overall_target = modif_i->getTarget();
+				int n_steps = modif_i->getInitNumberSteps();
+
+				std::vector<T> targets = tools::linspace(starting_value, overall_target, n_steps);
+
+				for (size_t l=0; l<n_steps;l++){}
+
+
+
+
+
+
+			}
+
+
+
+
 		}
 
 		//! Graam-Schmidt procedure to orthonormalise the modification covectors
