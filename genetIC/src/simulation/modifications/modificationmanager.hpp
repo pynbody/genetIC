@@ -234,6 +234,27 @@ namespace modifications{
 			size_t numberQuadraticModifs = quadraticModificationList.size();
 			//TODO Check quadratic are indepednent ?
 
+			for (size_t i=0; i<numberQuadraticModifs; i++){
+				std::shared_ptr<QuadraticModification<DataType,T>> modif_i = quadraticModificationList[i];
+
+				T starting_value = modif_i->calculateCurrentValue(this->outputField);
+				T overall_target = modif_i->getTarget();
+				int n_steps = modif_i->getInitNumberSteps();
+
+				std::vector<T> quad_targets = tools::linspace(starting_value, overall_target, n_steps);
+
+				performIteration(modif_i, quad_targets, n_steps);
+
+				n_steps = calculateCorrectNumberSteps(modif_i, n_steps);
+				quad_targets = tools::linspace(starting_value, overall_target, n_steps);
+
+				performIteration(modif_i, quad_targets, n_steps);
+
+			}
+		}
+
+		void performIteration(std::shared_ptr<QuadraticModification<DataType,T>> modif_, std::vector<T> quad_targets_, int n_steps_){
+
 			std::vector<std::shared_ptr<fields::ConstraintField<DataType>>> alphas;
 			std::vector<T> linear_targets, linear_existing_values;
 
@@ -244,17 +265,47 @@ namespace modifications{
 				linear_existing_values.push_back(linearModificationList[i]->calculateCurrentValue(outputField));
 			}
 
-			for (size_t i=0; i<numberQuadraticModifs; i++){
-				std::shared_ptr<QuadraticModification<DataType,T>> modif_i = quadraticModificationList[i];
 
-				T starting_value = modif_i->calculateCurrentValue(this->outputField);
-				T overall_target = modif_i->getTarget();
-				int n_steps = modif_i->getInitNumberSteps();
-
-				std::vector<T> targets = tools::linspace(starting_value, overall_target, n_steps);
+			for (size_t l=0; l<n_steps_;l++){
 
 
+				auto pushedField = modif_->pushMultiLevelFieldThroughMatrix(*outputField);
+
+				alphas.push_back(pushedField); //Add pushed field to linear covectors
+				linear_targets.push_back(0);
+				linear_existing_values.push_back(0);
+
+				orthonormaliseModifications(alphas, linear_targets, linear_existing_values);
+
+				alphas.pop_back();
+				linear_targets.pop_back();
+				linear_existing_values.pop_back();
+
+				applyLinearModif();
+
+				T quadratic_existing = modif_->calculateCurrentValue(outputField);
+				T multiplier = (1/2) * (quad_targets_[l] - quadratic_existing);
+
+				pushedField->convertToVector();
+				outputField->addScaled(*pushedField, multiplier);
 			}
+		}
+
+		int calculateCorrectNumberSteps(std::shared_ptr<QuadraticModification<DataType,T>> modif_, int previous_n_steps){
+			T targeted_precision = modif_->getTargetPrecision();
+			T current_value = modif_->calculateCurrentValue(outputField);
+			T overall_target = modif_->getTarget();
+
+			T residual = overall_target - current_value;
+			T achieved_precision = residual / overall_target;
+
+			if(achieved_precision < targeted_precision){
+				return 0;
+			} else {
+				T scaling = previous_n_steps * sqrt(achieved_precision/targeted_precision);
+				return (int) std::ceil(scaling);
+			}
+
 		}
 
 		//! Graam-Schmidt procedure to orthonormalise the modification covectors
