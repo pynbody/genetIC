@@ -94,6 +94,7 @@ protected:
   std::vector<std::vector<size_t>> zoomParticleArray;
 
 
+	//! Coordinates of the cell of current interest
   T x0, y0, z0;
 
   shared_ptr<particle::mapper::ParticleMapper<GridDataType>> pMapper;
@@ -157,10 +158,12 @@ public:
     cosmology.hubble = in;
   }
 
+	//! Enables the use of stray particles
   void setStraysOn() {
     allowStrayParticles = true;
   }
 
+	// TODO What is this offset ?
   void offsetOutput(T x, T y, T z) {
     xOffOutput = x;
     yOffOutput = y;
@@ -172,22 +175,29 @@ public:
     cosmology.sigma8 = in;
   }
 
+	//TODO What is this doing ? What is in ?
   void setSupersample(int in) {
     supersample = in;
     updateParticleMapper();
   }
 
+	//TODO What is this doing ? What is in ?
   void setSubsample(int in) {
     subsample = in;
     updateParticleMapper();
   }
 
+	//! //TODO Is z0 the redhsift where Zeldo ends or starts ?
   void setZ0(T in) {
     cosmology.redshift = in;
     cosmology.scalefactor = 1. / (cosmology.redshift + 1.);
   }
 
-
+  //! Define the base (coarsest) grid
+	/*!
+	 * \param boxSize Physical size of box in Mpc
+	 * \param n Number of cells in the grid
+	 */
   virtual void initBaseGrid(T boxSize, size_t n) {
     assert(boxSize > 0);
 
@@ -206,6 +216,10 @@ public:
     cosmology.ns = in;
   }
 
+  /*! Define the zoomed grid in the currently flagged region
+   * \param zoomfac //TODO
+   * \param n Number of cells in the zoom grid
+   */
   void initZoomGrid(size_t zoomfac, size_t n) {
     if (haveInitialisedRandomComponent)
       throw (std::runtime_error("Trying to initialize a grid after the random field was already drawn"));
@@ -262,6 +276,11 @@ public:
     gridAbove.getFlaggedCells(levelZoomParticleArray);
   }
 
+	/*! Define a zoomed grid with user defined origin
+	 * \param x0, y0, z0  //TODO Coordinates of centre of grid or upper left corner ?
+	 * \param zoomfac //TODO What?
+	 * \param n Number of cells in the zoom grid
+	 */
   void initZoomGridWithOriginAt(int x0, int y0, int z0, size_t zoomfac, size_t n) {
     grids::Grid<T> &gridAbove = multiLevelContext.getGridForLevel(multiLevelContext.getNumLevels() - 1);
     int nAbove = int(gridAbove.size);
@@ -348,18 +367,19 @@ public:
   }
 
 
-  void setSeed(int in) {
-    randomFieldGenerator.seed(in);
+  void setSeed(int seed) {
+    randomFieldGenerator.seed(seed);
   }
 
-  void setSeedFourier(int in) {
-    randomFieldGenerator.seed(in);
+  void setSeedFourier(int seed) {
+    randomFieldGenerator.seed(seed);
     randomFieldGenerator.setDrawInFourierSpace(true);
     randomFieldGenerator.setReverseRandomDrawOrder(false);
   }
 
-  void setSeedFourierReverseOrder(int in) {
-    randomFieldGenerator.seed(in);
+	//TODO What is this Reverse ?
+  void setSeedFourierReverseOrder(int seed) {
+    randomFieldGenerator.seed(seed);
     randomFieldGenerator.setDrawInFourierSpace(true);
     randomFieldGenerator.setReverseRandomDrawOrder(true);
   }
@@ -368,20 +388,25 @@ public:
     exactPowerSpectrum = true;
   }
 
-  void setCambDat(std::string in) {
-    spectrum.read(in, cosmology);
+	//! Obtain power spectrum from a CAMB data file
+  void setCambDat(std::string cambFilePath) {
+    spectrum.read(cambFilePath, cosmology);
   }
 
-  void setOutDir(std::string in) {
-    outputFolder = in;
+  void setOutDir(std::string outputPath) {
+    outputFolder = outputPath;
   }
 
-  void setOutName(std::string in) {
-    outputFilename = in;
+  void setOutName(std::string outputFilename_) {
+    outputFilename = outputFilename_;
   }
 
-  void setOutputFormat(int in) {
-    outputFormat = static_cast<io::OutputFormat>(in);
+	//! Set formats from handled formats in io namespace
+	/*!
+	 * \param format //TODO Which int is which ?
+	 */
+  void setOutputFormat(int format) {
+    outputFormat = static_cast<io::OutputFormat>(format);
     updateParticleMapper();
   }
 
@@ -396,6 +421,7 @@ public:
     return fname_stream.str();
   }
 
+	//! Zeroes field values at a given level. Meant for debugging.
   virtual void zeroLevel(int level) {
     cerr << "*** Warning: your script calls zeroLevel(" << level << "). This is intended for testing purposes only!"
          << endl;
@@ -440,21 +466,25 @@ public:
     ifile.close();
   }
 
+	// TODO not quire sure what the point of this method is ? Looks like a debugging tool
   virtual void saveTipsyArray(string fname) {
     io::tipsy::saveFieldTipsyArray(fname, *pMapper, *pParticleGenerator, outputField);
   }
 
+	//! Dumps field at a given level in a file named grid-level
   virtual void dumpGrid(int level = 0) {
     outputField.toReal();
     dumpGridData(level, outputField.getFieldForLevel(level));
   }
 
+	// TODO Is this used at all ?
   virtual void dumpGridFourier(int level = 0) {
     fields::Field<complex<T>, T> fieldToWrite = tools::numerics::fourier::getComplexFourierField(
       outputField.getFieldForLevel(level));
     dumpGridData(level, fieldToWrite);
   }
 
+	//! Dumps power spectrum generated from the field and the theory at a given level in a .ps file
   virtual void dumpPS(int level = 0) {
     auto &field = outputField.getFieldForLevel(level);
     field.toFourier();
@@ -475,6 +505,7 @@ public:
 
   }
 
+	// TODO Not quite sure what this if for ?
   void setInputMapper(std::string fname) {
     DummyICGenerator<GridDataType> pseudoICs(this);
     auto dispatch = interpreter.specify_instance(pseudoICs);
@@ -711,6 +742,7 @@ protected:
 public:
 
 
+	//TODO Is this loading existing partciles ?
   void loadID(string fname) {
     loadParticleIdFile(fname);
     getCentre();
@@ -729,10 +761,12 @@ public:
     io::dumpBuffer(results, fname);
   }
 
+	//! TODO Is this finding the cell for a given particle ?
   void centreParticle(long id) {
     std::tie(x0, y0, z0) = multiLevelContext.getGridForLevel(0).getCellCentroid(id);
   }
 
+	//! Flag the nearest cell to the coordinates currently pointed at
   void selectNearest() {
     auto &grid = multiLevelContext.getGridForLevel(deepestLevel() - 1);
     pMapper->unflagAllParticles();
@@ -773,6 +807,7 @@ public:
     }
   }
 
+	//! Flag all cells contained in the sphere centered at the coordinates currently pointed at
   void selectSphere(float radius) {
     T r2 = radius * radius;
     select([r2](T delta_x, T delta_y, T delta_z) -> bool {
@@ -782,6 +817,7 @@ public:
 
   }
 
+	//! Flag all cells contained in the cube centered at the coordinates currently pointed at
   void selectCube(float side) {
     T side_by_2 = side / 2;
     select([side_by_2](T delta_x, T delta_y, T delta_z) -> bool {
@@ -789,7 +825,7 @@ public:
     });
   }
 
-
+	//! Define cell currently pointed at by coordinates
   void setCentre(T xin, T yin, T zin) {
     x0 = xin;
     y0 = yin;
@@ -851,6 +887,7 @@ public:
     write();
   }
 
+	//TODO This method does not really belong here but in MultiLevelField class
   void reverse() {
     for_each_level(level) {
       auto &field = outputField.getFieldForLevel(level);
@@ -861,6 +898,7 @@ public:
     }
   }
 
+	//TODO What is this for and why is it never tested ? Looks like inverted initial conditions properties
   void reseedSmallK(T kmax, int seed) {
 
     T k2max = kmax * kmax;
