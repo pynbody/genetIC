@@ -38,32 +38,40 @@ namespace modifications {
 
 		T calculateCurrentValue(fields::MultiLevelField<DataType>*  field) override {
 
-			if(!field->isFourierOnAllLevels()){
-				field->toFourier();
-			}
-
 			auto pushedField = pushMultiLevelFieldThroughMatrix(*field);
-			pushedField.toFourier();
-
-			T value = pushedField.euclidianInnerProduct(*field).real();
+			field->toFourier();
+			pushedField->toFourier();
+			T value = pushedField->euclidianInnerProduct(*field).real();
 			return value;
 		}
 
-		fields::MultiLevelField<DataType> pushMultiLevelFieldThroughMatrix(const fields::MultiLevelField<DataType> &field ){
+		std::shared_ptr<fields::ConstraintField<DataType>> pushMultiLevelFieldThroughMatrix(const fields::MultiLevelField<DataType> &field ){
 
-			std::vector<std::shared_ptr<fields::Field<DataType, T>>> oneLevelFieldsVector;
-			for (size_t level = 0; level < this->underlying.getNumLevels(); ++level){
-				auto pushedOneLevel = pushOneLevelFieldThroughMatrix(field.getFieldForLevel(level));
-				oneLevelFieldsVector.push_back(pushedOneLevel);
+			//Pushing levels one by one through the matrix. Big problem with mixing of flagged cells when multilevel
+//			std::vector<std::shared_ptr<fields::Field<DataType, T>>> oneLevelFieldsVector;
+//			for (size_t level = 0; level < this->underlying.getNumLevels(); ++level){
+//				auto pushedOneLevel = pushOneLevelFieldThroughMatrix(field.getFieldForLevel(level));
+//				oneLevelFieldsVector.push_back(pushedOneLevel);
+//			}
+//
+//			fields::MultiLevelField<DataType> multiLevelPushed = fields::MultiLevelField<DataType>(this->underlying,
+//																																														 oneLevelFieldsVector);
+
+			// Push the finest level and then down sample to other grids
+			size_t level = this->underlying.getNumLevels() - 1;
+
+			using tools::numerics::operator/=;
+			auto highResPushedField = this->pushOneLevelFieldThroughMatrix(field.getFieldForLevel(level));
+			highResPushedField.toFourier();
+
+			if (level != 0) {
+				highResPushedField.getDataVector() /= this->underlying.getWeightForLevel(level);
 			}
-
-			fields::MultiLevelField<DataType> multiLevelPushed = fields::MultiLevelField<DataType>(this->underlying,
-																																														 oneLevelFieldsVector);
-			return multiLevelPushed;
+			return this->underlying.generateMultilevelFromHighResField(std::move(highResPushedField));
 		}
 
 	protected:
-		virtual std::shared_ptr<fields::Field<DataType, T>> pushOneLevelFieldThroughMatrix(const fields::Field<DataType, T> &/* field */) = 0;
+		virtual fields::Field<DataType, T> pushOneLevelFieldThroughMatrix(const fields::Field<DataType, T> &/* field */) = 0;
 	};
 
 	template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
@@ -79,7 +87,7 @@ namespace modifications {
 			this->scale =scale_;
 		}
 
-		std::shared_ptr<fields::Field<DataType, T>> pushOneLevelFieldThroughMatrix(const fields::Field<DataType, T> &field) override {
+		fields::Field<DataType, T> pushOneLevelFieldThroughMatrix(const fields::Field<DataType, T> &field) override {
 
 			fields::Field<DataType, T> pushedField = fields::Field<DataType, T>(field);
 
@@ -98,7 +106,7 @@ namespace modifications {
 			pushedField.toReal();
 			windowOperator(pushedField);
 
-			return std::make_shared<fields::Field<DataType, T>>(pushedField);
+			return fields::Field<DataType, T>(pushedField);
 		}
 
 	private:

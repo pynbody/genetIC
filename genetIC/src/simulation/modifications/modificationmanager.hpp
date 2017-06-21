@@ -234,6 +234,16 @@ namespace modifications{
 			size_t numberQuadraticModifs = quadraticModificationList.size();
 			//TODO Check quadratic are indepednent ?
 
+			std::vector<std::shared_ptr<fields::ConstraintField<DataType>>> alphas;
+			std::vector<T> linear_targets, linear_existing_values;
+
+			// Extract A, b and A*delta_0 from modification list
+			for (size_t i = 0; i < linearModificationList.size(); i++) {
+				alphas.push_back(linearModificationList[i]->getCovector());
+				linear_targets.push_back(linearModificationList[i]->getTarget());
+				linear_existing_values.push_back(linearModificationList[i]->calculateCurrentValue(outputField));
+			}
+
 			for (size_t i=0; i<numberQuadraticModifs; i++){
 				std::shared_ptr<QuadraticModification<DataType,T>> modif_i = quadraticModificationList[i];
 
@@ -243,18 +253,8 @@ namespace modifications{
 
 				std::vector<T> targets = tools::linspace(starting_value, overall_target, n_steps);
 
-				for (size_t l=0; l<n_steps;l++){}
-
-
-
-
-
 
 			}
-
-
-
-
 		}
 
 		//! Graam-Schmidt procedure to orthonormalise the modification covectors

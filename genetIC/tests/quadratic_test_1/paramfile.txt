@@ -19,9 +19,13 @@ basegrid 64 64
 centre  32.5 32.5 32.5
 select_sphere 10
 
-calculate_variance 5
+zoomgrid 3 64
+centre 32.5 32.5 32.5
+select_sphere 5
+
+calculate_variance 25
 
 done
 
-dump_ps 0
 dump_grid 0
+dump_grid 1
