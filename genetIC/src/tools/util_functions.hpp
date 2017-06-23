@@ -68,7 +68,8 @@ namespace tools {
       double step = (end - start) / (n - 1);
       int count = 0;
       while(count < n) {
-        array.push_back(start + count*step);
+				T elem = start + count*step;
+        array.push_back(elem);
         ++count;
       }
     }

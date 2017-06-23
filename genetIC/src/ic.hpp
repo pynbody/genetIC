@@ -216,7 +216,7 @@ public:
     cosmology.ns = in;
   }
 
-  /*! Define the zoomed grid in the currently flagged region
+  /*! Define the zoomed grid encompassing all flagged cells/particles
    * \param zoomfac //TODO
    * \param n Number of cells in the zoom grid
    */
@@ -808,6 +808,7 @@ public:
   }
 
 	//! Flag all cells contained in the sphere centered at the coordinates currently pointed at
+	// TODO Is radius in pixel or Mpc ? Same for Cube
   void selectSphere(float radius) {
     T r2 = radius * radius;
     select([r2](T delta_x, T delta_y, T delta_z) -> bool {

@@ -94,6 +94,7 @@ namespace modifications{
 		//! Construct the modified field with all modifications present in the modification list
 		void applyModifications(){
 			applyLinearModif();
+			applyQuadModif();
 
 		}
 
@@ -243,17 +244,17 @@ namespace modifications{
 
 				std::vector<T> quad_targets = tools::linspace(starting_value, overall_target, n_steps);
 
-				performIteration(modif_i, quad_targets, n_steps);
+				performIterations(modif_i, quad_targets, n_steps);
 
 				n_steps = calculateCorrectNumberSteps(modif_i, n_steps);
 				quad_targets = tools::linspace(starting_value, overall_target, n_steps);
 
-				performIteration(modif_i, quad_targets, n_steps);
+				performIterations(modif_i, quad_targets, n_steps);
 
 			}
 		}
 
-		void performIteration(std::shared_ptr<QuadraticModification<DataType,T>> modif_, std::vector<T> quad_targets_, int n_steps_){
+		void performIterations(std::shared_ptr<QuadraticModification<DataType,T>> modif_, std::vector<T> quad_targets_, int n_steps_){
 
 			std::vector<std::shared_ptr<fields::ConstraintField<DataType>>> alphas;
 			std::vector<T> linear_targets, linear_existing_values;
@@ -266,27 +267,31 @@ namespace modifications{
 			}
 
 
-			for (size_t l=0; l<n_steps_;l++){
+			for (size_t l=0; l < (unsigned) n_steps_;l++){
 
 
 				auto pushedField = modif_->pushMultiLevelFieldThroughMatrix(*outputField);
+				pushedField->toFourier();
 
-				alphas.push_back(pushedField); //Add pushed field to linear covectors
-				linear_targets.push_back(0);
-				linear_existing_values.push_back(0);
+//				alphas.push_back(pushedField); //Add pushed field to linear covectors
+//				linear_targets.push_back(0);
+//				linear_existing_values.push_back(0);
+//
+//				orthonormaliseModifications(alphas, linear_targets, linear_existing_values);
+//
+//				alphas.pop_back();
+//				linear_targets.pop_back();
+//				linear_existing_values.pop_back();
 
-				orthonormaliseModifications(alphas, linear_targets, linear_existing_values);
-
-				alphas.pop_back();
-				linear_targets.pop_back();
-				linear_existing_values.pop_back();
-
-				applyLinearModif();
+//				applyLinearModif();
 
 				T quadratic_existing = modif_->calculateCurrentValue(outputField);
-				T multiplier = (1/2) * (quad_targets_[l] - quadratic_existing);
+				T t = quad_targets_[l];
+				T norm = sqrt(pushedField->innerProduct(*pushedField).real());
+				T multiplier = 0.5 * (t - quadratic_existing) / norm;
 
 				pushedField->convertToVector();
+
 				outputField->addScaled(*pushedField, multiplier);
 			}
 		}
@@ -303,6 +308,7 @@ namespace modifications{
 				return 0;
 			} else {
 				T scaling = previous_n_steps * sqrt(achieved_precision/targeted_precision);
+				std::cout<< std::ceil(scaling)<< " steps are needed for the quadratic algorithm"  << std::endl;
 				return (int) std::ceil(scaling);
 			}
 
@@ -319,9 +325,9 @@ namespace modifications{
 
 			size_t nCells = underlying.getNumCells();
 
-			// Summary of modifs to be applied
-			std::cout << "v0=" << real(existing_values) << std::endl;
-			std::cout << "v1=" << real(targets) << std::endl;
+//			// Summary of modifs to be applied
+//			std::cout << "v0=" << real(existing_values) << std::endl;
+//			std::cout << "v1=" << real(targets) << std::endl;
 
 			// Store transformation matrix, just for display purposes
 			std::vector<std::vector<std::complex<T>>> t_matrix(n, std::vector<std::complex<T>>(n, 0));
@@ -333,13 +339,13 @@ namespace modifications{
 			}
 
 			// Gram-Schmidt orthogonalization in-place
-			tools::progress::ProgressBar pb("orthogonalizing modifications");
+//			tools::progress::ProgressBar pb("orthogonalizing modifications");
 
 			for (size_t i = 0; i < n; i++) {
 				auto &alpha_i = *(alphas[i]);
 				for (size_t j = 0; j < i; j++) {
 					auto &alpha_j = *(alphas[j]);
-					pb.setProgress(((float) done * 2) / (n * (1 + n)));
+//					pb.setProgress(((float) done * 2) / (n * (1 + n)));
 					T result = alpha_i.innerProduct(alpha_j).real();
 
 					alpha_i.addScaled(alpha_j, -result);
@@ -381,21 +387,21 @@ namespace modifications{
 			// to form chi^2: Delta chi^2 = d_1^dagger t_matrix^dagger t_matrix d_1 -
 			// d_0^dagger t_matrix^dagger t_matrix d_0.
 
-			std::cout << std::endl << "chi2_matr = [";
-			for (size_t i = 0; i < n; i++) {
-				std::cout << "[";
-				for (size_t j = 0; j < n; j++) {
-					std::complex<T> r = 0;
-					for (size_t k = 0; k < n; k++) {
-						r += std::conj(t_matrix[k][i]) * t_matrix[k][j];
-					}
-					std::cout << std::real(r) / nCells;
-					if (j < n - 1) std::cout << ",";
-				}
-				std::cout << "]";
-				if (i < n - 1) std::cout << "," << std::endl;
-			}
-			std::cout << "]" << std::endl;
+//			std::cout << std::endl << "chi2_matr = [";
+//			for (size_t i = 0; i < n; i++) {
+//				std::cout << "[";
+//				for (size_t j = 0; j < n; j++) {
+//					std::complex<T> r = 0;
+//					for (size_t k = 0; k < n; k++) {
+//						r += std::conj(t_matrix[k][i]) * t_matrix[k][j];
+//					}
+//					std::cout << std::real(r) / nCells;
+//					if (j < n - 1) std::cout << ",";
+//				}
+//				std::cout << "]";
+//				if (i < n - 1) std::cout << "," << std::endl;
+//			}
+//			std::cout << "]" << std::endl;
 		}
 
 		bool isRelative(std::string type){
