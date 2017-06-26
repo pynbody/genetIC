@@ -60,15 +60,6 @@ namespace fields {
       isCovector = false;
     }
 
-		MultiLevelField(MultiLevelField<DataType> &copy) : multiLevelContext(&(copy.getContext())){
-			setupConnection();
-			isCovector = copy.isCovector;
-
-			for(size_t level=0; level<getNumLevels(); level++) {
-			fieldsOnLevels.push_back(std::make_shared(Field<DataType, T>(copy.getFieldForLevel(level))));
-			}
-		}
-
     virtual void updateMultiLevelContext() {
 
     }
@@ -290,6 +281,20 @@ namespace fields {
       pFilters = make_shared<filters::FilterFamily<T>>(multiLevelContext->getNumLevels());
     }
 
+		void convertToCovector() {
+			assert(! isCovector);
+			toFourier();
+			for (size_t i = 0; i < multiLevelContext->getNumLevels(); ++i) {
+				auto &grid = multiLevelContext->getGridForLevel(i);
+
+				divideByCovarianceOneGrid(getFieldForLevel(i),
+																		multiLevelContext->getCovariance(i),
+																		grid,
+																		multiLevelContext->getWeightForLevel(i));
+
+			}
+			isCovector = true;
+		}
 
     void convertToVector() {
       assert(isCovector);
@@ -362,6 +367,18 @@ namespace fields {
         return existingValue*spec;
       });
     }
+
+		void divideByCovarianceOneGrid(Field<DataType> &field,
+																		 const Field<DataType> &spectrum,
+																		 const grids::Grid<T> &grid,
+																		 T weight) {
+
+			field.forEachFourierCellInt([weight, &grid, &field, &spectrum]
+																			(complex<T> existingValue, int kx, int ky, int kz) {
+				T spec = spectrum.getFourierCoefficient(kx,ky,kz).real() * weight;
+				return existingValue / spec;
+			});
+		}
 
     void enforceSpectrumOneGrid(Field<DataType> &field,
                                 const Field<DataType> &spectrum,

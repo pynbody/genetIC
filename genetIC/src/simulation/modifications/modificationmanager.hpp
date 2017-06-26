@@ -93,8 +93,22 @@ namespace modifications{
 
 		//! Construct the modified field with all modifications present in the modification list
 		void applyModifications(){
-			applyLinearModif();
-			applyQuadModif();
+
+			std::vector<std::shared_ptr<fields::ConstraintField<DataType>>> alphas;
+			std::vector<T> linear_targets;
+
+			// Extract A, b from modification list
+			for (size_t i = 0; i < linearModificationList.size(); i++) {
+				alphas.push_back(linearModificationList[i]->getCovector());
+				linear_targets.push_back(linearModificationList[i]->getTarget());
+			}
+
+			// Apply all linear modifications
+			orthonormaliseModifications(alphas, linear_targets);
+			applyLinearModif(outputField, alphas, linear_targets);
+
+			// Apply the joint linear and quadratic in an iterative procedure
+			applyLinQuadModif(alphas, linear_targets);
 
 		}
 
@@ -194,21 +208,14 @@ namespace modifications{
 		 * Linear modifications are applied by orthonormalisation and adding the
 		 * correction term. See Roth et al 2016 for details
 		 */
-		void applyLinearModif(){
+		void applyLinearModif(fields::MultiLevelField<DataType>* field,
+													std::vector<std::shared_ptr<fields::ConstraintField<DataType>>> alphas,
+													std::vector<T> &targets){
 
-			std::vector<std::shared_ptr<fields::ConstraintField<DataType>>> alphas;
-			std::vector<T> targets, existing_values;
-
-			// Extract A, b and A*delta_0 from modification list
+			std::vector<T> existing_values;
 			for (size_t i = 0; i < linearModificationList.size(); i++) {
-				alphas.push_back(linearModificationList[i]->getCovector());
-				targets.push_back(linearModificationList[i]->getTarget());
-				existing_values.push_back(linearModificationList[i]->calculateCurrentValue(outputField));
+				existing_values.push_back(linearModificationList[i]->calculateCurrentValue(field));
 			}
-
-
-			orthonormaliseModifications(alphas, targets, existing_values);
-			outputField->toFourier();
 
 			for (size_t i = 0; i < alphas.size(); i++) {
 				auto &alpha_i = *(alphas[i]);
@@ -218,125 +225,59 @@ namespace modifications{
 				alpha_i.convertToVector();
 
 				alpha_i.toFourier(); // almost certainly already is in Fourier space, but just to be safe
-				outputField->addScaled(alpha_i, dval_i);
+				field->addScaled(alpha_i, dval_i);
+				alpha_i.convertToCovector();
 			}
 		}
 
-		void applyQuadModif(){
+		void applyLinQuadModif(std::vector<std::shared_ptr<fields::ConstraintField<DataType>>> alphas,
+													 std::vector<T> &targets){
 
 			size_t numberQuadraticModifs = quadraticModificationList.size();
 			//TODO Check quadratic are indepednent ?
 
 			for (size_t i=0; i<numberQuadraticModifs; i++){
-				std::shared_ptr<QuadraticModification<DataType,T>> modif_i = quadraticModificationList[i];
-
-				T starting_value = modif_i->calculateCurrentValue(this->outputField);
-				T overall_target = modif_i->getTarget();
-				int n_steps = modif_i->getInitNumberSteps();
-
-				std::vector<T> quad_targets = tools::linspace(starting_value, overall_target, n_steps);
-
-				//Try it a first time
-
-				auto copied_field = fields::MultiLevelField<DataType>(*outputField);
-
-				performIterations(&copied_field, modif_i, quad_targets, n_steps);
-
-				auto a = modif_i->calculateCurrentValue(outputField);
-
-				int new_n_steps = calculateCorrectNumberSteps(&copied_field, modif_i, n_steps);
-				quad_targets = tools::linspace(starting_value, overall_target, n_steps);
-				performIterations(outputField, modif_i, quad_targets, new_n_steps);
-
-
+				auto modif_i = quadraticModificationList[i];
+				performIterations(outputField, modif_i, modif_i->getInitNumberSteps());
 			}
 		}
 
-		void performIterations(fields::MultiLevelField<DataType> * field,
-													 std::shared_ptr<QuadraticModification<DataType,T>> modif_, std::vector<T> quad_targets_, int n_steps_){
+		void performIterations(fields::MultiLevelField<DataType>* field,
+													 std::shared_ptr<QuadraticModification<DataType,T>> modif_, int n_steps_){
 
-			std::vector<std::shared_ptr<fields::ConstraintField<DataType>>> alphas;
-			std::vector<T> linear_targets, linear_existing_values;
+			T overall_target = modif_ ->getTarget();
+			T starting_value = modif_->calculateCurrentValue(field);
 
-			// Extract A, b and A*delta_0 from modification list
-			for (size_t i = 0; i < linearModificationList.size(); i++) {
-				alphas.push_back(linearModificationList[i]->getCovector());
-				linear_targets.push_back(linearModificationList[i]->getTarget());
-				linear_existing_values.push_back(linearModificationList[i]->calculateCurrentValue(field));
-			}
+			std::vector<T> quad_targets = tools::linspace(starting_value, overall_target, n_steps_);
+
+			for (int i=0; i < (n_steps_ - 1); i++) {
 
 
-			for (size_t l=0; l < (unsigned) n_steps_;l++){
-
-
+				T current_value = modif_->calculateCurrentValue(field);
 				auto pushedField = modif_->pushMultiLevelFieldThroughMatrix(*field);
 				pushedField->toFourier();
 
-//				alphas.push_back(pushedField); //Add pushed field to linear covectors
-//				linear_targets.push_back(0);
-//				linear_existing_values.push_back(0);
-//
-//				orthonormaliseModifications(alphas, linear_targets, linear_existing_values);
-//
-//				alphas.pop_back();
-//				linear_targets.pop_back();
-//				linear_existing_values.pop_back();
-
-//				applyLinearModif();
-
-				T quadratic_existing = modif_->calculateCurrentValue(field);
-				T t = quad_targets_[l];
-				T norm = pushedField->innerProduct(*pushedField).real();
-				T multiplier = 0.5 * (t - quadratic_existing) / norm;
-
+				T multiplier = 0.5 * (quad_targets[i+1] - current_value) ;
 				pushedField->convertToVector();
-
 				field->addScaled(*pushedField, multiplier);
 			}
+
 		}
 
-		int calculateCorrectNumberSteps(fields::MultiLevelField<DataType> * field,
-																		std::shared_ptr<QuadraticModification<DataType,T>> modif_, int previous_n_steps){
-			T targeted_precision = modif_->getTargetPrecision();
-			T current_value = modif_->calculateCurrentValue(field);
-			T overall_target = modif_->getTarget();
+		int calculateCorrectNumberSteps(fields::MultiLevelField<DataType>* field,
+				std::shared_ptr<QuadraticModification<DataType,T>> modif_, int previous_n_steps){
 
-			T residual = overall_target - current_value;
-			T achieved_precision = residual / overall_target;
-
-			if((achieved_precision < targeted_precision)/(targeted_precision)){
-				return 0;
-			} else {
-				T scaling = previous_n_steps * sqrt(achieved_precision/targeted_precision);
-				std::cout<< std::ceil(scaling)<< " steps are needed for the quadratic algorithm"  << std::endl;
-				return (int) std::ceil(scaling);
-			}
-
+			return 0;
 		}
 
 		//! Graam-Schmidt procedure to orthonormalise the modification covectors
 		void orthonormaliseModifications(std::vector<std::shared_ptr<fields::ConstraintField<DataType>>> alphas,
-																		 std::vector<T> &targets, std::vector<T> &existing_values) {
+																		 std::vector<T> &targets) {
 
 			using namespace tools::numerics;
 
 			size_t n = alphas.size();
 			size_t done = 0;
-
-			size_t nCells = underlying.getNumCells();
-
-//			// Summary of modifs to be applied
-//			std::cout << "v0=" << real(existing_values) << std::endl;
-//			std::cout << "v1=" << real(targets) << std::endl;
-
-			// Store transformation matrix, just for display purposes
-			std::vector<std::vector<std::complex<T>>> t_matrix(n, std::vector<std::complex<T>>(n, 0));
-
-			for (size_t i = 0; i < n; i++) {
-				for (size_t j = 0; j < n; j++) {
-					if (i == j) t_matrix[i][j] = 1.0; else t_matrix[i][j] = 0.0;
-				}
-			}
 
 			// Gram-Schmidt orthogonalization in-place
 //			tools::progress::ProgressBar pb("orthogonalizing modifications");
@@ -350,12 +291,6 @@ namespace modifications{
 
 					alpha_i.addScaled(alpha_j, -result);
 
-
-					// update display matrix accordingly such that at each step
-					// our current values array is equal to t_matrix.
-					for (size_t k = 0; k <= j; k++)
-						t_matrix[i][k] -= result * t_matrix[j][k];
-
 					// update constraining value
 					targets[i] -= result * targets[j];
 					done += 1; // one op for each of the orthognalizing modifs
@@ -367,41 +302,9 @@ namespace modifications{
 				alpha_i /= norm;
 				targets[i] /= norm;
 
-				for (size_t j = 0; j < n; j++) {
-					t_matrix[i][j] /= norm;
-				}
 				done += 1; // one op for the normalization
 
 			}
-
-			// The existing values are now invalid because the covectors have been changed.
-			// TODO: rather than recalculate them, it would save CPU time to update them alongside the vectors/target values.
-			existing_values.clear();
-			for (size_t i = 0; i < n; i++) {
-				auto &alpha_i = *(alphas[i]);
-				existing_values.push_back(alpha_i.innerProduct(*outputField).real());
-			}
-
-
-			// Finally display t_matrix^{dagger} t_matrix, which is the matrix allowing one
-			// to form chi^2: Delta chi^2 = d_1^dagger t_matrix^dagger t_matrix d_1 -
-			// d_0^dagger t_matrix^dagger t_matrix d_0.
-
-//			std::cout << std::endl << "chi2_matr = [";
-//			for (size_t i = 0; i < n; i++) {
-//				std::cout << "[";
-//				for (size_t j = 0; j < n; j++) {
-//					std::complex<T> r = 0;
-//					for (size_t k = 0; k < n; k++) {
-//						r += std::conj(t_matrix[k][i]) * t_matrix[k][j];
-//					}
-//					std::cout << std::real(r) / nCells;
-//					if (j < n - 1) std::cout << ",";
-//				}
-//				std::cout << "]";
-//				if (i < n - 1) std::cout << "," << std::endl;
-//			}
-//			std::cout << "]" << std::endl;
 		}
 
 		bool isRelative(std::string type){

@@ -106,6 +106,8 @@ namespace modifications {
 			pushedField.toReal();
 			windowOperator(pushedField);
 
+			pushedField.toFourier();
+
 			return fields::Field<DataType, T>(pushedField);
 		}
 
