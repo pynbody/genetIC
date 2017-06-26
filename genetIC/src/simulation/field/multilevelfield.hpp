@@ -60,6 +60,15 @@ namespace fields {
       isCovector = false;
     }
 
+		MultiLevelField(MultiLevelField<DataType> &copy) : multiLevelContext(&(copy.getContext())){
+			setupConnection();
+			isCovector = copy.isCovector;
+
+			for(size_t level=0; level<getNumLevels(); level++) {
+			fieldsOnLevels.push_back(std::make_shared(Field<DataType, T>(copy.getFieldForLevel(level))));
+			}
+		}
+
     virtual void updateMultiLevelContext() {
 
     }
@@ -495,4 +504,4 @@ namespace fields {
   };
 }
 
-#endif //IC_MULTILEVELFIELD_HPP
+#endif

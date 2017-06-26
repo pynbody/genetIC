@@ -27,7 +27,7 @@ select_sphere 5
 calculate overdensity
 calculate_variance 25
 
-quadratically_modify variance relative 5 5 0.01 25
+quadratically_modify variance relative 5 200 0.01 25
 done
 
 calculate_variance 25

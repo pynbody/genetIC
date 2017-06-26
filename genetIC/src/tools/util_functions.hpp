@@ -65,9 +65,9 @@ namespace tools {
     if ((n == 0) || (n == 1) || (start == end))
       array.push_back(end);
     else if (n > 1) {
-      double step = (end - start) / (n - 1);
+      double step = (end - start) / (n);
       int count = 0;
-      while(count < n) {
+      while(count < n +1 ) {
 				T elem = start + count*step;
         array.push_back(elem);
         ++count;
