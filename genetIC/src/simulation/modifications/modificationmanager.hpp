@@ -75,7 +75,6 @@ namespace modifications{
 									make_shared<FilteredVarianceModification<DataType,T>>(underlying, cosmology);
 
 			modification->setInitNumberSteps(initNsteps_);
-			modification->setTargetPrecision(precision_);
 			modification->setFilterScale(scale_);
 
 			bool relative = isRelative(type_);
@@ -87,6 +86,7 @@ namespace modifications{
 			}
 
 			modification->setTarget(target);
+			modification->setTargetPrecision(precision_);
 
 			quadraticModificationList.push_back(modification);
 		}
@@ -238,7 +238,11 @@ namespace modifications{
 
 			for (size_t i=0; i<numberQuadraticModifs; i++){
 				auto modif_i = quadraticModificationList[i];
-				performIterations(outputField, alphas, linear_targets, modif_i, modif_i->getInitNumberSteps());
+				int init_n_steps = modif_i->getInitNumberSteps();
+				performIterations(outputField, alphas, linear_targets, modif_i, init_n_steps);
+
+				int n_steps = calculateCorrectNumberSteps(outputField, modif_i, init_n_steps);
+				n_steps++;
 			}
 		}
 
@@ -279,9 +283,20 @@ namespace modifications{
 		}
 
 		int calculateCorrectNumberSteps(fields::MultiLevelField<DataType>* field,
-				std::shared_ptr<QuadraticModification<DataType,T>> modif_, int previous_n_steps){
+				std::shared_ptr<QuadraticModification<DataType,T>> modif, int previous_n_steps){
 
-			return 0;
+			T achieved_precision = std::abs(modif->calculateCurrentValue(field) - modif->getTarget());
+			T target_precision = modif->getTargetPrecision();
+
+			int n_steps = (int) std::ceil(previous_n_steps * std::sqrt(achieved_precision / target_precision));
+
+			if (n_steps > previous_n_steps){
+				std::cout << n_steps << " steps are required for the quadratic algorithm " << std::endl;
+				return  n_steps;
+			} else{
+				std::cout << "No need to do more steps to achieve target precision" << std::endl;
+				return 0;
+			}
 		}
 
 		//! Graam-Schmidt procedure to orthonormalise the modification covectors

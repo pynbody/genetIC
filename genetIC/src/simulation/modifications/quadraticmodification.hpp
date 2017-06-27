@@ -10,7 +10,7 @@ namespace modifications {
 	class QuadraticModification : public Modification<DataType, T> {
 	private:
 		int initNumberSteps;
-		T targetPrecision;
+		T targetPrecision;		/*!< Precision at which the target should be achieved. 0.01 input is 1% required accuracy */
 
 	public:
 		QuadraticModification(multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
@@ -32,7 +32,7 @@ namespace modifications {
 		}
 
 		void setTargetPrecision(T targetPrecision_){
-			this->targetPrecision = targetPrecision_;
+			this->targetPrecision = this->getTarget() * targetPrecision_;
 		}
 
 
