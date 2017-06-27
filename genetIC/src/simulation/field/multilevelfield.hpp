@@ -368,6 +368,7 @@ namespace fields {
       });
     }
 
+		//TODO Make sure power spectrum does not have zeroes in it
 		void divideByCovarianceOneGrid(Field<DataType> &field,
 																		 const Field<DataType> &spectrum,
 																		 const grids::Grid<T> &grid,
@@ -375,7 +376,7 @@ namespace fields {
 
 			field.forEachFourierCellInt([weight, &grid, &field, &spectrum]
 																			(complex<T> existingValue, int kx, int ky, int kz) {
-				T spec = spectrum.getFourierCoefficient(kx,ky,kz).real() * weight;
+				T spec = spectrum.getFourierCoefficient(kx,ky,kz).real() * weight + 1e-14;
 				return existingValue / spec;
 			});
 		}

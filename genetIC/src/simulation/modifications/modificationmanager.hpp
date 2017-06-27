@@ -231,33 +231,47 @@ namespace modifications{
 		}
 
 		void applyLinQuadModif(std::vector<std::shared_ptr<fields::ConstraintField<DataType>>> alphas,
-													 std::vector<T> &targets){
+													 std::vector<T> &linear_targets){
 
 			size_t numberQuadraticModifs = quadraticModificationList.size();
 			//TODO Check quadratic are indepednent ?
 
 			for (size_t i=0; i<numberQuadraticModifs; i++){
 				auto modif_i = quadraticModificationList[i];
-				performIterations(outputField, modif_i, modif_i->getInitNumberSteps());
+				performIterations(outputField, alphas, linear_targets, modif_i, modif_i->getInitNumberSteps());
 			}
 		}
 
 		void performIterations(fields::MultiLevelField<DataType>* field,
-													 std::shared_ptr<QuadraticModification<DataType,T>> modif_, int n_steps_){
+													 std::vector<std::shared_ptr<fields::ConstraintField<DataType>>> alphas,
+													 std::vector<T> &linear_targets,
+													 std::shared_ptr<QuadraticModification<DataType,T>> quad_modif, int n_steps){
 
-			T overall_target = modif_ ->getTarget();
-			T starting_value = modif_->calculateCurrentValue(field);
+			T overall_quad_target = quad_modif->getTarget();
+			T starting_quad_value = quad_modif->calculateCurrentValue(field);
 
-			std::vector<T> quad_targets = tools::linspace(starting_value, overall_target, n_steps_);
+			std::vector<T> quad_targets = tools::linspace(starting_quad_value, overall_quad_target, n_steps);
 
-			for (int i=0; i < (n_steps_ - 1); i++) {
+			for (int i=0; i < (n_steps - 1); i++) {
 
-
-				T current_value = modif_->calculateCurrentValue(field);
-				auto pushedField = modif_->pushMultiLevelFieldThroughMatrix(*field);
+				T current_value = quad_modif->calculateCurrentValue(field);
+				auto pushedField = quad_modif->pushMultiLevelFieldThroughMatrix(*field);
 				pushedField->toFourier();
 
-				T multiplier = 0.5 * (quad_targets[i+1] - current_value) ;
+				T norm = sqrt(pushedField->innerProduct(*pushedField).real());
+
+				//Add pushed field to alphas and orthonormalise the family
+				alphas.push_back(pushedField);
+				linear_targets.push_back(0);
+				orthonormaliseModifications(alphas, linear_targets);
+				alphas.pop_back();
+				linear_targets.pop_back();
+
+				//Apply linear step
+				applyLinearModif(field, alphas, linear_targets);
+
+				//Apply quad step
+				T multiplier = 0.5 * (quad_targets[i+1] - current_value) / norm ; //One sqrt factor inside the orthonormalise method and one more here.
 				pushedField->convertToVector();
 				field->addScaled(*pushedField, multiplier);
 			}
