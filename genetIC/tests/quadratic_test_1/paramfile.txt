@@ -24,17 +24,22 @@ zoomgrid 2 64
 centre 32.5 32.5 32.5
 select_sphere 5
 
-calculate overdensity
+calculate overdensity 0
 calculate_variance 25
 
 modify overdensity absolute -0.1
-quadratically_modify variance absolute 0.005 500 0.01 25
+quadratically_modify variance relative 10 20 0.01 25
 apply_modifications
 
 calculate overdensity
 calculate_variance 25
 
 clear_modifications
+
+done
+
+calculate overdensity
+calculate_variance 25
 
 dump_grid 0
 dump_grid 1

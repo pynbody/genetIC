@@ -25,9 +25,10 @@ namespace modifications{
 				outputField(outputField_), underlying(multiLevelContext_), cosmology(cosmology_){}
 
 		//! Calculate existing value of the quantity defined by name
-		T calculateCurrentValueByName(std::string name_){
+		template <typename ... Args>
+		T calculateCurrentValueByName(std::string name_, Args&&... args){
 
-			std::shared_ptr<Modification<DataType,T>> modification = getModificationFromName(name_);
+			std::shared_ptr<Modification<DataType,T>> modification = getModificationFromName(name_, std::forward<Args>(args)...);
 			T value = modification->calculateCurrentValue(outputField);
 			return value;
 		}
@@ -157,19 +158,21 @@ namespace modifications{
 		void clearModifications(){
 			std::cout << "Clearing modification list" << std::endl;
 			linearModificationList.clear();
+			quadraticModificationList.clear();
 		}
 
 
 
 	private:
-		std::shared_ptr<Modification<DataType,T>> getModificationFromName(std::string name_){
+		template <typename ... Args>
+		std::shared_ptr<Modification<DataType,T>> getModificationFromName(std::string name_, Args&& ... args ){
 			try{
 				auto modification = getLinearModificationFromName(name_);
 				return modification;
 			} catch( UnknownModificationException &e) {
 				// If modification is unknwon, it might be quadratic so swallow exception for now.
 				try {
-					auto modification = getQuadraticModificationFromName(name_);
+					auto modification = getQuadraticModificationFromName(name_, std::forward<Args>(args)...);
 					return modification;
 				} catch (UnknownModificationException &e2) {
 					throw e2;
@@ -195,9 +198,10 @@ namespace modifications{
 			}
 		}
 
-		std::shared_ptr<QuadraticModification<DataType,T>> getQuadraticModificationFromName(std::string name_){
+		template<typename ... Args>
+		std::shared_ptr<QuadraticModification<DataType,T>> getQuadraticModificationFromName(std::string name_, Args&& ... args){
 			if ((strcasecmp(name_.c_str(), "variance") == 0)){
-				return make_shared<FilteredVarianceModification<DataType,T>>(underlying, cosmology);
+				return make_shared<FilteredVarianceModification<DataType,T>>(underlying, cosmology, std::forward<Args>(args) ...);
 			}  else{
 				throw UnknownModificationException(name_ + " " + "is an unknown modification name");
 			}

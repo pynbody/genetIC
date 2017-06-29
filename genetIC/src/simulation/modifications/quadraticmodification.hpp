@@ -83,6 +83,10 @@ namespace modifications {
 		const cosmology::CosmologicalParameters<T> &cosmology_) :
 		QuadraticModification<DataType, T>(underlying_, cosmology_) {}
 
+		FilteredVarianceModification(multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
+																 const cosmology::CosmologicalParameters<T> &cosmology_, T filterscale_) :
+				QuadraticModification<DataType, T>(underlying_, cosmology_), scale(filterscale_){}
+
 		void setFilterScale(T scale_){
 			this->scale =scale_;
 		}

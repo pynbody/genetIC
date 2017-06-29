@@ -59,7 +59,7 @@ namespace tools {
                              std::ostream * output_stream) {
     T1 arg1;
     if (input_stream.eof())
-      throw DispatchError("Insufficient arugments");
+      throw DispatchError("Insufficient arguments");
     input_stream >> arg1;
 
     if (output_stream != nullptr)

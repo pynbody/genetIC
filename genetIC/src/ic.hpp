@@ -833,11 +833,11 @@ public:
     z0 = zin;
   }
 
-  void calculate(string name) {
+  void calculate(string name, T filterscale = 0 ) {
     if (!haveInitialisedRandomComponent)
       initialiseRandomComponent();
 
-		GridDataType val = modificationManager.calculateCurrentValueByName(name);
+		GridDataType val = modificationManager.calculateCurrentValueByName(name, filterscale);
 
     cout << name << ": calculated value = " << val << endl;
   }
