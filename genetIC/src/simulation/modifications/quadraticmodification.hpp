@@ -125,7 +125,7 @@ namespace modifications {
 
 			pushedField.toFourier();
 
-			return fields::Field<DataType, T>(pushedField);
+			return pushedField;
 		}
 
 	private:

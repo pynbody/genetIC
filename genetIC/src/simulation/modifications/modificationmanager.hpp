@@ -244,10 +244,20 @@ namespace modifications{
 			for (size_t i=0; i<numberQuadraticModifs; i++){
 				auto modif_i = quadraticModificationList[i];
 				int init_n_steps = modif_i->getInitNumberSteps();
-				performIterations(outputField, alphas, linear_targets, modif_i, init_n_steps);
 
-				int n_steps = calculateCorrectNumberSteps(outputField, modif_i, init_n_steps);
-				n_steps++;
+				// Try the procedure on a test field and deduce the correct number of steps
+				auto test_field = new fields::OutputField<DataType>(*outputField);
+				performIterations(test_field, alphas, linear_targets, modif_i, init_n_steps);
+				int n_steps = calculateCorrectNumberSteps(test_field, modif_i, init_n_steps);
+
+				// Perform procedure on real output
+				if(n_steps > init_n_steps){
+					performIterations(outputField,  alphas, linear_targets, modif_i, n_steps);
+				} else{
+					performIterations(outputField,  alphas, linear_targets, modif_i, init_n_steps);
+				}
+
+
 			}
 		}
 

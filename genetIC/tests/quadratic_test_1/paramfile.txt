@@ -28,7 +28,7 @@ calculate overdensity
 calculate_variance 25
 
 modify overdensity absolute -0.1
-quadratically_modify variance relative 10 20 0.01 25
+quadratically_modify variance relative 10 10 0.01 25
 apply_modifications
 
 calculate overdensity

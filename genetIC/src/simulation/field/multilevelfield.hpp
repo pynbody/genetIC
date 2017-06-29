@@ -60,6 +60,17 @@ namespace fields {
       isCovector = false;
     }
 
+		MultiLevelField(const MultiLevelField<DataType> &copy) :
+				std::enable_shared_from_this<MultiLevelField<DataType>>(), multiLevelContext(&(copy.getContext())) {
+
+			for (size_t level = 0; level < multiLevelContext->getNumLevels(); level++){
+				fieldsOnLevels.push_back(std::make_shared<Field<DataType, T>>(copy.getFieldForLevel(level)));
+			}
+			setupConnection();
+			pFilters = std::make_shared<filters::FilterFamily<T>>(* copy.pFilters);
+			isCovector = copy.isCovector;
+		}
+
     virtual void updateMultiLevelContext() {
 
     }
@@ -463,6 +474,11 @@ namespace fields {
       outputState = PRE_SEPARATION;
       fieldsOnLevelsPopulated=false;
     }
+
+		OutputField(const OutputField<DataType> &copy): MultiLevelField<DataType>(copy){
+			outputState = copy.outputState;
+			fieldsOnLevelsPopulated = copy.fieldsOnLevelsPopulated;
+		}
 
     void updateMultiLevelContext() override {
       assert(outputState == PRE_SEPARATION);
