@@ -46,9 +46,10 @@ namespace modifications{
 				\param type_ Modification can be relative to existing value or absolute
 				\param target_ Absolute target or factor by which the existing will be multiplied
 			*/
-		void addModificationToList(std::string name_, std::string type_ , T target_){
+		template <typename ... Args>
+		void addModificationToList(std::string name_, std::string type_ , T target_, Args&& ... args){
       
-			std::shared_ptr<Modification<DataType,T>> modification = getModificationFromName(name_);
+			std::shared_ptr<Modification<DataType,T>> modification = getModificationFromName(name_, std::forward<Args>(args)...);
 
 			bool relative = isRelative(type_);
 			T target = target_;
@@ -290,7 +291,7 @@ namespace modifications{
 				std::shared_ptr<QuadraticModification<DataType,T>> modif, int previous_n_steps){
 
 			T achieved_precision = std::abs(modif->calculateCurrentValue(field) - modif->getTarget());
-			T target_precision = modif->getTargetPrecision();
+			T target_precision = modif->getTarget() * modif->getTargetPrecision();
 
 			int n_steps = (int) std::ceil(previous_n_steps * std::sqrt(achieved_precision / target_precision));
 

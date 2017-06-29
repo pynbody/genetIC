@@ -8,7 +8,7 @@ namespace modifications {
 
 	template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
 	class QuadraticModification : public Modification<DataType, T> {
-	private:
+	protected:
 		int initNumberSteps;
 		T targetPrecision;		/*!< Precision at which the target should be achieved. 0.01 input is 1% required accuracy */
 
@@ -16,6 +16,14 @@ namespace modifications {
 		QuadraticModification(multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
 													const cosmology::CosmologicalParameters<T> &cosmology_) :
 				Modification<DataType, T>(underlying_, cosmology_) {
+			this->order = 2;
+		};
+
+		QuadraticModification(multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
+		const cosmology::CosmologicalParameters<T> &cosmology_, int initNumberSteps_,
+				T targetPrecision_) :
+				Modification<DataType, T>(underlying_, cosmology_), initNumberSteps(initNumberSteps_) {
+			this->targetPrecision = targetPrecision_;
 			this->order = 2;
 		};
 
@@ -32,7 +40,7 @@ namespace modifications {
 		}
 
 		void setTargetPrecision(T targetPrecision_){
-			this->targetPrecision = this->getTarget() * targetPrecision_;
+			this->targetPrecision = targetPrecision_;
 		}
 
 
@@ -86,6 +94,11 @@ namespace modifications {
 		FilteredVarianceModification(multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
 																 const cosmology::CosmologicalParameters<T> &cosmology_, T filterscale_) :
 				QuadraticModification<DataType, T>(underlying_, cosmology_), scale(filterscale_){}
+
+		FilteredVarianceModification(multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
+																 const cosmology::CosmologicalParameters<T> &cosmology_, int initNumberSteps_,
+																 T targetPrecision_, T filterscale_) :
+				QuadraticModification<DataType, T>(underlying_, cosmology_, initNumberSteps_, targetPrecision_), scale(filterscale_){}
 
 		void setFilterScale(T scale_){
 			this->scale =scale_;
