@@ -44,12 +44,11 @@ namespace modifications {
 		}
 
 
-		T calculateCurrentValue(fields::MultiLevelField<DataType>*  field) override {
+		T calculateCurrentValue(const fields::MultiLevelField<DataType> &field) override {
 
-			auto pushedField = pushMultiLevelFieldThroughMatrix(*field);
-			field->toFourier();
+			auto pushedField = pushMultiLevelFieldThroughMatrix(field);
 			pushedField->toFourier();
-			T value = pushedField->euclidianInnerProduct(*field).real();
+			T value = pushedField->euclidianInnerProduct(field).real();
 			return value;
 		}
 

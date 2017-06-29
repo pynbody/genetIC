@@ -17,8 +17,8 @@ namespace modifications {
 			this->order = 1;
 		};
 
-		T calculateCurrentValue(fields::MultiLevelField<DataType>* field) override {
-			T val = this->covector->innerProduct(*field).real();
+		T calculateCurrentValue(const fields::MultiLevelField<DataType> &field) override {
+			T val = this->covector->innerProduct(field).real();
 			return val;
 		}
 

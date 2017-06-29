@@ -12,7 +12,7 @@ namespace modifications{
 	class ModificationManager {
 
 	public:
-		fields::OutputField<DataType>* outputField;																			/*!< Will become the modified field */
+		fields::OutputField<DataType> &outputField;																			/*!< Pointer to the future modified field */
 		multilevelcontext::MultiLevelContextInformation<DataType> &underlying;					/*!< Grid context in which modifications take place */
 		const cosmology::CosmologicalParameters<T> &cosmology;													/*!< Cosmology context in which modifications take place */
 
@@ -21,7 +21,7 @@ namespace modifications{
 
 		ModificationManager(multilevelcontext::MultiLevelContextInformation<DataType> &multiLevelContext_,
 												const cosmology::CosmologicalParameters<T> &cosmology_,
-												fields::OutputField<DataType>* outputField_):
+												fields::OutputField<DataType> &outputField_):
 				outputField(outputField_), underlying(multiLevelContext_), cosmology(cosmology_){}
 
 		//! Calculate existing value of the quantity defined by name
@@ -213,7 +213,7 @@ namespace modifications{
 		 * Linear modifications are applied by orthonormalisation and adding the
 		 * correction term. See Roth et al 2016 for details
 		 */
-		void applyLinearModif(fields::MultiLevelField<DataType>* field,
+		void applyLinearModif(fields::OutputField<DataType> &field,
 													std::vector<std::shared_ptr<fields::ConstraintField<DataType>>> alphas,
 													std::vector<T> &targets){
 
@@ -230,7 +230,7 @@ namespace modifications{
 				alpha_i.convertToVector();
 
 				alpha_i.toFourier(); // almost certainly already is in Fourier space, but just to be safe
-				field->addScaled(alpha_i, dval_i);
+				field.addScaled(alpha_i, dval_i);
 				alpha_i.convertToCovector();
 			}
 		}
@@ -246,7 +246,7 @@ namespace modifications{
 				int init_n_steps = modif_i->getInitNumberSteps();
 
 				// Try the procedure on a test field and deduce the correct number of steps
-				auto test_field = new fields::OutputField<DataType>(*outputField);
+				auto test_field = fields::OutputField<DataType>(outputField);
 				performIterations(test_field, alphas, linear_targets, modif_i, init_n_steps);
 				int n_steps = calculateCorrectNumberSteps(test_field, modif_i, init_n_steps);
 
@@ -261,7 +261,7 @@ namespace modifications{
 			}
 		}
 
-		void performIterations(fields::MultiLevelField<DataType>* field,
+		void performIterations(fields::OutputField<DataType> &field,
 													 std::vector<std::shared_ptr<fields::ConstraintField<DataType>>> alphas,
 													 std::vector<T> &linear_targets,
 													 std::shared_ptr<QuadraticModification<DataType,T>> quad_modif, int n_steps){
@@ -274,7 +274,7 @@ namespace modifications{
 			for (int i=0; i < (n_steps - 1); i++) {
 
 				T current_value = quad_modif->calculateCurrentValue(field);
-				auto pushedField = quad_modif->pushMultiLevelFieldThroughMatrix(*field);
+				auto pushedField = quad_modif->pushMultiLevelFieldThroughMatrix(field);
 				pushedField->toFourier();
 
 				T norm = sqrt(pushedField->innerProduct(*pushedField).real());
@@ -292,12 +292,12 @@ namespace modifications{
 				//Apply quad step
 				T multiplier = 0.5 * (quad_targets[i+1] - current_value) / norm ; //One sqrt factor inside the orthonormalise method and one more here.
 				pushedField->convertToVector();
-				field->addScaled(*pushedField, multiplier);
+				field.addScaled(*pushedField, multiplier);
 			}
 
 		}
 
-		int calculateCorrectNumberSteps(fields::MultiLevelField<DataType>* field,
+		int calculateCorrectNumberSteps(const fields::OutputField<DataType> &field,
 				std::shared_ptr<QuadraticModification<DataType,T>> modif, int previous_n_steps){
 
 			T achieved_precision = std::abs(modif->calculateCurrentValue(field) - modif->getTarget());

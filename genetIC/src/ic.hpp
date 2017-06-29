@@ -111,7 +111,7 @@ protected:
 public:
   ICGenerator(tools::ClassDispatch<ICGenerator<GridDataType>, void> &interpreter) :
     outputField(multiLevelContext),
-    modificationManager(multiLevelContext, cosmology, &outputField),
+    modificationManager(multiLevelContext, cosmology, outputField),
     randomFieldGenerator(outputField),
     pMapper(new particle::mapper::ParticleMapper<GridDataType>()),
     interpreter(interpreter) {

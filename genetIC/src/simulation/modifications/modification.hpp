@@ -28,7 +28,7 @@ namespace modifications{
 		};
 
 		//! Calculate modification value with a given field
-		virtual T calculateCurrentValue(fields::MultiLevelField<DataType>* /* field */) = 0;
+		virtual T calculateCurrentValue(const fields::MultiLevelField<DataType> & /* field */) = 0;
 
 		T getTarget(){
 			return target;
