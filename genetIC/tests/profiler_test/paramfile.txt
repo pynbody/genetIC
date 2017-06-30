@@ -1,4 +1,4 @@
-# Test zooming with TWO refinement levels
+# Test with larger datasets for profiling purposes
 
 
 # output parameters

@@ -12,7 +12,7 @@ namespace modifications{
 	class ModificationManager {
 
 	public:
-		fields::OutputField<DataType> &outputField;																			/*!< Pointer to the future modified field */
+		fields::OutputField<DataType> &outputField;																			/*!< Future modified field */
 		multilevelcontext::MultiLevelContextInformation<DataType> &underlying;					/*!< Grid context in which modifications take place */
 		const cosmology::CosmologicalParameters<T> &cosmology;													/*!< Cosmology context in which modifications take place */
 

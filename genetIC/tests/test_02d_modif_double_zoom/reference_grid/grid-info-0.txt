@@ -1,0 +1,3 @@
+0 0 0 64
+The line above contains information about grid level 0
+It gives the x-offset, y-offset and z-offset of the low-left corner and also the box length

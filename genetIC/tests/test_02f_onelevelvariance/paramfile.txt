@@ -1,0 +1,25 @@
+# Test variance calculation on one level
+
+Om  0.279
+Ol  0.721
+#Ob  0.04
+s8  0.817
+zin	99
+
+seed	8896131
+camb	../camb_transfer_kmax40_z0.dat
+
+outname test_onelevelvariance
+outdir	 ./
+outformat 4
+
+
+basegrid 50.0 64
+
+
+centre 32 32 32
+select_sphere 10
+
+calculate_variance 1000
+
+done
