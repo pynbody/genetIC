@@ -15,12 +15,12 @@ seed	8896131
 
 basegrid 50.0 64
 
-outname test_5
+outname test_3
 outdir ./
 outformat 4
 
 
-relative_to ../test_01/paramfile.txt
+relative_to ../test_01a_basic_grid/paramfile.txt
 idfile zoomtest.txt
 
 zoomgrid 3 64

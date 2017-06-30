@@ -70,15 +70,15 @@ void setup_parser(tools::ClassDispatch<ICf, void> &dispatch) {
   dispatch.add_class_route("outname", &ICf::setOutName);
   dispatch.add_class_route("outformat", &ICf::setOutputFormat);
 
-  // ?
-  dispatch.add_class_route("IDfile", &ICf::loadID);			//TODO Not quite sure what these commands are doing
-  dispatch.add_class_route("append_IDfile", &ICf::appendID);
-  dispatch.add_class_route("dump_IDfile", &ICf::dumpID);
-
   // Define grid structure
   dispatch.add_class_route("basegrid", &ICf::initBaseGrid);
   dispatch.add_class_route("zoomgrid", &ICf::initZoomGrid);
   dispatch.add_class_route("zoomgrid_with_origin_at", &ICf::initZoomGridWithOriginAt);
+
+	//Input Output of flagged particles
+	dispatch.add_class_route("IDfile", &ICf::loadID);
+	dispatch.add_class_route("append_IDfile", &ICf::appendID);
+	dispatch.add_class_route("dump_IDfile", &ICf::dumpID);
 
   // Point to specific coordinates
   dispatch.add_class_route("centre_on", &ICf::centreParticle);

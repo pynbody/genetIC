@@ -4,7 +4,7 @@
 # output parameters
 outdir	 ./
 outformat 4
-outname test_2
+outname test_1
 
 # cosmology:
 Om  0.279

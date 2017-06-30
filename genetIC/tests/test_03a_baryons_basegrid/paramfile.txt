@@ -9,7 +9,7 @@ zin	99
 seed	8896131
 camb	../camb_transfer_kmax40_z0.dat
 
-outname test_4
+outname test_3
 outdir	 ./
 outformat 4
 

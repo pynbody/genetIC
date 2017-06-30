@@ -9,17 +9,21 @@ zin	99
 seed	8896131
 camb	../camb_transfer_kmax40_z0.dat
 
-outname test_onelevelvariance
+outname test_2
 outdir	 ./
 outformat 4
 
 
-basegrid 50.0 64
+basegrid 64.0 64
 
-
-centre 32 32 32
-select_sphere 10
+centre 2 2 2
+select_cube 4
+dump_IDfile tagged_cells.txt
 
 calculate_variance 1000
 
 done
+
+calculate_variance 1000
+
+dump_grid 0

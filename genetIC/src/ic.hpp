@@ -403,7 +403,7 @@ public:
 
 	//! Set formats from handled formats in io namespace
 	/*!
-	 * \param format //TODO Which int is which ?
+	 * \param format  2 =  Gadget2, 3 = Gadget3, 4 = tipsy, 5 = grafic
 	 */
   void setOutputFormat(int format) {
     outputFormat = static_cast<io::OutputFormat>(format);
@@ -466,7 +466,7 @@ public:
     ifile.close();
   }
 
-	// TODO not quire sure what the point of this method is ? Looks like a debugging tool
+	//! Dumps field in a tipsy format
   virtual void saveTipsyArray(string fname) {
     io::tipsy::saveFieldTipsyArray(fname, *pMapper, *pParticleGenerator, outputField);
   }
@@ -505,7 +505,10 @@ public:
 
   }
 
-	// TODO Not quite sure what this if for ?
+	//! Define the current mapper with respect to an existing mapper
+	/*!
+	* Links particles in the current simulation to an existing set of flagged particles
+	*/
   void setInputMapper(std::string fname) {
     DummyICGenerator<GridDataType> pseudoICs(this);
     auto dispatch = interpreter.specify_instance(pseudoICs);
@@ -531,7 +534,6 @@ public:
    *
    * This may differ from the grid on which the fields are defined either because there is an offset or
    * there are differences in the resolution between the output and the literal fields.
-   *
    */
   std::shared_ptr<grids::Grid<T>> getOutputGrid(int level = 0) {
     auto gridForOutput = multiLevelContext.getGridForLevel(level).shared_from_this();
@@ -680,8 +682,7 @@ protected:
     throw std::runtime_error("No level has any particles selected");
   }
 
-  int deepestLevel() {
-    //TODO: can this be removed?
+  size_t deepestLevel() {
     return multiLevelContext.getNumLevels();
   }
 
@@ -742,17 +743,19 @@ protected:
 public:
 
 
-	//TODO Is this loading existing partciles ?
+//! Load from a file new flagged particles
   void loadID(string fname) {
     loadParticleIdFile(fname);
     getCentre();
   }
 
+	//! Append from a file new flagged particles
   void appendID(string fname) {
     appendParticleIdFile(fname);
     getCentre();
   }
 
+	//! Output to a file the currently flagged particles
   virtual void dumpID(string fname) {
     std::vector<size_t> results;
     cerr << "dumpID using current mapper:" << endl;
@@ -761,7 +764,7 @@ public:
     io::dumpBuffer(results, fname);
   }
 
-	//! TODO Is this finding the cell for a given particle ?
+	//TODO Is this finding the cell for a given particle ?
   void centreParticle(long id) {
     std::tie(x0, y0, z0) = multiLevelContext.getGridForLevel(0).getCellCentroid(id);
   }
@@ -808,7 +811,9 @@ public:
   }
 
 	//! Flag all cells contained in the sphere centered at the coordinates currently pointed at
-	// TODO Is radius in pixel or Mpc ? Same for Cube
+	/*!
+	 * \param radius in Mpc
+	 * */
   void selectSphere(float radius) {
     T r2 = radius * radius;
     select([r2](T delta_x, T delta_y, T delta_z) -> bool {
@@ -819,6 +824,9 @@ public:
   }
 
 	//! Flag all cells contained in the cube centered at the coordinates currently pointed at
+	/*!
+ * \param side in Mpc
+ * */
   void selectCube(float side) {
     T side_by_2 = side / 2;
     select([side_by_2](T delta_x, T delta_y, T delta_z) -> bool {

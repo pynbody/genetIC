@@ -10,7 +10,7 @@ seed	8896131
 
 
 # output:
-outname test_13
+outname test_2
 outdir	 ./
 outformat 4
 

@@ -8,7 +8,7 @@
 # output parameters
 outdir	 ./
 outformat 4
-outname test_11
+outname test_6
 
 strays_on
 
