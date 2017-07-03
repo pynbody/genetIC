@@ -1,6 +1,8 @@
 #ifndef IC_QUADRATICMODIFICATION_HPP
 #define IC_QUADRATICMODIFICATION_HPP
 
+#include <numeric>
+#include <functional>
 #include <src/simulation/modifications/modification.hpp>
 
 namespace modifications {
@@ -47,8 +49,11 @@ namespace modifications {
 		T calculateCurrentValue(const fields::MultiLevelField<DataType> &field) override {
 
 			auto pushedField = pushMultiLevelFieldThroughMatrix(field);
+//			for (auto i = pushedField->getFieldForLevel(0).getDataVector().begin(); i != pushedField->getFieldForLevel(0).getDataVector().end(); ++i)
+//				std::cout << *i << ' '<<std::endl;
+
 			pushedField->toFourier();
-			T value = pushedField->euclidianInnerProduct(field).real();
+			T value = pushedField->innerProduct(field).real();
 			return value;
 		}
 
@@ -58,11 +63,15 @@ namespace modifications {
 //			std::vector<std::shared_ptr<fields::Field<DataType, T>>> oneLevelFieldsVector;
 //			for (size_t level = 0; level < this->underlying.getNumLevels(); ++level){
 //				auto pushedOneLevel = pushOneLevelFieldThroughMatrix(field.getFieldForLevel(level));
-//				oneLevelFieldsVector.push_back(pushedOneLevel);
+//
+//				using tools::numerics::operator/=;
+//				pushedOneLevel.getDataVector() /= this->underlying.getWeightForLevel(level);
+//
+//				oneLevelFieldsVector.push_back(std::make_shared<fields::Field<DataType, T>>(pushedOneLevel));
 //			}
 //
-//			fields::MultiLevelField<DataType> multiLevelPushed = fields::MultiLevelField<DataType>(this->underlying,
-//																																														 oneLevelFieldsVector);
+//			return std::make_shared<fields::ConstraintField<DataType>>(fields::ConstraintField<DataType>(this->underlying,
+//																																														 oneLevelFieldsVector));
 
 			// Push the finest level and then down sample to other grids
 			size_t level = this->underlying.getNumLevels() - 1;
@@ -122,7 +131,7 @@ namespace modifications {
 			pushedField.toReal();
 			windowOperator(pushedField);
 
-			pushedField.toFourier();
+//			pushedField.toFourier();
 
 			return pushedField;
 		}

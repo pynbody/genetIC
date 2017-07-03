@@ -14,10 +14,10 @@ outdir	 ./
 outformat 4
 
 
-basegrid 64.0 64
+basegrid 64 64
 
-centre 2 2 2
-select_cube 4
+centre 32 32 32
+select_cube 64
 dump_IDfile tagged_cells.txt
 
 calculate_variance 1000
