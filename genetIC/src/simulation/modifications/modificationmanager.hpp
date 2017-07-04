@@ -252,8 +252,10 @@ namespace modifications{
 
 				// Perform procedure on real output
 				if(n_steps > init_n_steps){
+					std::cout << n_steps << " steps are required for the quadratic algorithm " << std::endl;
 					performIterations(outputField,  alphas, linear_targets, modif_i, n_steps);
 				} else{
+					std::cout << "No need to do more steps to achieve target precision" << std::endl;
 					performIterations(outputField,  alphas, linear_targets, modif_i, init_n_steps);
 				}
 
@@ -271,7 +273,7 @@ namespace modifications{
 
 			std::vector<T> quad_targets = tools::linspace(starting_quad_value, overall_quad_target, n_steps);
 
-			for (int i=0; i < (n_steps - 1); i++) {
+			for (int i=0; i < (n_steps); i++) {
 
 				T current_value = quad_modif->calculateCurrentValue(field);
 				auto pushedField = quad_modif->pushMultiLevelFieldThroughMatrix(field);
@@ -285,9 +287,6 @@ namespace modifications{
 				orthonormaliseModifications(alphas, linear_targets);
 				alphas.pop_back();
 				linear_targets.pop_back();
-
-				//Apply linear step
-				applyLinearModif(field, alphas, linear_targets);
 
 				//Apply quad step
 				T multiplier = 0.5 * (quad_targets[i+1] - current_value) / norm ; //One sqrt factor inside the orthonormalise method and one more here.
@@ -303,15 +302,8 @@ namespace modifications{
 			T achieved_precision = std::abs(modif->calculateCurrentValue(field) - modif->getTarget());
 			T target_precision = modif->getTarget() * modif->getTargetPrecision();
 
-			int n_steps = (int) std::ceil(previous_n_steps * std::sqrt(achieved_precision / target_precision));
-
-			if (n_steps > previous_n_steps){
-				std::cout << n_steps << " steps are required for the quadratic algorithm " << std::endl;
-				return  n_steps;
-			} else{
-				std::cout << "No need to do more steps to achieve target precision" << std::endl;
-				return 0;
-			}
+			int n_steps = previous_n_steps * (int) std::ceil( std::sqrt(achieved_precision / target_precision));
+			return  n_steps;
 		}
 
 		//! Graam-Schmidt procedure to orthonormalise the modification covectors
@@ -321,33 +313,24 @@ namespace modifications{
 			using namespace tools::numerics;
 
 			size_t n = alphas.size();
-			size_t done = 0;
 
-			// Gram-Schmidt orthogonalization in-place
-//			tools::progress::ProgressBar pb("orthogonalizing modifications");
-
+			// Calculate the inner products
 			for (size_t i = 0; i < n; i++) {
 				auto &alpha_i = *(alphas[i]);
 				for (size_t j = 0; j < i; j++) {
 					auto &alpha_j = *(alphas[j]);
-//					pb.setProgress(((float) done * 2) / (n * (1 + n)));
 					T result = alpha_i.innerProduct(alpha_j).real();
 
 					alpha_i.addScaled(alpha_j, -result);
 
 					// update constraining value
 					targets[i] -= result * targets[j];
-					done += 1; // one op for each of the orthognalizing modifs
 				}
 
 				// normalize
 				T norm = sqrt(alpha_i.innerProduct(alpha_i).real());
-
 				alpha_i /= norm;
 				targets[i] /= norm;
-
-				done += 1; // one op for the normalization
-
 			}
 		}
 

@@ -628,6 +628,7 @@ public:
   }
 
 
+	//! Transforms the grid field in particles and outputs them in the predefined format
   virtual void write() {
     using namespace io;
 
