@@ -276,6 +276,7 @@ namespace modifications{
 			for (int i=0; i < (n_steps); i++) {
 
 				T current_value = quad_modif->calculateCurrentValue(field);
+				T current_tar = quad_targets[i+1];
 				auto pushedField = quad_modif->pushMultiLevelFieldThroughMatrix(field);
 				pushedField->toFourier();
 

@@ -16,8 +16,8 @@ outformat 4
 
 basegrid 64 64
 
-centre 32 32 32
-select_cube 64
+centre 8 8 8
+select_cube 20
 dump_IDfile tagged_cells.txt
 
 calculate_variance 1000

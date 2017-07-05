@@ -20,14 +20,14 @@ centre 32.5 32.5 32.5
 select_sphere 10
 
 calculate overdensity
-calculate_variance 1000
+calculate_variance 10
 
-modify overdensity absolute 0.1
-quadratically_modify variance relative 0.1 5 0.005 1000
+modify overdensity relative 1
+quadratically_modify variance absolute 0.01 5 0.001 10
 
 done
 
 calculate overdensity
-calculate_variance 1000
+calculate_variance 10
 
 dump_grid 0

@@ -26,7 +26,6 @@ namespace modifications {
 			return this->covector;
 		}
 
-
 	protected:
 		std::shared_ptr<fields::ConstraintField<DataType>> covector;			/*!< Linear modification can be described as covectors */
 

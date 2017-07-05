@@ -109,7 +109,25 @@ namespace modifications {
 				QuadraticModification<DataType, T>(underlying_, cosmology_, initNumberSteps_, targetPrecision_), scale(filterscale_){}
 
 		void setFilterScale(T scale_){
-			this->scale =scale_;
+
+			size_t finest_level = this->underlying.getNumLevels() - 1 ;
+
+			if(finest_level == 0){
+				T coarse_pixel = this->underlying.getGridForLevel(finest_level).cellSize;
+				if (scale_ > coarse_pixel) {
+					this->scale =scale_;
+				} else {
+					throw std::runtime_error("Variance filtering on scale smaller than pixel scale");
+				}
+			} else {
+				T coarse_pixel = this->underlying.getGridForLevel(finest_level -1).cellSize;
+				T fine_pixel = this->underlying.getGridForLevel(finest_level).cellSize;
+				if(fine_pixel < scale_ && scale_ < (1.0 / 0.3) * coarse_pixel){
+					this->scale =scale_;
+				} else {
+					throw std::runtime_error("Variance filtering scale must be kept far away from pixels scale");
+				}
+			}
 		}
 
 		fields::Field<DataType, T> pushOneLevelFieldThroughMatrix(const fields::Field<DataType, T> &field) override {
@@ -130,8 +148,6 @@ namespace modifications {
 
 			pushedField.toReal();
 			windowOperator(pushedField);
-
-//			pushedField.toFourier();
 
 			return pushedField;
 		}
