@@ -16,14 +16,10 @@ namespace filters {
   protected:
     friend class ResidualFilterFamily<T>;
 
-    std::vector<std::shared_ptr<Filter < T>>>
-    filters;
-    std::vector<std::shared_ptr<Filter < T>>>
-    complementFilters;
-    std::vector<std::shared_ptr<Filter < T>>>
-    hpFilters;
-    std::vector<std::shared_ptr<Filter < T>>>
-    lpFilters;
+    std::vector<std::shared_ptr<filters::Filter<T>>> filters;
+    std::vector<std::shared_ptr<filters::Filter<T>>> complementFilters;
+    std::vector<std::shared_ptr<filters::Filter<T>>> hpFilters;
+    std::vector<std::shared_ptr<filters::Filter<T>>> lpFilters;
 
     FilterFamily() {
 
@@ -109,18 +105,18 @@ namespace filters {
   };
 
   template<typename T>
-  using MultiLevelFilterFamily = GenericMultiLevelFilterFamily<LowPassFermiFilter < T>,
-  ComplementaryCovarianceFilterAdaptor <LowPassFermiFilter<T>>>;
+  using MultiLevelFilterFamily = GenericMultiLevelFilterFamily<filters::LowPassFermiFilter < T>,
+      filters::ComplementaryCovarianceFilterAdaptor <filters::LowPassFermiFilter<T>>>;
 
   template<typename T>
-  using MultiLevelDependentFilterFamily = GenericMultiLevelFilterFamily<LowPassFermiFilter < T>,
-  ComplementaryFilterAdaptor <LowPassFermiFilter<T>>>;
+  using MultiLevelDependentFilterFamily = GenericMultiLevelFilterFamily<filters::LowPassFermiFilter < T>,
+      filters::ComplementaryFilterAdaptor <filters::LowPassFermiFilter<T>>>;
 
   template<typename T>
-  using MultiLevelRecombinedFilterFamily = GenericMultiLevelFilterFamily<NullFilter < T>, Filter <T>>;
+  using MultiLevelRecombinedFilterFamily = GenericMultiLevelFilterFamily<filters::NullFilter < T>, filters::Filter <T>>;
 
   template<typename T>
-  using UnfilteredFilterFamily = GenericMultiLevelFilterFamily<Filter < T>, Filter <T>>;
+  using UnfilteredFilterFamily = GenericMultiLevelFilterFamily<filters::Filter < T>, filters::Filter <T>>;
 
 
   template<typename T>

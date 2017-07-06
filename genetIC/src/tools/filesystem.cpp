@@ -1,9 +1,7 @@
 #include "src/tools/filesystem.h"
 #include <unistd.h>
-#include <stdlib.h>
 #include <libgen.h>
 #include <iostream>
-#include <stdexcept>
 
 namespace tools {
   std::string getDirectoryName(std::string full) {

@@ -76,8 +76,6 @@ namespace grids {
       setKmin();
     }
 
-    virtual ~Grid() {
-    }
 
   protected:
     void setKmin() {
@@ -247,10 +245,10 @@ namespace grids {
     }
 
 
-    Coordinate<int> getCellCoordinate(size_t id) const {
+    Coordinate<int> getCellCoordinate(int id) const {
       size_t x, y;
 
-      if (id >= size3) {
+      if ((unsigned) id >= size3) {
         throw std::runtime_error("Index out of range");
       }
 

@@ -23,7 +23,7 @@ namespace io {
                              particle::AbstractMultiLevelParticleGenerator<GridType> &generator,
                              fields::MultiLevelField<GridType> &field) {
       std::ofstream outfile(filename.c_str(), std::ofstream::binary);
-      int lengthField = mapper.size();
+      size_t lengthField = mapper.size();
       outfile.write(reinterpret_cast<char *>(&lengthField), 4);
 
       field.toReal();

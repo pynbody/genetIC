@@ -25,7 +25,7 @@ namespace fields {
 
 
   public:
-    RandomFieldGenerator(MultiLevelField <DataType> &field_, int seed = 0) :
+    RandomFieldGenerator(MultiLevelField <DataType> &field_, unsigned long seed = 0) :
       field(field_) {
       randomNumberGeneratorType = gsl_rng_ranlxs2; // shouldn't this be gsl_rng_ranlxd2 for FloatType = double? -> it's single precision for compatibility with previous versions!
       randomState = gsl_rng_alloc(randomNumberGeneratorType); //this allocates memory for the generator with type T
@@ -50,7 +50,7 @@ namespace fields {
       reverseRandomDrawOrder = value;
     }
 
-    void seed(int seed) {
+    void seed(unsigned long seed) {
       if (seeded)
         throw std::runtime_error("The random number generator has already been seeded");
       else

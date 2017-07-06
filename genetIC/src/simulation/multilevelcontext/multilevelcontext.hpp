@@ -164,7 +164,7 @@ namespace multilevelcontext {
       if (levelmax > 0) {
         assert(dataOnLevels.back()->isFourier());
         dataOnLevels.back()->toReal();
-        for (int level = levelmax - 1; level >= 0; --level) {
+        for (size_t level = levelmax - 1; level >= 0; --level) {
           dataOnLevels[level]->addFieldFromDifferentGrid(*(dataOnLevels[level+1]));
         }
       }

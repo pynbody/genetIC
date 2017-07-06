@@ -20,7 +20,7 @@ namespace cosmology {
     const FloatType Ol = cosmology.OmegaLambda0;
 
     FloatType Hsq = cosmology.OmegaM0 / powf(a, 3.0) + (1. - Om - Ol) / a / a + Ol;
-    FloatType d = 2.5 * a * Om / powf(a, 3.0) / Hsq / (powf(Om / Hsq / a / a / a, 4. / 7.) - Ol / Hsq +
+    FloatType d = 2.5 * a * Om / powf(a, 3.0) / Hsq / (powf(Om / Hsq / a / a / a, 4.f / 7.f) - Ol / Hsq +
                                                        (1. + 0.5 * Om / powf(a, 3.0) / Hsq) *
                                                        (1. + 1. / 70. * Ol / Hsq));
     // TODO: check accuracy and/or simplify this expression
@@ -54,8 +54,8 @@ namespace cosmology {
 
     const FloatType Boxlength = field.getGrid().thisGridSize;
 
-    FloatType kmax = M_PI / Boxlength * (FloatType) res, kmin = 2.0f * M_PI / (FloatType) Boxlength, dklog =
-      log10(kmax / kmin) / nBins, kw = 2.0f * M_PI / (FloatType) Boxlength;
+    FloatType kmax = M_PI / Boxlength * (FloatType) res, kmin = 2.0f * M_PI / Boxlength, dklog =
+      log10(kmax / kmin) / nBins, kw = 2.0f * M_PI / Boxlength;
 
     int ix, iy, iz, idx;
     FloatType kfft;
@@ -141,7 +141,7 @@ namespace cosmology {
     long i;
     FloatType prefac =
       3. / 2. * Om / a * 100. * 100. / (3. * 100000.) / (3. * 100000.); // =3/2 Om0/a * (H0/h)^2 (h/Mpc)^2 / c^2 (km/s)
-    FloatType kw = 2.0f * M_PI / (FloatType) Boxlength, k_inv;
+    FloatType kw = 2.0f * M_PI / Boxlength, k_inv;
 
     size_t k1, k2, k3, kk1, kk2, kk3;
 

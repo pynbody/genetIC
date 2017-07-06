@@ -81,7 +81,7 @@ namespace modifications {
 		/*!
 		 * Mostly useful for angular momentum modifications
 		 */
-		void centralDifference4thOrder(grids::Grid<T> &grid, std::vector<DataType> &outputData, long index, int direc, T x0, T y0, T z0) {
+		void centralDifference4thOrder(grids::Grid<T> &grid, std::vector<DataType> &outputData, size_t index, int direc, T x0, T y0, T z0) {
 
 			T xp = 0., yp = 0., zp = 0.;
 			std::tie(xp, yp, zp) = grid.getCellCentroid(index);
@@ -114,7 +114,7 @@ namespace modifications {
 			}
 
 			for (int di = 0; di < 3; di++) {
-				long ind_p1, ind_m1, ind_p2, ind_m2;
+				size_t ind_p1, ind_m1, ind_p2, ind_m2;
 				int step1[3] = {0, 0, 0};
 				int neg_step1[3] = {0, 0, 0};
 				step1[di] = 1;

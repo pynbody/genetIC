@@ -54,15 +54,15 @@ public:
   }
 
 
-  void zeroLevel(int /*level*/) override {
+  void zeroLevel(size_t /*level*/) override {
 
   }
 
   void applyPowerSpec() override {}
 
-  void dumpGrid(int /*level*/) override {}
+  void dumpGrid(size_t /*level*/) override {}
 
-  void dumpPS(int /*level*/) override {}
+  void dumpPS(size_t /*level*/) override {}
 
   virtual void initialiseParticleGenerator() override {}
 

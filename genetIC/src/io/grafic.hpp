@@ -13,7 +13,7 @@ namespace io {
     using std::ofstream;
 
     struct io_header_grafic {
-      int nx, ny, nz;
+      size_t nx, ny, nz;
       float dx;
       float xOffset, yOffset, zOffset;
       float scalefactor;

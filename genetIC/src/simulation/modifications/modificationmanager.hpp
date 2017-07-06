@@ -110,7 +110,7 @@ namespace modifications{
 			applyLinearModif(outputField, alphas, linear_targets);
 
 			// Apply the joint linear and quadratic in an iterative procedure
-			applyLinQuadModif(alphas, linear_targets);
+			applyLinQuadModif(alphas);
 
 		}
 
@@ -235,8 +235,7 @@ namespace modifications{
 			}
 		}
 
-		void applyLinQuadModif(std::vector<std::shared_ptr<fields::ConstraintField<DataType>>> alphas,
-													 std::vector<T> &linear_targets){
+		void applyLinQuadModif(std::vector<std::shared_ptr<fields::ConstraintField<DataType>>> alphas){
 
 			size_t numberQuadraticModifs = quadraticModificationList.size();
 			//TODO Check quadratic are indepednent ?
@@ -247,16 +246,16 @@ namespace modifications{
 
 				// Try the procedure on a test field and deduce the correct number of steps
 				auto test_field = fields::OutputField<DataType>(outputField);
-				performIterations(test_field, alphas, linear_targets, modif_i, init_n_steps);
+				performIterations(test_field, alphas, modif_i, init_n_steps);
 				int n_steps = calculateCorrectNumberSteps(test_field, modif_i, init_n_steps);
 
 				// Perform procedure on real output
 				if(n_steps > init_n_steps){
 					std::cout << n_steps << " steps are required for the quadratic algorithm " << std::endl;
-					performIterations(outputField,  alphas, linear_targets, modif_i, n_steps);
+					performIterations(outputField,  alphas, modif_i, n_steps);
 				} else{
 					std::cout << "No need to do more steps to achieve target precision" << std::endl;
-					performIterations(outputField,  alphas, linear_targets, modif_i, init_n_steps);
+					performIterations(outputField,  alphas, modif_i, init_n_steps);
 				}
 
 
@@ -265,7 +264,6 @@ namespace modifications{
 
 		void performIterations(fields::OutputField<DataType> &field,
 													 std::vector<std::shared_ptr<fields::ConstraintField<DataType>>> alphas,
-													 std::vector<T> &linear_targets,
 													 std::shared_ptr<QuadraticModification<DataType,T>> quad_modif, int n_steps){
 
 			T overall_quad_target = quad_modif->getTarget();
@@ -276,7 +274,6 @@ namespace modifications{
 			for (int i=0; i < (n_steps); i++) {
 
 				T current_value = quad_modif->calculateCurrentValue(field);
-				T current_tar = quad_targets[i+1];
 				auto pushedField = quad_modif->pushMultiLevelFieldThroughMatrix(field);
 				pushedField->toFourier();
 

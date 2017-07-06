@@ -262,13 +262,10 @@ namespace fields {
     }
     throw std::runtime_error(std::string("Don't know how to evaluate field on grid of type ")+runtimeType.name());
 
-
-     return makeEvaluator(field.getFieldForGrid(grid), grid);
-
   };
 
 
 
 }
 
-#endif //IC_EVALUATOR_HPP
+#endif

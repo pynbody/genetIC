@@ -154,8 +154,8 @@ namespace io {
         }
         shape_stream << "), }";
         header.append(shape_stream.str());
-        const int to_padding = 16 - (10 + header.size() + 1) % 16;
-        for (int m = 0; m < to_padding; ++m) {
+        const unsigned long to_padding = 16 - (10 + header.size() + 1) % 16;
+        for (size_t m = 0; m < to_padding; ++m) {
           header.push_back(' ');
         }
         header.push_back('\n');

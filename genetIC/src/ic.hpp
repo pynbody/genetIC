@@ -243,10 +243,10 @@ public:
       zoomWindow.expandToInclude(gridAbove.getCellCoordinate(cell_id));
     }
 
-    int n_required = zoomWindow.getMaximumDimension();
+    size_t n_required = zoomWindow.getMaximumDimension();
 
     // Now see if the zoom the user chose is OK
-    int n_user = nAbove / zoomfac;
+    size_t n_user = nAbove / zoomfac;
     if (n_required>n_user && !allowStrayParticles) {
       throw (std::runtime_error(
         "Zoom particles do not fit in specified sub-box. Decrease zoom, or choose different particles"));
@@ -422,7 +422,7 @@ public:
   }
 
 	//! Zeroes field values at a given level. Meant for debugging.
-  virtual void zeroLevel(int level) {
+  virtual void zeroLevel(size_t level) {
     cerr << "*** Warning: your script calls zeroLevel(" << level << "). This is intended for testing purposes only!"
          << endl;
 
@@ -443,7 +443,7 @@ public:
   }
 
   template<typename TField>
-  void dumpGridData(int level, const TField &data) {
+  void dumpGridData(size_t level, const TField &data) {
     grids::Grid<T> &levelGrid = multiLevelContext.getGridForLevel(level);
 
     ostringstream filename;
@@ -472,20 +472,20 @@ public:
   }
 
 	//! Dumps field at a given level in a file named grid-level
-  virtual void dumpGrid(int level = 0) {
+  virtual void dumpGrid(size_t level = 0) {
     outputField.toReal();
     dumpGridData(level, outputField.getFieldForLevel(level));
   }
 
 	// TODO Is this used at all ?
-  virtual void dumpGridFourier(int level = 0) {
+  virtual void dumpGridFourier(size_t level = 0) {
     fields::Field<complex<T>, T> fieldToWrite = tools::numerics::fourier::getComplexFourierField(
       outputField.getFieldForLevel(level));
     dumpGridData(level, fieldToWrite);
   }
 
 	//! Dumps power spectrum generated from the field and the theory at a given level in a .ps file
-  virtual void dumpPS(int level = 0) {
+  virtual void dumpPS(size_t level = 0) {
     auto &field = outputField.getFieldForLevel(level);
     field.toFourier();
     cosmology::dumpPowerSpectrum(field,

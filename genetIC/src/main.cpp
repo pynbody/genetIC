@@ -1,18 +1,11 @@
 #include <stdio.h>
-#include <string.h>
 #include <stdlib.h>
 #include <sstream>
-#include <cmath>
 #include <ctime>
 #include <fstream>
 #include <iostream>
 #include <iomanip>
-#include <sstream>
-#include <cstdlib>
 #include <complex>
-#include <algorithm>
-#include <iterator>
-#include <sys/resource.h>
 
 
 #include "tools/data_types/float_types.hpp"

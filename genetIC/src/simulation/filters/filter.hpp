@@ -20,8 +20,6 @@ namespace filters {
   public:
     typedef T ReturnType;
 
-    virtual ~Filter() {}
-
     Filter() {}
 
     Filter(T /*k_cut*/) {
