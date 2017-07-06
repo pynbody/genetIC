@@ -346,11 +346,14 @@ namespace fields {
       }
     }
 
+		// TODO Untested. Error in calculation seems to be 1e-5
     T getChi2() {
 
-      T chi2 = 0;
+			this->toFourier();
+			auto self_copy = fields::MultiLevelField<DataType>(*this);
 
-
+			self_copy.convertToCovector();
+      T chi2 = self_copy.innerProduct(*this).real();
       return chi2;
 
     }
@@ -379,7 +382,7 @@ namespace fields {
       });
     }
 
-		//TODO Make sure power spectrum does not have zeroes in it
+		//TODO Make sure power spectrum does not have zeroes in it.
 		void divideByCovarianceOneGrid(Field<DataType> &field,
 																		 const Field<DataType> &spectrum,
 																		 const grids::Grid<T> &grid,
