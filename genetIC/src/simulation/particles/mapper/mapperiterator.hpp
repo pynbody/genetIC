@@ -246,10 +246,6 @@ namespace particle {
         return (lhs.i != rhs.i) || (lhs.pMapper != rhs.pMapper);
       }
 
-      void debugInfo() const {
-        debugInfo(cerr, 0);
-      }
-
       void debugInfo(std::ostream &s, int n = 0) const {
         pMapper->debugInfoForIterator(s, n, this);
       }

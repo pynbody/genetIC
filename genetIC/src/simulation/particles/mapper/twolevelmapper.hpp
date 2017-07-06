@@ -60,16 +60,17 @@ namespace particle {
         pGrid2->insertCubeIdsIntoVector(x0, y0, z0, pGrid1->cellSize, start);
       }
 
-      std::vector<size_t> getMappedIds(size_t id0) const {
-        std::vector<size_t> ids;
-        appendMappedIdsToVector(id0, ids);
-        return ids;
-      }
+      //TODO  MR Functions never used. Should delete ?
+//      std::vector<size_t> getMappedIds(size_t id0) const {
+//        std::vector<size_t> ids;
+//        appendMappedIdsToVector(id0, ids);
+//        return ids;
+//      }
 
-      size_t reverseMapId(size_t id2) const {
-        auto coord = pGrid2->getCellCentroid(id2);
-        return pGrid1->getCellContainingPoint(coord);
-      }
+//      size_t reverseMapId(size_t id2) const {
+//        auto coord = pGrid2->getCellCentroid(id2);
+//        return pGrid1->getCellContainingPoint(coord);
+//      }
 
 
     public:

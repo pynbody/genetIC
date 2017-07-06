@@ -25,7 +25,6 @@ namespace particle {
       MapPtrType firstMap;
       MapPtrType secondMap;
       bool gasFirst;
-      size_t dm0;
       size_t nFirst, nSecond;
 
 

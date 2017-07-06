@@ -30,13 +30,14 @@ namespace filters {
       return 1.0;
     }
 
-    template<typename S>
-    auto compositeFunction(const S &other) const {
-      auto func = [this, &other](T x) {
-        return (*this)(x) * other(x);
-      };
-      return func;
-    }
+		//TODO Never used, should delete ?
+//    template<typename S>
+//    auto compositeFunction(const S &other) const {
+//      auto func = [this, &other](T x) {
+//        return (*this)(x) * other(x);
+//      };
+//      return func;
+//    }
 
     virtual std::shared_ptr<Filter<T>> clone() const {
       return std::make_shared<Filter<T>>();

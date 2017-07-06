@@ -164,7 +164,6 @@ namespace fields {
   protected:
     using MyGridType = const grids::ResolutionMatchingGrid<CoordinateType>;
     const std::shared_ptr<MyGridType> grid;
-    const std::shared_ptr<const grids::Grid<CoordinateType>> hiresRegionGrid;
     const std::shared_ptr<const EvaluatorBase<DataType, CoordinateType>> underlyingLoRes;
     const std::shared_ptr<const EvaluatorBase<DataType, CoordinateType>> underlyingHiRes;
 

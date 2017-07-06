@@ -50,16 +50,17 @@ namespace multilevelcontext {
     size_t nLevels;
     T simSize;
 
-    void mapIdToLevelId(size_t i, size_t &level, size_t &level_id) {
-      level = 0;
-      while (level < nLevels && i >= Ns[level]) {
-        i -= Ns[level];
-        level++;
-      }
-      if (i >= Ns[level])
-        throw std::runtime_error("ID out of range when mapping into underlying fields in mapIdToLevelId");
-      level_id = i;
-    }
+    //TODO Never used, should delete ?
+//    void mapIdToLevelId(size_t i, size_t &level, size_t &level_id) {
+//      level = 0;
+//      while (level < nLevels && i >= Ns[level]) {
+//        i -= Ns[level];
+//        level++;
+//      }
+//      if (i >= Ns[level])
+//        throw std::runtime_error("ID out of range when mapping into underlying fields in mapIdToLevelId");
+//      level_id = i;
+//    }
 
     MultiLevelContextInformationBase(size_t N) {
       nLevels = 1;
@@ -271,6 +272,7 @@ namespace multilevelcontext {
     }
   };
 
+	//TODO Is this class used at all ? It looks an unused specialization of base class
   template<typename T>
   class MultiLevelContextInformation<std::complex<T>, T>
     : public MultiLevelContextInformationBase<std::complex<T>, T> {

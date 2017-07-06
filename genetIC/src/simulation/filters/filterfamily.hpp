@@ -145,12 +145,13 @@ namespace filters {
     return s;
   }
 
-  template<typename T>
-  void tabulateFilter(Filter <T> *pF) {
-    std::cerr << "tabulateFilter:" << std::endl;
-    for (T k = 0.1; k < 3.0; k += 0.1) {
-      std::cerr << " " << k << " " << (*pF)(k) << std::endl;
-    }
-  }
+  // TODO Never used should delete ?
+//  template<typename T>
+//  void tabulateFilter(Filter <T> *pF) {
+//    std::cerr << "tabulateFilter:" << std::endl;
+//    for (T k = 0.1; k < 3.0; k += 0.1) {
+//      std::cerr << " " << k << " " << (*pF)(k) << std::endl;
+//    }
+//  }
 }
 #endif
