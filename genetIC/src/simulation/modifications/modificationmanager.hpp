@@ -283,11 +283,12 @@ namespace modifications{
 				T norm = sqrt(pushedField->innerProduct(*pushedField).real());
 
 				//Add pushed field to alphas and orthonormalise the family
-				alphas.push_back(pushedField);
-				linear_targets.push_back(0);
-				orthonormaliseModifications(alphas, linear_targets);
-				alphas.pop_back();
-				linear_targets.pop_back();
+//				alphas.push_back(pushedField);
+//				linear_targets.push_back(0);
+//				orthonormaliseModifications(alphas, linear_targets);
+//				alphas.pop_back();
+//				linear_targets.pop_back();
+				addToOrthonormalFamily(alphas, pushedField);
 
 				//Apply quad step
 				T multiplier = 0.5 * (quad_targets[i+1] - current_value) / norm ; //One sqrt factor inside the orthonormalise method and one more here.
@@ -333,6 +334,26 @@ namespace modifications{
 				alpha_i /= norm;
 				targets[i] /= norm;
 			}
+		}
+
+		//! Orthonormalise a covector with respect to an already orthonormal family
+		void addToOrthonormalFamily(std::vector<std::shared_ptr<fields::ConstraintField<DataType>>> alphas,
+																std::shared_ptr<fields::ConstraintField<DataType>> alpha){
+
+			using namespace tools::numerics;
+
+			size_t n = alphas.size();
+
+			// Calculate the inner products between the new vector and the existing family
+			for (size_t i = 0; i < n; i++) {
+				auto &alpha_i = *(alphas[i]);
+				T result = alpha->innerProduct(alpha_i).real();
+				alpha->addScaled(alpha_i, -result);
+			}
+
+				// normalize
+				T norm = sqrt(alpha->innerProduct(*alpha).real());
+			  (*alpha) /= norm;
 		}
 
 		bool isRelative(std::string type){
