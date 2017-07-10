@@ -262,6 +262,7 @@ namespace modifications{
 			}
 		}
 
+		//! Executes n_steps iterations of linear and quadratic modifications
 		void performIterations(fields::OutputField<DataType> &field,
 													 std::vector<std::shared_ptr<fields::ConstraintField<DataType>>> alphas,
 													 std::shared_ptr<QuadraticModification<DataType,T>> quad_modif, int n_steps){
@@ -278,13 +279,6 @@ namespace modifications{
 				pushedField->toFourier();
 
 				T norm = sqrt(pushedField->innerProduct(*pushedField).real());
-
-				//Add pushed field to alphas and orthonormalise the family
-//				alphas.push_back(pushedField);
-//				linear_targets.push_back(0);
-//				orthonormaliseModifications(alphas, linear_targets);
-//				alphas.pop_back();
-//				linear_targets.pop_back();
 				addToOrthonormalFamily(alphas, pushedField);
 
 				//Apply quad step
@@ -310,7 +304,6 @@ namespace modifications{
 																		 std::vector<T> &targets) {
 
 			using namespace tools::numerics;
-
 			size_t n = alphas.size();
 
 			// Calculate the inner products
@@ -338,7 +331,6 @@ namespace modifications{
 																std::shared_ptr<fields::ConstraintField<DataType>> alpha){
 
 			using namespace tools::numerics;
-
 			size_t n = alphas.size();
 
 			// Calculate the inner products between the new vector and the existing family

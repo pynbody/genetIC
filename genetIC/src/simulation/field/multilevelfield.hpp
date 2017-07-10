@@ -380,34 +380,34 @@ namespace fields {
 
   };
 
-
-  template<typename DataType>
-  class ResidualField : public MultiLevelField<DataType> {
-  protected:
-    using T = typename MultiLevelField<DataType>::T;
-
-  public:
-    ResidualField(const MultiLevelField<DataType> &source)
-      : MultiLevelField<DataType>(source.getContext()) {
-      for (size_t i = 0; i < source.getContext().getNumLevels() - 1; ++i) {
-        this->fieldsOnLevels.emplace_back(
-            std::make_shared<Field<DataType, T>>(this->multiLevelContext->getGridForLevel(i), source.getFieldForLevel(i))
-        );
-      }
-      this->fieldsOnLevels.emplace_back(
-        std::make_shared<Field<DataType, T>>(this->multiLevelContext->getGridForLevel(source.getContext().getNumLevels() - 1))
-        );
-
-      this->pFilters = std::make_shared<filters::ResidualFilterFamily<T>>(source.getFilters());
-
-    }
-
-
-    virtual void updateMultiLevelContext() override {
-      throw (std::runtime_error("Update to grid structure took place while a ResidualField was in scope"));
-    }
-
-  };
+//TODO Is this class ever used ?
+//  template<typename DataType>
+//  class ResidualField : public MultiLevelField<DataType> {
+//  protected:
+//    using T = typename MultiLevelField<DataType>::T;
+//
+//  public:
+//    ResidualField(const MultiLevelField<DataType> &source)
+//      : MultiLevelField<DataType>(source.getContext()) {
+//      for (size_t i = 0; i < source.getContext().getNumLevels() - 1; ++i) {
+//        this->fieldsOnLevels.emplace_back(
+//            std::make_shared<Field<DataType, T>>(this->multiLevelContext->getGridForLevel(i), source.getFieldForLevel(i))
+//        );
+//      }
+//      this->fieldsOnLevels.emplace_back(
+//        std::make_shared<Field<DataType, T>>(this->multiLevelContext->getGridForLevel(source.getContext().getNumLevels() - 1))
+//        );
+//
+//      this->pFilters = std::make_shared<filters::ResidualFilterFamily<T>>(source.getFilters());
+//
+//    }
+//
+//
+//    virtual void updateMultiLevelContext() override {
+//      throw (std::runtime_error("Update to grid structure took place while a ResidualField was in scope"));
+//    }
+//
+//  };
 
 
   template<typename DataType>
