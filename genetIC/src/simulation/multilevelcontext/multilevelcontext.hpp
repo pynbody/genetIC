@@ -51,16 +51,16 @@ namespace multilevelcontext {
     T simSize;
 
     //TODO Never used, should delete ?
-//    void mapIdToLevelId(size_t i, size_t &level, size_t &level_id) {
-//      level = 0;
-//      while (level < nLevels && i >= Ns[level]) {
-//        i -= Ns[level];
-//        level++;
-//      }
-//      if (i >= Ns[level])
-//        throw std::runtime_error("ID out of range when mapping into underlying fields in mapIdToLevelId");
-//      level_id = i;
-//    }
+    void mapIdToLevelId(size_t i, size_t &level, size_t &level_id) {
+      level = 0;
+      while (level < nLevels && i >= Ns[level]) {
+        i -= Ns[level];
+        level++;
+      }
+      if (i >= Ns[level])
+        throw std::runtime_error("ID out of range when mapping into underlying fields in mapIdToLevelId");
+      level_id = i;
+    }
 
     MultiLevelContextInformationBase(size_t N) {
       nLevels = 1;
@@ -165,7 +165,7 @@ namespace multilevelcontext {
       if (levelmax > 0) {
         assert(dataOnLevels.back()->isFourier());
         dataOnLevels.back()->toReal();
-        for (size_t level = levelmax - 1; level >= 0; --level) {
+        for (int level = levelmax - 1; level >= 0; --level) {
           dataOnLevels[level]->addFieldFromDifferentGrid(*(dataOnLevels[level+1]));
         }
       }
