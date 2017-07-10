@@ -17,7 +17,7 @@ namespace fields {
     using ComplexType = tools::datatypes::ensure_complex<DataType>;
     multilevelcontext::MultiLevelContextInformation<DataType> *multiLevelContext;
     std::shared_ptr<filters::FilterFamily<T>> pFilters;   // filters to be applied when used as a vector
-    tools::Signaling::connection_t connection; //TODO What is the point of this. Should delete ?
+    tools::Signaling::connection_t connection;
     bool isCovector;
 
     std::vector<std::shared_ptr<Field<DataType, T>>> fieldsOnLevels;
@@ -380,35 +380,6 @@ namespace fields {
 
   };
 
-//TODO Is this class ever used ?
-//  template<typename DataType>
-//  class ResidualField : public MultiLevelField<DataType> {
-//  protected:
-//    using T = typename MultiLevelField<DataType>::T;
-//
-//  public:
-//    ResidualField(const MultiLevelField<DataType> &source)
-//      : MultiLevelField<DataType>(source.getContext()) {
-//      for (size_t i = 0; i < source.getContext().getNumLevels() - 1; ++i) {
-//        this->fieldsOnLevels.emplace_back(
-//            std::make_shared<Field<DataType, T>>(this->multiLevelContext->getGridForLevel(i), source.getFieldForLevel(i))
-//        );
-//      }
-//      this->fieldsOnLevels.emplace_back(
-//        std::make_shared<Field<DataType, T>>(this->multiLevelContext->getGridForLevel(source.getContext().getNumLevels() - 1))
-//        );
-//
-//      this->pFilters = std::make_shared<filters::ResidualFilterFamily<T>>(source.getFilters());
-//
-//    }
-//
-//
-//    virtual void updateMultiLevelContext() override {
-//      throw (std::runtime_error("Update to grid structure took place while a ResidualField was in scope"));
-//    }
-//
-//  };
-
 
   template<typename DataType>
   class OutputField : public MultiLevelField<DataType> {
@@ -455,20 +426,6 @@ namespace fields {
       this->fieldsOnLevels.clear();
       fieldsOnLevelsPopulated=false;
     }
-
-    //TODO Never used, should delete ?
-//    auto getHighKResiduals() {
-//      assert(outputState == PRE_SEPARATION);
-//      outputState = SEPARATED;
-//      return ResidualField<DataType>(*this);
-//    }
-//
-//    void recombineHighKResiduals(const ResidualField<DataType> &residuals) {
-//      assert(outputState == SEPARATED);
-//      outputState = RECOMBINED;
-//      (*this) += residuals;
-//      this->template setupFilters<filters::MultiLevelRecombinedFilterFamily<T>>();
-//    }
 
     void setStateRecombined() {
       outputState = RECOMBINED;

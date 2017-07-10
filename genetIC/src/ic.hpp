@@ -163,7 +163,7 @@ public:
     allowStrayParticles = true;
   }
 
-	// TODO What is this offset ?
+	// TODO Offset of what ?
   void offsetOutput(T x, T y, T z) {
     xOffOutput = x;
     yOffOutput = y;
@@ -187,7 +187,7 @@ public:
     updateParticleMapper();
   }
 
-	//! //TODO Is z0 the redhsift where Zeldo ends or starts ?
+	//! Defines the redshift at which initial conditions are generated.
   void setZ0(T in) {
     cosmology.redshift = in;
     cosmology.scalefactor = 1. / (cosmology.redshift + 1.);
@@ -217,7 +217,9 @@ public:
   }
 
   /*! Define the zoomed grid encompassing all flagged cells/particles
-   * \param zoomfac //TODO
+   * The zoom region is defined such that the flagged cells are roughly in the middle of it. Its physical size
+   * must ensure that all flagged cells fit inside it.
+   * \param zoomfac Ratio between the physical sizes of the base and zoom grid
    * \param n Number of cells in the zoom grid
    */
   void initZoomGrid(size_t zoomfac, size_t n) {
@@ -276,10 +278,8 @@ public:
     gridAbove.getFlaggedCells(levelZoomParticleArray);
   }
 
-	/*! Define a zoomed grid with user defined origin
+	/*! Define a zoomed grid with user defined coordinates
 	 * \param x0, y0, z0  //TODO Coordinates of centre of grid or upper left corner ?
-	 * \param zoomfac //TODO What?
-	 * \param n Number of cells in the zoom grid
 	 */
   void initZoomGridWithOriginAt(int x0, int y0, int z0, size_t zoomfac, size_t n) {
     grids::Grid<T> &gridAbove = multiLevelContext.getGridForLevel(multiLevelContext.getNumLevels() - 1);
@@ -377,7 +377,10 @@ public:
     randomFieldGenerator.setReverseRandomDrawOrder(false);
   }
 
-	//TODO What is this Reverse ?
+	//! Reverses the order of draws between real and imaginary part of complex numbers
+	/*!
+	 * Provided for compatibility problems as different compilers handle the draw order differently
+	 */
   void setSeedFourierReverseOrder(int seed) {
     randomFieldGenerator.seed(seed);
     randomFieldGenerator.setDrawInFourierSpace(true);
@@ -477,7 +480,7 @@ public:
     dumpGridData(level, outputField.getFieldForLevel(level));
   }
 
-	// TODO Is this used at all ?
+	// TODO Is this used at all ? Should be linked to a command in main if we want to keep it.
   virtual void dumpGridFourier(size_t level = 0) {
     fields::Field<complex<T>, T> fieldToWrite = tools::numerics::fourier::getComplexFourierField(
       outputField.getFieldForLevel(level));
@@ -765,7 +768,7 @@ public:
     io::dumpBuffer(results, fname);
   }
 
-	//TODO Is this finding the cell for a given particle ?
+	//! Defines the currently interesting coordinates using a particle ID
   void centreParticle(long id) {
     std::tie(x0, y0, z0) = multiLevelContext.getGridForLevel(0).getCellCentroid(id);
   }
