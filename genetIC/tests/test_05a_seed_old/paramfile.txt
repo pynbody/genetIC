@@ -1,4 +1,4 @@
-# Test seedfourier_old
+# Test the RF generator with reversed seeding
 
 
 # output parameters
@@ -17,7 +17,7 @@ camb	../camb_transfer_kmax40_z0.dat
 basegrid 50.0 8
 
 # fourier seeding
-seedfourier_old	8896131
+seedfourier_reverse	8896131
 
 
 done

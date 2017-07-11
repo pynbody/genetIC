@@ -29,4 +29,4 @@ done
 
 dump_grid 0
 dump_grid 1
-dump test_4.tipsy.overdensity
+dump_tipsy test_4.tipsy.overdensity

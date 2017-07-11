@@ -34,5 +34,5 @@ zoomgrid_with_origin_at 15 15 12 4 32
 
 
 done
-dump test_11.tipsy.overdensity
+dump_tipsy test_6.tipsy.overdensity
 

@@ -46,7 +46,7 @@ void setup_parser(tools::ClassDispatch<ICf, void> &dispatch) {
   // Set seeds for random draws
   dispatch.add_class_route("seed", &ICf::setSeed);
   dispatch.add_class_route("seedfourier", &ICf::setSeedFourier);
-  dispatch.add_class_route("seedfourier_old", &ICf::setSeedFourierReverseOrder); //TODO Why old ?
+  dispatch.add_class_route("seedfourier_reverse", &ICf::setSeedFourierReverseOrder);
 
 	// Optional computational properties
 	dispatch.add_class_route("exact_power_spectrum_enforcement", &ICf::setExactPowerSpectrumEnforcement);
@@ -67,6 +67,7 @@ void setup_parser(tools::ClassDispatch<ICf, void> &dispatch) {
   dispatch.add_class_route("basegrid", &ICf::initBaseGrid);
   dispatch.add_class_route("zoomgrid", &ICf::initZoomGrid);
   dispatch.add_class_route("zoomgrid_with_origin_at", &ICf::initZoomGridWithOriginAt);
+  dispatch.add_class_route("offset_output", &ICf::offsetOutput);
 
 	//Input Output of flagged particles
 	dispatch.add_class_route("IDfile", &ICf::loadID);
@@ -92,8 +93,6 @@ void setup_parser(tools::ClassDispatch<ICf, void> &dispatch) {
   dispatch.add_class_route("done", &ICf::done);
   dispatch.add_class_route("apply_modifications", &ICf::applyModifications);
 
-  dispatch.add_class_route("offset_output", &ICf::offsetOutput);
-
 	// ?
   dispatch.add_class_route("reverse", &ICf::reverse);
   dispatch.add_class_route("reverse_small_k", &ICf::reverseSmallK);
@@ -102,7 +101,7 @@ void setup_parser(tools::ClassDispatch<ICf, void> &dispatch) {
 	// Write objects to files
   dispatch.add_class_route("dump_grid", &ICf::dumpGrid);
   dispatch.add_class_route("dump_ps", &ICf::dumpPS);
-  dispatch.add_class_route("dump", &ICf::saveTipsyArray); // TODO Why dump name ?
+  dispatch.add_class_route("dump_tipsy", &ICf::saveTipsyArray);
 
   // To debug
   dispatch.add_class_route("zeroLevel", &ICf::zeroLevel);

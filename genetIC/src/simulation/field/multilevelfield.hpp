@@ -356,8 +356,13 @@ namespace fields {
 
 			field.forEachFourierCellInt([weight, &grid, &field, &spectrum]
 																			(complex<T> existingValue, int kx, int ky, int kz) {
-				T spec = spectrum.getFourierCoefficient(kx,ky,kz).real() * weight + 1e-14;
-				return existingValue / spec;
+				T spec = spectrum.getFourierCoefficient(kx,ky,kz).real() * weight;
+				//TODO Working but uneffective to check all of them. Should check only k=0
+				if(spec == 0){
+					return complex<DataType>(0,0);
+				} else{
+					return existingValue / spec;
+				}
 			});
 		}
 

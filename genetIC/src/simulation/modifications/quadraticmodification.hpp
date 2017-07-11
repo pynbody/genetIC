@@ -79,10 +79,8 @@ namespace modifications {
 			using tools::numerics::operator/=;
 			auto highResPushedField = this->pushOneLevelFieldThroughMatrix(field.getFieldForLevel(level));
 			highResPushedField.toFourier();
+			highResPushedField.getDataVector() /= this->underlying.getWeightForLevel(level);
 
-			if (level != 0) {
-				highResPushedField.getDataVector() /= this->underlying.getWeightForLevel(level);
-			}
 			return this->underlying.generateMultilevelFromHighResField(std::move(highResPushedField));
 		}
 

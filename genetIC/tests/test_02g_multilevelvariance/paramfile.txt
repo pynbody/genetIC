@@ -1,4 +1,4 @@
-# Test variance calculation on one level
+# Test variance calculation on two levels
 
 Om  0.279
 Ol  0.721
