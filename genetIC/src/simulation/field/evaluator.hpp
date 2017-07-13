@@ -27,7 +27,8 @@ namespace fields {
 
       size_t size3 = destination.getGrid().size3;
 
-// #pragma omp parallel for schedule(static)
+    //TODO MR: Why was this omp loop commented out ? It had become the bottleneck for the code.
+#pragma omp parallel for schedule(static)
       for (size_t ind_l = 0; ind_l < size3; ind_l++) {
         if (contains(ind_l))
           destination[ind_l] += (*this)[ind_l];
@@ -35,9 +36,7 @@ namespace fields {
     }
   };
 
-  /*! Evaluator that is appropriate when the grid and the field match perfectly.
-   *
-   */
+  //! Evaluator that is appropriate when the grid and the field match perfectly.
   template<typename DataType, typename CoordinateType = tools::datatypes::strip_complex<DataType>>
   class DirectEvaluator : public EvaluatorBase<DataType, CoordinateType> {
 

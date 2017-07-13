@@ -32,7 +32,7 @@ zoomgrid 2 256
 centre 25 25 25.1
 select_sphere 2
 modify overdensity relative 1
-modify variance relative 3 10 0.001 0.5
+modify variance relative 3 10 0.01 0.5
 
 
 done

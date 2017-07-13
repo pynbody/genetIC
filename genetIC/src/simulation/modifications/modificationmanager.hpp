@@ -167,9 +167,10 @@ namespace modifications {
 
     void applyLinQuadModif(std::vector<std::shared_ptr<fields::ConstraintField<DataType>>> alphas) {
 
-      size_t numberQuadraticModifs = quadraticModificationList.size();
-      //TODO Check quadratic are indepednent ?
+      // If quadratic are independent, we can apply them one by one in a loop.
+      assert(areQuadraticIndependent());
 
+      size_t numberQuadraticModifs = quadraticModificationList.size();
       for (size_t i = 0; i < numberQuadraticModifs; i++) {
         auto modif_i = quadraticModificationList[i];
         int init_n_steps = modif_i->getInitNumberSteps();
@@ -284,6 +285,27 @@ namespace modifications {
         throw std::runtime_error("Modification type must be either 'relative' or 'absolute'");
       }
       return relative;
+    }
+
+    bool areQuadraticIndependent(){
+      //TODO Condition here is necessary but not sufficient to ensure independence. However, it is the best I can think off.
+
+      size_t n = quadraticModificationList.size();
+      bool indep = true;
+
+      for (size_t i = 0; i < n; i++){
+        for (size_t j = 0; j < i; j++){
+          auto pushed_i = quadraticModificationList[i]->pushMultiLevelFieldThroughMatrix(outputField);
+          auto pushed_j = quadraticModificationList[j]->pushMultiLevelFieldThroughMatrix(outputField);
+
+          auto ortho = pushed_i->innerProduct(*pushed_j).real();
+
+          if(ortho > 0.01){
+            indep = false ;
+          }
+        }
+      }
+      return indep;
     }
   };
 }

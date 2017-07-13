@@ -140,6 +140,7 @@ namespace modifications {
 
       std::vector<DataType> &fieldData = field.getDataVector();
 
+#pragma omp parallel for schedule(static)
       for (size_t i = 0; i < fieldData.size(); ++i) {
         // If cell is not a flagged cell, zero it
         if (!(std::binary_search(this->flaggedCells.begin(), this->flaggedCells.end(), i))) {
