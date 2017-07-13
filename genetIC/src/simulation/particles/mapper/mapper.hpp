@@ -136,7 +136,7 @@ namespace particle {
       }
 
       virtual void extendParticleListToUnreferencedGrids(
-        multilevelcontext::MultiLevelContextInformation<GridDataType> &grids) {
+          multilevelcontext::MultiLevelContextInformation<GridDataType> &grids) {
         /* For any grid that is _not_ referenced by this mapper, generate cell flags by matching
          * to the finest level available in this mapper.
          *

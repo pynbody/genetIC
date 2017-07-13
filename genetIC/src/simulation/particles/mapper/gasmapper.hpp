@@ -91,8 +91,8 @@ namespace particle {
       }
 
       AddGasMapper(MapPtrType &pFirst, MapPtrType &pSecond, bool gasFirst = true) :
-        firstMap(pFirst), secondMap(pSecond), gasFirst(gasFirst), nFirst(pFirst->size()),
-        nSecond(pSecond->size()) {
+          firstMap(pFirst), secondMap(pSecond), gasFirst(gasFirst), nFirst(pFirst->size()),
+          nSecond(pSecond->size()) {
         assert(pFirst->size_gas() == 0);
         assert(pSecond->size_gas() == 0);
       };
@@ -183,7 +183,7 @@ namespace particle {
           ssub1 = ssub1->superOrSubSampleDM(ratio, toGrids, super);
 
         return std::make_shared<AddGasMapper<GridDataType>>(
-          ssub1, ssub2, gasFirst);
+            ssub1, ssub2, gasFirst);
       }
 
     };

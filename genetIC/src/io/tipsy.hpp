@@ -107,7 +107,7 @@ namespace io {
             photogenic_file << iord + i << std::endl;
 
         }
-        iord+=n;
+        iord += n;
 
         fwrite(p.data(), sizeof(ParticleType), n, fd);
       }

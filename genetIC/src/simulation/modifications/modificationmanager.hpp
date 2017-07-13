@@ -5,30 +5,31 @@
 #include <src/simulation/modifications/quadraticmodification.hpp>
 
 //! Deals with the creation of genetically modified fields
-namespace modifications{
+namespace modifications {
 
   //! Keep track of modifications to be applied. Construct the modified field from these modifications.
-  template<typename DataType, typename T=tools::datatypes::strip_complex <DataType>>
+  template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
   class ModificationManager {
 
   public:
-    fields::OutputField<DataType> &outputField;																			/*!< Future modified field */
-    multilevelcontext::MultiLevelContextInformation<DataType> &underlying;					/*!< Grid context in which modifications take place */
-    const cosmology::CosmologicalParameters<T> &cosmology;													/*!< Cosmology context in which modifications take place */
+    fields::OutputField<DataType> &outputField;                                      /*!< Future modified field */
+    multilevelcontext::MultiLevelContextInformation<DataType> &underlying;          /*!< Grid context in which modifications take place */
+    const cosmology::CosmologicalParameters<T> &cosmology;                          /*!< Cosmology context in which modifications take place */
 
-    std::vector<std::shared_ptr<LinearModification<DataType,T>>> linearModificationList;  /*!< Modifications to be applied */
-    std::vector<std::shared_ptr<QuadraticModification<DataType,T>>> quadraticModificationList;
+    std::vector<std::shared_ptr<LinearModification<DataType, T>>> linearModificationList;  /*!< Modifications to be applied */
+    std::vector<std::shared_ptr<QuadraticModification<DataType, T>>> quadraticModificationList;
 
     ModificationManager(multilevelcontext::MultiLevelContextInformation<DataType> &multiLevelContext_,
                         const cosmology::CosmologicalParameters<T> &cosmology_,
-                        fields::OutputField<DataType> &outputField_):
-        outputField(outputField_), underlying(multiLevelContext_), cosmology(cosmology_){}
+                        fields::OutputField<DataType> &outputField_) :
+        outputField(outputField_), underlying(multiLevelContext_), cosmology(cosmology_) {}
 
     //! Calculate existing value of the quantity defined by name
-    template <typename ... Args>
-    T calculateCurrentValueByName(std::string name_, Args&&... args){
+    template<typename ... Args>
+    T calculateCurrentValueByName(std::string name_, Args &&... args) {
 
-      std::shared_ptr<Modification<DataType,T>> modification = getModificationFromName(name_, std::forward<Args>(args)...);
+      std::shared_ptr<Modification<DataType, T>> modification = getModificationFromName(name_,
+                                                                                        std::forward<Args>(args)...);
       T value = modification->calculateCurrentValue(outputField);
       return value;
     }
@@ -37,32 +38,34 @@ namespace modifications{
         \param type_ Modification can be relative to existing value or absolute
         \param target_ Absolute target or factor by which the existing will be multiplied
       */
-    template <typename ... Args>
-    void addModificationToList(std::string name_, std::string type_ , T target_, Args&& ... args){
-      
-      std::shared_ptr<Modification<DataType,T>> modification = getModificationFromName(name_, std::forward<Args>(args)...);
+    template<typename ... Args>
+    void addModificationToList(std::string name_, std::string type_, T target_, Args &&... args) {
+
+      std::shared_ptr<Modification<DataType, T>> modification = getModificationFromName(name_,
+                                                                                        std::forward<Args>(args)...);
 
       bool relative = isRelative(type_);
       T target = target_;
 
-      if(relative){
+      if (relative) {
         T value = modification->calculateCurrentValue(outputField);
         target *= value;
       }
 
       modification->setTarget(target);
 
-      if(modification->getOrder() == 1 ){
-        linearModificationList.push_back(std::dynamic_pointer_cast<LinearModification<DataType,T>>(modification));
-      } else if (modification->getOrder() == 2){
-        quadraticModificationList.push_back(std::dynamic_pointer_cast<QuadraticModification<DataType,T>>(modification));
-      } else{
-        throw std::runtime_error( " Could not add modification to list");
+      if (modification->getOrder() == 1) {
+        linearModificationList.push_back(std::dynamic_pointer_cast<LinearModification<DataType, T>>(modification));
+      } else if (modification->getOrder() == 2) {
+        quadraticModificationList.push_back(
+            std::dynamic_pointer_cast<QuadraticModification<DataType, T>>(modification));
+      } else {
+        throw std::runtime_error(" Could not add modification to list");
       }
     }
 
     //! Construct the modified field with all modifications present in the modification list
-    void applyModifications(){
+    void applyModifications() {
 
       std::vector<std::shared_ptr<fields::ConstraintField<DataType>>> alphas;
       std::vector<T> linear_targets;
@@ -82,7 +85,7 @@ namespace modifications{
 
     }
 
-    void clearModifications(){
+    void clearModifications() {
       std::cout << "Clearing modification list" << std::endl;
       linearModificationList.clear();
       quadraticModificationList.clear();
@@ -90,12 +93,12 @@ namespace modifications{
 
 
   private:
-    template <typename ... Args>
-    std::shared_ptr<Modification<DataType,T>> getModificationFromName(std::string name_, Args&& ... args ){
-      try{
+    template<typename ... Args>
+    std::shared_ptr<Modification<DataType, T>> getModificationFromName(std::string name_, Args &&... args) {
+      try {
         auto modification = getLinearModificationFromName(name_);
         return modification;
-      } catch( UnknownModificationException &e) {
+      } catch (UnknownModificationException &e) {
         // If modification is unknown, it might be quadratic so swallow exception for now.
         try {
           auto modification = getQuadraticModificationFromName(name_, std::forward<Args>(args)...);
@@ -108,27 +111,29 @@ namespace modifications{
     }
 
 
-    std::shared_ptr<LinearModification<DataType,T>> getLinearModificationFromName(std::string name_){
-      if ((strcasecmp(name_.c_str(), "overdensity") == 0)){
-        return make_shared<OverdensityModification<DataType,T>>(underlying, cosmology);
+    std::shared_ptr<LinearModification<DataType, T>> getLinearModificationFromName(std::string name_) {
+      if ((strcasecmp(name_.c_str(), "overdensity") == 0)) {
+        return make_shared<OverdensityModification<DataType, T>>(underlying, cosmology);
       } else if ((strcasecmp(name_.c_str(), "potential") == 0)) {
-        return make_shared<PotentialModification<DataType,T>>(underlying, cosmology);
+        return make_shared<PotentialModification<DataType, T>>(underlying, cosmology);
       } else if ((strcasecmp(name_.c_str(), "lx") == 0)) {
-        return make_shared<AngMomentumModification<DataType,T>>(underlying, cosmology, 0);
+        return make_shared<AngMomentumModification<DataType, T>>(underlying, cosmology, 0);
       } else if ((strcasecmp(name_.c_str(), "ly") == 0)) {
-        return make_shared<AngMomentumModification<DataType,T>>(underlying, cosmology, 1);
+        return make_shared<AngMomentumModification<DataType, T>>(underlying, cosmology, 1);
       } else if ((strcasecmp(name_.c_str(), "lz") == 0)) {
-        return make_shared<AngMomentumModification<DataType,T>>(underlying, cosmology, 2);
-      } else{
+        return make_shared<AngMomentumModification<DataType, T>>(underlying, cosmology, 2);
+      } else {
         throw UnknownModificationException(name_ + " " + "is an unknown modification name");
       }
     }
 
     template<typename ... Args>
-    std::shared_ptr<QuadraticModification<DataType,T>> getQuadraticModificationFromName(std::string name_, Args&& ... args){
-      if ((strcasecmp(name_.c_str(), "variance") == 0)){
-        return make_shared<FilteredVarianceModification<DataType,T>>(underlying, cosmology, std::forward<Args>(args) ...);
-      }  else{
+    std::shared_ptr<QuadraticModification<DataType, T>>
+    getQuadraticModificationFromName(std::string name_, Args &&... args) {
+      if ((strcasecmp(name_.c_str(), "variance") == 0)) {
+        return make_shared<FilteredVarianceModification<DataType, T>>(underlying, cosmology,
+                                                                      std::forward<Args>(args) ...);
+      } else {
         throw UnknownModificationException(name_ + " " + "is an unknown modification name");
       }
     }
@@ -140,7 +145,7 @@ namespace modifications{
      */
     void applyLinearModif(fields::OutputField<DataType> &field,
                           std::vector<std::shared_ptr<fields::ConstraintField<DataType>>> alphas,
-                          std::vector<T> &targets){
+                          std::vector<T> &targets) {
 
       std::vector<T> existing_values;
       for (size_t i = 0; i < linearModificationList.size(); i++) {
@@ -160,12 +165,12 @@ namespace modifications{
       }
     }
 
-    void applyLinQuadModif(std::vector<std::shared_ptr<fields::ConstraintField<DataType>>> alphas){
+    void applyLinQuadModif(std::vector<std::shared_ptr<fields::ConstraintField<DataType>>> alphas) {
 
       size_t numberQuadraticModifs = quadraticModificationList.size();
       //TODO Check quadratic are indepednent ?
 
-      for (size_t i=0; i<numberQuadraticModifs; i++){
+      for (size_t i = 0; i < numberQuadraticModifs; i++) {
         auto modif_i = quadraticModificationList[i];
         int init_n_steps = modif_i->getInitNumberSteps();
 
@@ -175,12 +180,12 @@ namespace modifications{
         int n_steps = calculateCorrectNumberSteps(test_field, modif_i, init_n_steps);
 
         // Perform procedure on real output
-        if(n_steps > init_n_steps){
+        if (n_steps > init_n_steps) {
           std::cout << n_steps << " steps are required for the quadratic algorithm " << std::endl;
-          performIterations(outputField,  alphas, modif_i, n_steps);
-        } else{
+          performIterations(outputField, alphas, modif_i, n_steps);
+        } else {
           std::cout << "No need to do more steps to achieve target precision" << std::endl;
-          performIterations(outputField,  alphas, modif_i, init_n_steps);
+          performIterations(outputField, alphas, modif_i, init_n_steps);
         }
 
 
@@ -190,14 +195,14 @@ namespace modifications{
     //! Executes n_steps iterations of linear and quadratic modifications
     void performIterations(fields::OutputField<DataType> &field,
                            std::vector<std::shared_ptr<fields::ConstraintField<DataType>>> alphas,
-                           std::shared_ptr<QuadraticModification<DataType,T>> quad_modif, int n_steps){
+                           std::shared_ptr<QuadraticModification<DataType, T>> quad_modif, int n_steps) {
 
       T overall_quad_target = quad_modif->getTarget();
       T starting_quad_value = quad_modif->calculateCurrentValue(field);
 
       std::vector<T> quad_targets = tools::linspace(starting_quad_value, overall_quad_target, n_steps);
 
-      for (int i=0; i < (n_steps); i++) {
+      for (int i = 0; i < (n_steps); i++) {
 
         T current_value = quad_modif->calculateCurrentValue(field);
         auto pushedField = quad_modif->pushMultiLevelFieldThroughMatrix(field);
@@ -207,7 +212,8 @@ namespace modifications{
         addToOrthonormalFamily(alphas, pushedField);
 
         //Apply quad step
-        T multiplier = 0.5 * (quad_targets[i+1] - current_value) / norm ; //One sqrt factor inside the orthonormalise method and one more here.
+        T multiplier = 0.5 * (quad_targets[i + 1] - current_value) /
+                       norm; //One sqrt factor inside the orthonormalise method and one more here.
         pushedField->convertToVector();
         field.addScaled(*pushedField, multiplier);
       }
@@ -215,13 +221,13 @@ namespace modifications{
     }
 
     int calculateCorrectNumberSteps(const fields::OutputField<DataType> &field,
-        std::shared_ptr<QuadraticModification<DataType,T>> modif, int previous_n_steps){
+                                    std::shared_ptr<QuadraticModification<DataType, T>> modif, int previous_n_steps) {
 
       T achieved_precision = std::abs(modif->calculateCurrentValue(field) - modif->getTarget());
       T target_precision = modif->getTarget() * modif->getTargetPrecision();
 
-      int n_steps = previous_n_steps * (int) std::ceil( std::sqrt(achieved_precision / target_precision));
-      return  n_steps;
+      int n_steps = previous_n_steps * (int) std::ceil(std::sqrt(achieved_precision / target_precision));
+      return n_steps;
     }
 
     //! Graam-Schmidt procedure to orthonormalise the modification covectors
@@ -253,7 +259,7 @@ namespace modifications{
 
     //! Orthonormalise a covector with respect to an already orthonormal family
     void addToOrthonormalFamily(std::vector<std::shared_ptr<fields::ConstraintField<DataType>>> alphas,
-                                std::shared_ptr<fields::ConstraintField<DataType>> alpha){
+                                std::shared_ptr<fields::ConstraintField<DataType>> alpha) {
 
       using namespace tools::numerics;
       size_t n = alphas.size();
@@ -265,12 +271,12 @@ namespace modifications{
         alpha->addScaled(alpha_i, -result);
       }
 
-        // normalize
-        T norm = sqrt(alpha->innerProduct(*alpha).real());
-        (*alpha) /= norm;
+      // normalize
+      T norm = sqrt(alpha->innerProduct(*alpha).real());
+      (*alpha) /= norm;
     }
 
-    bool isRelative(std::string type){
+    bool isRelative(std::string type) {
       bool relative = false;
       if (strcasecmp(type.c_str(), "relative") == 0) {
         relative = true;

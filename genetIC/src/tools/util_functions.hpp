@@ -67,8 +67,8 @@ namespace tools {
     else if (n > 1) {
       double step = (end - start) / (n);
       int count = 0;
-      while(count < n +1 ) {
-				T elem = start + count*step;
+      while (count < n + 1) {
+        T elem = start + count * step;
         array.push_back(elem);
         ++count;
       }

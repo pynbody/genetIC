@@ -30,7 +30,7 @@ namespace filters {
       return 1.0;
     }
 
-		//TODO Never used, should delete ?
+    //TODO Never used, should delete ?
 //    template<typename S>
 //    auto compositeFunction(const S &other) const {
 //      auto func = [this, &other](T x) {
@@ -205,7 +205,8 @@ namespace filters {
 
     ComplementaryFilterAdaptor(const Filter<T> &pOriginal) {
       assert(
-        typeid(pOriginal) != typeid(ComplementaryFilterAdaptor<UnderlyingType, T>)); // this is NOT a copy constructor!
+          typeid(pOriginal) !=
+          typeid(ComplementaryFilterAdaptor<UnderlyingType, T>)); // this is NOT a copy constructor!
       pUnderlying = pOriginal.clone();
     }
 

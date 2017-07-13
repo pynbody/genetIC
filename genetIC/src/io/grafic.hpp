@@ -37,9 +37,9 @@ namespace io {
                    multilevelcontext::MultiLevelContextInformation<DataType> &levelContext,
                    particle::AbstractMultiLevelParticleGenerator<DataType> &particleGenerator,
                    const cosmology::CosmologicalParameters<T> &cosmology) :
-        outputFilename(fname),
-        generator(particleGenerator.shared_from_this()),
-        cosmology(cosmology) {
+          outputFilename(fname),
+          generator(particleGenerator.shared_from_this()),
+          cosmology(cosmology) {
         levelContext.copyContextWithIntermediateResolutionGrids(context);
         lengthFactor = 1. / cosmology.hubble; // Gadget Mpc a h^-1 -> GrafIC file Mpc a
         velFactor = std::pow(cosmology.scalefactor, 0.5f); // Gadget km s^-1 a^1/2 -> GrafIC km s^-1
@@ -58,7 +58,8 @@ namespace io {
         auto evaluator = generator->makeEvaluatorForGrid(targetGrid);
 
         const grids::Grid<T> &baseGrid = context.getGridForLevel(0);
-        size_t effective_size = tools::getRatioAndAssertPositiveInteger(baseGrid.cellSize * baseGrid.size, targetGrid.cellSize);
+        size_t effective_size = tools::getRatioAndAssertPositiveInteger(baseGrid.cellSize * baseGrid.size,
+                                                                        targetGrid.cellSize);
         tools::progress::ProgressBar pb("write grid " + std::to_string(effective_size), targetGrid.size);
 
         std::string thisGridFilename = outputFilename + "_" + std::to_string(effective_size);
@@ -79,8 +80,6 @@ namespace io {
           files.emplace_back(thisGridFilename + "/" + filename_i, std::ios::binary);
           writeHeaderForGrid(files.back(), targetGrid);
         }
-
-
 
 
         for (size_t i_z = 0; i_z < targetGrid.size; ++i_z) {

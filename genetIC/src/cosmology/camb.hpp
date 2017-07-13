@@ -130,9 +130,10 @@ namespace cosmology {
       auto P = std::make_shared<fields::Field<DataType, CoordinateType>>(grid, true);
 
       P->forEachFourierCell([norm, this]
-                                (std::complex<CoordinateType>, CoordinateType kx, CoordinateType ky, CoordinateType kz) {
-        CoordinateType k = sqrt(kx*kx+ky*ky+kz*kz);
-        auto spec = std::complex<CoordinateType>((*this)(k)*norm,0);
+                                (std::complex<CoordinateType>, CoordinateType kx, CoordinateType ky,
+                                 CoordinateType kz) {
+        CoordinateType k = sqrt(kx * kx + ky * ky + kz * kz);
+        auto spec = std::complex<CoordinateType>((*this)(k) * norm, 0);
         return spec;
       });
 

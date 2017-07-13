@@ -12,7 +12,7 @@ namespace modifications {
   class QuadraticModification : public Modification<DataType, T> {
   protected:
     int initNumberSteps;
-    T targetPrecision;		/*!< Precision at which the target should be achieved. 0.01 input is 1% required accuracy */
+    T targetPrecision;    /*!< Precision at which the target should be achieved. 0.01 input is 1% required accuracy */
 
   public:
     QuadraticModification(multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
@@ -22,8 +22,8 @@ namespace modifications {
     };
 
     QuadraticModification(multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
-    const cosmology::CosmologicalParameters<T> &cosmology_, int initNumberSteps_,
-        T targetPrecision_) :
+                          const cosmology::CosmologicalParameters<T> &cosmology_, int initNumberSteps_,
+                          T targetPrecision_) :
         Modification<DataType, T>(underlying_, cosmology_), initNumberSteps(initNumberSteps_) {
       this->targetPrecision = targetPrecision_;
       this->order = 2;
@@ -33,15 +33,15 @@ namespace modifications {
       return this->initNumberSteps;
     }
 
-    T getTargetPrecision(){
+    T getTargetPrecision() {
       return this->targetPrecision;
     }
 
-    void setInitNumberSteps(int initNumberSteps_){
+    void setInitNumberSteps(int initNumberSteps_) {
       this->initNumberSteps = initNumberSteps_;
     }
 
-    void setTargetPrecision(T targetPrecision_){
+    void setTargetPrecision(T targetPrecision_) {
       this->targetPrecision = targetPrecision_;
     }
 
@@ -54,7 +54,8 @@ namespace modifications {
       return value;
     }
 
-    std::shared_ptr<fields::ConstraintField<DataType>> pushMultiLevelFieldThroughMatrix(const fields::MultiLevelField<DataType> &field ){
+    std::shared_ptr<fields::ConstraintField<DataType>>
+    pushMultiLevelFieldThroughMatrix(const fields::MultiLevelField<DataType> &field) {
 
       // Push the finest level and then down sample to other grids
       size_t level = this->underlying.getNumLevels() - 1;
@@ -67,7 +68,8 @@ namespace modifications {
     }
 
   protected:
-    virtual fields::Field<DataType, T> pushOneLevelFieldThroughMatrix(const fields::Field<DataType, T> &/* field */) = 0;
+    virtual fields::Field<DataType, T>
+    pushOneLevelFieldThroughMatrix(const fields::Field<DataType, T> &/* field */) = 0;
   };
 
   template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
@@ -77,29 +79,30 @@ namespace modifications {
 
     FilteredVarianceModification(multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
                                  const cosmology::CosmologicalParameters<T> &cosmology_, T filterscale_) :
-        QuadraticModification<DataType, T>(underlying_, cosmology_), scale(filterscale_){}
+        QuadraticModification<DataType, T>(underlying_, cosmology_), scale(filterscale_) {}
 
     FilteredVarianceModification(multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
                                  const cosmology::CosmologicalParameters<T> &cosmology_, int initNumberSteps_,
                                  T targetPrecision_, T filterscale_) :
-        QuadraticModification<DataType, T>(underlying_, cosmology_, initNumberSteps_, targetPrecision_), scale(filterscale_){}
+        QuadraticModification<DataType, T>(underlying_, cosmology_, initNumberSteps_, targetPrecision_),
+        scale(filterscale_) {}
 
-    void setFilterScale(T scale_){
+    void setFilterScale(T scale_) {
 
-      size_t finest_level = this->underlying.getNumLevels() - 1 ;
+      size_t finest_level = this->underlying.getNumLevels() - 1;
 
-      if(finest_level == 0){
+      if (finest_level == 0) {
         T coarse_pixel = this->underlying.getGridForLevel(finest_level).cellSize;
         if (scale_ > coarse_pixel) {
-          this->scale =scale_;
+          this->scale = scale_;
         } else {
           throw std::runtime_error("Variance filtering on scale smaller than pixel scale");
         }
       } else {
-        T coarse_pixel = this->underlying.getGridForLevel(finest_level -1).cellSize;
+        T coarse_pixel = this->underlying.getGridForLevel(finest_level - 1).cellSize;
         T fine_pixel = this->underlying.getGridForLevel(finest_level).cellSize;
-        if(fine_pixel < scale_ && scale_ < (1.0 / 0.3) * coarse_pixel){
-          this->scale =scale_;
+        if (fine_pixel < scale_ && scale_ < (1.0 / 0.3) * coarse_pixel) {
+          this->scale = scale_;
         } else {
           throw std::runtime_error("Variance filtering scale must be kept far away from pixels scale");
         }
@@ -133,20 +136,21 @@ namespace modifications {
 
     void windowOperator(fields::Field<DataType, T> &field) {
 
-      assert(! field.isFourier()); // Windowing is done in real space
+      assert(!field.isFourier()); // Windowing is done in real space
 
       std::vector<DataType> &fieldData = field.getDataVector();
 
       for (size_t i = 0; i < fieldData.size(); ++i) {
         // If cell is not a flagged cell, zero it
-        if (!(std::binary_search(this->flaggedCells.begin(), this->flaggedCells.end(), i)) ){
-          fieldData[i] = 0;}
+        if (!(std::binary_search(this->flaggedCells.begin(), this->flaggedCells.end(), i))) {
+          fieldData[i] = 0;
+        }
       }
     }
 
-    void filterOperator(fields::Field<DataType, T> &field){
+    void filterOperator(fields::Field<DataType, T> &field) {
 
-      assert(field.isFourier());	//Filtering must be done in Fourier space
+      assert(field.isFourier());  //Filtering must be done in Fourier space
 
       T k_cut = 2 * M_PI / scale;
 
@@ -155,9 +159,9 @@ namespace modifications {
       field.applyFilter(highPassFermi);
     }
 
-    void varianceOperator(fields::Field<DataType, T> &field){
+    void varianceOperator(fields::Field<DataType, T> &field) {
 
-      assert(! field.isFourier()); // Variance is calculated in real space
+      assert(!field.isFourier()); // Variance is calculated in real space
 
       windowOperator(field);
 
@@ -167,7 +171,7 @@ namespace modifications {
       // Calculate mean value in flagged region
       T sum = 0;
       for (size_t i = 0; i < regionSize; i++) {
-         sum += fieldData[this->flaggedCells[i]];
+        sum += fieldData[this->flaggedCells[i]];
       }
 
       for (size_t i = 0; i < regionSize; i++) {
@@ -178,7 +182,6 @@ namespace modifications {
 
   };
 }
-
 
 
 #endif

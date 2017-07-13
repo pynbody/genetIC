@@ -77,7 +77,7 @@ protected:
   io::OutputFormat outputFormat;
   string outputFolder, outputFilename;
 
-	//! Track whether the random realisation has yet been made
+  //! Track whether the random realisation has yet been made
   bool haveInitialisedRandomComponent;
 
   //! Enforce the exact power spectrum, as in Angulo & Pontzen 2016
@@ -94,7 +94,7 @@ protected:
   std::vector<std::vector<size_t>> zoomParticleArray;
 
 
-	//! Coordinates of the cell of current interest
+  //! Coordinates of the cell of current interest
   T x0, y0, z0;
 
   shared_ptr<particle::mapper::ParticleMapper<GridDataType>> pMapper;
@@ -110,11 +110,11 @@ protected:
 
 public:
   ICGenerator(tools::ClassDispatch<ICGenerator<GridDataType>, void> &interpreter) :
-    outputField(multiLevelContext),
-    modificationManager(multiLevelContext, cosmology, outputField),
-    randomFieldGenerator(outputField),
-    pMapper(new particle::mapper::ParticleMapper<GridDataType>()),
-    interpreter(interpreter) {
+      outputField(multiLevelContext),
+      modificationManager(multiLevelContext, cosmology, outputField),
+      randomFieldGenerator(outputField),
+      pMapper(new particle::mapper::ParticleMapper<GridDataType>()),
+      interpreter(interpreter) {
     pInputMapper = nullptr;
     pInputMultiLevelContext = nullptr;
     cosmology.hubble = 0.701;   // old default
@@ -128,7 +128,7 @@ public:
     yOffOutput = 0;
     zOffOutput = 0;
     exactPowerSpectrum = false;
-    allowStrayParticles=false;
+    allowStrayParticles = false;
     pParticleGenerator = std::make_shared<particle::NullMultiLevelParticleGenerator<GridDataType>>();
   }
 
@@ -158,12 +158,12 @@ public:
     cosmology.hubble = in;
   }
 
-	//! Enables the use of stray particles
+  //! Enables the use of stray particles
   void setStraysOn() {
     allowStrayParticles = true;
   }
 
-	// TODO Offset of what ?
+  // TODO Offset of what ?
   void offsetOutput(T x, T y, T z) {
     xOffOutput = x;
     yOffOutput = y;
@@ -175,29 +175,29 @@ public:
     cosmology.sigma8 = in;
   }
 
-	//TODO What is this doing ? What is in ?
+  //TODO What is this doing ? What is in ?
   void setSupersample(int in) {
     supersample = in;
     updateParticleMapper();
   }
 
-	//TODO What is this doing ? What is in ?
+  //TODO What is this doing ? What is in ?
   void setSubsample(int in) {
     subsample = in;
     updateParticleMapper();
   }
 
-	//! Defines the redshift at which initial conditions are generated.
+  //! Defines the redshift at which initial conditions are generated.
   void setZ0(T in) {
     cosmology.redshift = in;
     cosmology.scalefactor = 1. / (cosmology.redshift + 1.);
   }
 
   //! Define the base (coarsest) grid
-	/*!
-	 * \param boxSize Physical size of box in Mpc
-	 * \param n Number of cells in the grid
-	 */
+  /*!
+   * \param boxSize Physical size of box in Mpc
+   * \param n Number of cells in the grid
+   */
   virtual void initBaseGrid(T boxSize, size_t n) {
     assert(boxSize > 0);
 
@@ -235,11 +235,12 @@ public:
     storeCurrentCellFlagsAsZoomMask(multiLevelContext.getNumLevels());
     vector<size_t> &newLevelZoomParticleArray = zoomParticleArray.back();
 
-    if(newLevelZoomParticleArray.size()==0)
+    if (newLevelZoomParticleArray.size() == 0)
       throw std::runtime_error("Cannot initialise zoom without marking particles to be replaced");
 
     // find boundaries
-    Window<int> zoomWindow(gridAbove.getEffectiveSimulationSize(), gridAbove.getCellCoordinate(newLevelZoomParticleArray[0]));
+    Window<int> zoomWindow(gridAbove.getEffectiveSimulationSize(),
+                           gridAbove.getCellCoordinate(newLevelZoomParticleArray[0]));
 
     for (auto cell_id : newLevelZoomParticleArray) {
       zoomWindow.expandToInclude(gridAbove.getCellCoordinate(cell_id));
@@ -249,12 +250,12 @@ public:
 
     // Now see if the zoom the user chose is OK
     size_t n_user = nAbove / zoomfac;
-    if (n_required>n_user && !allowStrayParticles) {
+    if (n_required > n_user && !allowStrayParticles) {
       throw (std::runtime_error(
-        "Zoom particles do not fit in specified sub-box. Decrease zoom, or choose different particles"));
+          "Zoom particles do not fit in specified sub-box. Decrease zoom, or choose different particles"));
     }
 
-    if(n_required<n_user && !allowStrayParticles)
+    if (n_required < n_user && !allowStrayParticles)
       zoomWindow.expandSymmetricallyToSize(n_user);
 
     auto lci = zoomWindow.getLowerCornerInclusive();
@@ -264,23 +265,23 @@ public:
   }
 
   void storeCurrentCellFlagsAsZoomMask(size_t level) {
-    assert(level>0);
+    assert(level > 0);
 
-    if(zoomParticleArray.size()<level)
+    if (zoomParticleArray.size() < level)
       zoomParticleArray.emplace_back();
 
-    assert(zoomParticleArray.size()>=level);
+    assert(zoomParticleArray.size() >= level);
 
-    grids::Grid<T> &gridAbove = multiLevelContext.getGridForLevel(level-1);
+    grids::Grid<T> &gridAbove = multiLevelContext.getGridForLevel(level - 1);
 
-    vector<size_t> &levelZoomParticleArray = zoomParticleArray[level-1];
+    vector<size_t> &levelZoomParticleArray = zoomParticleArray[level - 1];
     levelZoomParticleArray.clear();
     gridAbove.getFlaggedCells(levelZoomParticleArray);
   }
 
-	/*! Define a zoomed grid with user defined coordinates
-	 * \param x0, y0, z0  //TODO Coordinates of centre of grid or upper left corner ?
-	 */
+  /*! Define a zoomed grid with user defined coordinates
+   * \param x0, y0, z0  //TODO Coordinates of centre of grid or upper left corner ?
+   */
   void initZoomGridWithOriginAt(int x0, int y0, int z0, size_t zoomfac, size_t n) {
     grids::Grid<T> &gridAbove = multiLevelContext.getGridForLevel(multiLevelContext.getNumLevels() - 1);
     int nAbove = int(gridAbove.size);
@@ -291,18 +292,18 @@ public:
     vector<size_t> &newLevelZoomParticleArray = zoomParticleArray.back();
     int nCoarseCellsOfZoomGrid = nAbove / int(zoomfac);
 
-    Coordinate<int> lowerCorner(x0,y0,z0);
-    Coordinate<int> upperCornerExclusive = lowerCorner+nCoarseCellsOfZoomGrid;
+    Coordinate<int> lowerCorner(x0, y0, z0);
+    Coordinate<int> upperCornerExclusive = lowerCorner + nCoarseCellsOfZoomGrid;
 
-    if(gridAbove.coversFullSimulation())
+    if (gridAbove.coversFullSimulation())
       upperCornerExclusive = gridAbove.wrapCoordinate(upperCornerExclusive);
     else {
-      if (upperCornerExclusive.x>nAbove || upperCornerExclusive.y>nAbove || upperCornerExclusive.z>nAbove)
+      if (upperCornerExclusive.x > nAbove || upperCornerExclusive.y > nAbove || upperCornerExclusive.z > nAbove)
         throw std::runtime_error("Attempting to initialise a zoom grid that falls outside the parent grid");
     }
 
 
-    size_t missed_particle=0;
+    size_t missed_particle = 0;
 
     Window<int> zoomWindow = Window<int>(gridAbove.getEffectiveSimulationSize(),
                                          lowerCorner, upperCornerExclusive);
@@ -312,24 +313,26 @@ public:
     // if allowStrayParticles is true, keep even those outside the high-res box but report the number
     // in this category.
     for (size_t i = 0; i < newLevelZoomParticleArray.size(); i++) {
-      bool include=true;
+      bool include = true;
       auto coord = gridAbove.getCellCoordinate(newLevelZoomParticleArray[i]);
-      if(!zoomWindow.contains(coord)) {
-        missed_particle+=1;
+      if (!zoomWindow.contains(coord)) {
+        missed_particle += 1;
         include = false;
       }
 
-      if(include || allowStrayParticles) {
+      if (include || allowStrayParticles) {
         trimmedParticleArray.push_back(newLevelZoomParticleArray[i]);
       }
     }
 
-    if(missed_particle>0) {
+    if (missed_particle > 0) {
       cerr << "WARNING: the requested zoom particles do not all fit in the requested zoom window" << endl;
-      if(allowStrayParticles) {
-        cerr << "         of " << newLevelZoomParticleArray.size() << " particles, " << missed_particle << " will be interpolated from LR grid (stray particle mode)" << endl;
+      if (allowStrayParticles) {
+        cerr << "         of " << newLevelZoomParticleArray.size() << " particles, " << missed_particle
+             << " will be interpolated from LR grid (stray particle mode)" << endl;
       } else {
-        cerr << "         of " << newLevelZoomParticleArray.size() << " particles, " << missed_particle << " have been omitted" << endl;
+        cerr << "         of " << newLevelZoomParticleArray.size() << " particles, " << missed_particle
+             << " have been omitted" << endl;
       }
 
       cerr << "         to make a new zoom flag list of " << trimmedParticleArray.size() << endl;
@@ -360,7 +363,8 @@ public:
   }
 
   virtual void
-  addLevelToContext(const cosmology::CAMB<GridDataType> &spectrum, T size, size_t nside, const Coordinate<T> &offset = {0, 0, 0}) {
+  addLevelToContext(const cosmology::CAMB<GridDataType> &spectrum, T size, size_t nside,
+                    const Coordinate<T> &offset = {0, 0, 0}) {
     // This forwards to multiLevelContext but is required because it is overriden in DummyICGenerator,
     // which needs to ensure that grids are synchronised between two different contexts
     multiLevelContext.addLevel(spectrum, size, nside, offset);
@@ -377,10 +381,10 @@ public:
     randomFieldGenerator.setReverseRandomDrawOrder(false);
   }
 
-	//! Reverses the order of draws between real and imaginary part of complex numbers
-	/*!
-	 * Provided for compatibility problems as different compilers handle the draw order differently
-	 */
+  //! Reverses the order of draws between real and imaginary part of complex numbers
+  /*!
+   * Provided for compatibility problems as different compilers handle the draw order differently
+   */
   void setSeedFourierReverseOrder(int seed) {
     randomFieldGenerator.seed(seed);
     randomFieldGenerator.setDrawInFourierSpace(true);
@@ -391,7 +395,7 @@ public:
     exactPowerSpectrum = true;
   }
 
-	//! Obtain power spectrum from a CAMB data file
+  //! Obtain power spectrum from a CAMB data file
   void setCambDat(std::string cambFilePath) {
     spectrum.read(cambFilePath, cosmology);
   }
@@ -404,10 +408,10 @@ public:
     outputFilename = outputFilename_;
   }
 
-	//! Set formats from handled formats in io namespace
-	/*!
-	 * \param format  2 =  Gadget2, 3 = Gadget3, 4 = tipsy, 5 = grafic
-	 */
+  //! Set formats from handled formats in io namespace
+  /*!
+   * \param format  2 =  Gadget2, 3 = Gadget3, 4 = tipsy, 5 = grafic
+   */
   void setOutputFormat(int format) {
     outputFormat = static_cast<io::OutputFormat>(format);
     updateParticleMapper();
@@ -424,7 +428,7 @@ public:
     return fname_stream.str();
   }
 
-	//! Zeroes field values at a given level. Meant for debugging.
+  //! Zeroes field values at a given level. Meant for debugging.
   virtual void zeroLevel(size_t level) {
     cerr << "*** Warning: your script calls zeroLevel(" << level << "). This is intended for testing purposes only!"
          << endl;
@@ -469,25 +473,25 @@ public:
     ifile.close();
   }
 
-	//! Dumps field in a tipsy format
+  //! Dumps field in a tipsy format
   virtual void saveTipsyArray(string fname) {
     io::tipsy::saveFieldTipsyArray(fname, *pMapper, *pParticleGenerator, outputField);
   }
 
-	//! Dumps field at a given level in a file named grid-level
+  //! Dumps field at a given level in a file named grid-level
   virtual void dumpGrid(size_t level = 0) {
     outputField.toReal();
     dumpGridData(level, outputField.getFieldForLevel(level));
   }
 
-	// TODO Is this used at all ? Should be linked to a command in main if we want to keep it.
+  // TODO Is this used at all ? Should be linked to a command in main if we want to keep it.
   virtual void dumpGridFourier(size_t level = 0) {
     fields::Field<complex<T>, T> fieldToWrite = tools::numerics::fourier::getComplexFourierField(
-      outputField.getFieldForLevel(level));
+        outputField.getFieldForLevel(level));
     dumpGridData(level, fieldToWrite);
   }
 
-	//! Dumps power spectrum generated from the field and the theory at a given level in a .ps file
+  //! Dumps power spectrum generated from the field and the theory at a given level in a .ps file
   virtual void dumpPS(size_t level = 0) {
     auto &field = outputField.getFieldForLevel(level);
     field.toFourier();
@@ -504,14 +508,14 @@ public:
     using GridLevelGeneratorType = particle::ZeldovichParticleGenerator<GridDataType>;
 
     pParticleGenerator = std::make_shared<
-      particle::MultiLevelParticleGenerator<GridDataType, GridLevelGeneratorType>>(outputField, cosmology);
+        particle::MultiLevelParticleGenerator<GridDataType, GridLevelGeneratorType>>(outputField, cosmology);
 
   }
 
-	//! Define the current mapper with respect to an existing mapper
-	/*!
-	* Links particles in the current simulation to an existing set of flagged particles
-	*/
+  //! Define the current mapper with respect to an existing mapper
+  /*!
+  * Links particles in the current simulation to an existing set of flagged particles
+  */
   void setInputMapper(std::string fname) {
     DummyICGenerator<GridDataType> pseudoICs(this);
     auto dispatch = interpreter.specify_instance(pseudoICs);
@@ -530,7 +534,7 @@ public:
     cerr << "******** Finished with" << fname << " ***********" << endl;
     pInputMapper = pseudoICs.pMapper;
     pInputMultiLevelContext = std::make_shared<multilevelcontext::MultiLevelContextInformation<GridDataType>>
-      (pseudoICs.multiLevelContext);
+        (pseudoICs.multiLevelContext);
   }
 
   /*! Get the grid on which the output is defined for a particular level.
@@ -545,7 +549,7 @@ public:
       gridForOutput = std::make_shared<grids::OffsetGrid<T>>(gridForOutput,
                                                              xOffOutput, yOffOutput, zOffOutput);
     }
-    if(allowStrayParticles && level>0) {
+    if (allowStrayParticles && level > 0) {
       gridForOutput = std::make_shared<grids::ResolutionMatchingGrid<T>>(gridForOutput,
                                                                          getOutputGrid(level - 1));
     }
@@ -569,9 +573,9 @@ public:
 
     // make a basic mapper for the coarsest grid
     pMapper = std::shared_ptr<particle::mapper::ParticleMapper<GridDataType>>(
-      new particle::mapper::OneLevelParticleMapper<GridDataType>(
-          getOutputGrid(0)
-      ));
+        new particle::mapper::OneLevelParticleMapper<GridDataType>(
+            getOutputGrid(0)
+        ));
 
 
     if (nLevels >= 2) {
@@ -579,10 +583,10 @@ public:
       for (size_t level = 1; level < nLevels; level++) {
 
         auto pFine = std::shared_ptr<particle::mapper::ParticleMapper<GridDataType>>(
-          new particle::mapper::OneLevelParticleMapper<GridDataType>(getOutputGrid(level)));
+            new particle::mapper::OneLevelParticleMapper<GridDataType>(getOutputGrid(level)));
 
         pMapper = std::shared_ptr<particle::mapper::ParticleMapper<GridDataType>>(
-          new particle::mapper::TwoLevelParticleMapper<GridDataType>(pMapper, pFine, zoomParticleArray[level - 1]));
+            new particle::mapper::TwoLevelParticleMapper<GridDataType>(pMapper, pFine, zoomParticleArray[level - 1]));
       }
     }
 
@@ -598,10 +602,10 @@ public:
       // graft the gas particles onto the start of the map
       if (gasFirst)
         pMapper = std::make_shared<particle::mapper::AddGasMapper<GridDataType>>(
-          gasMapper.first, gasMapper.second, true);
+            gasMapper.first, gasMapper.second, true);
       else
         pMapper = std::make_shared<particle::mapper::AddGasMapper<GridDataType>>(
-          gasMapper.second, gasMapper.first, false);
+            gasMapper.second, gasMapper.first, false);
 
     }
 
@@ -631,7 +635,7 @@ public:
   }
 
 
-	//! Transforms the grid field in particles and outputs them in the predefined format
+  //! Transforms the grid field in particles and outputs them in the predefined format
   virtual void write() {
     using namespace io;
 
@@ -753,13 +757,13 @@ public:
     getCentre();
   }
 
-	//! Append from a file new flagged particles
+  //! Append from a file new flagged particles
   void appendID(string fname) {
     appendParticleIdFile(fname);
     getCentre();
   }
 
-	//! Output to a file the currently flagged particles
+  //! Output to a file the currently flagged particles
   virtual void dumpID(string fname) {
     std::vector<size_t> results;
     cerr << "dumpID using current mapper:" << endl;
@@ -768,12 +772,12 @@ public:
     io::dumpBuffer(results, fname);
   }
 
-	//! Defines the currently interesting coordinates using a particle ID
+  //! Defines the currently interesting coordinates using a particle ID
   void centreParticle(long id) {
     std::tie(x0, y0, z0) = multiLevelContext.getGridForLevel(0).getCellCentroid(id);
   }
 
-	//! Flag the nearest cell to the coordinates currently pointed at
+  //! Flag the nearest cell to the coordinates currently pointed at
   void selectNearest() {
     auto &grid = multiLevelContext.getGridForLevel(deepestLevel() - 1);
     pMapper->unflagAllParticles();
@@ -814,10 +818,10 @@ public:
     }
   }
 
-	//! Flag all cells contained in the sphere centered at the coordinates currently pointed at
-	/*!
-	 * \param radius in Mpc
-	 * */
+  //! Flag all cells contained in the sphere centered at the coordinates currently pointed at
+  /*!
+   * \param radius in Mpc
+   * */
   void selectSphere(float radius) {
     T r2 = radius * radius;
     select([r2](T delta_x, T delta_y, T delta_z) -> bool {
@@ -827,8 +831,8 @@ public:
 
   }
 
-	//! Flag all cells contained in the cube centered at the coordinates currently pointed at
-	/*!
+  //! Flag all cells contained in the cube centered at the coordinates currently pointed at
+  /*!
  * \param side in Mpc
  * */
   void selectCube(float side) {
@@ -838,53 +842,53 @@ public:
     });
   }
 
-	//! Define cell currently pointed at by coordinates
+  //! Define cell currently pointed at by coordinates
   void setCentre(T xin, T yin, T zin) {
     x0 = xin;
     y0 = yin;
     z0 = zin;
   }
 
-	//! Calculate physical quantities of the field
-	/*!
-	 * @param filterscale Filtering scale in Mpc if the quantity needs it
-	 */
+  //! Calculate physical quantities of the field
+  /*!
+   * @param filterscale Filtering scale in Mpc if the quantity needs it
+   */
   void calculate(string name, T filterscale) {
     if (!haveInitialisedRandomComponent)
       initialiseRandomComponent();
 
-		GridDataType val = modificationManager.calculateCurrentValueByName(name, filterscale);
+    GridDataType val = modificationManager.calculateCurrentValueByName(name, filterscale);
 
     cout << name << ": calculated value = " << val << endl;
   }
 
-	//! Define a modification to be applied to the field
-	/*!
-	 * @param type  Modification can be relative to existing value or absolute
-	 * @param target Absolute target or factor by which the existing will be multiplied
-	 * @param initNumberSteps Initial number of steps for the quadratic iterative algorithm
-	 * @param precision Precision at which the quadratic algorithm should run
-	 */
-  virtual void modify(string name, string type, float target, int initNumberSteps, T precision , T filterscale) {
+  //! Define a modification to be applied to the field
+  /*!
+   * @param type  Modification can be relative to existing value or absolute
+   * @param target Absolute target or factor by which the existing will be multiplied
+   * @param initNumberSteps Initial number of steps for the quadratic iterative algorithm
+   * @param precision Precision at which the quadratic algorithm should run
+   */
+  virtual void modify(string name, string type, float target, int initNumberSteps, T precision, T filterscale) {
 
     if (!haveInitialisedRandomComponent)
       initialiseRandomComponent();
 
-		modificationManager.addModificationToList(name, type, target, initNumberSteps, precision, filterscale);
+    modificationManager.addModificationToList(name, type, target, initNumberSteps, precision, filterscale);
   }
 
-	//! Empty modification list
-	void clearModifications() {
-		modificationManager.clearModifications();
-	}
+  //! Empty modification list
+  void clearModifications() {
+    modificationManager.clearModifications();
+  }
 
 
-	//! Apply the algorithm to produce the modified field
+  //! Apply the algorithm to produce the modified field
   virtual void applyModifications() {
     modificationManager.applyModifications();
   }
 
-	//! Apply the modifications, calculate the corresponding delta chi^2 and recombine low and high-ks between grids to write a particle output
+  //! Apply the modifications, calculate the corresponding delta chi^2 and recombine low and high-ks between grids to write a particle output
   virtual void done() {
     T pre_modif_chi2 = outputField.getChi2();
     cerr << "BEFORE modifications chi^2=" << pre_modif_chi2 << endl;
@@ -895,7 +899,7 @@ public:
     write();
   }
 
-	//TODO This method does not really belong here but in MultiLevelField class
+  //TODO This method does not really belong here but in MultiLevelField class
   void reverse() {
     for_each_level(level) {
       auto &field = outputField.getFieldForLevel(level);
@@ -906,7 +910,7 @@ public:
     }
   }
 
-	//TODO What is this for and why is it never tested ? Looks like inverted initial conditions properties
+  //TODO What is this for and why is it never tested ? Looks like inverted initial conditions properties
   void reseedSmallK(T kmax, int seed) {
 
     T k2max = kmax * kmax;
@@ -928,11 +932,11 @@ public:
     for_each_level(level) {
       FieldType &oldField = fieldCopies[level];
       auto &field = outputField.getFieldForLevel(level);
-      int k2max_i = tools::getRatioAndAssertInteger(k2max,field.getGrid().getFourierKmin());
+      int k2max_i = tools::getRatioAndAssertInteger(k2max, field.getGrid().getFourierKmin());
       field.forEachFourierCell([k2max_i, &oldField](std::complex<T> val, int kx, int ky, int kz) {
         int k2_i = kx * kx + ky * ky + kz * kz;
         if (k2_i < k2max_i && k2_i != 0) {
-          val = oldField.getFourierCoefficient(kx,ky,kz);
+          val = oldField.getFourierCoefficient(kx, ky, kz);
         }
         return val;
       });
@@ -949,7 +953,7 @@ public:
       field.toFourier();
 
       field.forEachFourierCell([k2max](std::complex<T> val, T kx, T ky, T kz) {
-        T k2 = kx*kx+ky*ky+kz*kz;
+        T k2 = kx * kx + ky * ky + kz * kz;
         if (k2 < k2max && k2 != 0) {
           val = -val;
         }

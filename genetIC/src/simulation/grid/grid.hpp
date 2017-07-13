@@ -59,12 +59,12 @@ namespace grids {
 
     Grid(T simsize, size_t n, T dx = 1.0, T x0 = 0.0, T y0 = 0.0, T z0 = 0.0,
          T massFrac = 0.0, T softScale = 1.0) :
-      periodicDomainSize(simsize), thisGridSize(dx * n),
-      cellSize(dx), offsetLower(x0, y0, z0),
-      size(n), size2(n * n), size3(n * n * n),
-      simEquivalentSize((unsigned) tools::getRatioAndAssertInteger(simsize,dx)),
-      cellMassFrac(massFrac == 0.0 ? pow(dx / simsize, 3.0) : massFrac),
-      cellSofteningScale(softScale) {
+        periodicDomainSize(simsize), thisGridSize(dx * n),
+        cellSize(dx), offsetLower(x0, y0, z0),
+        size(n), size2(n * n), size3(n * n * n),
+        simEquivalentSize((unsigned) tools::getRatioAndAssertInteger(simsize, dx)),
+        cellMassFrac(massFrac == 0.0 ? pow(dx / simsize, 3.0) : massFrac),
+        cellSofteningScale(softScale) {
       setKmin();
     }
 
@@ -85,7 +85,7 @@ namespace grids {
   public:
 
     bool coversFullSimulation() const {
-      return periodicDomainSize==thisGridSize;
+      return periodicDomainSize == thisGridSize;
     }
 
     T getWrappedOffset(T x0, T x1) const {
@@ -116,7 +116,7 @@ namespace grids {
       }
 
       if (target.offsetLower != offsetLower || target.size != proxy->size) {
-        auto relativeOffset = target.offsetLower-offsetLower;
+        auto relativeOffset = target.offsetLower - offsetLower;
         proxy = std::make_shared<SectionOfGrid<T>>(proxy,
                                                    tools::getRatioAndAssertInteger(relativeOffset.x,
                                                                                    proxy->cellSize),
@@ -170,7 +170,7 @@ namespace grids {
     }
 
     virtual bool containsPoint(const Coordinate<T> &coord) const {
-      return Window<T>(periodicDomainSize,offsetLower,offsetLower+thisGridSize).contains(coord);
+      return Window<T>(periodicDomainSize, offsetLower, offsetLower + thisGridSize).contains(coord);
     }
 
     Coordinate<T> wrapPoint(Coordinate<T> pos) const {
@@ -185,7 +185,7 @@ namespace grids {
 
     virtual bool containsCellWithCoordinate(Coordinate<int> coord) const {
       return coord.x >= 0 && coord.y >= 0 && coord.z >= 0 &&
-          (unsigned) coord.x < size && (unsigned) coord.y < size && (unsigned) coord.z < size;
+             (unsigned) coord.x < size && (unsigned) coord.y < size && (unsigned) coord.z < size;
     }
 
     virtual bool containsCell(size_t i) const {
@@ -197,8 +197,6 @@ namespace grids {
     }
 
 
-
-
     size_t getIndexFromIndexAndStep(size_t index, const Coordinate<int> &step) const {
       auto coord = getCellCoordinate(index);
       coord += step;
@@ -206,11 +204,10 @@ namespace grids {
     }
 
 
-
-  /*! Wrap the coordinate such that it lies within [0,size) if this is possible.
-   *
-   * Note that for efficiency this routine only "corrects" coordinates within one boxsize of the fundamental domain.
-   */
+    /*! Wrap the coordinate such that it lies within [0,size) if this is possible.
+     *
+     * Note that for efficiency this routine only "corrects" coordinates within one boxsize of the fundamental domain.
+     */
     Coordinate<int> wrapCoordinate(Coordinate<int> index) const {
       if (index.x > (signed) simEquivalentSize - 1) index.x -= simEquivalentSize;
       if (index.y > (signed) simEquivalentSize - 1) index.y -= simEquivalentSize;
@@ -272,7 +269,7 @@ namespace grids {
       return getCellCentroid(coord);
     }
 
-    Coordinate<T> getCellCentroid(const Coordinate<int> & coord) const {
+    Coordinate<T> getCellCentroid(const Coordinate<int> &coord) const {
       Coordinate<T> result(coord);
       result *= cellSize;
       result += offsetLower;
@@ -287,10 +284,10 @@ namespace grids {
 
     void appendIdsInCubeToVector(T x0c, T y0c, T z0c, T dxc, vector<size_t> &ids) {
       size_t offset = ids.size();
-      int added_size = std::round(dxc/cellSize);
-      added_size*=added_size*added_size;
-      ids.resize(offset+added_size);
-      insertCubeIdsIntoVector(x0c, y0c, z0c, dxc, ids.begin()+offset);
+      int added_size = std::round(dxc / cellSize);
+      added_size *= added_size * added_size;
+      ids.resize(offset + added_size);
+      insertCubeIdsIntoVector(x0c, y0c, z0c, dxc, ids.begin() + offset);
     }
 
     void insertCubeIdsIntoVector(T x0c, T y0c, T z0c, T dxc, vector<size_t>::iterator start) {
@@ -313,7 +310,7 @@ namespace grids {
                            Coordinate<int>(xb, yb, zb) + 1,
                            [&start, this](const Coordinate<int> &cellCoord) {
                              (*start) = getCellIndex(cellCoord);
-                             assert(*start<size3);
+                             assert(*start < size3);
                              ++start;
                            });
 
@@ -339,10 +336,10 @@ namespace grids {
       for (auto id: sourceArray) {
         auto coord = source->getCellCoordinate(id);
         iterateOverCube<int>(
-          coord * factor, coord * factor + factor,
-          [&targetArray, &target](const Coordinate<int> &subCoord) {
-            targetArray.push_back(target->getCellIndexNoWrap(subCoord));
-          }
+            coord * factor, coord * factor + factor,
+            [&targetArray, &target](const Coordinate<int> &subCoord) {
+              targetArray.push_back(target->getCellIndexNoWrap(subCoord));
+            }
         );
       }
     }
@@ -363,7 +360,7 @@ namespace grids {
 
       // it's not clear that the following parallelisation actually speeds much up
 #pragma omp parallel for
-      for (size_t i=0; i<sourceArray.size(); ++i) {
+      for (size_t i = 0; i < sourceArray.size(); ++i) {
         size_t id = sourceArray[i];
         auto coord = source->getCellCoordinate(id);
         targetArray[i] = target->getCellIndexNoWrap(coord / factor);
@@ -371,8 +368,8 @@ namespace grids {
 
       // this sort seems to be the slowest step. In C++17 we can make it parallel... or is there a
       // better overall algorithm?
-      std::sort(targetArray.begin(),targetArray.end());
-      targetArray.erase(std::unique(targetArray.begin(),targetArray.end()),targetArray.end());
+      std::sort(targetArray.begin(), targetArray.end());
+      targetArray.erase(std::unique(targetArray.begin(), targetArray.end()), targetArray.end());
     }
 
 

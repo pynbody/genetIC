@@ -105,18 +105,18 @@ namespace filters {
   };
 
   template<typename T>
-  using MultiLevelFilterFamily = GenericMultiLevelFilterFamily<filters::LowPassFermiFilter < T>,
-      filters::ComplementaryCovarianceFilterAdaptor <filters::LowPassFermiFilter<T>>>;
+  using MultiLevelFilterFamily = GenericMultiLevelFilterFamily<filters::LowPassFermiFilter<T>,
+      filters::ComplementaryCovarianceFilterAdaptor<filters::LowPassFermiFilter<T>>>;
 
   template<typename T>
-  using MultiLevelDependentFilterFamily = GenericMultiLevelFilterFamily<filters::LowPassFermiFilter < T>,
-      filters::ComplementaryFilterAdaptor <filters::LowPassFermiFilter<T>>>;
+  using MultiLevelDependentFilterFamily = GenericMultiLevelFilterFamily<filters::LowPassFermiFilter<T>,
+      filters::ComplementaryFilterAdaptor<filters::LowPassFermiFilter<T>>>;
 
   template<typename T>
-  using MultiLevelRecombinedFilterFamily = GenericMultiLevelFilterFamily<filters::NullFilter < T>, filters::Filter <T>>;
+  using MultiLevelRecombinedFilterFamily = GenericMultiLevelFilterFamily<filters::NullFilter<T>, filters::Filter<T>>;
 
   template<typename T>
-  using UnfilteredFilterFamily = GenericMultiLevelFilterFamily<filters::Filter < T>, filters::Filter <T>>;
+  using UnfilteredFilterFamily = GenericMultiLevelFilterFamily<filters::Filter<T>, filters::Filter<T>>;
 
 
   template<typename T>
