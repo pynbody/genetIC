@@ -24,7 +24,7 @@ select_cube 16
 dump_IDfile tagged_cells.txt
 
 calculate overdensity
-calculate_variance 2
+calculate variance 2
 
 dump_grid 0
 dump_grid 1
@@ -32,5 +32,5 @@ dump_grid 1
 done
 
 calculate overdensity
-calculate_variance 2
+calculate variance 2
 

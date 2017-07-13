@@ -58,8 +58,15 @@ namespace tools {
   Rtype call_function(const std::function<Rtype(T1, Args...)> &f, std::istream &input_stream,
                              std::ostream * output_stream) {
     T1 arg1;
-    if (input_stream.eof())
-      throw DispatchError("Insufficient arguments");
+		try{
+			if (input_stream.eof())
+				throw DispatchError("Insufficient number of arguments");
+
+		} catch(DispatchError &dispatchError){
+			std::cerr << "WARNING : Potentially " << dispatchError.what() << " could lead to undefined behaviour" << std::endl;
+			//TODO Handle this problem of variable args better than this
+		}
+
     input_stream >> arg1;
 
     if (output_stream != nullptr)

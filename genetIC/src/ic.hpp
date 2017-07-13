@@ -845,51 +845,46 @@ public:
     z0 = zin;
   }
 
-  void calculate(string name) {
+	//! Calculate physical quantities of the field
+	/*!
+	 * @param filterscale Filtering scale in Mpc if the quantity needs it
+	 */
+  void calculate(string name, T filterscale) {
     if (!haveInitialisedRandomComponent)
       initialiseRandomComponent();
 
-		GridDataType val = modificationManager.calculateCurrentValueByName(name);
+		GridDataType val = modificationManager.calculateCurrentValueByName(name, filterscale);
 
     cout << name << ": calculated value = " << val << endl;
   }
 
-  void calculateVariance(T filterscale){
+	//! Define a modification to be applied to the field
+	/*!
+	 * @param type  Modification can be relative to existing value or absolute
+	 * @param target Absolute target or factor by which the existing will be multiplied
+	 * @param initNumberSteps Initial number of steps for the quadratic iterative algorithm
+	 * @param precision Precision at which the quadratic algorithm should run
+	 */
+  virtual void modify(string name, string type, float target, int initNumberSteps, T precision , T filterscale) {
+
     if (!haveInitialisedRandomComponent)
       initialiseRandomComponent();
 
-    GridDataType val = modificationManager.calculateVariance(filterscale);
-    cout << "variance" << ": calculated value = " << val << endl;
+		modificationManager.addModificationToList(name, type, target, initNumberSteps, precision, filterscale);
   }
 
-  virtual void modify(string name, string type, float target) {
-    if (!haveInitialisedRandomComponent)
-      initialiseRandomComponent();
-
-		modificationManager.addModificationToList(name, type, target);
-
-  }
-
-	virtual void quadraticallyModify(string name, string type, T target, int initNumberSteps, T precision, T filterscale){
-		modificationManager.addQuadModificationToList(name, type, target, initNumberSteps, precision, filterscale);
-	}
-
-  void cov() {
-  	modificationManager.print_covariance();
-  }
-
+	//! Empty modification list
 	void clearModifications() {
 		modificationManager.clearModifications();
 	}
 
 
+	//! Apply the algorithm to produce the modified field
   virtual void applyModifications() {
-    if (!haveInitialisedRandomComponent)
-      initialiseRandomComponent();
-
     modificationManager.applyModifications();
   }
 
+	//! Apply the modifications, calculate the corresponding delta chi^2 and recombine low and high-ks between grids to write a particle output
   virtual void done() {
     T pre_modif_chi2 = outputField.getChi2();
     cerr << "BEFORE modifications chi^2=" << pre_modif_chi2 << endl;

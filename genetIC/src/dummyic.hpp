@@ -70,7 +70,8 @@ public:
 
   void write() override {}
 
-  void modify(string /*name*/, string /*string*/, float /*value*/) override {}
+  void modify(string /*name*/, string /*string*/, float /*value*/,
+              int /*initNumberSteps*/, T /*precision*/, T /*filterscale */) override {}
 
   void done() override {}
 };

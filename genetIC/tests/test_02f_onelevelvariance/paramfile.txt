@@ -20,10 +20,10 @@ centre 8 8 8
 select_cube 20
 dump_IDfile tagged_cells.txt
 
-calculate_variance 1000
+calculate variance 100
 
 done
 
-calculate_variance 1000
+calculate variance 100
 
 dump_grid 0

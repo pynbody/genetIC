@@ -20,7 +20,7 @@ outdir ./
 outformat 4
 
 
-relative_to ../test_01a_basic_grid/paramfile.txt
+mapper_relative_to ../test_01a_basic_grid/paramfile.txt
 idfile zoomtest.txt
 
 zoomgrid 3 64
