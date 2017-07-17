@@ -57,18 +57,12 @@ namespace tools {
   template<typename Rtype, typename T1, typename... Args>
   Rtype call_function(const std::function<Rtype(T1, Args...)> &f, std::istream &input_stream,
                       std::ostream *output_stream) {
-    T1 arg1;
-    try {
-      if (input_stream.eof())
-        throw DispatchError("Insufficient number of arguments");
-
-    } catch (DispatchError &dispatchError) {
-      std::cerr << "WARNING : Potentially " << dispatchError.what() << " could lead to undefined behaviour"
-                << std::endl;
-      //TODO Handle this problem of variable args better than this
+    T1 arg1{};
+    if(input_stream.eof()){
+      std::cerr << "WARNING : Potentially insufficient arguments. Default argument used." << std::endl;
+    } else{
+      input_stream >> arg1;
     }
-
-    input_stream >> arg1;
 
     if (output_stream != nullptr)
       (*output_stream) << arg1 << " " << std::endl;
