@@ -183,7 +183,10 @@ namespace modifications {
   public:
     PotentialModification(multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
                           const cosmology::CosmologicalParameters<T> &cosmology_) : LinearModification<DataType, T>(
-        underlying_, cosmology_) {};
+        underlying_, cosmology_) {
+      this->covector = this->calculateCovectorOnAllLevels();
+      this->covector->toFourier();
+    };
 
     fields::Field<DataType, T> calculateCovectorOnOneLevel(grids::Grid<T> &grid) override {
       fields::Field<DataType, T> outputField = fields::Field<DataType, T>(grid, false);
@@ -222,6 +225,8 @@ namespace modifications {
         throw std::runtime_error("Angular momentum direction must be 0 (x), 1 (y) or 2 (z)");
 
       direction = direction_;
+      this->covector = this->calculateCovectorOnAllLevels();
+      this->covector->toFourier();
     };
 
     fields::Field<DataType, T> calculateCovectorOnOneLevel(grids::Grid<T> &grid) override {

@@ -512,10 +512,7 @@ public:
 
   }
 
-  //! Define the current mapper with respect to an existing mapper
-  /*!
-  * Links particles in the current simulation to an existing set of flagged particles
-  */
+  //! Runs commands of a given parameter file to set up the input mapper
   void setInputMapper(std::string fname) {
     DummyICGenerator<GridDataType> pseudoICs(this);
     auto dispatch = interpreter.specify_instance(pseudoICs);

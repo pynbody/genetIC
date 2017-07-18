@@ -54,9 +54,7 @@ public:
   }
 
 
-  void zeroLevel(size_t /*level*/) override {
-
-  }
+  void zeroLevel(size_t /*level*/) override {}
 
   void applyPowerSpec() override {}
 

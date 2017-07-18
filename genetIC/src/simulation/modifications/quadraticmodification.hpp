@@ -37,14 +37,6 @@ namespace modifications {
       return this->targetPrecision;
     }
 
-    void setInitNumberSteps(int initNumberSteps_) {
-      this->initNumberSteps = initNumberSteps_;
-    }
-
-    void setTargetPrecision(T targetPrecision_) {
-      this->targetPrecision = targetPrecision_;
-    }
-
 
     T calculateCurrentValue(const fields::MultiLevelField<DataType> &field) override {
 
@@ -79,15 +71,20 @@ namespace modifications {
 
     FilteredVarianceModification(multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
                                  const cosmology::CosmologicalParameters<T> &cosmology_, T filterscale_) :
-        QuadraticModification<DataType, T>(underlying_, cosmology_), scale(filterscale_) {}
+        QuadraticModification<DataType, T>(underlying_, cosmology_), scale(filterscale_) {
+      checkFilterScale(filterscale_);
+      this->scale = filterscale_;
+    }
 
     FilteredVarianceModification(multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
                                  const cosmology::CosmologicalParameters<T> &cosmology_, int initNumberSteps_,
                                  T targetPrecision_, T filterscale_) :
-        QuadraticModification<DataType, T>(underlying_, cosmology_, initNumberSteps_, targetPrecision_),
-        scale(filterscale_) {}
+        QuadraticModification<DataType, T>(underlying_, cosmology_, initNumberSteps_, targetPrecision_){
+      checkFilterScale(filterscale_);
+      this->scale = filterscale_;
+    }
 
-    void setFilterScale(T scale_) {
+    void checkFilterScale(T scale_) {
 
       size_t finest_level = this->underlying.getNumLevels() - 1;
 

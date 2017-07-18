@@ -80,6 +80,14 @@ ifeq ($(HOST), imac7)
 	FFTWLIB = -lfftw3 -lfftw3_threads
 endif
 
+ifeq ($(HOST3), hyp)
+        CXX = g++
+        CPATH = /share/apps/fftw-3.3.5/include/:/share/apps/gsl-2.4/include
+        LPATH = /share/apps/gsl-2.4/lib
+        LD_LIBRARY_PATH = /share/apps/gsl-2.4/lib:/share/apps/fftw-3.3.5/lib:
+        CFLAGS += -Wextra -Werror -Wfatal-errors
+endif
+
 all: IC
 
 %.o: %.cpp ; $(CXX) $(CFLAGS) $(GIT_VARIABLES) -I$(CPATH) $(FFTW) -c $< -o $@
