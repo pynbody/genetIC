@@ -3,6 +3,7 @@ CFLAGS	= -Wall -g -Og -fopenmp -std=c++14   -fdiagnostics-color=auto -I`pwd` -DO
 CPATH 	= /opt/local/include/
 LPATH   = /opt/local/lib
 
+GSLFLAGS = -lgsl -lgslcblas
 
 # Use -DFFTW3 to use FFTW3 (instead of FFTW 2).
 #
@@ -44,10 +45,11 @@ HOST3	= $(shell hostname | cut -c1-3)
 ifeq ($(HOST3), pfe)
 	CXX = /nasa/pkgsrc/2016Q2/gcc5/bin/g++
 	CPATH = /u/apontzen/genetIC/genetIC:/nasa/gsl/1.14/include/:/nasa/intel/Compiler/2016.2.181/compilers_and_libraries_2016.2.181/linux/mkl/include/fftw
-	LPATH =  /nasa/gsl/1.14/lib/:/nasa/intel/Compiler/2016.2.181/compilers_and_libraries_2016.2.181/linux/mkl/lib/intel64/
-	CFLAGS = -Wall -g -O0 -fopenmp -std=c++14 -fdiagnostics-color=auto -I`pwd` -DOPENMP -DDOUBLEPRECISION 
+	LPATH =  /nasa/gsl/1.14/lib/ -L/nasa/intel/Compiler/2016.2.181/compilers_and_libraries_2016.2.181/linux/mkl/lib/intel64/
+	CFLAGS = -Wall -g -O3 -fopenmp -std=c++14 -fdiagnostics-color=auto -I`pwd` -DOPENMP -DDOUBLEPRECISION 
 	FFTWLIB = -ldl -lpthread -lm -lstdc++ -lgfortran -lmkl_intel_ilp64 -lmkl_gnu_thread -lmkl_core
 	FFTW = -DFFTW3 -DFFTW_THREADS
+	GSLFLAGS = /nasa/gsl/1.14/lib/libgsl.a /nasa/gsl/1.14/lib/libgslcblas.a
 endif
 
 ifeq ($(HOST), Snowd)
@@ -85,7 +87,7 @@ all: IC
 %.o: %.cpp ; $(CXX) $(CFLAGS) $(GIT_VARIABLES) -I$(CPATH) $(FFTW) -c $< -o $@
 
 IC: src/main.o src/tools/filesystem.o src/tools/progress/progress.o
-		$(CXX) $(CFLAGS) -o IC $(GIT_VARIABLES) -I$(CPATH) $(FFTW) src/main.o src/tools/filesystem.o src/tools/progress/progress.o -L$(LPATH) -lm $(FFTWLIB) -lgsl -lgslcblas $(HDF5_FLAGS)
+		$(CXX) $(CFLAGS) -o IC $(GIT_VARIABLES) -I$(CPATH) $(FFTW) src/main.o src/tools/filesystem.o src/tools/progress/progress.o -L$(LPATH) $(GSLFLAGS) -lm $(FFTWLIB)  $(HDF5_FLAGS)
 
 clean:
 	rm -rf IC
