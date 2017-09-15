@@ -556,6 +556,7 @@ public:
   void updateParticleMapper() {
     // TODO: This routine contains too much format-dependent logic and should be refactored so that the knowledge
     // resides somewhere in the io namespace
+    // MR: If output format is grafic, no gas output can be generated ?
 
     size_t nLevels = multiLevelContext.getNumLevels();
 

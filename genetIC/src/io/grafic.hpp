@@ -13,7 +13,7 @@ namespace io {
     using std::ofstream;
 
     struct io_header_grafic {
-      size_t nx, ny, nz;
+      int nx, ny, nz;
       float dx;
       float xOffset, yOffset, zOffset;
       float scalefactor;
@@ -65,13 +65,13 @@ namespace io {
         std::string thisGridFilename = outputFilename + "_" + std::to_string(effective_size);
         mkdir(thisGridFilename.c_str(), 0777);
 
-        auto filenames = {"ic_velcx", "ic_velcy", "ic_velcz", "ic_poscx", "ic_poscy", "ic_poscz", "ic_particle_ids"};
+        auto filenames = {"ic_velcx", "ic_velcy", "ic_velcz", "ic_poscx", "ic_poscy", "ic_poscz", "ic_particle_ids", "ic_deltab"};
 
         std::vector<size_t> block_lengths = {sizeof(float) * targetGrid.size2, sizeof(float) * targetGrid.size2,
                                              sizeof(float) * targetGrid.size2,
                                              sizeof(float) * targetGrid.size2, sizeof(float) * targetGrid.size2,
                                              sizeof(float) * targetGrid.size2,
-                                             sizeof(size_t) * targetGrid.size2};
+                                             sizeof(size_t) * targetGrid.size2, sizeof(float) * targetGrid.size2};
 
         std::vector<std::ofstream> files;
 
@@ -94,6 +94,8 @@ namespace io {
               Coordinate<float> velScaled(particle.vel * velFactor);
               Coordinate<float> posScaled(particle.pos * lengthFactor);
 
+              float deltab = 0;
+
               // Eek. The following code is horrible. Is there a way to make it neater?
               files[0].write((char *) (&velScaled.x), sizeof(float));
               files[1].write((char *) (&velScaled.y), sizeof(float));
@@ -102,6 +104,7 @@ namespace io {
               files[4].write((char *) (&posScaled.y), sizeof(float));
               files[5].write((char *) (&posScaled.z), sizeof(float));
               files[6].write((char *) (&global_index), sizeof(size_t));
+              files[7].write((char *) (&deltab), sizeof(float));
 
             }
           }

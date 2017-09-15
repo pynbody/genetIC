@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.2)
 
-set(CMAKE_CXX_COMPILER /opt/local/bin/g++-mp6)
+set(CMAKE_CXX_COMPILER /opt/local/bin/g++-mp-6)
 
 project(IC)
 
