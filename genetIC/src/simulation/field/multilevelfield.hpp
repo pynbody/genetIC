@@ -322,7 +322,7 @@ namespace fields {
                                 const grids::Grid<T> &grid) {
       T white_noise_norm = sqrt(T(grid.size3));
 
-      field.forEachFourierCell([white_noise_norm, &grid, &field, &spectrum]
+      field.forEachFourierCellInt([white_noise_norm, &grid, &field, &spectrum]
                                    (complex<T> existingValue, int kx, int ky, int kz) {
         T absExistingValue = abs(existingValue);
         T sqrt_spec = sqrt(spectrum.getFourierCoefficient(kx,ky,kz).real()) * white_noise_norm;
