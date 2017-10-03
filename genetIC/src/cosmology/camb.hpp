@@ -22,12 +22,12 @@ namespace cosmology {
   class CAMB {
   protected:
     using CoordinateType=tools::datatypes::strip_complex<DataType>;
-    std::vector<CoordinateType> kcamb;
-    std::vector<CoordinateType> Tcamb;
+    std::vector<CoordinateType> kcamb; /*!< Wavenumbers read from CAMB file */
+    std::vector<CoordinateType> Tcamb;  /*!< Transfer function at each k read from CAMB file */
     tools::numerics::Interpolator<CoordinateType> interpolator;
-    CoordinateType amplitude;
-    CoordinateType ns;
-    mutable CoordinateType kcamb_max_in_file;
+    CoordinateType amplitude; /*!< Amplitude of the initial power spectrum */
+    CoordinateType ns;        /*!< tensor to scalar ratio of the initial power spectrum*/
+    mutable CoordinateType kcamb_max_in_file; /*!< Maximum CAMB wavenumber. If too small compared to grid resolution, Meszaros solution will be computed */
 
   public:
 
@@ -104,8 +104,8 @@ namespace cosmology {
 
   public:
 
+    //! Evaluate the power spectrum at wavenumber k (Mpc/h), including the normalisation
     CoordinateType operator()(CoordinateType k) const {
-      /* Evaluate the power spectrum at wavenumber k (Mpc/h), including the normalisation */
       CoordinateType linearTransfer;
       if (k != 0)
         linearTransfer = interpolator(k);
@@ -119,6 +119,7 @@ namespace cosmology {
       return amplitude * powf(k, ns) * linearTransfer * linearTransfer;
     }
 
+    //! Calculate and associate the theoretical power spectrum to a given grid
     std::shared_ptr<fields::Field<DataType, CoordinateType>>
     getPowerSpectrumForGrid(const grids::Grid<CoordinateType> &grid) const {
       /* Get the variance for each Fourier cell of the specified grid  */
@@ -129,9 +130,11 @@ namespace cosmology {
       auto P = std::make_shared<fields::Field<DataType, CoordinateType>>(grid, true);
 
       P->forEachFourierCell([norm, this]
-                                (std::complex<CoordinateType>, CoordinateType kx, CoordinateType ky, CoordinateType kz) {
-        CoordinateType k = sqrt(kx*kx+ky*ky+kz*kz);
-        return std::complex<CoordinateType>((*this)(k)*norm,0);
+                                (std::complex<CoordinateType>, CoordinateType kx, CoordinateType ky,
+                                 CoordinateType kz) {
+        CoordinateType k = sqrt(kx * kx + ky * ky + kz * kz);
+        auto spec = std::complex<CoordinateType>((*this)(k) * norm, 0);
+        return spec;
       });
 
       if (kcamb_max_in_file == std::numeric_limits<CoordinateType>().max()) {
@@ -158,7 +161,7 @@ namespace cosmology {
     CoordinateType getPowerSpectrumNormalizationForGrid(const grids::Grid<CoordinateType> &grid) const {
 
       CoordinateType kw = 2. * M_PI / grid.thisGridSize;
-      CoordinateType norm = kw * kw * kw / powf(2. * M_PI, 3.); //since kw=2pi/L, this is just 1/V_box
+      CoordinateType norm = kw * kw * kw / powf(2.f * M_PI, 3.f); //since kw=2pi/L, this is just 1/V_box
 
       return norm;
     }

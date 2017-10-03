@@ -105,14 +105,14 @@ public:
     return !((*this) == other);
   }
 
-  bool almostEqual(const Coordinate<T> &other, T tol=1e-10) const {
-    return std::abs(x-other.x)<tol && std::abs(y-other.y)<tol && std::abs(z-other.z)<tol;
+  bool almostEqual(const Coordinate<T> &other, T tol = 1e-10) const {
+    return std::abs(x - other.x) < tol && std::abs(y - other.y) < tol && std::abs(z - other.z) < tol;
   }
 
   bool inWindow(const Coordinate<T> &lowerCornerInclusive, const Coordinate<T> &upperCornerExclusive) const {
-    return x>=lowerCornerInclusive.x && x<upperCornerExclusive.x &&
-        y>=lowerCornerInclusive.y && y<upperCornerExclusive.y &&
-        z>=lowerCornerInclusive.z && z<upperCornerExclusive.z;
+    return x >= lowerCornerInclusive.x && x < upperCornerExclusive.x &&
+           y >= lowerCornerInclusive.y && y < upperCornerExclusive.y &&
+           z >= lowerCornerInclusive.z && z < upperCornerExclusive.z;
   }
 
 
@@ -150,7 +150,7 @@ Coordinate<OutputType> round(const Coordinate<T> &coord) {
 }
 
 template<typename T>
-std::ostream & operator<<(std::ostream & stream, const Coordinate<T> &coord) {
+std::ostream &operator<<(std::ostream &stream, const Coordinate<T> &coord) {
   stream << "(" << coord.x << ", " << coord.y << ", " << coord.z << ")";
   return stream;
 }

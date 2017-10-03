@@ -50,16 +50,17 @@ namespace multilevelcontext {
     size_t nLevels;
     T simSize;
 
-    void mapIdToLevelId(size_t i, size_t &level, size_t &level_id) {
-      level = 0;
-      while (level < nLevels && i >= Ns[level]) {
-        i -= Ns[level];
-        level++;
-      }
-      if (i >= Ns[level])
-        throw std::runtime_error("ID out of range when mapping into underlying fields in mapIdToLevelId");
-      level_id = i;
-    }
+    //TODO Never used, should delete ?
+//    void mapIdToLevelId(size_t i, size_t &level, size_t &level_id) {
+//      level = 0;
+//      while (level < nLevels && i >= Ns[level]) {
+//        i -= Ns[level];
+//        level++;
+//      }
+//      if (i >= Ns[level])
+//        throw std::runtime_error("ID out of range when mapping into underlying fields in mapIdToLevelId");
+//      level_id = i;
+//    }
 
     MultiLevelContextInformationBase(size_t N) {
       nLevels = 1;
@@ -139,23 +140,24 @@ namespace multilevelcontext {
     }
 
     const fields::Field<DataType> &getCovariance(size_t level) const {
-      if(C0s.size()>level && C0s[level]!=nullptr)
+      if (C0s.size() > level && C0s[level] != nullptr)
         return *C0s[level];
       else
         throw std::out_of_range("No covariance yet specified for this level");
     }
 
-		//! From finest level, use interpolation to construct other levels
-    std::shared_ptr<fields::ConstraintField<DataType>> generateMultilevelFromHighResField(fields::Field<DataType, T> &&data) {
+    //! From finest level, use interpolation to construct other levels
+    std::shared_ptr<fields::ConstraintField<DataType>>
+    generateMultilevelFromHighResField(fields::Field<DataType, T> &&data) {
       assert(&data.getGrid() == pGrid.back().get());
 
       // Generate the fields on each level. Fill low-res levels with zeros to start with.
       vector<std::shared_ptr<fields::Field<DataType, T>>> dataOnLevels;
       for (size_t level = 0; level < pGrid.size(); level++) {
         if (level == pGrid.size() - 1) {
-          dataOnLevels.emplace_back(std::make_shared<fields::Field<DataType,T>>(std::move(data)));
+          dataOnLevels.emplace_back(std::make_shared<fields::Field<DataType, T>>(std::move(data)));
         } else {
-          dataOnLevels.emplace_back(std::make_shared<fields::Field<DataType,T>>(*pGrid[level], false));
+          dataOnLevels.emplace_back(std::make_shared<fields::Field<DataType, T>>(*pGrid[level], false));
         }
       }
 
@@ -165,12 +167,13 @@ namespace multilevelcontext {
         assert(dataOnLevels.back()->isFourier());
         dataOnLevels.back()->toReal();
         for (int level = levelmax - 1; level >= 0; --level) {
-          dataOnLevels[level]->addFieldFromDifferentGrid(*(dataOnLevels[level+1]));
+          dataOnLevels[level]->addFieldFromDifferentGrid(*(dataOnLevels[level + 1]));
         }
       }
 
-      return std::make_shared<fields::ConstraintField<DataType>>(*dynamic_cast<MultiLevelContextInformation<DataType, T> *>(this),
-                                               dataOnLevels);
+      return std::make_shared<fields::ConstraintField<DataType>>(
+          *dynamic_cast<MultiLevelContextInformation<DataType, T> *>(this),
+          dataOnLevels);
     }
 
     void forEachLevel(std::function<void(grids::Grid<T> &)> newLevelCallback) {
@@ -271,9 +274,10 @@ namespace multilevelcontext {
     }
   };
 
+  //TODO Is this class used at all ? It looks an unused specialization of base class
   template<typename T>
   class MultiLevelContextInformation<std::complex<T>, T>
-    : public MultiLevelContextInformationBase<std::complex<T>, T> {
+      : public MultiLevelContextInformationBase<std::complex<T>, T> {
   protected:
     using DataType= std::complex<T>;
     using MultiLevelContextInformationBase<DataType, T>::cumu_Ns;

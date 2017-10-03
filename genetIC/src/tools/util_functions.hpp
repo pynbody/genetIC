@@ -58,6 +58,23 @@ namespace tools {
     s << "+ ";
 
   }
+
+  template<typename T>
+  std::vector<T> linspace(T start, T end, int n) {
+    std::vector<T> array;
+    if ((n == 0) || (n == 1) || (start == end))
+      array.push_back(end);
+    else if (n > 1) {
+      double step = (end - start) / (n);
+      int count = 0;
+      while (count < n + 1) {
+        T elem = start + count * step;
+        array.push_back(elem);
+        ++count;
+      }
+    }
+    return array;
+  }
 }
 
 #endif

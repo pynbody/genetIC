@@ -1,0 +1,39 @@
+# Test constraining variance on two levels
+
+Om  0.279
+Ol  0.721
+#Ob  0.04
+s8  0.817
+zin	99
+
+seed	8896131
+camb	../camb_transfer_kmax40_z0.dat
+
+outname test_2
+outdir	 ./
+outformat 4
+
+
+basegrid 64 64
+
+centre 32.5 32.5 32.5
+select_sphere 5
+zoomgrid 4 64
+
+
+centre 32.5 32.5 32.5
+select_sphere 16.
+
+calculate overdensity
+calculate variance 3.
+
+modify overdensity relative 1
+modify variance relative 5. 10 0.001 3
+
+done
+
+calculate overdensity
+calculate variance 3.
+
+dump_grid 0
+dump_grid 1

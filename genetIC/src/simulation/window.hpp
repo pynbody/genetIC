@@ -7,34 +7,34 @@
 template<typename T>
 class Window {
 protected:
-	T wrapLength;
+  T wrapLength;
   Coordinate<T> upperCornerExclusive;
   Coordinate<T> lowerCornerInclusive;
 
 
   bool withinWrapped(T lowInclusive, T highExclusive, T testVal) {
-    if(highExclusive>=lowInclusive)
-      return testVal<highExclusive && testVal>=lowInclusive;
+    if (highExclusive >= lowInclusive)
+      return testVal < highExclusive && testVal >= lowInclusive;
     else
-      return testVal<highExclusive || testVal>=lowInclusive;
+      return testVal < highExclusive || testVal >= lowInclusive;
   }
 
-  template <typename S>
+  template<typename S>
   static S smallIncrement(S val) {
     return std::nextafter(val, std::numeric_limits<S>::infinity());
   }
 
   static int smallIncrement(int i) {
-    return i+1;
+    return i + 1;
   }
 
-  template <typename S>
+  template<typename S>
   static S smallDecrement(S val) {
     return std::nextafter(val, -std::numeric_limits<S>::infinity());
   }
 
   static int smallDecrement(int i) {
-    return i-1;
+    return i - 1;
   }
 
   static Coordinate<T> smallIncrement(const Coordinate<T> &input) {
@@ -59,12 +59,12 @@ public:
   }
 
   Coordinate<T> getCurrentCentre() const {
-    return wrap(lowerCornerInclusive + wrap(smallDecrement(upperCornerExclusive)-lowerCornerInclusive)/2);
+    return wrap(lowerCornerInclusive + wrap(smallDecrement(upperCornerExclusive) - lowerCornerInclusive) / 2);
   }
 
   T wrap(T source) const {
-    if(source<0) source+=wrapLength;
-    if(source>=wrapLength) source-=wrapLength;
+    if (source < 0) source += wrapLength;
+    if (source >= wrapLength) source -= wrapLength;
     return source;
   }
 
@@ -80,9 +80,9 @@ public:
 
   //! Wrap a difference into the closest possible offset [-wrapLength/2, wrapLength/2)
   T getWrappedOffset(T a, T b) const {
-    T distance = b-a;
-    if(distance<-wrapLength/2) distance+=wrapLength;
-    if(distance>wrapLength/2) distance-=wrapLength;
+    T distance = b - a;
+    if (distance < -wrapLength / 2) distance += wrapLength;
+    if (distance > wrapLength / 2) distance -= wrapLength;
     return distance;
   }
 
@@ -106,8 +106,8 @@ public:
 
   void expandToInclude(const Coordinate<T> &include, T Coordinate<T>::*coord) {
     if (!withinWrapped(lowerCornerInclusive.*coord, upperCornerExclusive.*coord, include.*coord)) {
-      T sizeIfMovingLower = wrap(upperCornerExclusive.*coord - include.*coord-1)+1;
-      T sizeIfMovingUpper = wrap(smallIncrement(include.*coord) - lowerCornerInclusive.*coord-1)+1;
+      T sizeIfMovingLower = wrap(upperCornerExclusive.*coord - include.*coord - 1) + 1;
+      T sizeIfMovingUpper = wrap(smallIncrement(include.*coord) - lowerCornerInclusive.*coord - 1) + 1;
       bool canMoveLower = withinWrapped(include.*coord, upperCornerExclusive.*coord, lowerCornerInclusive.*coord);
       bool canMoveUpper = withinWrapped(lowerCornerInclusive.*coord, smallIncrement(include.*coord),
                                         smallDecrement(upperCornerExclusive.*coord));
@@ -129,36 +129,36 @@ public:
   }
 
   void expandSymmetricallyToSize(T newSize) {
-    assert(getMaximumDimension()<=newSize);
+    assert(getMaximumDimension() <= newSize);
     auto centre = getCurrentCentre();
 
     auto oldLCI = lowerCornerInclusive;
     auto oldUCE = upperCornerExclusive;
 
-    lowerCornerInclusive = wrap(centre-newSize/2);
-    if(newSize%2==0)
-      upperCornerExclusive = wrap(centre+newSize/2);
+    lowerCornerInclusive = wrap(centre - newSize / 2);
+    if (newSize % 2 == 0)
+      upperCornerExclusive = wrap(centre + newSize / 2);
     else
-      upperCornerExclusive = wrap(centre+(newSize/2+1));
+      upperCornerExclusive = wrap(centre + (newSize / 2 + 1));
 
     // There is an edge case where T is int, newSize is odd, and also getSize()==newSize, where the new
     // window might be aligned too far up to capture the old lower corner. Fix this:
-    if(lowerCornerInclusive.x>oldLCI.x) {
+    if (lowerCornerInclusive.x > oldLCI.x) {
       lowerCornerInclusive.x -= 1;
       upperCornerExclusive.x -= 1;
     }
-    if(lowerCornerInclusive.y>oldLCI.z) {
+    if (lowerCornerInclusive.y > oldLCI.z) {
       lowerCornerInclusive.y -= 1;
       upperCornerExclusive.y -= 1;
     }
-    if(lowerCornerInclusive.z>oldLCI.z) {
+    if (lowerCornerInclusive.z > oldLCI.z) {
       lowerCornerInclusive.z -= 1;
       upperCornerExclusive.z -= 1;
     }
 
     assert(this->contains(oldLCI));
-    assert(this->contains(oldUCE-1));
-    assert(getSizes()==newSize);
+    assert(this->contains(oldUCE - 1));
+    assert(getSizes() == newSize);
 
   }
 
@@ -170,4 +170,5 @@ public:
     return inX && inY && inZ;
   }
 };
+
 #endif //IC_WINDOW_HPP

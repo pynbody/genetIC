@@ -1,0 +1,52 @@
+# Test zooming with a modification but pre-zeroing random component
+
+# cosmology:
+Om  0.279
+Ol  0.721
+s8  0.817
+zin	99
+camb	../camb_transfer_kmax40_z0.dat
+seed	8896131
+
+
+# output:
+outname test_2
+outdir	 ./
+outformat 4
+
+# 64 Mpc/h, 64 cells
+basegrid 64.0 64
+
+# open a zoom region, 1/3rd scale, 64^3
+idfile zoomtest.txt
+zoomgrid 3 64
+
+
+# remove random components:
+zerolevel 0
+zerolevel 1
+
+# select a single cell to apply the modif to
+centre 32.5 32.5 32.5
+select_nearest
+
+# output text file to check we targeted the correct cell
+dump_IDfile check_constr.txt
+
+# calculate the existing overdensity (should be 0), set it to 1.0
+calculate overdensity
+modify overdensity absolute 1.0
+
+# apply the modifs
+done
+
+# check overdensity was correctly modified
+calculate overdensity
+
+clear_modifications
+
+# dump diagnostic output
+dump_grid 0
+dump_grid 1
+dump_ps 0
+dump_ps 1

@@ -30,18 +30,18 @@ namespace grids {
 
   public:
     VirtualGrid(GridPtrType pUnderlying) :
-      Grid<T>(
-        pUnderlying->periodicDomainSize, pUnderlying->size,
-        pUnderlying->cellSize, pUnderlying->offsetLower.x, pUnderlying->offsetLower.y,
-        pUnderlying->offsetLower.z, pUnderlying->cellMassFrac, pUnderlying->cellSofteningScale),
-      pUnderlying(pUnderlying) {
+        Grid<T>(
+            pUnderlying->periodicDomainSize, pUnderlying->size,
+            pUnderlying->cellSize, pUnderlying->offsetLower.x, pUnderlying->offsetLower.y,
+            pUnderlying->offsetLower.z, pUnderlying->cellMassFrac, pUnderlying->cellSofteningScale),
+        pUnderlying(pUnderlying) {
 
     }
 
     VirtualGrid(GridPtrType pUnderlying, T simsize, T gridsize,
                 T dx, T x0, T y0, T z0, T massfrac = 0.0, T softScale = 1.0) :
-      Grid<T>(simsize, gridsize, dx, x0, y0, z0, massfrac, softScale),
-      pUnderlying(pUnderlying) {
+        Grid<T>(simsize, gridsize, dx, x0, y0, z0, massfrac, softScale),
+        pUnderlying(pUnderlying) {
 
     }
 
@@ -93,14 +93,14 @@ namespace grids {
 
   public:
     SuperSampleGrid(GridPtrType pUnderlying, int factor) :
-      VirtualGrid<T>(pUnderlying,
-                     pUnderlying->periodicDomainSize, pUnderlying->size * factor,
-                     pUnderlying->cellSize / factor, pUnderlying->offsetLower.x,
-                     pUnderlying->offsetLower.y,
-                     pUnderlying->offsetLower.z,
-                     pUnderlying->cellMassFrac / (factor * factor * factor),
-                     factor),
-      factor(factor) {
+        VirtualGrid<T>(pUnderlying,
+                       pUnderlying->periodicDomainSize, pUnderlying->size * factor,
+                       pUnderlying->cellSize / factor, pUnderlying->offsetLower.x,
+                       pUnderlying->offsetLower.y,
+                       pUnderlying->offsetLower.z,
+                       pUnderlying->cellMassFrac / (factor * factor * factor),
+                       factor),
+        factor(factor) {
 
       factor3 = factor * factor * factor;
     }
@@ -143,28 +143,29 @@ namespace grids {
     ResolutionMatchingGrid(GridPtrType pUnderlyingHiRes, GridPtrType pUnderlyingLoRes) :
         VirtualGrid<T>(pUnderlyingHiRes,
                        pUnderlyingLoRes->periodicDomainSize,
-                       pUnderlyingLoRes->size * tools::getRatioAndAssertInteger(pUnderlyingLoRes->cellSize, pUnderlyingHiRes->cellSize),
+                       pUnderlyingLoRes->size *
+                       tools::getRatioAndAssertInteger(pUnderlyingLoRes->cellSize, pUnderlyingHiRes->cellSize),
                        pUnderlyingHiRes->cellSize,
                        pUnderlyingLoRes->offsetLower.x,
                        pUnderlyingLoRes->offsetLower.y,
                        pUnderlyingLoRes->offsetLower.z,
                        pUnderlyingHiRes->cellMassFrac,
                        pUnderlyingHiRes->cellSofteningScale),
-        pUnderlyingHiRes(pUnderlyingHiRes)
-    {
+        pUnderlyingHiRes(pUnderlyingHiRes) {
       pUnderlyingLoResInterpolated = std::make_shared<SuperSampleGrid<T>>(pUnderlyingLoRes,
-                                                                          this->size/pUnderlyingLoRes->size);
+                                                                          this->size / pUnderlyingLoRes->size);
       this->pUnderlying = pUnderlyingLoResInterpolated;
 
       auto offsetLowerRelative = pUnderlyingHiRes->offsetLower - pUnderlyingLoRes->offsetLower;
-      windowLowerCornerInclusive = round<int>(offsetLowerRelative/this->cellSize);
-      windowLowerCorner = this->getCellCentroid(windowLowerCornerInclusive)-this->cellSize/2;
+      windowLowerCornerInclusive = round<int>(offsetLowerRelative / this->cellSize);
+      windowLowerCorner = this->getCellCentroid(windowLowerCornerInclusive) - this->cellSize / 2;
 
-      auto offsetLowerRelativeCheck = Coordinate<T>(windowLowerCornerInclusive)*this->cellSize;
-      assert(offsetLowerRelativeCheck.almostEqual(offsetLowerRelative)); // if this doesn't match, the grids don't line up
+      auto offsetLowerRelativeCheck = Coordinate<T>(windowLowerCornerInclusive) * this->cellSize;
+      assert(
+          offsetLowerRelativeCheck.almostEqual(offsetLowerRelative)); // if this doesn't match, the grids don't line up
 
       windowUpperCornerExclusive = windowLowerCornerInclusive + pUnderlyingHiRes->size;
-      windowUpperCorner = this->getCellCentroid(windowUpperCornerExclusive)-this->cellSize/2;
+      windowUpperCorner = this->getCellCentroid(windowUpperCornerExclusive) - this->cellSize / 2;
 
     }
 
@@ -178,7 +179,7 @@ namespace grids {
 
     bool pointsToGrid(const Grid<T> *pOther) const override {
       return this == pOther || pUnderlyingLoResInterpolated->pointsToGrid(pOther) ||
-          pUnderlyingHiRes->pointsToGrid(pOther);
+             pUnderlyingHiRes->pointsToGrid(pOther);
     }
 
     void debugName(std::ostream &s) const override {
@@ -195,15 +196,15 @@ namespace grids {
       std::vector<size_t> interpolatedCellsArray;
       this->pUnderlyingHiRes->getFlaggedCells(targetArray);
       this->pUnderlyingLoResInterpolated->getFlaggedCells(interpolatedCellsArray);
-      for(size_t i=0; i<targetArray.size(); ++i) {
+      for (size_t i = 0; i < targetArray.size(); ++i) {
         auto coordinate = this->pUnderlyingHiRes->getCellCoordinate(targetArray[i]) + this->windowLowerCornerInclusive;
         targetArray[i] = this->pUnderlyingLoResInterpolated->getCellIndex(coordinate);
       }
 
-      for(size_t i=0; i<interpolatedCellsArray.size(); ++i) {
+      for (size_t i = 0; i < interpolatedCellsArray.size(); ++i) {
         size_t thisCell = interpolatedCellsArray[i];
         auto coordinate = pUnderlyingLoResInterpolated->getCellCoordinate(thisCell);
-        if(!coordinate.inWindow(windowLowerCornerInclusive, windowUpperCornerExclusive)) {
+        if (!coordinate.inWindow(windowLowerCornerInclusive, windowUpperCornerExclusive)) {
           targetArray.push_back(thisCell);
         }
       }
@@ -215,10 +216,10 @@ namespace grids {
       std::vector<size_t> interpolatedCellsArray;
       std::vector<size_t> hiresCellsArray;
 
-      for(size_t i=0; i<sourceArray.size(); ++i) {
+      for (size_t i = 0; i < sourceArray.size(); ++i) {
         size_t thisCell = sourceArray[i];
         auto coordinate = pUnderlyingLoResInterpolated->getCellCoordinate(thisCell);
-        if(isInHiResWindow(coordinate)) {
+        if (isInHiResWindow(coordinate)) {
           size_t hiresCell = getIndexInHiResWindow(coordinate);
           hiresCellsArray.push_back(hiresCell);
         } else {
@@ -239,7 +240,7 @@ namespace grids {
     }
 
     size_t getIndexInHiResWindow(const Coordinate<int> &coordinate) const {
-      return pUnderlyingHiRes->getCellIndex(coordinate-windowLowerCornerInclusive);
+      return pUnderlyingHiRes->getCellIndex(coordinate - windowLowerCornerInclusive);
     }
 
 
@@ -255,13 +256,13 @@ namespace grids {
 
   public:
     OffsetGrid(GridPtrType pUnderlying, T dx, T dy, T dz) :
-      VirtualGrid<T>(pUnderlying, pUnderlying->periodicDomainSize, pUnderlying->size,
-                     pUnderlying->cellSize,
-                     pUnderlying->offsetLower.x + dx,
-                     pUnderlying->offsetLower.y + dy,
-                     pUnderlying->offsetLower.z + dz,
-                     pUnderlying->cellMassFrac,
-                     pUnderlying->cellSofteningScale) {
+        VirtualGrid<T>(pUnderlying, pUnderlying->periodicDomainSize, pUnderlying->size,
+                       pUnderlying->cellSize,
+                       pUnderlying->offsetLower.x + dx,
+                       pUnderlying->offsetLower.y + dy,
+                       pUnderlying->offsetLower.z + dz,
+                       pUnderlying->cellMassFrac,
+                       pUnderlying->cellSofteningScale) {
 
     }
 
@@ -315,16 +316,16 @@ namespace grids {
     }
 
     SectionOfGrid(GridPtrType pUnderlying, int deltax, int deltay, int deltaz, size_t size) :
-      VirtualGrid<T>(pUnderlying,
-                     pUnderlying->periodicDomainSize, size,
-                     pUnderlying->cellSize,
-                     pUnderlying->offsetLower.x + deltax * pUnderlying->cellSize,
-                     pUnderlying->offsetLower.y + deltay * pUnderlying->cellSize,
-                     pUnderlying->offsetLower.z + deltaz * pUnderlying->cellSize,
-                     pUnderlying->cellMassFrac, pUnderlying->cellSofteningScale),
-      cellOffset(deltax, deltay, deltaz),
-      upperCell(cellOffset + pUnderlying->size),
-      posOffset(deltax * this->cellSize, deltay * this->cellSize, deltaz * this->cellSize) {
+        VirtualGrid<T>(pUnderlying,
+                       pUnderlying->periodicDomainSize, size,
+                       pUnderlying->cellSize,
+                       pUnderlying->offsetLower.x + deltax * pUnderlying->cellSize,
+                       pUnderlying->offsetLower.y + deltay * pUnderlying->cellSize,
+                       pUnderlying->offsetLower.z + deltaz * pUnderlying->cellSize,
+                       pUnderlying->cellMassFrac, pUnderlying->cellSofteningScale),
+        cellOffset(deltax, deltay, deltaz),
+        upperCell(cellOffset + pUnderlying->size),
+        posOffset(deltax * this->cellSize, deltay * this->cellSize, deltaz * this->cellSize) {
 
     }
 
@@ -335,14 +336,13 @@ namespace grids {
 
     virtual bool containsCellWithCoordinate(const Coordinate<int> &coord) const {
       return VirtualGrid<T>::containsCellWithCoordinate(coord) &&
-          this->pUnderlying->containsCellWithCoordinate(this->wrapCoordinate(coord+cellOffset));
+             this->pUnderlying->containsCellWithCoordinate(this->wrapCoordinate(coord + cellOffset));
     }
 
     virtual bool containsCell(size_t i) const {
       auto coord = this->getCellCoordinate(i);
       return containsCellWithCoordinate(coord);
     }
-
 
 
     virtual void debugName(std::ostream &s) const override {
@@ -355,7 +355,7 @@ namespace grids {
       for (size_t ptcl: underlyingArray) {
         try {
           targetArray.push_back(this->mapIndexFromUnderlying(ptcl));
-          assert(targetArray.back()<this->size3);
+          assert(targetArray.back() < this->size3);
         } catch (std::out_of_range &e) {
           continue;
         }
@@ -363,7 +363,7 @@ namespace grids {
       std::sort(targetArray.begin(), targetArray.end());
     }
 
-    void flagCells(const std::vector<size_t> & sourceArray) override {
+    void flagCells(const std::vector<size_t> &sourceArray) override {
       std::vector<size_t> underlyingArray;
       for (size_t ptcl: sourceArray) {
         try {
@@ -388,12 +388,12 @@ namespace grids {
 
   public:
     SubSampleGrid(std::shared_ptr<Grid<T>> pUnderlying, int factor) :
-      VirtualGrid<T>(pUnderlying,
-                     pUnderlying->periodicDomainSize, pUnderlying->size / factor,
-                     pUnderlying->cellSize * factor, pUnderlying->offsetLower.x, pUnderlying->offsetLower.y,
-                     pUnderlying->offsetLower.z, pUnderlying->cellMassFrac * powf(factor, 3.0),
-                     pUnderlying->cellSofteningScale),
-      factor(factor) {
+        VirtualGrid<T>(pUnderlying,
+                       pUnderlying->periodicDomainSize, pUnderlying->size / factor,
+                       pUnderlying->cellSize * factor, pUnderlying->offsetLower.x, pUnderlying->offsetLower.y,
+                       pUnderlying->offsetLower.z, pUnderlying->cellMassFrac * powf(factor, 3.0),
+                       pUnderlying->cellSofteningScale),
+        factor(factor) {
       //if(this->pUnderlying->size%factor!=0)
       //  throw std::runtime_error("SubSampleGrid - factor must be a divisor of the original grid size");
 
@@ -461,11 +461,11 @@ namespace grids {
 
   public:
     MassScaledGrid(GridPtrType pUnderlying, T massScale) :
-      VirtualGrid<T>(pUnderlying,
-                     pUnderlying->periodicDomainSize, pUnderlying->size,
-                     pUnderlying->cellSize, pUnderlying->offsetLower.x, pUnderlying->offsetLower.y,
-                     pUnderlying->offsetLower.z, massScale * pUnderlying->cellMassFrac,
-                     pUnderlying->cellSofteningScale) {}
+        VirtualGrid<T>(pUnderlying,
+                       pUnderlying->periodicDomainSize, pUnderlying->size,
+                       pUnderlying->cellSize, pUnderlying->offsetLower.x, pUnderlying->offsetLower.y,
+                       pUnderlying->offsetLower.z, massScale * pUnderlying->cellMassFrac,
+                       pUnderlying->cellSofteningScale) {}
 
     virtual void debugName(std::ostream &s) const override {
       s << "MassScaledGrid";

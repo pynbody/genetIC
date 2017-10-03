@@ -1,8 +1,5 @@
 #include <mutex>
-#include <string>
 #include <iostream>
-#include <thread>
-#include <chrono>
 #include <sys/ioctl.h>
 #include <zconf.h>
 
