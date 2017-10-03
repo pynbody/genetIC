@@ -1,0 +1,23 @@
+# Test the RF generator with reversed seeding
+
+
+# output parameters
+outdir	 ./
+outformat 4
+outname test_5
+
+# cosmology:
+Om  0.279
+Ol  0.721
+s8  0.817
+zin	99
+camb	../camb_transfer_kmax40_z0.dat
+
+# basegrid 50 Mpc/h, 8^3 is fine for just testing the seeding
+basegrid 50.0 8
+
+# fourier seeding
+seedfourier_reverse	8896131
+
+
+done

@@ -17,10 +17,10 @@ before_install:
  - sudo apt-get install g++-6
  - sudo apt-get install libgsl0-dev
  - export CXX="g++-6"
- - pip install numpy
- - pip install scipy
- - pip install cython
- - pip install git+git://github.com/pynbody/pynbody.git
+ - sudo pip install numpy
+ - sudo pip install scipy
+ - sudo pip install cython
+ - sudo pip install git+git://github.com/pynbody/pynbody.git
 
 script:
  - cd tests

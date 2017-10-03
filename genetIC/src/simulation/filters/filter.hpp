@@ -1,7 +1,6 @@
 #ifndef IC_FILTER_HPP
 #define IC_FILTER_HPP
 
-//#include <math.h>
 #include <stdexcept>
 /*!
     \namespace filters
@@ -21,8 +20,6 @@ namespace filters {
   public:
     typedef T ReturnType;
 
-    virtual ~Filter() {}
-
     Filter() {}
 
     Filter(T /*k_cut*/) {
@@ -31,14 +28,6 @@ namespace filters {
 
     virtual T operator()(T) const {
       return 1.0;
-    }
-
-    template<typename S>
-    auto compositeFunction(const S &other) const {
-      auto func = [this, &other](T x) {
-        return (*this)(x) * other(x);
-      };
-      return func;
     }
 
     virtual std::shared_ptr<Filter<T>> clone() const {
@@ -207,7 +196,8 @@ namespace filters {
 
     ComplementaryFilterAdaptor(const Filter<T> &pOriginal) {
       assert(
-        typeid(pOriginal) != typeid(ComplementaryFilterAdaptor<UnderlyingType, T>)); // this is NOT a copy constructor!
+          typeid(pOriginal) !=
+          typeid(ComplementaryFilterAdaptor<UnderlyingType, T>)); // this is NOT a copy constructor!
       pUnderlying = pOriginal.clone();
     }
 

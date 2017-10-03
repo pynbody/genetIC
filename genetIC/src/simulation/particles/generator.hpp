@@ -18,7 +18,7 @@ namespace particle {
     using T = tools::datatypes::strip_complex<GT>;
     const grids::Grid<T> &grid;
 
-    ParticleEvaluator(const grids::Grid<T> &grid) : grid(grid) { };
+    ParticleEvaluator(const grids::Grid<T> &grid) : grid(grid) {};
 
   public:
 
@@ -67,8 +67,6 @@ namespace particle {
     virtual std::vector<std::shared_ptr<fields::Field<GT>>> getGeneratedFields() = 0;
 
   };
-
-
 
 
 }

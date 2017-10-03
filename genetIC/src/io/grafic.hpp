@@ -37,9 +37,9 @@ namespace io {
                    multilevelcontext::MultiLevelContextInformation<DataType> &levelContext,
                    particle::AbstractMultiLevelParticleGenerator<DataType> &particleGenerator,
                    const cosmology::CosmologicalParameters<T> &cosmology) :
-        outputFilename(fname),
-        generator(particleGenerator.shared_from_this()),
-        cosmology(cosmology) {
+          outputFilename(fname),
+          generator(particleGenerator.shared_from_this()),
+          cosmology(cosmology) {
         levelContext.copyContextWithIntermediateResolutionGrids(context);
         lengthFactor = 1. / cosmology.hubble; // Gadget Mpc a h^-1 -> GrafIC file Mpc a
         velFactor = std::pow(cosmology.scalefactor, 0.5f); // Gadget km s^-1 a^1/2 -> GrafIC km s^-1
@@ -58,19 +58,20 @@ namespace io {
         auto evaluator = generator->makeEvaluatorForGrid(targetGrid);
 
         const grids::Grid<T> &baseGrid = context.getGridForLevel(0);
-        size_t effective_size = tools::getRatioAndAssertPositiveInteger(baseGrid.cellSize * baseGrid.size, targetGrid.cellSize);
+        size_t effective_size = tools::getRatioAndAssertPositiveInteger(baseGrid.cellSize * baseGrid.size,
+                                                                        targetGrid.cellSize);
         tools::progress::ProgressBar pb("write grid " + std::to_string(effective_size), targetGrid.size);
 
         std::string thisGridFilename = outputFilename + "_" + std::to_string(effective_size);
         mkdir(thisGridFilename.c_str(), 0777);
 
-        auto filenames = {"ic_velcx", "ic_velcy", "ic_velcz", "ic_poscx", "ic_poscy", "ic_poscz", "ic_particle_ids"};
+        auto filenames = {"ic_velcx", "ic_velcy", "ic_velcz", "ic_poscx", "ic_poscy", "ic_poscz", "ic_particle_ids", "ic_deltab"};
 
         std::vector<size_t> block_lengths = {sizeof(float) * targetGrid.size2, sizeof(float) * targetGrid.size2,
                                              sizeof(float) * targetGrid.size2,
                                              sizeof(float) * targetGrid.size2, sizeof(float) * targetGrid.size2,
                                              sizeof(float) * targetGrid.size2,
-                                             sizeof(size_t) * targetGrid.size2};
+                                             sizeof(size_t) * targetGrid.size2, sizeof(float) * targetGrid.size2};
 
         std::vector<std::ofstream> files;
 
@@ -79,8 +80,6 @@ namespace io {
           files.emplace_back(thisGridFilename + "/" + filename_i, std::ios::binary);
           writeHeaderForGrid(files.back(), targetGrid);
         }
-
-
 
 
         for (size_t i_z = 0; i_z < targetGrid.size; ++i_z) {
@@ -95,6 +94,9 @@ namespace io {
               Coordinate<float> velScaled(particle.vel * velFactor);
               Coordinate<float> posScaled(particle.pos * lengthFactor);
 
+              // TODO For now, the baryon density is not calculated and set to zero
+              float deltab = 0;
+
               // Eek. The following code is horrible. Is there a way to make it neater?
               files[0].write((char *) (&velScaled.x), sizeof(float));
               files[1].write((char *) (&velScaled.y), sizeof(float));
@@ -103,6 +105,7 @@ namespace io {
               files[4].write((char *) (&posScaled.y), sizeof(float));
               files[5].write((char *) (&posScaled.z), sizeof(float));
               files[6].write((char *) (&global_index), sizeof(size_t));
+              files[7].write((char *) (&deltab), sizeof(float));
 
             }
           }

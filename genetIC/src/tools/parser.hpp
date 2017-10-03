@@ -43,29 +43,31 @@ namespace tools {
   }
 
   template<typename Rtype, typename... Args>
-  Rtype call_function(const std::function<Rtype( Args...)> &f, std::istream &input_stream,
-                             std::ostream * output_stream);
+  Rtype call_function(const std::function<Rtype(Args...)> &f, std::istream &input_stream,
+                      std::ostream *output_stream);
 
   template<typename Rtype>
   Rtype call_function(const std::function<Rtype()> &f,
-                             std::istream &input_stream,
-                             std::ostream * /* *output_stream*/) {
+                      std::istream &input_stream,
+                      std::ostream * /* *output_stream*/) {
     consume_comments(input_stream);
     return f();
   }
 
   template<typename Rtype, typename T1, typename... Args>
   Rtype call_function(const std::function<Rtype(T1, Args...)> &f, std::istream &input_stream,
-                             std::ostream * output_stream) {
-    T1 arg1;
-    if (input_stream.eof())
-      throw DispatchError("Insufficient arugments");
-    input_stream >> arg1;
+                      std::ostream *output_stream) {
+    T1 arg1{};
+    if(input_stream.eof()){
+      std::cerr << "WARNING : Potentially insufficient arguments. Default argument used." << std::endl;
+    } else{
+      input_stream >> arg1;
+    }
 
     if (output_stream != nullptr)
       (*output_stream) << arg1 << " " << std::endl;
 
-    std::function<Rtype(Args...)> bound_f = [&f, arg1](auto&&... args) { return f(arg1, args...); };
+    std::function<Rtype(Args...)> bound_f = [&f, arg1](auto &&... args) { return f(arg1, args...); };
 
     call_function<Rtype, Args...>(bound_f, input_stream, output_stream);
 
@@ -89,7 +91,7 @@ namespace tools {
     typedef std::function<Rtype(const Base *, std::istream &, std::ostream *)> callerfn;
 
     std::map<std::string,
-      std::pair<std::shared_ptr<Base>, callerfn> > _map;
+        std::pair<std::shared_ptr<Base>, callerfn> > _map;
 
 
     template<typename... Args>
@@ -173,7 +175,7 @@ namespace tools {
 
       auto pfunc = std::make_shared<Func<Rtype, Args...>>();
       auto pcaller = std::function<Rtype(const Base *, std::istream &, std::ostream *)>(
-        &unpack_and_call_function<Args...>);
+          &unpack_and_call_function<Args...>);
       pfunc->f = function;
 
       std::string lname(name);
@@ -218,9 +220,9 @@ namespace tools {
     template<typename... Args>
     void add_class_route(const std::string &name, Rtype (Ctype::*f)(Args...)) {
       auto addcall = std::function<void(InstanceDispatch<Ctype, Rtype> &)>(
-        [name, f](InstanceDispatch<Ctype, Rtype> &pDispatchObj) {
-          pDispatchObj.add_class_route(name, f);
-        });
+          [name, f](InstanceDispatch<Ctype, Rtype> &pDispatchObj) {
+            pDispatchObj.add_class_route(name, f);
+          });
 
 
       // make a lambda that adds the route to a specific object
