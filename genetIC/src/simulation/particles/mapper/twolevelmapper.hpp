@@ -60,7 +60,7 @@ namespace particle {
         pGrid2->insertCubeIdsIntoVector(x0, y0, z0, pGrid1->cellSize, start);
       }
 
-      //TODO  MR Functions never used. Should delete ?
+      //TODO  Functions never used. Should delete ?
 //      std::vector<size_t> getMappedIds(size_t id0) const {
 //        std::vector<size_t> ids;
 //        appendMappedIdsToVector(id0, ids);

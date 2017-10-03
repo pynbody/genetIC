@@ -10,7 +10,7 @@ namespace filters {
   template<typename T>
   class ResidualFilterFamily;
 
-  // TODO There could be documentation on mutlilevel filter here.
+  //! Generic class to define filters on multiple levels of grids.
   template<typename T>
   class FilterFamily {
   protected:
@@ -144,14 +144,5 @@ namespace filters {
     f.debugInfo(s);
     return s;
   }
-
-  // TODO Never used should delete ?
-//  template<typename T>
-//  void tabulateFilter(Filter <T> *pF) {
-//    std::cerr << "tabulateFilter:" << std::endl;
-//    for (T k = 0.1; k < 3.0; k += 0.1) {
-//      std::cerr << " " << k << " " << (*pF)(k) << std::endl;
-//    }
-//  }
 }
 #endif

@@ -1,7 +1,0 @@
-- [ ] Implement 2LPT rather than ZA
-- [ ] Implement baryon TF
-- [ ] Implement ability to generate paired simulations ?
-- [ ] Implement ability to generate glass ICs ?
-- [ ] Implement ability to remove/keep corner modes ?
-- [ ] Clean the code of scattered TODO
-- [ ] Document main functions and IC user interface

@@ -27,7 +27,6 @@ namespace fields {
 
       size_t size3 = destination.getGrid().size3;
 
-    //TODO MR: Why was this omp loop commented out ? It had become the bottleneck for the code.
 #pragma omp parallel for schedule(static)
       for (size_t ind_l = 0; ind_l < size3; ind_l++) {
         if (contains(ind_l))

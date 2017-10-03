@@ -79,7 +79,7 @@ namespace modifications {
 
 
     /*!
-     * Mostly useful for angular momentum modifications
+     * Mostly useful for angular momentum modifications. have not been tested for two years.
      */
     void
     centralDifference4thOrder(grids::Grid<T> &grid, std::vector<DataType> &outputData, size_t index, int direc, T x0,
@@ -122,7 +122,7 @@ namespace modifications {
         step1[di] = 1;
         neg_step1[di] = -1;
 
-        // N.B. can't wrap - might be on subgrid -> we do it anyway! this will likely break with zoom-in TODO
+        // N.B. can't wrap - might be on subgrid -> we do it anyway! this will likely break with zoom-in
         //ind_m1=grid.findNextIndNoWrap(index, neg_step1);
         //ind_p1=grid.findNextIndNoWrap(index, step1);
         //ind_m2=grid.findNextIndNoWrap(ind_m1, neg_step1);
@@ -209,8 +209,7 @@ namespace modifications {
   };
 
 
-  //! WARNING : Unfinished and not working implementation
-  //TODO
+  //! WARNING : Unfinished and not working implementation TODO
   template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
   class AngMomentumModification : public LinearModification<DataType, T> {
   public:

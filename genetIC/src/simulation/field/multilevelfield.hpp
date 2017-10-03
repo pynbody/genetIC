@@ -95,6 +95,7 @@ namespace fields {
 
     virtual Field<DataType, T> &getFieldForGrid(const grids::Grid<T> &grid) {
       // TODO: problematically slow implementation
+      // MR: Is this still up to date ? (Oct 2017)
       for (size_t i = 0; i < multiLevelContext->getNumLevels(); ++i) {
         if (grid.pointsToGrid(&multiLevelContext->getGridForLevel(i)))
           return getFieldForLevel(i);
@@ -195,18 +196,25 @@ namespace fields {
 
     }
 
-    // TODO Most important function of the code. Should be documented step by step (Args are very hard to undertsand)
+    //! Takes the inner product between two fields.
+    /*! The inner product is defined as the operation between a covector a and a vector b : a * b elementwise.
+     * In our case, a and b are split in Fourier space between high and low k modes using their internal filter.
+     * The product reads (a_high * b_high) + (a_low * b_low) + (a_high * b_low) + (a_low * b_high).
+     *
+     * The key in this approach is that low-k components live on the coarse grid and high-k components live on
+     * the fine grid. However, there is a contribution coming from the cross-terms which mixes the different levels.
+     * Accounting for this contribution at each level of the multi-level grid is done by multiplying by the filtered
+     * b.
+     *
+     * If the two fields are covectors, an extra weighting is applied to convert one of them to a vector by
+     * multiplying by the covariance matrix, i.e. the metric in our space.
+     */
     ComplexType innerProduct(const MultiLevelField<DataType> &other) const {
 
       assert(isCompatible(other));
       if (!isCovector)
         throw (std::runtime_error(
             "The inner product can only be taken if one of the fields is regarded as a covector"));
-      /*
-       * To understand why this restriction is in place, see notes on 'covector approach to constraints'
-       *
-       * TODO: translate these notes into the paper or into inline documentation here
-       * */
 
       assert(isFourierOnAllLevels() && other.isFourierOnAllLevels());
       // To take inner product with correct filters, we must have the fields in fourier space
@@ -349,7 +357,6 @@ namespace fields {
       });
     }
 
-    //TODO Make sure power spectrum does not have zeroes in it.
     void divideByCovarianceOneGrid(Field<DataType> &field,
                                    const Field<DataType> &spectrum,
                                    const grids::Grid<T> &grid,
@@ -358,7 +365,6 @@ namespace fields {
       field.forEachFourierCellInt([weight, &grid, &field, &spectrum]
                                       (complex<T> existingValue, int kx, int ky, int kz) {
         T spec = spectrum.getFourierCoefficient(kx, ky, kz).real() * weight;
-        //TODO Working but uneffective to check all of them. Should check only k=0
         if (spec == 0) {
           return complex<DataType>(0, 0);
         } else {

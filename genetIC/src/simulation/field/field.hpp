@@ -398,32 +398,32 @@ namespace fields {
 
   };
 
-  //TODO Unused functions. Should delete ?
-//  template<typename TargetDataType, typename SourceDataType, typename CoordinateType>
-//  std::shared_ptr<Field<TargetDataType, CoordinateType>>
-//  convertField(Field<SourceDataType, CoordinateType> &field) {
-//    assert(!field.isFourier());
-//    auto newField = make_shared<Field<TargetDataType, CoordinateType>>(field.getGrid(), field.isFourier());
-//    auto &newData = newField->getDataVector();
-//    auto &originalData = field.getDataVector();
-//    size_t size = field.getGrid().size3;
-//
-//#pragma omp parallel for schedule(static)
-//    for (size_t i = 0; i < size; ++i) {
-//      newData[i] = tools::datatypes::real_part_if_complex(originalData[i]);
-//    }
-//
-//    return newField;
-//  };
-//
-//  template<typename TargetDataType, typename CoordinateType>
-//  std::shared_ptr<Field<TargetDataType, CoordinateType>>
-//  convertField(Field<TargetDataType, CoordinateType> &field) {
-//    return field.shared_from_this();
-//  };
+  //! Mostly used for debugging. Convert a field from holding one data type to another, e.g. complex to real.
+  template<typename TargetDataType, typename SourceDataType, typename CoordinateType>
+  std::shared_ptr<Field<TargetDataType, CoordinateType>>
+  convertField(Field<SourceDataType, CoordinateType> &field) {
+    assert(!field.isFourier());
+    auto newField = make_shared<Field<TargetDataType, CoordinateType>>(field.getGrid(), field.isFourier());
+    auto &newData = newField->getDataVector();
+    auto &originalData = field.getDataVector();
+    size_t size = field.getGrid().size3;
+
+#pragma omp parallel for schedule(static)
+    for (size_t i = 0; i < size; ++i) {
+      newData[i] = tools::datatypes::real_part_if_complex(originalData[i]);
+    }
+
+    return newField;
+  };
+
+  template<typename TargetDataType, typename CoordinateType>
+  std::shared_ptr<Field<TargetDataType, CoordinateType>>
+  convertField(Field<TargetDataType, CoordinateType> &field) {
+    return field.shared_from_this();
+  };
 
 
 }
 
 
-#endif //IC_FIELD_HPP
+#endif

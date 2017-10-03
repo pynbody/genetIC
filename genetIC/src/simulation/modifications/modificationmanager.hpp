@@ -287,8 +287,10 @@ namespace modifications {
       return relative;
     }
 
+    //! Check quadratic modifications are independent by calculating delta * Q1 * C0 * Q2 * delta
     bool areQuadraticIndependent(){
-      //TODO Condition here is necessary but not sufficient to ensure independence. However, it is the best I can think off.
+      //TODO Condition here is necessary but not sufficient to ensure independence.
+      // Not sure if we ought to keep this anyway and leave independence as a user problem
 
       size_t n = quadraticModificationList.size();
       bool indep = true;
@@ -300,7 +302,7 @@ namespace modifications {
 
           auto ortho = pushed_i->innerProduct(*pushed_j).real();
 
-          if(ortho > 0.01){
+          if(ortho > 0.001){
             indep = false ;
           }
         }

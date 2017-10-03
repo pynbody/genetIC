@@ -94,6 +94,7 @@ namespace io {
               Coordinate<float> velScaled(particle.vel * velFactor);
               Coordinate<float> posScaled(particle.pos * lengthFactor);
 
+              // TODO For now, the baryon density is not calculated and set to zero
               float deltab = 0;
 
               // Eek. The following code is horrible. Is there a way to make it neater?

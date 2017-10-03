@@ -556,7 +556,6 @@ public:
   void updateParticleMapper() {
     // TODO: This routine contains too much format-dependent logic and should be refactored so that the knowledge
     // resides somewhere in the io namespace
-    // MR: If output format is grafic, no gas output can be generated ?
 
     size_t nLevels = multiLevelContext.getNumLevels();
 
@@ -908,7 +907,7 @@ public:
     }
   }
 
-  //TODO What is this for and why is it never tested ? Looks like inverted initial conditions properties
+  //TODO What is this method doing? Looks like inverted initial conditions properties
   void reseedSmallK(T kmax, int seed) {
 
     T k2max = kmax * kmax;
