@@ -51,6 +51,7 @@ namespace io {
         context.forEachLevel([&](const grids::Grid<T> &targetGrid) {
           writeGrid(targetGrid);
         });
+        writeMask();
       }
 
     protected:
@@ -66,13 +67,17 @@ namespace io {
         std::string thisGridFilename = outputFilename + "_" + std::to_string(effective_size);
         mkdir(thisGridFilename.c_str(), 0777);
 
-        auto filenames = {"ic_velcx", "ic_velcy", "ic_velcz", "ic_poscx", "ic_poscy", "ic_poscz", "ic_particle_ids", "ic_deltab"};
+        auto filenames = {"ic_velcx", "ic_velcy", "ic_velcz", "ic_poscx", "ic_poscy",
+                          "ic_poscz", "ic_particle_ids", "ic_deltab"};
 
-        std::vector<size_t> block_lengths = {sizeof(float) * targetGrid.size2, sizeof(float) * targetGrid.size2,
+        std::vector<size_t> block_lengths = {sizeof(float) * targetGrid.size2,
                                              sizeof(float) * targetGrid.size2,
-                                             sizeof(float) * targetGrid.size2, sizeof(float) * targetGrid.size2,
                                              sizeof(float) * targetGrid.size2,
-                                             sizeof(size_t) * targetGrid.size2, sizeof(float) * targetGrid.size2};
+                                             sizeof(float) * targetGrid.size2,
+                                             sizeof(float) * targetGrid.size2,
+                                             sizeof(float) * targetGrid.size2,
+                                             sizeof(size_t) * targetGrid.size2,
+                                             sizeof(float) * targetGrid.size2};
 
         std::vector<std::ofstream> files;
 
@@ -115,6 +120,52 @@ namespace io {
 
 
         iordOffset += targetGrid.size3;
+
+      }
+
+      void writeMask(){
+
+        auto mask = fields::MaskField<DataType>(context);
+        mask.calculateMasksAllLevels();
+
+        if(this->iordOffset != 0)
+          iordOffset = 0;
+
+        auto filename = "ic_refmap";
+        std::vector<std::ofstream> files;
+
+
+
+        for (size_t level =0; level < context.getNumLevels(); level++){
+
+          auto grid = mask.getFieldForLevel(level).getGrid();
+
+          const grids::Grid<T> &baseGrid = context.getGridForLevel(0);
+          size_t effective_size = tools::getRatioAndAssertPositiveInteger(baseGrid.cellSize * baseGrid.size,
+                                                                          grid.cellSize);
+
+          std::string thisGridFilename = outputFilename + "_" + std::to_string(effective_size);
+          mkdir(thisGridFilename.c_str(), 0777);
+          files.emplace_back(thisGridFilename + "/" + filename, std::ios::binary);
+
+
+          writeHeaderForGrid(files.back(), grid);
+          std::vector<size_t> block_lengths = {sizeof(size_t) * grid.size2};
+
+          for (size_t i_z = 0; i_z < grid.size; ++i_z) {
+            writeBlockHeaderFooter(block_lengths, files);
+            for (size_t i_y = 0; i_y < grid.size; ++i_y) {
+              for (size_t i_x = 0; i_x < grid.size; ++i_x) {
+                size_t i = grid.getCellIndexNoWrap(i_x, i_y, i_z);
+
+                size_t mask_value = mask.getFieldForLevel(level).getDataVector()[i];
+                files[0].write((char *) (&mask_value), sizeof(size_t));
+              }
+            }
+            writeBlockHeaderFooter(block_lengths, files);
+          }
+        files.pop_back();
+        }
 
       }
 
