@@ -6,6 +6,7 @@
 #include "src/simulation/multilevelcontext/multilevelcontext.hpp"
 #include "src/cosmology/parameters.hpp"
 #include <src/simulation/particles/multilevelgenerator.hpp>
+#include <src/simulation/field/maskfield.hpp>
 
 namespace io {
   namespace grafic {
