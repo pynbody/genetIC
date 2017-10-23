@@ -1,4 +1,5 @@
 #include <fstream>
+#include <iostream>
 #include <cmath>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -49,8 +50,7 @@ namespace io {
       void write() {
         iordOffset = 0;
         context.forEachLevel([&](const grids::Grid<T> &targetGrid) {
-          writeGrid(targetGrid);
-        });
+          writeGrid(targetGrid);});
         writeMask();
       }
 
@@ -125,7 +125,7 @@ namespace io {
 
       void writeMask(){
 
-        auto mask = fields::MaskField<DataType>(context);
+        auto mask = fields::RAMSESMaskField<DataType>(context);
         mask.calculateMasksAllLevels();
 
         if(this->iordOffset != 0)

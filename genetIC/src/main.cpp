@@ -98,6 +98,7 @@ void setup_parser(tools::ClassDispatch<ICf, void> &dispatch) {
   dispatch.add_class_route("dump_grid", &ICf::dumpGrid);
   dispatch.add_class_route("dump_ps", &ICf::dumpPS);
   dispatch.add_class_route("dump_tipsy", &ICf::saveTipsyArray);
+  dispatch.add_class_route("dump_mask", &ICf::dumpMask);
 
   // To debug
   dispatch.add_class_route("zeroLevel", &ICf::zeroLevel);

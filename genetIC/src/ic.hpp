@@ -500,6 +500,12 @@ public:
                                  (getOutputPath() + "_" + ((char) (level + '0')) + ".ps").c_str());
   }
 
+  virtual void dumpMask(size_t level=0){
+    auto mask = fields::RAMSESMaskField<GridDataType>(this->multiLevelContext);
+    mask.calculateMasksAllLevels();
+    dumpGridData(level, mask.getFieldForLevel(level));
+  }
+
 
   virtual void initialiseParticleGenerator() {
     // in principle this could now be easily extended to slot in higher order PT or other
