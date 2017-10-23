@@ -45,9 +45,10 @@ def default_comparisons():
     for ps, ps_test in zip(powspecs, powspecs_test):
         compare_ps(ps,ps_test)
 
-    output_file = glob.glob(sys.argv[1]+"/*.tipsy")
-    assert len(output_file)==1, "Could not find a unique output file to test against"
-    compare(pynbody.load(output_file[0]),pynbody.load(sys.argv[1]+"/reference_output"))
+    if os.path.exists(sys.argv[1]+"/*.tipsy"):
+        output_file = glob.glob(sys.argv[1]+"/*.tipsy")
+        assert len(output_file)==1, "Could not find a unique output file to test against"
+        compare(pynbody.load(output_file[0]),pynbody.load(sys.argv[1]+"/reference_output"))
 
 if __name__=="__main__":
     warnings.simplefilter("ignore")

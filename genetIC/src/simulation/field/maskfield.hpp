@@ -75,19 +75,15 @@ namespace fields {
 
           // Loop over all cells and see if it is contained in the next level grid
           // grid.containsPoint might be the useful method
-          // This loop should be easily pragma openmped
 
           auto current_grid = this->multiLevelContext->getGridForLevel(level);
           auto next_level_grid = this->multiLevelContext->getGridForLevel(level + 1);
 
 #pragma omp parallel for
           for (size_t i = 0; i < current_grid.size3; i++) {
-            Coordinate<int> cell_coord = current_grid.getCellCoordinate(i);
-
-            if (next_level_grid.containsCellWithCoordinate(cell_coord)) {
+            Coordinate<T> cell_coord(current_grid.getCellCentroid(i));
+            if (next_level_grid.containsPoint(cell_coord)) {
               this->getFieldForLevel(level).getDataVector()[i] = 1;
-            } else {
-              this->getFieldForLevel(level).getDataVector()[i] = 0;
             }
           }
 

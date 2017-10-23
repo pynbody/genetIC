@@ -1,4 +1,5 @@
 # Test grafic output, especially if refinement masks are generated correctly
+# Test is done on numpy arrays rather than tipsy files as usually done
 
 
 # output parameters
@@ -14,20 +15,26 @@ s8  0.817
 zin	99
 camb    ../camb_transfer_kmax40_z0_post2015.dat
 
-# basegrid 50 Mpc/h, 64^3
-basegrid 50.0 64
-
-centre 32.5 32.5 32.5
-select_nearest
-zoomgrid 2 64
-
-centre 32.5 32.5 32.5
-select_nearest
-zoomgrid 2 64
-
 # fourier seeding
 seed	8896131
 
+# basegrid 50 Mpc/h, 64^3
+basegrid 50.0 64
+
+centre 49 25 25
+select_nearest
+zoomgrid 2 64
+
+centre 49 25 25
+select_nearest
+zoomgrid 2 64
+
+centre 49 25 25
+select_nearest
+zoomgrid 2 64
+
+centre 49 25 25
+select_sphere 2
 
 done
 
@@ -35,5 +42,4 @@ dump_mask 0
 dump_mask 1
 dump_mask 2
 dump_mask 3
-dump_mask 4
 
