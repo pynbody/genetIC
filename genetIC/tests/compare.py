@@ -22,6 +22,7 @@ def compare(f1,f2) :
 def compare_grids(ref, test):
     list_of_grids = [os.path.basename(x) for x in glob.glob(ref+"grid-?.npy")]
     list_of_grids.sort()
+    assert (len(list_of_grids) != 0), "Could not find reference grids in the reference_grid folder"
     for grid in list_of_grids:
         grid_ref = np.load(ref+grid)
         grid_test = np.load(test+grid)
