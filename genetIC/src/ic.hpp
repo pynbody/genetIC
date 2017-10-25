@@ -691,12 +691,8 @@ public:
 
 protected:
 
-  int deepestLevelWithParticlesSelected() {
-    for (size_t i = multiLevelContext.getNumLevels() - 1; i >= 0; --i) {
-      if (multiLevelContext.getGridForLevel(i).hasFlaggedCells())
-        return i;
-    }
-    throw std::runtime_error("No level has any particles selected");
+  size_t deepestLevelWithParticlesSelected() {
+    return multiLevelContext.deepestLevelwithFlaggedCells();
   }
 
   size_t deepestLevel() {
@@ -713,7 +709,7 @@ protected:
     y0 = 0;
     z0 = 0;
 
-    int level = deepestLevelWithParticlesSelected();
+    size_t level = deepestLevelWithParticlesSelected();
 
     std::vector<size_t> particleArray;
     grids::Grid<T> &grid = multiLevelContext.getGridForLevel(level);

@@ -146,6 +146,14 @@ namespace multilevelcontext {
         throw std::out_of_range("No covariance yet specified for this level");
     }
 
+    size_t deepestLevelwithFlaggedCells() {
+      for (size_t i = this->getNumLevels() - 1; i >= 0; --i) {
+        if (this->getGridForLevel(i).hasFlaggedCells())
+          return i;
+      }
+      throw std::runtime_error("No level has any particles selected");
+    }
+
     //! From finest level, use interpolation to construct other levels
     std::shared_ptr<fields::ConstraintField<DataType>>
     generateMultilevelFromHighResField(fields::Field<DataType, T> &&data) {

@@ -33,114 +33,110 @@ namespace fields {
 
     virtual void calculateMaskFinestLevel() = 0;
 
-    //! Find center of volume defined by flagged cells
-    virtual Coordinate<T> findVolumeCenter() = 0;
-
-    //! Flag supplementary cells to have a continuous volume and/or define binding volume as sphere/cube
-    virtual void flagBindingVolume() = 0;
-
-  private:
-    virtual Coordinate<T> calculateVolumeCenter(std::vector<size_t>) = 0;
-
   };
 
   //! This implementation of mask is targeted for RAMSES refinement masks.
   template<typename DataType>
   class RAMSESMaskField : public AbstractMaskField<DataType> {
 
-  private:
-    std::vector<size_t> flaggedcellsarray;
-
   public:
     explicit RAMSESMaskField(multilevelcontext::MultiLevelContextInformation<DataType> &multiLevelContext)
         : AbstractMaskField<DataType>(multiLevelContext){
 
-      size_t finestlevel = this->multiLevelContext->getNumLevels() - 1;
-      auto finestgrid = this->multiLevelContext->getGridForLevel(finestlevel);
-      finestgrid.getFlaggedCells(flaggedcellsarray);
     }
 
-    //!
-    // TODO: Implementing for now the easy way
     void calculateMasksAllLevels() override {
+      size_t finest_level = this->multiLevelContext->getNumLevels() - 1;
 
-      if(this->multiLevelContext->getNumLevels() == 1){
+      if (finest_level == 0) {
+        std::cerr << "GRAFIC: Not generating a mask for a uniform resolution grid" << std::endl;
+      } else {
         calculateMaskFinestLevel();
-      }
-      else {
-        calculateMaskFinestLevel();
 
-
-        for (size_t level = 0; level < this->multiLevelContext->getNumLevels() - 1; ++level) {
-
-          // Loop over all cells and see if it is contained in the next level grid
-          // grid.containsPoint might be the useful method
-
-          auto current_grid = this->multiLevelContext->getGridForLevel(level);
+        for (size_t level = 0; level < finest_level - 1; ++level) {
+          auto current_level_grid = this->multiLevelContext->getGridForLevel(level);
           auto next_level_grid = this->multiLevelContext->getGridForLevel(level + 1);
-
-#pragma omp parallel for
-          for (size_t i = 0; i < current_grid.size3; i++) {
-            Coordinate<T> cell_coord(current_grid.getCellCentroid(i));
-            if (next_level_grid.containsPoint(cell_coord)) {
-              this->getFieldForLevel(level).getDataVector()[i] = 1;
-            }
-          }
-
+          refineNextZoomGrid(current_level_grid, next_level_grid, level);
         }
       }
-
-    };
+    }
 
   protected:
     using T = typename AbstractMaskField<DataType>::T;
 
-    //! Calculate finest level mask as flagged particles as this level
     void calculateMaskFinestLevel() override {
-      size_t finestlevel = this->multiLevelContext->getNumLevels() - 1;
+      size_t finest_level = this->multiLevelContext->getNumLevels() - 1;
+      size_t deepest_flagged_level = finest_level;
+      // There might be several virtual grids above with no flagged cells to refer to
+      //TODO Unfinished, need to catch runtime err if there are no flagged cells at all
+      try {
+        deepest_flagged_level = this->multiLevelContext->deepestLevelwithFlaggedCells();
+      } catch (std::runtime_error& err) {
 
-//      Coordinate<T> centre = this->findVolumeCenter();
-      this->flagBindingVolume();
-
-      // Allow (=1) refinement on flagged cells
-      for (size_t i = 0; i < flaggedcellsarray.size(); ++i) {
-        this->getFieldForLevel(finestlevel).getDataVector()[flaggedcellsarray[i]] = 1;
       }
-    }
 
-    //! Find the center defined by the array of flagged cells
-    Coordinate<T> findVolumeCenter() override {
-      return Coordinate<T>();
+      if (deepest_flagged_level == finest_level) {
+        throw std::runtime_error("There are some flagged cells on the finest level. This is weird...");
+      }
+
+      std::vector<size_t> deepest_flagged_cells;
+      this->multiLevelContext->getGridForLevel(deepest_flagged_level).getFlaggedCells(deepest_flagged_cells);
+
+      refineFlaggedCellswrtoAbove(this->multiLevelContext->getGridForLevel(finest_level),
+                                  this->multiLevelContext->getGridForLevel(deepest_flagged_level),
+                                  finest_level);
 
     };
 
-    //! The volume defined by the array might have gaps in it. Deal with this.
-    void flagBindingVolume() override {};
-
   private:
-    Coordinate<T> calculateVolumeCenter(std::vector<size_t>) override{
-      return Coordinate<T>();
+    void refineNextZoomGrid(grids::Grid<DataType>& current_level_grid,
+                                 grids::Grid<DataType>& other_level_grid,
+                                 size_t level){
+#pragma omp parallel for
+      for (size_t i = 0; i < current_level_grid.size3; i++) {
+        Coordinate<T> cell_coord(current_level_grid.getCellCentroid(i));
+        if (other_level_grid.containsPoint(cell_coord)) {
+          this->getFieldForLevel(level).getDataVector()[i] = 1;
+        }
+      }
     }
-  };
 
-  //! Not sure I actually need this since grid might implement most of this functionalities
-  // ideally the definition of the volume would be an independent object
-  class AbstractVolumeCalculator {
+    void refineFlaggedCellsOnSameLevel(std::vector<size_t>& flaggedcellsarray,
+                              size_t level){
+#pragma omp parallel for
+      for (size_t i=0; i< flaggedcellsarray.size(); i++) {
+        this->getFieldForLevel(level).getDataVector()[flaggedcellsarray[i]] = 1;
+      }
+    }
 
-  protected:
-    virtual void findCenter() =0;
 
-    virtual void extractBindingVolume() = 0;
+    void refineFlaggedCellswrtoAbove(grids::Grid<DataType>& current_level_grid,
+                                     grids::Grid<DataType>& other_level_grid,
+                                     size_t level){
 
-  };
+      std::vector<size_t> flags;
+      other_level_grid.getFlaggedCells(flags);
 
-  class ConvexHullVolumeCalculator: AbstractVolumeCalculator{
+#pragma omp parallel for
+      for (size_t i = 0; i < current_level_grid.size3; i++) {
+        Coordinate<T> cell_coord(current_level_grid.getCellCentroid(i));
+         size_t id_on_other = other_level_grid.getCellContainingPoint(cell_coord);
 
-  protected:
-    void findCenter() override{}
+        // If the current cell is flagged on the above level, mark it valid for refinement
+        if((std::binary_search(flags.begin(), flags.end(), id_on_other))){
+          this->getFieldForLevel(level).getDataVector()[i] = 1;
+        }
+      }
+    }
 
-    void extractBindingVolume() override{}
-  };
+    void refineEntireGrid(grids::Grid<DataType>& current_level_grid, size_t level){
+#pragma omp parallel for
+      for (size_t i = 0; i < current_level_grid.size3; i++) {
+        this->getFieldForLevel(level).getDataVector()[i] = 1;
+      }
+    }
+};
+
 
 
 

@@ -17,15 +17,10 @@ camb    ../camb_transfer_kmax40_z0_post2015.dat
 # fourier seeding
 seed	8896131
 
-# basegrid 50 Mpc/h, 64^3
 basegrid 50.0 64
 
-centre 4. 2. 1.
-select_sphere 1
-zoomgrid 2 64
-
 idfile lagrangian_volume.txt
-
+zoomgrid 4 64
 
 done
 
