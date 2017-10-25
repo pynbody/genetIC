@@ -280,7 +280,7 @@ public:
   }
 
   /*! Define a zoomed grid with user defined coordinates
-   * \param x0, y0, z0  //TODO Coordinates of centre of grid or upper left corner ?
+   * \param x0, y0, z0  Coordinates in pixel number of the lower left corner
    */
   void initZoomGridWithOriginAt(int x0, int y0, int z0, size_t zoomfac, size_t n) {
     grids::Grid<T> &gridAbove = multiLevelContext.getGridForLevel(multiLevelContext.getNumLevels() - 1);
@@ -479,7 +479,10 @@ public:
   }
 
   //! Dumps field at a given level in a file named grid-level
-  virtual void dumpGrid(size_t level = 0) {
+  virtual void dumpGrid(size_t level) {
+    if(level < 0 || level > this->multiLevelContext.getNumLevels() -1){
+      throw std::runtime_error("Trying to dump an undefined level");
+    }
     outputField.toReal();
     dumpGridData(level, outputField.getFieldForLevel(level));
   }
@@ -500,7 +503,10 @@ public:
                                  (getOutputPath() + "_" + ((char) (level + '0')) + ".ps").c_str());
   }
 
-  virtual void dumpMask(size_t level=0){
+  virtual void dumpMask(size_t level){
+    if(level < 0 || level > this->multiLevelContext.getNumLevels() -1){
+      throw std::runtime_error("Trying to dump an undefined level");
+    }
     auto mask = fields::RAMSESMaskField<GridDataType>(this->multiLevelContext);
     mask.calculateMasksAllLevels();
     dumpGridData(level, mask.getFieldForLevel(level));
