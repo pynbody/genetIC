@@ -24,8 +24,7 @@ zoomgrid 4 64
 
 done
 
-dump_mask 0
-dump_mask 1
+dump_mask
 
 
 

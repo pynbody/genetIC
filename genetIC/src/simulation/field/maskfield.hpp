@@ -53,7 +53,7 @@ namespace fields {
       } else {
         calculateMaskFinestLevel();
 
-        for (size_t level = 0; level < finest_level - 1; ++level) {
+        for (size_t level = 0; level < finest_level; ++level) {
           auto current_level_grid = this->multiLevelContext->getGridForLevel(level);
           auto next_level_grid = this->multiLevelContext->getGridForLevel(level + 1);
           refineNextZoomGrid(current_level_grid, next_level_grid, level);
@@ -66,13 +66,13 @@ namespace fields {
 
     void calculateMaskFinestLevel() override {
       size_t finest_level = this->multiLevelContext->getNumLevels() - 1;
-      size_t deepest_flagged_level = finest_level;
-      // There might be several virtual grids above with no flagged cells to refer to
-      //TODO Unfinished, need to catch runtime err if there are no flagged cells at all
+      size_t deepest_flagged_level;
+
       try {
         deepest_flagged_level = this->multiLevelContext->deepestLevelwithFlaggedCells();
-      } catch (std::runtime_error& err) {
-
+      } catch (std::runtime_error& err){
+        refineEntireGrid(this->multiLevelContext->getGridForLevel(finest_level), finest_level);
+        return;
       }
 
       if (deepest_flagged_level == finest_level) {

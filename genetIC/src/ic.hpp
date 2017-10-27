@@ -503,13 +503,18 @@ public:
                                  (getOutputPath() + "_" + ((char) (level + '0')) + ".ps").c_str());
   }
 
-  virtual void dumpMask(size_t level){
-    if(level < 0 || level > this->multiLevelContext.getNumLevels() -1){
-      throw std::runtime_error("Trying to dump an undefined level");
-    }
-    auto mask = fields::RAMSESMaskField<GridDataType>(this->multiLevelContext);
+  virtual void dumpMask(){
+
+    // this is ugly but it makes sure I can dump virtual grids if there are any.
+    // TODO get rid of this entire method
+    multilevelcontext::MultiLevelContextInformation<GridDataType> newcontext;
+    this->multiLevelContext.copyContextWithIntermediateResolutionGrids(newcontext);
+
+    auto mask = fields::RAMSESMaskField<GridDataType>(newcontext);
     mask.calculateMasksAllLevels();
-    dumpGridData(level, mask.getFieldForLevel(level));
+    for (size_t level=0; level< newcontext.getNumLevels(); level++) {
+      dumpGridData(level, mask.getFieldForLevel(level));
+    }
   }
 
 

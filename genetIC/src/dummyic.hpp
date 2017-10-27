@@ -62,6 +62,8 @@ public:
 
   void dumpPS(size_t /*level*/) override {}
 
+  void dumpMask() override {}
+
   virtual void initialiseParticleGenerator() override {}
 
   void dumpID(string /*fname*/) override {}
