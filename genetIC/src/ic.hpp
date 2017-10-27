@@ -451,7 +451,7 @@ public:
 
   template<typename TField>
   void dumpGridData(size_t level, const TField &data) {
-    grids::Grid<T> &levelGrid = multiLevelContext.getGridForLevel(level);
+    auto levelGrid = data.getGrid();
 
     ostringstream filename;
     filename << outputFolder << "/grid-" << level << ".npy";
