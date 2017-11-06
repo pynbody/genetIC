@@ -242,6 +242,71 @@ namespace multilevelcontext {
 
     }
 
+    //! Mask generation if this is useful for your application, e.g. Ramses
+    /*!
+     * @return 1.0 if cell with index is in the mask in this level, 0.0 else.
+     */
+    T isinMask(size_t level, size_t index){
+      size_t finestLevel = this->getNumLevels() -1;
+
+      if (level >= this->getNumLevels() || level < 0){
+        throw std::runtime_error("Enter a valid level when calling mask generation");
+      } else if (level == finestLevel){
+        return isinMaskFinestLevel(index);
+      } else{
+        isinMaskCoarseLevel(level, index);
+      }
+
+    }
+
+    //! Mask for any other level than the finest
+    T isinMaskCoarseLevel(size_t level, size_t index){
+
+      auto currentLevelGrid = this->getGridForLevel(level);
+      auto nextLevelGrid = this->getGridForLevel(level + 1);
+
+      Coordinate<T> cell_coord(currentLevelGrid.getCellCentroid(index));
+      if (nextLevelGrid.containsPoint(cell_coord)) {
+          return 1.0f;
+      } else{
+        return 0.0f;
+      }
+    }
+
+    //! Finest level has different status because the shape of the Lagrangian region is stored on coarser grids
+    T isinMaskFinestLevel(size_t index){
+      size_t finestLevel = this->getNumLevels() -1;
+      size_t deepestFlaggedLevel;
+
+      try {
+        deepestFlaggedLevel = this->deepestLevelwithFlaggedCells();
+      } catch (std::runtime_error& err){
+        throw std::runtime_error("No flag cells on any grid, do not know how to generate a mask in this case.");
+      }
+
+      if (deepestFlaggedLevel == finestLevel ) {
+        throw std::runtime_error("There are some flagged cells on the finest level. This is weird...");
+      }
+
+      auto coarserGrid = this->getGridForLevel(deepestFlaggedLevel);
+      auto finestGrid = this->getGridForLevel(finestLevel);
+
+      std::vector<size_t> flags;
+      coarserGrid.getFlaggedCells(flags);
+
+      Coordinate<T> cell_coord(finestGrid.getCellCentroid(index));
+      size_t idOnCoarser = coarserGrid.getCellContainingPoint(cell_coord);
+      // If the current cell is flagged on the above level, mark it valid for refinement
+      if((std::binary_search(flags.begin(), flags.end(), idOnCoarser))){
+            return 1.0f;
+      } else{
+        return 0.0f;
+      }
+
+
+
+    }
+
   };
 
   template<typename T>
