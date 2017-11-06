@@ -96,7 +96,7 @@ namespace fields {
       for (size_t i = 0; i < current_level_grid.size3; i++) {
         Coordinate<T> cell_coord(current_level_grid.getCellCentroid(i));
         if (other_level_grid.containsPoint(cell_coord)) {
-          this->getFieldForLevel(level).getDataVector()[i] = 1;
+          this->getFieldForLevel(level).getDataVector()[i] = 1.0f;
         }
       }
     }
@@ -105,7 +105,7 @@ namespace fields {
                               size_t level){
 #pragma omp parallel for
       for (size_t i=0; i< flaggedcellsarray.size(); i++) {
-        this->getFieldForLevel(level).getDataVector()[flaggedcellsarray[i]] = 1;
+        this->getFieldForLevel(level).getDataVector()[flaggedcellsarray[i]] = 1.0f;
       }
     }
 
@@ -124,7 +124,7 @@ namespace fields {
 
         // If the current cell is flagged on the above level, mark it valid for refinement
         if((std::binary_search(flags.begin(), flags.end(), id_on_other))){
-          this->getFieldForLevel(level).getDataVector()[i] = 1;
+          this->getFieldForLevel(level).getDataVector()[i] = 1.0f;
         }
       }
     }
@@ -132,7 +132,7 @@ namespace fields {
     void refineEntireGrid(grids::Grid<DataType>& current_level_grid, size_t level){
 #pragma omp parallel for
       for (size_t i = 0; i < current_level_grid.size3; i++) {
-        this->getFieldForLevel(level).getDataVector()[i] = 1;
+        this->getFieldForLevel(level).getDataVector()[i] = 1.0f;
       }
     }
 };

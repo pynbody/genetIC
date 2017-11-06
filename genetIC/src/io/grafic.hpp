@@ -150,7 +150,7 @@ namespace io {
 
 
           writeHeaderForGrid(files.back(), grid);
-          std::vector<size_t> block_lengths = {sizeof(size_t) * grid.size2};
+          std::vector<size_t> block_lengths = {sizeof(float) * grid.size2};
 
           for (size_t i_z = 0; i_z < grid.size; ++i_z) {
             writeBlockHeaderFooter(block_lengths, files);
@@ -158,8 +158,8 @@ namespace io {
               for (size_t i_x = 0; i_x < grid.size; ++i_x) {
                 size_t i = grid.getCellIndexNoWrap(i_x, i_y, i_z);
 
-                size_t mask_value = mask.getFieldForLevel(level).getDataVector()[i];
-                files[0].write((char *) (&mask_value), sizeof(size_t));
+                float mask_value = mask.getFieldForLevel(level).getDataVector()[i];
+                files[0].write((char *) (&mask_value), sizeof(float));
               }
             }
             writeBlockHeaderFooter(block_lengths, files);
