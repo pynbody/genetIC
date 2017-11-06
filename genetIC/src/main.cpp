@@ -42,6 +42,7 @@ void setup_parser(tools::ClassDispatch<ICf, void> &dispatch) {
   dispatch.add_class_route("s8", &ICf::setSigma8);
   dispatch.add_class_route("ns", &ICf::setns);
   dispatch.add_class_route("zin", &ICf::setZ0);
+  dispatch.add_class_route("pvar", &ICf::setpvarValue);
 
   // Set seeds for random draws
   dispatch.add_class_route("seed", &ICf::setSeed);

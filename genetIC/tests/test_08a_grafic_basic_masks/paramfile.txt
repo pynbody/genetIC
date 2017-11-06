@@ -15,6 +15,9 @@ s8  0.817
 zin	99
 camb    ../camb_transfer_kmax40_z0_post2015.dat
 
+# Generate a passive refinement variable
+pvar 0.01
+
 # fourier seeding
 seed	8896131
 
@@ -35,8 +38,5 @@ zoomgrid 2 64
 
 done
 
-dump_mask 0
-dump_mask 1
-dump_mask 2
-dump_mask 3
+dump_mask
 

@@ -254,12 +254,12 @@ namespace multilevelcontext {
       } else if (level == finestLevel){
         return isinMaskFinestLevel(index);
       } else{
-        isinMaskCoarseLevel(level, index);
+        return isinMaskCoarseLevel(level, index);
       }
-
     }
 
     //! Mask for any other level than the finest
+    //TODO Make sure 2/3 cells at the border are not refined
     T isinMaskCoarseLevel(size_t level, size_t index){
 
       auto currentLevelGrid = this->getGridForLevel(level);

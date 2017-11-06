@@ -97,6 +97,9 @@ protected:
   //! Coordinates of the cell of current interest
   T x0, y0, z0;
 
+  //! Value of passive variable for refinement masks if needed
+  T pvarValue = 1.0;
+
   shared_ptr<particle::mapper::ParticleMapper<GridDataType>> pMapper;
   shared_ptr<particle::mapper::ParticleMapper<GridDataType>> pInputMapper;
   shared_ptr<multilevelcontext::MultiLevelContextInformation<GridDataType>> pInputMultiLevelContext;
@@ -191,6 +194,10 @@ public:
   void setZ0(T in) {
     cosmology.redshift = in;
     cosmology.scalefactor = 1. / (cosmology.redshift + 1.);
+  }
+
+  void setpvarValue(T value) {
+    this->pvarValue = value;
   }
 
   //! Define the base (coarsest) grid
@@ -510,10 +517,33 @@ public:
     multilevelcontext::MultiLevelContextInformation<GridDataType> newcontext;
     this->multiLevelContext.copyContextWithIntermediateResolutionGrids(newcontext);
 
-    auto mask = fields::RAMSESMaskField<GridDataType>(newcontext);
-    mask.calculateMasksAllLevels();
     for (size_t level=0; level< newcontext.getNumLevels(); level++) {
-      dumpGridData(level, mask.getFieldForLevel(level));
+      auto levelGrid = newcontext.getGridForLevel(level);
+      auto n = static_cast<int>(levelGrid.size);
+      const int dim[3] = {n, n, n};
+      ostringstream filename;
+      filename << outputFolder << "/grid-" << level << ".npy";
+
+      std::vector<T> data;
+      for(size_t index=0; index < newcontext.getGridForLevel(level).size3; index++){
+        data.push_back(newcontext.isinMask(level, index));
+      }
+
+      io::numpy::SaveArrayAsNumpy(filename.str(), false, 3, dim, data.data());
+
+      filename.str("");
+
+      filename << outputFolder << "/grid-info-" << level << ".txt";
+
+      ofstream ifile;
+      ifile.open(filename.str());
+      cerr << "Writing to " << filename.str() << endl;
+
+      ifile << levelGrid.offsetLower.x << " " << levelGrid.offsetLower.y << " "
+            << levelGrid.offsetLower.z << " " << levelGrid.thisGridSize << endl;
+      ifile << "The line above contains information about grid level " << level << endl;
+      ifile << "It gives the x-offset, y-offset and z-offset of the low-left corner and also the box length" << endl;
+      ifile.close();
     }
   }
 
@@ -675,7 +705,7 @@ public:
                     pMapper, cosmology);
         break;
       case OutputFormat::grafic:
-        grafic::save(getOutputPath() + ".grafic", *pParticleGenerator, multiLevelContext, cosmology);
+        grafic::save(getOutputPath() + ".grafic", *pParticleGenerator, multiLevelContext, cosmology, pvarValue);
         break;
       default:
         throw std::runtime_error("Unknown output format");
