@@ -359,7 +359,7 @@ public:
     cout << "  n                     = " << newGrid.size << endl;
     cout << "  dx                    = " << newGrid.cellSize << endl;
     cout << "  Zoom factor           = " << zoomfac << endl;
-    cout << "  Origin in parent grid = " << lowerCorner << endl;
+    cout << "  Origin in parent grid = " << lowerCorner << endl; //TODO Origin is misleading as it stands for center
     cout << "  Low-left corner       = " << newGrid.offsetLower.x << ", " << newGrid.offsetLower.y << ", "
          << newGrid.offsetLower.z << endl;
     cout << "  Num particles         = " << newLevelZoomParticleArray.size() << endl;

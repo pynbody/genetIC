@@ -266,13 +266,18 @@ namespace multilevelcontext {
       auto currentLevelGrid = this->getGridForLevel(level);
       auto nextLevelGrid = this->getGridForLevel(level + 1);
 
-      int numberofPixelsToExcludeAtTheEdge = 3;
+      if(!currentLevelGrid.containsCell(index)){
+        throw std::runtime_error("Index is outside grid range");
+      }
+
+//      int numberofPixelsToExcludeAtTheEdge = 3;
 
       Coordinate<T> cell_coord(currentLevelGrid.getCellCentroid(index));
-      if (nextLevelGrid.containsPointWithBorderSafety(cell_coord, numberofPixelsToExcludeAtTheEdge)) {
-          return 1.0f;
+//      if (nextLevelGrid.containsPointWithBorderSafety(cell_coord, numberofPixelsToExcludeAtTheEdge)) {
+      if (nextLevelGrid.containsPoint(cell_coord)) {
+        return T(1.0);
       } else{
-        return 0.0f;
+        return T(0.0);
       }
     }
 
@@ -301,9 +306,9 @@ namespace multilevelcontext {
       size_t idOnCoarser = coarserGrid.getCellContainingPoint(cell_coord);
       // If the current cell is flagged on the above level, mark it valid for refinement
       if((std::binary_search(flags.begin(), flags.end(), idOnCoarser))){
-            return 1.0f;
+            return T(1.0);
       } else{
-        return 0.0f;
+        return T(0.0);
       }
 
 

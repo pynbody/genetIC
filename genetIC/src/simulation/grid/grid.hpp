@@ -49,7 +49,7 @@ namespace grids {
     const T periodicDomainSize;
     const T thisGridSize;   /*!< Grid (one side) size in Mpc */
     const T cellSize;
-    const Coordinate<T> offsetLower;
+    const Coordinate<T> offsetLower; ///< Coordinate of the pixel edge of lower corner of the grid
     const size_t size; ///<the number of cells on a side
     const size_t size2; ///< the number of cells on a face
     const size_t size3; ///< the total number of cells in the grid cube
