@@ -514,6 +514,8 @@ public:
 
     // this is ugly but it makes sure I can dump virtual grids if there are any.
     // TODO get rid of this entire method
+
+    cerr << "Dumping mask grids" << endl;
     multilevelcontext::MultiLevelContextInformation<GridDataType> newcontext;
     this->multiLevelContext.copyContextWithIntermediateResolutionGrids(newcontext);
 

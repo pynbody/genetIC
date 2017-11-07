@@ -260,13 +260,16 @@ namespace multilevelcontext {
 
     //! Mask for any other level than the finest
     //TODO Make sure 2/3 cells at the border are not refined
+    //TODO Make sure wrapping is done correctly
     T isinMaskCoarseLevel(size_t level, size_t index){
 
       auto currentLevelGrid = this->getGridForLevel(level);
       auto nextLevelGrid = this->getGridForLevel(level + 1);
 
+      int numberofPixelsToExcludeAtTheEdge = 3;
+
       Coordinate<T> cell_coord(currentLevelGrid.getCellCentroid(index));
-      if (nextLevelGrid.containsPoint(cell_coord)) {
+      if (nextLevelGrid.containsPointWithBorderSafety(cell_coord, numberofPixelsToExcludeAtTheEdge)) {
           return 1.0f;
       } else{
         return 0.0f;
@@ -281,7 +284,7 @@ namespace multilevelcontext {
       try {
         deepestFlaggedLevel = this->deepestLevelwithFlaggedCells();
       } catch (std::runtime_error& err){
-        throw std::runtime_error("No flag cells on any grid, do not know how to generate a mask in this case.");
+        throw std::runtime_error("No flag cells on any grids, do not know how to generate a mask in this case.");
       }
 
       if (deepestFlaggedLevel == finestLevel ) {

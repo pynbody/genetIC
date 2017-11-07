@@ -24,15 +24,15 @@ seed	8896131
 # basegrid 50 Mpc/h, 64^3
 basegrid 50.0 64
 
-centre 25 25 25
+centre 25.5 25.5 25.5
 select_nearest
 zoomgrid 2 64
 
-centre 25 25 25
+centre 25.5 25.5 25.5
 select_nearest
 zoomgrid 2 64
 
-centre 25 25 25
+centre 25.2 25.2 25.2
 select_nearest
 zoomgrid 2 64
 

@@ -174,6 +174,20 @@ namespace grids {
       return Window<T>(periodicDomainSize, offsetLower, offsetLower + thisGridSize).contains(coord);
     }
 
+    //! True if point in physical coordinates is on this grid and not too close to the border
+    /*!
+     * @param safety Exclude "safety" number of pixels at the edge of the box
+     */
+    virtual bool containsPointWithBorderSafety(const Coordinate<T> &coord, int safety ) const{
+      if(safety < 1){
+        throw std::runtime_error("Safety number of pixels must be at least one");
+      }
+
+      Coordinate<T> inclusiveMarginCorner = offsetLower + safety * cellSize;
+      Coordinate<T> exclusiveMarginCorner = offsetLower + thisGridSize - (safety - 1) * cellSize;
+      return Window<T>(periodicDomainSize, inclusiveMarginCorner, exclusiveMarginCorner).contains(coord);
+    }
+
     Coordinate<T> wrapPoint(Coordinate<T> pos) const {
       pos.x = fmod(pos.x, periodicDomainSize);
       if (pos.x < 0) pos.x += periodicDomainSize;
