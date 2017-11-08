@@ -938,6 +938,16 @@ public:
     T post_modif_chi2 = outputField.getChi2();
     cerr << "AFTER  modifications chi^2=" << post_modif_chi2 << endl;
     cerr << "             delta-chi^2=" << post_modif_chi2 - pre_modif_chi2 << endl;
+    cerr << zoomParticleArray.size() << endl;
+    cerr << zoomParticleArray[0].size() << endl;
+    cerr << zoomParticleArray[1].size() << endl;
+    cerr << zoomParticleArray[2].size() << endl;
+    cerr << zoomParticleArray[3].size() << endl;
+    cerr<<"------------------------------" <<endl;
+    cerr << this->multiLevelContext.getGridForLevel(0).hasFlaggedCells() << endl;
+    cerr << this->multiLevelContext.getGridForLevel(1).hasFlaggedCells() << endl;
+    cerr << this->multiLevelContext.getGridForLevel(2).hasFlaggedCells() << endl;
+    cerr << this->multiLevelContext.getGridForLevel(3).hasFlaggedCells() << endl;
     write();
   }
 
