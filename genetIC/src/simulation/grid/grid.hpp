@@ -155,6 +155,13 @@ namespace grids {
       return flags.size() > 0;
     }
 
+    virtual bool isCellFlagged(size_t id) const{
+      if((std::binary_search(flags.begin(), flags.end(), id))){
+        return true;
+      }
+      return false;
+    }
+
     /*! Return true if this grid has a known relationship to pOther, in the sense that a field defined on pOther
      * could be evaluated on this grid. */
     virtual bool pointsToGrid(const Grid *pOther) const {

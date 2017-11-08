@@ -147,11 +147,28 @@ namespace multilevelcontext {
     }
 
     size_t deepestLevelwithFlaggedCells() {
-      for (size_t i = this->getNumLevels() - 1; i >= 0; --i) {
+
+      for (size_t i = this->getNumLevels() - 1; i > 0; --i) {
         if (this->getGridForLevel(i).hasFlaggedCells())
           return i;
       }
+
+      // Separate zero case to avoid segfault when trying to create a negative size_t with --i
+      if(this->getGridForLevel(0).hasFlaggedCells()) return size_t(0);
+
       throw std::runtime_error("No level has any particles selected");
+    }
+
+    size_t deepestLevelwithFlaggedCellsAboveGivenLevel(const size_t level) {
+      for (size_t i = level; i > 0; --i) {
+        if (this->getGridForLevel(i).hasFlaggedCells())
+          return i;
+      }
+
+      // Separate zero case to avoid segfault when trying to create a negative size_t with --i
+      if(this->getGridForLevel(0).hasFlaggedCells()) return size_t(0);
+
+      throw std::runtime_error("No level above level has any particles selected");
     }
 
     //! From finest level, use interpolation to construct other levels
@@ -246,73 +263,49 @@ namespace multilevelcontext {
     /*!
      * @return 1.0 if cell with index is in the mask in this level, 0.0 else.
      */
-    T isinMask(size_t level, size_t index){
-      size_t finestLevel = this->getNumLevels() -1;
+    T isinMask(size_t level, size_t index) {
 
-      if (level >= this->getNumLevels() || level < 0){
+      if (level >= this->getNumLevels() || level < 0) {
         throw std::runtime_error("Enter a valid level when calling mask generation");
-      } else if (level == finestLevel){
-        return isinMaskFinestLevel(index);
-      } else{
-        return isinMaskCoarseLevel(level, index);
       }
-    }
-
-    //! Mask for any other level than the finest
-    //TODO Make sure 2/3 cells at the border are not refined
-    //TODO Make sure wrapping is done correctly
-    T isinMaskCoarseLevel(size_t level, size_t index){
 
       auto currentLevelGrid = this->getGridForLevel(level);
-      auto nextLevelGrid = this->getGridForLevel(level + 1);
 
-      if(!currentLevelGrid.containsCell(index)){
-        throw std::runtime_error("Index is outside grid range");
+      // If there are flagged cells on this level, they should be the mask
+      if (currentLevelGrid.hasFlaggedCells()) {
+        if (currentLevelGrid.isCellFlagged(index)) {
+          return T(1.0);
+        }
+        return T(0.0);
       }
 
-//      int numberofPixelsToExcludeAtTheEdge = 3;
+      // If not, mask is determined with respect to flagged cells on above levels
+      size_t deepestAboveLevelWithFlaggedCells;
+      try{
+        deepestAboveLevelWithFlaggedCells = this->deepestLevelwithFlaggedCellsAboveGivenLevel(level);
+      } catch(std::runtime_error&){
+        // Most likely, we are in the first virtual level with no flagged cells in it and no above level
+        // Refine everywhere in this level that is rarely used in parctice.
+        //TODO: Why are we generating a virtual coarser level than the coarse level anyway ?
+        return T(1.0);
+      }
+
+      auto aboveGridWithFlaggedCells = this->getGridForLevel(deepestAboveLevelWithFlaggedCells);
+      return isCellFlaggedOnAboveLevel(aboveGridWithFlaggedCells, currentLevelGrid, index);
+    }
+
+    T static isCellFlaggedOnAboveLevel(grids::Grid<T>& aboveGrid, grids::Grid<T>& currentLevelGrid, size_t index){
+      std::vector<size_t> flags;
+      aboveGrid.getFlaggedCells(flags);
 
       Coordinate<T> cell_coord(currentLevelGrid.getCellCentroid(index));
-//      if (nextLevelGrid.containsPointWithBorderSafety(cell_coord, numberofPixelsToExcludeAtTheEdge)) {
-      if (nextLevelGrid.containsPoint(cell_coord)) {
+      size_t idOnCoarser = aboveGrid.getCellContainingPoint(cell_coord);
+      // If the current cell is flagged on the above level, mark it valid for refinement
+      if(aboveGrid.isCellFlagged(idOnCoarser)){
         return T(1.0);
       } else{
         return T(0.0);
       }
-    }
-
-    //! Finest level has different status because the shape of the Lagrangian region is stored on coarser grids
-    T isinMaskFinestLevel(size_t index){
-      size_t finestLevel = this->getNumLevels() -1;
-      size_t deepestFlaggedLevel;
-
-      try {
-        deepestFlaggedLevel = this->deepestLevelwithFlaggedCells();
-      } catch (std::runtime_error& err){
-        throw std::runtime_error("No flag cells on any grids, do not know how to generate a mask in this case.");
-      }
-
-      if (deepestFlaggedLevel == finestLevel ) {
-        throw std::runtime_error("There are some flagged cells on the finest level. This is weird...");
-      }
-
-      auto coarserGrid = this->getGridForLevel(deepestFlaggedLevel);
-      auto finestGrid = this->getGridForLevel(finestLevel);
-
-      std::vector<size_t> flags;
-      coarserGrid.getFlaggedCells(flags);
-
-      Coordinate<T> cell_coord(finestGrid.getCellCentroid(index));
-      size_t idOnCoarser = coarserGrid.getCellContainingPoint(cell_coord);
-      // If the current cell is flagged on the above level, mark it valid for refinement
-      if((std::binary_search(flags.begin(), flags.end(), idOnCoarser))){
-            return T(1.0);
-      } else{
-        return T(0.0);
-      }
-
-
-
     }
 
   };
