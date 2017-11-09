@@ -6,7 +6,6 @@
 #include <map>
 #include <vector>
 #include <cassert>
-#include <vector>
 #include <memory>
 
 #include "src/simulation/grid/grid.hpp"
@@ -148,27 +147,12 @@ namespace multilevelcontext {
 
     size_t deepestLevelwithFlaggedCells() {
 
-      for (size_t i = this->getNumLevels() - 1; i > 0; --i) {
+      for (int i = this->getNumLevels() - 1; i >= 0; --i) {
         if (this->getGridForLevel(i).hasFlaggedCells())
-          return i;
+          return size_t(i);
       }
-
-      // Separate zero case to avoid segfault when trying to create a negative size_t with --i
-      if(this->getGridForLevel(0).hasFlaggedCells()) return size_t(0);
 
       throw std::runtime_error("No level has any particles selected");
-    }
-
-    size_t deepestLevelwithFlaggedCellsAboveGivenLevel(const size_t level) {
-      for (size_t i = level; i > 0; --i) {
-        if (this->getGridForLevel(i).hasFlaggedCells())
-          return i;
-      }
-
-      // Separate zero case to avoid segfault when trying to create a negative size_t with --i
-      if(this->getGridForLevel(0).hasFlaggedCells()) return size_t(0);
-
-      throw std::runtime_error("No level above level has any particles selected");
     }
 
     //! From finest level, use interpolation to construct other levels
@@ -259,62 +243,11 @@ namespace multilevelcontext {
 
     }
 
-    //! Mask generation if this is useful for your application, e.g. Ramses
-    /*!
-     * @return 1.0 if cell with index is in the mask in this level, 0.0 else.
-     */
-  public:
-    T isinMask(size_t level, size_t index) {
-      auto flaggedIdsAtEachLevel = this->generateFlaggedHierarchy();
-
-      if(flaggedIdsAtEachLevel[level].size() == 0){
-        return T(1.0);
-      } else if((std::binary_search(flaggedIdsAtEachLevel[level].begin(), flaggedIdsAtEachLevel[level].end(), index))){
-        return T(1.0);
-      }
-
-      return T(0.0);
-    }
-
-  protected:
-    std::vector<std::vector<size_t>> generateFlaggedHierarchy(){
-      // From deepest flagged level, generate vector of flagged cells at each level
-      size_t deepestFlaggedLevel = this->deepestLevelwithFlaggedCells();
-
-      std::vector<std::vector<size_t>> flaggedIdsAtEachLevel;
-
-      //TODO Deal with zero case
-      for(size_t level=deepestFlaggedLevel; level<1; level--){
-        std::vector<size_t> flaggedIdsOnThisLevel;
-        this->getGridForLevel(level).getFlaggedCells(flaggedIdsOnThisLevel);
-        for (size_t i : flaggedIdsOnThisLevel){
-          flaggedIdsAtEachLevel[level-1].push_back(this->getIndexofAboveCellContainingThisCell(level, level-1, i));
-        }
-      }
-
-      return flaggedIdsAtEachLevel;
-    }
-
     size_t getIndexofAboveCellContainingThisCell(size_t currentLevel, size_t aboveLevel, size_t cellIndexOnFine){
       auto currentLevelGrid = this->getGridForLevel(currentLevel);
       auto aboveLevelGrid = this->getGridForLevel(aboveLevel);
-      Coordinate<T> cell_coord(currentLevelGrid.getCellCentroid(index));
+      Coordinate<T> cell_coord(currentLevelGrid.getCellCentroid(cellIndexOnFine));
       return aboveLevelGrid.getCellContainingPoint(cell_coord);
-    }
-
-
-    T static isCellFlaggedOnAboveLevel(grids::Grid<T>& aboveGrid, grids::Grid<T>& currentLevelGrid, size_t index){
-      std::vector<size_t> flags;
-      aboveGrid.getFlaggedCells(flags);
-
-      Coordinate<T> cell_coord(currentLevelGrid.getCellCentroid(index));
-      size_t idOnCoarser = aboveGrid.getCellContainingPoint(cell_coord);
-      // If the current cell is flagged on the above level, mark it valid for refinement
-      if(aboveGrid.isCellFlagged(idOnCoarser)){
-        return T(1.0);
-      } else{
-        return T(0.0);
-      }
     }
 
   };

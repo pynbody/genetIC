@@ -7,6 +7,7 @@
 #include "src/simulation/multilevelcontext/multilevelcontext.hpp"
 #include "src/cosmology/parameters.hpp"
 #include <src/simulation/particles/multilevelgenerator.hpp>
+#include <src/simulation/multilevelcontext/mask.hpp>
 
 namespace io {
   namespace grafic {
@@ -28,6 +29,7 @@ namespace io {
       multilevelcontext::MultiLevelContextInformation<DataType> context;
       std::shared_ptr<particle::AbstractMultiLevelParticleGenerator<DataType>> generator;
       const cosmology::CosmologicalParameters<T> &cosmology;
+      multilevelcontext::RamsesMask<DataType,T> mask;
       T pvarValue;
 
       T lengthFactor;
@@ -43,8 +45,10 @@ namespace io {
           outputFilename(fname),
           generator(particleGenerator.shared_from_this()),
           cosmology(cosmology),
+          mask(&levelContext),
           pvarValue(pvarValue){
         levelContext.copyContextWithIntermediateResolutionGrids(context);
+        mask.recalculateWithNewContext(&context);
         lengthFactor = 1. / cosmology.hubble; // Gadget Mpc a h^-1 -> GrafIC file Mpc a
         velFactor = std::pow(cosmology.scalefactor, 0.5f); // Gadget km s^-1 a^1/2 -> GrafIC km s^-1
       }
@@ -107,8 +111,8 @@ namespace io {
 
               // TODO For now, the baryon density is not calculated and set to zero
               float deltab = 0;
-              float mask = this->context.isinMask(level, i);
-              float pvar = pvarValue * this->context.isinMask(level, i);
+              float mask = this->mask.isInMask(level, i);
+              float pvar = pvarValue * mask;
 
               // Eek. The following code is horrible. Is there a way to make it neater?
               files[0].write((char *) (&velScaled.x), sizeof(float));
