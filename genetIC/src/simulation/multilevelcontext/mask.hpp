@@ -21,6 +21,8 @@ namespace multilevelcontext {
 
     virtual void ensureFlaggedVolumeIsContinuous() = 0;
 
+    virtual void calculateMask() = 0;
+
   protected:
     MultiLevelContextInformation<DataType>* multilevelcontext;
     std::vector<std::vector<size_t>> flaggedIdsAtEachLevel;
@@ -34,10 +36,7 @@ namespace multilevelcontext {
 
   public:
     explicit RamsesMask(MultiLevelContextInformation<DataType>* multilevelcontext_):
-        AbstractBaseMask<DataType, T> (multilevelcontext_){
-      generateFlagsHierarchy();
-      ensureFlaggedVolumeIsContinuous();
-    };
+        AbstractBaseMask<DataType, T> (multilevelcontext_){};
 
     //! Mask generation if this is useful for your application, e.g. Ramses
     /*!
@@ -57,6 +56,11 @@ namespace multilevelcontext {
 
     }
 
+    void calculateMask() override{
+      generateFlagsHierarchy();
+      ensureFlaggedVolumeIsContinuous();
+    }
+
     void ensureFlaggedVolumeIsContinuous() override{
       //TODO Add Lagrangian volume definition if it bothers you
     }
@@ -65,16 +69,21 @@ namespace multilevelcontext {
       this->multilevelcontext = multilevelcontext_;
       this->flaggedIdsAtEachLevel.clear();
       this->flaggedIdsAtEachLevel = std::vector<std::vector<size_t>>(this->multilevelcontext->getNumLevels());
-      generateFlagsHierarchy();
-      ensureFlaggedVolumeIsContinuous();
+
+      calculateMask();
     }
 
   protected:
     void generateFlagsHierarchy() override {
-      // From deepest flagged level, generate vector of flagged cells at each level
-      size_t deepestFlaggedLevel = this->multilevelcontext->deepestLevelwithFlaggedCells();
 
-      for (int level = deepestFlaggedLevel; level >= 0; level--) {
+      // Mask is generated assuming the deepest flagged cells are the interesting cells one is after
+      size_t deepestFlaggedLevel = this->multilevelcontext->deepestLevelwithFlaggedCells();
+      generateHierarchyAboveLevelInclusive(deepestFlaggedLevel);
+      generateHierarchyBelowLevelExclusive(deepestFlaggedLevel);
+    }
+
+    void generateHierarchyAboveLevelInclusive(size_t deepestLevel){
+      for (int level = deepestLevel; level >= 0; level--) {
 
         auto currentLevelGrid = this->multilevelcontext->getGridForLevel(level);
         if (currentLevelGrid.hasFlaggedCells()) {
@@ -86,14 +95,37 @@ namespace multilevelcontext {
             this->flaggedIdsAtEachLevel[level].push_back(
                 this->multilevelcontext->getIndexofAboveCellContainingThisCell(level + 1, level, i));
           }
-
           // The above procedure might not be ordered and will create duplicates, get rid of them.
-          std::sort(this->flaggedIdsAtEachLevel[level].begin(), this->flaggedIdsAtEachLevel[level].end());
-          this->flaggedIdsAtEachLevel[level].erase(std::unique(
-              this->flaggedIdsAtEachLevel[level].begin(),
-              this->flaggedIdsAtEachLevel[level].end()), this->flaggedIdsAtEachLevel[level].end());
+          sortAndEraseDuplicate(level);
         }
       }
+    }
+
+    void generateHierarchyBelowLevelExclusive(size_t coarsestLevel){
+
+      // Do all level between this level and the finest
+      for(size_t level=coarsestLevel + 1; level < this->multilevelcontext->getNumLevels() - 1; level++){
+
+        auto currentLevelGrid = this->multilevelcontext->getGridForLevel(level);
+        for(size_t i = 0; i < currentLevelGrid.size3; i++){
+          size_t aboveindex = this->multilevelcontext->getIndexofAboveCellContainingThisCell(level, level - 1, i);
+          if(this->isMasked(aboveindex, level - 1)){
+            this->flaggedIdsAtEachLevel[level].push_back(i);
+          }
+        }
+      }
+    }
+
+    void sortAndEraseDuplicate(size_t level){
+      std::sort(this->flaggedIdsAtEachLevel[level].begin(), this->flaggedIdsAtEachLevel[level].end());
+      this->flaggedIdsAtEachLevel[level].erase(std::unique(
+          this->flaggedIdsAtEachLevel[level].begin(),
+          this->flaggedIdsAtEachLevel[level].end()), this->flaggedIdsAtEachLevel[level].end());
+    }
+
+    bool isMasked(size_t id, size_t level){
+      return std::binary_search(this->flaggedIdsAtEachLevel[level].begin(),
+                                this->flaggedIdsAtEachLevel[level].end(), id);
     }
   };
 }
