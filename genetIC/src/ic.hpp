@@ -510,44 +510,13 @@ public:
                                  (getOutputPath() + "_" + ((char) (level + '0')) + ".ps").c_str());
   }
 
-  virtual void dumpMask(){
-
-    // this is ugly but it makes sure I can dump virtual grids if there are any.
-    // TODO get rid of this entire method
-
+  virtual void dumpMask() {
     cerr << "Dumping mask grids" << endl;
+    // this is ugly but it makes sure I can dump virtual grids if there are any.
     multilevelcontext::MultiLevelContextInformation<GridDataType> newcontext;
     this->multiLevelContext.copyContextWithIntermediateResolutionGrids(newcontext);
     auto dumpingMask = multilevelcontext::RamsesMask<GridDataType, T>(&newcontext);
-
-    for (size_t level=0; level< newcontext.getNumLevels(); level++) {
-      auto levelGrid = newcontext.getGridForLevel(level);
-      auto n = static_cast<int>(levelGrid.size);
-      const int dim[3] = {n, n, n};
-      ostringstream filename;
-      filename << outputFolder << "/grid-" << level << ".npy";
-
-      std::vector<T> data;
-      for(size_t index=0; index < newcontext.getGridForLevel(level).size3; index++){
-        data.push_back(dumpingMask.isInMask(level, index));
-      }
-
-      io::numpy::SaveArrayAsNumpy(filename.str(), false, 3, dim, data.data());
-
-      filename.str("");
-
-      filename << outputFolder << "/grid-info-" << level << ".txt";
-
-      ofstream ifile;
-      ifile.open(filename.str());
-      cerr << "Writing to " << filename.str() << endl;
-
-      ifile << levelGrid.offsetLower.x << " " << levelGrid.offsetLower.y << " "
-            << levelGrid.offsetLower.z << " " << levelGrid.thisGridSize << endl;
-      ifile << "The line above contains information about grid level " << level << endl;
-      ifile << "It gives the x-offset, y-offset and z-offset of the low-left corner and also the box length" << endl;
-      ifile.close();
-    }
+    dumpingMask.dumpNumpyMasks(outputFolder);
   }
 
 
@@ -1007,8 +976,6 @@ public:
     }
 
   }
-
-
 };
 
 #endif
