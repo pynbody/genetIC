@@ -29,16 +29,6 @@ def compare_grids(ref, test):
         npt.assert_almost_equal(grid_ref, grid_test, decimal=4)
     print("Grid output matches")
 
-def compare_masks(ref, test):
-    list_of_masks = [os.path.basename(x) for x in glob.glob(ref+"mask-?.npy")]
-    list_of_masks.sort()
-    assert (len(list_of_masks) != 0), "Could not find reference masks in the reference_mask folder"
-    for mask in list_of_masks:
-        grid_ref = np.load(ref+mask)
-        grid_test = np.load(test+mask)
-        npt.assert_almost_equal(grid_ref, grid_test, decimal=4)
-    print("Masks match")
-
 def compare_ps(ref, test):
     ref_vals = np.loadtxt(ref)
     test_vals = np.loadtxt(test)
@@ -50,9 +40,6 @@ def default_comparisons():
     assert len(sys.argv)==2
     if os.path.exists(sys.argv[1]+"/reference_grid"):
         compare_grids(sys.argv[1]+"/reference_grid/",sys.argv[1]+"/")
-
-    if os.path.exists(sys.argv[1]+"/reference_masks"):
-        compare_masks(sys.argv[1]+"/reference_masks/",sys.argv[1]+"/")
 
     powspecs = sorted(glob.glob(sys.argv[1]+"/*.ps"))
     powspecs_test = sorted(glob.glob(sys.argv[1]+"/reference_ps/*.ps"))

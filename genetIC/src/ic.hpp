@@ -516,6 +516,7 @@ public:
     multilevelcontext::MultiLevelContextInformation<GridDataType> newcontext;
     this->multiLevelContext.copyContextWithIntermediateResolutionGrids(newcontext);
     auto dumpingMask = multilevelcontext::RamsesMask<GridDataType, T>(&newcontext);
+    dumpingMask.calculateMask();
     dumpingMask.dumpNumpyMasks(outputFolder);
   }
 

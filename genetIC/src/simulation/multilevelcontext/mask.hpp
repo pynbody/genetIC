@@ -104,6 +104,7 @@ namespace multilevelcontext {
     void generateHierarchyBelowLevelExclusive(size_t coarsestLevel){
 
       // Do all level between this level and the finest
+      // TODO Decide if doing finest level is worth it given that Ramses does not read it.
       for(size_t level=coarsestLevel + 1; level < this->multilevelcontext->getNumLevels() - 1; level++){
 
         auto currentLevelGrid = this->multilevelcontext->getGridForLevel(level);
