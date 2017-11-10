@@ -2,8 +2,6 @@
 #define IC_MASK_HPP
 
 #include "src/simulation/multilevelcontext/multilevelcontext.hpp"
-#include <cstdlib>
-#include <vector>
 
 namespace multilevelcontext {
 

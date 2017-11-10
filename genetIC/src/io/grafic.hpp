@@ -1,11 +1,4 @@
-#include <fstream>
-#include <iostream>
-#include <cmath>
 #include <sys/stat.h>
-#include <sys/types.h>
-#include <list>
-#include "src/simulation/multilevelcontext/multilevelcontext.hpp"
-#include "src/cosmology/parameters.hpp"
 #include <src/simulation/particles/multilevelgenerator.hpp>
 #include <src/simulation/multilevelcontext/mask.hpp>
 
