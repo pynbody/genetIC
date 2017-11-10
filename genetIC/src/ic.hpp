@@ -196,6 +196,7 @@ public:
     cosmology.scalefactor = 1. / (cosmology.redshift + 1.);
   }
 
+  //! If generating an extra IC file of a passive variable, sets its value.
   void setpvarValue(T value) {
     this->pvarValue = value;
   }

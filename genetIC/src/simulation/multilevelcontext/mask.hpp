@@ -7,9 +7,7 @@
 
 namespace multilevelcontext {
 
-//  template<typename DataType, typename T=tools::datatypes::strip_complex <DataType>>
-//  class MultiLevelContextInformation<DataType>;
-
+  //! Abstract class to generate masks through the multilevel hierarchy
   template<typename DataType, typename T=tools::datatypes::strip_complex <DataType>>
   class AbstractBaseMask {
   public:
@@ -31,6 +29,11 @@ namespace multilevelcontext {
 
   };
 
+  //! Masks for Ramses producing ic_refmap and ic_pvar files to generate refinement masks in a grid
+  /*! The mask is done assuming that flagged cells on the deepest level are the cell of interest.
+   * It then tracks up and down these cells through the different grids to generate the mask on
+   * all levels.
+   */
   template<typename DataType, typename T=tools::datatypes::strip_complex <DataType>>
   class RamsesMask: public AbstractBaseMask<DataType, T> {
 
@@ -38,7 +41,6 @@ namespace multilevelcontext {
     explicit RamsesMask(MultiLevelContextInformation<DataType>* multilevelcontext_):
         AbstractBaseMask<DataType, T> (multilevelcontext_){};
 
-    //! Mask generation if this is useful for your application, e.g. Ramses
     /*!
      * @return 1.0 if cell with index is in the mask in this level, 0.0 else.
      */
@@ -74,9 +76,8 @@ namespace multilevelcontext {
     }
 
   protected:
+    //! Calculates the flagged cells on all levels from deepest level with flagged cells on it.
     void generateFlagsHierarchy() override {
-
-      // Mask is generated assuming the deepest flagged cells are the interesting cells one is after
       size_t deepestFlaggedLevel = this->multilevelcontext->deepestLevelwithFlaggedCells();
       generateHierarchyAboveLevelInclusive(deepestFlaggedLevel);
       generateHierarchyBelowLevelExclusive(deepestFlaggedLevel);

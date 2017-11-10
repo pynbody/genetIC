@@ -184,7 +184,7 @@ namespace grids {
       }
 
       Coordinate<T> inclusiveMarginCorner = offsetLower + safety * cellSize;
-      Coordinate<T> exclusiveMarginCorner = offsetLower + thisGridSize - (safety - 1) * cellSize;
+      Coordinate<T> exclusiveMarginCorner = offsetLower + thisGridSize - safety * cellSize;
       return Window<T>(periodicDomainSize, inclusiveMarginCorner, exclusiveMarginCorner).contains(coord);
     }
 

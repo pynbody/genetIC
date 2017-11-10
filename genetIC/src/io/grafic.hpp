@@ -135,52 +135,6 @@ namespace io {
 
       }
 
-//      void writeMask(){
-//
-//        auto mask = fields::RAMSESMaskField<DataType>(context);
-//        mask.calculateMasksAllLevels();
-//
-//        if(this->iordOffset != 0)
-//          iordOffset = 0;
-//
-//        auto filename = "ic_refmap";
-//        std::vector<std::ofstream> files;
-//
-//
-//
-//        for (size_t level =0; level < context.getNumLevels(); level++){
-//
-//          auto grid = mask.getFieldForLevel(level).getGrid();
-//
-//          const grids::Grid<T> &baseGrid = context.getGridForLevel(0);
-//          size_t effective_size = tools::getRatioAndAssertPositiveInteger(baseGrid.cellSize * baseGrid.size,
-//                                                                          grid.cellSize);
-//
-//          std::string thisGridFilename = outputFilename + "_" + std::to_string(effective_size);
-//          mkdir(thisGridFilename.c_str(), 0777);
-//          files.emplace_back(thisGridFilename + "/" + filename, std::ios::binary);
-//
-//
-//          writeHeaderForGrid(files.back(), grid);
-//          std::vector<size_t> block_lengths = {sizeof(float) * grid.size2};
-//
-//          for (size_t i_z = 0; i_z < grid.size; ++i_z) {
-//            writeBlockHeaderFooter(block_lengths, files);
-//            for (size_t i_y = 0; i_y < grid.size; ++i_y) {
-//              for (size_t i_x = 0; i_x < grid.size; ++i_x) {
-//                size_t i = grid.getCellIndexNoWrap(i_x, i_y, i_z);
-//
-//                float mask_value = mask.getFieldForLevel(level).getDataVector()[i];
-//                files[0].write((char *) (&mask_value), sizeof(float));
-//              }
-//            }
-//            writeBlockHeaderFooter(block_lengths, files);
-//          }
-//        files.pop_back();
-//        }
-//
-//      }
-
       void writeBlockHeaderFooter(const vector<size_t> &block_lengths, vector<ofstream> &files) const {
         assert(block_lengths.size() == files.size());
         for (size_t i = 0; i < block_lengths.size(); ++i) {
