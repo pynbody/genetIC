@@ -1,0 +1,25 @@
+# Test CAMB file with the new interface can also be read
+
+
+# output parameters
+outdir	 ./
+outformat 4
+outname test_7
+
+
+# cosmology:
+Om  0.279
+Ol  0.721
+s8  0.817
+zin	99
+camb    ../camb_transfer_kmax40_z0_post2015.dat
+
+# basegrid 50 Mpc/h, 64^3
+basegrid 50.0 32
+
+# fourier seeding
+seed	8896131
+
+
+done
+

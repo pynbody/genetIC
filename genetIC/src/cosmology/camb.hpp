@@ -64,14 +64,23 @@ namespace cosmology {
       kcamb.clear();
       Tcamb.clear();
 
-      const int c = 7; // number of columns in transfer function
+      // Dealing with the update of the CAMB TF output. Both are kept for backward compatibility.
+      const int c_old_camb = 7; // number of columns in camb transfer function pre 2015
+      const int c_new_camb = 13; // number of columns in camb transfer function post 2015
+      int c;
       size_t j;
 
       std::vector<double> input;
 
       io::getBuffer(input, incamb);
 
-      if (input.size() < c || input.size() % c != 0) {
+      if(input.size() > c_old_camb && input.size() % c_old_camb == 0){
+        std::cerr << "Using pre 2015 CAMB transfer function" << std::endl;
+        c = c_old_camb;
+      } else if (input.size() > c_new_camb && input.size() % c_new_camb == 0){
+        std::cerr << "Using post 2015 CAMB transfer function" << std::endl;
+        c = c_new_camb;
+      } else{
         throw std::runtime_error("CAMB transfer file doesn't have a sensible number of rows and columns");
       }
 
