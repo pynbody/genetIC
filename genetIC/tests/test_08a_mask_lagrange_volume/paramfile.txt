@@ -1,5 +1,4 @@
-# Test grafic output, especially if refinement masks are generated correctly
-# Test is done on numpy arrays rather than tipsy files as usually done
+# Test masks on a typical case of setting up a Lagrangian region
 
 
 # output parameters
