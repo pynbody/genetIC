@@ -1,3 +1,0 @@
-21.875 21.875 21.875 6.25
-The line above contains information about grid level 4
-It gives the x-offset, y-offset and z-offset of the low-left corner and also the box length

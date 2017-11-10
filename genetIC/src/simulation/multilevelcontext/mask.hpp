@@ -129,7 +129,7 @@ namespace multilevelcontext {
     }
 
   public:
-    void dumpNumpyMasks(std::string outputFolder) {
+    void dumpNumpyMasks(const std::string& outputFolder) {
       for (size_t level = 0; level < this->multilevelcontext->getNumLevels(); level++) {
         auto levelGrid = this->multilevelcontext->getGridForLevel(level);
         auto n = static_cast<int>(levelGrid.size);
@@ -142,11 +142,11 @@ namespace multilevelcontext {
 
         // Write out
         std::ostringstream filename;
-        filename << outputFolder << "/mask-" << level << ".npy";
+        filename << outputFolder << "/grid-" << level << ".npy";
         io::numpy::SaveArrayAsNumpy(filename.str(), false, 3, dim, data.data());
 
         filename.str("");
-        filename << outputFolder << "/mask-info-" << level << ".txt";
+        filename << outputFolder << "/grid-info-" << level << ".txt";
         std::ofstream ifile;
         ifile.open(filename.str());
         std::cerr << "Writing to " << filename.str() << std::endl;
