@@ -27,16 +27,13 @@ namespace multilevelcontext {
 
   };
 
-  //! Masks for Ramses producing ic_refmap and ic_pvar files to generate refinement masks in a grid
-  /*! The mask is done assuming that flagged cells on the deepest level are the cell of interest.
-   * It then tracks up and down these cells through the different grids to generate the mask on
-   * all levels.
-   */
+  //! Generate masks based on cells that have been flagged at each level.
+  //! Useful for generating ic_refmap/ic_pvar files for RAMSES for example
   template<typename DataType, typename T=tools::datatypes::strip_complex <DataType>>
-  class RamsesMask: public AbstractBaseMask<DataType, T> {
+  class Mask: public AbstractBaseMask<DataType, T> {
 
   public:
-    explicit RamsesMask(MultiLevelContextInformation<DataType>* multilevelcontext_):
+    explicit Mask(MultiLevelContextInformation<DataType>* multilevelcontext_):
         AbstractBaseMask<DataType, T> (multilevelcontext_){};
 
     /*!
@@ -74,7 +71,11 @@ namespace multilevelcontext {
     }
 
   protected:
-    //! Calculates the flagged cells on all levels from deepest level with flagged cells on it.
+    //! Calculates the flagged cells on all levels
+    /*!
+     * For each level, imports the flagged cells of the level if there are any. If not, e.g.
+     * for virtual grids, downgrades the higher resolution mask on the virtual grid.
+     */
     void generateFlagsHierarchy() override {
       size_t deepestFlaggedLevel = this->multilevelcontext->deepestLevelwithFlaggedCells();
       generateHierarchyAboveLevelInclusive(deepestFlaggedLevel);
@@ -92,7 +93,7 @@ namespace multilevelcontext {
           // Generate flags on intermediate levels that might not have some
           for (size_t i : this->flaggedIdsAtEachLevel[level + 1]) {
             this->flaggedIdsAtEachLevel[level].push_back(
-                this->multilevelcontext->getIndexofAboveCellContainingThisCell(level + 1, level, i));
+                this->multilevelcontext->getIndexOfCellOnOtherLevel(level + 1, level, i));
           }
           // The above procedure might not be ordered and will create duplicates, get rid of them.
           sortAndEraseDuplicate(level);
@@ -108,7 +109,7 @@ namespace multilevelcontext {
 
         auto currentLevelGrid = this->multilevelcontext->getGridForLevel(level);
         for(size_t i = 0; i < currentLevelGrid.size3; i++){
-          size_t aboveindex = this->multilevelcontext->getIndexofAboveCellContainingThisCell(level, level - 1, i);
+          size_t aboveindex = this->multilevelcontext->getIndexOfCellOnOtherLevel(level, level - 1, i);
           if(this->isMasked(aboveindex, level - 1)){
             this->flaggedIdsAtEachLevel[level].push_back(i);
           }
@@ -129,34 +130,28 @@ namespace multilevelcontext {
     }
 
   public:
-    void dumpNumpyMasks(const std::string& outputFolder) {
-      for (size_t level = 0; level < this->multilevelcontext->getNumLevels(); level++) {
-        auto levelGrid = this->multilevelcontext->getGridForLevel(level);
-        auto n = static_cast<int>(levelGrid.size);
-        const int dim[3] = {n, n, n};
+    //! Generate a full multilevel field storing the mask information.
+    /*! Increases memory requirement for the code but useful for debugging.
+     */
+    fields::MultiLevelField<DataType>* convertToField(){
+      std::vector<std::shared_ptr<fields::Field<DataType, T>>> fields;
 
-        std::vector<T> data;
-        for (size_t index = 0; index < this->multilevelcontext->getGridForLevel(level).size3; index++) {
-          data.push_back(this->isInMask(level, index));
-        }
-
-        // Write out
-        std::ostringstream filename;
-        filename << outputFolder << "/grid-" << level << ".npy";
-        io::numpy::SaveArrayAsNumpy(filename.str(), false, 3, dim, data.data());
-
-        filename.str("");
-        filename << outputFolder << "/grid-info-" << level << ".txt";
-        std::ofstream ifile;
-        ifile.open(filename.str());
-        std::cerr << "Writing to " << filename.str() << std::endl;
-        ifile << levelGrid.offsetLower.x << " " << levelGrid.offsetLower.y << " "
-              << levelGrid.offsetLower.z << " " << levelGrid.thisGridSize << std::endl;
-        ifile << "The line above contains information about grid level " << level << std::endl;
-        ifile << "It gives the x-offset, y-offset and z-offset of the low-left corner and also the box length"
-              << std::endl;
-        ifile.close();
+      // Field full of zeros
+      for (size_t level = 0; level < this->multilevelcontext->getNumLevels(); ++level) {
+        fields.push_back(std::shared_ptr<fields::Field<DataType, T>>(
+            new fields::Field<DataType, T>(this->multilevelcontext->getGridForLevel(level))));
       }
+
+      auto maskfield = new fields::MultiLevelField<DataType>(*(this->multilevelcontext), fields);
+
+      // Field with mask information
+      for (size_t level = 0; level < this->multilevelcontext->getNumLevels(); ++level) {
+        for (size_t i=0; i< this->multilevelcontext->getGridForLevel(level).size3; i++){
+          maskfield->getFieldForLevel(level).getDataVector()[i] = isInMask(level, i);
+        }
+      }
+
+      return maskfield;
     }
   };
 }

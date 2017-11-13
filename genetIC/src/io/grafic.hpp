@@ -22,7 +22,7 @@ namespace io {
       multilevelcontext::MultiLevelContextInformation<DataType> context;
       std::shared_ptr<particle::AbstractMultiLevelParticleGenerator<DataType>> generator;
       const cosmology::CosmologicalParameters<T> &cosmology;
-      multilevelcontext::RamsesMask<DataType,T> mask;
+      multilevelcontext::Mask<DataType,T> mask;
       T pvarValue;
 
       T lengthFactor;

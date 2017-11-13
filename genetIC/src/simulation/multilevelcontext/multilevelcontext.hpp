@@ -243,11 +243,11 @@ namespace multilevelcontext {
 
     }
 
-    size_t getIndexofAboveCellContainingThisCell(size_t currentLevel, size_t aboveLevel, size_t cellIndexOnFine){
+    size_t getIndexOfCellOnOtherLevel(size_t currentLevel, size_t otherLevel, size_t cellIndex){
       auto currentLevelGrid = this->getGridForLevel(currentLevel);
-      auto aboveLevelGrid = this->getGridForLevel(aboveLevel);
-      Coordinate<T> cell_coord(currentLevelGrid.getCellCentroid(cellIndexOnFine));
-      return aboveLevelGrid.getCellContainingPoint(cell_coord);
+      auto otherLevelGrid = this->getGridForLevel(otherLevel);
+      Coordinate<T> cell_coord(currentLevelGrid.getCellCentroid(cellIndex));
+      return otherLevelGrid.getCellContainingPoint(cell_coord);
     }
 
   };

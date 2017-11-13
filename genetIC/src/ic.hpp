@@ -511,14 +511,20 @@ public:
                                  (getOutputPath() + "_" + ((char) (level + '0')) + ".ps").c_str());
   }
 
+  //! Dumps mask information to numpy grid files
   virtual void dumpMask() {
     cerr << "Dumping mask grids" << endl;
     // this is ugly but it makes sure I can dump virtual grids if there are any.
     multilevelcontext::MultiLevelContextInformation<GridDataType> newcontext;
     this->multiLevelContext.copyContextWithIntermediateResolutionGrids(newcontext);
-    auto dumpingMask = multilevelcontext::RamsesMask<GridDataType, T>(&newcontext);
+    auto dumpingMask = multilevelcontext::Mask<GridDataType, T>(&newcontext);
     dumpingMask.calculateMask();
-    dumpingMask.dumpNumpyMasks(outputFolder);
+
+
+    auto maskfield = dumpingMask.convertToField();
+    for(size_t level=0; level<newcontext.getNumLevels(); level++){
+      dumpGridData(level, maskfield->getFieldForLevel(level));
+    }
   }
 
 
