@@ -77,9 +77,14 @@ namespace multilevelcontext {
      * for virtual grids, downgrades the higher resolution mask on the virtual grid.
      */
     void generateFlagsHierarchy() override {
-      size_t deepestFlaggedLevel = this->multilevelcontext->deepestLevelwithFlaggedCells();
-      generateHierarchyAboveLevelInclusive(deepestFlaggedLevel);
-      generateHierarchyBelowLevelExclusive(deepestFlaggedLevel);
+      try {
+        size_t deepestFlaggedLevel = this->multilevelcontext->deepestLevelwithFlaggedCells();
+        generateHierarchyAboveLevelInclusive(deepestFlaggedLevel);
+        generateHierarchyBelowLevelExclusive(deepestFlaggedLevel);
+      } catch (std::runtime_error& e){
+        std::cerr << "WARNING No flagged particles were found on any level. Mask generation aborted" <<std::endl;
+
+      }
     }
 
     void generateHierarchyAboveLevelInclusive(size_t deepestLevel){
