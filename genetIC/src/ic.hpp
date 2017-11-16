@@ -266,8 +266,20 @@ public:
     if (n_required < n_user && !allowStrayParticles)
       zoomWindow.expandSymmetricallyToSize(n_user);
 
-    auto lci = zoomWindow.getLowerCornerInclusive();
+    // The edges of zooms regions carry numerical errors due to interpolation between levels (see ref)
+    // Do not use them if you can
+    int borderSafety = 3;
+    for (auto cell_id : zoomParticleArray.back()){
+      if( ! zoomWindow.containsWithBorderSafety(gridAbove.getCellCoordinate(cell_id), borderSafety)){
+        std::cerr << "WARNING: Opening a zoom where flagged particles are within " << borderSafety <<
+            " pixels of the edge. This is prone to numerical errors." << std::endl;
+        break;
+      }
+    }
 
+
+
+    auto lci = zoomWindow.getLowerCornerInclusive();
     initZoomGridWithOriginAt(lci.x, lci.y, lci.z, zoomfac, n);
 
   }

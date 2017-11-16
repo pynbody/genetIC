@@ -183,9 +183,8 @@ namespace grids {
         throw std::runtime_error("Safety number of pixels must be at least one");
       }
 
-      Coordinate<T> inclusiveMarginCorner = offsetLower + safety * cellSize;
-      Coordinate<T> exclusiveMarginCorner = offsetLower + thisGridSize - safety * cellSize;
-      return Window<T>(periodicDomainSize, inclusiveMarginCorner, exclusiveMarginCorner).contains(coord);
+      return Window<T>(periodicDomainSize, offsetLower,
+                       offsetLower + thisGridSize).containsWithBorderSafety(coord, safety * cellSize);
     }
 
     Coordinate<T> wrapPoint(Coordinate<T> pos) const {

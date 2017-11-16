@@ -1,0 +1,33 @@
+# Test that appropriate warnings are issued if opening zoom too close to the edges.
+# Should produce a warning for first zoom, not for second
+
+
+# output parameters
+outdir	 ./
+outformat 4
+outname test_9
+
+
+# cosmology:
+Om  0.279
+Ol  0.721
+s8  0.817
+zin	99
+camb    ../camb_transfer_kmax40_z0_post2015.dat
+
+# fourier seeding
+seed	8896131
+
+basegrid 64.0 64
+
+# Edges +- 3pixels are at 19-45 pixels, i.e. 26 Mpc apart
+centre 32.5 32.5 32.5
+select_cube 27
+zoomgrid 2 64
+
+# Edges +- 3pixels are at 19-45 pixels, i.e. 13 Mpc apart
+centre 32.5 32.5 32.5
+select_cube 12.4
+zoomgrid 2 64
+
+done
