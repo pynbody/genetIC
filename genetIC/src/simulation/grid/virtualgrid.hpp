@@ -29,7 +29,7 @@ namespace grids {
     GridPtrType pUnderlying;
 
   public:
-    VirtualGrid(GridPtrType pUnderlying) :
+    explicit VirtualGrid(GridPtrType pUnderlying) :
         Grid<T>(
             pUnderlying->periodicDomainSize, pUnderlying->size,
             pUnderlying->cellSize, pUnderlying->offsetLower.x, pUnderlying->offsetLower.y,
@@ -49,7 +49,7 @@ namespace grids {
       s << "VirtualGrid";
     }
 
-    virtual void debugInfo(std::ostream &s) const override {
+    void debugInfo(std::ostream &s) const override {
       debugName(s);
       s << " of side " << this->size << " address " << this << " referencing ";
       pUnderlying->debugInfo(s);
@@ -106,7 +106,7 @@ namespace grids {
     }
 
 
-    virtual void debugName(std::ostream &s) const override {
+    void debugName(std::ostream &s) const override {
       s << "SuperSampleGrid";
     }
 
@@ -186,7 +186,7 @@ namespace grids {
       s << "ResolutionMatchingGrid";
     }
 
-    virtual void debugInfo(std::ostream &s) const override {
+    void debugInfo(std::ostream &s) const override {
       debugName(s);
       s << " of side " << this->size << " address " << this << " referencing (for genuine hi-res part) ";
       pUnderlyingHiRes->debugInfo(s);
@@ -267,7 +267,7 @@ namespace grids {
     }
 
 
-    virtual void debugName(std::ostream &s) const override {
+    void debugName(std::ostream &s) const override {
       s << "OffsetGrid";
     }
 
@@ -330,7 +330,7 @@ namespace grids {
     }
 
 
-    virtual bool containsPoint(const Coordinate<T> &coord) const override {
+    bool containsPoint(const Coordinate<T> &coord) const override {
       return VirtualGrid<T>::containsPoint(coord) && this->pUnderlying->containsPoint(coord);
     }
 
@@ -345,7 +345,7 @@ namespace grids {
     }
 
 
-    virtual void debugName(std::ostream &s) const override {
+    void debugName(std::ostream &s) const override {
       s << "SectionOfGrid";
     }
 
@@ -400,7 +400,7 @@ namespace grids {
       factor3 = factor * factor * factor;
     }
 
-    virtual void debugName(std::ostream &s) const override {
+   void debugName(std::ostream &s) const override {
       s << "SubSampleGrid";
     }
 
@@ -467,12 +467,61 @@ namespace grids {
                        pUnderlying->offsetLower.z, massScale * pUnderlying->cellMassFrac,
                        pUnderlying->cellSofteningScale) {}
 
-    virtual void debugName(std::ostream &s) const override {
+    void debugName(std::ostream &s) const override {
       s << "MassScaledGrid";
     }
-
-
   };
+
+    template<typename T>
+    class CenteredGrid : public VirtualGrid<T> {
+    protected:
+      using typename Grid<T>::GridPtrType;
+
+    private:
+      Coordinate<int> center;
+
+    public:
+      CenteredGrid(GridPtrType pUnderlying, Coordinate<int> center) :
+          VirtualGrid<T>(pUnderlying,
+                         pUnderlying->periodicDomainSize, pUnderlying->size,
+                         pUnderlying->cellSize,
+                         pUnderlying->offsetLower.x,
+                         pUnderlying->offsetLower.y,
+                         pUnderlying->offsetLower.z,
+                         pUnderlying->cellMassFrac,
+                         pUnderlying->cellSofteningScale), center(center) {}
+
+      void debugName(std::ostream &s) const override {
+        s << "CenteredGrid";
+      }
+
+    protected:
+      size_t getCellContainingPoint(Coordinate<T> point) override {
+        return size_t(0);
+      }
+
+      Coordinate<int> wrapCoordinate(Coordinate<int> index) const override{
+        return Coordinate<int>(0,0,0);
+      }
+
+      size_t getCellIndexNoWrap(size_t x, size_t y, size_t z) const override{
+        return size_t(0);
+      }
+
+      size_t getCellIndexNoWrap(int x, int y, int z) const override {
+        return size_t(0);
+      }
+
+      size_t getCellIndexNoWrap(const Coordinate<int> &coordinate) const override {
+        return size_t(0);
+      }
+
+      Coordinate<int> getCellCoordinate(int id) const override {
+        return Coordinate<int>(0,0,0);
+      }
+
+    };
+
 }
 
 

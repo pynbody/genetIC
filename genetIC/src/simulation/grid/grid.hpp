@@ -227,7 +227,7 @@ namespace grids {
      *
      * Note that for efficiency this routine only "corrects" coordinates within one boxsize of the fundamental domain.
      */
-    Coordinate<int> wrapCoordinate(Coordinate<int> index) const {
+    virtual Coordinate<int> wrapCoordinate(Coordinate<int> index) const {
       if (index.x > (signed) simEquivalentSize - 1) index.x -= simEquivalentSize;
       if (index.y > (signed) simEquivalentSize - 1) index.y -= simEquivalentSize;
       if (index.z > (signed) simEquivalentSize - 1) index.z -= simEquivalentSize;
@@ -243,11 +243,11 @@ namespace grids {
       return getCellIndexNoWrap(coord);
     }
 
-    size_t getCellIndexNoWrap(size_t x, size_t y, size_t z) const {
+    virtual size_t getCellIndexNoWrap(size_t x, size_t y, size_t z) const {
       return (x * size + y) * size + z;
     }
 
-    size_t getCellIndexNoWrap(int x, int y, int z) const {
+    virtual size_t getCellIndexNoWrap(int x, int y, int z) const {
 
 #ifdef SAFER_SLOWER
       if(x<0 || x>=size || y<0 || y>=size || z<0 || z>=size)
@@ -256,12 +256,12 @@ namespace grids {
       return size_t(x * size + y) * size + z;
     }
 
-    size_t getCellIndexNoWrap(const Coordinate<int> &coordinate) const {
+    virtual size_t getCellIndexNoWrap(const Coordinate<int> &coordinate) const {
       return getCellIndexNoWrap(coordinate.x, coordinate.y, coordinate.z);
     }
 
     //! Returns cell id in pixel coordinates
-    Coordinate<int> getCellCoordinate(int id) const {
+    virtual Coordinate<int> getCellCoordinate(int id) const {
       size_t x, y;
 
       if ((unsigned) id >= size3) {
@@ -298,7 +298,7 @@ namespace grids {
       return result;
     }
 
-    size_t getCellContainingPoint(Coordinate<T> point) {
+    virtual size_t getCellContainingPoint(Coordinate<T> point) {
       auto coords = floor(wrapPoint(point - offsetLower - cellSize / 2) / cellSize);
       return getCellIndexNoWrap(coords);
     }
