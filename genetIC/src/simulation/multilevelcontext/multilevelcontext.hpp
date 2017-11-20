@@ -250,16 +250,28 @@ namespace multilevelcontext {
     }
 
     void copyContextAndCenter(MultiLevelContextInformation<DataType> &newStack,
-                       const Coordinate<T> pointToCenterOnto) {
+                              const Coordinate<T> pointToCenterOnto) const {
+      newStack.clear();
+      auto centeredCoarse = std::make_shared<grids::CenteredGrid<T>>(this->pGrid[0], pointToCenterOnto);
+      std::cerr << "Replacing coarse grid with a centered grid on " << pointToCenterOnto <<  std::endl;
+      newStack.addLevel(C0s[0], centeredCoarse);
 
-      for (size_t level = 0; level < nLevels; ++level) {
+      auto offset = centeredCoarse->getOffset();
+      std::cerr << "Offsetting zooms by " << offset <<  std::endl;
 
-        if(level ==0){
-          auto centeredCoarse = std::make_shared<grids::CenteredGrid<T>>(this->pGrid[level], pointToCenterOnto);
-        }
-
+      for (size_t level = 1; level < nLevels; ++level) {
+        auto offsetFine = std::make_shared<grids::OffsetGrid<T>>(this->pGrid[level], offset.x, offset.y, offset.z);
+        newStack.addLevel(C0s[level], offsetFine);
       }
+    }
 
+    void copyContextWithCenteredIntermediate(MultiLevelContextInformation<DataType> &newStack,
+                                             const Coordinate<T> pointToCenterOnto,
+                                             size_t base_factor = 2,
+                                             size_t extra_lores = 1) const{
+      auto extracontext = multilevelcontext::MultiLevelContextInformation<DataType>();
+      this->copyContextWithIntermediateResolutionGrids(extracontext, base_factor, extra_lores);
+      extracontext.copyContextAndCenter(newStack, pointToCenterOnto);
     }
 
   };

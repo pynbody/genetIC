@@ -34,13 +34,13 @@ namespace io {
                    multilevelcontext::MultiLevelContextInformation<DataType> &levelContext,
                    particle::AbstractMultiLevelParticleGenerator<DataType> &particleGenerator,
                    const cosmology::CosmologicalParameters<T> &cosmology,
-                    const T pvarValue) :
+                    const T pvarValue, Coordinate<T> center) :
           outputFilename(fname),
           generator(particleGenerator.shared_from_this()),
           cosmology(cosmology),
           mask(&levelContext),
           pvarValue(pvarValue){
-        levelContext.copyContextWithIntermediateResolutionGrids(context, 2, 0);
+        levelContext.copyContextWithCenteredIntermediate(context, center, 2, 0);
         mask.recalculateWithNewContext(&context);
         lengthFactor = 1. / cosmology.hubble; // Gadget Mpc a h^-1 -> GrafIC file Mpc a
         velFactor = std::pow(cosmology.scalefactor, 0.5f); // Gadget km s^-1 a^1/2 -> GrafIC km s^-1
@@ -165,9 +165,9 @@ namespace io {
               particle::AbstractMultiLevelParticleGenerator<DataType> &generator,
               multilevelcontext::MultiLevelContextInformation<DataType> &context,
               const cosmology::CosmologicalParameters<T> &cosmology,
-              const T pvarValue) {
+              const T pvarValue, Coordinate<T> center) {
       GraficOutput<DataType> output(filename, context,
-                                    generator, cosmology, pvarValue);
+                                    generator, cosmology, pvarValue, center);
       output.write();
     }
 

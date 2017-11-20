@@ -516,7 +516,7 @@ public:
     cerr << "Dumping mask grids" << endl;
     // this is ugly but it makes sure I can dump virtual grids if there are any.
     multilevelcontext::MultiLevelContextInformation<GridDataType> newcontext;
-    this->multiLevelContext.copyContextWithIntermediateResolutionGrids(newcontext);
+    this->multiLevelContext.copyContextWithCenteredIntermediate(newcontext, Coordinate<T>(x0,y0,z0));
     auto dumpingMask = multilevelcontext::Mask<GridDataType, T>(&newcontext);
     dumpingMask.calculateMask();
 
@@ -685,7 +685,8 @@ public:
                     pMapper, cosmology);
         break;
       case OutputFormat::grafic:
-        grafic::save(getOutputPath() + ".grafic", *pParticleGenerator, multiLevelContext, cosmology, pvarValue);
+        grafic::save(getOutputPath() + ".grafic", *pParticleGenerator, multiLevelContext,
+                     cosmology, pvarValue, Coordinate<T>(x0,y0,z0));
         break;
       default:
         throw std::runtime_error("Unknown output format");
