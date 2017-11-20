@@ -40,7 +40,7 @@ namespace io {
           cosmology(cosmology),
           mask(&levelContext),
           pvarValue(pvarValue){
-        levelContext.copyContextWithIntermediateResolutionGrids(context);
+        levelContext.copyContextWithIntermediateResolutionGrids(context, 2, 0);
         mask.recalculateWithNewContext(&context);
         lengthFactor = 1. / cosmology.hubble; // Gadget Mpc a h^-1 -> GrafIC file Mpc a
         velFactor = std::pow(cosmology.scalefactor, 0.5f); // Gadget km s^-1 a^1/2 -> GrafIC km s^-1

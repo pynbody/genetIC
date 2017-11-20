@@ -155,6 +155,13 @@ namespace multilevelcontext {
       throw std::runtime_error("No level has any particles selected");
     }
 
+    size_t getIndexOfCellOnOtherLevel(size_t currentLevel, size_t otherLevel, size_t cellIndex){
+      auto currentLevelGrid = this->getGridForLevel(currentLevel);
+      auto otherLevelGrid = this->getGridForLevel(otherLevel);
+      Coordinate<T> cell_coord(currentLevelGrid.getCellCentroid(cellIndex));
+      return otherLevelGrid.getCellContainingPoint(cell_coord);
+    }
+
     //! From finest level, use interpolation to construct other levels
     std::shared_ptr<fields::ConstraintField<DataType>>
     generateMultilevelFromHighResField(fields::Field<DataType, T> &&data) {
@@ -201,9 +208,9 @@ namespace multilevelcontext {
     void copyContextWithIntermediateResolutionGrids(MultiLevelContextInformation<DataType> &newStack,
                                                     size_t base_factor = 2,
                                                     size_t extra_lores = 1) const {
-      /* Copy this MultiLevelContextInformation, but insert intermediate virtual grids such that
-       * there is a full stack increasing in the specified power.
-       *
+      //! Copy this MultiLevelContextInformation, but insert intermediate virtual grids such that
+      //!there is a full stack increasing in the specified power.
+      /*!
        * E.g. if there is a 256^3 and a 1024^3 grid stack, with default parameters this will return a
        * 128^3, 256^3, 512^3 and 1024^3 grid stack.
        *
@@ -238,16 +245,21 @@ namespace multilevelcontext {
 
         std::cerr << "Adding real grid with resolution " << neff << std::endl;
         newStack.addLevel(C0s[level], pGrid[level]);
-
       }
 
     }
 
-    size_t getIndexOfCellOnOtherLevel(size_t currentLevel, size_t otherLevel, size_t cellIndex){
-      auto currentLevelGrid = this->getGridForLevel(currentLevel);
-      auto otherLevelGrid = this->getGridForLevel(otherLevel);
-      Coordinate<T> cell_coord(currentLevelGrid.getCellCentroid(cellIndex));
-      return otherLevelGrid.getCellContainingPoint(cell_coord);
+    void copyContextAndCenter(MultiLevelContextInformation<DataType> &newStack,
+                       const Coordinate<T> pointToCenterOnto) {
+
+      for (size_t level = 0; level < nLevels; ++level) {
+
+        if(level ==0){
+          auto centeredCoarse = std::make_shared<grids::CenteredGrid<T>>(this->pGrid[level], pointToCenterOnto);
+        }
+
+      }
+
     }
 
   };

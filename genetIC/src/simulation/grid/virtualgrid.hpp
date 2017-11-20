@@ -478,10 +478,10 @@ namespace grids {
       using typename Grid<T>::GridPtrType;
 
     private:
-      Coordinate<int> center;
+      Coordinate<int> offset;
 
     public:
-      CenteredGrid(GridPtrType pUnderlying, Coordinate<int> center) :
+      CenteredGrid(GridPtrType pUnderlying, Coordinate<int> offset) :
           VirtualGrid<T>(pUnderlying,
                          pUnderlying->periodicDomainSize, pUnderlying->size,
                          pUnderlying->cellSize,
@@ -489,40 +489,66 @@ namespace grids {
                          pUnderlying->offsetLower.y,
                          pUnderlying->offsetLower.z,
                          pUnderlying->cellMassFrac,
-                         pUnderlying->cellSofteningScale), center(center) {}
+                         pUnderlying->cellSofteningScale), offset(offset) {}
+
+      CenteredGrid(GridPtrType pUnderlying, Coordinate<T> center) :
+          VirtualGrid<T>(pUnderlying,
+                         pUnderlying->periodicDomainSize, pUnderlying->size,
+                         pUnderlying->cellSize,
+                         pUnderlying->offsetLower.x,
+                         pUnderlying->offsetLower.y,
+                         pUnderlying->offsetLower.z,
+                         pUnderlying->cellMassFrac,
+                         pUnderlying->cellSofteningScale) {
+        Coordinate<T> wrappedcenter = this->pUnderlying->wrapPoint(center);
+        Coordinate<T> offset = 0.5 * this->pUnderlying->thisGridSize - wrappedcenter;
+        this->offset = this->pUnderlying->getCellCoordinate(
+            this->pUnderlying->getCellContainingPoint(
+                this->pUnderlying->getWrappedOffset(
+                    Coordinate<T>(0.5 * this->pUnderlying->thisGridSize), center)));
+      }
 
       void debugName(std::ostream &s) const override {
         s << "CenteredGrid";
       }
 
     protected:
-      size_t getCellContainingPoint(Coordinate<T> point) override {
-        return size_t(0);
-      }
-
-      Coordinate<int> wrapCoordinate(Coordinate<int> index) const override{
-        return Coordinate<int>(0,0,0);
-      }
 
       size_t getCellIndexNoWrap(size_t x, size_t y, size_t z) const override{
-        return size_t(0);
+//        auto wrappedpoint = pUnderlying->wrapCoordinate(
+//            Coordinate<int>(int(x) + center.x,int(y) + center.y,center.z + int(z)));
+//        return size_t(pUnderlying->getCellIndexNoWrap(wrappedpoint.x, wrappedpoint.y, wrappedpoint.z));
+        return this->pUnderlying->getIndexFromIndexAndStep(
+            this->pUnderlying->getCellIndexNoWrap(x,y,z), this->offset);
       }
 
       size_t getCellIndexNoWrap(int x, int y, int z) const override {
-        return size_t(0);
+//        auto wrappedpoint = pUnderlying->wrapCoordinate(
+//            Coordinate<int>(x + center.x, y + center.y, z + center.z));
+//        return size_t(pUnderlying->getCellIndexNoWrap(wrappedpoint.x, wrappedpoint.y, wrappedpoint.z));
+        return this->pUnderlying->getIndexFromIndexAndStep(
+            this->pUnderlying->getCellIndexNoWrap(x,y,z), this->offset);
       }
 
       size_t getCellIndexNoWrap(const Coordinate<int> &coordinate) const override {
-        return size_t(0);
+        //Offset by center and wrap if needed.
+        return this->pUnderlying->getIndexFromIndexAndStep(
+            this->pUnderlying->getCellIndexNoWrap(coordinate),
+            this->offset);
       }
 
-      Coordinate<int> getCellCoordinate(int id) const override {
-        return Coordinate<int>(0,0,0);
+      Coordinate<int> getCellCoordinate(size_t id) const override {
+        return this->pUnderlying->wrapCoordinate(
+            this->pUnderlying->getCellCoordinate(id) + this->offset);
       }
 
+      Coordinate<T> getCellCentroid(const Coordinate<int> &coord) const override {
+        return this->pUnderlying->getCellCentroid(
+            this->pUnderlying->wrapCoordinate(this->offset + coord));
+      }
     };
 
 }
 
 
-#endif //IC_VIRTUALGRID_HPP
+#endif

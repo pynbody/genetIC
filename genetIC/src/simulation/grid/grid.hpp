@@ -227,7 +227,7 @@ namespace grids {
      *
      * Note that for efficiency this routine only "corrects" coordinates within one boxsize of the fundamental domain.
      */
-    virtual Coordinate<int> wrapCoordinate(Coordinate<int> index) const {
+    Coordinate<int> wrapCoordinate(Coordinate<int> index) const {
       if (index.x > (signed) simEquivalentSize - 1) index.x -= simEquivalentSize;
       if (index.y > (signed) simEquivalentSize - 1) index.y -= simEquivalentSize;
       if (index.z > (signed) simEquivalentSize - 1) index.z -= simEquivalentSize;
@@ -261,7 +261,7 @@ namespace grids {
     }
 
     //! Returns cell id in pixel coordinates
-    virtual Coordinate<int> getCellCoordinate(int id) const {
+    virtual Coordinate<int> getCellCoordinate(size_t id) const {
       size_t x, y;
 
       if ((unsigned) id >= size3) {
@@ -275,7 +275,7 @@ namespace grids {
       y = id / size;
       id -= y * size;
 
-      return Coordinate<int>(x, y, id);
+      return Coordinate<int>(int(x), int(y), int(id));
     }
 
     T getFourierKmin() const {
@@ -290,7 +290,7 @@ namespace grids {
       return getCellCentroid(coord);
     }
 
-    Coordinate<T> getCellCentroid(const Coordinate<int> &coord) const {
+    virtual Coordinate<T> getCellCentroid(const Coordinate<int> &coord) const {
       Coordinate<T> result(coord);
       result *= cellSize;
       result += offsetLower;
@@ -298,7 +298,7 @@ namespace grids {
       return result;
     }
 
-    virtual size_t getCellContainingPoint(Coordinate<T> point) {
+    size_t getCellContainingPoint(Coordinate<T> point) {
       auto coords = floor(wrapPoint(point - offsetLower - cellSize / 2) / cellSize);
       return getCellIndexNoWrap(coords);
     }
