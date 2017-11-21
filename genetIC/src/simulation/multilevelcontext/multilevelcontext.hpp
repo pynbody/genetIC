@@ -156,10 +156,8 @@ namespace multilevelcontext {
     }
 
     size_t getIndexOfCellOnOtherLevel(size_t currentLevel, size_t otherLevel, size_t cellIndex){
-      auto currentLevelGrid = this->getGridForLevel(currentLevel);
-      auto otherLevelGrid = this->getGridForLevel(otherLevel);
-      Coordinate<T> cell_coord(currentLevelGrid.getCellCentroid(cellIndex));
-      return otherLevelGrid.getCellContainingPoint(cell_coord);
+      Coordinate<T> cell_coord(this->getGridForLevel(currentLevel).getCellCentroid(cellIndex));
+      return this->getGridForLevel(otherLevel).getCellContainingPoint(cell_coord);
     }
 
     //! From finest level, use interpolation to construct other levels

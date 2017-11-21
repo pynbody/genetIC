@@ -519,6 +519,9 @@ namespace grids {
   template<typename T>
   class OffsetGrid : public VirtualGrid<T> {
 
+  private:
+    Coordinate<T> offset;
+
   protected:
     using typename Grid<T>::GridPtrType;
 
@@ -531,24 +534,21 @@ namespace grids {
                        pUnderlying->offsetLower.y + dy,
                        pUnderlying->offsetLower.z + dz,
                        pUnderlying->cellMassFrac,
-                       pUnderlying->cellSofteningScale) {
-
-    }
+                       pUnderlying->cellSofteningScale),
+        offset(Coordinate<T>(dx,dy,dz)) {}
 
 
     void debugName(std::ostream &s) const override {
       s << "OffsetGrid";
     }
 
-    void getFlaggedCells(std::vector<size_t> & /*&targetArray*/) const override {
-      throw (std::runtime_error("getFlaggedCells is not implemented for OffsetGrid"));
+    Coordinate<T> getCellCentroid(const Coordinate<int> &coord) const override {
+      return this->pUnderlying->getCellCentroid(coord) + this->offset;
     }
 
-    void flagCells(const std::vector<size_t> & /*&sourceArray*/) override {
-      throw (std::runtime_error("flagCells is not implemented for OffsetGrid"));
+    size_t getCellContainingPoint(const Coordinate<T> coord) const override{
+      return this->pUnderlying->getCellContainingPoint(coord - this->offset);
     }
-
-
   };
 
 

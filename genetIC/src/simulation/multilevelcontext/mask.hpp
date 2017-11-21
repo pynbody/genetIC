@@ -78,7 +78,7 @@ namespace multilevelcontext {
      */
     void generateFlagsHierarchy() override {
       size_t deepestFlaggedLevel;
-      
+
       try {
         deepestFlaggedLevel = this->multilevelcontext->deepestLevelwithFlaggedCells();
       } catch (std::runtime_error& e){
@@ -93,7 +93,6 @@ namespace multilevelcontext {
     void generateHierarchyAboveLevelInclusive(size_t deepestLevel){
       for (int level = deepestLevel; level >= 0; level--) {
 
-        auto currentLevelGrid = this->multilevelcontext->getGridForLevel(level);
         if (this->multilevelcontext->getGridForLevel(level).hasFlaggedCells()) {
           this->multilevelcontext->getGridForLevel(level).getFlaggedCells(this->flaggedIdsAtEachLevel[level]);
 
@@ -114,8 +113,7 @@ namespace multilevelcontext {
       // Do all level between this level and the finest
       for(size_t level=coarsestLevel + 1; level < this->multilevelcontext->getNumLevels() - 1; level++){
 
-        auto currentLevelGrid = this->multilevelcontext->getGridForLevel(level);
-        for(size_t i = 0; i < currentLevelGrid.size3; i++){
+        for(size_t i = 0; i < this->multilevelcontext->getGridForLevel(level).size3; i++){
           size_t aboveindex = this->multilevelcontext->getIndexOfCellOnOtherLevel(level, level - 1, i);
           if(this->isMasked(aboveindex, level - 1)){
             this->flaggedIdsAtEachLevel[level].push_back(i);

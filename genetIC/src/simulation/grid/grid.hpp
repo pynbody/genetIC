@@ -298,7 +298,7 @@ namespace grids {
       return result;
     }
 
-    size_t getCellContainingPoint(Coordinate<T> point) {
+    virtual size_t getCellContainingPoint(Coordinate<T> point) const {
       auto coords = floor(wrapPoint(point - offsetLower - cellSize / 2) / cellSize);
       return getCellIndexNoWrap(coords);
     }
