@@ -77,22 +77,25 @@ namespace multilevelcontext {
      * for virtual grids, downgrades the higher resolution mask on the virtual grid.
      */
     void generateFlagsHierarchy() override {
+      size_t deepestFlaggedLevel;
+      
       try {
-        size_t deepestFlaggedLevel = this->multilevelcontext->deepestLevelwithFlaggedCells();
-        generateHierarchyAboveLevelInclusive(deepestFlaggedLevel);
-        generateHierarchyBelowLevelExclusive(deepestFlaggedLevel);
+        deepestFlaggedLevel = this->multilevelcontext->deepestLevelwithFlaggedCells();
       } catch (std::runtime_error& e){
         std::cerr << "WARNING No flagged particles were found on any level. Mask generation aborted" <<std::endl;
-
+        return;
       }
+
+      generateHierarchyAboveLevelInclusive(deepestFlaggedLevel);
+      generateHierarchyBelowLevelExclusive(deepestFlaggedLevel);
     }
 
     void generateHierarchyAboveLevelInclusive(size_t deepestLevel){
       for (int level = deepestLevel; level >= 0; level--) {
 
         auto currentLevelGrid = this->multilevelcontext->getGridForLevel(level);
-        if (currentLevelGrid.hasFlaggedCells()) {
-          currentLevelGrid.getFlaggedCells(this->flaggedIdsAtEachLevel[level]);
+        if (this->multilevelcontext->getGridForLevel(level).hasFlaggedCells()) {
+          this->multilevelcontext->getGridForLevel(level).getFlaggedCells(this->flaggedIdsAtEachLevel[level]);
 
         } else {
           // Generate flags on intermediate levels that might not have some
@@ -109,7 +112,6 @@ namespace multilevelcontext {
     void generateHierarchyBelowLevelExclusive(size_t coarsestLevel){
 
       // Do all level between this level and the finest
-      // TODO Decide if doing finest level is worth it given that Ramses does not read it.
       for(size_t level=coarsestLevel + 1; level < this->multilevelcontext->getNumLevels() - 1; level++){
 
         auto currentLevelGrid = this->multilevelcontext->getGridForLevel(level);

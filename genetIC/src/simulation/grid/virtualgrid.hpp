@@ -248,42 +248,6 @@ namespace grids {
 
 
   template<typename T>
-  class OffsetGrid : public VirtualGrid<T> {
-
-  protected:
-    using typename Grid<T>::GridPtrType;
-
-
-  public:
-    OffsetGrid(GridPtrType pUnderlying, T dx, T dy, T dz) :
-        VirtualGrid<T>(pUnderlying, pUnderlying->periodicDomainSize, pUnderlying->size,
-                       pUnderlying->cellSize,
-                       pUnderlying->offsetLower.x + dx,
-                       pUnderlying->offsetLower.y + dy,
-                       pUnderlying->offsetLower.z + dz,
-                       pUnderlying->cellMassFrac,
-                       pUnderlying->cellSofteningScale) {
-
-    }
-
-
-    void debugName(std::ostream &s) const override {
-      s << "OffsetGrid";
-    }
-
-    void getFlaggedCells(std::vector<size_t> & /*&targetArray*/) const override {
-      throw (std::runtime_error("getFlaggedCells is not implemented for OffsetGrid"));
-    }
-
-    void flagCells(const std::vector<size_t> & /*&sourceArray*/) override {
-      throw (std::runtime_error("flagCells is not implemented for OffsetGrid"));
-    }
-
-
-  };
-
-
-  template<typename T>
   class SectionOfGrid : public VirtualGrid<T> {
   private:
     Coordinate<int> cellOffset;
@@ -472,88 +436,123 @@ namespace grids {
     }
   };
 
-    template<typename T>
-    class CenteredGrid : public VirtualGrid<T> {
-    protected:
-      using typename Grid<T>::GridPtrType;
+  //! Virtual grid in which the underlying cells are offset to center on a specific component.
+  /*! Does not change the offsetLower of the grid, i.e. do not move the grid wrto to its parent.
+   * This class just wraps coordinate to translate them in a centered frame.
+   */
+  template<typename T>
+  class CenteredGrid : public VirtualGrid<T> {
+  protected:
+    using typename Grid<T>::GridPtrType;
 
-    private:
-      const Coordinate<int> offset;
+  private:
+    const Coordinate<int> offset;
 
-    public:
-//      CenteredGrid(GridPtrType pUnderlying, Coordinate<int> offset) :
-//          VirtualGrid<T>(pUnderlying,
-//                         pUnderlying->periodicDomainSize, pUnderlying->size,
-//                         pUnderlying->cellSize,
-//                         pUnderlying->offsetLower.x,
-//                         pUnderlying->offsetLower.y,
-//                         pUnderlying->offsetLower.z,
-//                         pUnderlying->cellMassFrac,
-//                         pUnderlying->cellSofteningScale), offset(offset) {}
+  public:
+    CenteredGrid(GridPtrType pUnderlying, Coordinate<T> center) :
+        VirtualGrid<T>(pUnderlying,
+                       pUnderlying->periodicDomainSize, pUnderlying->size,
+                       pUnderlying->cellSize,
+                       pUnderlying->offsetLower.x,
+                       pUnderlying->offsetLower.y,
+                       pUnderlying->offsetLower.z,
+                       pUnderlying->cellMassFrac,
+                       pUnderlying->cellSofteningScale),
+        offset(this->pUnderlying->getWrappedOffset(
+                    Coordinate<T>(0.5 * this->pUnderlying->thisGridSize), center)) {}
 
-      CenteredGrid(GridPtrType pUnderlying, Coordinate<T> center) :
-          VirtualGrid<T>(pUnderlying,
-                         pUnderlying->periodicDomainSize, pUnderlying->size,
-                         pUnderlying->cellSize,
-                         pUnderlying->offsetLower.x,
-                         pUnderlying->offsetLower.y,
-                         pUnderlying->offsetLower.z,
-                         pUnderlying->cellMassFrac,
-                         pUnderlying->cellSofteningScale),
-          offset(this->pUnderlying->getCellCoordinate(
-              this->pUnderlying->getCellContainingPoint(
-                  this->pUnderlying->getWrappedOffset(
-                      Coordinate<T>(0.5 * this->pUnderlying->thisGridSize), center)))) {}
-//        Coordinate<T> wrappedcenter = this->pUnderlying->wrapPoint(center);
-//        Coordinate<T> offset = 0.5 * this->pUnderlying->thisGridSize - wrappedcenter;
-//        this->offset = this->pUnderlying->getCellCoordinate(
-//            this->pUnderlying->getCellContainingPoint(
-//                this->pUnderlying->getWrappedOffset(
-//                    Coordinate<T>(0.5 * this->pUnderlying->thisGridSize), center)));
+    void debugName(std::ostream &s) const override {
+      s << "CenteredGrid";
+    }
 
-      void debugName(std::ostream &s) const override {
-        s << "CenteredGrid";
-      }
+    Coordinate<T> getOffset() const {
+      return Coordinate<T>(offset.x * this->pUnderlying->cellSize,
+                           offset.y * this->pUnderlying->cellSize,
+                           offset.z * this->pUnderlying->cellSize);
+    }
 
-      Coordinate<T> getOffset() const {
-        return this->pUnderlying->getCellCentroid(offset);
-      }
+  protected:
 
-    protected:
-
-      size_t getCellIndexNoWrap(size_t x, size_t y, size_t z) const override{
+    size_t getCellIndexNoWrap(size_t x, size_t y, size_t z) const override{
 //        auto wrappedpoint = pUnderlying->wrapCoordinate(
 //            Coordinate<int>(int(x) + center.x,int(y) + center.y,center.z + int(z)));
 //        return size_t(pUnderlying->getCellIndexNoWrap(wrappedpoint.x, wrappedpoint.y, wrappedpoint.z));
-        return this->pUnderlying->getIndexFromIndexAndStep(
-            this->pUnderlying->getCellIndexNoWrap(x,y,z), this->offset);
-      }
+      return this->pUnderlying->getIndexFromIndexAndStep(
+          this->pUnderlying->getCellIndexNoWrap(x,y,z), this->offset);
+    }
 
-      size_t getCellIndexNoWrap(int x, int y, int z) const override {
+    size_t getCellIndexNoWrap(int x, int y, int z) const override {
 //        auto wrappedpoint = pUnderlying->wrapCoordinate(
 //            Coordinate<int>(x + center.x, y + center.y, z + center.z));
 //        return size_t(pUnderlying->getCellIndexNoWrap(wrappedpoint.x, wrappedpoint.y, wrappedpoint.z));
-        return this->pUnderlying->getIndexFromIndexAndStep(
-            this->pUnderlying->getCellIndexNoWrap(x,y,z), this->offset);
-      }
+      return this->pUnderlying->getIndexFromIndexAndStep(
+          this->pUnderlying->getCellIndexNoWrap(x,y,z), this->offset);
+    }
 
-      size_t getCellIndexNoWrap(const Coordinate<int> &coordinate) const override {
-        //Offset by center and wrap if needed.
-        return this->pUnderlying->getIndexFromIndexAndStep(
-            this->pUnderlying->getCellIndexNoWrap(coordinate),
-            this->offset);
-      }
+    size_t getCellIndexNoWrap(const Coordinate<int> &coordinate) const override {
+      //Offset by center and wrap if needed.
+      return this->pUnderlying->getIndexFromIndexAndStep(
+          this->pUnderlying->getCellIndexNoWrap(coordinate),
+          this->offset);
+    }
 
-      Coordinate<int> getCellCoordinate(size_t id) const override {
-        return this->pUnderlying->wrapCoordinate(
-            this->pUnderlying->getCellCoordinate(id) + this->offset);
-      }
+    Coordinate<int> getCellCoordinate(size_t id) const override {
+      return this->pUnderlying->wrapCoordinate(
+          this->pUnderlying->getCellCoordinate(id) + this->offset);
+    }
 
-      Coordinate<T> getCellCentroid(const Coordinate<int> &coord) const override {
-        return this->pUnderlying->getCellCentroid(
-            this->pUnderlying->wrapCoordinate(this->offset + coord));
+    Coordinate<T> getCellCentroid(const Coordinate<int> &coord) const override {
+      return this->pUnderlying->getCellCentroid(
+          this->pUnderlying->wrapCoordinate(this->offset + coord));
+    }
+
+    void getFlaggedCells(std::vector<size_t> &targetArray) const override {
+      std::vector<size_t> underlyingflags;
+      this->pUnderlying->getFlaggedCells(underlyingflags);
+      for (auto i : underlyingflags){
+        targetArray.push_back(this->pUnderlying->getIndexFromIndexAndStep(i, this->offset));
       }
-    };
+    }
+  };
+
+  //! Virtual grid that moves the grid in box coordinates.
+  template<typename T>
+  class OffsetGrid : public VirtualGrid<T> {
+
+  protected:
+    using typename Grid<T>::GridPtrType;
+
+
+  public:
+    OffsetGrid(GridPtrType pUnderlying, T dx, T dy, T dz) :
+        VirtualGrid<T>(pUnderlying, pUnderlying->periodicDomainSize, pUnderlying->size,
+                       pUnderlying->cellSize,
+                       pUnderlying->offsetLower.x + dx,
+                       pUnderlying->offsetLower.y + dy,
+                       pUnderlying->offsetLower.z + dz,
+                       pUnderlying->cellMassFrac,
+                       pUnderlying->cellSofteningScale) {
+
+    }
+
+
+    void debugName(std::ostream &s) const override {
+      s << "OffsetGrid";
+    }
+
+    void getFlaggedCells(std::vector<size_t> & /*&targetArray*/) const override {
+      throw (std::runtime_error("getFlaggedCells is not implemented for OffsetGrid"));
+    }
+
+    void flagCells(const std::vector<size_t> & /*&sourceArray*/) override {
+      throw (std::runtime_error("flagCells is not implemented for OffsetGrid"));
+    }
+
+
+  };
+
+
+
 
 }
 
