@@ -77,7 +77,7 @@ namespace fields {
     }
 
     DataType operator[](size_t i) const override {
-      auto centroid = grid->getCellCentroid(i);
+      auto centroid = grid->getPointFromIndex(i);
       return (*underlying)(centroid);
     }
 
@@ -175,7 +175,7 @@ namespace fields {
     }
 
     virtual DataType operator[](size_t i) const override {
-      auto coordinate = grid->getCellCoordinate(i);
+      auto coordinate = grid->getCoordinateFromId(i);
       if (grid->isInHiResWindow(coordinate)) {
         size_t mapped_index = grid->getIndexInHiResWindow(coordinate);
         return (*underlyingHiRes)[mapped_index];

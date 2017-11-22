@@ -56,10 +56,10 @@ namespace modifications {
       T xa, ya, za, xb, yb, zb, x0 = 0., y0 = 0., z0 = 0.;
 
 
-      std::tie(xa, ya, za) = grid.getCellCentroid(this->flaggedCells[0]);
+      std::tie(xa, ya, za) = grid.getPointFromIndex(this->flaggedCells[0]);
 
       for (size_t i = 0; i < this->flaggedCells.size(); i++) {
-        std::tie(xb, yb, zb) = grid.getCellCentroid(this->flaggedCells[i]);
+        std::tie(xb, yb, zb) = grid.getPointFromIndex(this->flaggedCells[i]);
 
         x0 += grid.getWrappedOffset(xb, xa);
         y0 += grid.getWrappedOffset(yb, ya);
@@ -86,7 +86,7 @@ namespace modifications {
                               T y0, T z0) {
 
       T xp = 0., yp = 0., zp = 0.;
-      std::tie(xp, yp, zp) = grid.getCellCentroid(index);
+      std::tie(xp, yp, zp) = grid.getPointFromIndex(index);
 
       xp = grid.getWrappedOffset(xp, x0);
       yp = grid.getWrappedOffset(yp, y0);

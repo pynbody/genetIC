@@ -138,7 +138,7 @@ namespace fields {
       y_p_0 = (int) floor(((location.y - offsetLower.y) / pGrid->cellSize));
       z_p_0 = (int) floor(((location.z - offsetLower.z) / pGrid->cellSize));
 
-      return (*this)[pGrid->getCellIndex(Coordinate<int>(x_p_0, y_p_0, z_p_0))];
+      return (*this)[pGrid->getIndexFromCoordinate(Coordinate<int>(x_p_0, y_p_0, z_p_0))];
     }
 
 
@@ -204,14 +204,14 @@ namespace fields {
       assert(z_p_0 < size_i && z_p_0 >= 0 && z_p_1 < size_i && z_p_1 >= 0);
 
 
-      return xw0 * yw0 * zw1 * (*this)[pGrid->getCellIndexNoWrap(x_p_0, y_p_0, z_p_1)] +
-             xw1 * yw0 * zw1 * (*this)[pGrid->getCellIndexNoWrap(x_p_1, y_p_0, z_p_1)] +
-             xw0 * yw1 * zw1 * (*this)[pGrid->getCellIndexNoWrap(x_p_0, y_p_1, z_p_1)] +
-             xw1 * yw1 * zw1 * (*this)[pGrid->getCellIndexNoWrap(x_p_1, y_p_1, z_p_1)] +
-             xw0 * yw0 * zw0 * (*this)[pGrid->getCellIndexNoWrap(x_p_0, y_p_0, z_p_0)] +
-             xw1 * yw0 * zw0 * (*this)[pGrid->getCellIndexNoWrap(x_p_1, y_p_0, z_p_0)] +
-             xw0 * yw1 * zw0 * (*this)[pGrid->getCellIndexNoWrap(x_p_0, y_p_1, z_p_0)] +
-             xw1 * yw1 * zw0 * (*this)[pGrid->getCellIndexNoWrap(x_p_1, y_p_1, z_p_0)];
+      return xw0 * yw0 * zw1 * (*this)[pGrid->getIndexFromCoordinateNoWrap(x_p_0, y_p_0, z_p_1)] +
+             xw1 * yw0 * zw1 * (*this)[pGrid->getIndexFromCoordinateNoWrap(x_p_1, y_p_0, z_p_1)] +
+             xw0 * yw1 * zw1 * (*this)[pGrid->getIndexFromCoordinateNoWrap(x_p_0, y_p_1, z_p_1)] +
+             xw1 * yw1 * zw1 * (*this)[pGrid->getIndexFromCoordinateNoWrap(x_p_1, y_p_1, z_p_1)] +
+             xw0 * yw0 * zw0 * (*this)[pGrid->getIndexFromCoordinateNoWrap(x_p_0, y_p_0, z_p_0)] +
+             xw1 * yw0 * zw0 * (*this)[pGrid->getIndexFromCoordinateNoWrap(x_p_1, y_p_0, z_p_0)] +
+             xw0 * yw1 * zw0 * (*this)[pGrid->getIndexFromCoordinateNoWrap(x_p_0, y_p_1, z_p_0)] +
+             xw1 * yw1 * zw0 * (*this)[pGrid->getIndexFromCoordinateNoWrap(x_p_1, y_p_1, z_p_0)];
     }
 
     const DataType &operator[](size_t i) const {
@@ -349,7 +349,7 @@ namespace fields {
 
 #pragma omp parallel for schedule(static)
       for (size_t ind_l = 0; ind_l < size3; ind_l++) {
-        data[ind_l] += temporaryField.evaluateInterpolated(pGrid->getCellCentroid(ind_l));
+        data[ind_l] += temporaryField.evaluateInterpolated(pGrid->getPointFromId(ind_l));
       }
 
     }
@@ -369,7 +369,7 @@ namespace fields {
 
 #pragma omp parallel for schedule(static)
       for (size_t i = 0; i < size; ++i) {
-        temporaryFieldData[i] = source.evaluateInterpolated(pGrid->getCellCentroid(i));
+        temporaryFieldData[i] = source.evaluateInterpolated(pGrid->getPointFromIndex(i));
       }
 
       temporaryField.applyFilter(filter);

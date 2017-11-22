@@ -248,10 +248,10 @@ public:
 
     // find boundaries
     Window<int> zoomWindow(gridAbove.getEffectiveSimulationSize(),
-                           gridAbove.getCellCoordinate(newLevelZoomParticleArray[0]));
+                           gridAbove.getCoordinateFromId(newLevelZoomParticleArray[0]));
 
     for (auto cell_id : newLevelZoomParticleArray) {
-      zoomWindow.expandToInclude(gridAbove.getCellCoordinate(cell_id));
+      zoomWindow.expandToInclude(gridAbove.getCoordinateFromId(cell_id));
     }
 
     size_t n_required = zoomWindow.getMaximumDimension();
@@ -270,7 +270,7 @@ public:
     // Do not use them if you can
     int borderSafety = 3;
     for (auto cell_id : zoomParticleArray.back()){
-      if( ! zoomWindow.containsWithBorderSafety(gridAbove.getCellCoordinate(cell_id), borderSafety)){
+      if( ! zoomWindow.containsWithBorderSafety(gridAbove.getCoordinateFromId(cell_id), borderSafety)){
         std::cerr << "WARNING: Opening a zoom where flagged particles are within " << borderSafety <<
             " pixels of the edge. This is prone to numerical errors." << std::endl;
         break;
@@ -334,7 +334,7 @@ public:
     // in this category.
     for (size_t i = 0; i < newLevelZoomParticleArray.size(); i++) {
       bool include = true;
-      auto coord = gridAbove.getCellCoordinate(newLevelZoomParticleArray[i]);
+      auto coord = gridAbove.getCoordinateFromId(newLevelZoomParticleArray[i]);
       if (!zoomWindow.contains(coord)) {
         missed_particle += 1;
         include = false;
@@ -742,10 +742,10 @@ protected:
     grids::Grid<T> &grid = multiLevelContext.getGridForLevel(level);
     grid.getFlaggedCells(particleArray);
 
-    auto p0_location = grid.getCellCentroid(particleArray[0]);
+    auto p0_location = grid.getPointFromIndex(particleArray[0]);
 
     for (size_t i = 0; i < particleArray.size(); i++) {
-      auto pi_location = grid.getCellCentroid(particleArray[i]);
+      auto pi_location = grid.getPointFromIndex(particleArray[i]);
       x0 += get_wrapped_delta(pi_location.x, p0_location.x);
       y0 += get_wrapped_delta(pi_location.y, p0_location.y);
       z0 += get_wrapped_delta(pi_location.z, p0_location.z);
@@ -806,14 +806,14 @@ public:
 
   //! Defines the currently interesting coordinates using a particle ID
   void centreParticle(long id) {
-    std::tie(x0, y0, z0) = multiLevelContext.getGridForLevel(0).getCellCentroid(id);
+    std::tie(x0, y0, z0) = multiLevelContext.getGridForLevel(0).getPointFromIndex(id);
   }
 
   //! Flag the nearest cell to the coordinates currently pointed at
   void selectNearest() {
     auto &grid = multiLevelContext.getGridForLevel(deepestLevel() - 1);
     pMapper->unflagAllParticles();
-    size_t id = grid.getCellContainingPoint(Coordinate<T>(x0, y0, z0));
+    size_t id = grid.getIndexFromPoint(Coordinate<T>(x0, y0, z0));
     cerr << "selectNearest " << x0 << " " << y0 << " " << z0 << " " << id << " " << endl;
     grid.flagCells({id});
 
@@ -838,7 +838,7 @@ public:
       auto grid = getOutputGrid(level);
       size_t N = grid->size3;
       for (size_t i = 0; i < N; i++) {
-        std::tie(xp, yp, zp) = grid->getCellCentroid(i);
+        std::tie(xp, yp, zp) = grid->getPointFromIndex(i);
         delta_x = get_wrapped_delta(xp, x0);
         delta_y = get_wrapped_delta(yp, y0);
         delta_z = get_wrapped_delta(zp, z0);

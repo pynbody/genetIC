@@ -90,7 +90,7 @@ namespace particle {
 
     virtual particle::Particle<T> getParticleNoWrap(size_t id) const override {
       auto particle = getParticleNoOffset(id);
-      auto centroid = onGrid->getCellCentroid(id);
+      auto centroid = onGrid->getPointFromIndex(id);
       particle.pos += centroid;
       return particle;
     }
