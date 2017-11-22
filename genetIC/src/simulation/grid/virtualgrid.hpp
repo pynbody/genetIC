@@ -473,18 +473,13 @@ namespace grids {
 
   protected:
 
+    //TODO Class works fine except for wrapping situation.
     size_t getCellIndexNoWrap(size_t x, size_t y, size_t z) const override{
-//        auto wrappedpoint = pUnderlying->wrapCoordinate(
-//            Coordinate<int>(int(x) + center.x,int(y) + center.y,center.z + int(z)));
-//        return size_t(pUnderlying->getCellIndexNoWrap(wrappedpoint.x, wrappedpoint.y, wrappedpoint.z));
       return this->pUnderlying->getIndexFromIndexAndStep(
           this->pUnderlying->getCellIndexNoWrap(x,y,z), this->offset);
     }
 
     size_t getCellIndexNoWrap(int x, int y, int z) const override {
-//        auto wrappedpoint = pUnderlying->wrapCoordinate(
-//            Coordinate<int>(x + center.x, y + center.y, z + center.z));
-//        return size_t(pUnderlying->getCellIndexNoWrap(wrappedpoint.x, wrappedpoint.y, wrappedpoint.z));
       return this->pUnderlying->getIndexFromIndexAndStep(
           this->pUnderlying->getCellIndexNoWrap(x,y,z), this->offset);
     }
@@ -542,13 +537,15 @@ namespace grids {
       s << "OffsetGrid";
     }
 
-    Coordinate<T> getCellCentroid(const Coordinate<int> &coord) const override {
-      return this->pUnderlying->getCellCentroid(coord) + this->offset;
-    }
+    //TODO Not complete, as mask are not generated on virtual offset grids.
 
-    size_t getCellContainingPoint(const Coordinate<T> coord) const override{
-      return this->pUnderlying->getCellContainingPoint(coord - this->offset);
-    }
+//    Coordinate<T> getCellCentroid(const Coordinate<int> &coord) const override {
+//      return this->pUnderlying->getCellCentroid(coord) + this->offset;
+//    }
+//
+//    size_t getCellContainingPoint(const Coordinate<T> coord) const override{
+//      return this->pUnderlying->getCellContainingPoint(coord - this->offset);
+//    }
   };
 
 

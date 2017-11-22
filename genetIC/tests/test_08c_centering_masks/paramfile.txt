@@ -1,4 +1,4 @@
-# Test that refinement masks are wrapped correctly
+# Test that refinement masks are centered correctly
 
 
 # output parameters
@@ -19,7 +19,7 @@ seed	8896131
 
 basegrid 64.0 64
 
-centre 53 53 53
+centre 59 59 59
 select_sphere 5
 zoomgrid 4 64
 
