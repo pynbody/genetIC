@@ -75,6 +75,14 @@ namespace tools {
     }
     return array;
   }
+
+  template<typename T>
+  void sortAndEraseDuplicate( std::vector<T> & vector){
+    std::sort(vector.begin(), vector.end());
+    vector.erase(std::unique(vector.begin(), vector.end()), vector.end());
+  }
+
+
 }
 
 #endif

@@ -458,8 +458,10 @@ namespace grids {
                        pUnderlying->offsetLower.z,
                        pUnderlying->cellMassFrac,
                        pUnderlying->cellSofteningScale),
-        offset(this->pUnderlying->getWrappedOffset(
-                    Coordinate<T>(0.5 * this->pUnderlying->thisGridSize), center)) {}
+        offset(Coordinate<T>(0.5 * this->pUnderlying->thisGridSize) - center) {
+      this->getFlaggedCells(this->flags);
+      tools::sortAndEraseDuplicate(this->flags);
+    }
 
     void debugName(std::ostream &s) const override {
       s << "CenteredGrid";
@@ -475,28 +477,51 @@ namespace grids {
 
     //TODO Class works fine except for wrapping situation.
     size_t getCellIndexNoWrap(size_t x, size_t y, size_t z) const override{
-      return this->pUnderlying->getIndexFromIndexAndStep(
+      size_t index = this->pUnderlying->getIndexFromIndexAndStep(
           this->pUnderlying->getCellIndexNoWrap(x,y,z), this->offset);
+
+      if(this->isCellFlagged(index)){
+        return this->pUnderlying->getCellIndexNoWrap(x,y,z);
+      }
+
+      return index;
     }
 
     size_t getCellIndexNoWrap(int x, int y, int z) const override {
-      return this->pUnderlying->getIndexFromIndexAndStep(
+      size_t index = this->pUnderlying->getIndexFromIndexAndStep(
           this->pUnderlying->getCellIndexNoWrap(x,y,z), this->offset);
+
+      if(this->isCellFlagged(index)){
+        return this->pUnderlying->getCellIndexNoWrap(x,y,z);
+      }
+
+      return index;
     }
 
     size_t getCellIndexNoWrap(const Coordinate<int> &coordinate) const override {
-      //Offset by center and wrap if needed.
-      return this->pUnderlying->getIndexFromIndexAndStep(
-          this->pUnderlying->getCellIndexNoWrap(coordinate),
-          this->offset);
+      size_t index = this->pUnderlying->getIndexFromIndexAndStep(
+          this->pUnderlying->getCellIndexNoWrap(coordinate), this->offset);
+
+      if(this->isCellFlagged(index)){
+        return this->pUnderlying->getCellIndexNoWrap(coordinate);
+      }
+
+      return index;
     }
 
     Coordinate<int> getCellCoordinate(size_t id) const override {
-      return this->pUnderlying->wrapCoordinate(
-          this->pUnderlying->getCellCoordinate(id) + this->offset);
+      if(this->isCellFlagged(id)){
+        return this->pUnderlying->wrapCoordinate(this->pUnderlying->getCellCoordinate(id));
+      }
+
+      return this->pUnderlying->wrapCoordinate(this->pUnderlying->getCellCoordinate(id) + this->offset);
     }
 
     Coordinate<T> getCellCentroid(const Coordinate<int> &coord) const override {
+      if(this->isCellFlagged(this->pUnderlying->getCellIndex(coord))){
+        return this->pUnderlying->getCellCentroid(this->pUnderlying->wrapCoordinate(coord));
+      }
+
       return this->pUnderlying->getCellCentroid(
           this->pUnderlying->wrapCoordinate(this->offset + coord));
     }
@@ -507,6 +532,18 @@ namespace grids {
       for (auto i : underlyingflags){
         targetArray.push_back(this->pUnderlying->getIndexFromIndexAndStep(i, this->offset));
       }
+
+    }
+
+  private:
+    std::vector<size_t> flags;
+
+    bool isCellFlagged(size_t id) const {
+      if((std::binary_search(this->flags.begin(), this->flags.end(), id))){return true;}
+      return false;
+    //TODO Find a way to know if a cell has been centered already
+      //My problems come from the fact that flagged cells are centered and then accessed with
+      // an extra offset through indices.
     }
   };
 

@@ -97,9 +97,6 @@ namespace io {
           for (size_t i_y = 0; i_y < targetGrid.size; ++i_y) {
             for (size_t i_x = 0; i_x < targetGrid.size; ++i_x) {
               size_t i = targetGrid.getCellIndexNoWrap(i_x, i_y, i_z);
-              if(i<0 || i>targetGrid.size3){
-                throw std::runtime_error("Hello you");
-              }
 
               size_t global_index = i + iordOffset;
               auto particle = evaluator->getParticleNoOffset(i);

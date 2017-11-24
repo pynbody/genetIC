@@ -59,9 +59,10 @@ namespace multilevelcontext {
       std::cerr << this->flaggedIdsAtEachLevel[0].size() << std::endl;
       std::cerr << this->flaggedIdsAtEachLevel[1].size() << std::endl;
       std::cerr << this->flaggedIdsAtEachLevel[2].size() << std::endl;
-//      for (auto i : this->flaggedIdsAtEachLevel[0]) {
-//        std::cerr << i << std::endl;
-//      }
+      for (auto i : this->flaggedIdsAtEachLevel[0]) {
+        std::cerr << i << std::endl;
+        std::cerr << this->multilevelcontext->getGridForLevel(0).getCellCoordinate(i) << std::endl;
+      }
     }
 
     void ensureFlaggedVolumeIsContinuous() override{
@@ -129,10 +130,11 @@ namespace multilevelcontext {
     }
 
     void sortAndEraseDuplicate(size_t level){
-      std::sort(this->flaggedIdsAtEachLevel[level].begin(), this->flaggedIdsAtEachLevel[level].end());
-      this->flaggedIdsAtEachLevel[level].erase(std::unique(
-          this->flaggedIdsAtEachLevel[level].begin(),
-          this->flaggedIdsAtEachLevel[level].end()), this->flaggedIdsAtEachLevel[level].end());
+      tools::sortAndEraseDuplicate(this->flaggedIdsAtEachLevel[level]);
+//      std::sort(this->flaggedIdsAtEachLevel[level].begin(), this->flaggedIdsAtEachLevel[level].end());
+//      this->flaggedIdsAtEachLevel[level].erase(std::unique(
+//          this->flaggedIdsAtEachLevel[level].begin(),
+//          this->flaggedIdsAtEachLevel[level].end()), this->flaggedIdsAtEachLevel[level].end());
     }
 
     bool isMasked(size_t id, size_t level){
