@@ -459,8 +459,8 @@ namespace grids {
                        pUnderlying->cellMassFrac,
                        pUnderlying->cellSofteningScale),
         offset(Coordinate<T>(0.5 * this->pUnderlying->thisGridSize) - center) {
-      this->getFlaggedCells(this->flags);
-      tools::sortAndEraseDuplicate(this->flags);
+      this->getFlaggedCells(this->centeredflags);
+      tools::sortAndEraseDuplicate(this->centeredflags);
     }
 
     void debugName(std::ostream &s) const override {
@@ -536,10 +536,10 @@ namespace grids {
     }
 
   private:
-    std::vector<size_t> flags;
+    std::vector<size_t> centeredflags;
 
     bool isCellFlagged(size_t id) const {
-      if((std::binary_search(this->flags.begin(), this->flags.end(), id))){return true;}
+      if((std::binary_search(this->centeredflags.begin(), this->centeredflags.end(), id))){return true;}
       return false;
     //TODO Find a way to know if a cell has been centered already
       //My problems come from the fact that flagged cells are centered and then accessed with

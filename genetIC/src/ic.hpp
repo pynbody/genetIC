@@ -753,6 +753,7 @@ protected:
 
     io::getBuffer(flaggedParticles, filename);
     size_t size = flaggedParticles.size();
+    //TODO Replace with sort and duplicate method. Potentially elsewhere as well
     std::sort(flaggedParticles.begin(), flaggedParticles.end());
     flaggedParticles.erase(std::unique(flaggedParticles.begin(), flaggedParticles.end()),
                            flaggedParticles.end());
