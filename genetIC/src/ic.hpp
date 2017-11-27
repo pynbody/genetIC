@@ -528,7 +528,7 @@ public:
     cerr << "Dumping mask grids" << endl;
     // this is ugly but it makes sure I can dump virtual grids if there are any.
     multilevelcontext::MultiLevelContextInformation<GridDataType> newcontext;
-    this->multiLevelContext.copyContextWithIntermediateResolutionGrids(newcontext);
+    this->multiLevelContext.copyContextWithIntermediateResolutionGrids(newcontext, 2, 0);
     auto dumpingMask = multilevelcontext::Mask<GridDataType, T>(&newcontext);
     dumpingMask.calculateMask();
 
