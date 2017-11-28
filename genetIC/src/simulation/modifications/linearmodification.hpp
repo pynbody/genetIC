@@ -51,6 +51,7 @@ namespace modifications {
     /*!
      * Mostly useful for angular momentum modifications
      */
+    // TODO Avoid repetition of code with grid.getCentre method.
     Coordinate<T> getCentre(grids::Grid<T> &grid) {
 
       T xa, ya, za, xb, yb, zb, x0 = 0., y0 = 0., z0 = 0.;

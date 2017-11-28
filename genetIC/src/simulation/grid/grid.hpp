@@ -372,6 +372,33 @@ namespace grids {
       targetArray.erase(std::unique(targetArray.begin(), targetArray.end()), targetArray.end());
     }
 
+  public:
+    Coordinate<T> getFlaggedCellsCentre(){
+
+      if(! this->hasFlaggedCells()){
+        throw std::runtime_error("Cannot calculate the center of an empty region");
+      }
+
+      T runningx = 0.0;
+      T runningy = 0.0;
+      T runningz = 0.0;
+      auto p0_location = this->getCellCentroid(this->flags[0]);
+
+      for (size_t i = 1; i <this->flags.size(); i++) {
+        size_t id = this->flags[i];
+        auto pi_location = this->getCellCentroid(id);
+        runningx += this->getWrappedOffset(pi_location.x, p0_location.x);
+        runningy += this->getWrappedOffset(pi_location.y, p0_location.y);
+        runningz += this->getWrappedOffset(pi_location.z, p0_location.z);
+      }
+      runningx /= this->flags.size();
+      runningy /= this->flags.size();
+      runningz /= this->flags.size();
+      runningx += p0_location.x;
+      runningy += p0_location.y;
+      runningz += p0_location.z;
+      return Coordinate<T>(runningx, runningy, runningz);
+    }
 
   };
 
