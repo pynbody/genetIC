@@ -374,26 +374,30 @@ namespace grids {
 
   public:
     Coordinate<T> getFlaggedCellsCentre(){
+      return this->getCentre(this->flags);
+    }
 
-      if(! this->hasFlaggedCells()){
+    //! Calculate the centre in box coordinate of a vector of ids
+    Coordinate<T> const getCentre(const std::vector<size_t>& vector_ids){
+      if(vector_ids.empty()){
         throw std::runtime_error("Cannot calculate the center of an empty region");
       }
 
       T runningx = 0.0;
       T runningy = 0.0;
       T runningz = 0.0;
-      auto p0_location = this->getCellCentroid(this->flags[0]);
+      auto p0_location = this->getCellCentroid(vector_ids[0]);
 
-      for (size_t i = 1; i <this->flags.size(); i++) {
-        size_t id = this->flags[i];
+      for (size_t i = 1; i <vector_ids.size(); i++) {
+        size_t id = vector_ids[i];
         auto pi_location = this->getCellCentroid(id);
         runningx += this->getWrappedOffset(pi_location.x, p0_location.x);
         runningy += this->getWrappedOffset(pi_location.y, p0_location.y);
         runningz += this->getWrappedOffset(pi_location.z, p0_location.z);
       }
-      runningx /= this->flags.size();
-      runningy /= this->flags.size();
-      runningz /= this->flags.size();
+      runningx /= vector_ids.size();
+      runningy /= vector_ids.size();
+      runningz /= vector_ids.size();
       runningx += p0_location.x;
       runningy += p0_location.y;
       runningz += p0_location.z;
