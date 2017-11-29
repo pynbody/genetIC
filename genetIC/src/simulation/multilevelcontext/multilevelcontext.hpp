@@ -204,8 +204,8 @@ namespace multilevelcontext {
 
 
     void copyContextWithIntermediateResolutionGrids(MultiLevelContextInformation<DataType> &newStack,
-                                                    size_t base_factor = 2,
-                                                    size_t extra_lores = 1) const {
+                                                    size_t base_factor,
+                                                    size_t extra_lores) const {
       //! Copy this MultiLevelContextInformation, but insert intermediate virtual grids such that
       //!there is a full stack increasing in the specified power.
       /*!
@@ -265,8 +265,8 @@ namespace multilevelcontext {
 
     void copyContextWithCenteredIntermediate(MultiLevelContextInformation<DataType> &newStack,
                                              const Coordinate<T> pointToCenterOnto,
-                                             size_t base_factor = 2,
-                                             size_t extra_lores = 1) const{
+                                             size_t base_factor,
+                                             size_t extra_lores) const{
       auto extracontext = multilevelcontext::MultiLevelContextInformation<DataType>();
       this->copyContextWithIntermediateResolutionGrids(extracontext, base_factor, extra_lores);
       extracontext.copyContextAndCenter(newStack, pointToCenterOnto);

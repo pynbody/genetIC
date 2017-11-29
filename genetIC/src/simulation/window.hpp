@@ -125,7 +125,6 @@ public:
     expandToInclude(include, &Coordinate<T>::x);
     expandToInclude(include, &Coordinate<T>::y);
     expandToInclude(include, &Coordinate<T>::z);
-    // std::cerr << "I " << include << " LC " << lowerCornerInclusive << " UC " << upperCornerExclusive << std::endl;
   }
 
   void expandSymmetricallyToSize(T newSize) {
@@ -169,6 +168,15 @@ public:
     inZ = withinWrapped(lowerCornerInclusive.z, upperCornerExclusive.z, test.z);
     return inX && inY && inZ;
   }
+
+  bool containsWithBorderSafety(const Coordinate<T> &test, T safety){
+    bool inX, inY, inZ;
+    inX = withinWrapped(lowerCornerInclusive.x + safety, upperCornerExclusive.x - safety, test.x);
+    inY = withinWrapped(lowerCornerInclusive.y + safety, upperCornerExclusive.y - safety, test.y);
+    inZ = withinWrapped(lowerCornerInclusive.z + safety, upperCornerExclusive.z - safety, test.z);
+    return inX && inY && inZ;
+  }
+
 };
 
 #endif //IC_WINDOW_HPP

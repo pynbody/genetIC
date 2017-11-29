@@ -100,6 +100,9 @@ protected:
   //! Value of passive variable for refinement masks if needed
   T pvarValue = 1.0;
 
+  //! Number of extra grid to output. These grids are subsampled grid from the coarse grid.
+  size_t extraLowRes = 0;
+
   shared_ptr<particle::mapper::ParticleMapper<GridDataType>> pMapper;
   shared_ptr<particle::mapper::ParticleMapper<GridDataType>> pInputMapper;
   shared_ptr<multilevelcontext::MultiLevelContextInformation<GridDataType>> pInputMultiLevelContext;
@@ -201,6 +204,10 @@ public:
     this->pvarValue = value;
   }
 
+  void setNumberOfExtraLowResGrids(size_t number){
+    this->extraLowRes = number;
+  }
+
   //! Define the base (coarsest) grid
   /*!
    * \param boxSize Physical size of box in Mpc
@@ -266,8 +273,20 @@ public:
     if (n_required < n_user && !allowStrayParticles)
       zoomWindow.expandSymmetricallyToSize(n_user);
 
-    auto lci = zoomWindow.getLowerCornerInclusive();
+    // The edges of zooms regions carry numerical errors due to interpolation between levels (see ref)
+    // Do not use them if you can
+    int borderSafety = 3;
+    for (auto cell_id : zoomParticleArray.back()){
+      if( ! zoomWindow.containsWithBorderSafety(gridAbove.getCellCoordinate(cell_id), borderSafety)){
+        std::cerr << "WARNING: Opening a zoom where flagged particles are within " << borderSafety <<
+            " pixels of the edge. This is prone to numerical errors." << std::endl;
+        break;
+      }
+    }
 
+
+
+    auto lci = zoomWindow.getLowerCornerInclusive();
     initZoomGridWithOriginAt(lci.x, lci.y, lci.z, zoomfac, n);
 
   }
@@ -516,7 +535,7 @@ public:
     cerr << "Dumping mask grids" << endl;
     // this is ugly but it makes sure I can dump virtual grids if there are any.
     multilevelcontext::MultiLevelContextInformation<GridDataType> newcontext;
-    this->multiLevelContext.copyContextWithCenteredIntermediate(newcontext, Coordinate<T>(x0,y0,z0), 2, 0);
+    this->multiLevelContext.copyContextWithCenteredIntermediate(newcontext, Coordinate<T>(x0,y0,z0), 2, this->extraLowRes);
     auto dumpingMask = multilevelcontext::Mask<GridDataType, T>(&newcontext);
     dumpingMask.calculateMask();
 
@@ -591,7 +610,7 @@ public:
 
     if (outputFormat == io::OutputFormat::grafic) {
       // Grafic format just writes out the grids in turn
-      pMapper = std::make_shared<particle::mapper::GraficMapper<GridDataType>>(multiLevelContext);
+      pMapper = std::make_shared<particle::mapper::GraficMapper<GridDataType>>(multiLevelContext, this->extraLowRes);
       return;
     }
 
@@ -685,8 +704,9 @@ public:
                     pMapper, cosmology);
         break;
       case OutputFormat::grafic:
-        grafic::save(getOutputPath() + ".grafic", *pParticleGenerator, multiLevelContext,
-                     cosmology, pvarValue, Coordinate<T>(x0,y0,z0));
+        grafic::save(getOutputPath() + ".grafic",
+                     *pParticleGenerator, multiLevelContext, cosmology, pvarValue, Coordinate<T>(x0,y0,z0),
+                     this->extraLowRes);
         break;
       default:
         throw std::runtime_error("Unknown output format");
@@ -726,23 +746,10 @@ protected:
     z0 = 0;
 
     size_t level = deepestLevelWithParticlesSelected();
-
-    std::vector<size_t> particleArray;
-    grids::Grid<T> &grid = multiLevelContext.getGridForLevel(level);
-    grid.getFlaggedCells(particleArray);
-
-    auto p0_location = grid.getCellCentroid(particleArray[0]);
-
-    for (size_t i = 0; i < particleArray.size(); i++) {
-      auto pi_location = grid.getCellCentroid(particleArray[i]);
-      x0 += get_wrapped_delta(pi_location.x, p0_location.x);
-      y0 += get_wrapped_delta(pi_location.y, p0_location.y);
-      z0 += get_wrapped_delta(pi_location.z, p0_location.z);
-    }
-    x0 /= particleArray.size();
-    y0 /= particleArray.size();
-    z0 /= particleArray.size();
-
+    Coordinate<T> centre = this->multiLevelContext.getGridForLevel(level).getFlaggedCellsCentre();
+    x0 = centre.x;
+    y0 = centre.y;
+    z0 = centre.z;
     cerr << "Centre of region is " << setprecision(12) << x0 << " " << y0 << " " << z0 << endl;
   }
 
