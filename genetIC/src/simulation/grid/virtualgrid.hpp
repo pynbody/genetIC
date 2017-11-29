@@ -197,13 +197,14 @@ namespace grids {
       this->pUnderlyingHiRes->getFlaggedCells(targetArray);
       this->pUnderlyingLoResInterpolated->getFlaggedCells(interpolatedCellsArray);
       for (size_t i = 0; i < targetArray.size(); ++i) {
-        auto coordinate = this->pUnderlyingHiRes->getCoordinateFromId(targetArray[i]) + this->windowLowerCornerInclusive;
+        auto coordinate =
+            this->pUnderlyingHiRes->getCoordinateFromIndex(targetArray[i]) + this->windowLowerCornerInclusive;
         targetArray[i] = this->pUnderlyingLoResInterpolated->getIndexFromCoordinate(coordinate);
       }
 
       for (size_t i = 0; i < interpolatedCellsArray.size(); ++i) {
         size_t thisCell = interpolatedCellsArray[i];
-        auto coordinate = pUnderlyingLoResInterpolated->getCoordinateFromId(thisCell);
+        auto coordinate = pUnderlyingLoResInterpolated->getCoordinateFromIndex(thisCell);
         if (!coordinate.inWindow(windowLowerCornerInclusive, windowUpperCornerExclusive)) {
           targetArray.push_back(thisCell);
         }
@@ -218,7 +219,7 @@ namespace grids {
 
       for (size_t i = 0; i < sourceArray.size(); ++i) {
         size_t thisCell = sourceArray[i];
-        auto coordinate = pUnderlyingLoResInterpolated->getCoordinateFromId(thisCell);
+        auto coordinate = pUnderlyingLoResInterpolated->getCoordinateFromIndex(thisCell);
         if (isInHiResWindow(coordinate)) {
           size_t hiresCell = getIndexInHiResWindow(coordinate);
           hiresCellsArray.push_back(hiresCell);
@@ -296,7 +297,7 @@ namespace grids {
 
   public:
     size_t mapIndexToUnderlying(size_t sec_id) const {
-      auto coord = this->getCoordinateFromId(sec_id);
+      auto coord = this->getCoordinateFromIndex(sec_id);
       coord += cellOffset;
       coord = this->wrapCoordinate(coord);
       if (!this->pUnderlying->containsCellWithCoordinate(coord))
@@ -305,7 +306,7 @@ namespace grids {
     }
 
     size_t mapIndexFromUnderlying(size_t underlying_id) const {
-      Coordinate<int> coord = this->pUnderlying->getCoordinateFromId(underlying_id);
+      Coordinate<int> coord = this->pUnderlying->getCoordinateFromIndex(underlying_id);
       coord -= cellOffset;
       coord = this->wrapCoordinate(coord);
 
@@ -340,7 +341,7 @@ namespace grids {
     }
 
     virtual bool containsCell(size_t i) const {
-      auto coord = this->getCoordinateFromId(i);
+      auto coord = this->getCoordinateFromIndex(i);
       return containsCellWithCoordinate(coord);
     }
 
@@ -421,7 +422,7 @@ namespace grids {
 
 
     int forEachSubcell(size_t id, std::function<void(size_t)> callback) const {
-      auto coord0 = this->getCoordinateFromId(id);
+      auto coord0 = this->getCoordinateFromIndex(id);
       coord0 *= factor;
       auto coord1 = coord0 + factor;
       // In case the edge of the last cell in the fine grid (this->pUnderlying)

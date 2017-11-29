@@ -216,7 +216,7 @@ namespace grids {
 
 
     size_t getIndexFromIndexAndStep(size_t index, const Coordinate<int> &step) const {
-      auto coord = getCoordinateFromId(index);
+      auto coord = getCoordinateFromIndex(index);
       coord += step;
       return this->getIndexFromCoordinate(coord); // N.B. does wrapping inside getIndex
     }
@@ -260,7 +260,7 @@ namespace grids {
     }
 
     //! Returns cell id in pixel coordinates
-    Coordinate<int> getCoordinateFromId(int id) const {
+    Coordinate<int> getCoordinateFromIndex(int id) const {
       size_t x, y;
 
       if ((unsigned) id >= size3) {
@@ -285,7 +285,7 @@ namespace grids {
     /*! Takes into account grid offsets wrt base grid, pixel size etc
      */
     Coordinate<T> getPointFromIndex(size_t id) const {
-      Coordinate<int> coord = getCoordinateFromId(id);
+      Coordinate<int> coord = getCoordinateFromIndex(id);
       return getPointFromCoordinate(coord);
     }
 
@@ -354,7 +354,7 @@ namespace grids {
       targetArray.clear();
 
       for (auto id: sourceArray) {
-        auto coord = source->getCoordinateFromId(id);
+        auto coord = source->getCoordinateFromIndex(id);
         iterateOverCube<int>(
             coord * factor, coord * factor + factor,
             [&targetArray, &target](const Coordinate<int> &subCoord) {
@@ -382,7 +382,7 @@ namespace grids {
 #pragma omp parallel for
       for (size_t i = 0; i < sourceArray.size(); ++i) {
         size_t id = sourceArray[i];
-        auto coord = source->getCoordinateFromId(id);
+        auto coord = source->getCoordinateFromIndex(id);
         targetArray[i] = target->getIndexFromCoordinateNoWrap(coord / factor);
       }
 

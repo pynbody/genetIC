@@ -255,10 +255,10 @@ public:
 
     // find boundaries
     Window<int> zoomWindow(gridAbove.getEffectiveSimulationSize(),
-                           gridAbove.getCoordinateFromId(newLevelZoomParticleArray[0]));
+                           gridAbove.getCoordinateFromIndex(newLevelZoomParticleArray[0]));
 
     for (auto cell_id : newLevelZoomParticleArray) {
-      zoomWindow.expandToInclude(gridAbove.getCoordinateFromId(cell_id));
+      zoomWindow.expandToInclude(gridAbove.getCoordinateFromIndex(cell_id));
     }
 
     size_t n_required = zoomWindow.getMaximumDimension();
@@ -277,7 +277,7 @@ public:
     // Do not use them if you can
     int borderSafety = 3;
     for (auto cell_id : zoomParticleArray.back()){
-      if( ! zoomWindow.containsWithBorderSafety(gridAbove.getCoordinateFromId(cell_id), borderSafety)){
+      if( ! zoomWindow.containsWithBorderSafety(gridAbove.getCoordinateFromIndex(cell_id), borderSafety)){
         std::cerr << "WARNING: Opening a zoom where flagged particles are within " << borderSafety <<
             " pixels of the edge. This is prone to numerical errors." << std::endl;
         break;
@@ -341,7 +341,7 @@ public:
     // in this category.
     for (size_t i = 0; i < newLevelZoomParticleArray.size(); i++) {
       bool include = true;
-      auto coord = gridAbove.getCoordinateFromId(newLevelZoomParticleArray[i]);
+      auto coord = gridAbove.getCoordinateFromIndex(newLevelZoomParticleArray[i]);
       if (!zoomWindow.contains(coord)) {
         missed_particle += 1;
         include = false;

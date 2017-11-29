@@ -175,7 +175,7 @@ namespace fields {
     }
 
     virtual DataType operator[](size_t i) const override {
-      auto coordinate = grid->getCoordinateFromId(i);
+      auto coordinate = grid->getCoordinateFromIndex(i);
       if (grid->isInHiResWindow(coordinate)) {
         size_t mapped_index = grid->getIndexInHiResWindow(coordinate);
         return (*underlyingHiRes)[mapped_index];
