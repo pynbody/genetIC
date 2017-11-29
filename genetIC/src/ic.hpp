@@ -100,6 +100,9 @@ protected:
   //! Value of passive variable for refinement masks if needed
   T pvarValue = 1.0;
 
+  //! Number of extra grid to output. These grids are subsampled grid from the coarse grid.
+  size_t extraLowRes = 0;
+
   shared_ptr<particle::mapper::ParticleMapper<GridDataType>> pMapper;
   shared_ptr<particle::mapper::ParticleMapper<GridDataType>> pInputMapper;
   shared_ptr<multilevelcontext::MultiLevelContextInformation<GridDataType>> pInputMultiLevelContext;
@@ -199,6 +202,10 @@ public:
   //! If generating an extra IC file of a passive variable, sets its value.
   void setpvarValue(T value) {
     this->pvarValue = value;
+  }
+
+  void setNumberOfExtraLowResGrids(size_t number){
+    this->extraLowRes = number;
   }
 
   //! Define the base (coarsest) grid
@@ -603,7 +610,7 @@ public:
 
     if (outputFormat == io::OutputFormat::grafic) {
       // Grafic format just writes out the grids in turn
-      pMapper = std::make_shared<particle::mapper::GraficMapper<GridDataType>>(multiLevelContext);
+      pMapper = std::make_shared<particle::mapper::GraficMapper<GridDataType>>(multiLevelContext, this->extraLowRes);
       return;
     }
 
@@ -697,7 +704,8 @@ public:
                     pMapper, cosmology);
         break;
       case OutputFormat::grafic:
-        grafic::save(getOutputPath() + ".grafic", *pParticleGenerator, multiLevelContext, cosmology, pvarValue);
+        grafic::save(getOutputPath() + ".grafic",
+                     *pParticleGenerator, multiLevelContext, cosmology, pvarValue, this->extraLowRes);
         break;
       default:
         throw std::runtime_error("Unknown output format");
