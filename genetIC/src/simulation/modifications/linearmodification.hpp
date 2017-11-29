@@ -49,15 +49,15 @@ namespace modifications {
 
     //! Obtain centre of region of interest
     /*!
-     * Mostly useful for angular momentum modifications
+     * Mostly useful for angular momentum modifications. Has not been tested for two years.
      */
     Coordinate<T> getCentre(grids::Grid<T> &grid) {
-      return grid.getCentre(this->flaggedCells);
+      return grid.getCentreWrapped(this->flaggedCells);
     }
 
 
     /*!
-     * Mostly useful for angular momentum modifications. have not been tested for two years.
+     * Mostly useful for angular momentum modifications. Has not been tested for two years.
      */
     void
     centralDifference4thOrder(grids::Grid<T> &grid, std::vector<DataType> &outputData, size_t index, int direc, T x0,

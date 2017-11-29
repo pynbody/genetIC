@@ -374,11 +374,14 @@ namespace grids {
 
   public:
     Coordinate<T> getFlaggedCellsCentre(){
-      return this->getCentre(this->flags);
+      return this->getCentreWrapped(this->flags);
     }
 
     //! Calculate the centre in box coordinate of a vector of ids
-    Coordinate<T> const getCentre(const std::vector<size_t>& vector_ids){
+    /*! The underlying assumption of this method is that the centering is done on the coarse grid.
+     * Centering on zoom grids is not taken care off.
+     */
+    Coordinate<T> const getCentreWrapped(const std::vector<size_t>& vector_ids){
       if(vector_ids.empty()){
         throw std::runtime_error("Cannot calculate the center of an empty region");
       }
@@ -386,8 +389,10 @@ namespace grids {
       T runningx = 0.0;
       T runningy = 0.0;
       T runningz = 0.0;
+
       auto p0_location = this->getCellCentroid(vector_ids[0]);
 
+      // Calculate the wrapped mean wrto to cell 0
       for (size_t i = 1; i <vector_ids.size(); i++) {
         size_t id = vector_ids[i];
         auto pi_location = this->getCellCentroid(id);
@@ -398,10 +403,12 @@ namespace grids {
       runningx /= vector_ids.size();
       runningy /= vector_ids.size();
       runningz /= vector_ids.size();
+
+      // Add back cell 0 and wrap if needed
       runningx += p0_location.x;
       runningy += p0_location.y;
       runningz += p0_location.z;
-      return Coordinate<T>(runningx, runningy, runningz);
+      return this->wrapPoint(Coordinate<T>(runningx, runningy, runningz));
     }
 
   };
