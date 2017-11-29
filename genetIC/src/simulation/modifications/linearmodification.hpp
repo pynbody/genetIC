@@ -52,29 +52,7 @@ namespace modifications {
      * Mostly useful for angular momentum modifications
      */
     Coordinate<T> getCentre(grids::Grid<T> &grid) {
-
-      T xa, ya, za, xb, yb, zb, x0 = 0., y0 = 0., z0 = 0.;
-
-
-      std::tie(xa, ya, za) = grid.getCellCentroid(this->flaggedCells[0]);
-
-      for (size_t i = 0; i < this->flaggedCells.size(); i++) {
-        std::tie(xb, yb, zb) = grid.getCellCentroid(this->flaggedCells[i]);
-
-        x0 += grid.getWrappedOffset(xb, xa);
-        y0 += grid.getWrappedOffset(yb, ya);
-        z0 += grid.getWrappedOffset(zb, za);
-      }
-
-      x0 /= this->flaggedCells.size();
-      y0 /= this->flaggedCells.size();
-      z0 /= this->flaggedCells.size();
-      x0 += xa;
-      y0 += ya;
-      z0 += za;
-
-      Coordinate<T> result = Coordinate<T>(x0, y0, z0);
-      return result;
+      return grid.getCentre(this->flaggedCells);
     }
 
 

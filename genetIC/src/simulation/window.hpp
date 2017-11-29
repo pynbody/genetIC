@@ -125,7 +125,6 @@ public:
     expandToInclude(include, &Coordinate<T>::x);
     expandToInclude(include, &Coordinate<T>::y);
     expandToInclude(include, &Coordinate<T>::z);
-    // std::cerr << "I " << include << " LC " << lowerCornerInclusive << " UC " << upperCornerExclusive << std::endl;
   }
 
   void expandSymmetricallyToSize(T newSize) {

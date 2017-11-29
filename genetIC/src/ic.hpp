@@ -737,23 +737,10 @@ protected:
     z0 = 0;
 
     size_t level = deepestLevelWithParticlesSelected();
-
-    std::vector<size_t> particleArray;
-    grids::Grid<T> &grid = multiLevelContext.getGridForLevel(level);
-    grid.getFlaggedCells(particleArray);
-
-    auto p0_location = grid.getCellCentroid(particleArray[0]);
-
-    for (size_t i = 0; i < particleArray.size(); i++) {
-      auto pi_location = grid.getCellCentroid(particleArray[i]);
-      x0 += get_wrapped_delta(pi_location.x, p0_location.x);
-      y0 += get_wrapped_delta(pi_location.y, p0_location.y);
-      z0 += get_wrapped_delta(pi_location.z, p0_location.z);
-    }
-    x0 /= particleArray.size();
-    y0 /= particleArray.size();
-    z0 /= particleArray.size();
-
+    Coordinate<T> centre = this->multiLevelContext.getGridForLevel(level).getFlaggedCellsCentre();
+    x0 = centre.x;
+    y0 = centre.y;
+    z0 = centre.z;
     cerr << "Centre of region is " << setprecision(12) << x0 << " " << y0 << " " << z0 << endl;
   }
 
