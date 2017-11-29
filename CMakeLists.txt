@@ -59,7 +59,8 @@ set(SOURCE_FILES
         genetIC/src/simulation/modifications/modification.hpp
         genetIC/src/simulation/modifications/modificationmanager.hpp
         genetIC/src/simulation/modifications/linearmodification.hpp
-        genetIC/src/simulation/modifications/quadraticmodification.hpp)
+        genetIC/src/simulation/modifications/quadraticmodification.hpp
+        genetIC/src/simulation/multilevelcontext/mask.hpp)
 
 include_directories( /opt/local/include )
 link_directories(/opt/local/lib )

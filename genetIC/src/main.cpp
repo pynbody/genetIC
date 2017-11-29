@@ -42,6 +42,7 @@ void setup_parser(tools::ClassDispatch<ICf, void> &dispatch) {
   dispatch.add_class_route("s8", &ICf::setSigma8);
   dispatch.add_class_route("ns", &ICf::setns);
   dispatch.add_class_route("zin", &ICf::setZ0);
+  dispatch.add_class_route("pvar", &ICf::setpvarValue);
 
   // Set seeds for random draws
   dispatch.add_class_route("seed", &ICf::setSeed);
@@ -62,6 +63,7 @@ void setup_parser(tools::ClassDispatch<ICf, void> &dispatch) {
   dispatch.add_class_route("outdir", &ICf::setOutDir);
   dispatch.add_class_route("outname", &ICf::setOutName);
   dispatch.add_class_route("outformat", &ICf::setOutputFormat);
+  dispatch.add_class_route("extra_low_res", &ICf::setNumberOfExtraLowResGrids);
 
   // Define grid structure
   dispatch.add_class_route("basegrid", &ICf::initBaseGrid);
@@ -98,6 +100,7 @@ void setup_parser(tools::ClassDispatch<ICf, void> &dispatch) {
   dispatch.add_class_route("dump_grid", &ICf::dumpGrid);
   dispatch.add_class_route("dump_ps", &ICf::dumpPS);
   dispatch.add_class_route("dump_tipsy", &ICf::saveTipsyArray);
+  dispatch.add_class_route("dump_mask", &ICf::dumpMask);
 
   // To debug
   dispatch.add_class_route("zeroLevel", &ICf::zeroLevel);

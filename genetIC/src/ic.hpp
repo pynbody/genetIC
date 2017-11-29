@@ -97,6 +97,12 @@ protected:
   //! Coordinates of the cell of current interest
   T x0, y0, z0;
 
+  //! Value of passive variable for refinement masks if needed
+  T pvarValue = 1.0;
+
+  //! Number of extra grid to output. These grids are subsampled grid from the coarse grid.
+  size_t extraLowRes = 0;
+
   shared_ptr<particle::mapper::ParticleMapper<GridDataType>> pMapper;
   shared_ptr<particle::mapper::ParticleMapper<GridDataType>> pInputMapper;
   shared_ptr<multilevelcontext::MultiLevelContextInformation<GridDataType>> pInputMultiLevelContext;
@@ -193,6 +199,15 @@ public:
     cosmology.scalefactor = 1. / (cosmology.redshift + 1.);
   }
 
+  //! If generating an extra IC file of a passive variable, sets its value.
+  void setpvarValue(T value) {
+    this->pvarValue = value;
+  }
+
+  void setNumberOfExtraLowResGrids(size_t number){
+    this->extraLowRes = number;
+  }
+
   //! Define the base (coarsest) grid
   /*!
    * \param boxSize Physical size of box in Mpc
@@ -258,8 +273,20 @@ public:
     if (n_required < n_user && !allowStrayParticles)
       zoomWindow.expandSymmetricallyToSize(n_user);
 
-    auto lci = zoomWindow.getLowerCornerInclusive();
+    // The edges of zooms regions carry numerical errors due to interpolation between levels (see ref)
+    // Do not use them if you can
+    int borderSafety = 3;
+    for (auto cell_id : zoomParticleArray.back()){
+      if( ! zoomWindow.containsWithBorderSafety(gridAbove.getCellCoordinate(cell_id), borderSafety)){
+        std::cerr << "WARNING: Opening a zoom where flagged particles are within " << borderSafety <<
+            " pixels of the edge. This is prone to numerical errors." << std::endl;
+        break;
+      }
+    }
 
+
+
+    auto lci = zoomWindow.getLowerCornerInclusive();
     initZoomGridWithOriginAt(lci.x, lci.y, lci.z, zoomfac, n);
 
   }
@@ -280,7 +307,7 @@ public:
   }
 
   /*! Define a zoomed grid with user defined coordinates
-   * \param x0, y0, z0  //TODO Coordinates of centre of grid or upper left corner ?
+   * \param x0, y0, z0  Coordinates in pixel number of the lower left corner
    */
   void initZoomGridWithOriginAt(int x0, int y0, int z0, size_t zoomfac, size_t n) {
     grids::Grid<T> &gridAbove = multiLevelContext.getGridForLevel(multiLevelContext.getNumLevels() - 1);
@@ -352,7 +379,7 @@ public:
     cout << "  n                     = " << newGrid.size << endl;
     cout << "  dx                    = " << newGrid.cellSize << endl;
     cout << "  Zoom factor           = " << zoomfac << endl;
-    cout << "  Origin in parent grid = " << lowerCorner << endl;
+    cout << "  Origin in parent grid = " << lowerCorner << endl; //TODO Origin is misleading as it stands for center
     cout << "  Low-left corner       = " << newGrid.offsetLower.x << ", " << newGrid.offsetLower.y << ", "
          << newGrid.offsetLower.z << endl;
     cout << "  Num particles         = " << newLevelZoomParticleArray.size() << endl;
@@ -451,7 +478,7 @@ public:
 
   template<typename TField>
   void dumpGridData(size_t level, const TField &data) {
-    grids::Grid<T> &levelGrid = multiLevelContext.getGridForLevel(level);
+    auto levelGrid = data.getGrid();
 
     ostringstream filename;
     filename << outputFolder << "/grid-" << level << ".npy";
@@ -479,7 +506,10 @@ public:
   }
 
   //! Dumps field at a given level in a file named grid-level
-  virtual void dumpGrid(size_t level = 0) {
+  virtual void dumpGrid(size_t level) {
+    if(level < 0 || level > this->multiLevelContext.getNumLevels() -1){
+      throw std::runtime_error("Trying to dump an undefined level");
+    }
     outputField.toReal();
     dumpGridData(level, outputField.getFieldForLevel(level));
   }
@@ -498,6 +528,22 @@ public:
     cosmology::dumpPowerSpectrum(field,
                                  multiLevelContext.getCovariance(level),
                                  (getOutputPath() + "_" + ((char) (level + '0')) + ".ps").c_str());
+  }
+
+  //! Dumps mask information to numpy grid files
+  virtual void dumpMask() {
+    cerr << "Dumping mask grids" << endl;
+    // this is ugly but it makes sure I can dump virtual grids if there are any.
+    multilevelcontext::MultiLevelContextInformation<GridDataType> newcontext;
+    this->multiLevelContext.copyContextWithIntermediateResolutionGrids(newcontext, 2, 0);
+    auto dumpingMask = multilevelcontext::Mask<GridDataType, T>(&newcontext);
+    dumpingMask.calculateMask();
+
+
+    auto maskfield = dumpingMask.convertToField();
+    for(size_t level=0; level<newcontext.getNumLevels(); level++){
+      dumpGridData(level, maskfield->getFieldForLevel(level));
+    }
   }
 
 
@@ -564,7 +610,7 @@ public:
 
     if (outputFormat == io::OutputFormat::grafic) {
       // Grafic format just writes out the grids in turn
-      pMapper = std::make_shared<particle::mapper::GraficMapper<GridDataType>>(multiLevelContext);
+      pMapper = std::make_shared<particle::mapper::GraficMapper<GridDataType>>(multiLevelContext, this->extraLowRes);
       return;
     }
 
@@ -658,7 +704,8 @@ public:
                     pMapper, cosmology);
         break;
       case OutputFormat::grafic:
-        grafic::save(getOutputPath() + ".grafic", *pParticleGenerator, multiLevelContext, cosmology);
+        grafic::save(getOutputPath() + ".grafic",
+                     *pParticleGenerator, multiLevelContext, cosmology, pvarValue, this->extraLowRes);
         break;
       default:
         throw std::runtime_error("Unknown output format");
@@ -679,12 +726,8 @@ public:
 
 protected:
 
-  int deepestLevelWithParticlesSelected() {
-    for (size_t i = multiLevelContext.getNumLevels() - 1; i >= 0; --i) {
-      if (multiLevelContext.getGridForLevel(i).hasFlaggedCells())
-        return i;
-    }
-    throw std::runtime_error("No level has any particles selected");
+  size_t deepestLevelWithParticlesSelected() {
+    return multiLevelContext.deepestLevelwithFlaggedCells();
   }
 
   size_t deepestLevel() {
@@ -701,7 +744,7 @@ protected:
     y0 = 0;
     z0 = 0;
 
-    int level = deepestLevelWithParticlesSelected();
+    size_t level = deepestLevelWithParticlesSelected();
     Coordinate<T> centre = this->multiLevelContext.getGridForLevel(level).getFlaggedCellsCentre();
     x0 = centre.x;
     y0 = centre.y;
@@ -948,8 +991,6 @@ public:
     }
 
   }
-
-
 };
 
 #endif

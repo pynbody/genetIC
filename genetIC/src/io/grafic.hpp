@@ -1,11 +1,6 @@
-#include <fstream>
-#include <cmath>
 #include <sys/stat.h>
-#include <sys/types.h>
-#include <list>
-#include "src/simulation/multilevelcontext/multilevelcontext.hpp"
-#include "src/cosmology/parameters.hpp"
 #include <src/simulation/particles/multilevelgenerator.hpp>
+#include <src/simulation/multilevelcontext/mask.hpp>
 
 namespace io {
   namespace grafic {
@@ -27,6 +22,8 @@ namespace io {
       multilevelcontext::MultiLevelContextInformation<DataType> context;
       std::shared_ptr<particle::AbstractMultiLevelParticleGenerator<DataType>> generator;
       const cosmology::CosmologicalParameters<T> &cosmology;
+      multilevelcontext::Mask<DataType,T> mask;
+      T pvarValue;
 
       T lengthFactor;
       T velFactor;
@@ -36,25 +33,31 @@ namespace io {
       GraficOutput(const std::string &fname,
                    multilevelcontext::MultiLevelContextInformation<DataType> &levelContext,
                    particle::AbstractMultiLevelParticleGenerator<DataType> &particleGenerator,
-                   const cosmology::CosmologicalParameters<T> &cosmology) :
+                   const cosmology::CosmologicalParameters<T> &cosmology,
+                    const T pvarValue,
+                   size_t extralowRes) :
           outputFilename(fname),
           generator(particleGenerator.shared_from_this()),
-          cosmology(cosmology) {
-        levelContext.copyContextWithIntermediateResolutionGrids(context);
+          cosmology(cosmology),
+          mask(&levelContext),
+          pvarValue(pvarValue){
+        levelContext.copyContextWithIntermediateResolutionGrids(context, 2, extralowRes);
+        mask.recalculateWithNewContext(&context);
         lengthFactor = 1. / cosmology.hubble; // Gadget Mpc a h^-1 -> GrafIC file Mpc a
         velFactor = std::pow(cosmology.scalefactor, 0.5f); // Gadget km s^-1 a^1/2 -> GrafIC km s^-1
       }
 
       void write() {
         iordOffset = 0;
-        context.forEachLevel([&](const grids::Grid<T> &targetGrid) {
-          writeGrid(targetGrid);
-        });
+
+        for (size_t level = 0; level < this->context.getNumLevels(); ++level) {
+            writeGrid(this->context.getGridForLevel(level), level);
+        }
       }
 
     protected:
 
-      void writeGrid(const grids::Grid<T> &targetGrid) {
+      void writeGrid(const grids::Grid<T> &targetGrid, size_t level) {
         auto evaluator = generator->makeEvaluatorForGrid(targetGrid);
 
         const grids::Grid<T> &baseGrid = context.getGridForLevel(0);
@@ -65,13 +68,19 @@ namespace io {
         std::string thisGridFilename = outputFilename + "_" + std::to_string(effective_size);
         mkdir(thisGridFilename.c_str(), 0777);
 
-        auto filenames = {"ic_velcx", "ic_velcy", "ic_velcz", "ic_poscx", "ic_poscy", "ic_poscz", "ic_particle_ids", "ic_deltab"};
+        auto filenames = {"ic_velcx", "ic_velcy", "ic_velcz", "ic_poscx", "ic_poscy",
+                          "ic_poscz", "ic_particle_ids", "ic_deltab", "ic_refmap", "ic_pvar_00001"};
 
-        std::vector<size_t> block_lengths = {sizeof(float) * targetGrid.size2, sizeof(float) * targetGrid.size2,
+        std::vector<size_t> block_lengths = {sizeof(float) * targetGrid.size2,
                                              sizeof(float) * targetGrid.size2,
-                                             sizeof(float) * targetGrid.size2, sizeof(float) * targetGrid.size2,
                                              sizeof(float) * targetGrid.size2,
-                                             sizeof(size_t) * targetGrid.size2, sizeof(float) * targetGrid.size2};
+                                             sizeof(float) * targetGrid.size2,
+                                             sizeof(float) * targetGrid.size2,
+                                             sizeof(float) * targetGrid.size2,
+                                             sizeof(size_t) * targetGrid.size2,
+                                             sizeof(float) * targetGrid.size2,
+                                             sizeof(float) * targetGrid.size2,
+                                             sizeof(float) * targetGrid.size2};
 
         std::vector<std::ofstream> files;
 
@@ -96,6 +105,8 @@ namespace io {
 
               // TODO For now, the baryon density is not calculated and set to zero
               float deltab = 0;
+              float mask = this->mask.isInMask(level, i);
+              float pvar = pvarValue * mask;
 
               // Eek. The following code is horrible. Is there a way to make it neater?
               files[0].write((char *) (&velScaled.x), sizeof(float));
@@ -106,7 +117,8 @@ namespace io {
               files[5].write((char *) (&posScaled.z), sizeof(float));
               files[6].write((char *) (&global_index), sizeof(size_t));
               files[7].write((char *) (&deltab), sizeof(float));
-
+              files[8].write((char *) (&mask), sizeof(float));
+              files[9].write((char *) (&pvar), sizeof(float));
             }
           }
           writeBlockHeaderFooter(block_lengths, files);
@@ -153,9 +165,10 @@ namespace io {
     void save(const std::string &filename,
               particle::AbstractMultiLevelParticleGenerator<DataType> &generator,
               multilevelcontext::MultiLevelContextInformation<DataType> &context,
-              const cosmology::CosmologicalParameters<T> &cosmology) {
+              const cosmology::CosmologicalParameters<T> &cosmology,
+              const T pvarValue, size_t extraLowRes) {
       GraficOutput<DataType> output(filename, context,
-                                    generator, cosmology);
+                                    generator, cosmology, pvarValue, extraLowRes);
       output.write();
     }
 

@@ -1,6 +1,8 @@
+from __future__ import print_function
 import numpy as np
 import pylab as p
 import glob
+
 
 def plot1dslice(prefix="output/",ps="-",slice_z=None,slice_y=None,maxgrid=2,vmin=-0.15,vmax=0.15,thisgrid=0):
     a = np.load(prefix+"grid-%d.npy"%thisgrid)
@@ -16,7 +18,7 @@ def plot1dslice(prefix="output/",ps="-",slice_z=None,slice_y=None,maxgrid=2,vmin
     a_sl_z = int(len(a)*((slice_z-az)/aL))
     a_sl_y = int(len(a)*((slice_y-ay)/aL))
 
-    print "a_sl_z,a_sl_y=",a_sl_z,a_sl_y
+    print("a_sl_z,a_sl_y=",a_sl_z,a_sl_y)
 
     dx = aL/len(a)
 
@@ -67,7 +69,7 @@ def plotslice_onegrid(prefix="output/",grid=0,slice=None,vmin=-0.15,vmax=0.15,pa
     a_sl = int(len(a)*((slice-az)/aL))
 
     if a_sl<0 or a_sl>=len(a):
-        print "Grid %d is not contained in this z-slice"%grid
+        print("Grid %d is not contained in this z-slice"%grid)
         return
 
     a = a[:,:,a_sl].T
@@ -97,7 +99,7 @@ def plotslice_onegrid(prefix="output/",grid=0,slice=None,vmin=-0.15,vmax=0.15,pa
 
 def plotslice(prefix="output/",maxgrid=10,slice=None,onelevel=False,vmin=-0.15,vmax=0.15,padcells=4, offset=None):
     maxgrid_on_disk = len(glob.glob(prefix+"grid-?.npy"))
-    print maxgrid_on_disk
+    print(maxgrid_on_disk)
     if maxgrid_on_disk<maxgrid:
         maxgrid = maxgrid_on_disk
 
@@ -117,7 +119,7 @@ def plotslice_pynbody(f, slice=0.0,vmin=-0.15,vmax=0.15,use_overdensity=False):
     f.physical_units("Mpc a h^-1")
     slice/=f.properties['boxsize'].in_units('Mpc a h^-1',**f.conversion_context())
     rho_mean = f.dm['mass'].sum()/f.properties['boxsize']**3 # should be numerically equal to omegaM0
-    print "rho_mean=",rho_mean
+    print("rho_mean=",rho_mean)
     f.dm['delta'] = (f.dm['rho']-rho_mean)/rho_mean
     f.dm['delta'].convert_units("1")
 
@@ -142,7 +144,7 @@ def plot_ps(f, with_theory=False):
         ps_fname = glob.glob(search)
         if len(ps_fname)==0:
             return
-        print search,"->",ps_fname
+        print(search,"->",ps_fname)
         k, Pk = np.loadtxt(ps_fname[0],unpack=True,usecols=(0,3))
         p.plot(k,Pk)
         if with_theory:

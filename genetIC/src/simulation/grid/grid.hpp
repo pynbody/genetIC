@@ -49,7 +49,7 @@ namespace grids {
     const T periodicDomainSize;
     const T thisGridSize;   /*!< Grid (one side) size in Mpc */
     const T cellSize;
-    const Coordinate<T> offsetLower;
+    const Coordinate<T> offsetLower; ///< Coordinate of the pixel edge of lower corner of the grid
     const size_t size; ///<the number of cells on a side
     const size_t size2; ///< the number of cells on a face
     const size_t size3; ///< the total number of cells in the grid cube
@@ -169,8 +169,22 @@ namespace grids {
       return false;
     }
 
+    //! True if point in physical coordinates is on this grid
     virtual bool containsPoint(const Coordinate<T> &coord) const {
       return Window<T>(periodicDomainSize, offsetLower, offsetLower + thisGridSize).contains(coord);
+    }
+
+    //! True if point in physical coordinates is on this grid and not too close to the border
+    /*!
+     * @param safety Exclude "safety" number of pixels at the edge of the box
+     */
+    virtual bool containsPointWithBorderSafety(const Coordinate<T> &coord, int safety ) const{
+      if(safety < 1){
+        throw std::runtime_error("Safety number of pixels must be at least one");
+      }
+
+      return Window<T>(periodicDomainSize, offsetLower,
+                       offsetLower + thisGridSize).containsWithBorderSafety(coord, safety * cellSize);
     }
 
     Coordinate<T> wrapPoint(Coordinate<T> pos) const {
@@ -183,11 +197,15 @@ namespace grids {
       return pos;
     }
 
+    //! True if cell with pixel coordinates is on this grid
+    /*! Does not take into account offset or physical coordinates
+     */
     virtual bool containsCellWithCoordinate(Coordinate<int> coord) const {
       return coord.x >= 0 && coord.y >= 0 && coord.z >= 0 &&
              (unsigned) coord.x < size && (unsigned) coord.y < size && (unsigned) coord.z < size;
     }
 
+    //! True if cell number is less than Ncell cubed
     virtual bool containsCell(size_t i) const {
       return i < size3;
     }
@@ -241,7 +259,7 @@ namespace grids {
       return getCellIndexNoWrap(coordinate.x, coordinate.y, coordinate.z);
     }
 
-
+    //! Returns cell id in pixel coordinates
     Coordinate<int> getCellCoordinate(int id) const {
       size_t x, y;
 
@@ -263,7 +281,9 @@ namespace grids {
       return kMin;
     }
 
-
+    //! Returns coordinate of centre of cell id, in physical box coordinates
+    /*! Takes into account grid offsets wrt base grid, pixel size etc
+     */
     Coordinate<T> getCellCentroid(size_t id) const {
       Coordinate<int> coord = getCellCoordinate(id);
       return getCellCentroid(coord);

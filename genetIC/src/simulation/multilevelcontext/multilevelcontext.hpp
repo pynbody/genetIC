@@ -6,7 +6,6 @@
 #include <map>
 #include <vector>
 #include <cassert>
-#include <vector>
 #include <memory>
 
 #include "src/simulation/grid/grid.hpp"
@@ -146,6 +145,16 @@ namespace multilevelcontext {
         throw std::out_of_range("No covariance yet specified for this level");
     }
 
+    size_t deepestLevelwithFlaggedCells() {
+
+      for (int i = this->getNumLevels() - 1; i >= 0; --i) {
+        if (this->getGridForLevel(i).hasFlaggedCells())
+          return size_t(i);
+      }
+
+      throw std::runtime_error("No level has any particles selected");
+    }
+
     //! From finest level, use interpolation to construct other levels
     std::shared_ptr<fields::ConstraintField<DataType>>
     generateMultilevelFromHighResField(fields::Field<DataType, T> &&data) {
@@ -190,8 +199,8 @@ namespace multilevelcontext {
 
 
     void copyContextWithIntermediateResolutionGrids(MultiLevelContextInformation<DataType> &newStack,
-                                                    size_t base_factor = 2,
-                                                    size_t extra_lores = 1) const {
+                                                    size_t base_factor,
+                                                    size_t extra_lores) const {
       /* Copy this MultiLevelContextInformation, but insert intermediate virtual grids such that
        * there is a full stack increasing in the specified power.
        *
@@ -232,6 +241,13 @@ namespace multilevelcontext {
 
       }
 
+    }
+
+    size_t getIndexOfCellOnOtherLevel(size_t currentLevel, size_t otherLevel, size_t cellIndex){
+      auto currentLevelGrid = this->getGridForLevel(currentLevel);
+      auto otherLevelGrid = this->getGridForLevel(otherLevel);
+      Coordinate<T> cell_coord(currentLevelGrid.getCellCentroid(cellIndex));
+      return otherLevelGrid.getCellContainingPoint(cell_coord);
     }
 
   };

@@ -1,0 +1,36 @@
+# Test that refinement masks are generated correctly with multiple layers of virtual grids
+
+
+# output parameters
+outdir	 ./
+outformat 5
+outname test_8
+
+
+# cosmology:
+Om  0.279
+Ol  0.721
+s8  0.817
+zin	99
+camb    ../camb_transfer_kmax40_z0_post2015.dat
+
+# fourier seeding
+seed	8896131
+
+basegrid 50.0 64
+
+centre 25.5 25.5 25.5
+select_cube 1
+zoomgrid 4 64
+
+
+centre 25.5 25.5 25.5
+select_cube 1
+zoomgrid 4 64
+
+done
+
+dump_mask
+
+
+
