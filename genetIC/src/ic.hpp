@@ -100,6 +100,9 @@ protected:
   //! Value of passive variable for refinement masks if needed
   T pvarValue = 1.0;
 
+  //! Number of extra grid to output. These grids are subsampled grid from the coarse grid.
+  size_t extraLowRes = 0;
+
   shared_ptr<particle::mapper::ParticleMapper<GridDataType>> pMapper;
   shared_ptr<particle::mapper::ParticleMapper<GridDataType>> pInputMapper;
   shared_ptr<multilevelcontext::MultiLevelContextInformation<GridDataType>> pInputMultiLevelContext;
@@ -199,6 +202,10 @@ public:
   //! If generating an extra IC file of a passive variable, sets its value.
   void setpvarValue(T value) {
     this->pvarValue = value;
+  }
+
+  void setNumberOfExtraLowResGrids(size_t number){
+    this->extraLowRes = number;
   }
 
   //! Define the base (coarsest) grid
@@ -528,7 +535,7 @@ public:
     cerr << "Dumping mask grids" << endl;
     // this is ugly but it makes sure I can dump virtual grids if there are any.
     multilevelcontext::MultiLevelContextInformation<GridDataType> newcontext;
-    this->multiLevelContext.copyContextWithIntermediateResolutionGrids(newcontext);
+    this->multiLevelContext.copyContextWithIntermediateResolutionGrids(newcontext, 2, 0);
     auto dumpingMask = multilevelcontext::Mask<GridDataType, T>(&newcontext);
     dumpingMask.calculateMask();
 
@@ -603,7 +610,7 @@ public:
 
     if (outputFormat == io::OutputFormat::grafic) {
       // Grafic format just writes out the grids in turn
-      pMapper = std::make_shared<particle::mapper::GraficMapper<GridDataType>>(multiLevelContext);
+      pMapper = std::make_shared<particle::mapper::GraficMapper<GridDataType>>(multiLevelContext, this->extraLowRes);
       return;
     }
 
@@ -697,7 +704,8 @@ public:
                     pMapper, cosmology);
         break;
       case OutputFormat::grafic:
-        grafic::save(getOutputPath() + ".grafic", *pParticleGenerator, multiLevelContext, cosmology, pvarValue);
+        grafic::save(getOutputPath() + ".grafic",
+                     *pParticleGenerator, multiLevelContext, cosmology, pvarValue, this->extraLowRes);
         break;
       default:
         throw std::runtime_error("Unknown output format");
@@ -737,23 +745,10 @@ protected:
     z0 = 0;
 
     size_t level = deepestLevelWithParticlesSelected();
-
-    std::vector<size_t> particleArray;
-    grids::Grid<T> &grid = multiLevelContext.getGridForLevel(level);
-    grid.getFlaggedCells(particleArray);
-
-    auto p0_location = grid.getPointFromIndex(particleArray[0]);
-
-    for (size_t i = 0; i < particleArray.size(); i++) {
-      auto pi_location = grid.getPointFromIndex(particleArray[i]);
-      x0 += get_wrapped_delta(pi_location.x, p0_location.x);
-      y0 += get_wrapped_delta(pi_location.y, p0_location.y);
-      z0 += get_wrapped_delta(pi_location.z, p0_location.z);
-    }
-    x0 /= particleArray.size();
-    y0 /= particleArray.size();
-    z0 /= particleArray.size();
-
+    Coordinate<T> centre = this->multiLevelContext.getGridForLevel(level).getFlaggedCellsCentre();
+    x0 = centre.x;
+    y0 = centre.y;
+    z0 = centre.z;
     cerr << "Centre of region is " << setprecision(12) << x0 << " " << y0 << " " << z0 << endl;
   }
 

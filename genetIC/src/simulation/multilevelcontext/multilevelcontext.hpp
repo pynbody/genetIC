@@ -199,8 +199,8 @@ namespace multilevelcontext {
 
 
     void copyContextWithIntermediateResolutionGrids(MultiLevelContextInformation<DataType> &newStack,
-                                                    size_t base_factor = 2,
-                                                    size_t extra_lores = 1) const {
+                                                    size_t base_factor,
+                                                    size_t extra_lores) const {
       /* Copy this MultiLevelContextInformation, but insert intermediate virtual grids such that
        * there is a full stack increasing in the specified power.
        *
