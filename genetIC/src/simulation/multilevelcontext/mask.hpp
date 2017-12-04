@@ -56,9 +56,9 @@ namespace multilevelcontext {
     void calculateMask() override{
       generateFlagsHierarchy();
       ensureFlaggedVolumeIsContinuous();
-//      std::cerr << this->flaggedIdsAtEachLevel[0].size() << std::endl;
-//      std::cerr << this->flaggedIdsAtEachLevel[1].size() << std::endl;
-//      std::cerr << this->flaggedIdsAtEachLevel[2].size() << std::endl;
+      std::cerr << this->flaggedIdsAtEachLevel[0].size() << std::endl;
+      std::cerr << this->flaggedIdsAtEachLevel[1].size() << std::endl;
+      std::cerr << this->flaggedIdsAtEachLevel[2].size() << std::endl;
 //      for (auto i : this->flaggedIdsAtEachLevel[0]) {
 //        std::cerr << i << std::endl;
 //        std::cerr << this->multilevelcontext->getGridForLevel(0).getCoordinateFromIndex(i) << std::endl;

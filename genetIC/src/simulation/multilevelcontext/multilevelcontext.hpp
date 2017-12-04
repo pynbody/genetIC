@@ -254,7 +254,7 @@ namespace multilevelcontext {
       std::cerr << "Replacing coarse grid with a centered grid on " << pointToCenterOnto <<  std::endl;
       newStack.addLevel(C0s[0], centeredCoarse);
 
-      auto offset = centeredCoarse->getOffset();
+      Coordinate<T> offset = centeredCoarse->getPointOffset();
       std::cerr << "Offsetting zooms by " << offset <<  std::endl;
 
       for (size_t level = 1; level < nLevels; ++level) {

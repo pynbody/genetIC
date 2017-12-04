@@ -337,14 +337,14 @@ namespace grids {
      *
      * Note that for efficiency this routine only "corrects" coordinates within one boxsize of the fundamental domain.
      */
-    Coordinate<int> wrapCoordinate(Coordinate<int> index) const {
-      if (index.x > (signed) simEquivalentSize - 1) index.x -= simEquivalentSize;
-      if (index.y > (signed) simEquivalentSize - 1) index.y -= simEquivalentSize;
-      if (index.z > (signed) simEquivalentSize - 1) index.z -= simEquivalentSize;
-      if (index.x < 0) index.x += simEquivalentSize;
-      if (index.y < 0) index.y += simEquivalentSize;
-      if (index.z < 0) index.z += simEquivalentSize;
-      return index;
+    Coordinate<int> wrapCoordinate(Coordinate<int> coord) const {
+      if (coord.x > (signed) simEquivalentSize - 1) coord.x -= simEquivalentSize;
+      if (coord.y > (signed) simEquivalentSize - 1) coord.y -= simEquivalentSize;
+      if (coord.z > (signed) simEquivalentSize - 1) coord.z -= simEquivalentSize;
+      if (coord.x < 0) coord.x += simEquivalentSize;
+      if (coord.y < 0) coord.y += simEquivalentSize;
+      if (coord.z < 0) coord.z += simEquivalentSize;
+      return coord;
     }
 
 

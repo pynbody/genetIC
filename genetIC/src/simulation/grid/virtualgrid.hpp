@@ -448,7 +448,6 @@ namespace grids {
 
   private:
     const Coordinate<int> offset;
-
   public:
     CenteredGrid(GridPtrType pUnderlying, Coordinate<T> center) :
         VirtualGrid<T>(pUnderlying,
@@ -459,40 +458,53 @@ namespace grids {
                        pUnderlying->offsetLower.z,
                        pUnderlying->cellMassFrac,
                        pUnderlying->cellSofteningScale),
-        offset(Coordinate<T>(0.5 * this->pUnderlying->thisGridSize) - center) {}
+        offset(Coordinate<T>(0.5 * this->pUnderlying->thisGridSize) - center){}
 
     void debugName(std::ostream &s) const override {
       s << "CenteredGrid";
     }
 
-    Coordinate<T> getOffset() const {
+    Coordinate<T> getPointOffset() const {
+      return this->getPointOffsetfromCoordinateOffset(this->offset);
+    }
+
+  private:
+    //! Transforming int offset in floating point offset
+    Coordinate<T> getPointOffsetfromCoordinateOffset(Coordinate<int> offset) const {
       return Coordinate<T>(offset.x * this->pUnderlying->cellSize,
                            offset.y * this->pUnderlying->cellSize,
                            offset.z * this->pUnderlying->cellSize);
     }
 
+    //! Get inverse transformation to the centering
+    Coordinate<int> getInverseOffset() const {
+      return Coordinate<int>(- this->offset.x, - this->offset.y, - this->offset.z);
+    }
+
+    Coordinate<T> getInversePointOffset() const {
+      return this->getPointOffsetfromCoordinateOffset(this->getInverseOffset());
+    }
+
   protected:
 
     size_t getIndexFromCoordinateNoWrap(size_t x, size_t y, size_t z) const override{
-      size_t index = this->pUnderlying->getIndexFromIndexAndStep(
-          this->pUnderlying->getIndexFromCoordinateNoWrap(x,y,z), this->offset);
-      return index;
+      return this->pUnderlying->getIndexFromIndexAndStep(
+          this->pUnderlying->getIndexFromCoordinateNoWrap(x,y,z), this->getInverseOffset());
     }
 
     size_t getIndexFromCoordinateNoWrap(int x, int y, int z) const override {
-      size_t index = this->pUnderlying->getIndexFromIndexAndStep(
-          this->pUnderlying->getIndexFromCoordinateNoWrap(x,y,z), this->offset);
-      return index;
+      return this->pUnderlying->getIndexFromIndexAndStep(
+          this->pUnderlying->getIndexFromCoordinateNoWrap(x,y,z), this->getInverseOffset());
     }
 
     size_t getIndexFromCoordinateNoWrap(const Coordinate<int> &coordinate) const override {
-      size_t index = this->pUnderlying->getIndexFromIndexAndStep(
-          this->pUnderlying->getIndexFromCoordinateNoWrap(coordinate), this->offset);
-      return index;
+      return this->pUnderlying->getIndexFromIndexAndStep(
+          this->pUnderlying->getIndexFromCoordinateNoWrap(coordinate), this->getInverseOffset());
     }
 
     size_t getIndexFromCoordinate(Coordinate<int> coord) const override{
-
+      coord = this->pUnderlying->wrapCoordinate(coord);
+      return this->getIndexFromCoordinateNoWrap(coord);
     }
 
     Coordinate<int> getCoordinateFromIndex(size_t id) const override {
@@ -505,18 +517,16 @@ namespace grids {
     }
 
     Coordinate<T> getCentroidFromIndex(size_t id) const override{
-
+      return this->wrapPoint(this->pUnderlying->getCentroidFromIndex(id) + this->getPointOffset());
     }
 
     size_t getIndexFromPoint(Coordinate<T> point) const override{
-
+      return this->pUnderlying->getIndexFromPoint(point + this->getInversePointOffset());
     }
 
     Coordinate<int> getCoordinateFromPoint(Coordinate<T> point) const override{
-
+      return this->pUnderlying->getCoordinateFromPoint(point);
     }
-
-
 
     void getFlaggedCells(std::vector<size_t> &targetArray) const override {
       this->pUnderlying->getFlaggedCells(targetArray);
