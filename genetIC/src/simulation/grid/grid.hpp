@@ -92,23 +92,35 @@ namespace grids {
       return kMin;
     }
 
-    T getWrappedOffset(T x0, T x1) const {
-      T result = x0 - x1;
-      if (result > periodicDomainSize / 2) {
-        result -= periodicDomainSize;
-      }
-      if (result < -periodicDomainSize / 2) {
-        result += periodicDomainSize;
-      }
-      return result;
+    virtual void debugInfo(std::ostream &s) const {
+      s << "Grid of side " << size << " address " << this << "; " << this->flags.size() << " cells marked";
     }
 
-    Coordinate<T> getWrappedOffset(const Coordinate<T> a, const Coordinate<T> b) const {
-      return Coordinate<T>(getWrappedOffset(a.x, b.x), getWrappedOffset(a.y, b.y), getWrappedOffset(a.z, b.z));
+    int getEffectiveSimulationSize() const {
+      return tools::getRatioAndAssertInteger(periodicDomainSize, cellSize);
     }
 
-    /*! Make a VirtualGrid pointing to this grid, but with a resolution and range matching target.
-    */
+    /*****************************
+    * Methods dealing with the creation of virtual grids and relationships between grids.
+    ******************************/
+
+    bool pointsToAnyGrid(std::vector<std::shared_ptr<Grid<T>>> grids) {
+      for (auto g: grids) {
+        if (pointsToGrid(g.get()))
+          return true;
+      }
+      return false;
+    }
+
+
+    /*! Return true if this grid has a known relationship to pOther, in the sense that a field defined on pOther
+    * could be evaluated on this grid. */
+    virtual bool pointsToGrid(const Grid *pOther) const {
+      return this == pOther;
+    }
+
+
+    //! Make a VirtualGrid pointing to this grid, but with a resolution and range matching target.
     GridPtrType makeProxyGridToMatch(const Grid<T> &target) const {
       GridPtrType proxy = std::const_pointer_cast<Grid<T>>(this->shared_from_this());
       if (target.cellSize > cellSize) {
@@ -135,10 +147,9 @@ namespace grids {
       return proxy;
     }
 
-
-    virtual void debugInfo(std::ostream &s) const {
-      s << "Grid of side " << size << " address " << this << "; " << this->flags.size() << " cells marked";
-    }
+    /*****************************
+     * Methods dealing with flagging cells on the grid
+     ******************************/
 
     virtual void getFlaggedCells(std::vector<size_t> &targetArray) const {
       targetArray.insert(targetArray.end(), flags.begin(), flags.end());
@@ -159,18 +170,114 @@ namespace grids {
       return flags.size() > 0;
     }
 
-    /*! Return true if this grid has a known relationship to pOther, in the sense that a field defined on pOther
-     * could be evaluated on this grid. */
-    virtual bool pointsToGrid(const Grid *pOther) const {
-      return this == pOther;
+    Coordinate<T> getFlaggedCellsCentre(){
+      return this->getCentreWrapped(this->flags);
     }
 
-    bool pointsToAnyGrid(std::vector<std::shared_ptr<Grid<T>>> grids) {
-      for (auto g: grids) {
-        if (pointsToGrid(g.get()))
-          return true;
+  protected:
+
+    static void upscaleCellFlagVector(const std::vector<size_t> sourceArray,
+                                      std::vector<size_t> &targetArray,
+                                      const Grid<T> *source,
+                                      const Grid<T> *target) {
+
+      assert(target->size >= source->size);
+      assert((target->size) % (source->size) == 0);
+      int factor = int(target->size / source->size);
+      targetArray.clear();
+
+      for (auto id: sourceArray) {
+        auto coord = source->getCoordinateFromIndex(id);
+        iterateOverCube<int>(
+            coord * factor, coord * factor + factor,
+            [&targetArray, &target](const Coordinate<int> &subCoord) {
+              targetArray.push_back(target->getIndexFromCoordinateNoWrap(subCoord));
+            }
+        );
       }
-      return false;
+    }
+
+    static void downscaleCellFlagVector(const std::vector<size_t> sourceArray,
+                                        std::vector<size_t> &targetArray,
+                                        const Grid<T> *source,
+                                        const Grid<T> *target) {
+
+
+      targetArray.clear();
+      targetArray.resize(sourceArray.size());
+
+      assert(source->size >= target->size);
+      assert(source->offsetLower == target->offsetLower);
+
+      size_t factor = tools::getRatioAndAssertPositiveInteger(target->cellSize, source->cellSize);
+
+      // it's not clear that the following parallelisation actually speeds much up
+#pragma omp parallel for
+      for (size_t i = 0; i < sourceArray.size(); ++i) {
+        size_t id = sourceArray[i];
+        auto coord = source->getCoordinateFromIndex(id);
+        targetArray[i] = target->getIndexFromCoordinateNoWrap(coord / factor);
+      }
+
+      // this sort seems to be the slowest step. In C++17 we can make it parallel... or is there a
+      // better overall algorithm?
+      std::sort(targetArray.begin(), targetArray.end());
+      targetArray.erase(std::unique(targetArray.begin(), targetArray.end()), targetArray.end());
+    }
+
+
+    /*****************************
+    * Methods dealing with all sorts of coordinate calculations
+    ******************************/
+
+  public:
+    T getWrappedOffset(T x0, T x1) const {
+      T result = x0 - x1;
+      if (result > periodicDomainSize / 2) {
+        result -= periodicDomainSize;
+      }
+      if (result < -periodicDomainSize / 2) {
+        result += periodicDomainSize;
+      }
+      return result;
+    }
+
+    Coordinate<T> getWrappedOffset(const Coordinate<T> a, const Coordinate<T> b) const {
+      return Coordinate<T>(getWrappedOffset(a.x, b.x), getWrappedOffset(a.y, b.y), getWrappedOffset(a.z, b.z));
+    }
+
+    //! Calculate the centre in box coordinate of a vector of ids
+    /*! The underlying assumption of this method is that the centering is done on the coarse grid.
+     * Centering on zoom grids is not taken care off.
+     */
+    Coordinate<T> const getCentreWrapped(const std::vector<size_t>& vector_ids){
+      if(vector_ids.empty()){
+        throw std::runtime_error("Cannot calculate the center of an empty region");
+      }
+
+      T runningx = 0.0;
+      T runningy = 0.0;
+      T runningz = 0.0;
+
+      auto p0_location = this->getCentroidFromIndex(vector_ids[0]);
+
+      // Calculate the wrapped mean wrto to cell 0
+      for (size_t i = 1; i <vector_ids.size(); i++) {
+        size_t id = vector_ids[i];
+        auto pi_location = this->getCentroidFromIndex(id);
+        runningx += this->getWrappedOffset(pi_location.x, p0_location.x);
+        runningy += this->getWrappedOffset(pi_location.y, p0_location.y);
+        runningz += this->getWrappedOffset(pi_location.z, p0_location.z);
+      }
+      runningx /= vector_ids.size();
+      runningy /= vector_ids.size();
+      runningz /= vector_ids.size();
+
+      // Add back cell 0 and wrap if needed
+      runningx += p0_location.x;
+      runningy += p0_location.y;
+      runningz += p0_location.z;
+      return this->wrapPoint(Coordinate<T>(runningx, runningy, runningz));
     }
 
     //! True if point in physical coordinates is on this grid
@@ -307,6 +414,10 @@ namespace grids {
       return this->getCoordinateFromIndex(this->getIndexFromPoint(point));
     }
 
+    /*****************************
+    * Methods dealing with insertion of new ids
+    ******************************/
+
     void appendIdsInCubeToVector(T x0c, T y0c, T z0c, T dxc, vector<size_t> &ids) {
       size_t offset = ids.size();
       int added_size = std::round(dxc / cellSize);
@@ -340,104 +451,7 @@ namespace grids {
                            });
 
     }
-
-    int getEffectiveSimulationSize() const {
-      return tools::getRatioAndAssertInteger(periodicDomainSize, cellSize);
-    }
-
-
-  protected:
-
-    static void upscaleCellFlagVector(const std::vector<size_t> sourceArray,
-                                      std::vector<size_t> &targetArray,
-                                      const Grid<T> *source,
-                                      const Grid<T> *target) {
-
-      assert(target->size >= source->size);
-      assert((target->size) % (source->size) == 0);
-      int factor = int(target->size / source->size);
-      targetArray.clear();
-
-      for (auto id: sourceArray) {
-        auto coord = source->getCoordinateFromIndex(id);
-        iterateOverCube<int>(
-            coord * factor, coord * factor + factor,
-            [&targetArray, &target](const Coordinate<int> &subCoord) {
-              targetArray.push_back(target->getIndexFromCoordinateNoWrap(subCoord));
-            }
-        );
-      }
-    }
-
-    static void downscaleCellFlagVector(const std::vector<size_t> sourceArray,
-                                        std::vector<size_t> &targetArray,
-                                        const Grid<T> *source,
-                                        const Grid<T> *target) {
-
-
-      targetArray.clear();
-      targetArray.resize(sourceArray.size());
-
-      assert(source->size >= target->size);
-      assert(source->offsetLower == target->offsetLower);
-
-      size_t factor = tools::getRatioAndAssertPositiveInteger(target->cellSize, source->cellSize);
-
-      // it's not clear that the following parallelisation actually speeds much up
-#pragma omp parallel for
-      for (size_t i = 0; i < sourceArray.size(); ++i) {
-        size_t id = sourceArray[i];
-        auto coord = source->getCoordinateFromIndex(id);
-        targetArray[i] = target->getIndexFromCoordinateNoWrap(coord / factor);
-      }
-
-      // this sort seems to be the slowest step. In C++17 we can make it parallel... or is there a
-      // better overall algorithm?
-      std::sort(targetArray.begin(), targetArray.end());
-      targetArray.erase(std::unique(targetArray.begin(), targetArray.end()), targetArray.end());
-    }
-
-  public:
-    Coordinate<T> getFlaggedCellsCentre(){
-      return this->getCentreWrapped(this->flags);
-    }
-
-    //! Calculate the centre in box coordinate of a vector of ids
-    /*! The underlying assumption of this method is that the centering is done on the coarse grid.
-     * Centering on zoom grids is not taken care off.
-     */
-    Coordinate<T> const getCentreWrapped(const std::vector<size_t>& vector_ids){
-      if(vector_ids.empty()){
-        throw std::runtime_error("Cannot calculate the center of an empty region");
-      }
-
-      T runningx = 0.0;
-      T runningy = 0.0;
-      T runningz = 0.0;
-
-      auto p0_location = this->getCentroidFromIndex(vector_ids[0]);
-
-      // Calculate the wrapped mean wrto to cell 0
-      for (size_t i = 1; i <vector_ids.size(); i++) {
-        size_t id = vector_ids[i];
-        auto pi_location = this->getCentroidFromIndex(id);
-        runningx += this->getWrappedOffset(pi_location.x, p0_location.x);
-        runningy += this->getWrappedOffset(pi_location.y, p0_location.y);
-        runningz += this->getWrappedOffset(pi_location.z, p0_location.z);
-      }
-      runningx /= vector_ids.size();
-      runningy /= vector_ids.size();
-      runningz /= vector_ids.size();
-
-      // Add back cell 0 and wrap if needed
-      runningx += p0_location.x;
-      runningy += p0_location.y;
-      runningz += p0_location.z;
-      return this->wrapPoint(Coordinate<T>(runningx, runningy, runningz));
-    }
-
   };
-
 }
 
 #endif
