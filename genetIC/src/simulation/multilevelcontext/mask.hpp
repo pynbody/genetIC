@@ -61,7 +61,7 @@ namespace multilevelcontext {
       std::cerr << this->flaggedIdsAtEachLevel[2].size() << std::endl;
       for (auto i : this->flaggedIdsAtEachLevel[0]) {
         std::cerr << i << std::endl;
-        std::cerr << this->multilevelcontext->getGridForLevel(0).getCellCoordinate(i) << std::endl;
+        std::cerr << this->multilevelcontext->getGridForLevel(0).getCoordinateFromIndex(i) << std::endl;
       }
     }
 

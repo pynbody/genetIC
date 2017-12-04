@@ -99,8 +99,7 @@ namespace io {
           writeBlockHeaderFooter(block_lengths, files);
           for (size_t i_y = 0; i_y < targetGrid.size; ++i_y) {
             for (size_t i_x = 0; i_x < targetGrid.size; ++i_x) {
-              size_t i = targetGrid.getCellIndexNoWrap(i_x, i_y, i_z);
-
+              size_t i = targetGrid.getIndexFromCoordinateNoWrap(i_x, i_y, i_z);
               size_t global_index = i + iordOffset;
               auto particle = evaluator->getParticleNoOffset(i);
 

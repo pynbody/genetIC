@@ -158,14 +158,14 @@ namespace grids {
 
       auto offsetLowerRelative = pUnderlyingHiRes->offsetLower - pUnderlyingLoRes->offsetLower;
       windowLowerCornerInclusive = round<int>(offsetLowerRelative / this->cellSize);
-      windowLowerCorner = this->getCellCentroid(windowLowerCornerInclusive) - this->cellSize / 2;
+      windowLowerCorner = this->getCentroidFromCoordinate(windowLowerCornerInclusive) - this->cellSize / 2;
 
       auto offsetLowerRelativeCheck = Coordinate<T>(windowLowerCornerInclusive) * this->cellSize;
       assert(
           offsetLowerRelativeCheck.almostEqual(offsetLowerRelative)); // if this doesn't match, the grids don't line up
 
       windowUpperCornerExclusive = windowLowerCornerInclusive + pUnderlyingHiRes->size;
-      windowUpperCorner = this->getCellCentroid(windowUpperCornerExclusive) - this->cellSize / 2;
+      windowUpperCorner = this->getCentroidFromCoordinate(windowUpperCornerExclusive) - this->cellSize / 2;
 
     }
 
@@ -197,13 +197,14 @@ namespace grids {
       this->pUnderlyingHiRes->getFlaggedCells(targetArray);
       this->pUnderlyingLoResInterpolated->getFlaggedCells(interpolatedCellsArray);
       for (size_t i = 0; i < targetArray.size(); ++i) {
-        auto coordinate = this->pUnderlyingHiRes->getCellCoordinate(targetArray[i]) + this->windowLowerCornerInclusive;
-        targetArray[i] = this->pUnderlyingLoResInterpolated->getCellIndex(coordinate);
+        auto coordinate =
+            this->pUnderlyingHiRes->getCoordinateFromIndex(targetArray[i]) + this->windowLowerCornerInclusive;
+        targetArray[i] = this->pUnderlyingLoResInterpolated->getIndexFromCoordinate(coordinate);
       }
 
       for (size_t i = 0; i < interpolatedCellsArray.size(); ++i) {
         size_t thisCell = interpolatedCellsArray[i];
-        auto coordinate = pUnderlyingLoResInterpolated->getCellCoordinate(thisCell);
+        auto coordinate = pUnderlyingLoResInterpolated->getCoordinateFromIndex(thisCell);
         if (!coordinate.inWindow(windowLowerCornerInclusive, windowUpperCornerExclusive)) {
           targetArray.push_back(thisCell);
         }
@@ -218,7 +219,7 @@ namespace grids {
 
       for (size_t i = 0; i < sourceArray.size(); ++i) {
         size_t thisCell = sourceArray[i];
-        auto coordinate = pUnderlyingLoResInterpolated->getCellCoordinate(thisCell);
+        auto coordinate = pUnderlyingLoResInterpolated->getCoordinateFromIndex(thisCell);
         if (isInHiResWindow(coordinate)) {
           size_t hiresCell = getIndexInHiResWindow(coordinate);
           hiresCellsArray.push_back(hiresCell);
@@ -240,7 +241,7 @@ namespace grids {
     }
 
     size_t getIndexInHiResWindow(const Coordinate<int> &coordinate) const {
-      return pUnderlyingHiRes->getCellIndex(coordinate - windowLowerCornerInclusive);
+      return pUnderlyingHiRes->getIndexFromCoordinate(coordinate - windowLowerCornerInclusive);
     }
 
 
@@ -260,23 +261,23 @@ namespace grids {
 
   public:
     size_t mapIndexToUnderlying(size_t sec_id) const {
-      auto coord = this->getCellCoordinate(sec_id);
+      auto coord = this->getCoordinateFromIndex(sec_id);
       coord += cellOffset;
       coord = this->wrapCoordinate(coord);
       if (!this->pUnderlying->containsCellWithCoordinate(coord))
         throw std::out_of_range("Out of range in SectionOfGrid::mapIndexToUnderlying");
-      return this->pUnderlying->getCellIndex(coord);
+      return this->pUnderlying->getIndexFromCoordinate(coord);
     }
 
     size_t mapIndexFromUnderlying(size_t underlying_id) const {
-      Coordinate<int> coord = this->pUnderlying->getCellCoordinate(underlying_id);
+      Coordinate<int> coord = this->pUnderlying->getCoordinateFromIndex(underlying_id);
       coord -= cellOffset;
       coord = this->wrapCoordinate(coord);
 
       if (!this->containsCellWithCoordinate(coord))
         throw std::out_of_range("Out of range in SectionOfGrid::mapIndexFromUnderlying");
 
-      return this->getCellIndex(coord);
+      return this->getIndexFromCoordinate(coord);
     }
 
     SectionOfGrid(GridPtrType pUnderlying, int deltax, int deltay, int deltaz, size_t size) :
@@ -304,7 +305,7 @@ namespace grids {
     }
 
     virtual bool containsCell(size_t i) const {
-      auto coord = this->getCellCoordinate(i);
+      auto coord = this->getCoordinateFromIndex(i);
       return containsCellWithCoordinate(coord);
     }
 
@@ -385,7 +386,7 @@ namespace grids {
 
 
     int forEachSubcell(size_t id, std::function<void(size_t)> callback) const {
-      auto coord0 = this->getCellCoordinate(id);
+      auto coord0 = this->getCoordinateFromIndex(id);
       coord0 *= factor;
       auto coord1 = coord0 + factor;
       // In case the edge of the last cell in the fine grid (this->pUnderlying)
@@ -405,7 +406,7 @@ namespace grids {
       for (auto xi = coord0.x; xi < coord1.x; ++xi) {
         for (auto yi = coord0.y; yi < coord1.y; ++yi) {
           for (auto zi = coord0.z; zi < coord1.z; ++zi) {
-            callback(this->pUnderlying->getCellIndexNoWrap(xi, yi, zi));
+            callback(this->pUnderlying->getIndexFromCoordinateNoWrap(xi, yi, zi));
           }
 
         }
@@ -476,53 +477,53 @@ namespace grids {
   protected:
 
     //TODO Class works fine except for wrapping situation.
-    size_t getCellIndexNoWrap(size_t x, size_t y, size_t z) const override{
+    size_t getIndexFromCoordinateNoWrap(size_t x, size_t y, size_t z) const override{
       size_t index = this->pUnderlying->getIndexFromIndexAndStep(
-          this->pUnderlying->getCellIndexNoWrap(x,y,z), this->offset);
+          this->pUnderlying->getIndexFromCoordinateNoWrap(x,y,z), this->offset);
 
       if(this->isCellFlagged(index)){
-        return this->pUnderlying->getCellIndexNoWrap(x,y,z);
+        return this->pUnderlying->getIndexFromCoordinateNoWrap(x,y,z);
       }
 
       return index;
     }
 
-    size_t getCellIndexNoWrap(int x, int y, int z) const override {
+    size_t getIndexFromCoordinateNoWrap(int x, int y, int z) const override {
       size_t index = this->pUnderlying->getIndexFromIndexAndStep(
-          this->pUnderlying->getCellIndexNoWrap(x,y,z), this->offset);
+          this->pUnderlying->getIndexFromCoordinateNoWrap(x,y,z), this->offset);
 
       if(this->isCellFlagged(index)){
-        return this->pUnderlying->getCellIndexNoWrap(x,y,z);
+        return this->pUnderlying->getIndexFromCoordinateNoWrap(x,y,z);
       }
 
       return index;
     }
 
-    size_t getCellIndexNoWrap(const Coordinate<int> &coordinate) const override {
+    size_t getIndexFromCoordinateNoWrap(const Coordinate<int> &coordinate) const override {
       size_t index = this->pUnderlying->getIndexFromIndexAndStep(
-          this->pUnderlying->getCellIndexNoWrap(coordinate), this->offset);
+          this->pUnderlying->getIndexFromCoordinateNoWrap(coordinate), this->offset);
 
       if(this->isCellFlagged(index)){
-        return this->pUnderlying->getCellIndexNoWrap(coordinate);
+        return this->pUnderlying->getIndexFromCoordinateNoWrap(coordinate);
       }
 
       return index;
     }
 
-    Coordinate<int> getCellCoordinate(size_t id) const override {
+    Coordinate<int> getCoordinateFromIndex(size_t id) const override {
       if(this->isCellFlagged(id)){
-        return this->pUnderlying->wrapCoordinate(this->pUnderlying->getCellCoordinate(id));
+        return this->pUnderlying->wrapCoordinate(this->pUnderlying->getCoordinateFromIndex(id));
       }
 
-      return this->pUnderlying->wrapCoordinate(this->pUnderlying->getCellCoordinate(id) + this->offset);
+      return this->pUnderlying->wrapCoordinate(this->pUnderlying->getCoordinateFromIndex(id) + this->offset);
     }
 
-    Coordinate<T> getCellCentroid(const Coordinate<int> &coord) const override {
-      if(this->isCellFlagged(this->pUnderlying->getCellIndex(coord))){
-        return this->pUnderlying->getCellCentroid(this->pUnderlying->wrapCoordinate(coord));
+    Coordinate<T> getCentroidFromCoordinate(const Coordinate<int> &coord) const override {
+      if(this->isCellFlagged(this->pUnderlying->getIndexFromCoordinate(coord))){
+        return this->pUnderlying->getCentroidFromCoordinate(this->pUnderlying->wrapCoordinate(coord));
       }
 
-      return this->pUnderlying->getCellCentroid(
+      return this->pUnderlying->getCentroidFromCoordinate(
           this->pUnderlying->wrapCoordinate(this->offset + coord));
     }
 

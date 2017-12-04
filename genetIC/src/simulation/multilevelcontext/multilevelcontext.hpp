@@ -155,10 +155,10 @@ namespace multilevelcontext {
       throw std::runtime_error("No level has any particles selected");
     }
 
-    size_t getIndexOfCellOnOtherLevel(size_t currentLevel, size_t otherLevel, size_t cellIndex){
-      Coordinate<T> cell_coord(this->getGridForLevel(currentLevel).getCellCentroid(cellIndex));
-      return this->getGridForLevel(otherLevel).getCellContainingPoint(cell_coord);
-    }
+//    size_t getIndexOfCellOnOtherLevel(size_t currentLevel, size_t otherLevel, size_t cellIndex){
+//      Coordinate<T> cell_coord(this->getGridForLevel(currentLevel).getCellCentroid(cellIndex));
+//      return this->getGridForLevel(otherLevel).getCellContainingPoint(cell_coord);
+//    }
 
     //! From finest level, use interpolation to construct other levels
     std::shared_ptr<fields::ConstraintField<DataType>>
@@ -266,10 +266,18 @@ namespace multilevelcontext {
     void copyContextWithCenteredIntermediate(MultiLevelContextInformation<DataType> &newStack,
                                              const Coordinate<T> pointToCenterOnto,
                                              size_t base_factor,
-                                             size_t extra_lores) const{
+                                             size_t extra_lores) const {
       auto extracontext = multilevelcontext::MultiLevelContextInformation<DataType>();
       this->copyContextWithIntermediateResolutionGrids(extracontext, base_factor, extra_lores);
       extracontext.copyContextAndCenter(newStack, pointToCenterOnto);
+    }
+
+
+    size_t getIndexOfCellOnOtherLevel(size_t currentLevel, size_t otherLevel, size_t cellIndex){
+      auto currentLevelGrid = this->getGridForLevel(currentLevel);
+      auto otherLevelGrid = this->getGridForLevel(otherLevel);
+      Coordinate<T> cell_coord(currentLevelGrid.getCentroidFromIndex(cellIndex));
+      return otherLevelGrid.getIndexFromPoint(cell_coord);
     }
 
   };

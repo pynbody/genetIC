@@ -27,7 +27,7 @@ using std::make_shared;
      * a coordinate, which is defined as integers with (0,0,0) being the bottom-left corner, (size-1,size-1,size-1)
        being the top right;
      * an index, which is defined as size_t from 0 to size^3
-     * a point, which is defined as a floating point (type T) triple. The bottom-left corner of the grid is given by
+     * a point/centroid, which is defined as a floating point (type T) triple. The bottom-left corner of the grid is given by
        offsetLower, and the top right by offsetLower + thisGridSize.
 
  */
@@ -216,9 +216,9 @@ namespace grids {
 
 
     size_t getIndexFromIndexAndStep(size_t index, const Coordinate<int> &step) const {
-      auto coord = getCellCoordinate(index);
+      auto coord = getCoordinateFromIndex(index);
       coord += step;
-      return this->getCellIndex(coord); // N.B. does wrapping inside getIndex
+      return this->getIndexFromCoordinate(coord); // N.B. does wrapping inside getIndex
     }
 
 
@@ -237,16 +237,16 @@ namespace grids {
     }
 
 
-    size_t getCellIndex(Coordinate<int> coord) const {
+    virtual size_t getIndexFromCoordinate(Coordinate<int> coord) const {
       coord = wrapCoordinate(coord);
-      return getCellIndexNoWrap(coord);
+      return getIndexFromCoordinateNoWrap(coord);
     }
 
-    virtual size_t getCellIndexNoWrap(size_t x, size_t y, size_t z) const {
+    virtual size_t getIndexFromCoordinateNoWrap(size_t x, size_t y, size_t z) const {
       return (x * size + y) * size + z;
     }
 
-    virtual size_t getCellIndexNoWrap(int x, int y, int z) const {
+    virtual size_t getIndexFromCoordinateNoWrap(int x, int y, int z) const {
 
 #ifdef SAFER_SLOWER
       if(x<0 || x>=size || y<0 || y>=size || z<0 || z>=size)
@@ -255,12 +255,12 @@ namespace grids {
       return size_t(x * size + y) * size + z;
     }
 
-    virtual size_t getCellIndexNoWrap(const Coordinate<int> &coordinate) const {
-      return getCellIndexNoWrap(coordinate.x, coordinate.y, coordinate.z);
+     virtual size_t getIndexFromCoordinateNoWrap(const Coordinate<int> &coordinate) const {
+      return getIndexFromCoordinateNoWrap(coordinate.x, coordinate.y, coordinate.z);
     }
 
     //! Returns cell id in pixel coordinates
-    virtual Coordinate<int> getCellCoordinate(size_t id) const {
+    virtual Coordinate<int> getCoordinateFromIndex(size_t id) const {
       size_t x, y;
 
       if ((unsigned) id >= size3) {
@@ -284,12 +284,13 @@ namespace grids {
     //! Returns coordinate of centre of cell id, in physical box coordinates
     /*! Takes into account grid offsets wrt base grid, pixel size etc
      */
-    Coordinate<T> getCellCentroid(size_t id) const {
-      Coordinate<int> coord = getCellCoordinate(id);
-      return getCellCentroid(coord);
+    Coordinate<T> getCentroidFromIndex(size_t id) const {
+      Coordinate<int> coord = getCoordinateFromIndex(id);
+      return getCentroidFromCoordinate(coord);
     }
 
-    virtual Coordinate<T> getCellCentroid(const Coordinate<int> &coord) const {
+
+    virtual Coordinate<T> getCentroidFromCoordinate(const Coordinate<int> &coord) const {
       Coordinate<T> result(coord);
       result *= cellSize;
       result += offsetLower;
@@ -297,9 +298,9 @@ namespace grids {
       return result;
     }
 
-    virtual size_t getCellContainingPoint(Coordinate<T> point) const {
+    virtual size_t getIndexFromPoint(Coordinate<T> point) {
       auto coords = floor(wrapPoint(point - offsetLower - cellSize / 2) / cellSize);
-      return getCellIndexNoWrap(coords);
+      return getIndexFromCoordinateNoWrap(coords);
     }
 
     void appendIdsInCubeToVector(T x0c, T y0c, T z0c, T dxc, vector<size_t> &ids) {
@@ -329,7 +330,7 @@ namespace grids {
       iterateOverCube<int>(Coordinate<int>(xa, ya, za),
                            Coordinate<int>(xb, yb, zb) + 1,
                            [&start, this](const Coordinate<int> &cellCoord) {
-                             (*start) = getCellIndex(cellCoord);
+                             (*start) = getIndexFromCoordinate(cellCoord);
                              assert(*start < size3);
                              ++start;
                            });
@@ -354,11 +355,11 @@ namespace grids {
       targetArray.clear();
 
       for (auto id: sourceArray) {
-        auto coord = source->getCellCoordinate(id);
+        auto coord = source->getCoordinateFromIndex(id);
         iterateOverCube<int>(
             coord * factor, coord * factor + factor,
             [&targetArray, &target](const Coordinate<int> &subCoord) {
-              targetArray.push_back(target->getCellIndexNoWrap(subCoord));
+              targetArray.push_back(target->getIndexFromCoordinateNoWrap(subCoord));
             }
         );
       }
@@ -382,8 +383,8 @@ namespace grids {
 #pragma omp parallel for
       for (size_t i = 0; i < sourceArray.size(); ++i) {
         size_t id = sourceArray[i];
-        auto coord = source->getCellCoordinate(id);
-        targetArray[i] = target->getCellIndexNoWrap(coord / factor);
+        auto coord = source->getCoordinateFromIndex(id);
+        targetArray[i] = target->getIndexFromCoordinateNoWrap(coord / factor);
       }
 
       // this sort seems to be the slowest step. In C++17 we can make it parallel... or is there a
@@ -410,12 +411,12 @@ namespace grids {
       T runningy = 0.0;
       T runningz = 0.0;
 
-      auto p0_location = this->getCellCentroid(vector_ids[0]);
+      auto p0_location = this->getCentroidFromIndex(vector_ids[0]);
 
       // Calculate the wrapped mean wrto to cell 0
       for (size_t i = 1; i <vector_ids.size(); i++) {
         size_t id = vector_ids[i];
-        auto pi_location = this->getCellCentroid(id);
+        auto pi_location = this->getCentroidFromIndex(id);
         runningx += this->getWrappedOffset(pi_location.x, p0_location.x);
         runningy += this->getWrappedOffset(pi_location.y, p0_location.y);
         runningz += this->getWrappedOffset(pi_location.z, p0_location.z);
