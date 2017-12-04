@@ -467,15 +467,15 @@ namespace tools {
         void setFourierCoefficient(int kx, int ky, int kz, const std::complex<T> &val) {
           size_t id_k, id_negk;
 
-          id_k = grid.getCellIndex(Coordinate<int>(kx, ky, kz));
-          id_negk = grid.getCellIndex(Coordinate<int>(-kx, -ky, -kz));
+          id_k = grid.getIndexFromCoordinate(Coordinate<int>(kx, ky, kz));
+          id_negk = grid.getIndexFromCoordinate(Coordinate<int>(-kx, -ky, -kz));
 
           field[id_k] = val;
           field[id_negk] = std::conj(val);
         }
 
         std::complex<T> getFourierCoefficient(int kx, int ky, int kz) const {
-          return field[grid.getCellIndex(Coordinate<int>(kx, ky, kz))];
+          return field[grid.getIndexFromCoordinate(Coordinate<int>(kx, ky, kz))];
         }
 
         size_t getRequiredDataSize() {
