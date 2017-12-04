@@ -20,7 +20,7 @@ seed	8896131
 basegrid 64.0 64
 
 centre 63 63 63
-select_sphere 2
+select_sphere 5
 zoomgrid 4 64
 
 

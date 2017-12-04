@@ -88,6 +88,10 @@ namespace grids {
       return periodicDomainSize == thisGridSize;
     }
 
+    T getFourierKmin() const {
+      return kMin;
+    }
+
     T getWrappedOffset(T x0, T x1) const {
       T result = x0 - x1;
       if (result > periodicDomainSize / 2) {
@@ -277,14 +281,10 @@ namespace grids {
       return Coordinate<int>(int(x), int(y), int(id));
     }
 
-    T getFourierKmin() const {
-      return kMin;
-    }
-
     //! Returns coordinate of centre of cell id, in physical box coordinates
     /*! Takes into account grid offsets wrt base grid, pixel size etc
      */
-    Coordinate<T> getCentroidFromIndex(size_t id) const {
+    virtual Coordinate<T> getCentroidFromIndex(size_t id) const {
       Coordinate<int> coord = getCoordinateFromIndex(id);
       return getCentroidFromCoordinate(coord);
     }
@@ -298,9 +298,13 @@ namespace grids {
       return result;
     }
 
-    virtual size_t getIndexFromPoint(Coordinate<T> point) {
+    virtual size_t getIndexFromPoint(Coordinate<T> point) const {
       auto coords = floor(wrapPoint(point - offsetLower - cellSize / 2) / cellSize);
       return getIndexFromCoordinateNoWrap(coords);
+    }
+
+    virtual Coordinate<int> getCoordinateFromPoint(Coordinate<T> point) const {
+      return this->getCoordinateFromIndex(this->getIndexFromPoint(point));
     }
 
     void appendIdsInCubeToVector(T x0c, T y0c, T z0c, T dxc, vector<size_t> &ids) {
