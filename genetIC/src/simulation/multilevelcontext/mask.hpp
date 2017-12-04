@@ -44,8 +44,7 @@ namespace multilevelcontext {
       if(this->flaggedIdsAtEachLevel[level].size() == 0){
         // No flagged cells at all on this level, refine everywhere
         return T(1.0);
-      } else if((std::binary_search(this->flaggedIdsAtEachLevel[level].begin(),
-                                    this->flaggedIdsAtEachLevel[level].end(), cellindex))){
+      } else if(isMasked(cellindex, level)){
         // Cell is among flagged cells, refine it
         return T(1.0);
       }
@@ -131,10 +130,6 @@ namespace multilevelcontext {
 
     void sortAndEraseDuplicate(size_t level){
       tools::sortAndEraseDuplicate(this->flaggedIdsAtEachLevel[level]);
-//      std::sort(this->flaggedIdsAtEachLevel[level].begin(), this->flaggedIdsAtEachLevel[level].end());
-//      this->flaggedIdsAtEachLevel[level].erase(std::unique(
-//          this->flaggedIdsAtEachLevel[level].begin(),
-//          this->flaggedIdsAtEachLevel[level].end()), this->flaggedIdsAtEachLevel[level].end());
     }
 
     bool isMasked(size_t id, size_t level){
@@ -159,11 +154,15 @@ namespace multilevelcontext {
 
       // Field with mask information
       for (size_t level = 0; level < this->multilevelcontext->getNumLevels(); ++level) {
-        for (size_t i=0; i< this->multilevelcontext->getGridForLevel(level).size3; i++){
-          maskfield->getFieldForLevel(level).getDataVector()[i] = isInMask(level, i);
+        for (size_t i_z = 0; i_z < this->multilevelcontext->getGridForLevel(level).size; ++i_z) {
+          for (size_t i_y = 0; i_y < this->multilevelcontext->getGridForLevel(level).size; ++i_y) {
+            for (size_t i_x = 0; i_x < this->multilevelcontext->getGridForLevel(level).size; ++i_x) {
+              size_t i = this->multilevelcontext->getGridForLevel(level).getIndexFromCoordinateNoWrap(i_x, i_y, i_z);
+              maskfield->getFieldForLevel(level).getDataVector()[i] = isInMask(level, i);
+            }
+          }
         }
       }
-
       return maskfield;
     }
   };

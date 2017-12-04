@@ -537,9 +537,6 @@ namespace grids {
   template<typename T>
   class OffsetGrid : public VirtualGrid<T> {
 
-  private:
-    Coordinate<T> offset;
-
   protected:
     using typename Grid<T>::GridPtrType;
 
@@ -552,23 +549,12 @@ namespace grids {
                        pUnderlying->offsetLower.y + dy,
                        pUnderlying->offsetLower.z + dz,
                        pUnderlying->cellMassFrac,
-                       pUnderlying->cellSofteningScale),
-        offset(Coordinate<T>(dx,dy,dz)) {}
+                       pUnderlying->cellSofteningScale) {}
 
 
     void debugName(std::ostream &s) const override {
       s << "OffsetGrid";
     }
-
-    //TODO Not complete, as mask are not generated on virtual offset grids.
-
-//    Coordinate<T> getCellCentroid(const Coordinate<int> &coord) const override {
-//      return this->pUnderlying->getCellCentroid(coord) + this->offset;
-//    }
-//
-//    size_t getCellContainingPoint(const Coordinate<T> coord) const override{
-//      return this->pUnderlying->getCellContainingPoint(coord - this->offset);
-//    }
   };
 
 

@@ -69,7 +69,7 @@ namespace grids {
     }
 
 
-    Grid(size_t n) : periodicDomainSize(0), thisGridSize(n),
+    explicit Grid(size_t n) : periodicDomainSize(0), thisGridSize(n),
                      cellSize(1.0), offsetLower(0, 0, 0),
                      size(n), size2(n * n), size3(n * n * n), simEquivalentSize(0), cellMassFrac(0.0),
                      cellSofteningScale(1.0) {
@@ -145,6 +145,10 @@ namespace grids {
 
 
       return proxy;
+    }
+
+    virtual std::shared_ptr<Grid<T>> makeScaledMassVersion(T massRatio) {
+      return std::make_shared<MassScaledGrid<T>>(this->shared_from_this(), massRatio);
     }
 
     /*****************************
@@ -319,10 +323,6 @@ namespace grids {
     //! True if cell number is less than Ncell cubed
     virtual bool containsCell(size_t i) const {
       return i < size3;
-    }
-
-    virtual std::shared_ptr<Grid<T>> makeScaledMassVersion(T massRatio) {
-      return std::make_shared<MassScaledGrid<T>>(this->shared_from_this(), massRatio);
     }
 
 
