@@ -801,7 +801,7 @@ public:
 
   //! Defines the currently interesting coordinates using a particle ID
   void centreParticle(long id) {
-    std::tie(x0, y0, z0) = multiLevelContext.getGridForLevel(0).getPointFromIndex(id);
+    std::tie(x0, y0, z0) = multiLevelContext.getGridForLevel(0).getCentroidFromIndex(id);
   }
 
   //! Flag the nearest cell to the coordinates currently pointed at
@@ -833,7 +833,7 @@ public:
       auto grid = getOutputGrid(level);
       size_t N = grid->size3;
       for (size_t i = 0; i < N; i++) {
-        std::tie(xp, yp, zp) = grid->getPointFromIndex(i);
+        std::tie(xp, yp, zp) = grid->getCentroidFromIndex(i);
         delta_x = get_wrapped_delta(xp, x0);
         delta_y = get_wrapped_delta(yp, y0);
         delta_z = get_wrapped_delta(zp, z0);

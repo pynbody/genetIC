@@ -64,7 +64,7 @@ namespace modifications {
                               T y0, T z0) {
 
       T xp = 0., yp = 0., zp = 0.;
-      std::tie(xp, yp, zp) = grid.getPointFromIndex(index);
+      std::tie(xp, yp, zp) = grid.getCentroidFromIndex(index);
 
       xp = grid.getWrappedOffset(xp, x0);
       yp = grid.getWrappedOffset(yp, y0);

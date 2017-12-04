@@ -158,14 +158,14 @@ namespace grids {
 
       auto offsetLowerRelative = pUnderlyingHiRes->offsetLower - pUnderlyingLoRes->offsetLower;
       windowLowerCornerInclusive = round<int>(offsetLowerRelative / this->cellSize);
-      windowLowerCorner = this->getPointFromCoordinate(windowLowerCornerInclusive) - this->cellSize / 2;
+      windowLowerCorner = this->getCentroidFromCoordinate(windowLowerCornerInclusive) - this->cellSize / 2;
 
       auto offsetLowerRelativeCheck = Coordinate<T>(windowLowerCornerInclusive) * this->cellSize;
       assert(
           offsetLowerRelativeCheck.almostEqual(offsetLowerRelative)); // if this doesn't match, the grids don't line up
 
       windowUpperCornerExclusive = windowLowerCornerInclusive + pUnderlyingHiRes->size;
-      windowUpperCorner = this->getPointFromCoordinate(windowUpperCornerExclusive) - this->cellSize / 2;
+      windowUpperCorner = this->getCentroidFromCoordinate(windowUpperCornerExclusive) - this->cellSize / 2;
 
     }
 

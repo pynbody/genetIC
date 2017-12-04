@@ -77,7 +77,7 @@ namespace fields {
     }
 
     DataType operator[](size_t i) const override {
-      auto centroid = grid->getPointFromIndex(i);
+      auto centroid = grid->getCentroidFromIndex(i);
       return (*underlying)(centroid);
     }
 

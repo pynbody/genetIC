@@ -50,13 +50,13 @@ namespace particle {
         // Finds all the particles at level2 corresponding to the single
         // particle at level1
         T x0, y0, z0;
-        std::tie(x0, y0, z0) = pGrid1->getPointFromIndex(id0);
+        std::tie(x0, y0, z0) = pGrid1->getCentroidFromIndex(id0);
         pGrid2->appendIdsInCubeToVector(x0, y0, z0, pGrid1->cellSize, ids);
       }
 
       void insertMappedIdsInVector(size_t id0, std::vector<size_t>::iterator start) const {
         T x0, y0, z0;
-        std::tie(x0, y0, z0) = pGrid1->getPointFromIndex(id0);
+        std::tie(x0, y0, z0) = pGrid1->getCentroidFromIndex(id0);
         pGrid2->insertCubeIdsIntoVector(x0, y0, z0, pGrid1->cellSize, start);
       }
 

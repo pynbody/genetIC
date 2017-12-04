@@ -369,7 +369,7 @@ namespace fields {
 
 #pragma omp parallel for schedule(static)
       for (size_t i = 0; i < size; ++i) {
-        temporaryFieldData[i] = source.evaluateInterpolated(pGrid->getPointFromIndex(i));
+        temporaryFieldData[i] = source.evaluateInterpolated(pGrid->getCentroidFromIndex(i));
       }
 
       temporaryField.applyFilter(filter);

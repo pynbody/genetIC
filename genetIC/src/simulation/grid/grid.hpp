@@ -27,7 +27,7 @@ using std::make_shared;
      * a coordinate, which is defined as integers with (0,0,0) being the bottom-left corner, (size-1,size-1,size-1)
        being the top right;
      * an index, which is defined as size_t from 0 to size^3
-     * a point, which is defined as a floating point (type T) triple. The bottom-left corner of the grid is given by
+     * a point/centroid, which is defined as a floating point (type T) triple. The bottom-left corner of the grid is given by
        offsetLower, and the top right by offsetLower + thisGridSize.
 
  */
@@ -284,12 +284,12 @@ namespace grids {
     //! Returns coordinate of centre of cell id, in physical box coordinates
     /*! Takes into account grid offsets wrt base grid, pixel size etc
      */
-    Coordinate<T> getPointFromIndex(size_t id) const {
+    Coordinate<T> getCentroidFromIndex(size_t id) const {
       Coordinate<int> coord = getCoordinateFromIndex(id);
-      return getPointFromCoordinate(coord);
+      return getCentroidFromCoordinate(coord);
     }
 
-    Coordinate<T> getPointFromCoordinate(const Coordinate<int> &coord) const {
+    Coordinate<T> getCentroidFromCoordinate(const Coordinate<int> &coord) const {
       Coordinate<T> result(coord);
       result *= cellSize;
       result += offsetLower;
@@ -410,12 +410,12 @@ namespace grids {
       T runningy = 0.0;
       T runningz = 0.0;
 
-      auto p0_location = this->getPointFromIndex(vector_ids[0]);
+      auto p0_location = this->getCentroidFromIndex(vector_ids[0]);
 
       // Calculate the wrapped mean wrto to cell 0
       for (size_t i = 1; i <vector_ids.size(); i++) {
         size_t id = vector_ids[i];
-        auto pi_location = this->getPointFromIndex(id);
+        auto pi_location = this->getCentroidFromIndex(id);
         runningx += this->getWrappedOffset(pi_location.x, p0_location.x);
         runningy += this->getWrappedOffset(pi_location.y, p0_location.y);
         runningz += this->getWrappedOffset(pi_location.z, p0_location.z);
