@@ -437,9 +437,11 @@ namespace grids {
     }
   };
 
-  //! Virtual grid in which the underlying cells are offset to center on a specific component.
+  //! Wrap a grid such that its center is a given point.
   /*! Does not change the offsetLower of the grid, i.e. do not move the grid wrto to its parent.
-   * This class just wraps coordinate to translate them in a centered frame.
+   * This class wraps coordinate and centroids but does not change the id of the cell, i.e.
+   *  a cell (id, coord, centroid) in the underlying grid is mapped to (id, centered_coord, centered_centroid)
+   *  in the virtual grid.
    */
   template<typename T>
   class CenteredGrid : public VirtualGrid<T> {
@@ -476,7 +478,7 @@ namespace grids {
                            offset.z * this->pUnderlying->cellSize);
     }
 
-    //! Get inverse transformation to the centering
+    //! Get inverse centering transformation
     Coordinate<int> getInverseOffset() const {
       return Coordinate<int>(- this->offset.x, - this->offset.y, - this->offset.z);
     }
@@ -533,7 +535,10 @@ namespace grids {
     }
   };
 
-  //! Virtual grid that moves the grid in box coordinates.
+  //! Offsets the corner of a grid in the cordinate of the box
+  /*! Modifies only the centroid coordinates, e.g. a cell (id, coord, centroid) in the underlying grid
+   * will be mapped to (id, coord, centroid + offset) by te virtual grid.
+   */
   template<typename T>
   class OffsetGrid : public VirtualGrid<T> {
 
