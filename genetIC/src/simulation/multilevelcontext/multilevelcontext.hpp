@@ -155,10 +155,13 @@ namespace multilevelcontext {
       throw std::runtime_error("No level has any particles selected");
     }
 
-//    size_t getIndexOfCellOnOtherLevel(size_t currentLevel, size_t otherLevel, size_t cellIndex){
-//      Coordinate<T> cell_coord(this->getGridForLevel(currentLevel).getCellCentroid(cellIndex));
-//      return this->getGridForLevel(otherLevel).getCellContainingPoint(cell_coord);
-//    }
+    size_t deepestCoarseGrid() const {
+      for (int i = this->getNumLevels() - 1; i >= 0; --i) {
+        if (this->getGridForLevel(i).coversFullSimulation())
+          return size_t(i);
+      }
+      throw std::runtime_error("No coarse grid were found.");
+    }
 
     //! From finest level, use interpolation to construct other levels
     std::shared_ptr<fields::ConstraintField<DataType>>
@@ -246,19 +249,25 @@ namespace multilevelcontext {
       }
 
     }
-
-    // TODO This method does not deal with multiple coarse grids
+    
     void copyContextAndCenter(MultiLevelContextInformation<DataType> &newStack,
                               const Coordinate<T> pointToCenterOnto) const {
+
       newStack.clear();
-      auto centeredCoarse = std::make_shared<grids::CenteredGrid<T>>(this->pGrid[0], pointToCenterOnto);
-      std::cerr << "Replacing coarse grid with a centered grid on " << pointToCenterOnto <<  std::endl;
-      newStack.addLevel(C0s[0], centeredCoarse);
+      size_t deepest_coarse = this->deepestCoarseGrid();
+      assert(deepest_coarse < nLevels);
+      Coordinate<T> offset;
 
-      Coordinate<T> offset = centeredCoarse->getPointOffset();
+      std::cerr << "Replacing coarse grids with centered grids on " << pointToCenterOnto <<  std::endl;
+      for (size_t level = 0; level <= deepest_coarse; ++level) {
+        auto centeredCoarse = std::make_shared<grids::CenteredGrid<T>>(this->pGrid[level], pointToCenterOnto);
+        newStack.addLevel(C0s[level], centeredCoarse);
+        offset = centeredCoarse->getPointOffset();
+      }
+
+
       std::cerr << "Offsetting zooms by " << offset <<  std::endl;
-
-      for (size_t level = 1; level < nLevels; ++level) {
+      for (size_t level = deepest_coarse + 1; level < nLevels; ++level) {
         auto offsetFine = std::make_shared<grids::OffsetGrid<T>>(this->pGrid[level], offset.x, offset.y, offset.z);
         newStack.addLevel(C0s[level], offsetFine);
       }
