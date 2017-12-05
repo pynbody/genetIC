@@ -60,7 +60,6 @@ namespace io {
     protected:
 
       void writeGrid(const grids::Grid<T> &targetGrid, size_t level) {
-        float running_total=0;
         auto evaluator = generator->makeEvaluatorForGrid(targetGrid);
 
         const grids::Grid<T> &baseGrid = context.getGridForLevel(0);
@@ -109,7 +108,6 @@ namespace io {
               // TODO For now, the baryon density is not calculated and set to zero
               float deltab = 0;
               float mask = this->mask.isInMask(level, i);
-              running_total+=mask;
               float pvar = pvarValue * mask;
 
               // Eek. The following code is horrible. Is there a way to make it neater?
@@ -127,10 +125,7 @@ namespace io {
           }
           writeBlockHeaderFooter(block_lengths, files);
         }
-
-        std::cout << running_total << std::endl;
         iordOffset += targetGrid.size3;
-
       }
 
       void writeBlockHeaderFooter(const vector<size_t> &block_lengths, vector<ofstream> &files) const {

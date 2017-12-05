@@ -247,6 +247,7 @@ namespace multilevelcontext {
 
     }
 
+    // TODO This method does not deal with multiple coarse grids
     void copyContextAndCenter(MultiLevelContextInformation<DataType> &newStack,
                               const Coordinate<T> pointToCenterOnto) const {
       newStack.clear();

@@ -55,13 +55,6 @@ namespace multilevelcontext {
     void calculateMask() override{
       generateFlagsHierarchy();
       ensureFlaggedVolumeIsContinuous();
-      std::cerr << this->flaggedIdsAtEachLevel[0].size() << std::endl;
-      std::cerr << this->flaggedIdsAtEachLevel[1].size() << std::endl;
-      std::cerr << this->flaggedIdsAtEachLevel[2].size() << std::endl;
-//      for (auto i : this->flaggedIdsAtEachLevel[0]) {
-//        std::cerr << i << std::endl;
-//        std::cerr << this->multilevelcontext->getGridForLevel(0).getCoordinateFromIndex(i) << std::endl;
-//      }
     }
 
     void ensureFlaggedVolumeIsContinuous() override{
@@ -157,8 +150,15 @@ namespace multilevelcontext {
         for (size_t i_z = 0; i_z < this->multilevelcontext->getGridForLevel(level).size; ++i_z) {
           for (size_t i_y = 0; i_y < this->multilevelcontext->getGridForLevel(level).size; ++i_y) {
             for (size_t i_x = 0; i_x < this->multilevelcontext->getGridForLevel(level).size; ++i_x) {
-              size_t i = this->multilevelcontext->getGridForLevel(level).getIndexFromCoordinateNoWrap(i_x, i_y, i_z);
-              maskfield->getFieldForLevel(level).getDataVector()[i] = isInMask(level, i);
+
+              // These two indices can be different if some virtual grid are used in the context, e.g. centered.
+              // In all other cases, they will be equal.
+              size_t i = size_t(i_x * this->multilevelcontext->getGridForLevel(level).size + i_y)
+                         * this->multilevelcontext->getGridForLevel(level).size + i_z;
+              size_t virtual_i = this->multilevelcontext->getGridForLevel(level).getIndexFromCoordinateNoWrap(i_x, i_y, i_z);
+
+              maskfield->getFieldForLevel(level).getDataVector()[i] = isInMask(level, virtual_i);
+
             }
           }
         }
