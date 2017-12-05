@@ -610,7 +610,9 @@ public:
 
     if (outputFormat == io::OutputFormat::grafic) {
       // Grafic format just writes out the grids in turn
-      pMapper = std::make_shared<particle::mapper::GraficMapper<GridDataType>>(multiLevelContext, this->extraLowRes);
+      pMapper = std::make_shared<particle::mapper::GraficMapper<GridDataType>>(multiLevelContext,
+                                                                               Coordinate<T>(x0,y0,z0),
+                                                                               this->extraLowRes);
       return;
     }
 
@@ -760,10 +762,7 @@ protected:
 
     io::getBuffer(flaggedParticles, filename);
     size_t size = flaggedParticles.size();
-    //TODO Replace with sort and duplicate method. Potentially elsewhere as well
-    std::sort(flaggedParticles.begin(), flaggedParticles.end());
-    flaggedParticles.erase(std::unique(flaggedParticles.begin(), flaggedParticles.end()),
-                           flaggedParticles.end());
+    tools::sortAndEraseDuplicate(flaggedParticles);
     if (flaggedParticles.size() < size)
       cerr << "  ... erased " << size - flaggedParticles.size() << " duplicate particles" << endl;
     cerr << "  -> total number of particles is " << flaggedParticles.size() << endl;

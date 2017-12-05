@@ -34,8 +34,9 @@ namespace particle {
 
 
       GraficMapper(const multilevelcontext::MultiLevelContextInformation<GridDataType> &context,
+                   Coordinate<T> center,
                   size_t extralowres) {
-        context.copyContextWithIntermediateResolutionGrids(contextInformation, 2, extralowres);
+        context.copyContextWithCenteredIntermediate(contextInformation, center, 2, extralowres);
       }
 
       bool references(GridPtrType grid) const override {

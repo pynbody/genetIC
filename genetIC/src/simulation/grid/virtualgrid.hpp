@@ -210,7 +210,7 @@ namespace grids {
         }
       }
 
-      std::sort(targetArray.begin(), targetArray.end());
+      tools::sortAndEraseDuplicate(targetArray);
     }
 
     void flagCells(const std::vector<size_t> &sourceArray) override {
@@ -325,7 +325,7 @@ namespace grids {
           continue;
         }
       }
-      std::sort(targetArray.begin(), targetArray.end());
+     tools::sortAndEraseDuplicate(targetArray);
     }
 
     void flagCells(const std::vector<size_t> &sourceArray) override {
@@ -337,7 +337,7 @@ namespace grids {
           continue;
         }
       }
-      std::sort(underlyingArray.begin(), underlyingArray.end());
+      tools::sortAndEraseDuplicate(underlyingArray);
       this->pUnderlying->flagCells(underlyingArray);
     }
 

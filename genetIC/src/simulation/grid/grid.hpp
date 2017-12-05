@@ -225,8 +225,7 @@ namespace grids {
 
       // this sort seems to be the slowest step. In C++17 we can make it parallel... or is there a
       // better overall algorithm?
-      std::sort(targetArray.begin(), targetArray.end());
-      targetArray.erase(std::unique(targetArray.begin(), targetArray.end()), targetArray.end());
+      tools::sortAndEraseDuplicate(targetArray);
     }
 
 

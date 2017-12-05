@@ -249,7 +249,7 @@ namespace multilevelcontext {
       }
 
     }
-    
+
     void copyContextAndCenter(MultiLevelContextInformation<DataType> &newStack,
                               const Coordinate<T> pointToCenterOnto) const {
 
