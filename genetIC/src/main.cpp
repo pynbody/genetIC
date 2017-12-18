@@ -69,7 +69,6 @@ void setup_parser(tools::ClassDispatch<ICf, void> &dispatch) {
   dispatch.add_class_route("basegrid", &ICf::initBaseGrid);
   dispatch.add_class_route("zoomgrid", &ICf::initZoomGrid);
   dispatch.add_class_route("zoomgrid_with_origin_at", &ICf::initZoomGridWithOriginAt);
-  dispatch.add_class_route("offset_output", &ICf::offsetOutput);
 
   //Input Output of flagged particles
   dispatch.add_class_route("IDfile", &ICf::loadID);

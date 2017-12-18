@@ -71,8 +71,6 @@ protected:
   //! Subsampling on base grid
   int subsample;
 
-  T xOffOutput, yOffOutput, zOffOutput;
-
 
   io::OutputFormat outputFormat;
   string outputFolder, outputFilename;
@@ -130,9 +128,6 @@ public:
     haveInitialisedRandomComponent = false;
     supersample = 1;
     subsample = 1;
-    xOffOutput = 0;
-    yOffOutput = 0;
-    zOffOutput = 0;
     exactPowerSpectrum = false;
     allowStrayParticles = false;
     pParticleGenerator = std::make_shared<particle::NullMultiLevelParticleGenerator<GridDataType>>();
@@ -169,13 +164,6 @@ public:
     allowStrayParticles = true;
   }
 
-  // TODO Offset of what ?
-  void offsetOutput(T x, T y, T z) {
-    xOffOutput = x;
-    yOffOutput = y;
-    zOffOutput = z;
-    updateParticleMapper();
-  }
 
   void setSigma8(T in) {
     cosmology.sigma8 = in;
@@ -588,10 +576,6 @@ public:
   std::shared_ptr<grids::Grid<T>> getOutputGrid(int level = 0) {
     auto gridForOutput = multiLevelContext.getGridForLevel(level).shared_from_this();
 
-    if (xOffOutput != 0 || yOffOutput != 0 || zOffOutput != 0) {
-      gridForOutput = std::make_shared<grids::OffsetGrid<T>>(gridForOutput,
-                                                             xOffOutput, yOffOutput, zOffOutput);
-    }
     if (allowStrayParticles && level > 0) {
       gridForOutput = std::make_shared<grids::ResolutionMatchingGrid<T>>(gridForOutput,
                                                                          getOutputGrid(level - 1));
