@@ -50,7 +50,7 @@ namespace particle {
 
       virtual void debugInfo(std::ostream &s, int level = 0) const override {
         tools::indent(s, level);
-        s << "GraficMapper";
+        s << "GraficMapper" << endl;
       }
 
       virtual size_t size() const {

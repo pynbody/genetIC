@@ -593,9 +593,11 @@ public:
       return;
 
     if (outputFormat == io::OutputFormat::grafic) {
-      // Grafic format just writes out the grids in turn
-      pMapper = std::make_shared<particle::mapper::GraficMapper<GridDataType>>(multiLevelContext,
-                                                                               Coordinate<T>(x0,y0,z0),
+      // Grafic format just writes out the grids in turn. Grafic mapper only center when writing grids.
+      // All internal calculations are done with center kept constant at boxsize/2.
+      T boxsize = multiLevelContext.getGridForLevel(0).thisGridSize;
+      Coordinate<T> centre = Coordinate<T>(boxsize/2,boxsize/2,boxsize/2);
+      pMapper = std::make_shared<particle::mapper::GraficMapper<GridDataType>>(multiLevelContext, centre,
                                                                                this->extraLowRes);
       return;
     }
@@ -690,6 +692,7 @@ public:
                     pMapper, cosmology);
         break;
       case OutputFormat::grafic:
+        std::cerr << "Replacing coarse grids with centered grids on " << Coordinate<T>(x0,y0,z0) <<  std::endl;
         grafic::save(getOutputPath() + ".grafic",
                      *pParticleGenerator, multiLevelContext, cosmology, pvarValue, Coordinate<T>(x0,y0,z0),
                      this->extraLowRes);

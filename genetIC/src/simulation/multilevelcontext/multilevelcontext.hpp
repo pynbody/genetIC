@@ -258,7 +258,6 @@ namespace multilevelcontext {
       assert(deepest_coarse < nLevels);
       Coordinate<T> offset;
 
-      std::cerr << "Replacing coarse grids with centered grids on " << pointToCenterOnto <<  std::endl;
       for (size_t level = 0; level <= deepest_coarse; ++level) {
         auto centeredCoarse = std::make_shared<grids::CenteredGrid<T>>(this->pGrid[level], pointToCenterOnto);
         newStack.addLevel(C0s[level], centeredCoarse);
@@ -266,7 +265,6 @@ namespace multilevelcontext {
       }
 
 
-      std::cerr << "Offsetting zooms by " << offset <<  std::endl;
       for (size_t level = deepest_coarse + 1; level < nLevels; ++level) {
         auto offsetFine = std::make_shared<grids::OffsetGrid<T>>(this->pGrid[level], offset.x, offset.y, offset.z);
         newStack.addLevel(C0s[level], offsetFine);
