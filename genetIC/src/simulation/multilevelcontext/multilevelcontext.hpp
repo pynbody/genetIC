@@ -155,6 +155,14 @@ namespace multilevelcontext {
       throw std::runtime_error("No level has any particles selected");
     }
 
+    size_t deepestCoarseGrid() const {
+      for (int i = this->getNumLevels() - 1; i >= 0; --i) {
+        if (this->getGridForLevel(i).coversFullSimulation())
+          return size_t(i);
+      }
+      throw std::runtime_error("No coarse grid were found.");
+    }
+
     //! From finest level, use interpolation to construct other levels
     std::shared_ptr<fields::ConstraintField<DataType>>
     generateMultilevelFromHighResField(fields::Field<DataType, T> &&data) {
@@ -201,9 +209,9 @@ namespace multilevelcontext {
     void copyContextWithIntermediateResolutionGrids(MultiLevelContextInformation<DataType> &newStack,
                                                     size_t base_factor,
                                                     size_t extra_lores) const {
-      /* Copy this MultiLevelContextInformation, but insert intermediate virtual grids such that
-       * there is a full stack increasing in the specified power.
-       *
+      //! Copy this MultiLevelContextInformation, but insert intermediate virtual grids such that
+      //!there is a full stack increasing in the specified power.
+      /*!
        * E.g. if there is a 256^3 and a 1024^3 grid stack, with default parameters this will return a
        * 128^3, 256^3, 512^3 and 1024^3 grid stack.
        *
@@ -238,16 +246,44 @@ namespace multilevelcontext {
 
         std::cerr << "Adding real grid with resolution " << neff << std::endl;
         newStack.addLevel(C0s[level], pGrid[level]);
-
       }
 
     }
 
+    void copyContextAndCenter(MultiLevelContextInformation<DataType> &newStack,
+                              const Coordinate<T> pointToCenterOnto) const {
+
+      newStack.clear();
+      size_t deepest_coarse = this->deepestCoarseGrid();
+      assert(deepest_coarse < nLevels);
+      Coordinate<T> offset;
+
+      for (size_t level = 0; level <= deepest_coarse; ++level) {
+        auto centeredCoarse = std::make_shared<grids::CenteredGrid<T>>(this->pGrid[level], pointToCenterOnto);
+        newStack.addLevel(C0s[level], centeredCoarse);
+        offset = centeredCoarse->getPointOffset();
+      }
+
+
+      for (size_t level = deepest_coarse + 1; level < nLevels; ++level) {
+        auto offsetFine = std::make_shared<grids::OffsetGrid<T>>(this->pGrid[level], offset.x, offset.y, offset.z);
+        newStack.addLevel(C0s[level], offsetFine);
+      }
+    }
+
+    void copyContextWithCenteredIntermediate(MultiLevelContextInformation<DataType> &newStack,
+                                             const Coordinate<T> pointToCenterOnto,
+                                             size_t base_factor,
+                                             size_t extra_lores) const {
+      auto extracontext = multilevelcontext::MultiLevelContextInformation<DataType>();
+      this->copyContextWithIntermediateResolutionGrids(extracontext, base_factor, extra_lores);
+      extracontext.copyContextAndCenter(newStack, pointToCenterOnto);
+    }
+
+
     size_t getIndexOfCellOnOtherLevel(size_t currentLevel, size_t otherLevel, size_t cellIndex){
-      auto currentLevelGrid = this->getGridForLevel(currentLevel);
-      auto otherLevelGrid = this->getGridForLevel(otherLevel);
-      Coordinate<T> cell_coord(currentLevelGrid.getCentroidFromIndex(cellIndex));
-      return otherLevelGrid.getIndexFromPoint(cell_coord);
+      Coordinate<T> cell_coord(this->getGridForLevel(currentLevel).getCentroidFromIndex(cellIndex));
+      return this->getGridForLevel(otherLevel).getIndexFromPoint(cell_coord);
     }
 
   };

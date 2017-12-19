@@ -252,7 +252,8 @@ namespace fields {
       } else if (runtimeType == typeid(grids::SubSampleGrid<CoordinateType>)) {
         return std::make_shared<SubSampleEvaluator<DataType, CoordinateType>>(virtualGrid, underlyingEvaluator);
       } else if (runtimeType == typeid(grids::OffsetGrid<CoordinateType>) ||
-                 runtimeType == typeid(grids::MassScaledGrid<CoordinateType>)) {
+                 runtimeType == typeid(grids::MassScaledGrid<CoordinateType>) ||
+                 runtimeType == typeid(grids::CenteredGrid<CoordinateType>)) {
         return underlyingEvaluator;
       }
     }

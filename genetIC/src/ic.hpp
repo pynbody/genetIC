@@ -71,8 +71,6 @@ protected:
   //! Subsampling on base grid
   int subsample;
 
-  T xOffOutput, yOffOutput, zOffOutput;
-
 
   io::OutputFormat outputFormat;
   string outputFolder, outputFilename;
@@ -130,9 +128,6 @@ public:
     haveInitialisedRandomComponent = false;
     supersample = 1;
     subsample = 1;
-    xOffOutput = 0;
-    yOffOutput = 0;
-    zOffOutput = 0;
     exactPowerSpectrum = false;
     allowStrayParticles = false;
     pParticleGenerator = std::make_shared<particle::NullMultiLevelParticleGenerator<GridDataType>>();
@@ -169,13 +164,6 @@ public:
     allowStrayParticles = true;
   }
 
-  // TODO Offset of what ?
-  void offsetOutput(T x, T y, T z) {
-    xOffOutput = x;
-    yOffOutput = y;
-    zOffOutput = z;
-    updateParticleMapper();
-  }
 
   void setSigma8(T in) {
     cosmology.sigma8 = in;
@@ -535,7 +523,7 @@ public:
     cerr << "Dumping mask grids" << endl;
     // this is ugly but it makes sure I can dump virtual grids if there are any.
     multilevelcontext::MultiLevelContextInformation<GridDataType> newcontext;
-    this->multiLevelContext.copyContextWithIntermediateResolutionGrids(newcontext, 2, 0);
+    this->multiLevelContext.copyContextWithCenteredIntermediate(newcontext, Coordinate<T>(x0,y0,z0), 2, this->extraLowRes);
     auto dumpingMask = multilevelcontext::Mask<GridDataType, T>(&newcontext);
     dumpingMask.calculateMask();
 
@@ -588,10 +576,6 @@ public:
   std::shared_ptr<grids::Grid<T>> getOutputGrid(int level = 0) {
     auto gridForOutput = multiLevelContext.getGridForLevel(level).shared_from_this();
 
-    if (xOffOutput != 0 || yOffOutput != 0 || zOffOutput != 0) {
-      gridForOutput = std::make_shared<grids::OffsetGrid<T>>(gridForOutput,
-                                                             xOffOutput, yOffOutput, zOffOutput);
-    }
     if (allowStrayParticles && level > 0) {
       gridForOutput = std::make_shared<grids::ResolutionMatchingGrid<T>>(gridForOutput,
                                                                          getOutputGrid(level - 1));
@@ -609,8 +593,12 @@ public:
       return;
 
     if (outputFormat == io::OutputFormat::grafic) {
-      // Grafic format just writes out the grids in turn
-      pMapper = std::make_shared<particle::mapper::GraficMapper<GridDataType>>(multiLevelContext, this->extraLowRes);
+      // Grafic format just writes out the grids in turn. Grafic mapper only center when writing grids.
+      // All internal calculations are done with center kept constant at boxsize/2.
+      T boxsize = multiLevelContext.getGridForLevel(0).thisGridSize;
+      Coordinate<T> centre = Coordinate<T>(boxsize/2,boxsize/2,boxsize/2);
+      pMapper = std::make_shared<particle::mapper::GraficMapper<GridDataType>>(multiLevelContext, centre,
+                                                                               this->extraLowRes);
       return;
     }
 
@@ -704,8 +692,10 @@ public:
                     pMapper, cosmology);
         break;
       case OutputFormat::grafic:
+        std::cerr << "Replacing coarse grids with centered grids on " << Coordinate<T>(x0,y0,z0) <<  std::endl;
         grafic::save(getOutputPath() + ".grafic",
-                     *pParticleGenerator, multiLevelContext, cosmology, pvarValue, this->extraLowRes);
+                     *pParticleGenerator, multiLevelContext, cosmology, pvarValue, Coordinate<T>(x0,y0,z0),
+                     this->extraLowRes);
         break;
       default:
         throw std::runtime_error("Unknown output format");
@@ -759,9 +749,7 @@ protected:
 
     io::getBuffer(flaggedParticles, filename);
     size_t size = flaggedParticles.size();
-    std::sort(flaggedParticles.begin(), flaggedParticles.end());
-    flaggedParticles.erase(std::unique(flaggedParticles.begin(), flaggedParticles.end()),
-                           flaggedParticles.end());
+    tools::sortAndEraseDuplicate(flaggedParticles);
     if (flaggedParticles.size() < size)
       cerr << "  ... erased " << size - flaggedParticles.size() << " duplicate particles" << endl;
     cerr << "  -> total number of particles is " << flaggedParticles.size() << endl;

@@ -44,8 +44,7 @@ namespace multilevelcontext {
       if(this->flaggedIdsAtEachLevel[level].size() == 0){
         // No flagged cells at all on this level, refine everywhere
         return T(1.0);
-      } else if((std::binary_search(this->flaggedIdsAtEachLevel[level].begin(),
-                                    this->flaggedIdsAtEachLevel[level].end(), cellindex))){
+      } else if(isMasked(cellindex, level)){
         // Cell is among flagged cells, refine it
         return T(1.0);
       }
@@ -77,22 +76,24 @@ namespace multilevelcontext {
      * for virtual grids, downgrades the higher resolution mask on the virtual grid.
      */
     void generateFlagsHierarchy() override {
+      size_t deepestFlaggedLevel;
+
       try {
-        size_t deepestFlaggedLevel = this->multilevelcontext->deepestLevelwithFlaggedCells();
-        generateHierarchyAboveLevelInclusive(deepestFlaggedLevel);
-        generateHierarchyBelowLevelExclusive(deepestFlaggedLevel);
+        deepestFlaggedLevel = this->multilevelcontext->deepestLevelwithFlaggedCells();
       } catch (std::runtime_error& e){
         std::cerr << "WARNING No flagged particles were found on any level. Mask generation aborted" <<std::endl;
-
+        return;
       }
+
+      generateHierarchyAboveLevelInclusive(deepestFlaggedLevel);
+      generateHierarchyBelowLevelExclusive(deepestFlaggedLevel);
     }
 
     void generateHierarchyAboveLevelInclusive(size_t deepestLevel){
       for (int level = deepestLevel; level >= 0; level--) {
 
-        auto currentLevelGrid = this->multilevelcontext->getGridForLevel(level);
-        if (currentLevelGrid.hasFlaggedCells()) {
-          currentLevelGrid.getFlaggedCells(this->flaggedIdsAtEachLevel[level]);
+        if (this->multilevelcontext->getGridForLevel(level).hasFlaggedCells()) {
+          this->multilevelcontext->getGridForLevel(level).getFlaggedCells(this->flaggedIdsAtEachLevel[level]);
 
         } else {
           // Generate flags on intermediate levels that might not have some
@@ -109,11 +110,9 @@ namespace multilevelcontext {
     void generateHierarchyBelowLevelExclusive(size_t coarsestLevel){
 
       // Do all level between this level and the finest
-      // TODO Decide if doing finest level is worth it given that Ramses does not read it.
       for(size_t level=coarsestLevel + 1; level < this->multilevelcontext->getNumLevels() - 1; level++){
 
-        auto currentLevelGrid = this->multilevelcontext->getGridForLevel(level);
-        for(size_t i = 0; i < currentLevelGrid.size3; i++){
+        for(size_t i = 0; i < this->multilevelcontext->getGridForLevel(level).size3; i++){
           size_t aboveindex = this->multilevelcontext->getIndexOfCellOnOtherLevel(level, level - 1, i);
           if(this->isMasked(aboveindex, level - 1)){
             this->flaggedIdsAtEachLevel[level].push_back(i);
@@ -123,10 +122,7 @@ namespace multilevelcontext {
     }
 
     void sortAndEraseDuplicate(size_t level){
-      std::sort(this->flaggedIdsAtEachLevel[level].begin(), this->flaggedIdsAtEachLevel[level].end());
-      this->flaggedIdsAtEachLevel[level].erase(std::unique(
-          this->flaggedIdsAtEachLevel[level].begin(),
-          this->flaggedIdsAtEachLevel[level].end()), this->flaggedIdsAtEachLevel[level].end());
+      tools::sortAndEraseDuplicate(this->flaggedIdsAtEachLevel[level]);
     }
 
     bool isMasked(size_t id, size_t level){
@@ -151,11 +147,22 @@ namespace multilevelcontext {
 
       // Field with mask information
       for (size_t level = 0; level < this->multilevelcontext->getNumLevels(); ++level) {
-        for (size_t i=0; i< this->multilevelcontext->getGridForLevel(level).size3; i++){
-          maskfield->getFieldForLevel(level).getDataVector()[i] = isInMask(level, i);
+        for (size_t i_z = 0; i_z < this->multilevelcontext->getGridForLevel(level).size; ++i_z) {
+          for (size_t i_y = 0; i_y < this->multilevelcontext->getGridForLevel(level).size; ++i_y) {
+            for (size_t i_x = 0; i_x < this->multilevelcontext->getGridForLevel(level).size; ++i_x) {
+
+              // These two indices can be different if some virtual grid are used in the context, e.g. centered.
+              // In all other cases, they will be equal.
+              size_t i = size_t(i_x * this->multilevelcontext->getGridForLevel(level).size + i_y)
+                         * this->multilevelcontext->getGridForLevel(level).size + i_z;
+              size_t virtual_i = this->multilevelcontext->getGridForLevel(level).getIndexFromCoordinateNoWrap(i_x, i_y, i_z);
+
+              maskfield->getFieldForLevel(level).getDataVector()[i] = isInMask(level, virtual_i);
+
+            }
+          }
         }
       }
-
       return maskfield;
     }
   };

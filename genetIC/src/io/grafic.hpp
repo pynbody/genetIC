@@ -35,13 +35,15 @@ namespace io {
                    particle::AbstractMultiLevelParticleGenerator<DataType> &particleGenerator,
                    const cosmology::CosmologicalParameters<T> &cosmology,
                     const T pvarValue,
+                   Coordinate<T> center,
                    size_t extralowRes) :
+
           outputFilename(fname),
           generator(particleGenerator.shared_from_this()),
           cosmology(cosmology),
           mask(&levelContext),
           pvarValue(pvarValue){
-        levelContext.copyContextWithIntermediateResolutionGrids(context, 2, extralowRes);
+        levelContext.copyContextWithCenteredIntermediate(context, center, 2, extralowRes);
         mask.recalculateWithNewContext(&context);
         lengthFactor = 1. / cosmology.hubble; // Gadget Mpc a h^-1 -> GrafIC file Mpc a
         velFactor = std::pow(cosmology.scalefactor, 0.5f); // Gadget km s^-1 a^1/2 -> GrafIC km s^-1
@@ -123,10 +125,7 @@ namespace io {
           }
           writeBlockHeaderFooter(block_lengths, files);
         }
-
-
         iordOffset += targetGrid.size3;
-
       }
 
       void writeBlockHeaderFooter(const vector<size_t> &block_lengths, vector<ofstream> &files) const {
@@ -166,9 +165,9 @@ namespace io {
               particle::AbstractMultiLevelParticleGenerator<DataType> &generator,
               multilevelcontext::MultiLevelContextInformation<DataType> &context,
               const cosmology::CosmologicalParameters<T> &cosmology,
-              const T pvarValue, size_t extraLowRes) {
+              const T pvarValue, Coordinate<T> center, size_t extraLowRes) {
       GraficOutput<DataType> output(filename, context,
-                                    generator, cosmology, pvarValue, extraLowRes);
+                                    generator, cosmology, pvarValue, center, extraLowRes);
       output.write();
     }
 

@@ -32,9 +32,11 @@ namespace particle {
 
     public:
 
+
       GraficMapper(const multilevelcontext::MultiLevelContextInformation<GridDataType> &context,
+                   Coordinate<T> center,
                   size_t extralowres) {
-        context.copyContextWithIntermediateResolutionGrids(contextInformation, 2, extralowres);
+        context.copyContextWithCenteredIntermediate(contextInformation, center, 2, extralowres);
       }
 
       bool references(GridPtrType grid) const override {
@@ -48,7 +50,7 @@ namespace particle {
 
       virtual void debugInfo(std::ostream &s, int level = 0) const override {
         tools::indent(s, level);
-        s << "GraficMapper";
+        s << "GraficMapper" << endl;
       }
 
       virtual size_t size() const {

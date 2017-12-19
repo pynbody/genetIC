@@ -1,4 +1,4 @@
-# Test that refinement masks are wrapped correctly
+# Test that refinement masks are centered correctly
 
 
 # output parameters
@@ -17,9 +17,9 @@ camb    ../camb_transfer_kmax40_z0_post2015.dat
 # fourier seeding
 seed	8896131
 
-basegrid 50.0 64
+basegrid 64.0 64
 
-centre 47 47 47
+centre 63 63 63
 select_sphere 5
 zoomgrid 4 64
 

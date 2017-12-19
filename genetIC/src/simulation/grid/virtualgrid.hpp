@@ -29,7 +29,7 @@ namespace grids {
     GridPtrType pUnderlying;
 
   public:
-    VirtualGrid(GridPtrType pUnderlying) :
+    explicit VirtualGrid(GridPtrType pUnderlying) :
         Grid<T>(
             pUnderlying->periodicDomainSize, pUnderlying->size,
             pUnderlying->cellSize, pUnderlying->offsetLower.x, pUnderlying->offsetLower.y,
@@ -49,7 +49,7 @@ namespace grids {
       s << "VirtualGrid";
     }
 
-    virtual void debugInfo(std::ostream &s) const override {
+    void debugInfo(std::ostream &s) const override {
       debugName(s);
       s << " of side " << this->size << " address " << this << " referencing ";
       pUnderlying->debugInfo(s);
@@ -106,7 +106,7 @@ namespace grids {
     }
 
 
-    virtual void debugName(std::ostream &s) const override {
+    void debugName(std::ostream &s) const override {
       s << "SuperSampleGrid";
     }
 
@@ -186,7 +186,7 @@ namespace grids {
       s << "ResolutionMatchingGrid";
     }
 
-    virtual void debugInfo(std::ostream &s) const override {
+    void debugInfo(std::ostream &s) const override {
       debugName(s);
       s << " of side " << this->size << " address " << this << " referencing (for genuine hi-res part) ";
       pUnderlyingHiRes->debugInfo(s);
@@ -210,7 +210,7 @@ namespace grids {
         }
       }
 
-      std::sort(targetArray.begin(), targetArray.end());
+      tools::sortAndEraseDuplicate(targetArray);
     }
 
     void flagCells(const std::vector<size_t> &sourceArray) override {
@@ -242,42 +242,6 @@ namespace grids {
 
     size_t getIndexInHiResWindow(const Coordinate<int> &coordinate) const {
       return pUnderlyingHiRes->getIndexFromCoordinate(coordinate - windowLowerCornerInclusive);
-    }
-
-
-  };
-
-
-  template<typename T>
-  class OffsetGrid : public VirtualGrid<T> {
-
-  protected:
-    using typename Grid<T>::GridPtrType;
-
-
-  public:
-    OffsetGrid(GridPtrType pUnderlying, T dx, T dy, T dz) :
-        VirtualGrid<T>(pUnderlying, pUnderlying->periodicDomainSize, pUnderlying->size,
-                       pUnderlying->cellSize,
-                       pUnderlying->offsetLower.x + dx,
-                       pUnderlying->offsetLower.y + dy,
-                       pUnderlying->offsetLower.z + dz,
-                       pUnderlying->cellMassFrac,
-                       pUnderlying->cellSofteningScale) {
-
-    }
-
-
-    virtual void debugName(std::ostream &s) const override {
-      s << "OffsetGrid";
-    }
-
-    void getFlaggedCells(std::vector<size_t> & /*&targetArray*/) const override {
-      throw (std::runtime_error("getFlaggedCells is not implemented for OffsetGrid"));
-    }
-
-    void flagCells(const std::vector<size_t> & /*&sourceArray*/) override {
-      throw (std::runtime_error("flagCells is not implemented for OffsetGrid"));
     }
 
 
@@ -331,7 +295,7 @@ namespace grids {
     }
 
 
-    virtual bool containsPoint(const Coordinate<T> &coord) const override {
+    bool containsPoint(const Coordinate<T> &coord) const override {
       return VirtualGrid<T>::containsPoint(coord) && this->pUnderlying->containsPoint(coord);
     }
 
@@ -346,7 +310,7 @@ namespace grids {
     }
 
 
-    virtual void debugName(std::ostream &s) const override {
+    void debugName(std::ostream &s) const override {
       s << "SectionOfGrid";
     }
 
@@ -361,7 +325,7 @@ namespace grids {
           continue;
         }
       }
-      std::sort(targetArray.begin(), targetArray.end());
+     tools::sortAndEraseDuplicate(targetArray);
     }
 
     void flagCells(const std::vector<size_t> &sourceArray) override {
@@ -373,7 +337,7 @@ namespace grids {
           continue;
         }
       }
-      std::sort(underlyingArray.begin(), underlyingArray.end());
+      tools::sortAndEraseDuplicate(underlyingArray);
       this->pUnderlying->flagCells(underlyingArray);
     }
 
@@ -401,7 +365,7 @@ namespace grids {
       factor3 = factor * factor * factor;
     }
 
-    virtual void debugName(std::ostream &s) const override {
+   void debugName(std::ostream &s) const override {
       s << "SubSampleGrid";
     }
 
@@ -468,13 +432,140 @@ namespace grids {
                        pUnderlying->offsetLower.z, massScale * pUnderlying->cellMassFrac,
                        pUnderlying->cellSofteningScale) {}
 
-    virtual void debugName(std::ostream &s) const override {
+    void debugName(std::ostream &s) const override {
       s << "MassScaledGrid";
     }
-
-
   };
+
+  //! Wrap a grid such that its center is a given point.
+  /*! Does not change the offsetLower of the grid, i.e. do not move the grid wrto to its parent.
+   * This class wraps coordinate and centroids but does not change the id of the cell, i.e.
+   *  a cell (id, coord, centroid) in the underlying grid is mapped to (id, centered_coord, centered_centroid)
+   *  in the virtual grid.
+   */
+  template<typename T>
+  class CenteredGrid : public VirtualGrid<T> {
+  protected:
+    using typename Grid<T>::GridPtrType;
+
+  private:
+    const Coordinate<int> offset;
+  public:
+    CenteredGrid(GridPtrType pUnderlying, Coordinate<T> center) :
+        VirtualGrid<T>(pUnderlying,
+                       pUnderlying->periodicDomainSize, pUnderlying->size,
+                       pUnderlying->cellSize,
+                       pUnderlying->offsetLower.x,
+                       pUnderlying->offsetLower.y,
+                       pUnderlying->offsetLower.z,
+                       pUnderlying->cellMassFrac,
+                       pUnderlying->cellSofteningScale),
+        offset(Coordinate<T>(0.5 * this->pUnderlying->thisGridSize) - center){}
+
+    void debugName(std::ostream &s) const override {
+      s << "CenteredGrid";
+    }
+
+    Coordinate<T> getPointOffset() const {
+      return this->getPointOffsetfromCoordinateOffset(this->offset);
+    }
+
+  private:
+    //! Transforming int offset in floating point offset
+    Coordinate<T> getPointOffsetfromCoordinateOffset(Coordinate<int> offset) const {
+      return Coordinate<T>(offset.x * this->pUnderlying->cellSize,
+                           offset.y * this->pUnderlying->cellSize,
+                           offset.z * this->pUnderlying->cellSize);
+    }
+
+    //! Get inverse centering transformation
+    Coordinate<int> getInverseOffset() const {
+      return Coordinate<int>(- this->offset.x, - this->offset.y, - this->offset.z);
+    }
+
+    Coordinate<T> getInversePointOffset() const {
+      return this->getPointOffsetfromCoordinateOffset(this->getInverseOffset());
+    }
+
+  protected:
+
+    size_t getIndexFromCoordinateNoWrap(size_t x, size_t y, size_t z) const override{
+      return this->pUnderlying->getIndexFromIndexAndStep(
+          this->pUnderlying->getIndexFromCoordinateNoWrap(x,y,z), this->getInverseOffset());
+    }
+
+    size_t getIndexFromCoordinateNoWrap(int x, int y, int z) const override {
+      return this->pUnderlying->getIndexFromIndexAndStep(
+          this->pUnderlying->getIndexFromCoordinateNoWrap(x,y,z), this->getInverseOffset());
+    }
+
+    size_t getIndexFromCoordinateNoWrap(const Coordinate<int> &coordinate) const override {
+      return this->pUnderlying->getIndexFromIndexAndStep(
+          this->pUnderlying->getIndexFromCoordinateNoWrap(coordinate), this->getInverseOffset());
+    }
+
+    size_t getIndexFromCoordinate(Coordinate<int> coord) const override{
+      coord = this->pUnderlying->wrapCoordinate(coord);
+      return this->getIndexFromCoordinateNoWrap(coord);
+    }
+
+    Coordinate<int> getCoordinateFromIndex(size_t id) const override {
+      return this->pUnderlying->wrapCoordinate(this->pUnderlying->getCoordinateFromIndex(id) + this->offset);
+    }
+
+    Coordinate<T> getCentroidFromCoordinate(const Coordinate<int> &coord) const override {
+      return this->pUnderlying->getCentroidFromCoordinate(
+          this->pUnderlying->wrapCoordinate(this->offset + coord));
+    }
+
+    Coordinate<T> getCentroidFromIndex(size_t id) const override{
+      return this->wrapPoint(this->pUnderlying->getCentroidFromIndex(id) + this->getPointOffset());
+    }
+
+    size_t getIndexFromPoint(Coordinate<T> point) const override{
+      return this->pUnderlying->getIndexFromPoint(point + this->getInversePointOffset());
+    }
+
+    Coordinate<int> getCoordinateFromPoint(Coordinate<T> point) const override{
+      return this->pUnderlying->getCoordinateFromPoint(point);
+    }
+
+    void getFlaggedCells(std::vector<size_t> &targetArray) const override {
+      this->pUnderlying->getFlaggedCells(targetArray);
+    }
+  };
+
+  //! Offsets the corner of a grid in the cordinate of the box
+  /*! Modifies only the centroid coordinates, e.g. a cell (id, coord, centroid) in the underlying grid
+   * will be mapped to (id, coord, centroid + offset) by te virtual grid.
+   */
+  template<typename T>
+  class OffsetGrid : public VirtualGrid<T> {
+
+  protected:
+    using typename Grid<T>::GridPtrType;
+
+
+  public:
+    OffsetGrid(GridPtrType pUnderlying, T dx, T dy, T dz) :
+        VirtualGrid<T>(pUnderlying, pUnderlying->periodicDomainSize, pUnderlying->size,
+                       pUnderlying->cellSize,
+                       pUnderlying->offsetLower.x + dx,
+                       pUnderlying->offsetLower.y + dy,
+                       pUnderlying->offsetLower.z + dz,
+                       pUnderlying->cellMassFrac,
+                       pUnderlying->cellSofteningScale) {}
+
+
+    void debugName(std::ostream &s) const override {
+      s << "OffsetGrid";
+    }
+  };
+
+
+
+
 }
 
 
-#endif //IC_VIRTUALGRID_HPP
+#endif

@@ -69,7 +69,7 @@ namespace grids {
     }
 
 
-    Grid(size_t n) : periodicDomainSize(0), thisGridSize(n),
+    explicit Grid(size_t n) : periodicDomainSize(0), thisGridSize(n),
                      cellSize(1.0), offsetLower(0, 0, 0),
                      size(n), size2(n * n), size3(n * n * n), simEquivalentSize(0), cellMassFrac(0.0),
                      cellSofteningScale(1.0) {
@@ -88,23 +88,39 @@ namespace grids {
       return periodicDomainSize == thisGridSize;
     }
 
-    T getWrappedOffset(T x0, T x1) const {
-      T result = x0 - x1;
-      if (result > periodicDomainSize / 2) {
-        result -= periodicDomainSize;
-      }
-      if (result < -periodicDomainSize / 2) {
-        result += periodicDomainSize;
-      }
-      return result;
+    T getFourierKmin() const {
+      return kMin;
     }
 
-    Coordinate<T> getWrappedOffset(const Coordinate<T> a, const Coordinate<T> b) const {
-      return Coordinate<T>(getWrappedOffset(a.x, b.x), getWrappedOffset(a.y, b.y), getWrappedOffset(a.z, b.z));
+    virtual void debugInfo(std::ostream &s) const {
+      s << "Grid of side " << size << " address " << this << "; " << this->flags.size() << " cells marked";
     }
 
-    /*! Make a VirtualGrid pointing to this grid, but with a resolution and range matching target.
-    */
+    int getEffectiveSimulationSize() const {
+      return tools::getRatioAndAssertInteger(periodicDomainSize, cellSize);
+    }
+
+    /*****************************
+    * Methods dealing with the creation of virtual grids and relationships between grids.
+    ******************************/
+
+    bool pointsToAnyGrid(std::vector<std::shared_ptr<Grid<T>>> grids) {
+      for (auto g: grids) {
+        if (pointsToGrid(g.get()))
+          return true;
+      }
+      return false;
+    }
+
+
+    /*! Return true if this grid has a known relationship to pOther, in the sense that a field defined on pOther
+    * could be evaluated on this grid. */
+    virtual bool pointsToGrid(const Grid *pOther) const {
+      return this == pOther;
+    }
+
+
+    //! Make a VirtualGrid pointing to this grid, but with a resolution and range matching target.
     GridPtrType makeProxyGridToMatch(const Grid<T> &target) const {
       GridPtrType proxy = std::const_pointer_cast<Grid<T>>(this->shared_from_this());
       if (target.cellSize > cellSize) {
@@ -131,10 +147,13 @@ namespace grids {
       return proxy;
     }
 
-
-    virtual void debugInfo(std::ostream &s) const {
-      s << "Grid of side " << size << " address " << this << "; " << this->flags.size() << " cells marked";
+    virtual std::shared_ptr<Grid<T>> makeScaledMassVersion(T massRatio) {
+      return std::make_shared<MassScaledGrid<T>>(this->shared_from_this(), massRatio);
     }
+
+    /*****************************
+     * Methods dealing with flagging cells on the grid
+     ******************************/
 
     virtual void getFlaggedCells(std::vector<size_t> &targetArray) const {
       targetArray.insert(targetArray.end(), flags.begin(), flags.end());
@@ -155,191 +174,9 @@ namespace grids {
       return flags.size() > 0;
     }
 
-    /*! Return true if this grid has a known relationship to pOther, in the sense that a field defined on pOther
-     * could be evaluated on this grid. */
-    virtual bool pointsToGrid(const Grid *pOther) const {
-      return this == pOther;
+    Coordinate<T> getFlaggedCellsCentre(){
+      return this->getCentreWrapped(this->flags);
     }
-
-    bool pointsToAnyGrid(std::vector<std::shared_ptr<Grid<T>>> grids) {
-      for (auto g: grids) {
-        if (pointsToGrid(g.get()))
-          return true;
-      }
-      return false;
-    }
-
-    //! True if point in physical coordinates is on this grid
-    virtual bool containsPoint(const Coordinate<T> &coord) const {
-      return Window<T>(periodicDomainSize, offsetLower, offsetLower + thisGridSize).contains(coord);
-    }
-
-    //! True if point in physical coordinates is on this grid and not too close to the border
-    /*!
-     * @param safety Exclude "safety" number of pixels at the edge of the box
-     */
-    virtual bool containsPointWithBorderSafety(const Coordinate<T> &coord, int safety ) const{
-      if(safety < 1){
-        throw std::runtime_error("Safety number of pixels must be at least one");
-      }
-
-      return Window<T>(periodicDomainSize, offsetLower,
-                       offsetLower + thisGridSize).containsWithBorderSafety(coord, safety * cellSize);
-    }
-
-    Coordinate<T> wrapPoint(Coordinate<T> pos) const {
-      pos.x = fmod(pos.x, periodicDomainSize);
-      if (pos.x < 0) pos.x += periodicDomainSize;
-      pos.y = fmod(pos.y, periodicDomainSize);
-      if (pos.y < 0) pos.y += periodicDomainSize;
-      pos.z = fmod(pos.z, periodicDomainSize);
-      if (pos.z < 0) pos.z += periodicDomainSize;
-      return pos;
-    }
-
-    //! True if cell with pixel coordinates is on this grid
-    /*! Does not take into account offset or physical coordinates
-     */
-    virtual bool containsCellWithCoordinate(Coordinate<int> coord) const {
-      return coord.x >= 0 && coord.y >= 0 && coord.z >= 0 &&
-             (unsigned) coord.x < size && (unsigned) coord.y < size && (unsigned) coord.z < size;
-    }
-
-    //! True if cell number is less than Ncell cubed
-    virtual bool containsCell(size_t i) const {
-      return i < size3;
-    }
-
-    virtual std::shared_ptr<Grid<T>> makeScaledMassVersion(T massRatio) {
-      return std::make_shared<MassScaledGrid<T>>(this->shared_from_this(), massRatio);
-    }
-
-
-    size_t getIndexFromIndexAndStep(size_t index, const Coordinate<int> &step) const {
-      auto coord = getCoordinateFromIndex(index);
-      coord += step;
-      return this->getIndexFromCoordinate(coord); // N.B. does wrapping inside getIndex
-    }
-
-
-    /*! Wrap the coordinate such that it lies within [0,size) if this is possible.
-     *
-     * Note that for efficiency this routine only "corrects" coordinates within one boxsize of the fundamental domain.
-     */
-    Coordinate<int> wrapCoordinate(Coordinate<int> index) const {
-      if (index.x > (signed) simEquivalentSize - 1) index.x -= simEquivalentSize;
-      if (index.y > (signed) simEquivalentSize - 1) index.y -= simEquivalentSize;
-      if (index.z > (signed) simEquivalentSize - 1) index.z -= simEquivalentSize;
-      if (index.x < 0) index.x += simEquivalentSize;
-      if (index.y < 0) index.y += simEquivalentSize;
-      if (index.z < 0) index.z += simEquivalentSize;
-      return index;
-    }
-
-
-    size_t getIndexFromCoordinate(Coordinate<int> coord) const {
-      coord = wrapCoordinate(coord);
-      return getIndexFromCoordinateNoWrap(coord);
-    }
-
-    size_t getIndexFromCoordinateNoWrap(size_t x, size_t y, size_t z) const {
-      return (x * size + y) * size + z;
-    }
-
-    size_t getIndexFromCoordinateNoWrap(int x, int y, int z) const {
-
-#ifdef SAFER_SLOWER
-      if(x<0 || x>=size || y<0 || y>=size || z<0 || z>=size)
-          throw std::runtime_error("Grid index out of range in getIndexNoWrap");
-#endif
-      return size_t(x * size + y) * size + z;
-    }
-
-    size_t getIndexFromCoordinateNoWrap(const Coordinate<int> &coordinate) const {
-      return getIndexFromCoordinateNoWrap(coordinate.x, coordinate.y, coordinate.z);
-    }
-
-    //! Returns cell id in pixel coordinates
-    Coordinate<int> getCoordinateFromIndex(int id) const {
-      size_t x, y;
-
-      if ((unsigned) id >= size3) {
-        throw std::runtime_error("Index out of range");
-      }
-
-      // The following implementation is a little faster than using the
-      // modulo operator.
-      x = id / size2;
-      id -= x * size2;
-      y = id / size;
-      id -= y * size;
-
-      return Coordinate<int>(x, y, id);
-    }
-
-    T getFourierKmin() const {
-      return kMin;
-    }
-
-    //! Returns coordinate of centre of cell id, in physical box coordinates
-    /*! Takes into account grid offsets wrt base grid, pixel size etc
-     */
-    Coordinate<T> getCentroidFromIndex(size_t id) const {
-      Coordinate<int> coord = getCoordinateFromIndex(id);
-      return getCentroidFromCoordinate(coord);
-    }
-
-    Coordinate<T> getCentroidFromCoordinate(const Coordinate<int> &coord) const {
-      Coordinate<T> result(coord);
-      result *= cellSize;
-      result += offsetLower;
-      result += cellSize / 2;
-      return result;
-    }
-
-    size_t getIndexFromPoint(Coordinate<T> point) {
-      auto coords = floor(wrapPoint(point - offsetLower - cellSize / 2) / cellSize);
-      return getIndexFromCoordinateNoWrap(coords);
-    }
-
-    void appendIdsInCubeToVector(T x0c, T y0c, T z0c, T dxc, vector<size_t> &ids) {
-      size_t offset = ids.size();
-      int added_size = std::round(dxc / cellSize);
-      added_size *= added_size * added_size;
-      ids.resize(offset + added_size);
-      insertCubeIdsIntoVector(x0c, y0c, z0c, dxc, ids.begin() + offset);
-    }
-
-    void insertCubeIdsIntoVector(T x0c, T y0c, T z0c, T dxc, vector<size_t>::iterator start) {
-      // return all the grid IDs whose centres lie within the specified cube
-
-      // TODO: optimization, set the storage size of ids here.
-
-      std::tie(x0c, y0c, z0c) = wrapPoint(Coordinate<T>(x0c, y0c, z0c) - offsetLower);
-
-      int xa = ((int) floor((x0c - dxc / 2 + cellSize / 2) / cellSize));
-      int ya = ((int) floor((y0c - dxc / 2 + cellSize / 2) / cellSize));
-      int za = ((int) floor((z0c - dxc / 2 + cellSize / 2) / cellSize));
-
-      int xb = ((int) floor((x0c + dxc / 2 - cellSize / 2) / cellSize));
-      int yb = ((int) floor((y0c + dxc / 2 - cellSize / 2) / cellSize));
-      int zb = ((int) floor((z0c + dxc / 2 - cellSize / 2) / cellSize));
-
-
-      iterateOverCube<int>(Coordinate<int>(xa, ya, za),
-                           Coordinate<int>(xb, yb, zb) + 1,
-                           [&start, this](const Coordinate<int> &cellCoord) {
-                             (*start) = getIndexFromCoordinate(cellCoord);
-                             assert(*start < size3);
-                             ++start;
-                           });
-
-    }
-
-    int getEffectiveSimulationSize() const {
-      return tools::getRatioAndAssertInteger(periodicDomainSize, cellSize);
-    }
-
 
   protected:
 
@@ -388,13 +225,28 @@ namespace grids {
 
       // this sort seems to be the slowest step. In C++17 we can make it parallel... or is there a
       // better overall algorithm?
-      std::sort(targetArray.begin(), targetArray.end());
-      targetArray.erase(std::unique(targetArray.begin(), targetArray.end()), targetArray.end());
+      tools::sortAndEraseDuplicate(targetArray);
     }
 
+
+    /*****************************
+    * Methods dealing with all sorts of coordinate calculations
+    ******************************/
+
   public:
-    Coordinate<T> getFlaggedCellsCentre(){
-      return this->getCentreWrapped(this->flags);
+    T getWrappedOffset(T x0, T x1) const {
+      T result = x0 - x1;
+      if (result > periodicDomainSize / 2) {
+        result -= periodicDomainSize;
+      }
+      if (result < -periodicDomainSize / 2) {
+        result += periodicDomainSize;
+      }
+      return result;
+    }
+
+    Coordinate<T> getWrappedOffset(const Coordinate<T> a, const Coordinate<T> b) const {
+      return Coordinate<T>(getWrappedOffset(a.x, b.x), getWrappedOffset(a.y, b.y), getWrappedOffset(a.z, b.z));
     }
 
     //! Calculate the centre in box coordinate of a vector of ids
@@ -431,8 +283,174 @@ namespace grids {
       return this->wrapPoint(Coordinate<T>(runningx, runningy, runningz));
     }
 
-  };
+    //! True if point in physical coordinates is on this grid
+    virtual bool containsPoint(const Coordinate<T> &coord) const {
+      return Window<T>(periodicDomainSize, offsetLower, offsetLower + thisGridSize).contains(coord);
+    }
 
+    //! True if point in physical coordinates is on this grid and not too close to the border
+    /*!
+     * @param safety Exclude "safety" number of pixels at the edge of the box
+     */
+    virtual bool containsPointWithBorderSafety(const Coordinate<T> &coord, int safety ) const{
+      if(safety < 1){
+        throw std::runtime_error("Safety number of pixels must be at least one");
+      }
+
+      return Window<T>(periodicDomainSize, offsetLower,
+                       offsetLower + thisGridSize).containsWithBorderSafety(coord, safety * cellSize);
+    }
+
+    Coordinate<T> wrapPoint(Coordinate<T> pos) const {
+      pos.x = fmod(pos.x, periodicDomainSize);
+      if (pos.x < 0) pos.x += periodicDomainSize;
+      pos.y = fmod(pos.y, periodicDomainSize);
+      if (pos.y < 0) pos.y += periodicDomainSize;
+      pos.z = fmod(pos.z, periodicDomainSize);
+      if (pos.z < 0) pos.z += periodicDomainSize;
+      return pos;
+    }
+
+    //! True if cell with pixel coordinates is on this grid
+    /*! Does not take into account offset or physical coordinates
+     */
+    virtual bool containsCellWithCoordinate(Coordinate<int> coord) const {
+      return coord.x >= 0 && coord.y >= 0 && coord.z >= 0 &&
+             (unsigned) coord.x < size && (unsigned) coord.y < size && (unsigned) coord.z < size;
+    }
+
+    //! True if cell number is less than Ncell cubed
+    virtual bool containsCell(size_t i) const {
+      return i < size3;
+    }
+
+
+    size_t getIndexFromIndexAndStep(size_t index, const Coordinate<int> &step) const {
+      auto coord = getCoordinateFromIndex(index);
+      coord += step;
+      return this->getIndexFromCoordinate(coord); // N.B. does wrapping inside getIndex
+    }
+
+
+    /*! Wrap the coordinate such that it lies within [0,size) if this is possible.
+     *
+     * Note that for efficiency this routine only "corrects" coordinates within one boxsize of the fundamental domain.
+     */
+    Coordinate<int> wrapCoordinate(Coordinate<int> coord) const {
+      if (coord.x > (signed) simEquivalentSize - 1) coord.x -= simEquivalentSize;
+      if (coord.y > (signed) simEquivalentSize - 1) coord.y -= simEquivalentSize;
+      if (coord.z > (signed) simEquivalentSize - 1) coord.z -= simEquivalentSize;
+      if (coord.x < 0) coord.x += simEquivalentSize;
+      if (coord.y < 0) coord.y += simEquivalentSize;
+      if (coord.z < 0) coord.z += simEquivalentSize;
+      return coord;
+    }
+
+
+    virtual size_t getIndexFromCoordinate(Coordinate<int> coord) const {
+      coord = wrapCoordinate(coord);
+      return getIndexFromCoordinateNoWrap(coord);
+    }
+
+    virtual size_t getIndexFromCoordinateNoWrap(size_t x, size_t y, size_t z) const {
+      return (x * size + y) * size + z;
+    }
+
+    virtual size_t getIndexFromCoordinateNoWrap(int x, int y, int z) const {
+
+#ifdef SAFER_SLOWER
+      if(x<0 || x>=size || y<0 || y>=size || z<0 || z>=size)
+          throw std::runtime_error("Grid index out of range in getIndexNoWrap");
+#endif
+      return size_t(x * size + y) * size + z;
+    }
+
+     virtual size_t getIndexFromCoordinateNoWrap(const Coordinate<int> &coordinate) const {
+      return getIndexFromCoordinateNoWrap(coordinate.x, coordinate.y, coordinate.z);
+    }
+
+    //! Returns cell id in pixel coordinates
+    virtual Coordinate<int> getCoordinateFromIndex(size_t id) const {
+      size_t x, y;
+
+      if ((unsigned) id >= size3) {
+        throw std::runtime_error("Index out of range");
+      }
+
+      // The following implementation is a little faster than using the
+      // modulo operator.
+      x = id / size2;
+      id -= x * size2;
+      y = id / size;
+      id -= y * size;
+
+      return Coordinate<int>(int(x), int(y), int(id));
+    }
+
+    //! Returns coordinate of centre of cell id, in physical box coordinates
+    /*! Takes into account grid offsets wrt base grid, pixel size etc
+     */
+    virtual Coordinate<T> getCentroidFromIndex(size_t id) const {
+      Coordinate<int> coord = getCoordinateFromIndex(id);
+      return getCentroidFromCoordinate(coord);
+    }
+
+
+    virtual Coordinate<T> getCentroidFromCoordinate(const Coordinate<int> &coord) const {
+      Coordinate<T> result(coord);
+      result *= cellSize;
+      result += offsetLower;
+      result += cellSize / 2;
+      return result;
+    }
+
+    virtual size_t getIndexFromPoint(Coordinate<T> point) const {
+      auto coords = floor(wrapPoint(point - offsetLower - cellSize / 2) / cellSize);
+      return getIndexFromCoordinateNoWrap(coords);
+    }
+
+    virtual Coordinate<int> getCoordinateFromPoint(Coordinate<T> point) const {
+      return this->getCoordinateFromIndex(this->getIndexFromPoint(point));
+    }
+
+    /*****************************
+    * Methods dealing with insertion of new ids
+    ******************************/
+
+    void appendIdsInCubeToVector(T x0c, T y0c, T z0c, T dxc, vector<size_t> &ids) {
+      size_t offset = ids.size();
+      int added_size = std::round(dxc / cellSize);
+      added_size *= added_size * added_size;
+      ids.resize(offset + added_size);
+      insertCubeIdsIntoVector(x0c, y0c, z0c, dxc, ids.begin() + offset);
+    }
+
+    void insertCubeIdsIntoVector(T x0c, T y0c, T z0c, T dxc, vector<size_t>::iterator start) {
+      // return all the grid IDs whose centres lie within the specified cube
+
+      // TODO: optimization, set the storage size of ids here.
+
+      std::tie(x0c, y0c, z0c) = wrapPoint(Coordinate<T>(x0c, y0c, z0c) - offsetLower);
+
+      int xa = ((int) floor((x0c - dxc / 2 + cellSize / 2) / cellSize));
+      int ya = ((int) floor((y0c - dxc / 2 + cellSize / 2) / cellSize));
+      int za = ((int) floor((z0c - dxc / 2 + cellSize / 2) / cellSize));
+
+      int xb = ((int) floor((x0c + dxc / 2 - cellSize / 2) / cellSize));
+      int yb = ((int) floor((y0c + dxc / 2 - cellSize / 2) / cellSize));
+      int zb = ((int) floor((z0c + dxc / 2 - cellSize / 2) / cellSize));
+
+
+      iterateOverCube<int>(Coordinate<int>(xa, ya, za),
+                           Coordinate<int>(xb, yb, zb) + 1,
+                           [&start, this](const Coordinate<int> &cellCoord) {
+                             (*start) = getIndexFromCoordinate(cellCoord);
+                             assert(*start < size3);
+                             ++start;
+                           });
+
+    }
+  };
 }
 
 #endif
