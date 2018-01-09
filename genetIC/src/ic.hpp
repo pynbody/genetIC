@@ -835,7 +835,7 @@ public:
 
   //! Flag all cells contained in the sphere centered at the coordinates currently pointed at
   /*!
-   * \param radius in Mpc
+   * \param radius in Mpc/h
    * */
   void selectSphere(float radius) {
     T r2 = radius * radius;
@@ -848,7 +848,7 @@ public:
 
   //! Flag all cells contained in the cube centered at the coordinates currently pointed at
   /*!
- * \param side in Mpc
+ * \param side in Mpc/h
  * */
   void selectCube(float side) {
     T side_by_2 = side / 2;
