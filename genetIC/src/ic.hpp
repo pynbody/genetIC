@@ -87,6 +87,9 @@ protected:
    */
   bool allowStrayParticles;
 
+  //! If true, the box are recentered on the flagged region
+  bool centerOnTargetRegion = false ;
+
 
   std::vector<size_t> flaggedParticles;
   std::vector<std::vector<size_t>> zoomParticleArray;
@@ -194,6 +197,10 @@ public:
 
   void setNumberOfExtraLowResGrids(size_t number){
     this->extraLowRes = number;
+  }
+
+  void setCenteringOnRegion(){
+    this->centerOnTargetRegion = true;
   }
 
   //! Define the base (coarsest) grid
@@ -595,9 +602,7 @@ public:
     if (outputFormat == io::OutputFormat::grafic) {
       // Grafic format just writes out the grids in turn. Grafic mapper only center when writing grids.
       // All internal calculations are done with center kept constant at boxsize/2.
-      T boxsize = multiLevelContext.getGridForLevel(0).thisGridSize;
-      Coordinate<T> centre = Coordinate<T>(boxsize/2,boxsize/2,boxsize/2);
-      pMapper = std::make_shared<particle::mapper::GraficMapper<GridDataType>>(multiLevelContext, centre,
+      pMapper = std::make_shared<particle::mapper::GraficMapper<GridDataType>>(multiLevelContext, this->getBoxCentre(),
                                                                                this->extraLowRes);
       return;
     }
@@ -692,10 +697,17 @@ public:
                     pMapper, cosmology);
         break;
       case OutputFormat::grafic:
-        std::cerr << "Replacing coarse grids with centered grids on " << Coordinate<T>(x0,y0,z0) <<  std::endl;
-        grafic::save(getOutputPath() + ".grafic",
-                     *pParticleGenerator, multiLevelContext, cosmology, pvarValue, Coordinate<T>(x0,y0,z0),
-                     this->extraLowRes);
+        if(this->centerOnTargetRegion){
+          std::cerr << "Replacing coarse grids with centered grids on " << Coordinate<T>(x0,y0,z0) <<  std::endl;
+          grafic::save(getOutputPath() + ".grafic",
+                       *pParticleGenerator, multiLevelContext, cosmology, pvarValue, Coordinate<T>(x0,y0,z0),
+                       this->extraLowRes);
+        } else {
+          grafic::save(getOutputPath() + ".grafic",
+                       *pParticleGenerator, multiLevelContext, cosmology, pvarValue, this->getBoxCentre(),
+                       this->extraLowRes);
+        }
+
         break;
       default:
         throw std::runtime_error("Unknown output format");
@@ -862,6 +874,11 @@ public:
     x0 = xin;
     y0 = yin;
     z0 = zin;
+  }
+  
+  Coordinate<T> getBoxCentre(){
+    T boxsize = multiLevelContext.getGridForLevel(0).thisGridSize;
+    return Coordinate<T>(boxsize/2,boxsize/2,boxsize/2);
   }
 
   //! Calculate physical quantities of the field
