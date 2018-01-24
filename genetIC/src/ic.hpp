@@ -875,7 +875,7 @@ public:
     y0 = yin;
     z0 = zin;
   }
-  
+
   Coordinate<T> getBoxCentre(){
     T boxsize = multiLevelContext.getGridForLevel(0).thisGridSize;
     return Coordinate<T>(boxsize/2,boxsize/2,boxsize/2);

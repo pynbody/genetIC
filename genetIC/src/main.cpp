@@ -79,7 +79,7 @@ void setup_parser(tools::ClassDispatch<ICf, void> &dispatch) {
   dispatch.add_class_route("dump_IDfile", &ICf::dumpID);
 
   // Point to specific coordinates
-  dispatch.add_class_route("centre_on", &ICf::centreParticle);
+  dispatch.add_class_route("§e_on", &ICf::centreParticle);
   dispatch.add_class_route("centre", &ICf::setCentre);
 
   // Flag cells
