@@ -17,11 +17,11 @@ namespace io {
 
     //! Export initial conditions in grafIC format, most likely for use with RAMSES.
     /**
-     * WARNING: Grafic as described in Bertschinger 2001 uses Mpc a for header lengths and displacements, and
-       proper km s**-1 for velocities.
-       However, RAMSES expects Mpc a for header, Mpc a h^-1 for displacements and proper km s**-1 for velocities,
-       hence the need for the following three conversion factor.
-       Beware if using the displacements for other purposes than Ramses.
+     * WARNING: Grafic as described in Bertschinger 2001 uses "Mpc a" for header lengths and displacements, and
+       "proper km s**-1" for velocities.
+       However, RAMSES expects "Mpc a" for header, "Mpc a h^-1" for displacements and "proper km s**-1" for velocities,
+       hence the need for the following three conversion factors.
+       Beware of these units if using the displacements for other purposes than Ramses.
      */
     template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
     class GraficOutput {
