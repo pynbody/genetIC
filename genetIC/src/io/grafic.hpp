@@ -15,6 +15,14 @@ namespace io {
       float omegaM, omegaL, h0;
     } header_grafic;
 
+    //! Export initial conditions in grafIC format, most likely for use with RAMSES.
+    /**
+     * WARNING: Grafic as described in Bertschinger 2001 uses Mpc a for header lengths and displacements, and
+       proper km s**-1 for velocities.
+       However, RAMSES expects Mpc a for header, Mpc a h^-1 for displacements and proper km s**-1 for velocities,
+       hence the need for the following three conversion factor.
+       Beware if using the displacements for other purposes than Ramses.
+     */
     template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
     class GraficOutput {
     protected:
@@ -47,10 +55,6 @@ namespace io {
         levelContext.copyContextWithCenteredIntermediate(context, center, 2, extralowRes);
         mask.recalculateWithNewContext(&context);
 
-        // TODO: Decide what is best and warn RAMSES community.
-        //WARNING: Grafic Bertschinger 2001 uses aMpc for displacement but MUSIC, hence RAMSES, assume
-        // aMpc/h.
-        // SECOND WARNING: GRAFIC header uses aMpc which is correctly produced by MUSIC and read by RAMSES
         lengthFactorHeader = 1. / cosmology.hubble; // Gadget Mpc a h^-1 -> GrafIC file Mpc a
         lengthFactorDisplacements = 1.;
         velFactor = std::pow(cosmology.scalefactor, 0.5f); // Gadget km s^-1 a^1/2 -> GrafIC km s^-1
