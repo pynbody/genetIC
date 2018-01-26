@@ -16,6 +16,7 @@ camb    ../camb_transfer_kmax40_z0_post2015.dat
 
 # Generate a passive refinement variable
 pvar 0.01
+center_grafic_output
 
 # fourier seeding
 seed	8896131

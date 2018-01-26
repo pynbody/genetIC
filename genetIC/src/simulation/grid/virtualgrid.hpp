@@ -460,7 +460,7 @@ namespace grids {
                        pUnderlying->offsetLower.z,
                        pUnderlying->cellMassFrac,
                        pUnderlying->cellSofteningScale),
-        offset(Coordinate<T>(0.5 * this->pUnderlying->thisGridSize) - center){}
+        offset((Coordinate<T>(0.5 * this->pUnderlying->thisGridSize) - center) / this->pUnderlying->cellSize ){}
 
     void debugName(std::ostream &s) const override {
       s << "CenteredGrid";

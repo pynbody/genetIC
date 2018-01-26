@@ -6,6 +6,7 @@ outdir	 ./
 outformat 5
 outname test_8
 extra_low_res 1
+center_grafic_output
 
 
 # cosmology:

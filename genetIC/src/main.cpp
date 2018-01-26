@@ -42,7 +42,6 @@ void setup_parser(tools::ClassDispatch<ICf, void> &dispatch) {
   dispatch.add_class_route("s8", &ICf::setSigma8);
   dispatch.add_class_route("ns", &ICf::setns);
   dispatch.add_class_route("zin", &ICf::setZ0);
-  dispatch.add_class_route("pvar", &ICf::setpvarValue);
 
   // Set seeds for random draws
   dispatch.add_class_route("seed", &ICf::setSeed);
@@ -54,6 +53,10 @@ void setup_parser(tools::ClassDispatch<ICf, void> &dispatch) {
   dispatch.add_class_route("strays_on", &ICf::setStraysOn);
   dispatch.add_class_route("supersample", &ICf::setSupersample);
   dispatch.add_class_route("subsample", &ICf::setSubsample);
+
+  // Grafic options
+  dispatch.add_class_route("pvar", &ICf::setpvarValue);
+  dispatch.add_class_route("center_grafic_output", &ICf::setCenteringOnRegion);
 
   // Define input files
   dispatch.add_class_route("mapper_relative_to", &ICf::setInputMapper);
