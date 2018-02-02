@@ -15,6 +15,14 @@ namespace io {
       float omegaM, omegaL, h0;
     } header_grafic;
 
+    //! Export initial conditions in grafIC format, most likely for use with RAMSES.
+    /**
+     * WARNING: Grafic as described in Bertschinger 2001 uses "Mpc a" for header lengths and displacements, and
+       "proper km s**-1" for velocities.
+       However, RAMSES expects "Mpc a" for header, "Mpc a h^-1" for displacements and "proper km s**-1" for velocities,
+       hence the need for the following three conversion factors.
+       Beware of these units if using the displacements for other purposes than Ramses.
+     */
     template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
     class GraficOutput {
     protected:
@@ -25,7 +33,8 @@ namespace io {
       multilevelcontext::Mask<DataType,T> mask;
       T pvarValue;
 
-      T lengthFactor;
+      T lengthFactorHeader;
+      T lengthFactorDisplacements;
       T velFactor;
       size_t iordOffset;
 
@@ -45,7 +54,9 @@ namespace io {
           pvarValue(pvarValue){
         levelContext.copyContextWithCenteredIntermediate(context, center, 2, extralowRes);
         mask.recalculateWithNewContext(&context);
-        lengthFactor = 1. / cosmology.hubble; // Gadget Mpc a h^-1 -> GrafIC file Mpc a
+
+        lengthFactorHeader = 1. / cosmology.hubble; // Gadget Mpc a h^-1 -> GrafIC file Mpc a
+        lengthFactorDisplacements = 1.;
         velFactor = std::pow(cosmology.scalefactor, 0.5f); // Gadget km s^-1 a^1/2 -> GrafIC km s^-1
       }
 
@@ -103,7 +114,7 @@ namespace io {
               auto particle = evaluator->getParticleNoOffset(i);
 
               Coordinate<float> velScaled(particle.vel * velFactor);
-              Coordinate<float> posScaled(particle.pos * lengthFactor);
+              Coordinate<float> posScaled(particle.pos * lengthFactorDisplacements);
 
               // TODO For now, the baryon density is not calculated and set to zero
               float deltab = 0;
@@ -147,10 +158,10 @@ namespace io {
       io_header_grafic getHeaderForGrid(const grids::Grid<T> &targetGrid) const {
         io_header_grafic header;
         header.nx = header.ny = header.nz = targetGrid.size;
-        header.dx = targetGrid.cellSize * lengthFactor;
-        header.xOffset = targetGrid.offsetLower.x * lengthFactor;
-        header.yOffset = targetGrid.offsetLower.y * lengthFactor;
-        header.zOffset = targetGrid.offsetLower.z * lengthFactor;
+        header.dx = targetGrid.cellSize * lengthFactorHeader;
+        header.xOffset = targetGrid.offsetLower.x * lengthFactorHeader;
+        header.yOffset = targetGrid.offsetLower.y * lengthFactorHeader;
+        header.zOffset = targetGrid.offsetLower.z * lengthFactorHeader;
         header.scalefactor = cosmology.scalefactor;
         header.omegaM = cosmology.OmegaM0;
         header.omegaL = cosmology.OmegaLambda0;
