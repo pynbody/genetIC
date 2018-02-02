@@ -308,6 +308,7 @@ namespace grids {
       if (pos.y < 0) pos.y += periodicDomainSize;
       pos.z = fmod(pos.z, periodicDomainSize);
       if (pos.z < 0) pos.z += periodicDomainSize;
+      //assert(this->containsPoint(pos));
       return pos;
     }
 
@@ -343,6 +344,7 @@ namespace grids {
       if (coord.x < 0) coord.x += simEquivalentSize;
       if (coord.y < 0) coord.y += simEquivalentSize;
       if (coord.z < 0) coord.z += simEquivalentSize;
+      assert(this->containsCellWithCoordinate(coord));
       return coord;
     }
 
@@ -353,7 +355,9 @@ namespace grids {
     }
 
     virtual size_t getIndexFromCoordinateNoWrap(size_t x, size_t y, size_t z) const {
-      return (x * size + y) * size + z;
+      size_t index = (x * size + y) * size + z;
+      assert(this->containsCell(index));
+      return index;
     }
 
     virtual size_t getIndexFromCoordinateNoWrap(int x, int y, int z) const {
@@ -362,7 +366,9 @@ namespace grids {
       if(x<0 || x>=size || y<0 || y>=size || z<0 || z>=size)
           throw std::runtime_error("Grid index out of range in getIndexNoWrap");
 #endif
-      return size_t(x * size + y) * size + z;
+      auto index = size_t(x * size + y) * size + z;
+      assert(this->containsCell(index));
+      return index;
     }
 
      virtual size_t getIndexFromCoordinateNoWrap(const Coordinate<int> &coordinate) const {
@@ -384,7 +390,9 @@ namespace grids {
       y = id / size;
       id -= y * size;
 
-      return Coordinate<int>(int(x), int(y), int(id));
+      auto coord = Coordinate<int>(int(x), int(y), int(id));
+      assert(this->containsCellWithCoordinate(coord));
+      return coord;
     }
 
     //! Returns coordinate of centre of cell id, in physical box coordinates
@@ -401,11 +409,14 @@ namespace grids {
       result *= cellSize;
       result += offsetLower;
       result += cellSize / 2;
+      assert(this->containsPoint(result));
       return result;
     }
 
     virtual size_t getIndexFromPoint(Coordinate<T> point) const {
-      auto coords = floor(wrapPoint(point - offsetLower - cellSize / 2) / cellSize);
+//      auto coords = floor(wrapPoint(point - offsetLower - cellSize / 2) / cellSize);
+       auto coords = floor(wrapPoint(point - offsetLower) / cellSize);
+      assert(this->containsCellWithCoordinate(coords));
       return getIndexFromCoordinateNoWrap(coords);
     }
 
