@@ -30,7 +30,7 @@ namespace io {
       multilevelcontext::MultiLevelContextInformation<DataType> context;
       std::shared_ptr<particle::AbstractMultiLevelParticleGenerator<DataType>> generator;
       const cosmology::CosmologicalParameters<T> &cosmology;
-      multilevelcontext::Mask<DataType,T> mask;
+      multilevelcontext::GraficMask<DataType,T>* mask;
       T pvarValue;
 
       T lengthFactorHeader;
@@ -45,15 +45,16 @@ namespace io {
                    const cosmology::CosmologicalParameters<T> &cosmology,
                     const T pvarValue,
                    Coordinate<T> center,
-                   size_t extralowRes) :
-
+                   size_t extralowRes,
+                   std::vector<std::vector<size_t>>& input_mask) :
           outputFilename(fname),
           generator(particleGenerator.shared_from_this()),
           cosmology(cosmology),
-          mask(&levelContext),
           pvarValue(pvarValue){
         levelContext.copyContextWithCenteredIntermediate(context, center, 2, extralowRes);
-        mask.recalculateWithNewContext(&context);
+
+        mask = new multilevelcontext::GraficMask<DataType,T>(&context, input_mask);
+        mask->calculateMask();
 
         lengthFactorHeader = 1. / cosmology.hubble; // Gadget Mpc a h^-1 -> GrafIC file Mpc a
         lengthFactorDisplacements = 1.;
@@ -118,7 +119,7 @@ namespace io {
 
               // TODO For now, the baryon density is not calculated and set to zero
               float deltab = 0;
-              float mask = this->mask.isInMask(level, i);
+              float mask = this->mask->isInMask(level, i);
               float pvar = pvarValue * mask;
 
               // Eek. The following code is horrible. Is there a way to make it neater?
@@ -176,9 +177,9 @@ namespace io {
               particle::AbstractMultiLevelParticleGenerator<DataType> &generator,
               multilevelcontext::MultiLevelContextInformation<DataType> &context,
               const cosmology::CosmologicalParameters<T> &cosmology,
-              const T pvarValue, Coordinate<T> center, size_t extraLowRes) {
+              const T pvarValue, Coordinate<T> center, size_t extraLowRes, std::vector<std::vector<size_t>>& input_mask) {
       GraficOutput<DataType> output(filename, context,
-                                    generator, cosmology, pvarValue, center, extraLowRes);
+                                    generator, cosmology, pvarValue, center, extraLowRes, input_mask);
       output.write();
     }
 

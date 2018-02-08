@@ -87,7 +87,7 @@ protected:
    */
   bool allowStrayParticles;
 
-  //! If true, the box are recentered on the flagged region
+  //! If true, the box are recentered on the first  region
   bool centerOnTargetRegion = false ;
 
 
@@ -536,7 +536,7 @@ public:
       this->multiLevelContext.copyContextWithCenteredIntermediate(newcontext, this->getBoxCentre(), 2, this->extraLowRes);
     }
 
-    auto dumpingMask = multilevelcontext::Mask<GridDataType, T>(&newcontext);
+    auto dumpingMask = multilevelcontext::GraficMask<GridDataType, T>(&newcontext, this->zoomParticleArray);
     dumpingMask.calculateMask();
 
 
@@ -706,11 +706,11 @@ public:
           std::cerr << "Replacing coarse grids with centered grids on " << Coordinate<T>(x0,y0,z0) <<  std::endl;
           grafic::save(getOutputPath() + ".grafic",
                        *pParticleGenerator, multiLevelContext, cosmology, pvarValue, Coordinate<T>(x0,y0,z0),
-                       this->extraLowRes);
+                       this->extraLowRes, zoomParticleArray);
         } else {
           grafic::save(getOutputPath() + ".grafic",
                        *pParticleGenerator, multiLevelContext, cosmology, pvarValue, this->getBoxCentre(),
-                       this->extraLowRes);
+                       this->extraLowRes, zoomParticleArray);
         }
 
         break;
