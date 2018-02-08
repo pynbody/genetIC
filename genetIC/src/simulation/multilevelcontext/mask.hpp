@@ -84,8 +84,6 @@ namespace multilevelcontext {
 
           // As soon as one cell id matches, we have identified the level, so assign it.
           if (this->isPartofInputMask(i, input_level)) {
-            std::cerr<<this->inputzoomParticlesAsMask.size() <<std::endl;
-            std::cerr<<this->inputzoomParticlesAsMask[input_level].size() <<std::endl;
 
             assert(input_level < this->inputzoomParticlesAsMask.size());
             assert(int(level)>= this->deepestLevelWithMaskedCells);
@@ -107,7 +105,7 @@ namespace multilevelcontext {
     void generateFlagsHierarchy() override {
 
       if(this->deepestLevelWithMaskedCells<0){
-        std::cerr << "WARNING No flagged particles were found on any level. Mask generation aborted" <<std::endl;
+        std::cerr << "WARNING No zoom regions were ever opened. Grafic mask will not be generated in this case" <<std::endl;
         return;
       }
 
@@ -119,7 +117,6 @@ namespace multilevelcontext {
       for (int level = deepestLevel; level >= 0; level--) {
 
         if (this->flaggedIdsAtEachLevel[level].size() == 0) {
-
         // Generate flags on intermediate levels that will not have some
         for (size_t i : this->flaggedIdsAtEachLevel[level + 1]) {
           this->flaggedIdsAtEachLevel[level].push_back(

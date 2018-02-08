@@ -87,7 +87,7 @@ protected:
    */
   bool allowStrayParticles;
 
-  //! If true, the box are recentered on the first  region
+  //! If true, the box are recentered on the last centered point in the parameter file
   bool centerOnTargetRegion = false ;
 
 
