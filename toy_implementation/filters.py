@@ -207,7 +207,7 @@ class PowerSpectrumFromCorrelation(PowerSpectrum):
 class FilterExplorer(object):
     def __init__(self, pspec=None, spacing_Mpc=0.1, npix=2**16):
         if pspec is None:
-            pspec = pynbody.analysis.hmf.PowerSpectrumCAMB(pynbody.new())
+            pspec = pynbody.analysis.hmf.PowerSpectrumCAMBLive(pynbody.new())
         self.npix = npix
         self.k = 2*np.pi*np.fft.fftfreq(npix, spacing_Mpc)
         r = np.linspace(0,spacing_Mpc*npix/2,npix/2)
@@ -306,7 +306,7 @@ def plot_filter_effect(filt, filter_real_space=False,
 
     p.gca().xaxis.tick_top()
     p.gca().xaxis.set_label_position('top')
-    p.xlabel("$r/Mpc h^{-1}$")
+    p.xlabel("$r/Mpc\, h^{-1}$")
     p.ylabel(r"$\xi_i(r) / \xi(r)$")
 
     p.subplot(212, sharex=p.gca())
@@ -326,7 +326,7 @@ def plot_filter_effect(filt, filter_real_space=False,
     p.axvline(3 * coarse_grid_space, color=(0.9, 0.9, 0.9), linewidth=2)
     p.axvline(4 * coarse_grid_space, color=(0.95, 0.95, 0.95), linewidth=2)
 
-    p.xlabel(r"$2\pi/k/Mpc h^{-1}$")
+    p.xlabel(r"$2\pi/k/Mpc\, h^{-1}$")
     p.ylabel("$P_i(k)/P(k)$")
 
 

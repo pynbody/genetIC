@@ -8,6 +8,8 @@ from ..methods import UnfilteredZoomConstrained
 
 
 class MLZoomConstrained(UnfilteredZoomConstrained):
+    description = "Maximum Likelihood"
+
     def __init__(self, *args, **kwargs):
         self._approximations = kwargs.pop('approximations',[])
         super().__init__(*args, **kwargs)
@@ -17,6 +19,9 @@ class MLZoomConstrained(UnfilteredZoomConstrained):
 
         self.k_high2 = scipy.fftpack.rfftfreq(self.n2*2, d=self.delta_high)
         self.C_high2 = self._calc_transfer_fn_realspace(self.n2*2)/4
+
+    def get_default_plot_padding(self):
+        return 0
 
     def realization(self, verbose=False, no_random=False, white_noise_lo=None, white_noise_hi=None):
         white_noise_lo, white_noise_hi = self._get_whitenoise(white_noise_lo, white_noise_hi)

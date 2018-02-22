@@ -4,6 +4,11 @@ import numpy as np
 import copy
 
 class FilteredZoomConstrained(ZoomConstrained):
+    description = "Fast Filter"
+
+    def get_default_plot_padding(self):
+        return 4
+
     def __init__(self, *args, **kwargs):
         """Initialise a ZoomConstrained instance that uses filtering to combine fields on different grids.
         

@@ -283,7 +283,7 @@ public:
     storeCurrentCellFlagsAsZoomMask(multiLevelContext.getNumLevels());
 
     vector<size_t> trimmedParticleArray;
-    vector<size_t> &newLevelZoomParticleArray = zoomParticleArray.back();
+    vector<size_t> &untrimmedParticleArray = zoomParticleArray.back();
 
     int nCoarseCellsOfZoomGrid = nAbove / int(zoomfac);
     int x1, y1, z1;
@@ -296,26 +296,26 @@ public:
     // Make list of the particles, excluding those that fall outside the new high-res box. Alternatively,
     // if allowStrayParticles is true, keep even those outside the high-res box but report the number
     // in this category.
-    for (size_t i = 0; i < newLevelZoomParticleArray.size(); i++) {
+    for (size_t i = 0; i < untrimmedParticleArray.size(); i++) {
       bool include=true;
       int xp, yp, zp;
-      std::tie(xp, yp, zp) = gridAbove.getCellCoordinate(newLevelZoomParticleArray[i]);
+      std::tie(xp, yp, zp) = gridAbove.getCellCoordinate(untrimmedParticleArray[i]);
       if (xp < x0 || yp < y0 || zp < z0 || xp >= x1 || yp >= y1 || zp >= z1) {
         missed_particle+=1;
         include = false;
       }
 
       if(include || allowStrayParticles) {
-        trimmedParticleArray.push_back(newLevelZoomParticleArray[i]);
+        trimmedParticleArray.push_back(untrimmedParticleArray[i]);
       }
     }
 
     if(missed_particle>0) {
       cerr << "WARNING: the requested zoom particles do not all fit in the requested zoom window" << endl;
       if(allowStrayParticles) {
-        cerr << "         of " << newLevelZoomParticleArray.size() << " particles, " << missed_particle << " will be interpolated from LR grid (stray particle mode)" << endl;
+        cerr << "         of " << untrimmedParticleArray.size() << " particles, " << missed_particle << " will be interpolated from LR grid (stray particle mode)" << endl;
       } else {
-        cerr << "         of " << newLevelZoomParticleArray.size() << " particles, " << missed_particle << " have been omitted" << endl;
+        cerr << "         of " << untrimmedParticleArray.size() << " particles, " << missed_particle << " have been omitted" << endl;
       }
 
       cerr << "         to make a new zoom flag list of " << trimmedParticleArray.size() << endl;
@@ -323,6 +323,8 @@ public:
 
     zoomParticleArray.pop_back();
     zoomParticleArray.emplace_back(std::move(trimmedParticleArray));
+
+    vector<size_t> &newLevelZoomParticleArray = zoomParticleArray.back();
 
     Coordinate<T> newOffsetLower = gridAbove.offsetLower + Coordinate<T>(x0, y0, z0) * gridAbove.dx;
 
@@ -338,7 +340,7 @@ public:
     cout << "  Origin in parent grid = " << x0 << ", " << y0 << ", " << z0 << endl;
     cout << "  Low-left corner       = " << newGrid.offsetLower.x << ", " << newGrid.offsetLower.y << ", "
          << newGrid.offsetLower.z << endl;
-    cout << "  Num particles         = " << newLevelZoomParticleArray.size() << endl;
+    cout << "  Num particles         = " << untrimmedParticleArray.size() << endl;
 
     updateParticleMapper();
 

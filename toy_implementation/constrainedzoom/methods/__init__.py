@@ -12,6 +12,8 @@ from ..fft_wrapper import FFTArray, unitary_fft, unitary_inverse_fft, in_fourier
 
 
 class ZoomConstrained(metaclass=abc.ABCMeta):
+    description = "Unknown Method"
+
     def __init__(self, cov_fn = None, n1=256, n2=256, hires_window_scale=4, offset = 10):
 
         self.cov_fn = cov_fn
@@ -34,6 +36,9 @@ class ZoomConstrained(metaclass=abc.ABCMeta):
         self.constraints_val = []
         self.constraints_real = []
 
+    def get_default_plot_padding(self):
+        """The default plot padding (in coarse pixels) to hide from the high-res region"""
+        return 0
 
     # Covariance calculation utilities
     
@@ -432,16 +437,6 @@ class ZoomConstrained(metaclass=abc.ABCMeta):
 
         self.constraints.append((low,high))
         self.constraints_val.append(val)
-
-
-class FilteredZoomConstrained(ZoomConstrained):
-    def filter_low(self, k):
-        #return k<self.k_cut
-        T = self.k_cut/10
-        return 1./(1.+np.exp((k-self.k_cut)/T))
-
-    def filter_high(self, k):
-        return 1.-self.filter_low(k)
 
 
 class UnfilteredZoomConstrained(ZoomConstrained):

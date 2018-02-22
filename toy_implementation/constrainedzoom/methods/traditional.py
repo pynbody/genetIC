@@ -5,10 +5,16 @@ from . import UnfilteredZoomConstrained
 
 
 class TraditionalZoomConstrained(UnfilteredZoomConstrained):
+    description = "Traditional"
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.set_Chigh_realspace()
         #self._apodize_Chigh()
+
+    def get_default_plot_padding(self):
+        """The default plot padding (in coarse pixels) to hide from the high-res region"""
+        return self.n2 // (self.pixel_size_ratio) // 4
 
     @property
     def _B_window_slice(self):
