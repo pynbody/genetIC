@@ -1,9 +1,9 @@
 #ifndef _IO_INCLUDED
 #define _IO_INCLUDED
 
-#include <cassert>
-#include <vector>
-#include <limits>
+//#include <cassert>
+//#include <vector>
+//#include <limits>
 
 #include "src/simulation/particles/mapper/mapper.hpp"
 
@@ -40,4 +40,4 @@ namespace io {
 }
 
 
-#endif // _IO_INCLUDED
+#endif

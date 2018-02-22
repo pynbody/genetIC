@@ -20,7 +20,7 @@ namespace cosmology {
     const FloatType Ol = cosmology.OmegaLambda0;
 
     FloatType Hsq = cosmology.OmegaM0 / powf(a, 3.0) + (1. - Om - Ol) / a / a + Ol;
-    FloatType d = 2.5 * a * Om / powf(a, 3.0) / Hsq / (powf(Om / Hsq / a / a / a, 4. / 7.) - Ol / Hsq +
+    FloatType d = 2.5 * a * Om / powf(a, 3.0) / Hsq / (powf(Om / Hsq / a / a / a, 4.f / 7.f) - Ol / Hsq +
                                                        (1. + 0.5 * Om / powf(a, 3.0) / Hsq) *
                                                        (1. + 1. / 70. * Ol / Hsq));
     // TODO: check accuracy and/or simplify this expression
@@ -52,12 +52,12 @@ namespace cosmology {
     std::vector<FloatType> Gx(nBins);
     std::vector<FloatType> Px(nBins);
 
-    const FloatType Boxlength = field.getGrid().boxsize;
+    const FloatType Boxlength = field.getGrid().thisGridSize;
 
-    FloatType kmax = M_PI / Boxlength * (FloatType) res, kmin = 2.0f * M_PI / (FloatType) Boxlength, dklog =
-      log10(kmax / kmin) / nBins, kw = 2.0f * M_PI / (FloatType) Boxlength;
+    FloatType kmax = M_PI / Boxlength * (FloatType) res, kmin = 2.0f * M_PI / Boxlength, dklog =
+        log10(kmax / kmin) / nBins, kw = 2.0f * M_PI / Boxlength;
 
-    int ix, iy, iz, idx, idx2;
+    int ix, iy, iz, idx;
     FloatType kfft;
 
     for (ix = 0; ix < nBins; ix++) {
@@ -67,9 +67,9 @@ namespace cosmology {
     }
 
 
-    for (ix = -res/2; ix < res/2+1; ix++)
-      for (iy = -res/2; iy < res/2+1; iy++)
-        for (iz = -res/2; iz < res/2+1; iz++) {
+    for (ix = -res / 2; ix < res / 2 + 1; ix++)
+      for (iy = -res / 2; iy < res / 2 + 1; iy++)
+        for (iz = -res / 2; iz < res / 2 + 1; iz++) {
           auto fieldValue = field.getFourierCoefficient(ix, iy, iz);
           FloatType vabs = std::abs(fieldValue);
           vabs *= vabs;
@@ -87,14 +87,14 @@ namespace cosmology {
            */
 
           //.. logarithmic spacing in k
-          idx2 = (int) ((1.0f / dklog * log10(k / kmin)));
+          idx = (int) ((1.0f / dklog * log10(k / kmin)));
 
           if (k >= kmin && k < kmax) {
 
-            Gx[idx2] += vabs / (FloatType) (res * res * res); //because FFT is now normalised with 1/sqrt(Ntot)
-            Px[idx2] += P0.getFourierCoefficient(ix,iy,iz).real();
-            kbin[idx2] += k;
-            inBin[idx2]++;
+            Gx[idx] += vabs / (FloatType) (res * res * res); //because FFT is now normalised with 1/sqrt(Ntot)
+            Px[idx] += P0.getFourierCoefficient(ix, iy, iz).real();
+            kbin[idx] += k;
+            inBin[idx]++;
 
           } else { continue; }
 
@@ -133,15 +133,16 @@ namespace cosmology {
 
     field.toFourier();
 
-    const FloatType Boxlength = field.getGrid().boxsize;
+    const FloatType Boxlength = field.getGrid().thisGridSize;
     const FloatType a = cosmo.scalefactor;
     const FloatType Om = cosmo.OmegaM0;
     const size_t res = field.getGrid().size;
 
     long i;
     FloatType prefac =
-      3. / 2. * Om / a * 100. * 100. / (3. * 100000.) / (3. * 100000.); // =3/2 Om0/a * (H0/h)^2 (h/Mpc)^2 / c^2 (km/s)
-    FloatType kw = 2.0f * M_PI / (FloatType) Boxlength, k_inv;
+        3. / 2. * Om / a * 100. * 100. / (3. * 100000.) /
+        (3. * 100000.); // =3/2 Om0/a * (H0/h)^2 (h/Mpc)^2 / c^2 (km/s)
+    FloatType kw = 2.0f * M_PI / Boxlength, k_inv;
 
     size_t k1, k2, k3, kk1, kk2, kk3;
 

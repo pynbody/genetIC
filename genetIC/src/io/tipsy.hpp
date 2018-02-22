@@ -23,7 +23,7 @@ namespace io {
                              particle::AbstractMultiLevelParticleGenerator<GridType> &generator,
                              fields::MultiLevelField<GridType> &field) {
       std::ofstream outfile(filename.c_str(), std::ofstream::binary);
-      int lengthField = mapper.size();
+      size_t lengthField = mapper.size();
       outfile.write(reinterpret_cast<char *>(&lengthField), 4);
 
       field.toReal();
@@ -107,7 +107,7 @@ namespace io {
             photogenic_file << iord + i << std::endl;
 
         }
-        iord+=n;
+        iord += n;
 
         fwrite(p.data(), sizeof(ParticleType), n, fd);
       }
@@ -169,9 +169,10 @@ namespace io {
                   const particle::AbstractMultiLevelParticleGenerator<GridDataType> &generator,
                   std::shared_ptr<particle::mapper::ParticleMapper<GridDataType>> pMapper,
                   const cosmology::CosmologicalParameters<FloatType> &cosmology) : generator(generator),
+                                                                                   iord(0),
                                                                                    boxLength(boxLength),
                                                                                    pMapper(pMapper),
-                                                                                   cosmology(cosmology), iord(0) {
+                                                                                   cosmology(cosmology) {
 
       }
 

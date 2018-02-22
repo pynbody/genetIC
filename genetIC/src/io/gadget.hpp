@@ -239,7 +239,7 @@ namespace io {
       header3.flag_entropy_instead_u = 0; /*!< flags that IC-file contains entropy instead of u */
       header3.flag_doubleprecision = tools::datatypes::floatinfo<FloatType>::doubleprecision;
       header3.flag_ic_info = 1;
-      header3.lpt_scalingfactor = 0.; /*!dummy value since we never use ic_info!=1 */
+      header3.lpt_scalingfactor = 0.f; /*!dummy value since we never use ic_info!=1 */
 
       if (npart[0] > 0) { //options for baryons & special behavior
         header3.flag_sfr = 1;
@@ -534,7 +534,7 @@ int save_phases(complex<FloatType> *phk, FloatType* ph, complex<FloatType> *delt
       my_fwrite(&dummy, sizeof(dummy), 1, fd);
 
       //position block
-      dummy = sizeof(FloatType) * (long) (nPart) *
+      dummy = sizeof(FloatType) * (nPart) *
               3; //this will be 0 or some strange number for n>563; BUT: gagdget does not actually use this value; it gets the number of particles from the header
       my_fwrite(&dummy, sizeof(dummy), 1, fd);
       for (i = 0; i < nPart; i++) {
@@ -618,8 +618,7 @@ int save_phases(complex<FloatType> *phk, FloatType* ph, complex<FloatType> *delt
       fd = fopen(filename.str().c_str(), "w");
       if (!fd) throw std::runtime_error("Unable to open file for writing");
 
-
-      size_t n = npart[0] + npart[1] + npart[2] + npart[3] + npart[4] + npart[5];
+      long n = npart[0] + npart[1] + npart[2] + npart[3] + npart[4] + npart[5];
       cerr << "total n = " << n << endl;
       int dummy;
 
@@ -643,7 +642,7 @@ int save_phases(complex<FloatType> *phk, FloatType* ph, complex<FloatType> *delt
 
       float output_cache;
 
-      dummy = sizeof(output_cache) * (long) (n) * 3;
+      dummy = sizeof(output_cache) * (n) * 3;
 
       my_fwrite(&dummy, sizeof(dummy), 1, fd);
 
@@ -662,8 +661,6 @@ int save_phases(complex<FloatType> *phk, FloatType* ph, complex<FloatType> *delt
       }
       my_fwrite(&dummy, sizeof(dummy), 1, fd); //end of position block
 
-      //cerr<< "counter after DM: "<< counter << endl;
-
       //gas particles velocities
       my_fwrite(&dummy, sizeof(dummy), 1, fd); //beginning of velocity block
 
@@ -680,54 +677,19 @@ int save_phases(complex<FloatType> *phk, FloatType* ph, complex<FloatType> *delt
       }
       my_fwrite(&dummy, sizeof(dummy), 1, fd); //end of velocity block
 
-      //cerr<< "counter after DM vel: "<< counter << endl;
-
       //particle IDs (one for each gas, high res and low res particle)
       dummy = sizeof(long) *
               (n); //here: gadget just checks if the IDs are ints or long longs; still the number of particles is read from the header file
       my_fwrite(&dummy, sizeof(dummy), 1, fd);
-      for (size_t i = 0; i < n; i++) {
+      for (size_t i = 0; i < (unsigned) n; i++) {
         my_fwrite(&i, sizeof(long), 1, fd);
-
-        //counter+=1;
       }
       my_fwrite(&dummy, sizeof(dummy), 1, fd);
 
-      //cerr<< "counter after IDs: "<< counter << endl;
-
-      //IFF we want to save individual particle masses, they would go here, before the gas particle energies
-
-
-      //gas particles energies: TODO TEST the prop. constant (especially unitv), (include YHe_ and gamma_ in the paramfile for baryons?)
-      // if (npart[0] >0) {
-      //     dummy=sizeof(FloatType)*(long)(n); //energy block
-      //     my_fwrite(&dummy, sizeof(dummy), 1, fd);
-
-      //     const FloatType YHe=0.248; //helium fraction, using default from MUSIC
-      //     const FloatType gamma=5.0/3.0; //adiabatic gas index, using default from MUSIC
-
-      //     const FloatType npol  = (fabs(1.0-gamma)>1e-7)? 1.0/(gamma-1.) : 1.0;
-      //     const FloatType unitv = 1e5; //this is probably a unit transformation
-      //     const FloatType h2    = hubble*hubble*0.0001;
-      //     const FloatType adec  = 1.0/(160.*pow(Ob0*h2/0.022,2.0/5.0));
-      //     const FloatType Tcmb0 = 2.726;
-      //     const FloatType Tini  = a<adec? Tcmb0/a : Tcmb0/a/a*adec;
-      //     const FloatType mu    = (Tini>1.e4) ? 4.0/(8.-5.*YHe) : 4.0/(1.+3.*(1.-YHe));
-      //     FloatType ceint = 1.3806e-16/1.6726e-24 * Tini * npol / mu / unitv / unitv;
-
-      //     cerr << "gas internal energy " << ceint << endl;
-
-      //     for(auto i=pMapper->beginGas(); i!=pMapper->endGas(); ++i)
-      //         my_fwrite(&ceint,sizeof(FloatType),1,fd);
-
-      //     my_fwrite(&dummy, sizeof(dummy), 1, fd); //end of energy block
-      // }
-
-
+      //TODO TEST the prop. constant (especially unitv), (include YHe_ and gamma_ in the paramfile for baryons?).
+      // MR : Deleted unused code, not really sure if to do is still relevant
 
       fclose(fd);
-      // free(Pos);
-
     }
 
 
@@ -735,4 +697,4 @@ int save_phases(complex<FloatType> *phk, FloatType* ph, complex<FloatType> *delt
 }
 
 
-#endif //IC_GADGET_HPP
+#endif

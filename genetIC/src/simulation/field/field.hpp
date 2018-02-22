@@ -40,13 +40,13 @@ namespace fields {
 
   template<typename DataType, typename CoordinateType = tools::datatypes::strip_complex<DataType>>
   std::shared_ptr<EvaluatorBase<DataType, CoordinateType>> makeEvaluator(const Field<DataType, CoordinateType> &field,
-                                               const grids::Grid<CoordinateType> &grid);
+                                                                         const grids::Grid<CoordinateType> &grid);
 
   template<typename DataType, typename CoordinateType = tools::datatypes::strip_complex<DataType>>
   std::shared_ptr<EvaluatorBase<DataType, CoordinateType>> makeEvaluator(const MultiLevelField<DataType> &field,
-                                               const grids::Grid<CoordinateType> &grid);
+                                                                         const grids::Grid<CoordinateType> &grid);
 
-  /** Class to manage and evaluate a field defined on a single grid.  */
+  //! Class to manage and evaluate a field defined on a single grid.
   template<typename DataType, typename CoordinateType=tools::datatypes::strip_complex<DataType>>
   class Field : public std::enable_shared_from_this<Field<DataType, CoordinateType>> {
   public:
@@ -65,40 +65,44 @@ namespace fields {
     bool fourier;
 
   public:
+    //! Construct a field on the specified grid by moving the given field
     Field(Field<DataType, CoordinateType> &&move) : pGrid(move.pGrid), data(std::move(move.data)),
                                                     fourier(move.fourier) {
       fourierManager = std::make_shared<FourierManager>(*this);
-      assert(data.size()==fourierManager->getRequiredDataSize());
-
+      assert(data.size() == fourierManager->getRequiredDataSize());
     }
 
+    Field(const Field<DataType, CoordinateType> &copy)
+        : std::enable_shared_from_this<Field<DataType, CoordinateType>>(),
+          pGrid(copy.pGrid), data(copy.data),
+          fourier(copy.fourier) {
+      fourierManager = std::make_shared<FourierManager>(*this);
+      assert(data.size() == fourierManager->getRequiredDataSize());
+    }
+
+    //! Construct a field on the specified grid by moving the given data
     Field(TGrid &grid, TData &&dataVector, bool fourier = true) : pGrid(grid.shared_from_this()),
                                                                   data(std::move(dataVector)), fourier(fourier) {
-      /*
-       * Construct a field on the specified grid by moving the given data
-       */
+
       fourierManager = std::make_shared<FourierManager>(*this);
-      assert(data.size()==fourierManager->getRequiredDataSize());
+      assert(data.size() == fourierManager->getRequiredDataSize());
 
     }
 
+    //! Construct a field on the specified grid by copying the given data
     Field(TGrid &grid, const TData &dataVector, bool fourier = true) : pGrid(grid.shared_from_this()),
                                                                        data(dataVector), fourier(fourier) {
-      /*
-       * Construct a field on the specified grid by copying the given data
-       */
+
       fourierManager = std::make_shared<FourierManager>(*this);
-      assert(data.size()==fourierManager->getRequiredDataSize());
+      assert(data.size() == fourierManager->getRequiredDataSize());
 
     }
 
+    //! Construct a zero-filled field on the specified grid
     Field(TGrid &grid, bool fourier = true) : pGrid(grid.shared_from_this()),
                                               fourierManager(std::make_shared<FourierManager>(*this)),
                                               data(fourierManager->getRequiredDataSize(), 0),
                                               fourier(fourier) {
-      /*
-       * Construct a zero-filled field on the specified grid
-       */
     }
 
   public:
@@ -106,10 +110,6 @@ namespace fields {
     TGrid &getGrid() const {
       return const_cast<TGrid &>(*pGrid);
     }
-
-    /*
-     * ACCESS TO UNDERLYING DATA VECTOR
-     */
 
     TData &getDataVector() {
       return data;
@@ -127,9 +127,6 @@ namespace fields {
       return getDataVector();
     }
 
-    /*
-     * EVALUATION OPERATIONS
-     */
 
     DataType evaluateNearest(const Coordinate<CoordinateType> &location) const {
       auto offsetLower = pGrid->offsetLower;
@@ -137,24 +134,26 @@ namespace fields {
 
 
       // grid coordinates of parent cell that we're in
-      x_p_0 = (int) floor(((location.x - offsetLower.x) / pGrid->dx));
-      y_p_0 = (int) floor(((location.y - offsetLower.y) / pGrid->dx));
-      z_p_0 = (int) floor(((location.z - offsetLower.z) / pGrid->dx));
+      x_p_0 = (int) floor(((location.x - offsetLower.x) / pGrid->cellSize));
+      y_p_0 = (int) floor(((location.y - offsetLower.y) / pGrid->cellSize));
+      z_p_0 = (int) floor(((location.z - offsetLower.z) / pGrid->cellSize));
 
-      return (*this)[pGrid->getCellIndex(Coordinate<int>(x_p_0, y_p_0, z_p_0))];
+      return (*this)[pGrid->getIndexFromCoordinate(Coordinate<int>(x_p_0, y_p_0, z_p_0))];
     }
 
 
-    DataType evaluateInterpolated(const Coordinate<CoordinateType> &location) const {
+    DataType evaluateInterpolated(Coordinate<CoordinateType> location) const {
       auto offsetLower = pGrid->offsetLower;
       int x_p_0, y_p_0, z_p_0, x_p_1, y_p_1, z_p_1;
 
+      bool allowWrap = pGrid->coversFullSimulation();
+
+      location -= offsetLower;
+      location = pGrid->wrapPoint(location);
 
       // grid coordinates of parent cell starting to bottom-left
       // of our current point
-      x_p_0 = (int) floor(((location.x - offsetLower.x) / pGrid->dx - 0.5));
-      y_p_0 = (int) floor(((location.y - offsetLower.y) / pGrid->dx - 0.5));
-      z_p_0 = (int) floor(((location.z - offsetLower.z) / pGrid->dx - 0.5));
+      std::tie(x_p_0, y_p_0, z_p_0) = floor(location / pGrid->cellSize - 0.5);
 
       // grid coordinates of top-right
       x_p_1 = x_p_0 + 1;
@@ -165,9 +164,9 @@ namespace fields {
       // upper-right cell, in grid units (-> maximum 1)
 
       CoordinateType xw0, yw0, zw0, xw1, yw1, zw1;
-      xw0 = ((CoordinateType) x_p_1 + 0.5) - ((location.x - offsetLower.x) / pGrid->dx);
-      yw0 = ((CoordinateType) y_p_1 + 0.5) - ((location.y - offsetLower.y) / pGrid->dx);
-      zw0 = ((CoordinateType) z_p_1 + 0.5) - ((location.z - offsetLower.z) / pGrid->dx);
+      xw0 = ((CoordinateType) x_p_1 + 0.5) - (location.x / pGrid->cellSize);
+      yw0 = ((CoordinateType) y_p_1 + 0.5) - (location.y / pGrid->cellSize);
+      zw0 = ((CoordinateType) z_p_1 + 0.5) - (location.z / pGrid->cellSize);
 
       xw1 = 1. - xw0;
       yw1 = 1. - yw0;
@@ -175,37 +174,44 @@ namespace fields {
 
       assert(xw0 <= 1.0 && xw0 >= 0.0);
 
-      // allow things on the boundary to 'saturate' value, but beyond boundary
-      // is not acceptable
-      //
-      // TODO - in some circumstances we may wish to replace this with wrapping
-      // but not all circumstances!
       int size_i = static_cast<int>(pGrid->size);
-      assert(x_p_1 <= size_i);
-      if (x_p_1 == size_i) x_p_1 = size_i - 1;
-      assert(y_p_1 <= size_i);
-      if (y_p_1 == size_i) y_p_1 = size_i - 1;
-      assert(z_p_1 <= size_i);
-      if (z_p_1 == size_i) z_p_1 = size_i - 1;
 
-      assert(x_p_0 >= -1);
-      if (x_p_0 == -1) x_p_0 = 0;
-      assert(y_p_0 >= -1);
-      if (y_p_0 == -1) y_p_0 = 0;
-      assert(z_p_0 >= -1);
-      if (z_p_0 == -1) z_p_0 = 0;
+      if (allowWrap) {
+        std::tie(x_p_0, y_p_0, z_p_0) = pGrid->wrapCoordinate({x_p_0, y_p_0, z_p_0});
+        std::tie(x_p_1, y_p_1, z_p_1) = pGrid->wrapCoordinate({x_p_1, y_p_1, z_p_1});
 
-      // return (*this)[pGrid->getCellIndexNoWrap(x_p_0, y_p_0, z_p_0)];
+      } else {
+        // allow things on the boundary to 'saturate' value, but beyond boundary
+        // is not acceptable
+        assert(x_p_1 <= size_i);
+        if (x_p_1 == size_i) x_p_1 = size_i - 1;
+        assert(y_p_1 <= size_i);
+        if (y_p_1 == size_i) y_p_1 = size_i - 1;
+        assert(z_p_1 <= size_i);
+        if (z_p_1 == size_i) z_p_1 = size_i - 1;
+        assert(x_p_0 >= -1);
+        if (x_p_0 == -1) x_p_0 = 0;
+        assert(y_p_0 >= -1);
+        if (y_p_0 == -1) y_p_0 = 0;
+        assert(z_p_0 >= -1);
+        if (z_p_0 == -1) z_p_0 = 0;
+
+      }
+
+      // at this point every evaluation about to take place should be at a proper grid location
+      assert(x_p_0 < size_i && x_p_0 >= 0 && x_p_1 < size_i && x_p_1 >= 0);
+      assert(y_p_0 < size_i && y_p_0 >= 0 && y_p_1 < size_i && y_p_1 >= 0);
+      assert(z_p_0 < size_i && z_p_0 >= 0 && z_p_1 < size_i && z_p_1 >= 0);
 
 
-      return xw0 * yw0 * zw1 * (*this)[pGrid->getCellIndexNoWrap(x_p_0, y_p_0, z_p_1)] +
-             xw1 * yw0 * zw1 * (*this)[pGrid->getCellIndexNoWrap(x_p_1, y_p_0, z_p_1)] +
-             xw0 * yw1 * zw1 * (*this)[pGrid->getCellIndexNoWrap(x_p_0, y_p_1, z_p_1)] +
-             xw1 * yw1 * zw1 * (*this)[pGrid->getCellIndexNoWrap(x_p_1, y_p_1, z_p_1)] +
-             xw0 * yw0 * zw0 * (*this)[pGrid->getCellIndexNoWrap(x_p_0, y_p_0, z_p_0)] +
-             xw1 * yw0 * zw0 * (*this)[pGrid->getCellIndexNoWrap(x_p_1, y_p_0, z_p_0)] +
-             xw0 * yw1 * zw0 * (*this)[pGrid->getCellIndexNoWrap(x_p_0, y_p_1, z_p_0)] +
-             xw1 * yw1 * zw0 * (*this)[pGrid->getCellIndexNoWrap(x_p_1, y_p_1, z_p_0)];
+      return xw0 * yw0 * zw1 * (*this)[pGrid->getIndexFromCoordinateNoWrap(x_p_0, y_p_0, z_p_1)] +
+             xw1 * yw0 * zw1 * (*this)[pGrid->getIndexFromCoordinateNoWrap(x_p_1, y_p_0, z_p_1)] +
+             xw0 * yw1 * zw1 * (*this)[pGrid->getIndexFromCoordinateNoWrap(x_p_0, y_p_1, z_p_1)] +
+             xw1 * yw1 * zw1 * (*this)[pGrid->getIndexFromCoordinateNoWrap(x_p_1, y_p_1, z_p_1)] +
+             xw0 * yw0 * zw0 * (*this)[pGrid->getIndexFromCoordinateNoWrap(x_p_0, y_p_0, z_p_0)] +
+             xw1 * yw0 * zw0 * (*this)[pGrid->getIndexFromCoordinateNoWrap(x_p_1, y_p_0, z_p_0)] +
+             xw0 * yw1 * zw0 * (*this)[pGrid->getIndexFromCoordinateNoWrap(x_p_0, y_p_1, z_p_0)] +
+             xw1 * yw1 * zw0 * (*this)[pGrid->getIndexFromCoordinateNoWrap(x_p_1, y_p_1, z_p_0)];
     }
 
     const DataType &operator[](size_t i) const {
@@ -254,77 +260,59 @@ namespace fields {
     }
 
     template<typename... Args>
-    auto generateNewFourierFields(Args&&... args) {
+    auto generateNewFourierFields(Args &&... args) {
       return fourierManager->generateNewFourierFields(args...);
     }
 
+    //! Iterate (potentially in parallel) over each Fourier cell.
+    /*!
+     * The passed function takes arguments (value, kx, ky, kz) where value is the Fourier coeff value
+     * at k-mode kx, ky, kz.
+     * If the function returns a value, the Fourier coeff in that cell is updated accordingly.
+     */
     template<typename... Args>
-    void forEachFourierCell(Args&&... args) {
-      /** Iterate (potentially in parallel) over each Fourier cell, potentially updating values.
-       *
-       * The passed function takes arguments (value, kx, ky, kz) where value is the Fourier coeff value
-       * at k-mode kx, ky, kz.
-       *
-       * If the function returns a value, the Fourier coeff in that cell is updated accordingly.
-       */
+    void forEachFourierCell(Args &&... args) {
       fourierManager->forEachFourierCell(args...);
     }
 
     template<typename... Args>
-    void forEachFourierCell(Args&&... args) const {
-      /** Iterate (potentially in parallel) over each Fourier cell, potentially updating values.
-       *
-       * The passed function takes arguments (value, kx, ky, kz) where value is the Fourier coeff value
-       * at k-mode kx, ky, kz.
-       *
-       * If the function returns a value, the Fourier coeff in that cell is updated accordingly.
-       */
+    void forEachFourierCell(Args &&... args) const {
       fourierManager->forEachFourierCell(args...);
     }
 
     template<typename... Args>
-    void forEachFourierCellInt(Args&&... args) const {
-      /** Iterate (potentially in parallel) over each Fourier cell, potentially updating values.
-       *
-       * The passed function takes arguments (value, kx, ky, kz) where value is the Fourier coeff value
-       * at k-mode kx, ky, kz.
-       *
-       * If the function returns a value, the Fourier coeff in that cell is updated accordingly.
-       */
+    void forEachFourierCellInt(Args &&... args) const {
       fourierManager->forEachFourierCellInt(args...);
     }
 
+    //! Iterate (potentially in parallel) over each Fourier cell, accumulate a complex number over each Fourier cell
+    /*!
+    The passed function takes arguments (value, kx, ky, kz). The return value is accumulated.
+    */
     template<typename... Args>
-    auto accumulateForEachFourierCell(Args&&... args) const {
-      /** Iterate (potentially in parallel) over each Fourier cell, potentially updating values.
-       *
-       * The passed function takes arguments (value, kx, ky, kz) where value is the Fourier coeff value
-       * at k-mode kx, ky, kz.
-       *
-       * If the function returns a value, the Fourier coeff in that cell is updated accordingly.
-       */
+    auto accumulateForEachFourierCell(Args &&... args) const {
       return fourierManager->accumulateForEachFourierCell(args...);
     }
 
-    void setFourierCoefficient(int kx, int ky, int kz, const ComplexType & value) {
+    void setFourierCoefficient(int kx, int ky, int kz, const ComplexType &value) {
       fourierManager->setFourierCoefficient(kx, ky, kz, value);
     }
 
+    /*! Ensure that the Fourier modes in this field are correctly 'mirrored', i.e. where there is duplication,
+     * consistent values are stored. This likely only becomes an issue for real FFTs.
+     */
     void ensureFourierModesAreMirrored() const {
-      /** Ensure that the Fourier modes in this field are correctly 'mirrored', i.e. where there is duplication,
-       * consistent values are stored. This likely only becomes an issue for real FFTs.
-       */
       assert(isFourier());
 
       // Logically this is a const operation, even though actually it will potentially change internal state. So our
       // externally visible method is const, but the actual manipulation is non-const.
-      const_cast<FourierManager&>(*fourierManager).ensureFourierModesAreMirrored();
+      const_cast<FourierManager &>(*fourierManager).ensureFourierModesAreMirrored();
     }
 
     void applyFilter(const filters::Filter<CoordinateType> &filter) {
-      forEachFourierCell([&filter]( ComplexType current_value, CoordinateType kx, CoordinateType ky, CoordinateType kz) {
-        CoordinateType k = sqrt(double(kx*kx+ky*ky+kz*kz));
-        return current_value*filter(k);
+      forEachFourierCell([&filter](ComplexType current_value, CoordinateType kx, CoordinateType ky, CoordinateType kz) {
+        CoordinateType k = sqrt(double(kx * kx + ky * ky + kz * kz));
+        return current_value * filter(k);
       });
     }
 
@@ -361,7 +349,7 @@ namespace fields {
 
 #pragma omp parallel for schedule(static)
       for (size_t ind_l = 0; ind_l < size3; ind_l++) {
-        data[ind_l] += temporaryField.evaluateInterpolated(pGrid->getCellCentroid(ind_l));
+        data[ind_l] += temporaryField.evaluateInterpolated(pGrid->getPointFromId(ind_l));
       }
 
     }
@@ -381,7 +369,7 @@ namespace fields {
 
 #pragma omp parallel for schedule(static)
       for (size_t i = 0; i < size; ++i) {
-        temporaryFieldData[i] = source.evaluateInterpolated(pGrid->getCellCentroid(i));
+        temporaryFieldData[i] = source.evaluateInterpolated(pGrid->getCentroidFromIndex(i));
       }
 
       temporaryField.applyFilter(filter);
@@ -410,6 +398,7 @@ namespace fields {
 
   };
 
+  //! Mostly used for debugging. Convert a field from holding one data type to another, e.g. complex to real.
   template<typename TargetDataType, typename SourceDataType, typename CoordinateType>
   std::shared_ptr<Field<TargetDataType, CoordinateType>>
   convertField(Field<SourceDataType, CoordinateType> &field) {
@@ -437,4 +426,4 @@ namespace fields {
 }
 
 
-#endif //IC_FIELD_HPP
+#endif

@@ -89,10 +89,10 @@ namespace particle {
       std::pair<MapPtrType, MapPtrType> addGas(T massRatio, const std::vector<GridPtrType> &toGrids) override {
         if (pGrid->pointsToAnyGrid(toGrids)) {
           return std::make_pair(
-            std::make_shared<OneLevelParticleMapper<GridDataType>>(
-              this->pGrid->makeScaledMassVersion(massRatio)),
-            std::make_shared<OneLevelParticleMapper<GridDataType>>(
-              this->pGrid->makeScaledMassVersion(1.0 - massRatio)));
+              std::make_shared<OneLevelParticleMapper<GridDataType>>(
+                  this->pGrid->makeScaledMassVersion(massRatio)),
+              std::make_shared<OneLevelParticleMapper<GridDataType>>(
+                  this->pGrid->makeScaledMassVersion(1.0 - massRatio)));
         } else {
           return std::make_pair(std::shared_ptr<OneLevelParticleMapper<GridDataType>>(nullptr),
                                 std::make_shared<OneLevelParticleMapper<GridDataType>>(this->pGrid));

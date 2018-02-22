@@ -1,0 +1,31 @@
+# Generate a potato shaped lagrangian region
+
+
+# output parameters
+outdir	 ./
+outformat 4
+outname test_8
+
+
+# cosmology:
+Om  0.279
+Ol  0.721
+s8  0.817
+zin	99
+camb    ../camb_transfer_kmax40_z0_post2015.dat
+
+# fourier seeding
+seed	8896131
+
+basegrid 50.0 64
+
+centre 32 28 45
+select_sphere 5
+
+centre 32 17 45
+select_sphere 3
+
+dump_IDfile lagrange.txt
+
+
+done

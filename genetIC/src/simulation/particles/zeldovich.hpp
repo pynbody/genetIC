@@ -27,7 +27,7 @@ namespace particle {
   template<typename GridDataType, typename T=tools::datatypes::strip_complex<GridDataType>>
   class ZeldovichParticleEvaluator : public ParticleEvaluator<GridDataType> {
   protected:
-    using EvaluatorType = std::shared_ptr<fields::EvaluatorBase<GridDataType,T>>;
+    using EvaluatorType = std::shared_ptr<fields::EvaluatorBase<GridDataType, T>>;
     using GridType = grids::Grid<T>;
     using TField = fields::Field<GridDataType, T>;
     EvaluatorType pOffsetXEvaluator;
@@ -57,12 +57,12 @@ namespace particle {
       // sqrt(3*(100 h km/s/Mpc)^2/(8 pi G))
       //
       // Gadget units are used internally, so express as Msol h
-      boxMass = 27.744948 * cosmology.OmegaM0 * powf(onGrid->simsize, 3.0);
+      boxMass = 27.744948 * cosmology.OmegaM0 * powf(onGrid->periodicDomainSize, 3.0);
     }
 
   public:
     ZeldovichParticleEvaluator(EvaluatorType evalOffX, EvaluatorType evalOffY, EvaluatorType evalOffZ,
-                               const GridType & grid, const cosmology::CosmologicalParameters<T> &cosmology)
+                               const GridType &grid, const cosmology::CosmologicalParameters<T> &cosmology)
         : ParticleEvaluator<GridDataType>(grid), cosmology(cosmology) {
       pOffsetXEvaluator = evalOffX;
       pOffsetYEvaluator = evalOffY;
@@ -90,7 +90,7 @@ namespace particle {
 
     virtual particle::Particle<T> getParticleNoWrap(size_t id) const override {
       auto particle = getParticleNoOffset(id);
-      auto centroid = onGrid->getCellCentroid(id);
+      auto centroid = onGrid->getCentroidFromIndex(id);
       particle.pos += centroid;
       return particle;
     }
@@ -100,12 +100,11 @@ namespace particle {
     }
 
     virtual T getEps() const override {
-      return onGrid->dx * onGrid->cellSofteningScale *
+      return onGrid->cellSize * onGrid->cellSofteningScale *
              0.01075; // <-- arbitrary to coincide with normal UW resolution. TODO: Find a way to make this flexible.
     }
 
   };
-
 
 
   template<typename GridDataType, typename T>
@@ -113,6 +112,7 @@ namespace particle {
   protected:
     using TField = fields::Field<GridDataType, T>;
     using TRealField = fields::Field<T, T>;
+
     friend class ZeldovichParticleEvaluator<GridDataType, T>;
 
     TField &linearOverdensityField;
@@ -126,39 +126,37 @@ namespace particle {
     std::shared_ptr<TField> pOff_z;
 
 
-
     virtual void calculateOffsetFields() {
       size_t size = grid.size;
       tools::progress::ProgressBar pb("zeldovich", size * 2);
 
-      const T nyquist = tools::numerics::fourier::getNyquistModeThatMustBeReal(grid)*grid.getFourierKmin();
+      const T nyquist = tools::numerics::fourier::getNyquistModeThatMustBeReal(grid) * grid.getFourierKmin();
 
       auto zeldovichOffsetFields = linearOverdensityField.generateNewFourierFields(
-          [nyquist](complex<T> inputVal, T kx, T ky, T kz) -> std::tuple<complex<T>, complex<T>, complex<T>>
-          {
-        complex<T> result_x;
-        T kfft = kx*kx+ky*ky+kz*kz;
+          [nyquist](complex<T> inputVal, T kx, T ky, T kz) -> std::tuple<complex<T>, complex<T>, complex<T>> {
+            complex<T> result_x;
+            T kfft = kx * kx + ky * ky + kz * kz;
 
-        result_x.real(-inputVal.imag() / (kfft ));
-        result_x.imag(inputVal.real() / (kfft ));
-        complex<T> result_y(result_x);
-        complex<T> result_z(result_x);
+            result_x.real(-inputVal.imag() / (kfft));
+            result_x.imag(inputVal.real() / (kfft));
+            complex<T> result_y(result_x);
+            complex<T> result_z(result_x);
 
-        result_x *= kx;
-        result_y *= ky;
-        result_z *= kz;
+            result_x *= kx;
+            result_y *= ky;
+            result_z *= kz;
 
-        // derivative at nyquist frequency is not defined; set it to zero
-        // potential is also undefined at (0,0,0); set that mode to zero too
-        if (kx == nyquist || kfft == 0)
-          result_x = 0;
-        if (ky == nyquist || kfft == 0)
-          result_y = 0;
-        if (kz  == nyquist || kfft == 0)
-          result_z = 0;
+            // derivative at nyquist frequency is not defined; set it to zero
+            // potential is also undefined at (0,0,0); set that mode to zero too
+            if (kx == nyquist || kfft == 0)
+              result_x = 0;
+            if (ky == nyquist || kfft == 0)
+              result_y = 0;
+            if (kz == nyquist || kfft == 0)
+              result_z = 0;
 
-        return std::make_tuple(result_x, result_y, result_z);
-      });
+            return std::make_tuple(result_x, result_y, result_z);
+          });
 
       std::tie(this->pOff_x, this->pOff_y, this->pOff_z) = zeldovichOffsetFields;
       this->pOff_x->toReal();
@@ -172,8 +170,8 @@ namespace particle {
 
 
     ZeldovichParticleGenerator(TField &linearOverdensityField) :
-      ParticleGenerator<GridDataType>(linearOverdensityField.getGrid()),
-      linearOverdensityField(linearOverdensityField) {
+        ParticleGenerator<GridDataType>(linearOverdensityField.getGrid()),
+        linearOverdensityField(linearOverdensityField) {
       recalculate();
     }
 

@@ -1,0 +1,33 @@
+# Test masks on a typical case of setting up a Lagrangian region
+
+
+# output parameters
+outdir	 ./
+outformat 5
+outname test_8
+
+
+# cosmology:
+Om  0.279
+Ol  0.721
+s8  0.817
+zin	99
+camb    ../camb_transfer_kmax40_z0_post2015.dat
+
+# Generate a passive refinement variable
+pvar 0.01
+center_grafic_output
+
+# fourier seeding
+seed	8896131
+
+basegrid 50.0 64
+
+idfile lagrange.txt
+zoomgrid 4 64
+
+
+done
+
+dump_mask
+

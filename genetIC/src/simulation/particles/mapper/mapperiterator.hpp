@@ -67,14 +67,14 @@ namespace particle {
 
       MapperIterator(const ParticleMapper<GridDataType> *pMapper,
                      const AbstractMultiLevelParticleGenerator<GridDataType> &generator) :
-        i(0), pMapper(pMapper), generator(generator) {}
+          i(0), pMapper(pMapper), generator(generator) {}
 
 
     public:
 
       MapperIterator(const MapperIterator<GridDataType> &source) :
-        i(source.i), extraData(source.extraData), pMapper(source.pMapper),
-        generator(source.generator), pLastGrid(nullptr) {
+          i(source.i), extraData(source.extraData), pMapper(source.pMapper),
+          generator(source.generator), pLastGrid(nullptr) {
         for (const auto &subIterator: source.subIterators) {
           if (subIterator == nullptr)
             subIterators.push_back(nullptr);
@@ -122,7 +122,7 @@ namespace particle {
       }
 
 
-      Particle <T> getParticle() const {
+      Particle<T> getParticle() const {
         ConstGridPtrType pGrid;
         size_t id;
         deReference(pGrid, id);
@@ -134,7 +134,7 @@ namespace particle {
         pLastGridEvaluator = generator.makeEvaluatorForGrid(*pLastGrid);
       }
 
-      mutable const fields::MultiLevelField<GridDataType>* lastMLField;
+      mutable const fields::MultiLevelField<GridDataType> *lastMLField;
       mutable ConstGridPtrType lastGridPtr;
       mutable std::shared_ptr<fields::EvaluatorBase<GridDataType, T>> lastEvaluator;
 
@@ -142,14 +142,15 @@ namespace particle {
       // if more than one field is being evaluated at each iteration, because it will need to keep calling
       // makeEvaluator.
       std::shared_ptr<fields::EvaluatorBase<GridDataType, T>>
-               getEvaluatorForFieldAndGrid(const fields::MultiLevelField<GridDataType> &multiLevelField, ConstGridPtrType gridPtr) const {
-         if(lastMLField!=&multiLevelField || gridPtr!=lastGridPtr) {
-           lastEvaluator = fields::makeEvaluator(multiLevelField, *gridPtr);
-           lastMLField = &multiLevelField;
-           lastGridPtr = gridPtr;
-         }
-         return lastEvaluator;
-       }
+      getEvaluatorForFieldAndGrid(const fields::MultiLevelField<GridDataType> &multiLevelField,
+                                  ConstGridPtrType gridPtr) const {
+        if (lastMLField != &multiLevelField || gridPtr != lastGridPtr) {
+          lastEvaluator = fields::makeEvaluator(multiLevelField, *gridPtr);
+          lastMLField = &multiLevelField;
+          lastGridPtr = gridPtr;
+        }
+        return lastEvaluator;
+      }
 
     public:
 
@@ -183,7 +184,7 @@ namespace particle {
       size_t parallelIterate(std::function<void(size_t, const MapperIterator &
 
       )> callback,
-      size_t nMax
+                             size_t nMax
       ) {
         size_t n = std::min(pMapper->size() - i, nMax);
         size_t final_i = i + n;
@@ -206,15 +207,14 @@ namespace particle {
             pThreadLocalIterator = new MapperIterator(*this);
 
 #pragma omp barrier
-	  if(thread_num<n) {
-	    (*pThreadLocalIterator) += thread_num;
+          if ((unsigned) thread_num < n) {
+            (*pThreadLocalIterator) += thread_num;
 
-
-	    for (size_t local_i = thread_num; local_i < n; local_i += num_threads) {
-	      callback(local_i, *pThreadLocalIterator);
-	      if (local_i + num_threads < n) (*pThreadLocalIterator) += num_threads;
-	    }
-	  }
+            for (size_t local_i = thread_num; local_i < n; local_i += num_threads) {
+              callback(local_i, *pThreadLocalIterator);
+              if (local_i + num_threads < n) (*pThreadLocalIterator) += num_threads;
+            }
+          }
 
           if (thread_num != 0)
             delete pThreadLocalIterator;
@@ -245,10 +245,6 @@ namespace particle {
 
       friend bool operator!=(const MapperIterator<GridDataType> &lhs, const MapperIterator<GridDataType> &rhs) {
         return (lhs.i != rhs.i) || (lhs.pMapper != rhs.pMapper);
-      }
-
-      void debugInfo() const {
-        debugInfo(cerr, 0);
       }
 
       void debugInfo(std::ostream &s, int n = 0) const {

@@ -25,8 +25,8 @@ namespace fields {
 
 
   public:
-    RandomFieldGenerator(MultiLevelField <DataType> &field_, int seed = 0) :
-      field(field_) {
+    RandomFieldGenerator(MultiLevelField <DataType> &field_, unsigned long seed = 0) :
+        field(field_) {
       randomNumberGeneratorType = gsl_rng_ranlxs2; // shouldn't this be gsl_rng_ranlxd2 for FloatType = double? -> it's single precision for compatibility with previous versions!
       randomState = gsl_rng_alloc(randomNumberGeneratorType); //this allocates memory for the generator with type T
       gsl_rng_set(randomState, seed);
@@ -50,7 +50,7 @@ namespace fields {
       reverseRandomDrawOrder = value;
     }
 
-    void seed(int seed) {
+    void seed(unsigned long seed) {
       if (seeded)
         throw std::runtime_error("The random number generator has already been seeded");
       else
@@ -84,13 +84,13 @@ namespace fields {
       FloatType b = norm * gsl_ran_gaussian_ziggurat(randomState, 1.);
 
       if (reverseRandomDrawOrder)
-        field.setFourierCoefficient(k1, k2, k3, tools::datatypes::ensure_complex<DataType>(b,a));
+        field.setFourierCoefficient(k1, k2, k3, tools::datatypes::ensure_complex<DataType>(b, a));
       else
-        field.setFourierCoefficient(k1, k2, k3, tools::datatypes::ensure_complex<DataType>(a,b));
+        field.setFourierCoefficient(k1, k2, k3, tools::datatypes::ensure_complex<DataType>(a, b));
 
-      int nyquist = int(field.getGrid().size)/2;
+      int nyquist = int(field.getGrid().size) / 2;
 
-      if(k1==0 || k1==nyquist || k2==0 || k2==nyquist || k3==0 || k3==nyquist) {
+      if (k1 == 0 || k1 == nyquist || k2 == 0 || k2 == nyquist || k3 == 0 || k3 == nyquist) {
         // Due to poor original implementation of drawRandomForSpecifiedGridFourier (which we're now stuck with
         // for historical compatibility), we need to ensure the _last_ mode written to a field (which may, due to
         // symmetries in the Fourier coeffs at 0 or nyquist modes, overwrite a previous draw) persists.
@@ -98,9 +98,9 @@ namespace fields {
         // The above condition probably catches too many cases, but if there is a risk, let's also explicitly write
         // the related coeff.
         if (reverseRandomDrawOrder)
-          field.setFourierCoefficient(-k1, -k2, -k3, tools::datatypes::ensure_complex<DataType>(b,-a));
+          field.setFourierCoefficient(-k1, -k2, -k3, tools::datatypes::ensure_complex<DataType>(b, -a));
         else
-          field.setFourierCoefficient(-k1, -k2, -k3, tools::datatypes::ensure_complex<DataType>(a,-b));
+          field.setFourierCoefficient(-k1, -k2, -k3, tools::datatypes::ensure_complex<DataType>(a, -b));
       }
     }
 
@@ -155,7 +155,7 @@ namespace fields {
       // resolution can be scaled by factors of 2 and we still get
       // the 'same' field
       for (ks = 0; ks < int(g.size / 2); ks++) {
-        pb.setProgress(float(ks*ks)*(ks*8) / g.size3);
+        pb.setProgress(float(ks * ks) * (ks * 8) / g.size3);
         for (k1 = -ks; k1 < ks; k1++) {
           for (k2 = -ks; k2 < ks; k2++) {
             drawOneFourierMode(field, ks, k1, k2, sigma);

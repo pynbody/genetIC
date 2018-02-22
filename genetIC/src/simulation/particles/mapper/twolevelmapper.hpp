@@ -50,26 +50,27 @@ namespace particle {
         // Finds all the particles at level2 corresponding to the single
         // particle at level1
         T x0, y0, z0;
-        std::tie(x0, y0, z0) = pGrid1->getCellCentroid(id0);
-        pGrid2->appendIdsInCubeToVector(x0, y0, z0, pGrid1->dx, ids);
+        std::tie(x0, y0, z0) = pGrid1->getCentroidFromIndex(id0);
+        pGrid2->appendIdsInCubeToVector(x0, y0, z0, pGrid1->cellSize, ids);
       }
 
       void insertMappedIdsInVector(size_t id0, std::vector<size_t>::iterator start) const {
         T x0, y0, z0;
-        std::tie(x0, y0, z0) = pGrid1->getCellCentroid(id0);
-        pGrid2->insertCubeIdsIntoVector(x0, y0, z0, pGrid1->dx, start);
+        std::tie(x0, y0, z0) = pGrid1->getCentroidFromIndex(id0);
+        pGrid2->insertCubeIdsIntoVector(x0, y0, z0, pGrid1->cellSize, start);
       }
 
-      std::vector<size_t> getMappedIds(size_t id0) const {
-        std::vector<size_t> ids;
-        appendMappedIdsToVector(id0, ids);
-        return ids;
-      }
+      //TODO  Functions never used. Should delete ?
+//      std::vector<size_t> getMappedIds(size_t id0) const {
+//        std::vector<size_t> ids;
+//        appendMappedIdsToVector(id0, ids);
+//        return ids;
+//      }
 
-      size_t reverseMapId(size_t id2) const {
-        auto coord = pGrid2->getCellCentroid(id2);
-        return pGrid1->getClosestIdNoWrap(coord);
-      }
+//      size_t reverseMapId(size_t id2) const {
+//        auto coord = pGrid2->getPointFromID(id2);
+//        return pGrid1->getCellContainingPoint(coord);
+//      }
 
 
     public:
@@ -99,11 +100,11 @@ namespace particle {
                              MapPtrType &pLevel2,
                              const std::vector<size_t> &zoomParticlesOnLevel1Grid,
                              bool skipLevel1 = false) :
-        pLevel1(pLevel1), pLevel2(pLevel2),
-        pGrid1(pLevel1->getFinestGrid()),
-        pGrid2(pLevel2->getCoarsestGrid()),
-        skipLevel1(skipLevel1),
-        zoomParticleArrayForL1grid(zoomParticlesOnLevel1Grid) {
+          pLevel1(pLevel1), pLevel2(pLevel2),
+          pGrid1(pLevel1->getFinestGrid()),
+          pGrid2(pLevel2->getCoarsestGrid()),
+          skipLevel1(skipLevel1),
+          zoomParticleArrayForL1grid(zoomParticlesOnLevel1Grid) {
         /* @param pLevel1 - the coarser particle mapper, which can itself have multiple levels
          * @param pLevel2 - the fine particle mapper, which can point to only one grid (i.e. must be OneLevelParticleMapper)
          * @param zoomParticlesOnLevel1Grid - the list of particles on the level 1 mapper that will be zoomed. NB these
@@ -126,7 +127,7 @@ namespace particle {
         if (zoomParticleArrayForL1grid.size() != zoomParticleArrayForL1mapper.size())
           throw std::runtime_error("The cells to zoom on must all be on the finest level 1 grid");
 
-        n_hr_per_lr = tools::getRatioAndAssertPositiveInteger(pGrid1->dx, pGrid2->dx);
+        n_hr_per_lr = tools::getRatioAndAssertPositiveInteger(pGrid1->cellSize, pGrid2->cellSize);
         n_hr_per_lr *= n_hr_per_lr * n_hr_per_lr;
 
         totalParticles = pLevel1->size() + (n_hr_per_lr - 1) * zoomParticleArrayForL1mapper.size();
@@ -187,8 +188,7 @@ namespace particle {
         size_t firstHrParticleInInput = std::numeric_limits<size_t>::max();
 
 
-
-        for (size_t i=0; i<orderedParticleIndices.size(); ++i) {
+        for (size_t i = 0; i < orderedParticleIndices.size(); ++i) {
           size_t thisParticle = orderedParticleIndices[i];
           if (thisParticle < last_val)
             throw std::runtime_error("The particle list must be in ascending order");
@@ -216,7 +216,7 @@ namespace particle {
 
 
         std::vector<size_t> level2particles;
-        level2particles.resize(orderedParticleIndices.size()-firstHrParticleInInput);
+        level2particles.resize(orderedParticleIndices.size() - firstHrParticleInInput);
 
         // N.B. the following parallelism does not seem to achieve much speed-up.
         // Is this because it is memory access bound, or some more subtle reason?
@@ -353,14 +353,14 @@ namespace particle {
 
         if (gasSubLevel2 != nullptr)
           newGasMap = std::make_shared<TwoLevelParticleMapper<GridDataType>>(
-            gasSubLevel1, gasSubLevel2, zoomParticleArrayForL1mapper,
-            newskip);
+              gasSubLevel1, gasSubLevel2, zoomParticleArrayForL1mapper,
+              newskip);
         else
           newGasMap = nullptr;
 
         newDmMap = std::make_shared<TwoLevelParticleMapper<GridDataType>>(
-          dmSubLevel1, dmSubLevel2, zoomParticleArrayForL1mapper,
-          skipLevel1);
+            dmSubLevel1, dmSubLevel2, zoomParticleArrayForL1mapper,
+            skipLevel1);
 
         return std::make_pair(newGasMap, newDmMap);
 
@@ -379,8 +379,8 @@ namespace particle {
         ssub1->getFlaggedParticles(newZoomParticles);
 
         return std::make_shared<TwoLevelParticleMapper<GridDataType>>(
-          ssub1, ssub2, newZoomParticles,
-          skipLevel1);
+            ssub1, ssub2, newZoomParticles,
+            skipLevel1);
       }
 
 
@@ -430,10 +430,10 @@ namespace particle {
         auto &extraData = pIterator->extraData;
         iterator &level1iterator = *(pIterator->subIterators[0]);
         iterator &level2iterator = *(pIterator->subIterators[1]);
-        size_t & i = pIterator->i;
+        size_t &i = pIterator->i;
 
-        size_t & next_zoom = extraData[0];
-        size_t & next_zoom_index = extraData[1];
+        size_t &next_zoom = extraData[0];
+        size_t &next_zoom_index = extraData[1];
 
         // increment the boring-old-counter!
         ++i;
@@ -452,11 +452,6 @@ namespace particle {
 
 
         } else {
-          // do normal particles
-          //
-          // N.B. should never reach here if level1iterator is NULL
-
-          assert((&level1iterator) != nullptr);
 
           ++level1iterator;
 
@@ -501,9 +496,9 @@ namespace particle {
         zoomParticleArrayHiresUnsorted.resize(zoomParticleArrayForL1mapper.size() * n_hr_per_lr);
 
 #pragma omp parallel for
-        for(size_t i=0; i<zoomParticleArrayForL1grid.size(); ++i) {
+        for (size_t i = 0; i < zoomParticleArrayForL1grid.size(); ++i) {
           insertMappedIdsInVector(zoomParticleArrayForL1grid[i],
-                                  zoomParticleArrayHiresUnsorted.begin()+(i*n_hr_per_lr));
+                                  zoomParticleArrayHiresUnsorted.begin() + (i * n_hr_per_lr));
         }
 
         if (!pLevel2->supportsReverseIterator()) {

@@ -6,7 +6,6 @@
 #include <map>
 #include <vector>
 #include <cassert>
-#include <vector>
 #include <memory>
 
 #include "src/simulation/grid/grid.hpp"
@@ -50,16 +49,17 @@ namespace multilevelcontext {
     size_t nLevels;
     T simSize;
 
-    void mapIdToLevelId(size_t i, size_t &level, size_t &level_id) {
-      level = 0;
-      while (level < nLevels && i >= Ns[level]) {
-        i -= Ns[level];
-        level++;
-      }
-      if (i >= Ns[level])
-        throw std::runtime_error("ID out of range when mapping into underlying fields in mapIdToLevelId");
-      level_id = i;
-    }
+    //TODO Never used, should delete ?
+//    void mapIdToLevelId(size_t i, size_t &level, size_t &level_id) {
+//      level = 0;
+//      while (level < nLevels && i >= Ns[level]) {
+//        i -= Ns[level];
+//        level++;
+//      }
+//      if (i >= Ns[level])
+//        throw std::runtime_error("ID out of range when mapping into underlying fields in mapIdToLevelId");
+//      level_id = i;
+//    }
 
     MultiLevelContextInformationBase(size_t N) {
       nLevels = 1;
@@ -97,7 +97,7 @@ namespace multilevelcontext {
       if (pGrid.size() == 0) {
         weights.push_back(1.0);
       } else {
-        weights.push_back(pow(pG->dx / pGrid[0]->dx, 3.0));
+        weights.push_back(pow(pG->cellSize / pGrid[0]->cellSize, 3.0));
       }
       pGrid.push_back(pG);
       Ns.push_back(pG->size3);
@@ -139,22 +139,42 @@ namespace multilevelcontext {
     }
 
     const fields::Field<DataType> &getCovariance(size_t level) const {
-      if(C0s.size()>level && C0s[level]!=nullptr)
+      if (C0s.size() > level && C0s[level] != nullptr)
         return *C0s[level];
       else
         throw std::out_of_range("No covariance yet specified for this level");
     }
 
-    auto generateMultilevelFromHighResField(fields::Field<DataType, T> &&data) {
+    size_t deepestLevelwithFlaggedCells() {
+
+      for (int i = this->getNumLevels() - 1; i >= 0; --i) {
+        if (this->getGridForLevel(i).hasFlaggedCells())
+          return size_t(i);
+      }
+
+      throw std::runtime_error("No level has any particles selected");
+    }
+
+    size_t deepestCoarseGrid() const {
+      for (int i = this->getNumLevels() - 1; i >= 0; --i) {
+        if (this->getGridForLevel(i).coversFullSimulation())
+          return size_t(i);
+      }
+      throw std::runtime_error("No coarse grid were found.");
+    }
+
+    //! From finest level, use interpolation to construct other levels
+    std::shared_ptr<fields::ConstraintField<DataType>>
+    generateMultilevelFromHighResField(fields::Field<DataType, T> &&data) {
       assert(&data.getGrid() == pGrid.back().get());
 
       // Generate the fields on each level. Fill low-res levels with zeros to start with.
       vector<std::shared_ptr<fields::Field<DataType, T>>> dataOnLevels;
       for (size_t level = 0; level < pGrid.size(); level++) {
         if (level == pGrid.size() - 1) {
-          dataOnLevels.emplace_back(std::make_shared<fields::Field<DataType,T>>(std::move(data)));
+          dataOnLevels.emplace_back(std::make_shared<fields::Field<DataType, T>>(std::move(data)));
         } else {
-          dataOnLevels.emplace_back(std::make_shared<fields::Field<DataType,T>>(*pGrid[level], false));
+          dataOnLevels.emplace_back(std::make_shared<fields::Field<DataType, T>>(*pGrid[level], false));
         }
       }
 
@@ -164,12 +184,13 @@ namespace multilevelcontext {
         assert(dataOnLevels.back()->isFourier());
         dataOnLevels.back()->toReal();
         for (int level = levelmax - 1; level >= 0; --level) {
-          dataOnLevels[level]->addFieldFromDifferentGrid(*(dataOnLevels[level+1]));
+          dataOnLevels[level]->addFieldFromDifferentGrid(*(dataOnLevels[level + 1]));
         }
       }
 
-      return fields::ConstraintField<DataType>(*dynamic_cast<MultiLevelContextInformation<DataType, T> *>(this),
-                                               dataOnLevels);
+      return std::make_shared<fields::ConstraintField<DataType>>(
+          *dynamic_cast<MultiLevelContextInformation<DataType, T> *>(this),
+          dataOnLevels);
     }
 
     void forEachLevel(std::function<void(grids::Grid<T> &)> newLevelCallback) {
@@ -186,11 +207,11 @@ namespace multilevelcontext {
 
 
     void copyContextWithIntermediateResolutionGrids(MultiLevelContextInformation<DataType> &newStack,
-                                                    size_t base_factor = 2,
-                                                    size_t extra_lores = 1) const {
-      /* Copy this MultiLevelContextInformation, but insert intermediate virtual grids such that
-       * there is a full stack increasing in the specified power.
-       *
+                                                    size_t base_factor,
+                                                    size_t extra_lores) const {
+      //! Copy this MultiLevelContextInformation, but insert intermediate virtual grids such that
+      //!there is a full stack increasing in the specified power.
+      /*!
        * E.g. if there is a 256^3 and a 1024^3 grid stack, with default parameters this will return a
        * 128^3, 256^3, 512^3 and 1024^3 grid stack.
        *
@@ -204,10 +225,10 @@ namespace multilevelcontext {
       newStack.clear();
 
       for (size_t level = 0; level < nLevels; ++level) {
-        size_t neff = size_t(round(pGrid[0]->dx / pGrid[level]->dx)) * pGrid[0]->size;
+        size_t neff = size_t(round(pGrid[0]->cellSize / pGrid[level]->cellSize)) * pGrid[0]->size;
         if (level > 0) {
           size_t factor = base_factor;
-          while (pGrid[level]->dx * factor * 1.001 < pGrid[level - 1]->dx) {
+          while (pGrid[level]->cellSize * factor * 1.001 < pGrid[level - 1]->cellSize) {
             std::cerr << "Adding virtual grid with effective resolution " << neff / factor << std::endl;
             auto vGrid = std::make_shared<grids::SubSampleGrid<T>>(pGrid[level], factor);
             newStack.addLevel(nullptr, vGrid);
@@ -225,9 +246,44 @@ namespace multilevelcontext {
 
         std::cerr << "Adding real grid with resolution " << neff << std::endl;
         newStack.addLevel(C0s[level], pGrid[level]);
-
       }
 
+    }
+
+    void copyContextAndCenter(MultiLevelContextInformation<DataType> &newStack,
+                              const Coordinate<T> pointToCenterOnto) const {
+
+      newStack.clear();
+      size_t deepest_coarse = this->deepestCoarseGrid();
+      assert(deepest_coarse < nLevels);
+      Coordinate<T> offset;
+
+      for (size_t level = 0; level <= deepest_coarse; ++level) {
+        auto centeredCoarse = std::make_shared<grids::CenteredGrid<T>>(this->pGrid[level], pointToCenterOnto);
+        newStack.addLevel(C0s[level], centeredCoarse);
+        offset = centeredCoarse->getPointOffset();
+      }
+
+
+      for (size_t level = deepest_coarse + 1; level < nLevels; ++level) {
+        auto offsetFine = std::make_shared<grids::OffsetGrid<T>>(this->pGrid[level], offset.x, offset.y, offset.z);
+        newStack.addLevel(C0s[level], offsetFine);
+      }
+    }
+
+    void copyContextWithCenteredIntermediate(MultiLevelContextInformation<DataType> &newStack,
+                                             const Coordinate<T> pointToCenterOnto,
+                                             size_t base_factor,
+                                             size_t extra_lores) const {
+      auto extracontext = multilevelcontext::MultiLevelContextInformation<DataType>();
+      this->copyContextWithIntermediateResolutionGrids(extracontext, base_factor, extra_lores);
+      extracontext.copyContextAndCenter(newStack, pointToCenterOnto);
+    }
+
+
+    size_t getIndexOfCellOnOtherLevel(size_t currentLevel, size_t otherLevel, size_t cellIndex){
+      Coordinate<T> cell_coord(this->getGridForLevel(currentLevel).getCentroidFromIndex(cellIndex));
+      return this->getGridForLevel(otherLevel).getIndexFromPoint(cell_coord);
     }
 
   };
@@ -270,9 +326,10 @@ namespace multilevelcontext {
     }
   };
 
+  //TODO Is this class used at all ? It looks an unused specialization of base class
   template<typename T>
   class MultiLevelContextInformation<std::complex<T>, T>
-    : public MultiLevelContextInformationBase<std::complex<T>, T> {
+      : public MultiLevelContextInformationBase<std::complex<T>, T> {
   protected:
     using DataType= std::complex<T>;
     using MultiLevelContextInformationBase<DataType, T>::cumu_Ns;

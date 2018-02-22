@@ -4,17 +4,17 @@
 #include <string>
 
 namespace tools {
-    class ChangeCwdWhileInScope {
-    protected:
-        std::string old;
+  class ChangeCwdWhileInScope {
+  protected:
+    std::string old;
 
-    public:
-        ChangeCwdWhileInScope(std::string newFolder);
+  public:
+    ChangeCwdWhileInScope(std::string newFolder);
 
-        ~ChangeCwdWhileInScope();
-    };
+    ~ChangeCwdWhileInScope();
+  };
 
-    std::string getDirectoryName(std::string full);
+  std::string getDirectoryName(std::string full);
 }
 
 #endif

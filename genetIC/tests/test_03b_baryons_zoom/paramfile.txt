@@ -1,0 +1,28 @@
+# Test zooming with baryons.
+#
+# Baryons should only be added in the zoom region.
+
+Om  0.279
+Ol  0.721
+Ob  0.04
+s8  0.817
+zin	99
+
+
+camb	../camb_transfer_kmax40_z0.dat
+seed	8896131
+
+
+basegrid 50.0 64
+
+outname test_3
+outdir ./
+outformat 4
+
+
+mapper_relative_to ../test_01a_basic_grid/paramfile.txt
+idfile zoomtest.txt
+
+zoomgrid 3 64
+
+done

@@ -11,10 +11,10 @@ namespace particle {
 
 
     /*!
-				 \class GraficMapper
-				 \brief A particle mapper specifically for Grafic output, where entire grids are written out in order of
+         \class GraficMapper
+         \brief A particle mapper specifically for Grafic output, where entire grids are written out in order of
          increasing resolution.
-				*/
+        */
     template<typename GridDataType>
     class GraficMapper : public ParticleMapper<GridDataType> {
     public:
@@ -32,8 +32,11 @@ namespace particle {
 
     public:
 
-      GraficMapper(const multilevelcontext::MultiLevelContextInformation<GridDataType> &context) {
-        context.copyContextWithIntermediateResolutionGrids(contextInformation);
+
+      GraficMapper(const multilevelcontext::MultiLevelContextInformation<GridDataType> &context,
+                   Coordinate<T> center,
+                  size_t extralowres) {
+        context.copyContextWithCenteredIntermediate(contextInformation, center, 2, extralowres);
       }
 
       bool references(GridPtrType grid) const override {
@@ -47,7 +50,7 @@ namespace particle {
 
       virtual void debugInfo(std::ostream &s, int level = 0) const override {
         tools::indent(s, level);
-        s << "GraficMapper";
+        s << "GraficMapper" << endl;
       }
 
       virtual size_t size() const {
@@ -108,7 +111,8 @@ namespace particle {
       }
 
       virtual void
-      dereferenceIterator(const iterator *pIterator, ConstGridPtrType &gp, size_t &i) const override {
+      dereferenceIterator(const iterator * /* *pIterator */, ConstGridPtrType & /*&gp*/,
+                          size_t & /*&i*/) const override {
         // Grafic files are written out at the grid level and iterators should not be involved.
         throw std::runtime_error("Iterators are not supported by GraficMapper");
       }
