@@ -35,9 +35,35 @@ def compare_ps(ref, test):
     npt.assert_allclose(ref_vals, test_vals, rtol=1e-4)
     print("Power-spectrum output %s matches" % ref)
 
+
+def check_comparison_is_possible(dirname):
+    # A valid test must have either a tipsy output and its reference output or numpy grids and their references.
+
+    output_file = glob.glob(dirname+"/*.tipsy")
+    assert(len(output_file)>=0)
+
+    output_grids = [os.path.basename(x) for x in glob.glob(dirname+"grid-?.npy")]
+    assert(len(output_grids)>=0)
+
+    if len(output_file)==0:
+    # If a tipsy test output is not generated, you must at least provide numpy grids
+        if len(output_grids)==0:
+            raise IOError("There are no tipsy file or numpy files to test against")
+        elif not os.path.exists(dirname+"/reference_grid"):
+            raise IOError("You must provide a reference_grid folder to test against if no tipsy output are generated")
+
+    elif len(output_file)==1:
+        if not os.path.isfile(sys.argv[1]+"/reference_output"):
+            raise IOError("A tipsy output is present but no reference_output to test against.")
+
+    else:
+        raise IOError("There are more than one tipsy output file to test against.")
+
 def default_comparisons():
 
     assert len(sys.argv)==2
+    check_comparison_is_possible(sys.argv[1])
+
     if os.path.exists(sys.argv[1]+"/reference_grid"):
         compare_grids(sys.argv[1]+"/reference_grid/",sys.argv[1]+"/")
 
@@ -46,9 +72,8 @@ def default_comparisons():
     for ps, ps_test in zip(powspecs, powspecs_test):
         compare_ps(ps,ps_test)
 
-    if os.path.exists(sys.argv[1]+"/*.tipsy"):
-        output_file = glob.glob(sys.argv[1]+"/*.tipsy")
-        assert len(output_file)==1, "Could not find a unique output file to test against"
+    output_file = glob.glob(sys.argv[1]+"/*.tipsy")
+    if len(output_file)>0:
         compare(pynbody.load(output_file[0]),pynbody.load(sys.argv[1]+"/reference_output"))
 
 if __name__=="__main__":
