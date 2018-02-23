@@ -73,6 +73,11 @@ namespace particle {
         throw std::runtime_error("There is no grid associated with this particle mapper");
       }
 
+      virtual unsigned int
+      gadgetParticleTypeFromIterator(const iterator *pIterator) const  {
+        throw std::runtime_error("There is no gadget particle type known for this particle mapper");
+      }
+
     public:
 
       virtual void debugInfo(std::ostream &s, int level = 0) const {
@@ -186,6 +191,18 @@ namespace particle {
         x.i = size();
 
         return x;
+      }
+
+      virtual iterator beginParticleType(const AbstractMultiLevelParticleGenerator<GridDataType> &generator,
+                                         unsigned int particleType) const {
+        throw std::runtime_error("There is no gadget particle type associated with this particle mapper");
+
+      }
+
+      virtual iterator endParticleType(const AbstractMultiLevelParticleGenerator<GridDataType> &generator,
+                                         unsigned int particleType) const {
+        throw std::runtime_error("There is no gadget particle type associated with this particle mapper");
+
       }
 
       virtual iterator beginDm(const AbstractMultiLevelParticleGenerator<GridDataType> &generator) const {

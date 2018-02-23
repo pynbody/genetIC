@@ -65,6 +65,9 @@ protected:
 
   cosmology::CAMB<GridDataType> spectrum;
 
+  //! Gadget particle types to be generated on each level (default 1)
+  std::vector<unsigned int> gadgetTypesForLevels;
+
   //! DM supersampling to perform on zoom grid
   int supersample;
 
@@ -391,6 +394,7 @@ public:
     // This forwards to multiLevelContext but is required because it is overriden in DummyICGenerator,
     // which needs to ensure that grids are synchronised between two different contexts
     multiLevelContext.addLevel(spectrum, size, nside, offset);
+    this->gadgetTypesForLevels.push_back(1);
   }
 
 
@@ -402,6 +406,16 @@ public:
     randomFieldGenerator.seed(seed);
     randomFieldGenerator.setDrawInFourierSpace(true);
     randomFieldGenerator.setReverseRandomDrawOrder(false);
+  }
+
+  //! Set the gadget particle type to be produced by the deepest level currently in the grid hiearchy
+  void setGadgetParticleType(unsigned int type) {
+    if(type>=6)
+      throw(std::runtime_error("Gadget particle type must be between 0 and 5"));
+    if(multiLevelContext.getNumLevels()==0)
+      throw(std::runtime_error("Can't set a gadget particle type until a level has been initialised to set it for"));
+    this->gadgetTypesForLevels[multiLevelContext.getNumLevels()-1] = type;
+    this->updateParticleMapper();
   }
 
   //! Reverses the order of draws between real and imaginary part of complex numbers
@@ -614,18 +628,24 @@ public:
     }
 
     // make a basic mapper for the coarsest grid
-    pMapper = std::shared_ptr<particle::mapper::ParticleMapper<GridDataType>>(
-        new particle::mapper::OneLevelParticleMapper<GridDataType>(
-            getOutputGrid(0)
-        ));
+    auto baseLevelMapper = std::shared_ptr<particle::mapper::OneLevelParticleMapper<GridDataType>>(
+      new particle::mapper::OneLevelParticleMapper<GridDataType>(
+        getOutputGrid(0)
+      ));
+
+    baseLevelMapper->setGadgetParticleType(this->gadgetTypesForLevels[0]);
+
+    pMapper = baseLevelMapper;
 
 
     if (nLevels >= 2) {
 
       for (size_t level = 1; level < nLevels; level++) {
 
-        auto pFine = std::shared_ptr<particle::mapper::ParticleMapper<GridDataType>>(
+        auto pFine = std::shared_ptr<particle::mapper::OneLevelParticleMapper<GridDataType>>(
             new particle::mapper::OneLevelParticleMapper<GridDataType>(getOutputGrid(level)));
+
+        pFine->setGadgetParticleType(this->gadgetTypesForLevels[level]);
 
         pMapper = std::shared_ptr<particle::mapper::ParticleMapper<GridDataType>>(
             new particle::mapper::TwoLevelParticleMapper<GridDataType>(pMapper, pFine, zoomParticleArray[level - 1]));

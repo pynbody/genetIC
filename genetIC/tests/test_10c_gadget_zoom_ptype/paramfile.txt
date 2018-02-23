@@ -1,0 +1,34 @@
+# Test zooming
+
+
+# output parameters
+outdir	 ./
+outformat 3
+outname test_1
+
+# cosmology:
+Om  0.279
+Ol  0.721
+s8  0.817
+zin	99
+camb	../camb_transfer_kmax40_z0.dat
+
+# basegrid 50 Mpc/h, 64^3
+basegrid 50.0 64
+gadget_particle_type 1
+
+# fourier seeding
+seed	8896131
+
+
+
+idfile zoomtest.txt
+dump_idfile zoomtest_crosscheck.txt
+zoomgrid 3 64
+gadget_particle_type 0
+
+
+
+
+
+done
