@@ -25,6 +25,8 @@ namespace particle {
 
       GridPtrType pGrid;
 
+      unsigned int gadgetParticleType;
+
     protected:
 
       virtual void
@@ -37,6 +39,10 @@ namespace particle {
         pIterator->i -= increment;
       }
 
+      virtual unsigned int
+      gadgetParticleTypeFromIterator(const iterator *pIterator) const override {
+        return gadgetParticleType;
+      }
 
     public:
       virtual void debugInfo(std::ostream &s, int level = 0) const override {
@@ -51,11 +57,11 @@ namespace particle {
       }
 
       OneLevelParticleMapper(std::shared_ptr<grids::Grid<T>> &pGrid) : pGrid(pGrid) {
-
+        gadgetParticleType = 1;
       }
 
       OneLevelParticleMapper(std::shared_ptr<grids::Grid<T>> &&pGrid) : pGrid(pGrid) {
-
+        gadgetParticleType = 1;
       }
 
       size_t size() const override {
@@ -84,6 +90,24 @@ namespace particle {
 
       bool supportsReverseIterator() override {
         return true;
+      }
+
+      void setGadgetParticleType(unsigned int type) {
+        gadgetParticleType = type;
+      }
+
+      virtual iterator beginParticleType(const AbstractMultiLevelParticleGenerator<GridDataType> &generator,
+                                         unsigned int particleType) const {
+        if(gadgetParticleType==particleType) {
+          return this->begin(generator);
+        } else {
+          return this->end(generator);
+        }
+      }
+
+      virtual iterator endParticleType(const AbstractMultiLevelParticleGenerator<GridDataType> &generator,
+                                       unsigned int particleType) const {
+        return this->end(generator);
       }
 
       std::pair<MapPtrType, MapPtrType> addGas(T massRatio, const std::vector<GridPtrType> &toGrids) override {

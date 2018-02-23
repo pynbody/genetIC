@@ -58,6 +58,9 @@ void setup_parser(tools::ClassDispatch<ICf, void> &dispatch) {
   dispatch.add_class_route("pvar", &ICf::setpvarValue);
   dispatch.add_class_route("center_grafic_output", &ICf::setCenteringOnRegion);
 
+  // Gadget options
+  dispatch.add_class_route("gadget_particle_type", &ICf::setGadgetParticleType);
+
   // Define input files
   dispatch.add_class_route("mapper_relative_to", &ICf::setInputMapper);
   dispatch.add_class_route("camb", &ICf::setCambDat);

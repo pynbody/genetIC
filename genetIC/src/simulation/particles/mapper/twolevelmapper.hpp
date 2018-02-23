@@ -75,29 +75,84 @@ namespace particle {
 
     public:
 
-      virtual iterator begin(const AbstractMultiLevelParticleGenerator <GridDataType> &generator) const override {
-        if (zoomParticleArrayForL1mapper.size() == 0)
-          return this->end(generator);
+      virtual iterator endParticleType(const AbstractMultiLevelParticleGenerator <GridDataType> &generator,
+                                         unsigned int particleType) const override {
+        return iteratorFromSubiterators(pLevel1->endParticleType(generator, particleType),
+                                        pLevel2->endParticleType(generator, particleType));
+      }
 
-        iterator x(this, generator);
+      virtual iterator beginParticleType(const AbstractMultiLevelParticleGenerator <GridDataType> &generator,
+                                         unsigned int particleType) const override {
+        return iteratorFromSubiterators(pLevel1->beginParticleType(generator, particleType),
+                                        pLevel2->beginParticleType(generator, particleType));
+      }
+
+      virtual iterator begin(const AbstractMultiLevelParticleGenerator <GridDataType> &generator) const override {
+        return iteratorFromSubiterators(pLevel1->begin(generator), pLevel2->begin(generator));
+      }
+
+    protected:
+      iterator iteratorFromSubiterators(const iterator & l1Iterator, const iterator & l2Iterator) const  {
+        if (zoomParticleArrayForL1mapper.size() == 0)
+          return this->end(l1Iterator.generator);
+
+        iterator x(this, l1Iterator.generator);
         x.extraData.push_back(0); // current position in zoom ID list
         x.extraData.push_back(zoomParticleArrayForL1mapper[0]); // next entry in zoom ID list
 
         if (!skipLevel1)
-          x.subIterators.emplace_back(new iterator(pLevel1->begin(generator)));
+          x.subIterators.emplace_back(new iterator(l1Iterator));
         else
           x.subIterators.emplace_back(nullptr);
 
-        x.subIterators.emplace_back(new iterator(pLevel2->begin(generator)));
+        // recall level 2 is guaranteed to point to a one-level-particle mapper. Therefore either it is entirely
+        // included, or entirely excluded.
 
-        syncL2iterator(0, *(x.subIterators.back()));
+
+        x.subIterators.emplace_back(new iterator(l2Iterator));
+
+        if(l2Iterator!=pLevel2->end(l2Iterator.generator)) {
+          // TODO: is the following definitely needed?
+          adjustLevel2IteratorForNextZoomParticle(0, *(x.subIterators.back()));
+        }
+
+        if(!skipLevel1) {
+          // now we need to find the correct index for this iterator given where the level 1 iterator is
+          setIteratorIndexFromLevel1SubIterator(x);
+          moveLevel1SubIteratorPastZoomedParticles(x);
+        }
+
+        if(x.i>=firstLevel2Particle) {
+          if(l2Iterator==pLevel2->end(l2Iterator.generator))
+            x.i=size();
+        }
 
         return x;
       }
 
+      void setIteratorIndexFromLevel1SubIterator(iterator & x) const {
+        size_t targetLevel1Index = x.subIterators[0]->i;
+        if(targetLevel1Index==0)
+          return;
+        size_t numZoomParticlesPriorToTarget =
+          std::lower_bound(this->zoomParticleArrayForL1mapper.begin(), this->zoomParticleArrayForL1mapper.end(), targetLevel1Index)
+          - this->zoomParticleArrayForL1mapper.begin();
 
-      TwoLevelParticleMapper(MapPtrType &pLevel1,
-                             MapPtrType &pLevel2,
+        x.i = targetLevel1Index-numZoomParticlesPriorToTarget;
+
+        if(x.i<firstLevel2Particle) {
+          x.extraData[0] = numZoomParticlesPriorToTarget;
+        } else {
+          x.extraData[0] = 0;
+        }
+        x.extraData[1] = this->zoomParticleArrayForL1mapper[x.extraData[0]];
+      }
+
+    public:
+
+
+      TwoLevelParticleMapper(MapPtrType pLevel1,
+                             MapPtrType pLevel2,
                              const std::vector<size_t> &zoomParticlesOnLevel1Grid,
                              bool skipLevel1 = false) :
           pLevel1(pLevel1), pLevel2(pLevel2),
@@ -386,21 +441,7 @@ namespace particle {
 
     protected:
 
-      void syncL2iterator(const size_t &next_zoom, iterator &level2iterator) const {
-        if (next_zoom >= zoomParticleArrayHiresUnsorted.size()) {
-          // beyond end. This is OK because we need to be able to go one beyond the end in an iterator loop
-          assert(next_zoom == zoomParticleArrayHiresUnsorted.size());
-          return;
-        }
 
-        if (zoomParticleArrayHiresUnsorted[next_zoom] > level2iterator.i) {
-          level2iterator += zoomParticleArrayHiresUnsorted[next_zoom] - level2iterator.i;
-        } else {
-          level2iterator -= level2iterator.i - zoomParticleArrayHiresUnsorted[next_zoom];
-        }
-
-        assert(level2iterator.i == zoomParticleArrayHiresUnsorted[next_zoom]);
-      }
 
       void debugInfoForIterator(std::ostream &s, int n, const iterator *pIterator) const override {
         tools::indent(s, n);
@@ -443,37 +484,70 @@ namespace particle {
         if (i >= firstLevel2Particle) {
           // do zoom particles
 
-          if (i == firstLevel2Particle)
+          if (i == firstLevel2Particle) {
             next_zoom = 0;
-          else
+            // if the level 2 iterator points to the end, it means we are to skip it
+            if(level2iterator==this->pLevel2->end(pIterator->generator)) {
+              i = this->size();
+              return;
+            }
+          } else {
             ++next_zoom;
+          }
 
-          syncL2iterator(next_zoom, level2iterator);
+          adjustLevel2IteratorForNextZoomParticle(next_zoom, level2iterator);
 
 
         } else {
 
           ++level1iterator;
 
-          while (level1iterator.i == next_zoom_index) {
-            // we DON'T want to return this particle.... it will be 'zoomed'
-            // later on... ignore it
-            ++level1iterator;
-
-            // load the next zoom particle
-            ++next_zoom;
-            if (next_zoom < zoomParticleArrayForL1mapper.size())
-              next_zoom_index = zoomParticleArrayForL1mapper[next_zoom];
-            else
-              next_zoom_index = size() + 1; // i.e. there isn't a next zoom index!
-
-            // N.B. now it's possible we our 'next' particle is also to be zoomed on,
-            // so the while loop goes back round to account for this
-          }
+          moveLevel1SubIteratorPastZoomedParticles(*pIterator);
 
 
         }
 
+      }
+
+
+
+      // Low-level iterator synchronization methods:
+
+      void adjustLevel2IteratorForNextZoomParticle(const size_t &next_zoom, iterator &level2iterator) const {
+        if (next_zoom >= zoomParticleArrayHiresUnsorted.size()) {
+          // beyond end. This is OK because we need to be able to go one beyond the end in an iterator loop
+          assert(next_zoom == zoomParticleArrayHiresUnsorted.size());
+          return;
+        }
+
+        if (zoomParticleArrayHiresUnsorted[next_zoom] > level2iterator.i) {
+          level2iterator += zoomParticleArrayHiresUnsorted[next_zoom] - level2iterator.i;
+        } else {
+          level2iterator -= level2iterator.i - zoomParticleArrayHiresUnsorted[next_zoom];
+        }
+
+        assert(level2iterator.i == zoomParticleArrayHiresUnsorted[next_zoom]);
+      }
+
+      void moveLevel1SubIteratorPastZoomedParticles(iterator &forIterator) const {
+        iterator &level1iterator = *(forIterator.subIterators[0]);
+        size_t &next_zoom = forIterator.extraData[0];
+        size_t &next_zoom_index = forIterator.extraData[1];
+        while (level1iterator.i == next_zoom_index) {
+          // we DON'T want to return this particle.... it will be 'zoomed'
+          // later on... ignore it
+          ++level1iterator;
+
+          // load the next zoom particle
+          ++next_zoom;
+          if (next_zoom < zoomParticleArrayForL1mapper.size())
+            next_zoom_index = zoomParticleArrayForL1mapper[next_zoom];
+          else
+            next_zoom_index = size() + 1; // i.e. there isn't a next zoom index!
+
+          // N.B. now it's possible we our 'next' particle is also to be zoomed on,
+          // so the while loop goes back round to account for this
+        }
       }
 
 
@@ -491,6 +565,7 @@ namespace particle {
         else
           pIterator->subIterators[0]->deReference(gp, i);
       }
+
 
       void calculateHiresParticleList() const {
         zoomParticleArrayHiresUnsorted.resize(zoomParticleArrayForL1mapper.size() * n_hr_per_lr);

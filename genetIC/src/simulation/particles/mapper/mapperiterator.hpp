@@ -164,6 +164,9 @@ namespace particle {
         return (*evaluator)[grid_index];
       }
 
+      size_t getIndex() {
+        return i;
+      }
 
       size_t getNextNParticles(std::vector<Particle<T>> &particles) {
         size_t n = 1024 * 256;
