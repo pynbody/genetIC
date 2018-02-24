@@ -1,4 +1,4 @@
-# Test zooming
+# Test zooming using a gadget mass block (variable mass particle type)
 
 
 # output parameters

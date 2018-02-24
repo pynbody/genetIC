@@ -1,4 +1,4 @@
-# Test zooming
+# Test zooming using different gadget particle types for the levels
 
 
 # output parameters

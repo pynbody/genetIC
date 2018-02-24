@@ -68,6 +68,10 @@ protected:
   //! Gadget particle types to be generated on each level (default 1)
   std::vector<unsigned int> gadgetTypesForLevels;
 
+  //! If true, at output time assign a different gadget particle type to the flagged particles on the finest known level
+  bool flaggedParticlesHaveDifferentGadgetType;
+  unsigned int flaggedGadgetParticleType;
+
   //! DM supersampling to perform on zoom grid
   int supersample;
 
@@ -137,6 +141,8 @@ public:
     exactPowerSpectrum = false;
     allowStrayParticles = false;
     pParticleGenerator = std::make_shared<particle::NullMultiLevelParticleGenerator<GridDataType>>();
+    flaggedParticlesHaveDifferentGadgetType = false;
+    flaggedGadgetParticleType = 1;
   }
 
   ~ICGenerator() {
@@ -418,6 +424,16 @@ public:
     this->updateParticleMapper();
   }
 
+  //! Request that particles on the finest level are additionally split in gadget output such that
+  //! flagged particles have a different particle type
+  void setFlaggedGadgetParticleType(unsigned int type) {
+    if(type>=6)
+      throw(std::runtime_error("Gadget particle type must be between 0 and 5"));
+    flaggedParticlesHaveDifferentGadgetType = true;
+    flaggedGadgetParticleType = type;
+    this->updateParticleMapper();
+  }
+
   //! Reverses the order of draws between real and imaginary part of complex numbers
   /*!
    * Provided for compatibility problems as different compilers handle the draw order differently
@@ -645,6 +661,18 @@ public:
         pMapper = std::shared_ptr<particle::mapper::ParticleMapper<GridDataType>>(
             new particle::mapper::TwoLevelParticleMapper<GridDataType>(pMapper, pFine, zoomParticleArray[level - 1]));
       }
+    }
+
+    if(flaggedParticlesHaveDifferentGadgetType) {
+      auto pFlagged = std::shared_ptr<particle::mapper::OneLevelParticleMapper<GridDataType>>(
+        new particle::mapper::OneLevelParticleMapper<GridDataType>(getOutputGrid(nLevels-1)));
+
+      pFlagged->setGadgetParticleType(flaggedGadgetParticleType);
+
+      vector<size_t> flaggedPtcls;
+      pMapper->getFlaggedParticles(flaggedPtcls);
+      pMapper = std::shared_ptr<particle::mapper::ParticleMapper<GridDataType>>(
+        new particle::mapper::TwoLevelParticleMapper<GridDataType>(pMapper, pFlagged, flaggedPtcls ));
     }
 
     if (cosmology.OmegaBaryons0 > 0) {

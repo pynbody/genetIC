@@ -60,6 +60,7 @@ void setup_parser(tools::ClassDispatch<ICf, void> &dispatch) {
 
   // Gadget options
   dispatch.add_class_route("gadget_particle_type", &ICf::setGadgetParticleType);
+  dispatch.add_class_route("gadget_flagged_particle_type", &ICf::setFlaggedGadgetParticleType);
 
   // Define input files
   dispatch.add_class_route("mapper_relative_to", &ICf::setInputMapper);
