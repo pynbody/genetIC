@@ -50,6 +50,8 @@ namespace particle {
 
     public:
 
+
+
       bool references(GridPtrType grid) const override {
         return firstMap->references(grid) || secondMap->references(grid);
       }
@@ -95,6 +97,16 @@ namespace particle {
           nSecond(pSecond->size()) {
         assert(pFirst->size_gas() == 0);
         assert(pSecond->size_gas() == 0);
+        for(unsigned int particleType=0; particleType<6; ++particleType) {
+          // All particle types must be the default (1), as we will now override them for our own purposes
+          if(particleType!=1) {
+            NullMultiLevelParticleGenerator<GridDataType> g;
+            if(pFirst->beginParticleType(g,particleType)!=pFirst->endParticleType(g,particleType) ||
+              pSecond->beginParticleType(g,particleType)!=pSecond->endParticleType(g,particleType)) {
+              throw std::runtime_error("Cannot currently combine custom gadget particle type numbers with gas");
+            }
+          }
+        }
       };
 
 
@@ -144,6 +156,28 @@ namespace particle {
           firstMap->getFlaggedParticles(particleArray);
         }
       }
+
+      virtual iterator beginParticleType(const AbstractMultiLevelParticleGenerator <GridDataType> &generator,
+                                         unsigned int particleType) const override {
+        if(particleType==0)
+          return beginGas(generator);
+        else if(particleType==1)
+          return beginDm(generator);
+        else
+          return endDm(generator);
+      }
+
+
+      virtual iterator endParticleType(const AbstractMultiLevelParticleGenerator <GridDataType> &generator,
+                                       unsigned int particleType) const override {
+        if(particleType==0)
+          return endGas(generator);
+        else if(particleType==1)
+          return endDm(generator);
+        else
+          return endDm(generator);
+      }
+
 
       virtual iterator begin(const AbstractMultiLevelParticleGenerator <GridDataType> &generator) const override {
         iterator i(this, generator);
