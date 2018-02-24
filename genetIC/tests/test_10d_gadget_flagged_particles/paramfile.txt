@@ -1,0 +1,23 @@
+# Test outputting flagged particles as a different gadget particle type
+
+Om  0.279
+Ol  0.721
+#Ob  0.04
+s8  0.817
+zin	99
+
+seed	8896131
+camb	../camb_transfer_kmax40_z0.dat
+
+outname test_10d_gadget_flagged_particles
+outdir	 ./
+outformat 3
+
+
+basegrid 50.0 64
+
+idfile zoomtest.txt
+gadget_flagged_particle_type 0
+
+
+done
