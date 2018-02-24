@@ -570,9 +570,6 @@ int save_phases(complex<FloatType> *phk, FloatType* ph, complex<FloatType> *delt
       vector<long> npart(6,0);
       size_t nTotal(0);
 
-      if(mapper.beginGas(generator)!=mapper.endGas(generator))
-        throw std::runtime_error("Gadget output is not able to handle gas at present. You can however specify particle types for a given grid using the command gadget_particle_type.");
-
       cerr << "Gadget output preliminary scan..." << endl;
 
       for(unsigned int ptype=0; ptype<6; ++ptype) {
