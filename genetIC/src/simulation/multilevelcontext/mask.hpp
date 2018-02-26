@@ -27,7 +27,7 @@ namespace multilevelcontext {
 
   };
 
-  //! Extend the concept of mask for grafic outputs. The masks must be carried through the entire grafic hierarchy, incuding virtual intermediate grids.
+  //! Extend the concept of mask for grafic outputs. The masks must be carried through the entire grafic hierarchy, including virtual intermediate grids.
   //! Useful for generating ic_refmap/ic_pvar files for RAMSES for example
   template<typename DataType, typename T=tools::datatypes::strip_complex <DataType>>
   class GraficMask: public AbstractBaseMask<DataType, T> {
@@ -59,7 +59,7 @@ namespace multilevelcontext {
     }
 
     void calculateMask() override{
-      mapInputMaskIntoOutputMask();
+      identifyLevelsOfInputMask();
       generateFlagsHierarchy();
       ensureFlaggedVolumeIsContinuous();
     }
@@ -70,8 +70,8 @@ namespace multilevelcontext {
 
 
   protected:
-    //! Input mask will contain flags but we can't know to which level they belong on the new grafic context.
-    void mapInputMaskIntoOutputMask() {
+    //! Information in the input mask needs to be matched to a full Grafic hierarchy, potentially with virtual intermediate levels.
+    void identifyLevelsOfInputMask() {
       size_t input_level=0;
 
       for (size_t level = 0; level < this->multilevelcontext->getNumLevels() - 1; level++) {
