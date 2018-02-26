@@ -23,7 +23,7 @@ basegrid 64.0 32
 zerolevel 0
 
 # select a single cell to apply the constraint to
-centre 32.5 32.5 32.5
+centre 31 31 31
 select_nearest
 
 # output text file to check we targeted the correct cell
@@ -39,7 +39,7 @@ apply_modifications
 # Clear the modification list
 clear_modifications
 
-centre 36.5 32.5 32.5
+centre 35 31 31
 select_nearest
 modify overdensity absolute -1.0
 

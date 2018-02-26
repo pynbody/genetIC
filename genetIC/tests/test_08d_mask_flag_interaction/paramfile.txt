@@ -1,0 +1,30 @@
+# Test that we can reflag cells without losing mask information
+
+
+# output parameters
+outdir	 ./
+outformat 5
+outname test_8
+center_grafic_output
+
+
+# cosmology:
+Om  0.279
+Ol  0.721
+s8  0.817
+zin	99
+camb    ../camb_transfer_kmax40_z0_post2015.dat
+
+# fourier seeding
+seed	8896131
+
+basegrid 64.0 64
+
+idfile lagrange.txt
+zoomgrid 4 64
+
+select_sphere 5
+
+done
+
+dump_mask
