@@ -15,6 +15,14 @@ namespace io {
       float omegaM, omegaL, h0;
     } header_grafic;
 
+    //! Export initial conditions in grafIC format, most likely for use with RAMSES.
+    /**
+     * WARNING: Grafic as described in Bertschinger 2001 uses "Mpc a" for header lengths and displacements, and
+       "proper km s**-1" for velocities.
+       However, RAMSES expects "Mpc a" for header, "Mpc a h^-1" for displacements and "proper km s**-1" for velocities,
+       hence the need for the following three conversion factors.
+       Beware of these units if using the displacements for other purposes than Ramses.
+     */
     template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
     class GraficOutput {
     protected:
@@ -22,10 +30,11 @@ namespace io {
       multilevelcontext::MultiLevelContextInformation<DataType> context;
       std::shared_ptr<particle::AbstractMultiLevelParticleGenerator<DataType>> generator;
       const cosmology::CosmologicalParameters<T> &cosmology;
-      multilevelcontext::Mask<DataType,T> mask;
+      multilevelcontext::GraficMask<DataType,T>* mask;
       T pvarValue;
 
-      T lengthFactor;
+      T lengthFactorHeader;
+      T lengthFactorDisplacements;
       T velFactor;
       size_t iordOffset;
 
@@ -36,16 +45,19 @@ namespace io {
                    const cosmology::CosmologicalParameters<T> &cosmology,
                     const T pvarValue,
                    Coordinate<T> center,
-                   size_t extralowRes) :
-
+                   size_t extralowRes,
+                   std::vector<std::vector<size_t>>& input_mask) :
           outputFilename(fname),
           generator(particleGenerator.shared_from_this()),
           cosmology(cosmology),
-          mask(&levelContext),
           pvarValue(pvarValue){
         levelContext.copyContextWithCenteredIntermediate(context, center, 2, extralowRes);
-        mask.recalculateWithNewContext(&context);
-        lengthFactor = 1. / cosmology.hubble; // Gadget Mpc a h^-1 -> GrafIC file Mpc a
+
+        mask = new multilevelcontext::GraficMask<DataType,T>(&context, input_mask);
+        mask->calculateMask();
+
+        lengthFactorHeader = 1. / cosmology.hubble; // Gadget Mpc a h^-1 -> GrafIC file Mpc a
+        lengthFactorDisplacements = 1.;
         velFactor = std::pow(cosmology.scalefactor, 0.5f); // Gadget km s^-1 a^1/2 -> GrafIC km s^-1
       }
 
@@ -103,11 +115,11 @@ namespace io {
               auto particle = evaluator->getParticleNoOffset(i);
 
               Coordinate<float> velScaled(particle.vel * velFactor);
-              Coordinate<float> posScaled(particle.pos * lengthFactor);
+              Coordinate<float> posScaled(particle.pos * lengthFactorDisplacements);
 
               // TODO For now, the baryon density is not calculated and set to zero
               float deltab = 0;
-              float mask = this->mask.isInMask(level, i);
+              float mask = this->mask->isInMask(level, i);
               float pvar = pvarValue * mask;
 
               // Eek. The following code is horrible. Is there a way to make it neater?
@@ -147,10 +159,10 @@ namespace io {
       io_header_grafic getHeaderForGrid(const grids::Grid<T> &targetGrid) const {
         io_header_grafic header;
         header.nx = header.ny = header.nz = targetGrid.size;
-        header.dx = targetGrid.cellSize * lengthFactor;
-        header.xOffset = targetGrid.offsetLower.x * lengthFactor;
-        header.yOffset = targetGrid.offsetLower.y * lengthFactor;
-        header.zOffset = targetGrid.offsetLower.z * lengthFactor;
+        header.dx = targetGrid.cellSize * lengthFactorHeader;
+        header.xOffset = targetGrid.offsetLower.x * lengthFactorHeader;
+        header.yOffset = targetGrid.offsetLower.y * lengthFactorHeader;
+        header.zOffset = targetGrid.offsetLower.z * lengthFactorHeader;
         header.scalefactor = cosmology.scalefactor;
         header.omegaM = cosmology.OmegaM0;
         header.omegaL = cosmology.OmegaLambda0;
@@ -165,9 +177,9 @@ namespace io {
               particle::AbstractMultiLevelParticleGenerator<DataType> &generator,
               multilevelcontext::MultiLevelContextInformation<DataType> &context,
               const cosmology::CosmologicalParameters<T> &cosmology,
-              const T pvarValue, Coordinate<T> center, size_t extraLowRes) {
+              const T pvarValue, Coordinate<T> center, size_t extraLowRes, std::vector<std::vector<size_t>>& input_mask) {
       GraficOutput<DataType> output(filename, context,
-                                    generator, cosmology, pvarValue, center, extraLowRes);
+                                    generator, cosmology, pvarValue, center, extraLowRes, input_mask);
       output.write();
     }
 

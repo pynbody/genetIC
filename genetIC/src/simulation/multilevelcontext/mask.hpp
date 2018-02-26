@@ -27,14 +27,20 @@ namespace multilevelcontext {
 
   };
 
-  //! Generate masks based on cells that have been flagged at each level.
+  //! Extend the concept of mask for grafic outputs. The masks must be carried through the entire grafic hierarchy, including virtual intermediate grids.
   //! Useful for generating ic_refmap/ic_pvar files for RAMSES for example
   template<typename DataType, typename T=tools::datatypes::strip_complex <DataType>>
-  class Mask: public AbstractBaseMask<DataType, T> {
+  class GraficMask: public AbstractBaseMask<DataType, T> {
+
+  private:
+    const std::vector<std::vector<size_t>> &inputzoomParticlesAsMask;
+    int deepestLevelWithMaskedCells=-1;
 
   public:
-    explicit Mask(MultiLevelContextInformation<DataType>* multilevelcontext_):
-        AbstractBaseMask<DataType, T> (multilevelcontext_){};
+    explicit GraficMask(MultiLevelContextInformation<DataType>* multilevelcontext_, std::vector<std::vector<size_t>> &input_mask):
+        AbstractBaseMask<DataType, T> (multilevelcontext_), inputzoomParticlesAsMask(input_mask){
+      assert(inputzoomParticlesAsMask.size() <= this->flaggedIdsAtEachLevel.size());
+    };
 
     /*!
      * @return 1.0 if cell with index is in the mask in this level, 0.0 else.
@@ -53,6 +59,7 @@ namespace multilevelcontext {
     }
 
     void calculateMask() override{
+      identifyLevelsOfInputMask();
       generateFlagsHierarchy();
       ensureFlaggedVolumeIsContinuous();
     }
@@ -61,48 +68,62 @@ namespace multilevelcontext {
       //TODO Add Lagrangian volume definition if it bothers you
     }
 
-    void recalculateWithNewContext(MultiLevelContextInformation<DataType>* multilevelcontext_){
-      this->multilevelcontext = multilevelcontext_;
-      this->flaggedIdsAtEachLevel.clear();
-      this->flaggedIdsAtEachLevel = std::vector<std::vector<size_t>>(this->multilevelcontext->getNumLevels());
-
-      calculateMask();
-    }
 
   protected:
+    //! Information in the input mask needs to be matched to a full Grafic hierarchy, potentially with virtual intermediate levels.
+    void identifyLevelsOfInputMask() {
+      size_t input_level=0;
+
+      for (size_t level = 0; level < this->multilevelcontext->getNumLevels() - 1; level++) {
+        for (size_t i = 0; i < this->multilevelcontext->getGridForLevel(level).size3; i++) {
+
+          // Terminate calculation if all possible input masks have been found
+          if(input_level >= this->inputzoomParticlesAsMask.size()){
+            return;
+          }
+
+          // As soon as one cell id matches, we have identified the level, so assign it.
+          if (this->isPartofInputMask(i, input_level)) {
+
+            assert(input_level < this->inputzoomParticlesAsMask.size());
+            assert(int(level)>= this->deepestLevelWithMaskedCells);
+
+            this->flaggedIdsAtEachLevel[level] = this->inputzoomParticlesAsMask[input_level];
+            this->deepestLevelWithMaskedCells = int(level);
+            input_level++;
+            break;
+          }
+        }
+      }
+    }
+
     //! Calculates the flagged cells on all levels
     /*!
      * For each level, imports the flagged cells of the level if there are any. If not, e.g.
      * for virtual grids, downgrades the higher resolution mask on the virtual grid.
      */
     void generateFlagsHierarchy() override {
-      size_t deepestFlaggedLevel;
 
-      try {
-        deepestFlaggedLevel = this->multilevelcontext->deepestLevelwithFlaggedCells();
-      } catch (std::runtime_error& e){
-        std::cerr << "WARNING No flagged particles were found on any level. Mask generation aborted" <<std::endl;
+      if(this->deepestLevelWithMaskedCells<0){
+        std::cerr << "WARNING No zoom regions were ever opened. Grafic mask will not be generated in this case" <<std::endl;
         return;
       }
 
-      generateHierarchyAboveLevelInclusive(deepestFlaggedLevel);
-      generateHierarchyBelowLevelExclusive(deepestFlaggedLevel);
+      generateHierarchyAboveLevelInclusive(this->deepestLevelWithMaskedCells);
+      generateHierarchyBelowLevelExclusive(this->deepestLevelWithMaskedCells);
     }
 
-    void generateHierarchyAboveLevelInclusive(size_t deepestLevel){
+    void generateHierarchyAboveLevelInclusive(int deepestLevel){
       for (int level = deepestLevel; level >= 0; level--) {
 
-        if (this->multilevelcontext->getGridForLevel(level).hasFlaggedCells()) {
-          this->multilevelcontext->getGridForLevel(level).getFlaggedCells(this->flaggedIdsAtEachLevel[level]);
-
-        } else {
-          // Generate flags on intermediate levels that might not have some
-          for (size_t i : this->flaggedIdsAtEachLevel[level + 1]) {
-            this->flaggedIdsAtEachLevel[level].push_back(
-                this->multilevelcontext->getIndexOfCellOnOtherLevel(level + 1, level, i));
-          }
-          // The above procedure might not be ordered and will create duplicates, get rid of them.
-          sortAndEraseDuplicate(level);
+        if (this->flaggedIdsAtEachLevel[level].size() == 0) {
+        // Generate flags on intermediate levels that will not have some
+        for (size_t i : this->flaggedIdsAtEachLevel[level + 1]) {
+          this->flaggedIdsAtEachLevel[level].push_back(
+              this->multilevelcontext->getIndexOfCellOnOtherLevel(level + 1, level, i));
+        }
+        // The above procedure might not be ordered and will create duplicates, get rid of them.
+        sortAndEraseDuplicate(level);
         }
       }
     }
@@ -128,6 +149,11 @@ namespace multilevelcontext {
     bool isMasked(size_t id, size_t level){
       return std::binary_search(this->flaggedIdsAtEachLevel[level].begin(),
                                 this->flaggedIdsAtEachLevel[level].end(), id);
+    }
+
+    bool isPartofInputMask(size_t id, size_t level){
+      return std::binary_search(this->inputzoomParticlesAsMask[level].begin(),
+                                this->inputzoomParticlesAsMask[level].end(), id);
     }
 
   public:
