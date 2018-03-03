@@ -10,6 +10,8 @@ namespace io {
     using std::endl;
     using std::vector;
 
+
+
     template<typename GridDataType, typename FloatType=tools::datatypes::strip_complex<GridDataType>>
     void getParticleInfo(const particle::AbstractMultiLevelParticleGenerator<GridDataType> &generator,
                          particle::mapper::ParticleMapper<GridDataType> &mapper,
@@ -21,14 +23,13 @@ namespace io {
       num = 0;
 
       FloatType mass;
-      for (auto i = mapper.beginParticleType(generator, particle_type); i != mapper.endParticleType(generator, particle_type); ++i) {
-        // progress("Pre-write scan file",iord, totlen);
+      mapper.iterateParticlesOfType(generator, particle_type, [&](const auto & i) {
         mass = i.getMass(); // sometimes can be MUCH faster than getParticle
         if (min_mass > mass) min_mass = mass;
         if (max_mass < mass) max_mass = mass;
         num++;
-      }
-
+      });
+      
     }
 
     size_t my_fwrite(void *ptr, size_t size, size_t nmemb, FILE *stream) //stolen from Gadget
@@ -634,20 +635,18 @@ int save_phases(complex<FloatType> *phk, FloatType* ph, complex<FloatType> *delt
       size_t ntotthis=0;
 
       // positions
-      for(unsigned int pType=0; pType<6; ++pType) {
+      mapper.iterateParticlesOfAllTypes(generator, [&](const auto & i) {
+        auto particle = i.getParticle();
 
-        for (auto i = mapper.beginParticleType(generator, pType); i != mapper.endParticleType(generator, pType); ++i) {
-          auto particle = i.getParticle();
+        output_cache = particle.pos.x;
+        my_fwrite(&output_cache, sizeof(output_cache), 1, fd);
+        output_cache = particle.pos.y;
+        my_fwrite(&output_cache, sizeof(output_cache), 1, fd);
+        output_cache = particle.pos.z;
+        my_fwrite(&output_cache, sizeof(output_cache), 1, fd);
+        ntotthis++;
+      });
 
-          output_cache = particle.pos.x;
-          my_fwrite(&output_cache, sizeof(output_cache), 1, fd);
-          output_cache = particle.pos.y;
-          my_fwrite(&output_cache, sizeof(output_cache), 1, fd);
-          output_cache = particle.pos.z;
-          my_fwrite(&output_cache, sizeof(output_cache), 1, fd);
-          ntotthis++;
-        }
-      }
       assert(ntotthis==nTotal);
 
       my_fwrite(&fortranFieldSize, sizeof(fortranFieldSize), 1, fd); //end of position block
@@ -655,19 +654,17 @@ int save_phases(complex<FloatType> *phk, FloatType* ph, complex<FloatType> *delt
       // velocities
       my_fwrite(&fortranFieldSize, sizeof(fortranFieldSize), 1, fd); //beginning of velocity block
 
-      for(unsigned int pType=0; pType<6; ++pType) {
-        for (auto i = mapper.beginParticleType(generator, pType); i != mapper.endParticleType(generator, pType); ++i) {
-          auto particle = i.getParticle();
+      mapper.iterateParticlesOfAllTypes(generator, [&](const auto & i) {
+        auto particle = i.getParticle();
 
-          output_cache = particle.vel.x;
-          my_fwrite(&output_cache, sizeof(output_cache), 1, fd);
-          output_cache = particle.vel.y;
-          my_fwrite(&output_cache, sizeof(output_cache), 1, fd);
-          output_cache = particle.vel.z;
-          my_fwrite(&output_cache, sizeof(output_cache), 1, fd);
-
-        }
-      }
+        output_cache = particle.vel.x;
+        my_fwrite(&output_cache, sizeof(output_cache), 1, fd);
+        output_cache = particle.vel.y;
+        my_fwrite(&output_cache, sizeof(output_cache), 1, fd);
+        output_cache = particle.vel.z;
+        my_fwrite(&output_cache, sizeof(output_cache), 1, fd);
+        ntotthis++;
+      });
       my_fwrite(&fortranFieldSize, sizeof(fortranFieldSize), 1, fd); //end of velocity block
 
       //particle IDs (one for each gas, high res and low res particle)
@@ -676,24 +673,20 @@ int save_phases(complex<FloatType> *phk, FloatType* ph, complex<FloatType> *delt
 
       my_fwrite(&fortranFieldSize, sizeof(fortranFieldSize), 1, fd);
 
+      mapper.iterateParticlesOfAllTypes(generator, [&](const auto & i) {
+        long index = long(i.getIndex());
+        my_fwrite(&index, sizeof(long), 1, fd);
+      });
 
-      for(unsigned int pType=0; pType<6; ++pType) {
-        for (auto i = mapper.beginParticleType(generator, pType); i != mapper.endParticleType(generator, pType); ++i) {
-          long index = long(i.getIndex());
-          my_fwrite(&index, sizeof(long), 1, fd);
-        }
-      }
       my_fwrite(&fortranFieldSize, sizeof(fortranFieldSize), 1, fd);
 
       if(variableMass) {
         fortranFieldSize = sizeof(output_cache) * nTotal;
         my_fwrite(&fortranFieldSize, sizeof(fortranFieldSize), 1, fd);
-        for(unsigned int pType=0; pType<6; ++pType) {
-          for (auto i = mapper.beginParticleType(generator, pType); i != mapper.endParticleType(generator, pType); ++i) {
-            output_cache = i.getMass();
-            my_fwrite(&output_cache, sizeof(output_cache), 1, fd);
-          }
-        }
+        mapper.iterateParticlesOfAllTypes(generator, [&](const auto & i) {
+          output_cache = i.getMass();
+          my_fwrite(&output_cache, sizeof(output_cache), 1, fd);
+        });
         my_fwrite(&fortranFieldSize, sizeof(fortranFieldSize), 1, fd);
       }
 
