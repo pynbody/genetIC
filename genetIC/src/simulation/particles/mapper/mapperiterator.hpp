@@ -164,7 +164,7 @@ namespace particle {
         return (*evaluator)[grid_index];
       }
 
-      size_t getIndex() {
+      size_t getIndex() const {
         return i;
       }
 
@@ -231,7 +231,7 @@ namespace particle {
 
     public:
 
-      T getMass() {
+      T getMass() const {
         ConstGridPtrType pGrid;
         size_t id;
         deReference(pGrid, id);

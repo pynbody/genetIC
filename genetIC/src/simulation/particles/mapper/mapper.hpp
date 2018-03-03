@@ -193,16 +193,44 @@ namespace particle {
         return x;
       }
 
+      /** Get an iterator for the first particle of the specified gadget type.
+       *
+       * Can be expensive; you're recommended to instead use iterateParticlesOfType */
       virtual iterator beginParticleType(const AbstractMultiLevelParticleGenerator<GridDataType> &generator,
                                          unsigned int particleType) const {
         throw std::runtime_error("There is no gadget particle type associated with this particle mapper");
 
       }
 
+      /** Get an iterator for the last particle of the specified gadget type.
+       *
+       * Can be expensive; you're recommended to instead use iterateParticlesOfType */
       virtual iterator endParticleType(const AbstractMultiLevelParticleGenerator<GridDataType> &generator,
                                          unsigned int particleType) const {
         throw std::runtime_error("There is no gadget particle type associated with this particle mapper");
 
+      }
+
+      /** Iterate over all particles of a specified gadget type. **/
+      void iterateParticlesOfType(
+          const particle::AbstractMultiLevelParticleGenerator<GridDataType> &generator,
+          unsigned int particle_type,
+          const std::function<void(const iterator &)> &callback) const {
+        auto begin = beginParticleType(generator, particle_type);
+        auto end = endParticleType(generator, particle_type);
+        for(auto i=begin; i!=end; ++i) {
+          callback(i);
+        }
+      }
+
+      /** Iterate over all particles in order of the gadget particle types
+       * (which may not be the same as the genetIC mapper order)
+       * **/
+      void iterateParticlesOfAllTypes(const particle::AbstractMultiLevelParticleGenerator<GridDataType> &generator,
+                                      const std::function<void(const iterator &)> &callback) const {
+        for(unsigned int particle_type=0; particle_type<6; particle_type++) {
+          iterateParticlesOfType(generator, particle_type, callback);
+        }
       }
 
       virtual iterator beginDm(const AbstractMultiLevelParticleGenerator<GridDataType> &generator) const {
