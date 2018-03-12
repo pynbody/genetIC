@@ -1,0 +1,28 @@
+# Test that the particle mapper works for files with different gadget particle types
+# This causes a re-organisation in the ordering, and this test ensures the round trip
+# correctly returns the input particles.
+
+Om	         0.3156
+Ol	         0.6844
+s8	         0.831
+ns	         0.9645
+hubble	     0.6727
+zin	         99
+
+seedfourier_reverse	 1701
+camb     	../camb_transfer_kmax40_z0.dat
+outdir	    ./
+
+basegrid 33.885 64
+
+outname     pioneer50.512.h75
+
+
+outformat 3
+
+mapper_relative_to paramfile_flagged_ptype.txt
+idfile id_flagged.txt
+
+dump_idfile output.txt
+
+done
