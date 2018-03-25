@@ -13,8 +13,14 @@ def compare(f1,f2) :
     npt.assert_almost_equal(f1['mass'],f2['mass'],decimal=6)
     if 'eps' in f1.loadable_keys():
         npt.assert_almost_equal(f1['eps'],f2['eps'],decimal=6)
-    npt.assert_almost_equal(f1['vel'],f2['vel'],decimal=5)
-    npt.assert_almost_equal(f1['pos'],f2['pos'],decimal=5)
+
+    if f1['vel'].dtype==np.float64:
+        compare_decimal = 5
+    else:
+        compare_decimal = 4
+
+    npt.assert_almost_equal(f1['vel'],f2['vel'],decimal=compare_decimal)
+    npt.assert_almost_equal(f1['pos'],f2['pos'],decimal=compare_decimal)
     print("Particle output matches")
     if 'overdensity' in f1.loadable_keys():
         npt.assert_almost_equal(f1['overdensity'],f2['overdensity'],decimal=5)
