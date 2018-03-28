@@ -220,8 +220,8 @@ namespace multilevelcontext {
        * @param newStack     the MultiLevelContextInformation into which the new stack will be placed. Any
        *                     existing grids in the stack will be removed.
        * @param base_factor  grids will be downgraded by factors of base_factor^N where N is an integer
-       * @param extra_lores  number of additional grids *below* the base level to add
-       * @param extra_highes  number of additional grids ** the base level to add
+       * @param extra_lores  number of additional grids *above* the base level to add
+       * @param extra_highes  number of additional grids *below* the finest level to add
       */
       newStack.clear();
 
@@ -229,7 +229,7 @@ namespace multilevelcontext {
       // First intermediate resolution
       //Second Low res subsample stuffed from the base level
       // Third High res supersampled stuff from the finest level
-      for (size_t level = 0; level < nLevels + extra_highres; ++level) {
+      for (size_t level = 0; level < nLevels; ++level) {
         size_t neff = size_t(round(pGrid[0]->cellSize / pGrid[level]->cellSize)) * pGrid[0]->size;
         if (level > 0) {
           size_t factor = base_factor;
@@ -239,7 +239,7 @@ namespace multilevelcontext {
             newStack.addLevel(nullptr, vGrid);
             factor *= base_factor;
           }
-        } else if  (level < nLevels){
+        } else {
           size_t factor = base_factor;
           for (size_t i = 0; i < extra_lores; ++i) {
             std::cerr << "Adding virtual grid with effective resolution " << neff / factor << std::endl;
@@ -247,14 +247,21 @@ namespace multilevelcontext {
             newStack.addLevel(nullptr, vGrid);
             factor *= base_factor;
           }
-
-          else {
-
-          }
         }
 
         std::cerr << "Adding real grid with resolution " << neff << std::endl;
         newStack.addLevel(C0s[level], pGrid[level]);
+      }
+
+      size_t factor = base_factor;
+      for (size_t i = 0; i < extra_highres; ++i) {
+        size_t level = nLevels - 1;
+        size_t neff = size_t(round(pGrid[0]->cellSize / pGrid[level]->cellSize)) * pGrid[0]->size;
+        std::cerr << "Adding virtual grid with effective resolution " << neff * factor << std::endl;
+        auto vGrid = std::make_shared<grids::SuperSampleGrid<T>>(pGrid[level], factor);
+        newStack.addLevel(nullptr, vGrid);
+        factor *= base_factor;
+
       }
 
     }

@@ -57,8 +57,8 @@ void setup_parser(tools::ClassDispatch<ICf, void> &dispatch) {
   // Grafic options
   dispatch.add_class_route("pvar", &ICf::setpvarValue);
   dispatch.add_class_route("center_grafic_output", &ICf::setCenteringOnRegion);
-    dispatch.add_class_route("extra_low_res", &ICf::setNumberOfExtraLowResGrids);
-    dispatch.add_class_route("extra_high_res", &ICf::setNumberOfExtraLHighResGrids);
+  dispatch.add_class_route("extra_low_res", &ICf::setNumberOfExtraLowResGrids);
+  dispatch.add_class_route("extra_high_res", &ICf::setNumberOfExtraHighResGrids);
 
   // Define input files
   dispatch.add_class_route("mapper_relative_to", &ICf::setInputMapper);
