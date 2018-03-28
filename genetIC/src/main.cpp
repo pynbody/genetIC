@@ -57,8 +57,8 @@ void setup_parser(tools::ClassDispatch<ICf, void> &dispatch) {
   // Grafic options
   dispatch.add_class_route("pvar", &ICf::setpvarValue);
   dispatch.add_class_route("center_grafic_output", &ICf::setCenteringOnRegion);
-    dispatch.add_class_route("extra_low_res", &ICf::setNumberOfExtraLowResGrids);
-    dispatch.add_class_route("extra_high_res", &ICf::setNumberOfExtraLHighResGrids);
+  dispatch.add_class_route("extra_low_res", &ICf::setNumberOfExtraLowResGrids);
+  dispatch.add_class_route("extra_high_res", &ICf::setNumberOfExtraHighResGrids);
 
   // Gadget options
   dispatch.add_class_route("gadget_particle_type", &ICf::setGadgetParticleType);
