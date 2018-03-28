@@ -178,7 +178,7 @@ namespace io {
               particle::AbstractMultiLevelParticleGenerator<DataType> &generator,
               multilevelcontext::MultiLevelContextInformation<DataType> &context,
               const cosmology::CosmologicalParameters<T> &cosmology,
-              const T pvarValue, Coordinate<T> center, size_t extraLowRes, size_t, extraHighRes,
+              const T pvarValue, Coordinate<T> center, size_t extraLowRes, size_t extraHighRes,
               std::vector<std::vector<size_t>>& input_mask) {
       GraficOutput<DataType> output(filename, context,
                                     generator, cosmology, pvarValue, center, extraLowRes, extraHighRes, input_mask);
