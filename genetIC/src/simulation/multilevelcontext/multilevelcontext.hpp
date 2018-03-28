@@ -31,7 +31,7 @@ namespace cosmology {
     See http://stackoverflow.com/questions/165101/invalid-use-of-incomplete-type-error-with-partial-template-specialization
 
  */
-namespace multilevelcontext {
+namespace multilevelcontext {   
   template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
   class MultiLevelContextInformation;
 
@@ -208,7 +208,7 @@ namespace multilevelcontext {
 
     void copyContextWithIntermediateResolutionGrids(MultiLevelContextInformation<DataType> &newStack,
                                                     size_t base_factor,
-                                                    size_t extra_lores) const {
+                                                    size_t extra_lores, size_t extra_highres) const {
       //! Copy this MultiLevelContextInformation, but insert intermediate virtual grids such that
       //!there is a full stack increasing in the specified power.
       /*!
@@ -221,6 +221,7 @@ namespace multilevelcontext {
        *                     existing grids in the stack will be removed.
        * @param base_factor  grids will be downgraded by factors of base_factor^N where N is an integer
        * @param extra_lores  number of additional grids *below* the base level to add
+       * @param extra_highes  number of additional grids ** the base level to add
       */
       newStack.clear();
 
@@ -274,9 +275,9 @@ namespace multilevelcontext {
     void copyContextWithCenteredIntermediate(MultiLevelContextInformation<DataType> &newStack,
                                              const Coordinate<T> pointToCenterOnto,
                                              size_t base_factor,
-                                             size_t extra_lores) const {
+                                             size_t extra_lores, size_t extra_highres) const {
       auto extracontext = multilevelcontext::MultiLevelContextInformation<DataType>();
-      this->copyContextWithIntermediateResolutionGrids(extracontext, base_factor, extra_lores);
+      this->copyContextWithIntermediateResolutionGrids(extracontext, base_factor, extra_lores, extra_highres);
       extracontext.copyContextAndCenter(newStack, pointToCenterOnto);
     }
 

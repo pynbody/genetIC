@@ -103,6 +103,7 @@ protected:
 
   //! Number of extra grid to output. These grids are subsampled grid from the coarse grid.
   size_t extraLowRes = 0;
+    size_t extraHighRes = 0;
 
   shared_ptr<particle::mapper::ParticleMapper<GridDataType>> pMapper;
   shared_ptr<particle::mapper::ParticleMapper<GridDataType>> pInputMapper;
@@ -198,6 +199,10 @@ public:
   void setNumberOfExtraLowResGrids(size_t number){
     this->extraLowRes = number;
   }
+
+    void setNumberOfExtraHighResGrids(size_t number){
+      this->extraHighRes = number;
+    }
 
   void setCenteringOnRegion(){
     this->centerOnTargetRegion = true;
@@ -609,7 +614,7 @@ public:
       // Grafic format just writes out the grids in turn. Grafic mapper only center when writing grids.
       // All internal calculations are done with center kept constant at boxsize/2.
       pMapper = std::make_shared<particle::mapper::GraficMapper<GridDataType>>(multiLevelContext, this->getBoxCentre(),
-                                                                               this->extraLowRes);
+                                                                               this->extraLowRes, this->extraHighRes);
       return;
     }
 
@@ -707,7 +712,7 @@ public:
           std::cerr << "Replacing coarse grids with centered grids on " << Coordinate<T>(x0,y0,z0) <<  std::endl;
           grafic::save(getOutputPath() + ".grafic",
                        *pParticleGenerator, multiLevelContext, cosmology, pvarValue, Coordinate<T>(x0,y0,z0),
-                       this->extraLowRes, zoomParticleArray);
+                       this->extraLowRes, this->extraHighRes, zoomParticleArray);
         } else {
           grafic::save(getOutputPath() + ".grafic",
                        *pParticleGenerator, multiLevelContext, cosmology, pvarValue, this->getBoxCentre(),
