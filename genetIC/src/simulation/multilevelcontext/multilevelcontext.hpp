@@ -225,7 +225,11 @@ namespace multilevelcontext {
       */
       newStack.clear();
 
-      for (size_t level = 0; level < nLevels; ++level) {
+      //TODO Refactor this loop to make it neater.
+      // First intermediate resolution
+      //Second Low res subsample stuffed from the base level
+      // Third High res supersampled stuff from the finest level
+      for (size_t level = 0; level < nLevels + extra_highres; ++level) {
         size_t neff = size_t(round(pGrid[0]->cellSize / pGrid[level]->cellSize)) * pGrid[0]->size;
         if (level > 0) {
           size_t factor = base_factor;
@@ -235,13 +239,17 @@ namespace multilevelcontext {
             newStack.addLevel(nullptr, vGrid);
             factor *= base_factor;
           }
-        } else {
+        } else if  (level < nLevels){
           size_t factor = base_factor;
           for (size_t i = 0; i < extra_lores; ++i) {
             std::cerr << "Adding virtual grid with effective resolution " << neff / factor << std::endl;
             auto vGrid = std::make_shared<grids::SubSampleGrid<T>>(pGrid[level], factor);
             newStack.addLevel(nullptr, vGrid);
             factor *= base_factor;
+          }
+
+          else {
+
           }
         }
 
