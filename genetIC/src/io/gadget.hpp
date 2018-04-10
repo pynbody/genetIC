@@ -2,55 +2,34 @@
 #define IC_GADGET_HPP
 
 #include "src/io.hpp"
+#include <vector>
 
 namespace io {
   namespace gadget {
     using std::cerr;
     using std::endl;
+    using std::vector;
+
+
 
     template<typename GridDataType, typename FloatType=tools::datatypes::strip_complex<GridDataType>>
     void getParticleInfo(const particle::AbstractMultiLevelParticleGenerator<GridDataType> &generator,
                          particle::mapper::ParticleMapper<GridDataType> &mapper,
                          FloatType &min_mass, FloatType &max_mass,
-                         FloatType &tot_mass, FloatType &gas_mass, size_t &ngas, size_t &nlow, size_t &nhigh) {
+                         size_t &num, unsigned int particle_type) {
 
       min_mass = std::numeric_limits<FloatType>::max();
       max_mass = 0;
-      gas_mass = 0;
-      tot_mass = 0;
-      ngas = 0;
-      nlow = 0;
-      nhigh = 0;
+      num = 0;
 
       FloatType mass;
-      for (auto i = mapper.beginDm(generator); i != mapper.endDm(generator); ++i) {
-        // progress("Pre-write scan file",iord, totlen);
+      mapper.iterateParticlesOfType(generator, particle_type, [&](const auto & i) {
         mass = i.getMass(); // sometimes can be MUCH faster than getParticle
         if (min_mass > mass) min_mass = mass;
         if (max_mass < mass) max_mass = mass;
-        tot_mass += mass;
-      }
-
-      // end_progress();
-
-      ngas = mapper.size_gas();
-      if (ngas > 0) gas_mass = mapper.beginGas(generator).getMass();
-
-      cerr << "gas mass and number of particles in info " << gas_mass << " " << ngas << endl;
-
-
-      for (auto i = mapper.beginDm(generator); i != mapper.endDm(generator); ++i) {
-        // progress("Pre-write scan file",iord, totlen);
-        mass = i.getMass(); // sometimes can be MUCH faster than getParticle
-        if (mass == min_mass) nhigh += 1;
-        else if (mass == max_mass) nlow += 1;
-        else {
-          cerr << "else in mass " << min_mass << " " << max_mass << " " << mass << endl;
-          continue;
-        }
-
-      }
-      // end_progress();
+        num++;
+      });
+      
     }
 
     size_t my_fwrite(void *ptr, size_t size, size_t nmemb, FILE *stream) //stolen from Gadget
@@ -150,7 +129,7 @@ namespace io {
 
 
     template<typename FloatType>
-    io_header_2 CreateGadget2Header(FloatType *masses, long *npart, double Boxlength,
+    io_header_2 CreateGadget2Header(vector<FloatType> masses, vector<long> npart, double Boxlength,
                                     const cosmology::CosmologicalParameters<FloatType> &cosmology) {
       //types 2,3,4 are currently unused (only one zoom level)
       io_header_2 header2;
@@ -194,18 +173,18 @@ namespace io {
     }
 
     template<typename FloatType>
-    io_header_3 CreateGadget3Header(FloatType *masses, long *npart, double Boxlength,
+    io_header_3 CreateGadget3Header(vector<FloatType> masses, vector<long> npart, double Boxlength,
                                     const cosmology::CosmologicalParameters<FloatType> &cosmology) {
 
       //types 2,3,4 are currently unused (only one zoom level)
 
       io_header_3 header3;
-      header3.npart[0] = (unsigned int) (npart[0]); //gas
-      header3.npart[1] = (unsigned int) (npart[1]); //highres
+      header3.npart[0] = (unsigned int) (npart[0]);
+      header3.npart[1] = (unsigned int) (npart[1]);
       header3.npart[2] = (unsigned int) (npart[2]);
       header3.npart[3] = (unsigned int) (npart[3]);
       header3.npart[4] = (unsigned int) (npart[4]);
-      header3.npart[5] = (unsigned int) (npart[5]); //lowres
+      header3.npart[5] = (unsigned int) (npart[5]);
       header3.mass[0] = (double) (masses[0]);
       header3.mass[1] = (double) (masses[1]);
       header3.mass[2] = (double) (masses[2]);
@@ -585,32 +564,41 @@ int save_phases(complex<FloatType> *phk, FloatType* ph, complex<FloatType> *delt
               particle::AbstractMultiLevelParticleGenerator<GridDataType> &generator,
               const cosmology::CosmologicalParameters<FloatType> &cosmology, int gadgetformat) {
 
-      std::cerr << "Hello from Gadget output!" << std::endl;
 
-      FloatType tot_mass = 0.0;
-      FloatType min_mass, max_mass, gas_mass;
-      size_t nlow, ngas, nhigh;
+      bool variableMass = false;
 
-      // input units [Gadget default]::
-      // pmass in 1e10 h^-1 Msol
-      // pos in Mpc h^-1
-      // vel in km s^-1 a^1/2
+      vector<FloatType> masses(6,0.0);
+      vector<long> npart(6,0);
+      size_t nTotal(0);
 
-      getParticleInfo(generator, mapper, min_mass, max_mass, tot_mass, gas_mass, ngas, nlow, nhigh);
+      cerr << "Gadget output preliminary scan..." << endl;
 
-      cerr << "min and max particle mass : " << min_mass << " " << max_mass << endl;
-      cerr << "particle numbers (gas, high, low) : " << ngas << " " << nhigh << " " << nlow << endl;
+      for(unsigned int ptype=0; ptype<6; ++ptype) {
+        FloatType min_mass, max_mass, gas_mass;
+        size_t n;
+        getParticleInfo(generator, mapper, min_mass, max_mass, n, ptype);
+        if(n>0) {
+          if (min_mass != max_mass) {
+            variableMass = true;
+          }
 
-      FloatType *masses = (FloatType *) calloc(6, sizeof(FloatType));
-      long *npart = (long *) calloc(6, sizeof(long));
+          cerr << "Particle type " << ptype << ": " << n << " particles" << endl;
+          cerr << "Min and max particle mass : " << min_mass << " " << max_mass << endl;
+          npart[ptype] = n;
+          masses[ptype] = min_mass;
+          nTotal+=n;
+        }
+      }
 
-      //extend these arrays when additional particle types are added:
-      masses[0] = gas_mass;
-      masses[1] = min_mass;
-      masses[5] = max_mass;
-      npart[0] = ngas;
-      npart[1] = nhigh;
-      npart[5] = nlow;
+      cerr << "" << endl;
+
+      if(variableMass) {
+        cerr << "Using variable-mass format" << endl;
+        for(unsigned int ptype=0; ptype<6; ++ptype) {
+          masses[ptype] = 0;
+        }
+      }
+
 
       std::stringstream filename;
       filename << name << gadgetformat;
@@ -618,37 +606,36 @@ int save_phases(complex<FloatType> *phk, FloatType* ph, complex<FloatType> *delt
       fd = fopen(filename.str().c_str(), "w");
       if (!fd) throw std::runtime_error("Unable to open file for writing");
 
-      long n = npart[0] + npart[1] + npart[2] + npart[3] + npart[4] + npart[5];
-      cerr << "total n = " << n << endl;
-      int dummy;
+
+      int fortranFieldSize;
 
       if (gadgetformat == 3) {
         io_header_3 header1 = CreateGadget3Header(masses, npart, Boxlength, cosmology);
         //header block
-        dummy = sizeof(header1);
-        my_fwrite(&dummy, sizeof(dummy), 1, fd);
+        fortranFieldSize = sizeof(header1);
+        my_fwrite(&fortranFieldSize, sizeof(fortranFieldSize), 1, fd);
         my_fwrite(&header1, sizeof(header1), 1, fd);
-        my_fwrite(&dummy, sizeof(dummy), 1, fd);
+        my_fwrite(&fortranFieldSize, sizeof(fortranFieldSize), 1, fd);
       } else if (gadgetformat == 2) {
         io_header_2 header1 = CreateGadget2Header(masses, npart, Boxlength, cosmology);
-        dummy = sizeof(header1);
-        my_fwrite(&dummy, sizeof(dummy), 1, fd);
+        fortranFieldSize = sizeof(header1);
+        my_fwrite(&fortranFieldSize, sizeof(fortranFieldSize), 1, fd);
         my_fwrite(&header1, sizeof(header1), 1, fd);
-        my_fwrite(&dummy, sizeof(dummy), 1, fd);
+        my_fwrite(&fortranFieldSize, sizeof(fortranFieldSize), 1, fd);
       } else {
-        cerr << "Wrong format for Gadget output!" << endl;
-        exit(1);
+        throw std::runtime_error("Unknown gadget format");
       }
 
       float output_cache;
 
-      dummy = sizeof(output_cache) * (n) * 3;
+      fortranFieldSize = sizeof(output_cache) * (nTotal) * 3;
 
-      my_fwrite(&dummy, sizeof(dummy), 1, fd);
+      my_fwrite(&fortranFieldSize, sizeof(fortranFieldSize), 1, fd);
 
-      // DM particles positions
+      size_t ntotthis=0;
 
-      for (auto i = mapper.beginDm(generator); i != mapper.endDm(generator); ++i) {
+      // positions
+      mapper.iterateParticlesOfAllTypes(generator, [&](const auto & i) {
         auto particle = i.getParticle();
 
         output_cache = particle.pos.x;
@@ -657,14 +644,17 @@ int save_phases(complex<FloatType> *phk, FloatType* ph, complex<FloatType> *delt
         my_fwrite(&output_cache, sizeof(output_cache), 1, fd);
         output_cache = particle.pos.z;
         my_fwrite(&output_cache, sizeof(output_cache), 1, fd);
+        ntotthis++;
+      });
 
-      }
-      my_fwrite(&dummy, sizeof(dummy), 1, fd); //end of position block
+      assert(ntotthis==nTotal);
 
-      //gas particles velocities
-      my_fwrite(&dummy, sizeof(dummy), 1, fd); //beginning of velocity block
+      my_fwrite(&fortranFieldSize, sizeof(fortranFieldSize), 1, fd); //end of position block
 
-      for (auto i = mapper.beginDm(generator); i != mapper.endDm(generator); ++i) {
+      // velocities
+      my_fwrite(&fortranFieldSize, sizeof(fortranFieldSize), 1, fd); //beginning of velocity block
+
+      mapper.iterateParticlesOfAllTypes(generator, [&](const auto & i) {
         auto particle = i.getParticle();
 
         output_cache = particle.vel.x;
@@ -673,21 +663,33 @@ int save_phases(complex<FloatType> *phk, FloatType* ph, complex<FloatType> *delt
         my_fwrite(&output_cache, sizeof(output_cache), 1, fd);
         output_cache = particle.vel.z;
         my_fwrite(&output_cache, sizeof(output_cache), 1, fd);
-
-      }
-      my_fwrite(&dummy, sizeof(dummy), 1, fd); //end of velocity block
+        ntotthis++;
+      });
+      my_fwrite(&fortranFieldSize, sizeof(fortranFieldSize), 1, fd); //end of velocity block
 
       //particle IDs (one for each gas, high res and low res particle)
-      dummy = sizeof(long) *
-              (n); //here: gadget just checks if the IDs are ints or long longs; still the number of particles is read from the header file
-      my_fwrite(&dummy, sizeof(dummy), 1, fd);
-      for (size_t i = 0; i < (unsigned) n; i++) {
-        my_fwrite(&i, sizeof(long), 1, fd);
-      }
-      my_fwrite(&dummy, sizeof(dummy), 1, fd);
+      fortranFieldSize = sizeof(long) * (nTotal);
+      // gadget uses this to check if the IDs are ints or long longs
 
-      //TODO TEST the prop. constant (especially unitv), (include YHe_ and gamma_ in the paramfile for baryons?).
-      // MR : Deleted unused code, not really sure if to do is still relevant
+      my_fwrite(&fortranFieldSize, sizeof(fortranFieldSize), 1, fd);
+
+      mapper.iterateParticlesOfAllTypes(generator, [&](const auto & i) {
+        long index = long(i.getIndex());
+        my_fwrite(&index, sizeof(long), 1, fd);
+      });
+
+      my_fwrite(&fortranFieldSize, sizeof(fortranFieldSize), 1, fd);
+
+      if(variableMass) {
+        fortranFieldSize = sizeof(output_cache) * nTotal;
+        my_fwrite(&fortranFieldSize, sizeof(fortranFieldSize), 1, fd);
+        mapper.iterateParticlesOfAllTypes(generator, [&](const auto & i) {
+          output_cache = i.getMass();
+          my_fwrite(&output_cache, sizeof(output_cache), 1, fd);
+        });
+        my_fwrite(&fortranFieldSize, sizeof(fortranFieldSize), 1, fd);
+      }
+
 
       fclose(fd);
     }

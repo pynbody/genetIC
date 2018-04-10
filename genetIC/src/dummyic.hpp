@@ -51,6 +51,7 @@ public:
       throw std::runtime_error("Trying to match particles between incompatible simulation setups (wrong grid origin)");
 
     this->multiLevelContext.addLevel(covarianceFieldPtr, underlyingGrid);
+    this->gadgetTypesForLevels.push_back(1);
   }
 
 

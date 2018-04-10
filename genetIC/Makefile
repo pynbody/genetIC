@@ -77,6 +77,13 @@ endif
 
 ifeq ($(HOST), imac7)
 	CXX      = /opt/local/bin/g++-mp-6
+	CFLAGS  += -Wextra
+	FFTW    = -DFFTW3 -DFFTW_THREADS
+	FFTWLIB = -lfftw3 -lfftw3_threads
+endif
+
+ifeq ($(HOST), marti)
+	CXX      = /opt/local/bin/g++-mp-6
 	CFLAGS  += -Wextra -Werror -Wfatal-errors
 	FFTW    = -DFFTW3 -DFFTW_THREADS
 	FFTWLIB = -lfftw3 -lfftw3_threads

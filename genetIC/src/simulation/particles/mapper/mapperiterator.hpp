@@ -164,6 +164,9 @@ namespace particle {
         return (*evaluator)[grid_index];
       }
 
+      size_t getIndex() const {
+        return i;
+      }
 
       size_t getNextNParticles(std::vector<Particle<T>> &particles) {
         size_t n = 1024 * 256;
@@ -228,7 +231,7 @@ namespace particle {
 
     public:
 
-      T getMass() {
+      T getMass() const {
         ConstGridPtrType pGrid;
         size_t id;
         deReference(pGrid, id);

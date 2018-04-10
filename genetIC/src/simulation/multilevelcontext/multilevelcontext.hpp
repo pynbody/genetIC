@@ -31,7 +31,7 @@ namespace cosmology {
     See http://stackoverflow.com/questions/165101/invalid-use-of-incomplete-type-error-with-partial-template-specialization
 
  */
-namespace multilevelcontext {
+namespace multilevelcontext {   
   template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
   class MultiLevelContextInformation;
 
@@ -208,7 +208,7 @@ namespace multilevelcontext {
 
     void copyContextWithIntermediateResolutionGrids(MultiLevelContextInformation<DataType> &newStack,
                                                     size_t base_factor,
-                                                    size_t extra_lores) const {
+                                                    size_t extra_lores, size_t extra_highres) const {
       //! Copy this MultiLevelContextInformation, but insert intermediate virtual grids such that
       //!there is a full stack increasing in the specified power.
       /*!
@@ -220,10 +220,15 @@ namespace multilevelcontext {
        * @param newStack     the MultiLevelContextInformation into which the new stack will be placed. Any
        *                     existing grids in the stack will be removed.
        * @param base_factor  grids will be downgraded by factors of base_factor^N where N is an integer
-       * @param extra_lores  number of additional grids *below* the base level to add
+       * @param extra_lores  number of additional grids *above* the base level to add
+       * @param extra_highes  number of additional grids *below* the finest level to add
       */
       newStack.clear();
 
+      //TODO Refactor this loop to make it neater.
+      // First intermediate resolution
+      //Second Low res subsample stuffed from the base level
+      // Third High res supersampled stuff from the finest level
       for (size_t level = 0; level < nLevels; ++level) {
         size_t neff = size_t(round(pGrid[0]->cellSize / pGrid[level]->cellSize)) * pGrid[0]->size;
         if (level > 0) {
@@ -246,6 +251,17 @@ namespace multilevelcontext {
 
         std::cerr << "Adding real grid with resolution " << neff << std::endl;
         newStack.addLevel(C0s[level], pGrid[level]);
+      }
+
+      size_t factor = base_factor;
+      for (size_t i = 0; i < extra_highres; ++i) {
+        size_t level = nLevels - 1;
+        size_t neff = size_t(round(pGrid[0]->cellSize / pGrid[level]->cellSize)) * pGrid[0]->size;
+        std::cerr << "Adding virtual grid with effective resolution " << neff * factor << std::endl;
+        auto vGrid = std::make_shared<grids::SuperSampleGrid<T>>(pGrid[level], factor);
+        newStack.addLevel(nullptr, vGrid);
+        factor *= base_factor;
+
       }
 
     }
@@ -274,9 +290,9 @@ namespace multilevelcontext {
     void copyContextWithCenteredIntermediate(MultiLevelContextInformation<DataType> &newStack,
                                              const Coordinate<T> pointToCenterOnto,
                                              size_t base_factor,
-                                             size_t extra_lores) const {
+                                             size_t extra_lores, size_t extra_highres) const {
       auto extracontext = multilevelcontext::MultiLevelContextInformation<DataType>();
-      this->copyContextWithIntermediateResolutionGrids(extracontext, base_factor, extra_lores);
+      this->copyContextWithIntermediateResolutionGrids(extracontext, base_factor, extra_lores, extra_highres);
       extracontext.copyContextAndCenter(newStack, pointToCenterOnto);
     }
 

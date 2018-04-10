@@ -11,9 +11,16 @@ import warnings
 
 def compare(f1,f2) :
     npt.assert_almost_equal(f1['mass'],f2['mass'],decimal=6)
-    npt.assert_almost_equal(f1['eps'],f2['eps'],decimal=6)
-    npt.assert_almost_equal(f1['vel'],f2['vel'],decimal=5)
-    npt.assert_almost_equal(f1['pos'],f2['pos'],decimal=5)
+    if 'eps' in f1.loadable_keys():
+        npt.assert_almost_equal(f1['eps'],f2['eps'],decimal=6)
+
+    if f1['vel'].dtype==np.float64:
+        compare_decimal = 5
+    else:
+        compare_decimal = 4
+
+    npt.assert_almost_equal(f1['vel'],f2['vel'],decimal=compare_decimal)
+    npt.assert_almost_equal(f1['pos'],f2['pos'],decimal=compare_decimal)
     print("Particle output matches")
     if 'overdensity' in f1.loadable_keys():
         npt.assert_almost_equal(f1['overdensity'],f2['overdensity'],decimal=5)
@@ -39,7 +46,7 @@ def compare_ps(ref, test):
 def check_comparison_is_possible(dirname):
     # A valid test must have either a tipsy output and its reference output or numpy grids and their references.
 
-    output_file = glob.glob(dirname+"/*.tipsy")
+    output_file = particle_files_in_dir(dirname)
     assert(len(output_file)>=0)
 
     output_grids = [os.path.basename(x) for x in glob.glob(dirname+"grid-?.npy")]
@@ -48,16 +55,21 @@ def check_comparison_is_possible(dirname):
     if len(output_file)==0:
     # If a tipsy test output is not generated, you must at least provide numpy grids
         if len(output_grids)==0:
-            raise IOError("There are no tipsy file or numpy files to test against")
+            raise IOError("There are no particle files or numpy files to test against")
         elif not os.path.exists(dirname+"/reference_grid"):
-            raise IOError("You must provide a reference_grid folder to test against if no tipsy output are generated")
+            raise IOError("You must provide a reference_grid folder to test against if no particle output is generated")
 
     elif len(output_file)==1:
         if not os.path.isfile(sys.argv[1]+"/reference_output"):
-            raise IOError("A tipsy output is present but no reference_output to test against.")
+            raise IOError("A particle output is present but there is no reference_output to test against.")
 
     else:
-        raise IOError("There are more than one tipsy output file to test against.")
+        raise IOError("There is more than one particle output file to test against.")
+
+
+def particle_files_in_dir(dirname):
+    return glob.glob(dirname + "/*.tipsy") + glob.glob(dirname + "/*.gadget?")
+
 
 def default_comparisons():
 
@@ -72,7 +84,7 @@ def default_comparisons():
     for ps, ps_test in zip(powspecs, powspecs_test):
         compare_ps(ps,ps_test)
 
-    output_file = glob.glob(sys.argv[1]+"/*.tipsy")
+    output_file = particle_files_in_dir(sys.argv[1])
     if len(output_file)>0:
         compare(pynbody.load(output_file[0]),pynbody.load(sys.argv[1]+"/reference_output"))
 

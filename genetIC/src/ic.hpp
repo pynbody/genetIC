@@ -65,6 +65,13 @@ protected:
 
   cosmology::CAMB<GridDataType> spectrum;
 
+  //! Gadget particle types to be generated on each level (default 1)
+  std::vector<unsigned int> gadgetTypesForLevels;
+
+  //! If true, at output time assign a different gadget particle type to the flagged particles on the finest known level
+  bool flaggedParticlesHaveDifferentGadgetType;
+  unsigned int flaggedGadgetParticleType;
+
   //! DM supersampling to perform on zoom grid
   int supersample;
 
@@ -103,6 +110,7 @@ protected:
 
   //! Number of extra grid to output. These grids are subsampled grid from the coarse grid.
   size_t extraLowRes = 0;
+  size_t extraHighRes = 0;
 
   shared_ptr<particle::mapper::ParticleMapper<GridDataType>> pMapper;
   shared_ptr<particle::mapper::ParticleMapper<GridDataType>> pInputMapper;
@@ -134,6 +142,8 @@ public:
     exactPowerSpectrum = false;
     allowStrayParticles = false;
     pParticleGenerator = std::make_shared<particle::NullMultiLevelParticleGenerator<GridDataType>>();
+    flaggedParticlesHaveDifferentGadgetType = false;
+    flaggedGadgetParticleType = 1;
   }
 
   ~ICGenerator() {
@@ -197,6 +207,10 @@ public:
 
   void setNumberOfExtraLowResGrids(size_t number){
     this->extraLowRes = number;
+  }
+
+  void setNumberOfExtraHighResGrids(size_t number){
+    this->extraHighRes = number;
   }
 
   void setCenteringOnRegion(){
@@ -391,6 +405,7 @@ public:
     // This forwards to multiLevelContext but is required because it is overriden in DummyICGenerator,
     // which needs to ensure that grids are synchronised between two different contexts
     multiLevelContext.addLevel(spectrum, size, nside, offset);
+    this->gadgetTypesForLevels.push_back(1);
   }
 
 
@@ -402,6 +417,26 @@ public:
     randomFieldGenerator.seed(seed);
     randomFieldGenerator.setDrawInFourierSpace(true);
     randomFieldGenerator.setReverseRandomDrawOrder(false);
+  }
+
+  //! Set the gadget particle type to be produced by the deepest level currently in the grid hiearchy
+  void setGadgetParticleType(unsigned int type) {
+    if(type>=6)
+      throw(std::runtime_error("Gadget particle type must be between 0 and 5"));
+    if(multiLevelContext.getNumLevels()==0)
+      throw(std::runtime_error("Can't set a gadget particle type until a level has been initialised to set it for"));
+    this->gadgetTypesForLevels[multiLevelContext.getNumLevels()-1] = type;
+    this->updateParticleMapper();
+  }
+
+  //! Request that particles on the finest level are additionally split in gadget output such that
+  //! flagged particles have a different particle type
+  void setFlaggedGadgetParticleType(unsigned int type) {
+    if(type>=6)
+      throw(std::runtime_error("Gadget particle type must be between 0 and 5"));
+    flaggedParticlesHaveDifferentGadgetType = true;
+    flaggedGadgetParticleType = type;
+    this->updateParticleMapper();
   }
 
   //! Reverses the order of draws between real and imaginary part of complex numbers
@@ -532,9 +567,11 @@ public:
     // this is ugly but it makes sure I can dump virtual grids if there are any.
     multilevelcontext::MultiLevelContextInformation<GridDataType> newcontext;
     if(this->centerOnTargetRegion){
-      this->multiLevelContext.copyContextWithCenteredIntermediate(newcontext, Coordinate<T>(x0,y0,z0), 2, this->extraLowRes);}
+      this->multiLevelContext.copyContextWithCenteredIntermediate(newcontext, Coordinate<T>(x0,y0,z0), 2,
+                                                                  this->extraLowRes, this->extraHighRes);}
     else{
-      this->multiLevelContext.copyContextWithCenteredIntermediate(newcontext, this->getBoxCentre(), 2, this->extraLowRes);
+      this->multiLevelContext.copyContextWithCenteredIntermediate(newcontext, this->getBoxCentre(), 2,
+                                                                  this->extraLowRes, this->extraHighRes);
     }
 
     auto dumpingMask = multilevelcontext::GraficMask<GridDataType, T>(&newcontext, this->zoomParticleArray);
@@ -609,27 +646,45 @@ public:
       // Grafic format just writes out the grids in turn. Grafic mapper only center when writing grids.
       // All internal calculations are done with center kept constant at boxsize/2.
       pMapper = std::make_shared<particle::mapper::GraficMapper<GridDataType>>(multiLevelContext, this->getBoxCentre(),
-                                                                               this->extraLowRes);
+                                                                               this->extraLowRes, 0);
       return;
     }
 
     // make a basic mapper for the coarsest grid
-    pMapper = std::shared_ptr<particle::mapper::ParticleMapper<GridDataType>>(
-        new particle::mapper::OneLevelParticleMapper<GridDataType>(
-            getOutputGrid(0)
-        ));
+    auto baseLevelMapper = std::shared_ptr<particle::mapper::OneLevelParticleMapper<GridDataType>>(
+      new particle::mapper::OneLevelParticleMapper<GridDataType>(
+        getOutputGrid(0)
+      ));
+
+    baseLevelMapper->setGadgetParticleType(this->gadgetTypesForLevels[0]);
+
+    pMapper = baseLevelMapper;
 
 
     if (nLevels >= 2) {
 
       for (size_t level = 1; level < nLevels; level++) {
 
-        auto pFine = std::shared_ptr<particle::mapper::ParticleMapper<GridDataType>>(
+        auto pFine = std::shared_ptr<particle::mapper::OneLevelParticleMapper<GridDataType>>(
             new particle::mapper::OneLevelParticleMapper<GridDataType>(getOutputGrid(level)));
+
+        pFine->setGadgetParticleType(this->gadgetTypesForLevels[level]);
 
         pMapper = std::shared_ptr<particle::mapper::ParticleMapper<GridDataType>>(
             new particle::mapper::TwoLevelParticleMapper<GridDataType>(pMapper, pFine, zoomParticleArray[level - 1]));
       }
+    }
+
+    if(flaggedParticlesHaveDifferentGadgetType) {
+      auto pFlagged = std::shared_ptr<particle::mapper::OneLevelParticleMapper<GridDataType>>(
+        new particle::mapper::OneLevelParticleMapper<GridDataType>(getOutputGrid(nLevels-1)));
+
+      pFlagged->setGadgetParticleType(flaggedGadgetParticleType);
+
+      vector<size_t> flaggedPtcls;
+      pMapper->getFlaggedParticles(flaggedPtcls);
+      pMapper = std::shared_ptr<particle::mapper::ParticleMapper<GridDataType>>(
+        new particle::mapper::TwoLevelParticleMapper<GridDataType>(pMapper, pFlagged, flaggedPtcls ));
     }
 
     if (cosmology.OmegaBaryons0 > 0) {
@@ -707,11 +762,11 @@ public:
           std::cerr << "Replacing coarse grids with centered grids on " << Coordinate<T>(x0,y0,z0) <<  std::endl;
           grafic::save(getOutputPath() + ".grafic",
                        *pParticleGenerator, multiLevelContext, cosmology, pvarValue, Coordinate<T>(x0,y0,z0),
-                       this->extraLowRes, zoomParticleArray);
+                       this->extraLowRes, this->extraHighRes, zoomParticleArray);
         } else {
           grafic::save(getOutputPath() + ".grafic",
                        *pParticleGenerator, multiLevelContext, cosmology, pvarValue, this->getBoxCentre(),
-                       this->extraLowRes, zoomParticleArray);
+                       this->extraLowRes, this->extraHighRes, zoomParticleArray);
         }
 
         break;

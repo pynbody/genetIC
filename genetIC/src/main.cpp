@@ -57,6 +57,12 @@ void setup_parser(tools::ClassDispatch<ICf, void> &dispatch) {
   // Grafic options
   dispatch.add_class_route("pvar", &ICf::setpvarValue);
   dispatch.add_class_route("center_grafic_output", &ICf::setCenteringOnRegion);
+  dispatch.add_class_route("extra_low_res", &ICf::setNumberOfExtraLowResGrids);
+  dispatch.add_class_route("extra_high_res", &ICf::setNumberOfExtraHighResGrids);
+
+  // Gadget options
+  dispatch.add_class_route("gadget_particle_type", &ICf::setGadgetParticleType);
+  dispatch.add_class_route("gadget_flagged_particle_type", &ICf::setFlaggedGadgetParticleType);
 
   // Define input files
   dispatch.add_class_route("mapper_relative_to", &ICf::setInputMapper);
@@ -66,7 +72,6 @@ void setup_parser(tools::ClassDispatch<ICf, void> &dispatch) {
   dispatch.add_class_route("outdir", &ICf::setOutDir);
   dispatch.add_class_route("outname", &ICf::setOutName);
   dispatch.add_class_route("outformat", &ICf::setOutputFormat);
-  dispatch.add_class_route("extra_low_res", &ICf::setNumberOfExtraLowResGrids);
 
   // Define grid structure
   dispatch.add_class_route("basegrid", &ICf::initBaseGrid);
