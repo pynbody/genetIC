@@ -42,6 +42,14 @@ def compare_ps(ref, test):
     npt.assert_allclose(ref_vals, test_vals, rtol=1e-4)
     print("Power-spectrum output %s matches" % ref)
 
+def compare_outputlogfile(reference_file, test_file):
+    with open(test_file) as f:
+        with open(reference_file) as ref:
+            list = ref.read().splitlines()
+            tests = f.read().splitlines()
+            for s in list:
+                assert(s in tests), "Line %s from reference.txt is not present in the logged output"
+    print("Log output matches")
 
 def check_comparison_is_possible(dirname):
     # A valid test must have either a tipsy output and its reference output or numpy grids and their references.
@@ -75,6 +83,9 @@ def default_comparisons():
 
     assert len(sys.argv)==2
     check_comparison_is_possible(sys.argv[1])
+
+    if os.path.exists(sys.argv[1]+"/reference.txt"):
+        compare_outputlogfile(sys.argv[1]+"/reference.txt", sys.argv[1]+"/IC_output.txt")
 
     if os.path.exists(sys.argv[1]+"/reference_grid"):
         compare_grids(sys.argv[1]+"/reference_grid/",sys.argv[1]+"/")

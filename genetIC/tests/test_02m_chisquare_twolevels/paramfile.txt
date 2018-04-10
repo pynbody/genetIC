@@ -1,4 +1,4 @@
-# Test the calculation of chi square
+# Test the calculation of chi square with a zoom level
 
 Om  0.279
 Ol  0.721
@@ -20,7 +20,7 @@ basegrid 64 64
 centre 25 32 24
 select_cube 16
 
-zoomgrid 4 64
+zoomgrid 2 64
 
 calculate overdensity
 

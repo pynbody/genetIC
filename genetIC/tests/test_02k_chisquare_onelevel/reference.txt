@@ -1,0 +1,3 @@
+BEFORE modifications chi^2=261733
+AFTER  modifications chi^2=261733
+             delta-chi^2=0
