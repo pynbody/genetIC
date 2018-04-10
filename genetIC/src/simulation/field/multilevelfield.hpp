@@ -282,7 +282,7 @@ namespace fields {
       isCovector = true;
     }
 
-    // For some reason chi square calculation requires calculation
+    // For some reason chi square calculation requires a normalisation to be correct
     void convertToNormalisedCovector() {
       assert(!isCovector);
       toFourier();
