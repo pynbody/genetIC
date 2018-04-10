@@ -321,7 +321,6 @@ namespace fields {
       }
     }
 
-    // TODO Untested. Error in calculation seems to be 1e-5
     T getChi2() {
 
       this->toFourier();
@@ -330,7 +329,6 @@ namespace fields {
       self_copy.convertToCovector();
       T chi2 = self_copy.innerProduct(*this).real();
       return chi2;
-
     }
 
   private:
@@ -365,10 +363,11 @@ namespace fields {
       field.forEachFourierCellInt([weight, &grid, &field, &spectrum]
                                       (complex<T> existingValue, int kx, int ky, int kz) {
         T spec = spectrum.getFourierCoefficient(kx, ky, kz).real() * weight;
+        T power_spec_norm = T(grid.size3);
         if (spec == 0) {
           return complex<DataType>(0, 0);
         } else {
-          return existingValue / spec;
+          return existingValue / (spec * power_spec_norm);
         }
       });
     }
