@@ -282,6 +282,21 @@ namespace fields {
       isCovector = true;
     }
 
+    // For some reason chi square calculation requires calculation
+    void convertToNormalisedCovector() {
+      assert(!isCovector);
+      toFourier();
+      for (size_t i = 0; i < multiLevelContext->getNumLevels(); ++i) {
+        auto &grid = multiLevelContext->getGridForLevel(i);
+
+        divideByCovarianceOneGrid(getFieldForLevel(i),
+                                  multiLevelContext->getCovariance(i),
+                                  grid,
+                                  multiLevelContext->getWeightForLevel(i) * grid.size3);
+      }
+      isCovector = true;
+    }
+
     void convertToVector() {
       assert(isCovector);
       toFourier();
@@ -326,7 +341,7 @@ namespace fields {
       this->toFourier();
       auto self_copy = fields::MultiLevelField<DataType>(*this);
 
-      self_copy.convertToCovector();
+      self_copy.convertToNormalisedCovector();
       T chi2 = self_copy.innerProduct(*this).real();
       return chi2;
     }
@@ -363,11 +378,10 @@ namespace fields {
       field.forEachFourierCellInt([weight, &grid, &field, &spectrum]
                                       (complex<T> existingValue, int kx, int ky, int kz) {
         T spec = spectrum.getFourierCoefficient(kx, ky, kz).real() * weight;
-        T power_spec_norm = T(grid.size3);
         if (spec == 0) {
           return complex<DataType>(0, 0);
         } else {
-          return existingValue / (spec * power_spec_norm);
+          return existingValue / (spec);
         }
       });
     }

@@ -48,11 +48,11 @@ def compare_outputlogfile(reference_file, test_file):
             list = ref.read().splitlines()
             tests = f.read().splitlines()
             for s in list:
-                assert(s in tests), "Line %s from reference.txt is not present in the logged output"
+                assert(s in tests), "Line %s from reference.txt is not present in the logged output" % s
     print("Log output matches")
 
 def check_comparison_is_possible(dirname):
-    # A valid test must have either a tipsy output and its reference output or numpy grids and their references.
+    # A valid test must have either a tipsy/gadget output and its reference output or numpy grids and their references.
 
     output_file = particle_files_in_dir(dirname)
     assert(len(output_file)>=0)
