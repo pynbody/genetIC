@@ -61,7 +61,7 @@ def check_comparison_is_possible(dirname):
     assert(len(output_grids)>=0)
 
     if len(output_file)==0:
-    # If a tipsy test output is not generated, you must at least provide numpy grids
+    # If a particle test output is not generated, you must at least provide numpy grids
         if len(output_grids)==0:
             raise IOError("There are no particle files or numpy files to test against")
         elif not os.path.exists(dirname+"/reference_grid"):
