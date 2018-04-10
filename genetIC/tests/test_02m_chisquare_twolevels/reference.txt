@@ -1,0 +1,3 @@
+BEFORE modifications chi^2=293555
+AFTER  modifications chi^2=293555
+             delta-chi^2=-5.82077e-11

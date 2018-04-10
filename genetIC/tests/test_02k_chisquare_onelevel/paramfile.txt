@@ -1,4 +1,4 @@
-# Test the calculation of chi square
+# Test the calculation of chi square from field value
 
 Om  0.279
 Ol  0.721
