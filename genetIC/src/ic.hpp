@@ -983,6 +983,9 @@ public:
 
   //! Apply the modifications, calculate the corresponding delta chi^2 and recombine low and high-ks between grids to write a particle output
   virtual void done() {
+    if (!haveInitialisedRandomComponent)
+      initialiseRandomComponent();
+
     T pre_modif_chi2 = outputField.getChi2();
     cerr << "BEFORE modifications chi^2=" << pre_modif_chi2 << endl;
     applyModifications();

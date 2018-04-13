@@ -18,7 +18,7 @@ basegrid 64 64
 
 
 centre 25 32 24
-select_nearest
+select_sphere 10
 
 calculate overdensity
 modify overdensity relative 2
