@@ -49,14 +49,26 @@ namespace modifications {
     std::shared_ptr<fields::ConstraintField<DataType>>
     pushMultiLevelFieldThroughMatrix(const fields::MultiLevelField<DataType> &field) {
 
-      // Push the finest level and then down sample to other grids
-      size_t level = this->underlying.getNumLevels() - 1;
+//      // Push the finest level and then down sample to other grids
+//      size_t finest_level = this->underlying.getNumLevels() - 1;
 
-      using tools::numerics::operator/=;
-      auto highResPushedField = this->pushOneLevelFieldThroughMatrix(field.getFieldForLevel(level));
-      highResPushedField.toFourier();
-      highResPushedField.getDataVector() /= this->underlying.getWeightForLevel(level);
-      return this->underlying.generateMultilevelFromHighResField(std::move(highResPushedField));
+      std::vector<std::shared_ptr<fields::Field<DataType, T>>> pushedfields;
+
+      for (size_t level = 0; level < this->underlying.getNumLevels(); level ++){
+
+        fields::Field<DataType, T> pushedField = this->pushOneLevelFieldThroughMatrix(field.getFieldForLevel(level));
+        pushedfields.push_back(std::make_shared<fields::Field<DataType, T>>(pushedField));
+      }
+
+      return std::make_shared<fields::ConstraintField<DataType>>(
+          *dynamic_cast<multilevelcontext::MultiLevelContextInformation<DataType, T> *>(&(this->underlying)),
+          pushedfields);
+
+//      using tools::numerics::operator/=;
+//      auto highResPushedField = this->pushOneLevelFieldThroughMatrix(field.getFieldForLevel(level));
+//      highResPushedField.toFourier();
+//      highResPushedField.getDataVector() /= this->underlying.getWeightForLevel(level);
+//      return this->underlying.generateMultilevelFromHighResField(std::move(highResPushedField));
     }
 
   protected:
@@ -86,24 +98,24 @@ namespace modifications {
 
     void checkFilterScale(T scale_) {
 
-      size_t finest_level = this->underlying.getNumLevels() - 1;
-
-      if (finest_level == 0) {
-        T coarse_pixel = this->underlying.getGridForLevel(finest_level).cellSize;
-        if (scale_ > coarse_pixel) {
-          this->scale = scale_;
-        } else {
-          throw std::runtime_error("Variance filtering on scale smaller than pixel scale");
-        }
-      } else {
-        T coarse_pixel = this->underlying.getGridForLevel(finest_level - 1).cellSize;
-        T fine_pixel = this->underlying.getGridForLevel(finest_level).cellSize;
-        if (fine_pixel < scale_ && scale_ < (1.0 / 0.3) * coarse_pixel) {
-          this->scale = scale_;
-        } else {
-          throw std::runtime_error("Variance filtering scale must be kept far away from pixels scale");
-        }
-      }
+//      size_t finest_level = this->underlying.getNumLevels() - 1;
+//
+//      if (finest_level == 0) {
+//        T coarse_pixel = this->underlying.getGridForLevel(finest_level).cellSize;
+//        if (scale_ > coarse_pixel) {
+//          this->scale = scale_;
+//        } else {
+//          throw std::runtime_error("Variance filtering on scale smaller than pixel scale");
+//        }
+//      } else {
+//        T coarse_pixel = this->underlying.getGridForLevel(finest_level - 1).cellSize;
+//        T fine_pixel = this->underlying.getGridForLevel(finest_level).cellSize;
+//        if (fine_pixel < scale_ && scale_ < (1.0 / 0.3) * coarse_pixel) {
+//          this->scale = scale_;
+//        } else {
+//          throw std::runtime_error("Variance filtering scale must be kept far away from pixels scale");
+//        }
+//      }
     }
 
     fields::Field<DataType, T> pushOneLevelFieldThroughMatrix(const fields::Field<DataType, T> &field) override {
