@@ -16,7 +16,4 @@ outformat 4
 
 basegrid 64 64
 
-# This line is here to force the random draw to happen before the chi square calculation and avoid chi2=0
-calculate overdensity
-
 done

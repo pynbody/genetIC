@@ -282,21 +282,6 @@ namespace fields {
       isCovector = true;
     }
 
-    // For some reason chi square calculation requires a normalisation to be correct
-    void convertToNormalisedCovector() {
-      assert(!isCovector);
-      toFourier();
-      for (size_t i = 0; i < multiLevelContext->getNumLevels(); ++i) {
-        auto &grid = multiLevelContext->getGridForLevel(i);
-
-        divideByCovarianceOneGrid(getFieldForLevel(i),
-                                  multiLevelContext->getCovariance(i),
-                                  grid,
-                                  multiLevelContext->getWeightForLevel(i) * grid.size3);
-      }
-      isCovector = true;
-    }
-
     void convertToVector() {
       assert(isCovector);
       toFourier();
@@ -338,11 +323,30 @@ namespace fields {
 
     T getChi2() {
 
+      T chi2 = 0;
       this->toFourier();
-      auto self_copy = fields::MultiLevelField<DataType>(*this);
 
-      self_copy.convertToNormalisedCovector();
-      T chi2 = self_copy.innerProduct(*this).real();
+      for (size_t level = 0; level < multiLevelContext->getNumLevels(); ++level) {
+        auto weight = this->multiLevelContext->getWeightForLevel(level);
+        auto spectrum = this->multiLevelContext->getCovariance(level);
+        auto grid = this->multiLevelContext->getGridForLevel(level);
+        auto field = this->getFieldForLevel(level);
+        chi2 += field.accumulateForEachFourierCell([weight, &grid, &field, &spectrum, &chi2]
+                                                       (complex<T> existingValue, int kx, int ky, int kz) {
+
+          T spec = spectrum.getFourierCoefficient(kx, ky, kz).real();
+
+          //This normalisation factor is needed to balance Fourier convention
+          // for the covariance matrix. There is one 1/sqrt(N) factor missing for each field that we are squaring.
+          T norm = grid.size3;
+
+          if (spec != 0) {
+            return weight * std::norm(existingValue) / (spec * norm);
+          } else {
+            return T(0);
+          }
+        }).real();
+      }
       return chi2;
     }
 
