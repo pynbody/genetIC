@@ -22,6 +22,6 @@ select_cube 16
 
 zoomgrid 2 64
 
-calculate overdensity
+chi2
 
 done

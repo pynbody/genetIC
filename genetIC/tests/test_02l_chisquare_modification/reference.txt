@@ -1,3 +1,2 @@
-BEFORE modifications chi^2=261733
-AFTER  modifications chi^2=261733
-             delta-chi^2=0.0460806
+Delta chi^2 from linear modifications = 0.00406489
+         Total delta chi^2 = 0.00406489

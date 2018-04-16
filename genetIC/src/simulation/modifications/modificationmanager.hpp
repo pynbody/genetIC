@@ -64,11 +64,21 @@ namespace modifications {
       }
     }
 
+    bool hasModifications(){
+      return !this->linearModificationList.empty() || !this->quadraticModificationList.empty();
+    }
+
     //! Construct the modified field with all modifications present in the modification list
     void applyModifications() {
 
       std::vector<std::shared_ptr<fields::ConstraintField<DataType>>> alphas;
       std::vector<T> linear_targets;
+      T pre_modif_chi2_from_field ;
+      T post_modif_chi2_from_field ;
+
+      pre_modif_chi2_from_field = this->outputField.getChi2();
+      std::cerr << "BEFORE modifications chi^2 = " << pre_modif_chi2_from_field << std::endl;
+
 
       // Extract A, b from modification list
       for (size_t i = 0; i < linearModificationList.size(); i++) {
@@ -78,11 +88,17 @@ namespace modifications {
 
       // Apply all linear modifications
       orthonormaliseModifications(alphas, linear_targets);
+      std::cerr << "Delta chi^2 from linear modifications = " << getDeltaChi2FromLinearModifs(outputField, alphas, linear_targets) << std::endl;
       applyLinearModif(outputField, alphas, linear_targets);
 
+
       // Apply the joint linear and quadratic in an iterative procedure
+      // TODO DeltaChi2 from quadratic could be calculated from the iterations and added here.
       applyLinQuadModif(alphas);
 
+      post_modif_chi2_from_field = this->outputField.getChi2();
+      std::cerr << "AFTER  modifications chi^2 = " << post_modif_chi2_from_field << std::endl;
+      std::cerr << "         Total delta chi^2 = " << post_modif_chi2_from_field - pre_modif_chi2_from_field << std::endl;
     }
 
     void clearModifications() {
@@ -285,6 +301,23 @@ namespace modifications {
         throw std::runtime_error("Modification type must be either 'relative' or 'absolute'");
       }
       return relative;
+    }
+
+    //! Calculates delta chi2 from orthonormalised linear modifications (Eq 12 Roth et al 2016)
+    T getDeltaChi2FromLinearModifs(fields::OutputField<DataType> &field,
+                              std::vector<std::shared_ptr<fields::ConstraintField<DataType>>> alphas,
+                              std::vector<T> &targets){
+
+      T target_norm = T(0.0);
+      T initial_values_norm = T(0.0);
+
+      for (size_t i = 0; i < alphas.size(); i++) {
+        auto &alpha_i = *(alphas[i]);
+        initial_values_norm += std::pow(std::abs(alpha_i.innerProduct(field).real()), 2);
+        target_norm += std::pow(std::abs(targets[i]), 2);
+      }
+
+      return target_norm - initial_values_norm;
     }
 
     //! Check quadratic modifications are independent by calculating delta * Q1 * C0 * Q2 * delta

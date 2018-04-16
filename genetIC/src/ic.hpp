@@ -942,6 +942,13 @@ public:
     return Coordinate<T>(boxsize/2,boxsize/2,boxsize/2);
   }
 
+  virtual void getFieldChi2(){
+    if (!haveInitialisedRandomComponent)
+      initialiseRandomComponent();
+
+    std::cerr << "Calculated chi^2 = " << this->outputField.getChi2() <<std::endl;
+  }
+
   //! Calculate physical quantities of the field
   /*!
    * @param filterscale Filtering scale in Mpc if the quantity needs it
@@ -986,12 +993,9 @@ public:
     if (!haveInitialisedRandomComponent)
       initialiseRandomComponent();
 
-    T pre_modif_chi2 = outputField.getChi2();
-    cerr << "BEFORE modifications chi^2=" << pre_modif_chi2 << endl;
-    applyModifications();
-    T post_modif_chi2 = outputField.getChi2();
-    cerr << "AFTER  modifications chi^2=" << post_modif_chi2 << endl;
-    cerr << "             delta-chi^2=" << post_modif_chi2 - pre_modif_chi2 << endl;
+    if(modificationManager.hasModifications())
+      applyModifications();
+
     write();
   }
 

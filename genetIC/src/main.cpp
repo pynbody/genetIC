@@ -98,6 +98,7 @@ void setup_parser(tools::ClassDispatch<ICf, void> &dispatch) {
   dispatch.add_class_route("clear_modifications", &ICf::clearModifications);
   dispatch.add_class_route("done", &ICf::done);
   dispatch.add_class_route("apply_modifications", &ICf::applyModifications);
+  dispatch.add_class_route("chi2", &ICf::getFieldChi2);
 
   dispatch.add_class_route("reverse", &ICf::reverse);
   dispatch.add_class_route("reverse_small_k", &ICf::reverseSmallK);
