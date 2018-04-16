@@ -16,4 +16,6 @@ outformat 4
 
 basegrid 64 64
 
+chi2
+
 done

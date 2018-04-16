@@ -1,3 +1,1 @@
-BEFORE modifications chi^2=293555
-AFTER  modifications chi^2=293555
-             delta-chi^2=0
+Calculated chi^2 = 294588
