@@ -93,8 +93,6 @@ namespace modifications {
 
       size_t finest_level = this->underlying.getNumLevels() - 1;
       auto finest_grid = this->underlying.getGridForLevel(finest_level);
-
-      T physical_boxsize = finest_grid.thisGridSize;
       T fine_pixelsize = finest_grid.cellSize;
 
       if (scale_ < fine_pixelsize) {
