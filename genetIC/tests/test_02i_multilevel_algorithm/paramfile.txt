@@ -25,10 +25,7 @@ centre 32.5 32.5 32.5
 select_cube 6.0
 
 calculate overdensity
-calculate variance 5
-
-dump_grid 0
-dump_grid 1
+calculate variance 2.0
 
 modify overdensity relative 1
 modify variance relative 2.0 10 0.001 2.0
