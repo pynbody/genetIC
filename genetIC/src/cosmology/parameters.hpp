@@ -38,6 +38,8 @@ namespace cosmology {
 
   /** Dump an estimated power spectrum for the field, alongside the specified theory power spectrum, to disk
     */
+  //TODO Refactor this to use grid methods and normalisations method. It could be compacted in a few lines method
+  // and avoid repeating assumptions from elsewhere in the code.
   template<typename DataType, typename FloatType=tools::datatypes::strip_complex<DataType>>
   void dumpPowerSpectrum(const fields::Field<DataType> &field,
                          const fields::Field<DataType> &P0, const std::string &filename) {
@@ -91,7 +93,7 @@ namespace cosmology {
 
           if (k >= kmin && k < kmax) {
 
-            Gx[idx] += vabs / (FloatType) (res * res * res); //because FFT is now normalised with 1/sqrt(Ntot)
+            Gx[idx] += vabs;
             Px[idx] += P0.getFourierCoefficient(ix, iy, iz).real();
             kbin[idx] += k;
             inBin[idx]++;

@@ -172,7 +172,13 @@ namespace cosmology {
       CoordinateType kw = 2. * M_PI / grid.thisGridSize;
       CoordinateType norm = kw * kw * kw / powf(2.f * M_PI, 3.f); //since kw=2pi/L, this is just 1/V_box
 
-      return norm;
+      // This factor Ncells was first needed when FFT normalisation changed from 1/N to 1/sqrt(N). This knowledge was previously
+      // incorporated as a normalisation of the random draw rather than to the power spectrum. It makes more sense to have
+      // it as a PS normalisation and restores coherence between the P(k) estimated from the field (e.g. delta dagger * delta)
+      // and the theoretical P(k) calculated here. MR 2018
+      CoordinateType fft_normalisation = grid.size3;
+
+      return norm * fft_normalisation;
     }
 
   public:

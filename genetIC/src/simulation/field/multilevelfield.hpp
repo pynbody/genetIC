@@ -323,30 +323,11 @@ namespace fields {
 
     T getChi2() {
 
-      T chi2 = 0;
       this->toFourier();
+      auto self_copy = fields::MultiLevelField<DataType>(*this);
 
-      for (size_t level = 0; level < multiLevelContext->getNumLevels(); ++level) {
-        auto weight = this->multiLevelContext->getWeightForLevel(level);
-        auto spectrum = this->multiLevelContext->getCovariance(level);
-        auto grid = this->multiLevelContext->getGridForLevel(level);
-        auto field = this->getFieldForLevel(level);
-        chi2 += field.accumulateForEachFourierCell([weight, &grid, &field, &spectrum, &chi2]
-                                                       (complex<T> existingValue, int kx, int ky, int kz) {
-
-          T spec = spectrum.getFourierCoefficient(kx, ky, kz).real();
-
-          //This normalisation factor is needed to balance Fourier convention
-          // for the covariance matrix. There is one 1/sqrt(N) factor missing for each field that we are squaring.
-          T norm = grid.size3;
-
-          if (spec != 0) {
-            return weight * std::norm(existingValue) / (spec * norm);
-          } else {
-            return T(0);
-          }
-        }).real();
-      }
+      self_copy.convertToCovector();
+      T chi2 = self_copy.innerProduct(*this).real();
       return chi2;
     }
 
