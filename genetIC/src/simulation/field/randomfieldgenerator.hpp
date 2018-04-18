@@ -119,13 +119,11 @@ namespace fields {
       auto &fieldData = field.getDataVector();
       size_t nPartTotal = g.size3;
 
-      FloatType sigma = sqrt((FloatType) (nPartTotal));
-
       std::cerr << "Drawing random numbers...";
 
       // N.B. DO NOT PARALLELIZE this loop - want things to be done in a reliable order
       for (size_t i = 0; i < nPartTotal; i++) {
-        fieldData[i] = gsl_ran_gaussian_ziggurat(randomState, 1.) * sigma;
+        fieldData[i] = gsl_ran_gaussian_ziggurat(randomState, 1.);
       }
 
       field.toFourier();
@@ -143,12 +141,11 @@ namespace fields {
       const grids::Grid<FloatType> &g = field.getGrid();
 
       tools::progress::ProgressBar pb("");
-      FloatType sigma = sqrt((FloatType) (g.size3));
 
       std::cerr << "Drawing random numbers in fourier space..." << std::endl;
       int ks, k1, k2;
 
-      sigma /= sqrt(2.0);
+      FloatType  sigma = 1.0 / sqrt(2.0);
 
       // N.B. DO NOT PARALLELIZE this loop - want things to be done in a reliable order
       // Do it in square k-shells, in order of increasing |k|, so that
