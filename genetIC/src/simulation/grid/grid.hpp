@@ -178,6 +178,19 @@ namespace grids {
       return this->getCentreWrapped(this->flags);
     }
 
+    int getFlaggedCellsSize(){
+      Window<int> flaggedWindow(this->getEffectiveSimulationSize(),
+                                this->getCoordinateFromIndex(this->flags[0]));
+      for (auto cell_id : this->flags) {
+        flaggedWindow.expandToInclude(this->getCoordinateFromIndex(cell_id));
+      }
+      return flaggedWindow.getMaximumDimension();
+    }
+
+    T getFlaggedCellsPhysicalSize(){
+        return T(this->getFlaggedCellsSize()) * this->cellSize;
+    };
+
   protected:
 
     static void upscaleCellFlagVector(const std::vector<size_t> sourceArray,

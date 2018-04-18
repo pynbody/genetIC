@@ -22,30 +22,21 @@ zoomgrid 4 64
 
 
 centre 32.5 32.5 32.5
-select_cube 64.
+select_cube 6.0
 
 calculate overdensity
-calculate variance 100.
+calculate variance 5
 
 dump_grid 0
 dump_grid 1
 
 modify overdensity relative 1
-modify variance relative 2. 10 0.001 100.
-
-apply_modifications
-clear_modifications
-
-calculate overdensity
-calculate variance 100.
-
-dump_grid 0
-dump_grid 1
+modify variance relative 2.0 10 0.001 2.0
 
 done
 
 calculate overdensity
-calculate variance 100.
+calculate variance 2.0
 
 dump_grid 0
 dump_grid 1
