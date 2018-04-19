@@ -1,1 +1,1 @@
-variance: calculated value = 0.0023107
+variance: calculated value = 0.00375423
