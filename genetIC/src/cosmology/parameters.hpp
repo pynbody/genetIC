@@ -105,9 +105,7 @@ namespace cosmology {
 
     //... convert to physical units ...
     std::ofstream ofs(filename);
-
-
-    FloatType psnorm = powf(Boxlength / (2.0 * M_PI), 3.0);
+    FloatType psnorm = 1 / (CAMB<FloatType>::getPowerSpectrumNormalizationForGrid(field.getGrid()) * pow((2.0 * M_PI), 3.0));
 
     for (ix = 0; ix < nBins; ix++) {
 

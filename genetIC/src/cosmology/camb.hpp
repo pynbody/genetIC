@@ -167,7 +167,9 @@ namespace cosmology {
 
     }
 
-    CoordinateType getPowerSpectrumNormalizationForGrid(const grids::Grid<CoordinateType> &grid) const {
+  public:
+
+    static CoordinateType getPowerSpectrumNormalizationForGrid(const grids::Grid<CoordinateType> &grid) {
 
       CoordinateType kw = 2. * M_PI / grid.thisGridSize;
       CoordinateType norm = kw * kw * kw / powf(2.f * M_PI, 3.f); //since kw=2pi/L, this is just 1/V_box
@@ -180,8 +182,6 @@ namespace cosmology {
 
       return norm * fft_normalisation;
     }
-
-  public:
 
 
     CoordinateType calculateLinearVarianceInSphere(CoordinateType radius) const {

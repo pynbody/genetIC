@@ -1,1 +1,1 @@
-Calculated chi^2 = 294588
+Calculated chi^2 = 293555
