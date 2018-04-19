@@ -543,6 +543,7 @@ public:
     }
     outputField.toReal();
     dumpGridData(level, outputField.getFieldForLevel(level));
+    outputField.toFourier();
   }
 
   // TODO Is this used at all ? Should be linked to a command in main if we want to keep it.
