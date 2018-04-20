@@ -23,25 +23,26 @@ zoomgrid 4 64
 centre 32.5 32.5 32.5
 select_sphere 16.
 
+filtering_scale 3.
 calculate overdensity
-calculate variance 3.
+calculate variance
 
-modify overdensity relative 2
-modify variance relative 2 10 0.001 3
+modify overdensity relative 2.
+modify variance relative 2.
 
 apply_modifications
 clear_modifications
 
 modify overdensity relative 0.5
-modify variance relative 0.5 10 0.001 3
+modify variance relative 0.5
 
 apply_modifications
 clear_modifications
 
 calculate overdensity
-calculate variance 3.
+calculate variance
 
 done
 
 calculate overdensity
-calculate variance 3.
+calculate variance

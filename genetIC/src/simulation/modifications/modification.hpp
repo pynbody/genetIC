@@ -31,8 +31,8 @@ namespace modifications {
       if(this->flaggedCells.size() == finestgrid.size3 && finestlevel != 0){
         std::cerr << "WARNING: Region selected for modification is the entire zoom grid. This is likely "
                   << "because the cell selection extends beyond the zoom boundaries." <<std::endl;
-        std::cerr <<"By design, modifications are only defined inside the zoom region. Increase the size of your "
-                      "zoom grid or decrease your selection to avoid nasty surprises. " << std::endl;
+        std::cerr << "By design, modifications are only defined inside the zoom region. Increase the size of your "
+                  << "zoom grid or decrease your selection to avoid nasty surprises." << std::endl;
       }
     };
 

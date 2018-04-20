@@ -1,1 +1,6 @@
+overdensity: calculated value = 0.0187622
+WARNING: Region selected for modification is the entire zoom grid. This is likely because the cell selection extends beyond the zoom boundaries.
+By design, modifications are only defined inside the zoom region. Increase the size of your zoom grid or decrease your selection to avoid nasty surprises.
+WARNING: High-pass filtering scale: 64 h**-1 Mpc is greater than the rough window size: 16 h**-1 Mpc used for modifications.
+This is prone to numerical errors when modifying the field. Decrease filtering scale to avoid it.
 variance: calculated value = 0.00375423

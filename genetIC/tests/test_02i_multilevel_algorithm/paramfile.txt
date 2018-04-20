@@ -34,11 +34,8 @@ modify variance relative 2.
 done
 
 calculate overdensity
-filtering_scale 3.0
 calculate variance
 
-filtering_scale 2.0
-calculate variance
 
 dump_grid 0
 dump_grid 1
