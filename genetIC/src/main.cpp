@@ -94,6 +94,7 @@ void setup_parser(tools::ClassDispatch<ICf, void> &dispatch) {
 
   // Deal with modifications
   dispatch.add_class_route("calculate", &ICf::calculate);
+  dispatch.add_class_route("filtering_scale", &ICf::setVarianceFilteringScale);
   dispatch.add_class_route("modify", &ICf::modify);
   dispatch.add_class_route("clear_modifications", &ICf::clearModifications);
   dispatch.add_class_route("done", &ICf::done);

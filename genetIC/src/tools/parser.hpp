@@ -59,8 +59,7 @@ namespace tools {
                       std::ostream *output_stream) {
     T1 arg1{};
     if(input_stream.eof()){
-      std::cerr << "WARNING: Potentially insufficient arguments in command. If defaults are not provided, "
-          "the code is likely to break" << std::endl;
+      throw std::runtime_error("Insufficient argument.");
     } else{
       input_stream >> arg1;
     }

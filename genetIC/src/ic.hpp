@@ -112,6 +112,19 @@ protected:
   size_t extraLowRes = 0;
   size_t extraHighRes = 0;
 
+  //! High-pass filtering scale defined for variance calculations
+  T variance_filterscale = 0.0;
+
+  //! Numerical parameters for the algorithm of the quadratic modifications
+  // These two parameters are for the quadratic algorithm (Rey and Pontzen 2017):
+  // initial_number_steps encodes the number of steps always performed by the algorithm (similar to a burn-in)
+  // 10 is a good trade-off to reach acceptable precision while avoiding extra steps.
+  // precision is the target precision at which the quadratic modification will be achieved. More precision requires
+  // more steps. In practice, we are limited by other errors in the code (namely recombination of low and high ks for fields)
+  // of order of 1%. precision=0.1% is therefore sufficient and carries an acceptable numerical cost.
+  int initial_number_steps = 10;
+  T precision = 0.001;
+
   shared_ptr<particle::mapper::ParticleMapper<GridDataType>> pMapper;
   shared_ptr<particle::mapper::ParticleMapper<GridDataType>> pInputMapper;
   shared_ptr<multilevelcontext::MultiLevelContextInformation<GridDataType>> pInputMultiLevelContext;
@@ -215,6 +228,10 @@ public:
 
   void setCenteringOnRegion(){
     this->centerOnTargetRegion = true;
+  }
+
+  void setVarianceFilteringScale(T filterscale){
+    this->variance_filterscale = filterscale;
   }
 
   //! Define the base (coarsest) grid
@@ -954,11 +971,11 @@ public:
   /*!
    * @param filterscale Filtering scale in Mpc if the quantity needs it
    */
-  void calculate(string name, T filterscale) {
+  void calculate(string name) {
     if (!haveInitialisedRandomComponent)
       initialiseRandomComponent();
 
-    GridDataType val = modificationManager.calculateCurrentValueByName(name, filterscale);
+    GridDataType val = modificationManager.calculateCurrentValueByName(name, this->variance_filterscale);
 
     cout << name << ": calculated value = " << val << endl;
   }
@@ -968,12 +985,12 @@ public:
    * @param type  Modification can be relative to existing value or absolute
    * @param target Absolute target or factor by which the existing will be multiplied
    */
-  virtual void modify(string name, string type, float target, T filterscale) {
+  virtual void modify(string name, string type, float target) {
 
     if (!haveInitialisedRandomComponent)
       initialiseRandomComponent();
 
-    modificationManager.addModificationToList(name, type, target, filterscale);
+    modificationManager.addModificationToList(name, type, target,this->initial_number_steps, this->precision, this->variance_filterscale);
   }
 
   //! Empty modification list
