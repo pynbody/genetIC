@@ -53,7 +53,7 @@ namespace modifications {
 
       for (size_t level = 0; level < this->underlying.getNumLevels(); level ++){
 
-        fields::Field<DataType, T> pushedField = this->pushOneLevelFieldThroughMatrix(field.getFieldForLevel(level));
+        fields::Field<DataType, T> pushedField = this->pushOneLevelFieldThroughMatrix(field.getFieldForLevel(level), level);
         using tools::numerics::operator/=;
         pushedField.getDataVector() /= this->underlying.getWeightForLevel(level);
         pushedfields.push_back(std::make_shared<fields::Field<DataType, T>>(pushedField));
@@ -66,7 +66,7 @@ namespace modifications {
 
   protected:
     virtual fields::Field<DataType, T>
-    pushOneLevelFieldThroughMatrix(const fields::Field<DataType, T> &/* field */) = 0;
+    pushOneLevelFieldThroughMatrix(const fields::Field<DataType, T> &/* field */, size_t /* level */) = 0;
   };
 
   template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
@@ -109,24 +109,24 @@ namespace modifications {
 
     }
 
-    fields::Field<DataType, T> pushOneLevelFieldThroughMatrix(const fields::Field<DataType, T> &field) override {
+    fields::Field<DataType, T> pushOneLevelFieldThroughMatrix(const fields::Field<DataType, T> &field, size_t level) override {
 
       fields::Field<DataType, T> pushedField = fields::Field<DataType, T>(field);
 
       pushedField.toReal();
-      windowOperator(pushedField);
+      windowOperator(pushedField, level);
 
       pushedField.toFourier();
       filterOperator(pushedField);
 
       pushedField.toReal();
-      varianceOperator(pushedField);
+      varianceOperator(pushedField, level);
 
       pushedField.toFourier();
       filterOperator(pushedField);
 
       pushedField.toReal();
-      windowOperator(pushedField);
+      windowOperator(pushedField, level);
 
       return pushedField;
     }
@@ -134,7 +134,7 @@ namespace modifications {
   private:
     T scale;
 
-    void windowOperator(fields::Field<DataType, T> &field) {
+    void windowOperator(fields::Field<DataType, T> &field, size_t level) {
 
       assert(!field.isFourier()); // Windowing is done in real space
 
@@ -143,7 +143,7 @@ namespace modifications {
 #pragma omp parallel for schedule(static)
       for (size_t i = 0; i < fieldData.size(); ++i) {
         // If cell is not a flagged cell, zero it
-        if (!(std::binary_search(this->flaggedCells.begin(), this->flaggedCells.end(), i))) {
+        if (!(std::binary_search(this->flaggedCells[level].begin(), this->flaggedCells[level].end(), i))) {
           fieldData[i] = 0;
         }
       }
@@ -160,11 +160,11 @@ namespace modifications {
       field.applyFilter(highPassFermi);
     }
 
-    void varianceOperator(fields::Field<DataType, T> &field) {
+    void varianceOperator(fields::Field<DataType, T> &field, size_t level) {
 
       assert(!field.isFourier()); // Variance is calculated in real space
 
-      windowOperator(field);
+      windowOperator(field, level);
 
       std::vector<DataType> &fieldData = field.getDataVector();
       size_t regionSize = this->flaggedCells.size();
@@ -172,12 +172,12 @@ namespace modifications {
       // Calculate mean value in flagged region
       T sum = 0;
       for (size_t i = 0; i < regionSize; i++) {
-        sum += fieldData[this->flaggedCells[i]];
+        sum += fieldData[this->flaggedCells[level][i]];
       }
 
       for (size_t i = 0; i < regionSize; i++) {
-        fieldData[this->flaggedCells[i]] -= sum / regionSize;
-        fieldData[this->flaggedCells[i]] /= regionSize;
+        fieldData[this->flaggedCells[level][i]] -= sum / regionSize;
+        fieldData[this->flaggedCells[level][i]] /= regionSize;
       }
     }
 

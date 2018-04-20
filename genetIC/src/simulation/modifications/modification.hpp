@@ -14,18 +14,20 @@ namespace modifications {
   protected:
     multilevelcontext::MultiLevelContextInformation<DataType> &underlying;
     const cosmology::CosmologicalParameters<T> &cosmology;
-    std::vector<size_t> flaggedCells;    /*!< Region targeted by the modification */
+    std::vector<std::vector<size_t>> flaggedCells;    /*!< Region targeted by the modification */
     unsigned int order;                  /*!< Linear are first order, qudartic are second etc */
 
 
   public:
     Modification(multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
                  const cosmology::CosmologicalParameters<T> &cosmology_) : underlying(underlying_),
-                                                                           cosmology(cosmology_) {
+                                                                           cosmology(cosmology_),
+                                                                           flaggedCells(underlying_.getNumLevels()) {
 
-      size_t finestlevel = this->underlying.getNumLevels() - 1;
-      auto finestgrid = this->underlying.getGridForLevel(finestlevel);
-      finestgrid.getFlaggedCells(flaggedCells);
+      for (auto level=0; level < this->underlying.getNumLevels(); level++) {
+        auto grid = this->underlying.getGridForLevel(level);
+        grid.getFlaggedCells(flaggedCells[level]);
+      }
     };
 
     //! Calculate modification value with a given field
