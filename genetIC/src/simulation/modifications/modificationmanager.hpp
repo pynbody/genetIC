@@ -147,7 +147,18 @@ namespace modifications {
     std::shared_ptr<QuadraticModification<DataType, T>>
     getQuadraticModificationFromName(std::string name_, Args &&... args) {
       if ((strcasecmp(name_.c_str(), "variance") == 0)) {
-        return make_shared<FilteredVarianceModification<DataType, T>>(underlying, cosmology,
+
+        // These two parameters are for the quadratic algorithm (Rey and Pontzen 2017):
+        // initial_number_steps encodes the number of steps always performed by the algorithm (similar to a burn-in)
+        // 10 is a good trade-off to reach acceptable precision while avoiding extra steps.
+        // precision is the target precision at which the quadratic modification will be achieved. More precision requires
+        // more steps. In practice, we are limited by other errors in the code (namely recombination of low and high ks for fields)
+        // of order of 1%. precision=0.1% is therefore sufficient and carries an acceptable numerical cost.
+        int initial_number_steps = 10;
+        T precision = 0.001;
+
+        if ((strcasecmp(name_.c_str(), "variance") == 0)) {
+          return make_shared<FilteredVarianceModification<DataType, T>>(underlying, cosmology, initial_number_steps, precision,
                                                                       std::forward<Args>(args) ...);
       } else {
         throw UnknownModificationException(name_ + " " + "is an unknown modification name");

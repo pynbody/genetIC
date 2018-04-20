@@ -26,6 +26,14 @@ namespace modifications {
       size_t finestlevel = this->underlying.getNumLevels() - 1;
       auto finestgrid = this->underlying.getGridForLevel(finestlevel);
       finestgrid.getFlaggedCells(flaggedCells);
+
+
+      if(this->flaggedCells.size() == finestgrid.size3 && finestlevel != 0){
+        std::cerr << "WARNING: Region selected for modification is the entire zoom grid. This is likely "
+                  << "because the cell selection extends beyond the zoom boundaries. By design, "
+                      "modifications are only defined inside the zoom region. Increase the size of your "
+                      "zoom grid or decrease your selection to avoid nasty surprises. " << std::endl;
+      }
     };
 
     //! Calculate modification value with a given field

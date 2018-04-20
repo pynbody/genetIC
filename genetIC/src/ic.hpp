@@ -967,15 +967,13 @@ public:
   /*!
    * @param type  Modification can be relative to existing value or absolute
    * @param target Absolute target or factor by which the existing will be multiplied
-   * @param initNumberSteps Initial number of steps for the quadratic iterative algorithm
-   * @param precision Precision at which the quadratic algorithm should run
    */
-  virtual void modify(string name, string type, float target, int initNumberSteps, T precision, T filterscale) {
+  virtual void modify(string name, string type, float target, T filterscale) {
 
     if (!haveInitialisedRandomComponent)
       initialiseRandomComponent();
 
-    modificationManager.addModificationToList(name, type, target, initNumberSteps, precision, filterscale);
+    modificationManager.addModificationToList(name, type, target, filterscale);
   }
 
   //! Empty modification list
