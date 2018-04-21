@@ -167,7 +167,7 @@ namespace modifications {
       windowOperator(field, level);
 
       std::vector<DataType> &fieldData = field.getDataVector();
-      size_t regionSize = this->flaggedCells.size();
+      size_t regionSize = this->flaggedCells[level].size();
 
       // Calculate mean value in flagged region
       T sum = 0;
