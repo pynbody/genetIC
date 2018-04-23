@@ -313,7 +313,7 @@ public:
 
 
     auto lci = zoomWindow.getLowerCornerInclusive();
-    initZoomGridWithOriginAt(lci.x, lci.y, lci.z, zoomfac, n);
+    initZoomGridWithLowLeftCornerAt(lci.x, lci.y, lci.z, zoomfac, n);
 
   }
 
@@ -335,7 +335,7 @@ public:
   /*! Define a zoomed grid with user defined coordinates
    * \param x0, y0, z0  Coordinates in pixel number of the lower left corner
    */
-  void initZoomGridWithOriginAt(int x0, int y0, int z0, size_t zoomfac, size_t n) {
+  void initZoomGridWithLowLeftCornerAt(int x0, int y0, int z0, size_t zoomfac, size_t n) {
     grids::Grid<T> &gridAbove = multiLevelContext.getGridForLevel(multiLevelContext.getNumLevels() - 1);
     int nAbove = int(gridAbove.size);
 
@@ -404,10 +404,10 @@ public:
     cout << "  n                     = " << newGrid.size << endl;
     cout << "  dx                    = " << newGrid.cellSize << endl;
     cout << "  Zoom factor           = " << zoomfac << endl;
+    cout << "  Num particles         = " << untrimmedParticleArray.size() << endl;
     cout << "  Low-left corner in parent grid = " << lowerCorner << endl;
     cout << "  Low-left corner (h**-1 Mpc)    = " << newGrid.offsetLower.x << ", " << newGrid.offsetLower.y << ", "
          << newGrid.offsetLower.z << endl;
-    cout << "  Num particles         = " << untrimmedParticleArray.size() << endl;
 
     updateParticleMapper();
 
