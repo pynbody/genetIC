@@ -24,7 +24,7 @@ namespace modifications {
                                                                            cosmology(cosmology_),
                                                                            flaggedCells(underlying_.getNumLevels()) {
 
-      for (auto level=0; level < this->underlying.getNumLevels(); level++) {
+      for (size_t level=0; level < this->underlying.getNumLevels(); level++) {
         auto grid = this->underlying.getGridForLevel(level);
         grid.getFlaggedCells(flaggedCells[level]);
       }
