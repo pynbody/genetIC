@@ -393,8 +393,6 @@ public:
     zoomParticleArray.pop_back();
     zoomParticleArray.emplace_back(std::move(trimmedParticleArray));
 
-    vector<size_t> &newLevelZoomParticleArray = zoomParticleArray.back();
-
     Coordinate<T> newOffsetLower = gridAbove.offsetLower + Coordinate<T>(x0, y0, z0) * gridAbove.cellSize;
 
     this->addLevelToContext(spectrum, gridAbove.thisGridSize / zoomfac, n, newOffsetLower);
@@ -406,8 +404,8 @@ public:
     cout << "  n                     = " << newGrid.size << endl;
     cout << "  dx                    = " << newGrid.cellSize << endl;
     cout << "  Zoom factor           = " << zoomfac << endl;
-    cout << "  Origin in parent grid = " << lowerCorner << endl; //TODO Origin is misleading as it stands for center
-    cout << "  Low-left corner       = " << newGrid.offsetLower.x << ", " << newGrid.offsetLower.y << ", "
+    cout << "  Low-left corner in parent grid = " << lowerCorner << endl;
+    cout << "  Low-left corner (h**-1 Mpc)    = " << newGrid.offsetLower.x << ", " << newGrid.offsetLower.y << ", "
          << newGrid.offsetLower.z << endl;
     cout << "  Num particles         = " << untrimmedParticleArray.size() << endl;
 
