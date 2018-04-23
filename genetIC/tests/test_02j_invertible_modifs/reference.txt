@@ -1,8 +1,8 @@
 overdensity: calculated value = 0.00593599
-variance: calculated value = 0.00274069
+variance: calculated value = 0.00275796
 
 overdensity: calculated value = 0.00593599
-variance: calculated value = 0.00274328
+variance: calculated value = 0.00276053
 
-overdensity: calculated value = 0.00593292
-variance: calculated value = 0.00272442
+overdensity: calculated value = 0.00593684
+variance: calculated value = 0.00272413

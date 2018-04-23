@@ -14,25 +14,27 @@ namespace modifications {
   protected:
     multilevelcontext::MultiLevelContextInformation<DataType> &underlying;
     const cosmology::CosmologicalParameters<T> &cosmology;
-    std::vector<size_t> flaggedCells;    /*!< Region targeted by the modification */
+    std::vector<std::vector<size_t>> flaggedCells;    /*!< Region targeted by the modification */
     unsigned int order;                  /*!< Linear are first order, qudartic are second etc */
 
 
   public:
     Modification(multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
                  const cosmology::CosmologicalParameters<T> &cosmology_) : underlying(underlying_),
-                                                                           cosmology(cosmology_) {
+                                                                           cosmology(cosmology_),
+                                                                           flaggedCells(underlying_.getNumLevels()) {
 
-      size_t finestlevel = this->underlying.getNumLevels() - 1;
-      auto finestgrid = this->underlying.getGridForLevel(finestlevel);
-      finestgrid.getFlaggedCells(flaggedCells);
+      for (size_t level=0; level < this->underlying.getNumLevels(); level++) {
+        auto grid = this->underlying.getGridForLevel(level);
+        grid.getFlaggedCells(flaggedCells[level]);
 
 
-      if(this->flaggedCells.size() == finestgrid.size3 && finestlevel != 0){
-        std::cerr << "WARNING: Region selected for modification is the entire zoom grid. This is likely "
-                  << "because the cell selection extends beyond the zoom boundaries." <<std::endl;
-        std::cerr << "By design, modifications are only defined inside the zoom region. Increase the size of your "
-                  << "zoom grid or decrease your selection to avoid nasty surprises." << std::endl;
+        if (this->flaggedCells[level].size() == grid.size3 && level != 0) {
+          std::cerr << "WARNING: Region selected for modification is the entire zoom grid. This is likely "
+                    << "because the cell selection extends beyond the zoom boundaries." << std::endl;
+          std::cerr << "By design, modifications are meant to be defined inside a zoom region. Increase the size of your "
+                    << "zoom grid or decrease your selection to avoid nasty surprises." << std::endl;
+        }
       }
     };
 
