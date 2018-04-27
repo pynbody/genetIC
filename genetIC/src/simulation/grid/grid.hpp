@@ -164,6 +164,7 @@ namespace grids {
       auto end = std::set_union(flags.begin(), flags.end(), sourceArray.begin(), sourceArray.end(), newFlags.begin());
       newFlags.resize(end - newFlags.begin());
       flags = std::move(newFlags);
+      tools::sortAndEraseDuplicate(flags);
     }
 
     virtual void unflagAllCells() {
