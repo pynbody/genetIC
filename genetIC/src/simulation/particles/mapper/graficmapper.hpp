@@ -29,6 +29,7 @@ namespace particle {
 
     protected:
       multilevelcontext::MultiLevelContextInformation<GridDataType> contextInformation;
+      size_t multiGridFlagging = 0;
 
     public:
 
@@ -60,14 +61,18 @@ namespace particle {
       virtual void flagParticles(const std::vector<size_t> &genericParticleArray) {
         size_t gridStart = 0;
         size_t i = 0;
-        contextInformation.forEachLevel([&genericParticleArray, &i, &gridStart](GridType &targetGrid) {
+        contextInformation.forEachLevel([&genericParticleArray, &i, &gridStart, this](GridType &targetGrid) {
           std::vector<size_t> gridCellArray;
           size_t gridEnd = gridStart + targetGrid.size3;
 
-          // Copy all cells belonging to this grid, offseting the ID appropriately to account for previous grids
+          // Copy all cells belonging to this grid, offsetting the ID appropriately to account for previous grids
           while (i < genericParticleArray.size() && genericParticleArray[i] < gridEnd) {
             gridCellArray.push_back(genericParticleArray[i] - gridStart);
             ++i;
+          }
+
+          if(! gridCellArray.empty()){
+            this->multiGridFlagging ++;
           }
 
           targetGrid.flagCells(gridCellArray);
@@ -76,8 +81,16 @@ namespace particle {
           gridStart = gridEnd;
         });
 
-        if (i != genericParticleArray.size())
+        if (i != genericParticleArray.size()) {
           throw std::runtime_error("Ran out of grids when interpreting grafic cell IDs - check IDs?");
+        }
+
+        if( this->multiGridFlagging > 1){
+          std::cerr <<"Warning: Grafic Mapper does not know how to deal with propagation from zoom to coarse when "
+                      "multiple grids are being flagged. Skipping this step." << std::endl;
+        } else {
+          propagateFlagsThroughHierarchy();
+        }
       }
 
       virtual void unflagAllParticles() override {
@@ -117,6 +130,33 @@ namespace particle {
         throw std::runtime_error("Iterators are not supported by GraficMapper");
       }
 
+    protected:
+
+      //! Make sure that flagged zoomed cells are also flagged on coarse levels
+      // TODO This needs massive refactoring in the logic to have something consistent: the interplay between virtual
+      // flagging and real flagging, as well as downscaling and upscaling vectors yields to many edge cases and undesirable behaviours.
+      // TODO This logic of propagation og vectors through the hierarchy is present in several places in the code
+      // namely here, grid.downscale and upscale methods, and grafic masks. There should be a unified framework for this.
+      void propagateFlagsThroughHierarchy(){
+
+        size_t finest_level = this->contextInformation.getNumLevels() -1;
+
+        for (size_t level = finest_level; level > 0; level--) {
+
+          std::vector<size_t> flags_at_this_level;
+          std::vector<size_t> flags_at_coarser_level;
+          this->contextInformation.getGridForLevel(level).getFlaggedCells(flags_at_this_level);
+
+          for (size_t i : flags_at_this_level) {
+            flags_at_coarser_level.push_back(this->contextInformation.getIndexOfCellOnOtherLevel(level, level - 1, i));
+          }
+
+          tools::sortAndEraseDuplicate(flags_at_coarser_level);
+
+
+          this->contextInformation.getGridForLevel(level - 1).flagCells(flags_at_coarser_level);
+          }
+        }
     };
   }
 }
