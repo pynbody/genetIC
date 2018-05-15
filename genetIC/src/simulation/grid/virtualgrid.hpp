@@ -272,11 +272,6 @@ namespace grids {
 
 
   public:
-    bool matchesParentGridInResolution() override{
-      return true;
-    }
-
-
     size_t mapIndexToUnderlying(size_t sec_id) const {
       auto coord = this->getCoordinateFromIndex(sec_id);
       coord += cellOffset;

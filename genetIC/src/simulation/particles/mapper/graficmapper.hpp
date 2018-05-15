@@ -131,8 +131,6 @@ namespace particle {
     protected:
 
       //! Make sure that flagged zoomed cells are also flagged on coarse levels
-      // TODO This needs massive refactoring in the logic to have something consistent: the interplay between virtual
-      // flagging and real flagging, as well as downscaling and upscaling vectors yields to many edge cases and undesirable behaviours.
       // TODO This logic of propagation og vectors through the hierarchy is present in several places in the code
       // namely here, grid.downscale and upscale methods, and grafic masks. There should be a unified framework for this.
       void propagateFlagsThroughHierarchy(){
