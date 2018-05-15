@@ -29,7 +29,6 @@ namespace particle {
 
     protected:
       multilevelcontext::MultiLevelContextInformation<GridDataType> contextInformation;
-      size_t multiGridFlagging = 0;
 
     public:
 
@@ -71,8 +70,12 @@ namespace particle {
             ++i;
           }
 
-          if(! gridCellArray.empty()){
-            this->multiGridFlagging ++;
+          // Flagging virtual grids implies effective downscaling of the flag IDs. Left as a warning since we might
+          // still want to do it for some cases
+          if(targetGrid.matchesParentGridInResolution() && !gridCellArray.empty()){
+            std::cerr << gridCellArray.size() <<
+                      " input ids reference a GRAFIC intermediate grid - make sure you intended to do this !"
+                      <<std::endl;
           }
 
           targetGrid.flagCells(gridCellArray);
@@ -85,12 +88,7 @@ namespace particle {
           throw std::runtime_error("Ran out of grids when interpreting grafic cell IDs - check IDs?");
         }
 
-        if( this->multiGridFlagging > 1){
-          std::cerr <<"Warning: Grafic Mapper does not know how to deal with propagation from zoom to coarse when "
-                      "multiple grids are being flagged. Skipping this step." << std::endl;
-        } else {
-          propagateFlagsThroughHierarchy();
-        }
+        propagateFlagsThroughHierarchy();
       }
 
       virtual void unflagAllParticles() override {
@@ -141,22 +139,25 @@ namespace particle {
 
         size_t finest_level = this->contextInformation.getNumLevels() -1;
 
-        for (size_t level = finest_level; level > 0; level--) {
+        auto levelsOfRealGrids = this->contextInformation.getRealGrids();
 
+        for(unsigned long i = levelsOfRealGrids.size() - 1; i > 0; i--) {
+          size_t this_level = levelsOfRealGrids[i];
+          size_t coarser_level = levelsOfRealGrids[i-1];
           std::vector<size_t> flags_at_this_level;
           std::vector<size_t> flags_at_coarser_level;
-          this->contextInformation.getGridForLevel(level).getFlaggedCells(flags_at_this_level);
+          this->contextInformation.getGridForLevel(this_level).getFlaggedCells(flags_at_this_level);
 
-          for (size_t i : flags_at_this_level) {
-            flags_at_coarser_level.push_back(this->contextInformation.getIndexOfCellOnOtherLevel(level, level - 1, i));
+          for (size_t flag : flags_at_this_level) {
+            flags_at_coarser_level.push_back(this->contextInformation.getIndexOfCellOnOtherLevel(this_level, coarser_level, flag));
           }
 
           tools::sortAndEraseDuplicate(flags_at_coarser_level);
 
+          this->contextInformation.getGridForLevel(coarser_level).flagCells(flags_at_coarser_level);
 
-          this->contextInformation.getGridForLevel(level - 1).flagCells(flags_at_coarser_level);
-          }
         }
+      }
     };
   }
 }

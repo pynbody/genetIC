@@ -302,6 +302,18 @@ namespace multilevelcontext {
       return this->getGridForLevel(otherLevel).getIndexFromPoint(cell_coord);
     }
 
+    std::vector<size_t> getRealGrids(){
+      std::vector<size_t> levelsOfRealGrids;
+
+      for (size_t i = 0; i<nLevels; i++){
+        if(this->getGridForLevel(i).matchesParentGridInResolution()){
+          levelsOfRealGrids.push_back(i);
+        }
+      }
+      assert(! levelsOfRealGrids.empty());
+      return levelsOfRealGrids;
+    }
+
   };
 
   template<typename T>

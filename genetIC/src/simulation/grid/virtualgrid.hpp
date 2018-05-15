@@ -45,6 +45,18 @@ namespace grids {
 
     }
 
+    virtual bool matchesParentGridInResolution() override {
+      if (this->pUnderlying->isVirtual()){
+        return this->pUnderlying->matchesParentGridInResolution();
+      } else{
+        return this->pUnderlying->cellSize == this->cellSize;
+      }
+    }
+
+    bool isVirtual() override final {
+      return true;
+    }
+
     virtual void debugName(std::ostream &s) const {
       s << "VirtualGrid";
     }
@@ -260,6 +272,11 @@ namespace grids {
 
 
   public:
+    bool matchesParentGridInResolution() override{
+      return true;
+    }
+
+
     size_t mapIndexToUnderlying(size_t sec_id) const {
       auto coord = this->getCoordinateFromIndex(sec_id);
       coord += cellOffset;
