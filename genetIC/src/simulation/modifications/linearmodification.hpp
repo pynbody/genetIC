@@ -15,6 +15,7 @@ namespace modifications {
                        const cosmology::CosmologicalParameters<T> &cosmology_) :
         Modification<DataType, T>(underlying_, cosmology_) {
       this->order = 1;
+      this->flaggedCellsFinestGrid = this->flaggedCells[this->underlying.getNumLevels() - 1];
     };
 
     T calculateCurrentValue(const fields::MultiLevelField<DataType> &field) override {
@@ -28,6 +29,7 @@ namespace modifications {
 
   protected:
     std::shared_ptr<fields::ConstraintField<DataType>> covector;      /*!< Linear modification can be described as covectors */
+    std::vector<size_t> flaggedCellsFinestGrid;       /*!< Linear modifications only use high-res information and extrapolate from there */
 
     //! Calculate covector on finest level and generate from it the multi-grid field
     std::shared_ptr<fields::ConstraintField<DataType>> calculateCovectorOnAllLevels() {
@@ -52,7 +54,7 @@ namespace modifications {
      * Mostly useful for angular momentum modifications. Has not been tested for two years.
      */
     Coordinate<T> getCentre(grids::Grid<T> &grid) {
-      return grid.getCentreWrapped(this->flaggedCells);
+      return grid.getCentreWrapped(this->flaggedCellsFinestGrid);
     }
 
 
@@ -140,14 +142,14 @@ namespace modifications {
       std::vector<DataType> &outputData = outputField.getDataVector();
 
 
-      T w = 1.0 / this->flaggedCells.size();
+      T w = 1.0 / this->flaggedCellsFinestGrid.size();
 
       for (size_t i = 0; i < grid.size3; ++i) {
         outputData[i] = 0;
       }
 
-      for (size_t i = 0; i < this->flaggedCells.size(); i++) {
-        outputData[this->flaggedCells[i]] += w;
+      for (size_t i = 0; i < this->flaggedCellsFinestGrid.size(); i++) {
+        outputData[this->flaggedCellsFinestGrid[i]] += w;
       }
 
       outputField.toFourier();
@@ -170,14 +172,14 @@ namespace modifications {
       fields::Field<DataType, T> outputField = fields::Field<DataType, T>(grid, false);
       std::vector<DataType> &outputData = outputField.getDataVector();
 
-      T w = 1.0 / this->flaggedCells.size();
+      T w = 1.0 / this->flaggedCellsFinestGrid.size();
 
       for (size_t i = 0; i < grid.size3; ++i) {
         outputData[i] = 0;
       }
 
-      for (size_t i = 0; i < this->flaggedCells.size(); i++) {
-        outputData[this->flaggedCells[i]] += w;
+      for (size_t i = 0; i < this->flaggedCellsFinestGrid.size(); i++) {
+        outputData[this->flaggedCellsFinestGrid[i]] += w;
       }
 
       densityToPotential(outputField, this->cosmology);
@@ -218,8 +220,8 @@ namespace modifications {
       y0 = this->getCentre(grid).y;
       z0 = this->getCentre(grid).z;
 
-      for (size_t i = 0; i < this->flaggedCells.size(); i++) {
-        this->centralDifference4thOrder(grid, outputData, this->flaggedCells[i], this->direction, x0, y0, z0);
+      for (size_t i = 0; i < this->flaggedCellsFinestGrid.size(); i++) {
+        this->centralDifference4thOrder(grid, outputData, this->flaggedCellsFinestGrid[i], this->direction, x0, y0, z0);
       }
 
       outputField.toFourier();
