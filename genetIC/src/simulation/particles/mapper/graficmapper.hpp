@@ -72,7 +72,7 @@ namespace particle {
 
           // Flagging virtual grids implies effective downscaling of the flag IDs. Left as a warning since we might
           // still want to do it for some cases
-          if(targetGrid.matchesParentGridInResolution() && !gridCellArray.empty()){
+          if(targetGrid.isUpsampledOrDownsampled() && !gridCellArray.empty()){
             std::cerr << gridCellArray.size() <<
                       " input ids reference a GRAFIC intermediate grid - make sure you intended to do this !"
                       <<std::endl;
@@ -135,9 +135,7 @@ namespace particle {
       // namely here, grid.downscale and upscale methods, and grafic masks. There should be a unified framework for this.
       void propagateFlagsThroughHierarchy(){
 
-        size_t finest_level = this->contextInformation.getNumLevels() -1;
-
-        auto levelsOfRealGrids = this->contextInformation.getRealGrids();
+        auto levelsOfRealGrids = this->contextInformation.getFullResolutionGrids();
 
         for(unsigned long i = levelsOfRealGrids.size() - 1; i > 0; i--) {
           size_t this_level = levelsOfRealGrids[i];

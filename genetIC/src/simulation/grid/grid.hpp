@@ -112,7 +112,7 @@ namespace grids {
       return false;
     }
 
-    virtual bool matchesParentGridInResolution(){
+    virtual bool isUpsampledOrDownsampled(){
       return true;
     }
 

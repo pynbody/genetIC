@@ -45,11 +45,13 @@ namespace grids {
 
     }
 
-    virtual bool matchesParentGridInResolution() override {
-      if (this->pUnderlying->isVirtual()){
-        return this->pUnderlying->matchesParentGridInResolution();
+    virtual bool isUpsampledOrDownsampled() override {
+      if (this->pUnderlying->cellSize != this->cellSize){
+        return true;
+      } else if (this->pUnderlying->isVirtual()){
+        return this->pUnderlying->isUpsampledOrDownsampled();
       } else{
-        return this->pUnderlying->cellSize == this->cellSize;
+        return false;
       }
     }
 
