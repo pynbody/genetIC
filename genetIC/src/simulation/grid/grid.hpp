@@ -113,7 +113,7 @@ namespace grids {
     }
 
     virtual bool isUpsampledOrDownsampled(){
-      return true;
+      return false;
     }
 
     virtual bool isVirtual(){
