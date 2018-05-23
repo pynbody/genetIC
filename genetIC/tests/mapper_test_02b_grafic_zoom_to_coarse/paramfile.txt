@@ -1,0 +1,26 @@
+# Test retrieving coarse information with grafic particle mapping
+# Flagging 9 cells on finest levels => upward propagation => 5 flags on virtual zoom => 3 flags on real coarse => 2 flags on virtual coarse
+
+Om  0.279
+Ol  0.721
+Ob  0.04
+s8  0.817
+zin	99
+seed	8896131
+camb	../camb_transfer_kmax40_z0.dat
+
+outdir	 ./
+outname mappertest
+outformat 5
+extra_low_res 1
+
+basegrid 50.0 64
+
+centre 25 25 25
+select_sphere 3
+zoomgrid 4 64
+
+idfile test_ids.txt
+dump_idfile output.txt
+
+done

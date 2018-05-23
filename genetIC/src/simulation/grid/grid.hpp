@@ -112,6 +112,10 @@ namespace grids {
       return false;
     }
 
+    virtual bool isUpsampledOrDownsampled(){
+      return false;
+    }
+
 
     /*! Return true if this grid has a known relationship to pOther, in the sense that a field defined on pOther
     * could be evaluated on this grid. */
@@ -164,6 +168,7 @@ namespace grids {
       auto end = std::set_union(flags.begin(), flags.end(), sourceArray.begin(), sourceArray.end(), newFlags.begin());
       newFlags.resize(end - newFlags.begin());
       flags = std::move(newFlags);
+      tools::sortAndEraseDuplicate(flags);
     }
 
     virtual void unflagAllCells() {
