@@ -112,6 +112,10 @@ namespace grids {
       return false;
     }
 
+    virtual bool isUpsampledOrDownsampled(){
+      return false;
+    }
+
 
     /*! Return true if this grid has a known relationship to pOther, in the sense that a field defined on pOther
     * could be evaluated on this grid. */

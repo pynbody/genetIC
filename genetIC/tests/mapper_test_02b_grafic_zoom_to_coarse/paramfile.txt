@@ -1,4 +1,5 @@
 # Test retrieving coarse information with grafic particle mapping
+# Flagging 9 cells on finest levels => upward propagation => 5 flags on virtual zoom => 3 flags on real coarse => 2 flags on virtual coarse
 
 Om  0.279
 Ol  0.721

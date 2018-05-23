@@ -45,6 +45,14 @@ namespace grids {
 
     }
 
+    virtual bool isUpsampledOrDownsampled() override {
+      if (this->pUnderlying->cellSize != this->cellSize){
+        return true;
+      } else {
+        return this->pUnderlying->isUpsampledOrDownsampled();
+      }
+    }
+
     virtual void debugName(std::ostream &s) const {
       s << "VirtualGrid";
     }
