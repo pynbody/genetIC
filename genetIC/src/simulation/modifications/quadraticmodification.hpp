@@ -90,7 +90,7 @@ namespace modifications {
     }
 
     void checkFilterScale(T scale_) {
-      if(scale_ == 0.0){
+      if(scale_ < 0.0){
         throw std::runtime_error("Trying to calculate filtered variance without initialising variance filtering scale."
                                      " Use filtering_scale command to do this.");
       }
@@ -143,15 +143,12 @@ namespace modifications {
       assert(!field.isFourier()); // Windowing is done in real space
 
       std::vector<DataType> &fieldData = field.getDataVector();
-      int counter=0;
 
 #pragma omp parallel for schedule(static)
       for (size_t i = 0; i < fieldData.size(); ++i) {
         // If cell is not a flagged cell, zero it
         if (!(std::binary_search(this->flaggedCells[level].begin(), this->flaggedCells[level].end(), i))) {
           fieldData[i] = 0;
-        } else{
-          counter ++;
         }
       }
     }

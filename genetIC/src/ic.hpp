@@ -113,7 +113,7 @@ protected:
   size_t extraHighRes = 0;
 
   //! High-pass filtering scale defined for variance calculations
-  T variance_filterscale = 0.0;
+  T variance_filterscale = -1.0;
 
   //! Numerical parameters for the algorithm of the quadratic modifications
   // These two parameters are for the quadratic algorithm (Rey and Pontzen 2017):
