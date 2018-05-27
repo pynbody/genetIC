@@ -56,20 +56,16 @@ class PowerSpectrum(object):
     def __init__(self, pspec=None, spacing_Mpc=0.01, npix=2 ** 19):
         self.spacing_Mpc = spacing_Mpc
         self.npix = npix
-        self.k = 2 * np.pi * np.fft.fftfreq(npix, spacing_Mpc)
-
-
-
-
-        k_sanitized = copy.copy(self.k)
-        k_sanitized[k_sanitized == 0] = 1
+        self.k = 2.0*np.pi*np.fft.fftfreq(npix, spacing_Mpc)
+        k_sanitized = np.copy(self.k)
+        k_sanitized[np.where(k_sanitized == 0)] = 1
         if pspec is None:
             pspec = pynbody.analysis.hmf.PowerSpectrumCAMBLive(pynbody.new())
         if not hasattr(pspec, "__call__"):
             self.Pk = 1e2*k_sanitized**pspec*(k_sanitized>1e-2)*(k_sanitized<1e2)
         else:
             self.Pk = pspec(abs(k_sanitized))
-            self.Pk[self.k == 0] = 0
+        self.Pk[self.k == 0] = 0
 
 
 
@@ -84,7 +80,7 @@ class PowerSpectrum(object):
         return self.filter(SharpHighPass(2*np.pi/boxsize))
 
     def plot(self, scale=False):
-        subsampling_plot(self.k[:self.npix/2], self.Pk[:self.npix / 2])
+        subsampling_plot(self.k[:self.npix//2], self.Pk[:self.npix // 2])
         p.loglog()
         if scale:
             p.ylim(2e2, 2e5)
@@ -104,7 +100,7 @@ class CorrelationFunction(object):
         self.npix = underlying.npix
         self.underlying = underlying
         self.k=underlying.k
-        r = np.linspace(0, self.spacing_Mpc * self.npix / 2, self.npix / 2)
+        r = np.linspace(0, self.spacing_Mpc * (self.npix // 2), self.npix // 2)
         self.r = np.concatenate([r, -r[::-1]])
         self.xi_filt = 1.0
 
@@ -131,8 +127,8 @@ class CorrelationFunction(object):
         return xi_r
 
     def plot(self, remove_dc=False, r_offset=0, scale=False):
-        xi_r = self.xi[:self.npix / 2]
-        r = self.r[:self.npix / 2]
+        xi_r = self.xi[:self.npix // 2]
+        r = self.r[:self.npix // 2]
         if remove_dc:
             xi_r = xi_r-np.average(xi_r,weights=r**2)
 
@@ -210,7 +206,7 @@ class FilterExplorer(object):
             pspec = pynbody.analysis.hmf.PowerSpectrumCAMBLive(pynbody.new())
         self.npix = npix
         self.k = 2*np.pi*np.fft.fftfreq(npix, spacing_Mpc)
-        r = np.linspace(0,spacing_Mpc*npix/2,npix/2)
+        r = np.linspace(0,spacing_Mpc*npix//2,npix//2)
         self.r = np.concatenate([r,-r[::-1]])
         k_sanitized = copy.copy(self.k)
         k_sanitized[k_sanitized==0] = 1
@@ -220,19 +216,19 @@ class FilterExplorer(object):
         self.r_filt=1.0
 
     def plot_spectrum(self):
-        k = self.k[:self.npix/2]
-        p.plot(k, self.Pk[:self.npix / 2])
+        k = self.k[:self.npix//2]
+        p.plot(k, self.Pk[:self.npix // 2])
         p.loglog()
 
     def plot_spectral_index(self):
-        k = self.k[:self.npix / 2]
-        Pk = self.Pk[:self.npix / 2]
+        k = self.k[:self.npix // 2]
+        Pk = self.Pk[:self.npix // 2]
         log_gradient = np.diff(np.log(Pk))/np.diff(np.log(k))
         p.plot((k[:-1]+k[1:])/2, log_gradient)
         p.semilogx()
 
     def plot_roundtrip_spectrum(self):
-        k = self.k[:self.npix / 2]
+        k = self.k[:self.npix // 2]
         Pk = self.get_Pk_from_xi(self.get_xi()*self.r_filt)
 
 

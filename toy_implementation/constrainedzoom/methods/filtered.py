@@ -1,5 +1,5 @@
 from . import ZoomConstrained
-from ..fft_wrapper import in_fourier_space, in_real_space, unitary_inverse_fft, unitary_fft, complex_dot, FFTArray
+from fft_wrapper import in_fourier_space, in_real_space, unitary_inverse_fft, complex_dot, FFTArray
 import numpy as np
 import copy
 

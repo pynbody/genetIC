@@ -1,4 +1,3 @@
-import importlib
 import math
 
 import abc
@@ -8,7 +7,7 @@ import scipy.integrate
 import scipy.interpolate
 import numpy as np
 
-from ..fft_wrapper import FFTArray, unitary_fft, unitary_inverse_fft, in_fourier_space, in_real_space, complex_dot
+from fft_wrapper import FFTArray, unitary_fft, unitary_inverse_fft, in_fourier_space, in_real_space, complex_dot
 
 
 class ZoomConstrained(metaclass=abc.ABCMeta):

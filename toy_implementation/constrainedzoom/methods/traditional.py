@@ -1,6 +1,5 @@
 import copy
-import numpy as np
-from ..fft_wrapper import in_real_space, FFTArray
+from fft_wrapper import in_real_space, FFTArray
 from . import UnfilteredZoomConstrained
 
 

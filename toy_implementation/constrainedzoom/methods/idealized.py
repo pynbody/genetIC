@@ -2,7 +2,7 @@ import copy
 import numpy as np
 
 from . import ZoomConstrained, UnfilteredZoomConstrained
-from ..fft_wrapper import FFTArray
+from fft_wrapper import FFTArray
 from ..power_spectrum import powerlaw_covariance
 
 class IdealizedZoomConstrained(ZoomConstrained):
