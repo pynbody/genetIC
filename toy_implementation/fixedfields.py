@@ -5,6 +5,8 @@ import numpy as np
 import scipy.linalg
 import pylab as p
 
+from functools import lru_cache
+
 class EitherField(object):
     def __init__(self, pspec=-2, spacing_Mpc=0.01, npix=1024, npix_subbox=512):
         self.spacing_Mpc = spacing_Mpc
@@ -29,6 +31,7 @@ class EitherField(object):
         vec[self.npix_subbox_mask:]=0
         return vec.in_fourier_space()
 
+    @lru_cache()
     def subbox_covariance_convolution_matrix(self):
         matrix = np.zeros((self.npix, self.npix))
         for i in range(self.npix):
@@ -38,8 +41,15 @@ class EitherField(object):
             cov_element = self.apply_window(cov_element)
             WXW = np.outer(cov_element, cov_element.conj())
             matrix[i,:] = WXW.diagonal()
+        matrix[0,:]=0
+        matrix[:,0]=0
         return matrix
 
+    @lru_cache()
+    def subbox_covariance_deconvolution_matrix(self):
+        return np.linalg.pinv(self.subbox_covariance_convolution_matrix(),rcond=1e-5)
+
+    @lru_cache()
     def subbox_covariance(self):
         """Returns <delta_i delta_j> for the subbox"""
         covariance = np.zeros((self.npix_subbox_vector, self.npix_subbox_vector))
@@ -51,6 +61,7 @@ class EitherField(object):
             covariance+=np.outer(cov_element_subbox, cov_element_subbox.conj())
         return covariance
 
+    @lru_cache()
     def expectation_field4(self):
         """Returns <delta_i delta_i delta_j delta_j> for the subbox"""
         raise NotImplementedError("To use this method, you need to instantiate either a GaussianField or a FixedField")
@@ -64,7 +75,7 @@ class EitherField(object):
         restrict = slice(1, self.npix_subbox_vector // 2)
 
         if deconvolved:
-            matr = np.linalg.pinv(self.subbox_covariance_convolution_matrix())
+            matr = self.subbox_covariance_deconvolution_matrix()
             Pk_empirical = np.dot(matr, self.subbox_covariance().diagonal())
             Pk_expected = self.Pk_subbox
         else:
@@ -76,19 +87,27 @@ class EitherField(object):
         p.plot(self.k_subbox[restrict], Pk_expected[restrict], '--')
         p.loglog()
 
-    def subbox_power_var(self):
-        power = self.subbox_covariance().diagonal()
-        return self.expectation_field4().diagonal() - power ** 2
+    def subbox_power_covar(self, deconvolved=True):
+        cov = self.subbox_covariance()
+        field4 = self.expectation_field4()
+        power_covar = field4 - cov**2
+        if deconvolved:
+            decon = self.subbox_covariance_deconvolution_matrix()
+            return np.dot(decon, np.dot(power_covar, decon.T))
+        else:
+            return power_covar
 
-    def plot_subbox_power_std(self):
+    def subbox_power_var(self, deconvolved=True):
+        return self.subbox_power_covar(deconvolved).diagonal()
+
+    def plot_subbox_power_std(self, deconvolved=True):
         """Plot the standard deviation of the power in the subbox.
 
         Overplot (as a dashed line) what it would be if the subbox contained its own realization of a Gaussian
         random field with the same theory power spectrum (NB this idealised comparison line is Gaussian even if 
         the parent field is Fixed)."""
-        power = self.subbox_covariance().diagonal()
-        power_var = np.sqrt(self.expectation_field4().diagonal() - power**2)
-        p.plot(self.k_subbox[1:self.npix_subbox_vector // 2], power_var[1:self.npix_subbox_vector // 2])
+        power_var = self.subbox_power_var(deconvolved)
+        p.plot(self.k_subbox[1:self.npix_subbox_vector // 2], np.sqrt(power_var)[1:self.npix_subbox_vector // 2])
         p.plot(self.k_subbox[1:self.npix_subbox_vector // 2], np.sqrt(2) * self.Pk_subbox[1:self.npix_subbox_vector // 2], '--')
         p.loglog()
 
@@ -104,7 +123,10 @@ class EitherField(object):
         cov = self.expectation_field4() - np.outer(power,power)
         std = power**2
         cor = cov/np.sqrt(np.outer(std,std))
-        p.imshow(cor)
+        p.imshow(cor,vmin=-1.0,vmax=1)
+        p.set_cmap('RdBu')
+        p.colorbar()
+
 
 class GaussianField(EitherField):
     def expectation_field4(self):
