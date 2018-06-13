@@ -11,7 +11,7 @@ class EitherField(object):
     def __init__(self, pspec=-2, spacing_Mpc=0.01, npix=1024, npix_subbox=512):
         self.spacing_Mpc = spacing_Mpc
         self.npix = npix
-        self.npix_subbox_vector = npix
+        self.npix_subbox_vector = npix_subbox
         self.npix_subbox_mask = npix_subbox
         self.k = 2.0*np.pi*np.fft.fftfreq(npix, spacing_Mpc)
         self.Pk = self.get_power_spectrum(pspec, self.k)
@@ -29,18 +29,23 @@ class EitherField(object):
     def apply_window(self, vec: fft_wrapper.FFTArray):
         vec.in_real_space()
         vec[self.npix_subbox_mask:]=0
-        return vec.in_fourier_space()
+        vec = vec[:self.npix_subbox_vector]
+        vec = vec.in_fourier_space()
+        assert len(vec)==self.npix_subbox_vector
+        return vec
 
     @lru_cache()
     def subbox_covariance_convolution_matrix(self):
-        matrix = np.zeros((self.npix, self.npix))
-        for i in range(self.npix):
+        matrix = np.zeros((self.npix_subbox_vector, self.npix_subbox_mask))
+        for i in range(self.npix_subbox_mask):
             cov_element = np.zeros(self.npix).view(fft_wrapper.FFTArray)
             cov_element.fourier = True
-            cov_element[i] = 1.0
+            i_big_box_min = int(i*self.npix/self.npix_subbox_mask)
+            i_big_box_max = int((i+1)*self.npix/self.npix_subbox_mask)
+            cov_element[i_big_box_min:i_big_box_max] = 1.0
             cov_element = self.apply_window(cov_element)
             WXW = np.outer(cov_element, cov_element.conj())
-            matrix[i,:] = WXW.diagonal()
+            matrix[:,i] = WXW.diagonal()
         matrix[0,:]=0
         matrix[:,0]=0
         return matrix
