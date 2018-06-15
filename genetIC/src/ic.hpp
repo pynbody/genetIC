@@ -1071,6 +1071,7 @@ public:
     }
   }
 
+protected:
   // Make sure to add the extra-high rez grids to grafic mapper before finishing
   void finalUpdateParticleMapper() {
     if (outputFormat == io::OutputFormat::grafic) {

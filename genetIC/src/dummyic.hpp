@@ -75,7 +75,9 @@ public:
   void modify(string /*name*/, string /*string*/, float /*value*/,
               int /*initNumberSteps*/, T /*precision*/, T /*filterscale */) override {}
 
-  void done() override {}
+  void done() override {
+    this->finalUpdateParticleMapper();
+  }
 };
 
 #endif
