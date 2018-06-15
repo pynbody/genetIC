@@ -1002,6 +1002,7 @@ public:
     if(modificationManager.hasModifications())
       applyModifications();
 
+    finalUpdateParticleMapper();
     write();
   }
 
@@ -1068,7 +1069,19 @@ public:
 
       cerr << "reverseSmallK: k reversal at " << sqrt(k2max) << endl;
     }
+  }
 
+  // Make sure to add the extra-high rez grids to grafic mapper before finishing
+  void finalUpdateParticleMapper() {
+    if (outputFormat == io::OutputFormat::grafic) {
+      if(this->centerOnTargetRegion) {
+        pMapper = std::make_shared<particle::mapper::GraficMapper<GridDataType>>(multiLevelContext,
+            this->getBoxCentre(), this->extraLowRes, this->extraHighRes);
+      }
+      return;
+    } else{
+      updateParticleMapper();
+    }
   }
 };
 

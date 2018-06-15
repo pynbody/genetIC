@@ -25,14 +25,8 @@ public:
       // source file has extra zoom levels compared to us. Make a grid with our specifications, and any
       // flags deposited onto it will have to be manually copied over later.
 
-      if (newLevel - pUnderlying->multiLevelContext.getNumLevels() >= 1){
-        throw std::runtime_error("DummyIC (relative) can only open one extra zoom level compared to IC (main)."
-                                 " This error is likely from double zooms set-up. Call mapper_relative command after opening "
-                                 "first zooms in main paramfile to fix it.");
-      }
-
       grids::Grid<T> &deepestUnderlyingGrid =
-          pUnderlying->multiLevelContext.getGridForLevel(this->multiLevelContext.getNumLevels() - 1);
+          pUnderlying->multiLevelContext.getGridForLevel(pUnderlying->multiLevelContext.getNumLevels() - 1);
 
       covarianceFieldPtr = nullptr;
 
