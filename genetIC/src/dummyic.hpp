@@ -17,13 +17,20 @@ public:
 
   void addLevelToContext(const cosmology::CAMB<GridDataType> & /*spectrum*/, T gridSize, size_t nside,
                          const Coordinate<T> &offset = {0, 0, 0}) override {
-    size_t newLevel = this->multiLevelContext.getNumLevels();
+    size_t newLevel = this->multiLevelContext.getNumLevels(); //getNumLevels counts from 1 to N rather than 0 to N-1, which is why newLevel defined this way does not exist yet
     std::shared_ptr<grids::Grid<T>> underlyingGrid;
     std::shared_ptr<const fields::Field<GridDataType, T>> covarianceFieldPtr;
 
     if (pUnderlying->multiLevelContext.getNumLevels() <= newLevel) {
       // source file has extra zoom levels compared to us. Make a grid with our specifications, and any
       // flags deposited onto it will have to be manually copied over later.
+
+      if (newLevel - pUnderlying->multiLevelContext.getNumLevels() >= 1){
+        throw std::runtime_error("DummyIC (relative) can only open one extra zoom level compared to IC (main)."
+                                 " This error is likely from double zooms set-up. Call mapper_relative command after opening "
+                                 "first zooms in main paramfile to fix it.");
+      }
+
       grids::Grid<T> &deepestUnderlyingGrid =
           pUnderlying->multiLevelContext.getGridForLevel(this->multiLevelContext.getNumLevels() - 1);
 

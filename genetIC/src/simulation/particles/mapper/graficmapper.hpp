@@ -42,8 +42,9 @@ namespace particle {
       bool references(GridPtrType grid) const override {
         bool hasReference = false;
         contextInformation.forEachLevel([&grid, &hasReference](const GridType &targetGrid) {
-          if (&targetGrid == grid.get())
+          if (targetGrid.pointsToGrid(grid.get())) {
             hasReference = true;
+          }
         });
         return hasReference;
       }

@@ -599,6 +599,11 @@ public:
 
   //! Runs commands of a given parameter file to set up the input mapper
   void setInputMapper(std::string fname) {
+
+    if (multiLevelContext.getNumLevels() == 0)
+      throw std::runtime_error("Mapper relative command cannot be used before a basegrid has been initialised.");
+
+
     DummyICGenerator<GridDataType> pseudoICs(this);
     auto dispatch = interpreter.specify_instance(pseudoICs);
     ifstream inf;
@@ -607,13 +612,13 @@ public:
 
     if (!inf.is_open())
       throw std::runtime_error("Cannot open IC paramfile for relative_to command");
-    cerr << "******** Running commands in" << fname << " to work out relationship ***********" << endl;
+    cerr << "******** Running commands in " << fname << " to work out relationship ***********" << endl;
 
     tools::ChangeCwdWhileInScope temporary(tools::getDirectoryName(fname));
 
     dispatch.run_loop(inf);
     cerr << *(pseudoICs.pMapper) << endl;
-    cerr << "******** Finished with" << fname << " ***********" << endl;
+    cerr << "******** Finished with " << fname << " ***********" << endl;
     pInputMapper = pseudoICs.pMapper;
     pInputMultiLevelContext = std::make_shared<multilevelcontext::MultiLevelContextInformation<GridDataType>>
         (pseudoICs.multiLevelContext);

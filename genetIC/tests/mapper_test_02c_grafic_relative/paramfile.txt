@@ -1,0 +1,30 @@
+# Test that flagging cells can be done wrto a simulation with extra zooms, including intermediate virtuals
+# Test_ids.txt contains only super fine particle ids that do not exist yet in the main paramfile.txt
+# This is done in double zoom context as this has proven difficult in the past.
+
+Om  0.279
+Ol  0.721
+Ob  0.04
+s8  0.817
+zin	99
+seed	8896131
+camb	../camb_transfer_kmax40_z0.dat
+
+outdir	 ./
+outname mappertest
+outformat 5
+extra_low_res 1
+
+basegrid 50.0 64
+
+centre 25 25 25
+select_sphere 3
+zoomgrid 4 64
+
+mapper_relative_to ./morezoomed.txt
+IDfile test_ids.txt
+zoomgrid 4 64
+
+dump_idfile output.txt
+
+done
