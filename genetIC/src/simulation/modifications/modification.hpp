@@ -27,6 +27,14 @@ namespace modifications {
       for (size_t level=0; level < this->underlying.getNumLevels(); level++) {
         auto grid = this->underlying.getGridForLevel(level);
         grid.getFlaggedCells(flaggedCells[level]);
+
+
+        if (this->flaggedCells[level].size() == grid.size3 && level != 0) {
+          std::cerr << "WARNING: Region selected for modification is the entire zoom grid. This is likely "
+                    << "because the cell selection extends beyond the zoom boundaries." << std::endl;
+          std::cerr << "By design, modifications are meant to be defined inside a zoom region. Increase the size of your "
+                    << "zoom grid or decrease your selection to avoid nasty surprises." << std::endl;
+        }
       }
     };
 

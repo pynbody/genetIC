@@ -1,0 +1,1 @@
+WARNING: Opening a zoom where flagged particles are within 3 pixels of the edge. This is prone to numerical errors.

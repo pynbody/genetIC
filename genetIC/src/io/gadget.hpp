@@ -574,7 +574,7 @@ int save_phases(complex<FloatType> *phk, FloatType* ph, complex<FloatType> *delt
       cerr << "Gadget output preliminary scan..." << endl;
 
       for(unsigned int ptype=0; ptype<6; ++ptype) {
-        FloatType min_mass, max_mass, gas_mass;
+        FloatType min_mass, max_mass;
         size_t n;
         getParticleInfo(generator, mapper, min_mass, max_mass, n, ptype);
         if(n>0) {

@@ -64,14 +64,14 @@ namespace particle {
       generator.pGenerators.emplace_back(
           std::make_shared<ZPG>(generator.outputField.getFieldForLevel(0)));
     } else if (nlevels >= 2) {
-      cerr << "Zeldovich approximation on successive levels...";
+      cerr << "Zeldovich approximation on successive levels..." << endl;
 
 
       for (size_t level = 0; level < nlevels; ++level)
         generator.pGenerators.emplace_back(
             std::make_shared<ZPG>(generator.outputField.getFieldForLevel(level)));
 
-      cerr << "Interpolating low-frequency information into zoom regions...";
+      cerr << "Interpolating low-frequency information into zoom regions..." << endl;
 
       for (size_t level = 1; level < nlevels; ++level) {
 

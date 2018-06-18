@@ -112,6 +112,19 @@ protected:
   size_t extraLowRes = 0;
   size_t extraHighRes = 0;
 
+  //! High-pass filtering scale defined for variance calculations
+  T variance_filterscale = -1.0;
+
+  //! Numerical parameters for the algorithm of the quadratic modifications
+  // These two parameters are for the quadratic algorithm (Rey and Pontzen 2017):
+  // initial_number_steps encodes the number of steps always performed by the algorithm (similar to a burn-in)
+  // 10 is a good trade-off to reach acceptable precision while avoiding extra steps.
+  // precision is the target precision at which the quadratic modification will be achieved. More precision requires
+  // more steps. In practice, we are limited by other errors in the code (namely recombination of low and high ks for fields)
+  // of order of 1%. precision=0.1% is therefore sufficient and carries an acceptable numerical cost.
+  int initial_number_steps = 10;
+  T precision = 0.001;
+
   shared_ptr<particle::mapper::ParticleMapper<GridDataType>> pMapper;
   shared_ptr<particle::mapper::ParticleMapper<GridDataType>> pInputMapper;
   shared_ptr<multilevelcontext::MultiLevelContextInformation<GridDataType>> pInputMultiLevelContext;
@@ -217,6 +230,10 @@ public:
     this->centerOnTargetRegion = true;
   }
 
+  void setVarianceFilteringScale(T filterscale){
+    this->variance_filterscale = filterscale;
+  }
+
   //! Define the base (coarsest) grid
   /*!
    * \param boxSize Physical size of box in Mpc
@@ -296,7 +313,7 @@ public:
 
 
     auto lci = zoomWindow.getLowerCornerInclusive();
-    initZoomGridWithOriginAt(lci.x, lci.y, lci.z, zoomfac, n);
+    initZoomGridWithLowLeftCornerAt(lci.x, lci.y, lci.z, zoomfac, n);
 
   }
 
@@ -318,7 +335,7 @@ public:
   /*! Define a zoomed grid with user defined coordinates
    * \param x0, y0, z0  Coordinates in pixel number of the lower left corner
    */
-  void initZoomGridWithOriginAt(int x0, int y0, int z0, size_t zoomfac, size_t n) {
+  void initZoomGridWithLowLeftCornerAt(int x0, int y0, int z0, size_t zoomfac, size_t n) {
     grids::Grid<T> &gridAbove = multiLevelContext.getGridForLevel(multiLevelContext.getNumLevels() - 1);
     int nAbove = int(gridAbove.size);
 
@@ -376,8 +393,6 @@ public:
     zoomParticleArray.pop_back();
     zoomParticleArray.emplace_back(std::move(trimmedParticleArray));
 
-    vector<size_t> &newLevelZoomParticleArray = zoomParticleArray.back();
-
     Coordinate<T> newOffsetLower = gridAbove.offsetLower + Coordinate<T>(x0, y0, z0) * gridAbove.cellSize;
 
     this->addLevelToContext(spectrum, gridAbove.thisGridSize / zoomfac, n, newOffsetLower);
@@ -389,10 +404,10 @@ public:
     cout << "  n                     = " << newGrid.size << endl;
     cout << "  dx                    = " << newGrid.cellSize << endl;
     cout << "  Zoom factor           = " << zoomfac << endl;
-    cout << "  Origin in parent grid = " << lowerCorner << endl; //TODO Origin is misleading as it stands for center
-    cout << "  Low-left corner       = " << newGrid.offsetLower.x << ", " << newGrid.offsetLower.y << ", "
-         << newGrid.offsetLower.z << endl;
     cout << "  Num particles         = " << untrimmedParticleArray.size() << endl;
+    cout << "  Low-left corner in parent grid = " << lowerCorner << endl;
+    cout << "  Low-left corner (h**-1 Mpc)    = " << newGrid.offsetLower.x << ", " << newGrid.offsetLower.y << ", "
+         << newGrid.offsetLower.z << endl;
 
     updateParticleMapper();
 
@@ -954,11 +969,11 @@ public:
   /*!
    * @param filterscale Filtering scale in Mpc if the quantity needs it
    */
-  void calculate(string name, T filterscale) {
+  void calculate(string name) {
     if (!haveInitialisedRandomComponent)
       initialiseRandomComponent();
 
-    GridDataType val = modificationManager.calculateCurrentValueByName(name, filterscale);
+    GridDataType val = modificationManager.calculateCurrentValueByName(name, this->variance_filterscale);
 
     cout << name << ": calculated value = " << val << endl;
   }
@@ -967,15 +982,13 @@ public:
   /*!
    * @param type  Modification can be relative to existing value or absolute
    * @param target Absolute target or factor by which the existing will be multiplied
-   * @param initNumberSteps Initial number of steps for the quadratic iterative algorithm
-   * @param precision Precision at which the quadratic algorithm should run
    */
-  virtual void modify(string name, string type, float target, int initNumberSteps, T precision, T filterscale) {
+  virtual void modify(string name, string type, float target) {
 
     if (!haveInitialisedRandomComponent)
       initialiseRandomComponent();
 
-    modificationManager.addModificationToList(name, type, target, initNumberSteps, precision, filterscale);
+    modificationManager.addModificationToList(name, type, target,this->initial_number_steps, this->precision, this->variance_filterscale);
   }
 
   //! Empty modification list

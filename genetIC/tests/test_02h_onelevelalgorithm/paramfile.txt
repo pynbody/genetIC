@@ -19,15 +19,16 @@ basegrid 64 64
 centre 32.5 32.5 32.5
 select_sphere 10
 
+filtering_scale 10.
 calculate overdensity
-calculate variance 10
+calculate variance
 
 modify overdensity relative 1
-modify variance absolute 0.01 5 0.001 10
+modify variance absolute 0.01
 
 done
 
 calculate overdensity
-calculate variance 10
+calculate variance
 
 dump_grid 0

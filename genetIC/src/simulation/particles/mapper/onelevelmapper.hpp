@@ -40,7 +40,7 @@ namespace particle {
       }
 
       virtual unsigned int
-      gadgetParticleTypeFromIterator(const iterator *pIterator) const override {
+      gadgetParticleTypeFromIterator(const iterator * /*pIterator*/) const override {
         return gadgetParticleType;
       }
 
@@ -106,7 +106,7 @@ namespace particle {
       }
 
       virtual iterator endParticleType(const AbstractMultiLevelParticleGenerator<GridDataType> &generator,
-                                       unsigned int particleType) const {
+                                       unsigned int /*particleType*/) const {
         return this->end(generator);
       }
 
