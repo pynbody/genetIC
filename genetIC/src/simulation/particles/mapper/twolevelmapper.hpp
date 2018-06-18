@@ -474,7 +474,6 @@ namespace particle {
         size_t &i = pIterator->i;
 
         size_t &next_zoom = extraData[0];
-        size_t &next_zoom_index = extraData[1];
 
         // increment the boring-old-counter!
         ++i;

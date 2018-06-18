@@ -1,0 +1,3 @@
+WARNING: High-pass filtering scale: 100 h**-1 Mpc is greater than the rough window size: 20 h**-1 Mpc used for modifications.
+This is prone to numerical errors when modifying the field. Decrease filtering scale to avoid it.
+variance: calculated value = 0.00182083

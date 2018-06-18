@@ -90,6 +90,10 @@ namespace modifications {
     }
 
     void checkFilterScale(T scale_) {
+      if(scale_ < 0.0){
+        throw std::runtime_error("Trying to calculate filtered variance without initialising variance filtering scale."
+                                     " Use filtering_scale command to do this.");
+      }
 
       size_t finest_level = this->underlying.getNumLevels() - 1;
       auto finest_grid = this->underlying.getGridForLevel(finest_level);

@@ -74,7 +74,7 @@ namespace particle {
       }
 
       virtual unsigned int
-      gadgetParticleTypeFromIterator(const iterator *pIterator) const  {
+      gadgetParticleTypeFromIterator(const iterator * /*pIterator*/) const  {
         throw std::runtime_error("There is no gadget particle type known for this particle mapper");
       }
 
@@ -196,8 +196,8 @@ namespace particle {
       /** Get an iterator for the first particle of the specified gadget type.
        *
        * Can be expensive; you're recommended to instead use iterateParticlesOfType */
-      virtual iterator beginParticleType(const AbstractMultiLevelParticleGenerator<GridDataType> &generator,
-                                         unsigned int particleType) const {
+      virtual iterator beginParticleType(const AbstractMultiLevelParticleGenerator<GridDataType> & /*generator*/,
+                                         unsigned int /*particleType*/) const {
         throw std::runtime_error("There is no gadget particle type associated with this particle mapper");
 
       }
@@ -205,8 +205,8 @@ namespace particle {
       /** Get an iterator for the last particle of the specified gadget type.
        *
        * Can be expensive; you're recommended to instead use iterateParticlesOfType */
-      virtual iterator endParticleType(const AbstractMultiLevelParticleGenerator<GridDataType> &generator,
-                                         unsigned int particleType) const {
+      virtual iterator endParticleType(const AbstractMultiLevelParticleGenerator<GridDataType> & /*generator*/,
+                                         unsigned int /*particleType*/) const {
         throw std::runtime_error("There is no gadget particle type associated with this particle mapper");
 
       }
