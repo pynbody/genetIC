@@ -59,23 +59,21 @@ class EitherField(object):
     @lru_cache()
     def subbox_covariance_convolution_matrix(self):
         matrix = np.zeros((self.npix_subbox_vector, self.nbands))
-        for i in range(self.nbands):
+        for band in range(self.nbands):
             
-            i_big_box_min = i*self.bandwidth
-            i_big_box_max = (i+1)*self.bandwidth
-            cov_element : fft_wrapper.FFTArray = np.zeros(self.npix).view(fft_wrapper.FFTArray) 
-            cov_element.fourier = True
-            cov_element[i_big_box_min:i_big_box_max] = self.Pk[i_big_box_min:i_big_box_max]
-            if i_big_box_min==0:
-                i_big_box_min=None
-            else:
-                i_big_box_min=-i_big_box_min
-            cov_element[-i_big_box_max:i_big_box_min] = self.Pk[-i_big_box_max:i_big_box_min]
-
-            cov_element*=2.0*self.bandwidth/cov_element.sum()
-            cov_element = self.apply_window(cov_element)
-            WXW = np.outer(cov_element, cov_element.conj())
-            matrix[:,i] = WXW.diagonal()
+            i_big_box_min = band*self.bandwidth
+            i_big_box_max = (band+1)*self.bandwidth
+            
+            WXW = np.zeros((self.npix_subbox_vector ,self.npix_subbox_vector ))
+            for i_big_box in range(i_big_box_min, i_big_box_max):
+                cov_element : fft_wrapper.FFTArray = np.zeros(self.npix).view(fft_wrapper.FFTArray) 
+                cov_element.fourier = True
+                cov_element[i_big_box] = 1.0
+                cov_element = self.apply_window(cov_element)
+                WXW += np.outer(cov_element, cov_element.conj())*self.Pk[i_big_box]
+            if self.Pk_bandpower[band]>0:
+                WXW/=self.Pk_bandpower[band]
+            matrix[:,band] += WXW.diagonal()
         return matrix
 
     @lru_cache()
@@ -113,10 +111,10 @@ class EitherField(object):
             Pk_expected = self.Pk_bandpower
             k_expected = self.k_bandpower
         else:
-            Pk_empirical = self.subbox_covariance().diagonal()
+            Pk_empirical = self.subbox_covariance().diagonal()[:self.npix_subbox_vector//2]
             matr = self.subbox_covariance_convolution_matrix()
-            Pk_expected = np.dot(matr, self.Pk_bandpower)
-            k_expected = self.k_subbox
+            Pk_expected = np.dot(matr, self.Pk_bandpower)[:self.npix_subbox_vector//2]
+            k_expected = self.k_subbox[:self.npix_subbox_vector//2]
 
         p.plot(k_expected, Pk_empirical)
         p.plot(k_expected, Pk_expected, '--')
@@ -142,8 +140,16 @@ class EitherField(object):
         random field with the same theory power spectrum (NB this idealised comparison line is Gaussian even if 
         the parent field is Fixed)."""
         power_var = self.subbox_power_var(deconvolved)
-        p.plot(self.k_subbox[1:self.npix_subbox_vector // 2], np.sqrt(power_var)[1:self.npix_subbox_vector // 2])
-        p.plot(self.k_subbox[1:self.npix_subbox_vector // 2], np.sqrt(2) * self.Pk_subbox[1:self.npix_subbox_vector // 2], '--')
+        if deconvolved:
+            k = self.k_bandpower
+            Pk_expected = self.Pk_bandpower
+        else:
+            k = self.k_subbox[:self.npix_subbox_vector//2]
+            matr = self.subbox_covariance_convolution_matrix()
+            Pk_expected = np.dot(matr, self.Pk_bandpower)[:self.npix_subbox_vector//2]
+
+        p.plot(k, np.sqrt(power_var))
+        p.plot(k, np.sqrt(2) * Pk_expected, '--')
         p.loglog()
 
     def plot_subbox_correlation(self):
