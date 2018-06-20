@@ -8,15 +8,37 @@ import pylab as p
 from functools import lru_cache
 
 class EitherField(object):
-    def __init__(self, pspec=-2, spacing_Mpc=0.01, npix=1024, npix_subbox=512):
+    def __init__(self, pspec=-2, spacing_Mpc=0.01, npix=1024, npix_subbox=512, 
+                 subbox_policy="small", bandwidth=2):
+        """
+
+        *params*
+         pspec - the power law of the power spectrum
+         spacing_Mpc - a notional spacing for the pixels; normalises the k values
+         npix - the number of pixels in the big box
+         npix_subbox - the number of pixels in the subbox
+         subbox_policy - either 'small' or 'zeroed'
+                         small implies that subbox values are stored in a npix_subbox vector
+                         zero implies that subbox values are setored in a npix vector with zero padding
+         bandwidth - the number of Fourier big-box pixels in a band for band-power estimates
+        """
         self.spacing_Mpc = spacing_Mpc
         self.npix = npix
-        self.npix_subbox_vector = npix_subbox
+        if subbox_policy=="small":
+            self.npix_subbox_vector = npix_subbox
+        elif subbox_policy=="zeroed":
+            self.npix_subbox_vector = npix
         self.npix_subbox_mask = npix_subbox
+        self.bandwidth = bandwidth
+        self.nbands = npix//(self.bandwidth*2) # number of bandpowers to estimate
         self.k = 2.0*np.pi*np.fft.fftfreq(npix, spacing_Mpc)
         self.Pk = self.get_power_spectrum(pspec, self.k)
+
         self.k_subbox = 2.0*np.pi*np.fft.fftfreq(self.npix_subbox_vector, spacing_Mpc)
-        self.Pk_subbox = self.get_power_spectrum(pspec, self.k_subbox)
+ 
+        self.k_bandpower = self.k[self.bandwidth//2:self.npix//2:self.bandwidth]
+        self.Pk_bandpower = self.Pk[self.bandwidth//2:self.npix//2:self.bandwidth]
+        assert len(self.k_bandpower)==self.nbands
 
     def get_power_spectrum(self, pspec, k):
         k_sanitized = np.abs(k)
@@ -36,18 +58,24 @@ class EitherField(object):
 
     @lru_cache()
     def subbox_covariance_convolution_matrix(self):
-        matrix = np.zeros((self.npix_subbox_vector, self.npix_subbox_mask))
-        for i in range(self.npix_subbox_mask):
-            cov_element = np.zeros(self.npix).view(fft_wrapper.FFTArray)
+        matrix = np.zeros((self.npix_subbox_vector, self.nbands))
+        for i in range(self.nbands):
+            
+            i_big_box_min = i*self.bandwidth
+            i_big_box_max = (i+1)*self.bandwidth
+            cov_element : fft_wrapper.FFTArray = np.zeros(self.npix).view(fft_wrapper.FFTArray) 
             cov_element.fourier = True
-            i_big_box_min = int(i*self.npix/self.npix_subbox_mask)
-            i_big_box_max = int((i+1)*self.npix/self.npix_subbox_mask)
-            cov_element[i_big_box_min:i_big_box_max] = 1.0
+            cov_element[i_big_box_min:i_big_box_max] = self.Pk[i_big_box_min:i_big_box_max]
+            if i_big_box_min==0:
+                i_big_box_min=None
+            else:
+                i_big_box_min=-i_big_box_min
+            cov_element[-i_big_box_max:i_big_box_min] = self.Pk[-i_big_box_max:i_big_box_min]
+
+            cov_element*=2.0*self.bandwidth/cov_element.sum()
             cov_element = self.apply_window(cov_element)
             WXW = np.outer(cov_element, cov_element.conj())
             matrix[:,i] = WXW.diagonal()
-        matrix[0,:]=0
-        matrix[:,0]=0
         return matrix
 
     @lru_cache()
@@ -82,14 +110,16 @@ class EitherField(object):
         if deconvolved:
             matr = self.subbox_covariance_deconvolution_matrix()
             Pk_empirical = np.dot(matr, self.subbox_covariance().diagonal())
-            Pk_expected = self.Pk_subbox
+            Pk_expected = self.Pk_bandpower
+            k_expected = self.k_bandpower
         else:
             Pk_empirical = self.subbox_covariance().diagonal()
             matr = self.subbox_covariance_convolution_matrix()
-            Pk_expected = np.dot(matr, self.Pk_subbox)
+            Pk_expected = np.dot(matr, self.Pk_bandpower)
+            k_expected = self.k_subbox
 
-        p.plot(self.k_subbox[restrict], Pk_empirical[restrict])
-        p.plot(self.k_subbox[restrict], Pk_expected[restrict], '--')
+        p.plot(k_expected, Pk_empirical)
+        p.plot(k_expected, Pk_expected, '--')
         p.loglog()
 
     def subbox_power_covar(self, deconvolved=True):
