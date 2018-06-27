@@ -129,30 +129,6 @@ namespace particle {
         throw std::runtime_error("Iterators are not supported by GraficMapper");
       }
 
-//      MapPtrType superOrSubSampleDM(int ratio, const std::vector<GridPtrType> &toGrids, bool super) override {
-//
-//        MapPtrType newmapper;
-//        std::vector<size_t> tempParticleArray;
-//
-//        if (tools::isPowerOfTwo(ratio)) {
-//          throw std::runtime_error("Sub and supersampling can only be done via power of twos in Grafic");
-//        }
-//
-//        if (super) {
-//          newmapper = std::make_shared<GraficMapper<GridDataType>>(this->contextInformation, this->centre,
-//              0, tools::findPowerOfTwo(ratio));
-//        } else {
-//          newmapper = std::make_shared<GraficMapper<GridDataType>>(this->contextInformation, this->centre,
-//              tools::findPowerOfTwo(ratio), 0);
-//        }
-//
-//        this->getFlaggedParticles(tempParticleArray);
-//        newmapper->flagParticles(tempParticleArray);
-//        this->unflagAllParticles();
-//
-//        return newmapper;
-//      }
-
     protected:
 
       //! Make sure that flagged zoomed cells are also flagged on coarse levels

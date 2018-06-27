@@ -1085,22 +1085,6 @@ public:
       cerr << "reverseSmallK: k reversal at " << sqrt(k2max) << endl;
     }
   }
-
-//protected:
-//  // Make sure to add the extra-high rez grids to grafic mapper before finishing
-//  void finalUpdateParticleMapper() {
-//    // TODO Grafic extra_high_res/extra_low_res options should be combinable with gadget sub/supersample
-//    // by overriding the mapper method which is not currently done. This should unify the use cases.
-//    if (outputFormat == io::OutputFormat::grafic) {
-//      if(this->centerOnTargetRegion) {
-//        pMapper = std::make_shared<particle::mapper::GraficMapper<GridDataType>>(multiLevelContext,
-//            this->getBoxCentre(), this->extraLowRes, this->extraHighRes);
-//      }
-//      return;
-//    } else{
-//      updateParticleMapper();
-//    }
-//  }
 };
 
 #endif

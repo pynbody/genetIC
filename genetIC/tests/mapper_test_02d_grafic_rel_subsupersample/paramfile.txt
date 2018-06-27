@@ -13,7 +13,6 @@ outdir	 ./
 outname mappertest
 outformat 5
 subsample 2
-supersample 4
 
 basegrid 50.0 64
 
