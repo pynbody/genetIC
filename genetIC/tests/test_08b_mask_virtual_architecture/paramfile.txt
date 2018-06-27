@@ -5,8 +5,8 @@
 outdir	 ./
 outformat 5
 outname test_8
-extra_low_res 1
-extra_high_res 1
+subsample 2
+supersample 2
 center_grafic_output
 
 

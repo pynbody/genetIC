@@ -2,6 +2,8 @@
 #define _UTILS_HPP_INCLUDED
 
 #include <vector>
+#include <cmath>
+#include <stdexcept>
 /*!
     \namespace tools
     \brief Defines useful functions and tools used throughout the code
@@ -24,21 +26,25 @@ namespace tools {
   }
 
   template<typename T>
-  size_t getRatioAndAssertPositiveInteger(T p, T q, T tolerance = 1e-8) {
-    assert(p > 0);
-    assert(q > 0);
+  int getRatioAndAssertInteger(T p, T q, T tolerance = 1e-8) {
     T ratio = p / q;
-    size_t rounded_ratio = size_t(round(ratio));
-    assert(std::abs(T(rounded_ratio) - ratio) < tolerance);
+    int rounded_ratio = int(round(ratio));
+    if (!(std::abs(T(rounded_ratio) - ratio) < tolerance)){
+      throw std::runtime_error("The ratio is not an integer within tolerance");
+    }
     return rounded_ratio;
   }
 
   template<typename T>
-  int getRatioAndAssertInteger(T p, T q, T tolerance = 1e-8) {
-    T ratio = p / q;
-    int rounded_ratio = int(round(ratio));
-    assert(std::abs(T(rounded_ratio) - ratio) < tolerance);
-    return rounded_ratio;
+  size_t getRatioAndAssertPositiveInteger(T p, T q, T tolerance = 1e-8) {
+    assert(p > 0);
+    assert(q > 0);
+    return (size_t) getRatioAndAssertInteger(p, q, tolerance);
+  }
+
+  //! Solves n^x = p for integers x
+  int findPowerOf(size_t n, size_t p){
+    return getRatioAndAssertInteger(log(p), log(n));
   }
 
   template<typename T>

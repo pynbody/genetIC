@@ -1,0 +1,21 @@
+Om  0.279
+Ol  0.721
+Ob  0.04
+s8  0.817
+zin	99
+seed	8896131
+camb	../camb_transfer_kmax40_z0.dat
+
+outdir	 ./
+outname mappertest
+outformat 5
+subsample 2
+supersample 4
+
+basegrid 50.0 64
+
+centre 25 25 25
+select_sphere 1
+zoomgrid 4 64
+
+done

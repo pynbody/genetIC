@@ -45,14 +45,14 @@ namespace io {
                    const cosmology::CosmologicalParameters<T> &cosmology,
                     const T pvarValue,
                    Coordinate<T> center,
-                   size_t extralowRes,
-                   size_t extraHighRes,
+                   size_t subsample,
+                   size_t supersample,
                    std::vector<std::vector<size_t>>& input_mask) :
           outputFilename(fname),
           generator(particleGenerator.shared_from_this()),
           cosmology(cosmology),
           pvarValue(pvarValue){
-        levelContext.copyContextWithCenteredIntermediate(context, center, 2, extralowRes, extraHighRes);
+        levelContext.copyContextWithCenteredIntermediate(context, center, 2, subsample, supersample);
 
         mask = new multilevelcontext::GraficMask<DataType,T>(&context, input_mask);
         mask->calculateMask();
@@ -178,10 +178,10 @@ namespace io {
               particle::AbstractMultiLevelParticleGenerator<DataType> &generator,
               multilevelcontext::MultiLevelContextInformation<DataType> &context,
               const cosmology::CosmologicalParameters<T> &cosmology,
-              const T pvarValue, Coordinate<T> center, size_t extraLowRes, size_t extraHighRes,
+              const T pvarValue, Coordinate<T> center, size_t subsample, size_t supersample,
               std::vector<std::vector<size_t>>& input_mask) {
       GraficOutput<DataType> output(filename, context,
-                                    generator, cosmology, pvarValue, center, extraLowRes, extraHighRes, input_mask);
+                                    generator, cosmology, pvarValue, center, subsample, supersample, input_mask);
       output.write();
     }
 

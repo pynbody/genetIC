@@ -35,15 +35,16 @@ namespace particle {
 
       GraficMapper(const multilevelcontext::MultiLevelContextInformation<GridDataType> &context,
                    Coordinate<T> center,
-                  size_t extralowres, size_t extrahighres) {
-        context.copyContextWithCenteredIntermediate(contextInformation, center, 2, extralowres, extrahighres);
+                  size_t subsample, size_t supersample) {
+        context.copyContextWithCenteredIntermediate(contextInformation, center, 2, subsample, supersample);
       }
 
       bool references(GridPtrType grid) const override {
         bool hasReference = false;
         contextInformation.forEachLevel([&grid, &hasReference](const GridType &targetGrid) {
-          if (&targetGrid == grid.get())
+          if (targetGrid.pointsToGrid(grid.get())) {
             hasReference = true;
+          }
         });
         return hasReference;
       }

@@ -95,6 +95,7 @@ protected:
   bool allowStrayParticles;
 
   //! If true, the box are recentered on the last centered point in the parameter file
+  //TODO This is currently a grafic only option and ought to be generic
   bool centerOnTargetRegion = false ;
 
 
@@ -107,10 +108,6 @@ protected:
 
   //! Value of passive variable for refinement masks if needed
   T pvarValue = 1.0;
-
-  //! Number of extra grid to output. These grids are subsampled grid from the coarse grid.
-  size_t extraLowRes = 0;
-  size_t extraHighRes = 0;
 
   //! High-pass filtering scale defined for variance calculations
   T variance_filterscale = -1.0;
@@ -195,21 +192,34 @@ public:
     cosmology.sigma8 = in;
   }
 
-  //TODO What is this doing ? What is in ?
-  void setSupersample(int in) {
-    supersample = in;
+  //! Add a higher resolution grid to the stack by supersampling the finest grid.
+  /*! The power spectrum will not be taken into account in this grid
+   * \param factor Factor by which the resolution must be increased compared to the finest grid
+   */
+  void setSupersample(int factor) {
+    if (factor <= 0 ){
+      throw std::runtime_error("Supersampling factor must be greater then zero");
+    }
+    supersample = factor;
     updateParticleMapper();
   }
 
-  //TODO What is this doing ? What is in ?
-  void setSubsample(int in) {
-    subsample = in;
+  //! Add a lower resolution grid to the stack by subsampling the coarsest grid.
+  /*! The power spectrum will not be taken into account in this grid
+   * \param factor Factor by which the resolution will be downgraded compared to the coarsest grid
+   */
+  void setSubsample(int factor) {
+    if (factor <= 0 ){
+      throw std::runtime_error("Subsampling factor must be greater then zero");
+    }
+
+    subsample = factor;
     updateParticleMapper();
   }
 
   //! Defines the redshift at which initial conditions are generated.
-  void setZ0(T in) {
-    cosmology.redshift = in;
+  void setZ0(T z) {
+    cosmology.redshift = z;
     cosmology.scalefactor = 1. / (cosmology.redshift + 1.);
   }
 
@@ -218,16 +228,9 @@ public:
     this->pvarValue = value;
   }
 
-  void setNumberOfExtraLowResGrids(size_t number){
-    this->extraLowRes = number;
-  }
-
-  void setNumberOfExtraHighResGrids(size_t number){
-    this->extraHighRes = number;
-  }
-
   void setCenteringOnRegion(){
     this->centerOnTargetRegion = true;
+    updateParticleMapper();
   }
 
   void setVarianceFilteringScale(T filterscale){
@@ -584,10 +587,10 @@ public:
     multilevelcontext::MultiLevelContextInformation<GridDataType> newcontext;
     if(this->centerOnTargetRegion){
       this->multiLevelContext.copyContextWithCenteredIntermediate(newcontext, Coordinate<T>(x0,y0,z0), 2,
-                                                                  this->extraLowRes, this->extraHighRes);}
+                                                                  subsample, supersample);}
     else{
       this->multiLevelContext.copyContextWithCenteredIntermediate(newcontext, this->getBoxCentre(), 2,
-                                                                  this->extraLowRes, this->extraHighRes);
+                                                                  subsample, supersample);
     }
 
     auto dumpingMask = multilevelcontext::GraficMask<GridDataType, T>(&newcontext, this->zoomParticleArray);
@@ -614,6 +617,11 @@ public:
 
   //! Runs commands of a given parameter file to set up the input mapper
   void setInputMapper(std::string fname) {
+
+    if (multiLevelContext.getNumLevels() == 0)
+      throw std::runtime_error("Mapper relative command cannot be used before a basegrid has been initialised.");
+
+
     DummyICGenerator<GridDataType> pseudoICs(this);
     auto dispatch = interpreter.specify_instance(pseudoICs);
     ifstream inf;
@@ -622,13 +630,13 @@ public:
 
     if (!inf.is_open())
       throw std::runtime_error("Cannot open IC paramfile for relative_to command");
-    cerr << "******** Running commands in" << fname << " to work out relationship ***********" << endl;
+    cerr << "******** Running commands in " << fname << " to work out relationship ***********" << endl;
 
     tools::ChangeCwdWhileInScope temporary(tools::getDirectoryName(fname));
 
     dispatch.run_loop(inf);
     cerr << *(pseudoICs.pMapper) << endl;
-    cerr << "******** Finished with" << fname << " ***********" << endl;
+    cerr << "******** Finished with " << fname << " ***********" << endl;
     pInputMapper = pseudoICs.pMapper;
     pInputMultiLevelContext = std::make_shared<multilevelcontext::MultiLevelContextInformation<GridDataType>>
         (pseudoICs.multiLevelContext);
@@ -661,8 +669,8 @@ public:
     if (outputFormat == io::OutputFormat::grafic) {
       // Grafic format just writes out the grids in turn. Grafic mapper only center when writing grids.
       // All internal calculations are done with center kept constant at boxsize/2.
-      pMapper = std::make_shared<particle::mapper::GraficMapper<GridDataType>>(multiLevelContext, this->getBoxCentre(),
-                                                                               this->extraLowRes, 0);
+      pMapper = std::make_shared<particle::mapper::GraficMapper<GridDataType>>(multiLevelContext, Coordinate<T>(x0,y0,z0),
+                                                                               subsample, supersample);
       return;
     }
 
@@ -778,11 +786,11 @@ public:
           std::cerr << "Replacing coarse grids with centered grids on " << Coordinate<T>(x0,y0,z0) <<  std::endl;
           grafic::save(getOutputPath() + ".grafic",
                        *pParticleGenerator, multiLevelContext, cosmology, pvarValue, Coordinate<T>(x0,y0,z0),
-                       this->extraLowRes, this->extraHighRes, zoomParticleArray);
+                       subsample, supersample, zoomParticleArray);
         } else {
           grafic::save(getOutputPath() + ".grafic",
                        *pParticleGenerator, multiLevelContext, cosmology, pvarValue, this->getBoxCentre(),
-                       this->extraLowRes, this->extraHighRes, zoomParticleArray);
+                       subsample, supersample, zoomParticleArray);
         }
 
         break;
@@ -1076,7 +1084,6 @@ public:
 
       cerr << "reverseSmallK: k reversal at " << sqrt(k2max) << endl;
     }
-
   }
 };
 

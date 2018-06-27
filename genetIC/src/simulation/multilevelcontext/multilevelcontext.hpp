@@ -290,9 +290,20 @@ namespace multilevelcontext {
     void copyContextWithCenteredIntermediate(MultiLevelContextInformation<DataType> &newStack,
                                              const Coordinate<T> pointToCenterOnto,
                                              size_t base_factor,
-                                             size_t extra_lores, size_t extra_highres) const {
+                                             size_t subsample, size_t supersample) const {
+
+      // Transform resolution ratios into number of grids
+      int extralowres;
+      int extrahighres;
+      try {
+        extralowres = tools::findPowerOf(base_factor, subsample);
+        extrahighres = tools::findPowerOf(base_factor, supersample);
+      } catch (const std::runtime_error &e){
+        throw std::runtime_error("Subsample and supersample cannot be converted into an integer number of grids with this base factor");
+      }
+
       auto extracontext = multilevelcontext::MultiLevelContextInformation<DataType>();
-      this->copyContextWithIntermediateResolutionGrids(extracontext, base_factor, extra_lores, extra_highres);
+      this->copyContextWithIntermediateResolutionGrids(extracontext, base_factor, extralowres, extrahighres);
       extracontext.copyContextAndCenter(newStack, pointToCenterOnto);
     }
 
