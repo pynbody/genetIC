@@ -162,7 +162,7 @@ namespace particle {
           zoomParticleArrayForL1grid(zoomParticlesOnLevel1Grid) {
         /* @param pLevel1 - the coarser particle mapper, which can itself have multiple levels
          * @param pLevel2 - the fine particle mapper, which can point to only one grid (i.e. must be OneLevelParticleMapper)
-         * @param zoomParticlesOnLevel1Grid - the list of particles on the level 1 mapper that will be zoomed. NB these
+         * @param zoomParticlesOnLevel1Grid - the list of particles on level 1 that will be zoomed. NB these
          *                                    are specified relative to the finest grid on level 1 (not relative to the
          *                                    level 1 mapper itself)
          *
@@ -179,8 +179,11 @@ namespace particle {
         pGrid1->flagCells(zoomParticleArrayForL1grid);
         pLevel1->getFlaggedParticles(zoomParticleArrayForL1mapper);
 
-        if (zoomParticleArrayForL1grid.size() != zoomParticleArrayForL1mapper.size())
-          throw std::runtime_error("The cells to zoom on must all be on the finest level 1 grid");
+        if (zoomParticleArrayForL1grid.size() != zoomParticleArrayForL1mapper.size()) {
+          std::cerr << *pLevel1 << std::endl;
+          std::cerr << *pLevel2 << std::endl;
+          throw std::runtime_error("Consistency check failed: a different number of particles are flagged in the mapper to cells flagged on the grid.");
+        }
 
         n_hr_per_lr = tools::getRatioAndAssertPositiveInteger(pGrid1->cellSize, pGrid2->cellSize);
         n_hr_per_lr *= n_hr_per_lr * n_hr_per_lr;
@@ -408,13 +411,13 @@ namespace particle {
 
         if (gasSubLevel2 != nullptr)
           newGasMap = std::make_shared<TwoLevelParticleMapper<GridDataType>>(
-              gasSubLevel1, gasSubLevel2, zoomParticleArrayForL1mapper,
+              gasSubLevel1, gasSubLevel2, zoomParticleArrayForL1grid,
               newskip);
         else
           newGasMap = nullptr;
 
         newDmMap = std::make_shared<TwoLevelParticleMapper<GridDataType>>(
-            dmSubLevel1, dmSubLevel2, zoomParticleArrayForL1mapper,
+            dmSubLevel1, dmSubLevel2, zoomParticleArrayForL1grid,
             skipLevel1);
 
         return std::make_pair(newGasMap, newDmMap);
@@ -428,14 +431,16 @@ namespace particle {
         auto ssub2 = pLevel2->superOrSubSampleDM(ratio, toGrids, super);
 
         // Work out the new list of particles to zoom on
-        decltype(zoomParticleArrayForL1mapper) newZoomParticles;
+        decltype(zoomParticleArrayForL1mapper) particlesToZoomOnNewFinestL1grid;
         ssub1->unflagAllParticles();
         pLevel1->flagParticles(zoomParticleArrayForL1mapper);
-        ssub1->getFlaggedParticles(newZoomParticles);
+        ssub1->getFinestGrid()->getFlaggedCells(particlesToZoomOnNewFinestL1grid);
 
-        return std::make_shared<TwoLevelParticleMapper<GridDataType>>(
-            ssub1, ssub2, newZoomParticles,
+        auto result = std::make_shared<TwoLevelParticleMapper<GridDataType>>(
+            ssub1, ssub2, particlesToZoomOnNewFinestL1grid,
             skipLevel1);
+
+        return result;
       }
 
 
