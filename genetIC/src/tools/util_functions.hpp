@@ -43,8 +43,8 @@ namespace tools {
   }
 
   //! Solves n^x = p for integers x
-  size_t findPowerOf(size_t n, size_t p){
-    return getRatioAndAssertPositiveInteger(log(p), log(n));
+  int findPowerOf(size_t n, size_t p){
+    return getRatioAndAssertInteger(log(p), log(n));
   }
 
   template<typename T>

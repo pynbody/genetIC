@@ -292,9 +292,9 @@ namespace multilevelcontext {
                                              size_t base_factor,
                                              size_t subsample, size_t supersample) const {
 
-      size_t extralowres;
-      size_t extrahighres;
-
+      // Transform resolution ratios into number of grids
+      int extralowres;
+      int extrahighres;
       try {
         extralowres = tools::findPowerOf(base_factor, subsample);
         extrahighres = tools::findPowerOf(base_factor, supersample);

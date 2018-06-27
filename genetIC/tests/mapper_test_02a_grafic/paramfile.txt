@@ -21,7 +21,7 @@ camb	../camb_transfer_kmax40_z0.dat
 outdir	 ./
 outname mappertest
 outformat 5
-extra_low_res 1
+subsample 2
 
 basegrid 50.0 64
 

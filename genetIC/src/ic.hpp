@@ -192,21 +192,34 @@ public:
     cosmology.sigma8 = in;
   }
 
-  //TODO What is this doing ? What is in ?
-  void setSupersample(int in) {
-    supersample = in;
+  //! Add a higher resolution grid to the stack by supersampling the finest grid.
+  /*! The power spectrum will not be taken into account in this grid
+   * \param factor Factor by which the resolution must be increased compared to the finest grid
+   */
+  void setSupersample(int factor) {
+    if (factor <= 0 ){
+      throw std::runtime_error("Supersampling factor must be greater then zero");
+    }
+    supersample = factor;
     updateParticleMapper();
   }
 
-  //TODO What is this doing ? What is in ?
-  void setSubsample(int in) {
-    subsample = in;
+  //! Add a lower resolution grid to the stack by subsampling the coarsest grid.
+  /*! The power spectrum will not be taken into account in this grid
+   * \param factor Factor by which the resolution will be downgraded compared to the coarsest grid
+   */
+  void setSubsample(int factor) {
+    if (factor <= 0 ){
+      throw std::runtime_error("Subsampling factor must be greater then zero");
+    }
+
+    subsample = factor;
     updateParticleMapper();
   }
 
   //! Defines the redshift at which initial conditions are generated.
-  void setZ0(T in) {
-    cosmology.redshift = in;
+  void setZ0(T z) {
+    cosmology.redshift = z;
     cosmology.scalefactor = 1. / (cosmology.redshift + 1.);
   }
 
