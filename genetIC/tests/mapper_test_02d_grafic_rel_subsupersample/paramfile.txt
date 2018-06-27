@@ -1,0 +1,31 @@
+# Test that flagging cells can be done wrto a simulation with extra zooms and supersampled grids
+# Test_ids.txt contains only particle ids from supersampled grid that do not yet exist in the main paramfile.txt
+
+Om  0.279
+Ol  0.721
+Ob  0.04
+s8  0.817
+zin	99
+seed	8896131
+camb	../camb_transfer_kmax40_z0.dat
+
+outdir	 ./
+outname mappertest
+outformat 5
+subsample 2
+supersample 4
+
+basegrid 50.0 64
+
+mapper_relative_to ./morezoomed.txt
+
+centre 25 25 25
+select_sphere 1
+zoomgrid 4 64
+
+IDfile test_ids.txt
+zoomgrid 4 64
+
+dump_idfile output.txt
+
+done
