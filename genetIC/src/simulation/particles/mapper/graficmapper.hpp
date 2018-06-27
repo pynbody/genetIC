@@ -35,8 +35,8 @@ namespace particle {
 
       GraficMapper(const multilevelcontext::MultiLevelContextInformation<GridDataType> &context,
                    Coordinate<T> center,
-                  size_t extralowres, size_t extrahighres) {
-        context.copyContextWithCenteredIntermediate(contextInformation, center, 2, extralowres, extrahighres);
+                  size_t subsample, size_t supersample) {
+        context.copyContextWithCenteredIntermediate(contextInformation, center, 2, subsample, supersample);
       }
 
       bool references(GridPtrType grid) const override {
@@ -128,6 +128,30 @@ namespace particle {
         // Grafic files are written out at the grid level and iterators should not be involved.
         throw std::runtime_error("Iterators are not supported by GraficMapper");
       }
+
+//      MapPtrType superOrSubSampleDM(int ratio, const std::vector<GridPtrType> &toGrids, bool super) override {
+//
+//        MapPtrType newmapper;
+//        std::vector<size_t> tempParticleArray;
+//
+//        if (tools::isPowerOfTwo(ratio)) {
+//          throw std::runtime_error("Sub and supersampling can only be done via power of twos in Grafic");
+//        }
+//
+//        if (super) {
+//          newmapper = std::make_shared<GraficMapper<GridDataType>>(this->contextInformation, this->centre,
+//              0, tools::findPowerOfTwo(ratio));
+//        } else {
+//          newmapper = std::make_shared<GraficMapper<GridDataType>>(this->contextInformation, this->centre,
+//              tools::findPowerOfTwo(ratio), 0);
+//        }
+//
+//        this->getFlaggedParticles(tempParticleArray);
+//        newmapper->flagParticles(tempParticleArray);
+//        this->unflagAllParticles();
+//
+//        return newmapper;
+//      }
 
     protected:
 

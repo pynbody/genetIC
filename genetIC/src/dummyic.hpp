@@ -74,9 +74,7 @@ public:
 
   void modify(string /*name*/, string /*string*/, float /*value*/) override {}
 
-  void done() override {
-    this->finalUpdateParticleMapper();
-  }
+  void done() override {}
 };
 
 #endif
