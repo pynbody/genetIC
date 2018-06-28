@@ -17,6 +17,9 @@ namespace particle {
        * a OneLevelParticleMapper, i.e. it can only point to a single grid. The level 1 mapper on the other hand
        * can itself be a TwoLevelParticleMapper, allowing multi-level maps to be built through a left-expanding
        * tree structure.
+       *
+       * This means that level 1 particles have both a particle ID and a cell ID which may in general be different,
+       * whereas level 2 particles always have a particle and cell ID that match.
        */
     private:
 
@@ -34,44 +37,29 @@ namespace particle {
       GridPtrType pGrid1;
       GridPtrType pGrid2;
 
-      size_t n_hr_per_lr;
+      size_t n_hr_per_lr; //< Number of level 2 particles per replaced level 1 particle
 
-      size_t totalParticles;
-      size_t firstLevel2Particle;
+      size_t totalParticles; //< Total number of particles in the map
+      size_t firstLevel2Particle; //< Index of the first level 2 particle in the map
 
-      bool skipLevel1;
+      bool skipLevel1; //< Flag to indicate that the map should not include any particles from level 1, only the particles from level 2
 
       std::vector<size_t> level1ParticlesToReplace; //< the particles on the level-1 (finest available) grid, which we wish to replace with their zooms
-      std::vector<size_t> level1CellsToReplace;
-      mutable std::vector<size_t> zoomParticleArrayHiresUnsorted; //< the particles on the level-2 grid that are included
+      std::vector<size_t> level1CellsToReplace; //< the cells on the level-1 (finest available) grid, which we wish to replace with their zooms
+      mutable std::vector<size_t> zoomParticleArrayHiresUnsorted; //< the particles/cells on the level-2 grid that are included
 
-
-      void appendMappedIdsToVector(size_t id0, std::vector<size_t> &ids) const {
-        // Finds all the particles at level2 corresponding to the single
-        // particle at level1
+      void insertLevel2IdsFromLevel1CellId(size_t id, std::vector<size_t>::iterator start) const {
+        /* Write n_hr_per_lr level 2 ids into a vector at the given starting index, corresponding to the level 1 cell id.
+         *
+         * Note that level 2 ids are the same whether we're talking about the level 2 mapper or level 2 grid (because
+         * level 2 must be a OneLevelMapper).
+         *
+         * It is the responsibility of the caller to be sure there is enough space reserved in the vector
+         */
         T x0, y0, z0;
-        std::tie(x0, y0, z0) = pGrid1->getCentroidFromIndex(id0);
-        pGrid2->appendIdsInCubeToVector(x0, y0, z0, pGrid1->cellSize, ids);
-      }
-
-      void appendLevel2CellIdsFromLevel1CellId(size_t id0, std::vector<size_t>::iterator start) const {
-        T x0, y0, z0;
-        std::tie(x0, y0, z0) = pGrid1->getCentroidFromIndex(id0);
+        std::tie(x0, y0, z0) = pGrid1->getCentroidFromIndex(id);
         pGrid2->insertCubeIdsIntoVector(x0, y0, z0, pGrid1->cellSize, start);
       }
-
-      //TODO  Functions never used. Should delete ?
-//      std::vector<size_t> getMappedIds(size_t id0) const {
-//        std::vector<size_t> ids;
-//        appendMappedIdsToVector(id0, ids);
-//        return ids;
-//      }
-
-//      size_t reverseMapId(size_t id2) const {
-//        auto coord = pGrid2->getPointFromID(id2);
-//        return pGrid1->getCellContainingPoint(coord);
-//      }
-
 
     public:
 
@@ -307,7 +295,7 @@ namespace particle {
               lrParticleLastAccessed = level1ParticlesToReplace[lr_index];
               localLrParticles.push_back(lrParticleLastAccessed);
               // get all the HR particles
-              appendLevel2CellIdsFromLevel1CellId(level1CellsToReplace[lr_index], hrCellsCache.begin());
+              insertLevel2IdsFromLevel1CellId(level1CellsToReplace[lr_index], hrCellsCache.begin());
             }
 
             // work out which of these this particle must be and push it onto
@@ -583,8 +571,8 @@ namespace particle {
 
 #pragma omp parallel for
         for (size_t i = 0; i < level1CellsToReplace.size(); ++i) {
-          appendLevel2CellIdsFromLevel1CellId(level1CellsToReplace[i],
-                                              zoomParticleArrayHiresUnsorted.begin() + (i * n_hr_per_lr));
+          insertLevel2IdsFromLevel1CellId(level1CellsToReplace[i],
+                                          zoomParticleArrayHiresUnsorted.begin() + (i * n_hr_per_lr));
         }
 
         if (!pLevel2->supportsReverseIterator()) {
