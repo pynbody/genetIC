@@ -1,0 +1,36 @@
+# Test zooming with TWO refinement levels
+
+
+# output parameters
+outdir	 ./
+outformat 4
+outname test_1
+
+# cosmology:
+Om  0.279
+Ol  0.721
+s8  0.817
+zin	99
+camb	../camb_transfer_kmax40_z0.dat
+
+# basegrid 50 Mpc/h, 64^3
+basegrid 50.0 64
+
+# fourier seeding
+seed	889613
+
+# zoom level 1:
+centre 25 25 25
+select_sphere 2
+zoomgrid 3 64
+
+# zoom level 2
+centre 25 25 25
+select_sphere 1
+zoomgrid 2 64
+
+# This would previously cause a total failure (the mapper could not be constructed)
+supersample 2
+
+
+done
