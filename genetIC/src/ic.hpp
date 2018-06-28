@@ -705,10 +705,10 @@ public:
 
       pFlagged->setGadgetParticleType(flaggedGadgetParticleType);
 
-      vector<size_t> flaggedPtcls;
-      pMapper->getFlaggedParticles(flaggedPtcls);
+      vector<size_t> flaggedCells;
+      pMapper->getFinestGrid()->getFlaggedCells(flaggedCells);
       pMapper = std::shared_ptr<particle::mapper::ParticleMapper<GridDataType>>(
-        new particle::mapper::TwoLevelParticleMapper<GridDataType>(pMapper, pFlagged, flaggedPtcls ));
+        new particle::mapper::TwoLevelParticleMapper<GridDataType>(pMapper, pFlagged, flaggedCells ));
     }
 
     if (cosmology.OmegaBaryons0 > 0) {
