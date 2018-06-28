@@ -28,7 +28,7 @@ namespace particle {
       size_t nFirst, nSecond;
 
 
-      virtual void incrementIterator(iterator *pIterator) const {
+      virtual void incrementIterator(iterator *pIterator) const override {
 
         if (pIterator->i >= nFirst)
           ++(*(pIterator->subIterators[1]));
@@ -80,15 +80,15 @@ namespace particle {
         s << "AddGasMapper ends" << std::endl;
       }
 
-      virtual size_t size() const {
+      virtual size_t size() const override {
         return nFirst + nSecond;
       }
 
-      virtual size_t size_gas() const {
+      virtual size_t size_gas() const override {
         return gasFirst ? nFirst : nSecond;
       }
 
-      virtual size_t size_dm() const {
+      virtual size_t size_dm() const override {
         return gasFirst ? nSecond : nFirst;
       }
 
@@ -110,7 +110,7 @@ namespace particle {
       };
 
 
-      virtual void flagParticles(const std::vector<size_t> &genericParticleArray) {
+      virtual void flagParticles(const std::vector<size_t> &genericParticleArray) override {
         std::vector<size_t> first;
         std::vector<size_t> second;
 

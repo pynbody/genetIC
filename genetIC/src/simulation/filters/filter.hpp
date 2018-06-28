@@ -67,7 +67,7 @@ namespace filters {
       return std::make_shared<NullFilter<T>>();
     }
 
-    virtual void debugInfo(std::ostream &s) const {
+    virtual void debugInfo(std::ostream &s) const override {
       s << "NullFilter";
     }
 
@@ -83,7 +83,7 @@ namespace filters {
 
     }
 
-    virtual T operator()(T x) const {
+    virtual T operator()(T x) const override {
       return (*pFirst)(x) / (*pSecond)(x);
     }
 
@@ -118,7 +118,7 @@ namespace filters {
         return std::make_shared<ProductFilter<T>>(*pFirst, *pSecond);
     }
 
-    virtual T operator()(T x) const {
+    virtual T operator()(T x) const override {
       return (*pFirst)(x) * (*pSecond)(x);
     }
 
@@ -143,7 +143,7 @@ namespace filters {
       temperature = kcut / 10;
     };
 
-    virtual std::shared_ptr<Filter<T>> clone() const {
+    virtual std::shared_ptr<Filter<T>> clone() const override {
       return std::make_shared<LowPassFermiFilter<T>>(*this);
     }
 
@@ -174,7 +174,7 @@ namespace filters {
       return sqrt(1. - denFilter * denFilter);
     }
 
-    virtual std::shared_ptr<Filter<T>> clone() const {
+    virtual std::shared_ptr<Filter<T>> clone() const override {
       return std::make_shared<ComplementaryCovarianceFilterAdaptor<UnderlyingType>>(*this);
     }
 
@@ -206,7 +206,7 @@ namespace filters {
       return 1. - (*pUnderlying)(k);
     }
 
-    virtual std::shared_ptr<Filter<T>> clone() const {
+    virtual std::shared_ptr<Filter<T>> clone() const override {
       return std::make_shared<ComplementaryFilterAdaptor<UnderlyingType>>(*this);
     }
 

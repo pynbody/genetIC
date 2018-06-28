@@ -127,12 +127,6 @@ namespace io {
       }
 
       template<typename ParticleType>
-      void initTipsyParticle(ParticleType &p) {
-
-      }
-
-
-      template<typename ParticleType>
       void saveTipsyParticlesSingleThread(particle::mapper::MapperIterator<GridDataType> &&begin,
                                           particle::mapper::MapperIterator<GridDataType> &&end) {
 

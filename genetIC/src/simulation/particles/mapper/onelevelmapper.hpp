@@ -97,7 +97,7 @@ namespace particle {
       }
 
       virtual iterator beginParticleType(const AbstractMultiLevelParticleGenerator<GridDataType> &generator,
-                                         unsigned int particleType) const {
+                                         unsigned int particleType) const override {
         if(gadgetParticleType==particleType) {
           return this->begin(generator);
         } else {
@@ -106,7 +106,7 @@ namespace particle {
       }
 
       virtual iterator endParticleType(const AbstractMultiLevelParticleGenerator<GridDataType> &generator,
-                                       unsigned int /*particleType*/) const {
+                                       unsigned int /*particleType*/) const override {
         return this->end(generator);
       }
 

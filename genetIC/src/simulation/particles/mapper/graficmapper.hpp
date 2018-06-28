@@ -54,11 +54,11 @@ namespace particle {
         s << "GraficMapper" << endl;
       }
 
-      virtual size_t size() const {
+      virtual size_t size() const override {
         return contextInformation.getNumCells();
       }
 
-      virtual void flagParticles(const std::vector<size_t> &genericParticleArray) {
+      virtual void flagParticles(const std::vector<size_t> &genericParticleArray) override {
         size_t gridStart = 0;
         size_t i = 0;
         contextInformation.forEachLevel([&genericParticleArray, &i, &gridStart, this](GridType &targetGrid) {

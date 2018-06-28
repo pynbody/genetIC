@@ -550,7 +550,7 @@ namespace particle {
       }
 
 
-      virtual void incrementIteratorBy(iterator *pIterator, size_t increment) const {
+      virtual void incrementIteratorBy(iterator *pIterator, size_t increment) const override {
         // could be optimized:
         for (size_t i = 0; i < increment; ++i)
           incrementIterator(pIterator);

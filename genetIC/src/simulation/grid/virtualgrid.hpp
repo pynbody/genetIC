@@ -312,7 +312,7 @@ namespace grids {
              this->pUnderlying->containsCellWithCoordinate(this->wrapCoordinate(coord + cellOffset));
     }
 
-    virtual bool containsCell(size_t i) const {
+    virtual bool containsCell(size_t i) const override {
       auto coord = this->getCoordinateFromIndex(i);
       return containsCellWithCoordinate(coord);
     }
