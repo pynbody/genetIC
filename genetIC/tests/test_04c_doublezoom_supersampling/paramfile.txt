@@ -1,4 +1,4 @@
-# Test zooming with TWO refinement levels
+# Test supersampling on a zooming with two refinement levels
 
 
 # output parameters
