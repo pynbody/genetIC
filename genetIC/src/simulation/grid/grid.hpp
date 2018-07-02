@@ -171,6 +171,22 @@ namespace grids {
       tools::sortAndEraseDuplicate(flags);
     }
 
+    virtual void expandFlaggedRegionInDirection(const Coordinate<int> &step) {
+      size_t old_size = flags.size();
+      flags.resize(old_size*3);
+      for (size_t i=0; i<old_size; ++i) {
+        size_t original_cell_id = flags[i];
+        
+        *insertIterator = cell_id;
+        insertIterator++;
+        *insertIterator = this->getIndexFromIndexAndStep(cell_id, {0,0,1});
+        insertIterator++;
+        *insertIterator = this->getIndexFromIndexAndStep(cell_id, {0,0,-1});
+        insertIterator++;
+      }
+      tools::sortAndEraseDuplicate(newFlags);
+    }
+
     virtual void unflagAllCells() {
       flags.clear();
     }
@@ -455,8 +471,6 @@ namespace grids {
     void insertCubeIdsIntoVector(T x0c, T y0c, T z0c, T dxc, vector<size_t>::iterator start) {
       // return all the grid IDs whose centres lie within the specified cube
 
-      // TODO: optimization, set the storage size of ids here.
-
       std::tie(x0c, y0c, z0c) = wrapPoint(Coordinate<T>(x0c, y0c, z0c) - offsetLower);
 
       int xa = ((int) floor((x0c - dxc / 2 + cellSize / 2) / cellSize));
@@ -466,7 +480,6 @@ namespace grids {
       int xb = ((int) floor((x0c + dxc / 2 - cellSize / 2) / cellSize));
       int yb = ((int) floor((y0c + dxc / 2 - cellSize / 2) / cellSize));
       int zb = ((int) floor((z0c + dxc / 2 - cellSize / 2) / cellSize));
-
 
       iterateOverCube<int>(Coordinate<int>(xa, ya, za),
                            Coordinate<int>(xb, yb, zb) + 1,
