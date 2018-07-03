@@ -176,15 +176,18 @@ namespace grids {
       flags.resize(old_size*3);
       for (size_t i=0; i<old_size; ++i) {
         size_t original_cell_id = flags[i];
-        
-        *insertIterator = cell_id;
-        insertIterator++;
-        *insertIterator = this->getIndexFromIndexAndStep(cell_id, {0,0,1});
-        insertIterator++;
-        *insertIterator = this->getIndexFromIndexAndStep(cell_id, {0,0,-1});
-        insertIterator++;
+        flags[i+old_size] = this->getIndexFromIndexAndStep(original_cell_id, step);
+        flags[i+old_size*2] = this->getIndexFromIndexAndStep(original_cell_id, -step);
       }
-      tools::sortAndEraseDuplicate(newFlags);
+      tools::sortAndEraseDuplicate(flags);
+    }
+
+    virtual void expandFlaggedRegion(size_t ncells=1) {
+      for(size_t i=0; i<ncells; i++) {
+        expandFlaggedRegionInDirection({0,0,1});
+        expandFlaggedRegionInDirection({0,1,0});
+        expandFlaggedRegionInDirection({1,0,0});
+      }
     }
 
     virtual void unflagAllCells() {
