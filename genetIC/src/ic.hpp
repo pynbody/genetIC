@@ -954,6 +954,22 @@ public:
     });
   }
 
+  //! Expand the current flagged region by the specified number of cells
+  void expandFlaggedRegion(size_t nCells) {
+    if(multiLevelContext.getNumLevels()<1) {
+      throw std::runtime_error("No grid has yet been initialised");
+    }
+    std::cerr << "Expand flagged region by "<<nCells<< " cells" << std::endl;
+    for_each_level(level) {
+      grids::Grid<T> &thisGrid = multiLevelContext.getGridForLevel(level);
+      size_t initial_length = thisGrid.numFlaggedCells();
+      thisGrid.expandFlaggedRegion(nCells);
+      std::cerr << "  - level " << level << " increased number of flagged cells by " << thisGrid.numFlaggedCells() - initial_length
+                << " (now " << thisGrid.numFlaggedCells() <<")" << std::endl;
+    }
+
+  }
+
   //! On simulations with more than one zoom level, adapt the upper level zooms to fit snuggly around the lower levels
   /*! The actual position of the zoom box is never moved; this routine just re-selects the zoom cells
    *

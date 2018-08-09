@@ -194,8 +194,8 @@ namespace grids {
       flags.clear();
     }
 
-    virtual bool hasFlaggedCells() const {
-      return flags.size() > 0;
+    virtual size_t numFlaggedCells() const {
+      return flags.size();
     }
 
     Coordinate<T> getFlaggedCellsCentre(){

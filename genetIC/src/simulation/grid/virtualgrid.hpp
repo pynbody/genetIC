@@ -79,8 +79,8 @@ namespace grids {
       pUnderlying->unflagAllCells();
     }
 
-    bool hasFlaggedCells() const override {
-      return pUnderlying->hasFlaggedCells();
+    size_t numFlaggedCells() const override {
+      return pUnderlying->numFlaggedCells();
     }
 
     ConstGridPtrType getUnderlying() const {

@@ -148,7 +148,7 @@ namespace multilevelcontext {
     size_t deepestLevelwithFlaggedCells() {
 
       for (int i = this->getNumLevels() - 1; i >= 0; --i) {
-        if (this->getGridForLevel(i).hasFlaggedCells())
+        if (this->getGridForLevel(i).numFlaggedCells()>0)
           return size_t(i);
       }
 
