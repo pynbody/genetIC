@@ -109,6 +109,9 @@ void setup_parser(tools::ClassDispatch<ICf, void> &dispatch) {
   dispatch.add_class_route("dump_tipsy", &ICf::saveTipsyArray);
   dispatch.add_class_route("dump_mask", &ICf::dumpMask);
 
+  // Load existing random field instead of generating
+  dispatch.add_class_route("import_level", &ICf::importLevel );
+
   // To debug
   dispatch.add_class_route("zeroLevel", &ICf::zeroLevel);
 
