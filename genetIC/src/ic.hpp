@@ -959,13 +959,64 @@ public:
 
   //! Flag all cells contained in the cube centered at the coordinates currently pointed at
   /*!
- * \param side in Mpc/h
- * */
+   * \param side in Mpc/h
+   * */
   void selectCube(float side) {
     T side_by_2 = side / 2;
     select([side_by_2](T delta_x, T delta_y, T delta_z) -> bool {
       return abs(delta_x) < side_by_2 && abs(delta_y) < side_by_2 && abs(delta_z) < side_by_2;
     });
+  }
+
+  //! Expand the current flagged region by the specified number of cells
+  void expandFlaggedRegion(size_t nCells) {
+    if(multiLevelContext.getNumLevels()<1) {
+      throw std::runtime_error("No grid has yet been initialised");
+    }
+    std::cerr << "Expand flagged region by "<<nCells<< " cells" << std::endl;
+    for_each_level(level) {
+      grids::Grid<T> &thisGrid = multiLevelContext.getGridForLevel(level);
+      size_t initial_length = thisGrid.numFlaggedCells();
+      thisGrid.expandFlaggedRegion(nCells);
+      std::cerr << "  - level " << level << " increased number of flagged cells by " << thisGrid.numFlaggedCells() - initial_length
+                << " (now " << thisGrid.numFlaggedCells() <<")" << std::endl;
+    }
+
+  }
+
+  //! On simulations with more than one zoom level, adapt the upper level zooms to fit snuggly around the lower levels
+  /*! The actual position of the zoom box is never moved; this routine just re-selects the zoom cells
+   *
+   * \param nPadCells - the number of cells padding to incorporate
+   */
+  void adaptMask(size_t nPadCells) {
+    if(multiLevelContext.getNumLevels()<3) {
+      throw std::runtime_error("Adapting the mask requires there to be more than one zoom level");
+    }
+    assert(this->zoomParticleArray.size()==multiLevelContext.getNumLevels()-1);
+    for(size_t level = multiLevelContext.getNumLevels()-2; level>0; --level) {
+      auto &sourceArray = this->zoomParticleArray[level];
+      grids::Grid<T> &thisLevelGrid = multiLevelContext.getGridForLevel(level);
+      grids::Grid<T> &aboveLevelGrid = multiLevelContext.getGridForLevel(level-1);
+
+      // Create a minimal mask on the level above, consisting of all parent cells of the zoom cells on this level
+      thisLevelGrid.unflagAllCells();
+      thisLevelGrid.flagCells(sourceArray);
+      auto proxyGrid = thisLevelGrid.makeProxyGridToMatch(aboveLevelGrid);
+
+      std::vector<size_t> zoomParticleArrayLevelAbove;
+      proxyGrid->getFlaggedCells(zoomParticleArrayLevelAbove);
+
+      // zoomParticleArrayLevelAbove now has the minimal mask.
+      // Expand the minimal mask by nPadCells in each direction
+      aboveLevelGrid.unflagAllCells();
+      aboveLevelGrid.flagCells(zoomParticleArrayLevelAbove);
+      aboveLevelGrid.expandFlaggedRegion(nPadCells);
+      zoomParticleArrayLevelAbove.clear();
+      aboveLevelGrid.getFlaggedCells(zoomParticleArrayLevelAbove);
+      this->zoomParticleArray[level-1]=zoomParticleArrayLevelAbove;
+    }
+    updateParticleMapper();
   }
 
   //! Define cell currently pointed at by coordinates

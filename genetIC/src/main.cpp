@@ -89,6 +89,8 @@ void setup_parser(tools::ClassDispatch<ICf, void> &dispatch) {
   dispatch.add_class_route("select_sphere", &ICf::selectSphere);
   dispatch.add_class_route("select_cube", &ICf::selectCube);
   dispatch.add_class_route("select_nearest", &ICf::selectNearest);
+  dispatch.add_class_route("expand_flagged_region", &ICf::expandFlaggedRegion);
+  dispatch.add_class_route("adapt_mask", &ICf::adaptMask);
 
   // Deal with modifications
   dispatch.add_class_route("calculate", &ICf::calculate);

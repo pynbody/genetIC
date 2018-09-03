@@ -22,8 +22,14 @@ public:
 
   Coordinate(T value) : x(value), y(value), z(value) {}
 
-  Coordinate() {
+  Coordinate() : x(0), y(0), z(0) { }
 
+  template<size_t N>
+  Coordinate(const T(& vals)[N]) {
+    static_assert(N == 3, "Coordinate can only be initialized with three elements");
+    x = vals[0];
+    y = vals[1];
+    z = vals[2];
   }
 
   template<typename S>
@@ -44,6 +50,10 @@ public:
 
   Coordinate<T> operator-(T offset) const {
     return Coordinate<T>(x - offset, y - offset, z - offset);
+  }
+
+  Coordinate<T> operator-() const {
+    return Coordinate<T>(-x, -y, -z);
   }
 
   Coordinate<T> operator/(T factor) const {
