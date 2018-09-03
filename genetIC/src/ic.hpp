@@ -516,6 +516,17 @@ public:
     std::fill(fieldData.begin(), fieldData.end(), 0);
   }
 
+  virtual void importLevel(size_t level, std::string filename) {
+    if (!haveInitialisedRandomComponent)
+      initialiseRandomComponent();
+
+    cerr << "Importing random field on level " << level << " from " <<filename << endl;
+
+    auto & levelField = outputField.getFieldForLevel(level);
+    levelField.loadGridData(filename);
+    levelField.setFourier(false);
+    cerr << "... success!" << endl;
+  }
 
   virtual void applyPowerSpec() {
     if (this->exactPowerSpectrum) {
@@ -527,6 +538,9 @@ public:
 
   template<typename TField>
   void dumpGridData(size_t level, const TField &data) {
+    if (!haveInitialisedRandomComponent)
+      initialiseRandomComponent();
+
     auto levelGrid = data.getGrid();
 
     ostringstream filename;

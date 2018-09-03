@@ -395,6 +395,17 @@ namespace fields {
       io::numpy::SaveArrayAsNumpy(filename, false, 3, dim, data.data());
     }
 
+    void loadGridData(std::string filename) {
+      int n = static_cast<int>(getGrid().size);
+      int n0, n1, n2;
+      io::numpy::LoadArrayFromNumpy(filename, n0, n1, n2, data );
+      if(n0!=n || n1!=n || n2!=n) {
+        throw std::runtime_error("Incorrect size for imported numpy array");
+      }
+      assert(data.size()==getGrid().size3);
+      data.resize(fourierManager->getRequiredDataSize());
+    }
+
 
   };
 
