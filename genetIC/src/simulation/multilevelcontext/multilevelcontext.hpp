@@ -31,7 +31,7 @@ namespace cosmology {
     See http://stackoverflow.com/questions/165101/invalid-use-of-incomplete-type-error-with-partial-template-specialization
 
  */
-namespace multilevelcontext {   
+namespace multilevelcontext {
   template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
   class MultiLevelContextInformation;
 
@@ -39,8 +39,13 @@ namespace multilevelcontext {
   class MultiLevelContextInformationBase : public tools::Signaling {
   private:
     std::vector<std::shared_ptr<grids::Grid<T>>> pGrid;
-    std::vector<std::shared_ptr<const fields::Field<DataType, T>>> C0s;
+    //std::vector<std::shared_ptr<const fields::Field<DataType, T>>> C0s;
+    std::vector<std::vector<std::shared_ptr<const fields::Field<DataType, T>>>> C0s;
     std::vector<T> weights;
+
+  public:
+    size_t nTransferFunctions;
+
 
   protected:
     std::vector<size_t> Ns;
@@ -65,6 +70,7 @@ namespace multilevelcontext {
       nLevels = 1;
       Ns.push_back(N);
       Ntot = N;
+      nTransferFunctions = 1;
     }
 
 
@@ -73,6 +79,7 @@ namespace multilevelcontext {
     MultiLevelContextInformationBase() {
       nLevels = 0;
       Ntot = 0;
+      nTransferFunctions = 1;
     }
 
     virtual ~MultiLevelContextInformationBase() {}
@@ -87,12 +94,20 @@ namespace multilevelcontext {
         simSize = size;
 
       auto grid = std::make_shared<grids::Grid<T>>(simSize, nside, size / nside, offset.x, offset.y, offset.z);
-      auto C0 = spectrum.getPowerSpectrumForGrid(*grid);
+
+      nTransferFunctions = spectrum.dmOnly ? 1 : spectrum.nTransfers;
+
+      std::vector<std::shared_ptr<const fields::Field<DataType, T>>> C0 (nTransferFunctions);
+      for(size_t i = 0;i < nTransferFunctions;i++)
+      {
+        C0[i] = spectrum.getPowerSpectrumForGrid(*grid,i);
+      }
+      //auto C0 = spectrum.getPowerSpectrumForGrid(*grid);
       addLevel(C0, grid);
 
     }
 
-    void addLevel(std::shared_ptr<const fields::Field<DataType, T>> C0, std::shared_ptr<grids::Grid<T>> pG) {
+    void addLevel(std::vector<std::shared_ptr<const fields::Field<DataType, T>>>& C0, std::shared_ptr<grids::Grid<T>> pG) {
       C0s.push_back(C0);
       if (pGrid.size() == 0) {
         weights.push_back(1.0);
@@ -108,7 +123,8 @@ namespace multilevelcontext {
     }
 
     void clear() {
-      C0s.clear();
+      //C0s.clear();
+      C0set.clear();
       pGrid.clear();
       Ns.clear();
       cumu_Ns.clear();
@@ -138,9 +154,13 @@ namespace multilevelcontext {
       return weights[level];
     }
 
-    const fields::Field<DataType> &getCovariance(size_t level) const {
-      if (C0s.size() > level && C0s[level] != nullptr)
-        return *C0s[level];
+    //Main function used by the code to retrieve the power spectrum.
+    //TODO - make this safe against going out of bounds by making sure
+    //multiLevelContext always stores a CAMB object so that it can check whether
+    //the baryon transfer function is being used or not.
+    const fields::Field<DataType> &getCovariance(size_t level,size_t nTransfer = 0) const {
+      if (C0s.size() > level && C0set[level][nTransfer] != nullptr)
+        return *C0s[level][nTransfer];
       else
         throw std::out_of_range("No covariance yet specified for this level");
     }
@@ -236,7 +256,8 @@ namespace multilevelcontext {
           while (pGrid[level]->cellSize * factor * 1.001 < pGrid[level - 1]->cellSize) {
             std::cerr << "Adding virtual grid with effective resolution " << neff / factor << std::endl;
             auto vGrid = std::make_shared<grids::SubSampleGrid<T>>(pGrid[level], factor);
-            newStack.addLevel(nullptr, vGrid);
+            std::vector<std::vector<std::shared_ptr<const fields::Field<DataType, T>>>> nullsArray (this->nTransferFunctions,nullptr);
+            newStack.addLevel(nullsArray, vGrid);
             factor *= base_factor;
           }
         } else {
@@ -244,12 +265,14 @@ namespace multilevelcontext {
           for (size_t i = 0; i < extra_lores; ++i) {
             std::cerr << "Adding virtual grid with effective resolution " << neff / factor << std::endl;
             auto vGrid = std::make_shared<grids::SubSampleGrid<T>>(pGrid[level], factor);
-            newStack.addLevel(nullptr, vGrid);
+            std::vector<std::vector<std::shared_ptr<const fields::Field<DataType, T>>>> nullsArray (this->nTransferFunctions,nullptr);
+            newStack.addLevel(nullsArray, vGrid);
             factor *= base_factor;
           }
         }
 
         std::cerr << "Adding real grid with resolution " << neff << std::endl;
+        //newStack.addLevel(C0s[level], pGrid[level]);
         newStack.addLevel(C0s[level], pGrid[level]);
       }
 
@@ -259,7 +282,8 @@ namespace multilevelcontext {
         size_t neff = size_t(round(pGrid[0]->cellSize / pGrid[level]->cellSize)) * pGrid[0]->size;
         std::cerr << "Adding virtual grid with effective resolution " << neff * factor << std::endl;
         auto vGrid = std::make_shared<grids::SuperSampleGrid<T>>(pGrid[level], factor);
-        newStack.addLevel(nullptr, vGrid);
+        std::vector<std::vector<std::shared_ptr<const fields::Field<DataType, T>>>> nullsArray (this->nTransferFunctions,nullptr);
+        newStack.addLevel(nullsArray, vGrid);
         factor *= base_factor;
 
       }

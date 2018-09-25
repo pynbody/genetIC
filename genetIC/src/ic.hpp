@@ -586,11 +586,11 @@ public:
   }
 
   //! Dumps power spectrum generated from the field and the theory at a given level in a .ps file
-  virtual void dumpPS(size_t level = 0) {
+  virtual void dumpPS(size_t level = 0,size_t nTransfer = 0) {
     auto &field = outputField.getFieldForLevel(level);
     field.toFourier();
     cosmology::dumpPowerSpectrum(field,
-                                 multiLevelContext.getCovariance(level),
+                                 multiLevelContext.getCovariance(level,this->spectrum.transferSwitch[nTransfer]),
                                  (getOutputPath() + "_" + ((char) (level + '0')) + ".ps").c_str());
   }
 
@@ -1149,6 +1149,18 @@ public:
 
       cerr << "reverseSmallK: k reversal at " << sqrt(k2max) << endl;
     }
+  }
+
+  //Functions to control whether we use only the dark matter or include baryons:
+  //Switch to using DM only:
+  void setDMOnly()
+  {
+    this->spectrum.setDMOnly();
+  }
+  //Switch to allowing baryon transfer functions:
+  void enableAllTransfers()
+  {
+    this->spectrum.enableAllTransfers();
   }
 };
 

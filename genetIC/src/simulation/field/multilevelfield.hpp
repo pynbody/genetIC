@@ -20,6 +20,11 @@ namespace fields {
     tools::Signaling::connection_t connection;
     bool isCovector;
 
+    //Variable that stores which transfer function the field should request from the multi-level context.
+    //transferType = 0 -> Cold dark matter
+    //transferType = 1 -> Baryons.
+    size_t transferType;
+
     std::vector<std::shared_ptr<Field<DataType, T>>> fieldsOnLevels;
 
     void setupConnection() {
@@ -47,19 +52,24 @@ namespace fields {
 
     }
 
-    MultiLevelField(multilevelcontext::MultiLevelContextInformation<DataType> &multiLevelContext) : multiLevelContext(
+    //Constructor with fields unspecified - only multi-level context.
+    MultiLevelField(multilevelcontext::MultiLevelContextInformation<DataType> &multiLevelContext,size_t transfer_type = 0) : multiLevelContext(
         &multiLevelContext) {
       setupConnection();
       isCovector = false;
+      transferType = transfer_type;
     }
 
+    //Comnstructor with fields and multi-level context. specified.
     MultiLevelField(multilevelcontext::MultiLevelContextInformation<DataType> &multiLevelContext,
-                    const std::vector<std::shared_ptr<Field<DataType, T>>> &fieldsOnGrids) :
+                    const std::vector<std::shared_ptr<Field<DataType, T>>> &fieldsOnGrids,size_t transfer_type = 0) :
         multiLevelContext(&multiLevelContext), fieldsOnLevels(fieldsOnGrids) {
       setupConnection();
       isCovector = false;
+      transferType = transfer_type;
     }
 
+    //Copy constructor
     MultiLevelField(const MultiLevelField<DataType> &copy) :
         std::enable_shared_from_this<MultiLevelField<DataType>>(), multiLevelContext(&(copy.getContext())) {
 
@@ -69,6 +79,7 @@ namespace fields {
       setupConnection();
       pFilters = std::make_shared<filters::FilterFamily<T>>(*copy.pFilters);
       isCovector = copy.isCovector;
+      transferType = copy.transferType;
     }
 
     virtual void updateMultiLevelContext() {
@@ -236,7 +247,7 @@ namespace fields {
       for (size_t level = 0; level < getNumLevels(); ++level) {
         weight = multiLevelContext->getWeightForLevel(level);
         pCurrentGrid = &(multiLevelContext->getGridForLevel(level));
-        pCov = &(multiLevelContext->getCovariance(level));
+        pCov = &(multiLevelContext->getCovariance(level,this->transferType));
         pFiltOther = &(other.getFilterForLevel(level));
         pFieldThis = &(this->getFieldForLevel(level));
         pFieldDataThis = &(this->getFieldForLevel(level).getDataVector());
@@ -274,7 +285,7 @@ namespace fields {
         auto &grid = multiLevelContext->getGridForLevel(i);
 
         divideByCovarianceOneGrid(getFieldForLevel(i),
-                                  multiLevelContext->getCovariance(i),
+                                  multiLevelContext->getCovariance(i,this->transferType),
                                   grid,
                                   multiLevelContext->getWeightForLevel(i));
 
@@ -289,7 +300,7 @@ namespace fields {
         auto &grid = multiLevelContext->getGridForLevel(i);
 
         multiplyByCovarianceOneGrid(getFieldForLevel(i),
-                                    multiLevelContext->getCovariance(i),
+                                    multiLevelContext->getCovariance(i,this->transferType),
                                     grid,
                                     multiLevelContext->getWeightForLevel(i));
 
@@ -303,7 +314,7 @@ namespace fields {
         auto &grid = multiLevelContext->getGridForLevel(i);
 
         applySpectrumOneGrid(getFieldForLevel(i),
-                             multiLevelContext->getCovariance(i),
+                             multiLevelContext->getCovariance(i,this->transferType),
                              grid);
 
       }
@@ -315,7 +326,7 @@ namespace fields {
         auto &grid = multiLevelContext->getGridForLevel(i);
 
         enforceSpectrumOneGrid(getFieldForLevel(i),
-                               multiLevelContext->getCovariance(i),
+                               multiLevelContext->getCovariance(i,this->transferType),
                                grid);
 
       }
@@ -418,9 +429,9 @@ namespace fields {
     }
 
   public:
-    OutputField(multilevelcontext::MultiLevelContextInformation<DataType> &multiLevelContext)
+    OutputField(multilevelcontext::MultiLevelContextInformation<DataType> &multiLevelContext,size_t transfer_type = 0)
         : MultiLevelField<DataType>(
-        multiLevelContext) {
+        multiLevelContext,transfer_type) {
       outputState = PRE_SEPARATION;
       fieldsOnLevelsPopulated = false;
     }
@@ -460,8 +471,8 @@ namespace fields {
 
   public:
     ConstraintField(multilevelcontext::MultiLevelContextInformation<DataType> &multiLevelContext,
-                    const std::vector<std::shared_ptr<Field<DataType, T>>> &fieldsOnGrids)
-        : MultiLevelField<DataType>(multiLevelContext, std::move(fieldsOnGrids)) {
+                    const std::vector<std::shared_ptr<Field<DataType, T>>> &fieldsOnGrids,size_t transfer_type = 0)
+        : MultiLevelField<DataType>(multiLevelContext, std::move(fieldsOnGrids),transfer_type) {
       this->isCovector = true;
       updateMultiLevelContext();
     }

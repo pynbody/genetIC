@@ -15,11 +15,11 @@ public:
 
   }
 
-  void addLevelToContext(const cosmology::CAMB<GridDataType> & /*spectrum*/, T gridSize, size_t nside,
+  void addLevelToContext(const cosmology::CAMB<GridDataType> & spectrum, T gridSize, size_t nside,
                          const Coordinate<T> &offset = {0, 0, 0}) override {
     size_t newLevel = this->multiLevelContext.getNumLevels(); //getNumLevels counts from 1 to N rather than 0 to N-1, which is why newLevel defined this way does not exist yet
     std::shared_ptr<grids::Grid<T>> underlyingGrid;
-    std::shared_ptr<const fields::Field<GridDataType, T>> covarianceFieldPtr;
+    std::vector<std::shared_ptr<const fields::Field<GridDataType, T>>> covarianceFieldPtr;
 
     if (pUnderlying->multiLevelContext.getNumLevels() <= newLevel) {
       // source file has extra zoom levels compared to us. Make a grid with our specifications, and any
@@ -28,14 +28,20 @@ public:
       grids::Grid<T> &deepestUnderlyingGrid =
           pUnderlying->multiLevelContext.getGridForLevel(pUnderlying->multiLevelContext.getNumLevels() - 1);
 
-      covarianceFieldPtr = nullptr;
+      //covarianceFieldPtr = nullptr;
+      size_t nTransferCount = spectrum.dmOnly ? 1 : spectrum.nTransfers;
+      covarianceFieldPtr.assign(nTransferCount,nullptr);
 
       underlyingGrid = std::make_shared<grids::Grid<T>>(deepestUnderlyingGrid.periodicDomainSize, nside,
                                                         gridSize / nside, offset.x, offset.y, offset.z);
     } else {
       underlyingGrid = pUnderlying->multiLevelContext.getGridForLevel(newLevel).shared_from_this();
       try {
-        covarianceFieldPtr = pUnderlying->multiLevelContext.getCovariance(newLevel).shared_from_this();
+      for(size_t i = 0;i < nTransferCount;i++)
+      {
+        covarianceFieldPtr[i] = pUnderlying->multiLevelContext.getCovariance(newLevel,i).shared_from_this();
+      }
+        //covarianceFieldPtr = pUnderlying->multiLevelContext.getCovariance(newLevel).shared_from_this();
       } catch (const std::out_of_range &e) {
         // leave covarianceFieldPtr as nullptr
       }
