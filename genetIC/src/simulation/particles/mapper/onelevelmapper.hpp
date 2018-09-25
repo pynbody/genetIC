@@ -124,16 +124,19 @@ namespace particle {
       }
 
       MapPtrType superOrSubSampleDM(int ratio, const std::vector<GridPtrType> &toGrids, bool super) override {
+        std::shared_ptr<OneLevelParticleMapper<GridDataType>> newMapper;
         if (pGrid->pointsToAnyGrid(toGrids)) {
           GridPtrType newGrid;
           if (super)
             newGrid = std::make_shared<grids::SuperSampleGrid<T >>(this->pGrid, ratio);
           else
             newGrid = std::make_shared<grids::SubSampleGrid<T >>(this->pGrid, ratio);
-          return std::make_shared<OneLevelParticleMapper<GridDataType>>(newGrid);
+          newMapper = std::make_shared<OneLevelParticleMapper<GridDataType>>(newGrid);
         } else {
-          return std::make_shared<OneLevelParticleMapper<GridDataType>>(this->pGrid);
+          newMapper = std::make_shared<OneLevelParticleMapper<GridDataType>>(this->pGrid);
         }
+        newMapper->setGadgetParticleType(this->gadgetParticleType);
+        return newMapper;
       }
 
 
