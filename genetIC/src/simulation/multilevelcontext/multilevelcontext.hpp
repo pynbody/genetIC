@@ -107,7 +107,7 @@ namespace multilevelcontext {
 
     }
 
-    void addLevel(std::vector<std::shared_ptr<const fields::Field<DataType, T>>>& C0, std::shared_ptr<grids::Grid<T>> pG) {
+    void addLevel(const std::vector<std::shared_ptr<const fields::Field<DataType, T>>>& C0, std::shared_ptr<grids::Grid<T>> pG) {
       C0s.push_back(C0);
       if (pGrid.size() == 0) {
         weights.push_back(1.0);
@@ -122,9 +122,16 @@ namespace multilevelcontext {
       this->changed();
     }
 
+    //For adding a vector where each element is the same:
+    void addLevel(std::shared_ptr<const fields::Field<DataType, T>> C0,std::shared_ptr<grids::Grid<T>> pG)
+    {
+        std::vector<std::shared_ptr<const fields::Field<DataType, T>>> constArray (this->nTransferFunctions,C0);
+        this->addLevel(constArray,pG);
+    }
+
     void clear() {
       //C0s.clear();
-      C0set.clear();
+      C0s.clear();
       pGrid.clear();
       Ns.clear();
       cumu_Ns.clear();
@@ -159,7 +166,7 @@ namespace multilevelcontext {
     //multiLevelContext always stores a CAMB object so that it can check whether
     //the baryon transfer function is being used or not.
     const fields::Field<DataType> &getCovariance(size_t level,size_t nTransfer = 0) const {
-      if (C0s.size() > level && C0set[level][nTransfer] != nullptr)
+      if (C0s.size() > level && C0s[level][nTransfer] != nullptr)
         return *C0s[level][nTransfer];
       else
         throw std::out_of_range("No covariance yet specified for this level");
@@ -256,8 +263,7 @@ namespace multilevelcontext {
           while (pGrid[level]->cellSize * factor * 1.001 < pGrid[level - 1]->cellSize) {
             std::cerr << "Adding virtual grid with effective resolution " << neff / factor << std::endl;
             auto vGrid = std::make_shared<grids::SubSampleGrid<T>>(pGrid[level], factor);
-            std::vector<std::vector<std::shared_ptr<const fields::Field<DataType, T>>>> nullsArray (this->nTransferFunctions,nullptr);
-            newStack.addLevel(nullsArray, vGrid);
+            newStack.addLevel(nullptr, vGrid);
             factor *= base_factor;
           }
         } else {
@@ -265,8 +271,7 @@ namespace multilevelcontext {
           for (size_t i = 0; i < extra_lores; ++i) {
             std::cerr << "Adding virtual grid with effective resolution " << neff / factor << std::endl;
             auto vGrid = std::make_shared<grids::SubSampleGrid<T>>(pGrid[level], factor);
-            std::vector<std::vector<std::shared_ptr<const fields::Field<DataType, T>>>> nullsArray (this->nTransferFunctions,nullptr);
-            newStack.addLevel(nullsArray, vGrid);
+            newStack.addLevel(nullptr, vGrid);
             factor *= base_factor;
           }
         }
@@ -282,8 +287,7 @@ namespace multilevelcontext {
         size_t neff = size_t(round(pGrid[0]->cellSize / pGrid[level]->cellSize)) * pGrid[0]->size;
         std::cerr << "Adding virtual grid with effective resolution " << neff * factor << std::endl;
         auto vGrid = std::make_shared<grids::SuperSampleGrid<T>>(pGrid[level], factor);
-        std::vector<std::vector<std::shared_ptr<const fields::Field<DataType, T>>>> nullsArray (this->nTransferFunctions,nullptr);
-        newStack.addLevel(nullsArray, vGrid);
+        newStack.addLevel(nullptr, vGrid);
         factor *= base_factor;
 
       }

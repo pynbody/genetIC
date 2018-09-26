@@ -208,8 +208,7 @@ namespace fields {
     //is to store this information in the multiLevelContext class, but this is risky because currently multiLevelContext only
     //knows about the spectrum instance of a CAMB via its member functions. This could easily mean the value stores there becomes
     //out of date. We need to change the way it works so that the multiLevelContext always has the up to date information.
-    std::vector<std::vector<std::shared_ptr<const fields::Field<DataType, T>>>> nullsArray (dummyContext.nTransferFunctions,nullptr);
-    dummyContext.addLevel(nullsArray, const_cast<grids::Grid<CoordinateType> &>(field.getGrid()).shared_from_this());
+    dummyContext.addLevel(nullptr, const_cast<grids::Grid<CoordinateType> &>(field.getGrid()).shared_from_this());
     MultiLevelField<DataType> dummyMultiField(dummyContext,
                                               {const_cast<Field<DataType, CoordinateType> &>(field).shared_from_this()});
     return makeEvaluator(dummyMultiField, grid);

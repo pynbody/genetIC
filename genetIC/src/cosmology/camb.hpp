@@ -30,13 +30,9 @@ namespace cosmology {
     //Columns of CAMB that we request:
     size_t cambCols[2] = {1,2};
 
-    //Vector which maps inputs to the correct transfer function. Elements are all zero if dmOnly = true,
-    //and just ascending if dmOnly = false. This prevents calls to operator() etc from going out of bounds if
-    //we switch off the use of extra transfer functions, and avoids having to tell all the fields to request
-    //a different transfer function in this case.
-    std::vector<size_t> transferSwitch;
+
     //Interpolation functions:
-    std::vector<toold::numerics::Interpolator<CoordinateType>> interpolator;
+    std::vector<tools::numerics::Interpolator<CoordinateType>> interpolator;
     //tools::numerics::Interpolator<CoordinateType> interpolator;
     //tools::numerics::Interpolator<CoordinateType> interpolator_baryons;
     CoordinateType amplitude; /*!< Amplitude of the initial power spectrum */
@@ -44,6 +40,11 @@ namespace cosmology {
     mutable CoordinateType kcamb_max_in_file; /*!< Maximum CAMB wavenumber. If too small compared to grid resolution, Meszaros solution will be computed */
 
   public:
+    //Vector which maps inputs to the correct transfer function. Elements are all zero if dmOnly = true,
+    //and just ascending if dmOnly = false. This prevents calls to operator() etc from going out of bounds if
+    //we switch off the use of extra transfer functions, and avoids having to tell all the fields to request
+    //a different transfer function in this case.
+    std::vector<size_t> transferSwitch;
     //Total number of transfer functions stored:
     const size_t nTransfers = 2;
     //Flags whether we want to only use the DM transfer function (true, default option) or to include baryons/others (false);

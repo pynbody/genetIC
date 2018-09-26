@@ -21,6 +21,8 @@ public:
     std::shared_ptr<grids::Grid<T>> underlyingGrid;
     std::vector<std::shared_ptr<const fields::Field<GridDataType, T>>> covarianceFieldPtr;
 
+    size_t nTransferCount = spectrum.dmOnly ? 1 : spectrum.nTransfers;
+
     if (pUnderlying->multiLevelContext.getNumLevels() <= newLevel) {
       // source file has extra zoom levels compared to us. Make a grid with our specifications, and any
       // flags deposited onto it will have to be manually copied over later.
@@ -29,7 +31,7 @@ public:
           pUnderlying->multiLevelContext.getGridForLevel(pUnderlying->multiLevelContext.getNumLevels() - 1);
 
       //covarianceFieldPtr = nullptr;
-      size_t nTransferCount = spectrum.dmOnly ? 1 : spectrum.nTransfers;
+
       covarianceFieldPtr.assign(nTransferCount,nullptr);
 
       underlyingGrid = std::make_shared<grids::Grid<T>>(deepestUnderlyingGrid.periodicDomainSize, nside,
@@ -68,7 +70,7 @@ public:
 
   void dumpGrid(size_t /*level*/) override {}
 
-  void dumpPS(size_t /*level*/) override {}
+  void dumpPS(size_t,size_t) override {}
 
   void dumpMask() override {}
 
