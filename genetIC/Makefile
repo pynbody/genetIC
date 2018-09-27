@@ -58,6 +58,10 @@ ifeq ($(HOST), Snowd)
 	CXX = /opt/local/bin/g++-mp-6 -L/opt/local/lib/
 endif
 
+ifeq ($(HOST), jasmi)
+	CXX = /opt/local/bin/g++-mp-8 -L/opt/local/lib/
+endif
+
 ifeq ($(HOST), Rhodo)
 	CXX = /usr/local/bin/g++ -lstdc++ -fopenmp -O3 -g -L/usr/local/lib/
 endif
