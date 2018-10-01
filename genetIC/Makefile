@@ -60,8 +60,12 @@ endif
 ifeq ($(HOST), clema)
         CPATH = /opt/local/include/
         LPATH = /opt/local/lib/
-	CFLAGS = -O3 -fopenmp -std=c++14 -fdiagnostics-color=auto -I`pwd` -DOPENMP -DDOUBLEPRECISION
+	      CFLAGS = -O3 -fopenmp -std=c++14 -fdiagnostics-color=auto -I`pwd` -DOPENMP -DDOUBLEPRECISION
         CXX = /opt/local/bin/g++-mp-6
+ endif
+ 
+ifeq ($(HOST), jasmi)
+	      CXX = /opt/local/bin/g++-mp-8 -L/opt/local/lib/
 endif
 
 ifeq ($(HOST), Rhodo)
