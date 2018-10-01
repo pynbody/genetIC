@@ -1,5 +1,5 @@
 # Reasonably sensible defaults
-CFLAGS	= -Wall -g -lpthread -Og U -std=c++14   -fdiagnostics-color=auto -I`pwd`  -DDOUBLEPRECISION -DOUTPUT_IN_DOUBLEPRECISION
+CFLAGS	= -Wall -g -lpthread -Og -fopenmp -std=c++14   -fdiagnostics-color=auto -I`pwd` -DOPENMP  -DDOUBLEPRECISION -DOUTPUT_IN_DOUBLEPRECISION
 CPATH 	= /opt/local/include/
 LPATH   = /opt/local/lib
 
