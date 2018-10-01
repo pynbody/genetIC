@@ -66,15 +66,6 @@ namespace particle {
           return std::make_shared<EvaluatorType>(underlying->makeEvaluatorForGrid(grid), velOffset);
         }
 
-        std::shared_ptr<const ParticleEvaluator<GridDataType>>
-        makeEvaluatorForGrid(const grids::Grid<GridDataType> &grid) const override {
-          return std::make_shared<const EvaluatorType>(underlying->makeEvaluatorForGrid(grid), velOffset);
-        }
-
-
-
-
-
     };
 }
 
