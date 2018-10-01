@@ -6,7 +6,6 @@ LPATH   = /opt/local/lib
 GSLFLAGS = -lgsl -lgslcblas
 
 # Use -DFFTW3 to use FFTW3 (instead of FFTW 2).
--
 #
 # Additionally use -DFFTW3_THREADS=n to use threads. This will use n threads
 # UNLESS you are compiling with openmp, in which case you do not need to set n
