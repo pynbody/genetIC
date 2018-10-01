@@ -114,8 +114,11 @@ void setup_parser(tools::ClassDispatch<ICf, void> &dispatch) {
   // Load existing random field instead of generating
   dispatch.add_class_route("import_level", &ICf::importLevel );
 
-  // To debug
+  // To debug, allow a level to be replaced with zeroes
   dispatch.add_class_route("zeroLevel", &ICf::zeroLevel);
+
+  // Set an overall velocity offset for the entire box (useful for testing AMR sensitivity to flows)
+  dispatch.add_class_route("velocity_offset", &ICf::setVelocityOffset);
 
 }
 

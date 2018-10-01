@@ -52,6 +52,7 @@ set(SOURCE_FILES
         genetIC/src/simulation/particles/mapper/twolevelmapper.hpp
         genetIC/src/simulation/particles/mapper/gasmapper.hpp
         genetIC/src/simulation/particles/mapper/graficmapper.hpp
+        genetIC/src/simulation/particles/velocityoffsetgenerator.hpp
         genetIC/src/simulation/field/evaluator.hpp
         genetIC/src/simulation/window.hpp
         genetIC/src/simulation/modifications/modification.hpp

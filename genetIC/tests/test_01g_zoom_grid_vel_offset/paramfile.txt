@@ -1,0 +1,31 @@
+# Test velocity offset of output (including a zoom region)
+
+
+# output parameters
+outdir	 ./
+outformat 4
+outname test_1
+
+# cosmology:
+Om  0.279
+Ol  0.721
+s8  0.817
+zin	99
+camb	../camb_transfer_kmax40_z0.dat
+
+# basegrid 50 Mpc/h, 32^3
+basegrid 50.0 16
+
+# fourier seeding
+seed	8896131
+
+
+
+centre 25 25 25
+select_sphere 5
+zoomgrid 3 16
+
+velocity_offset 5.5 -4.4 3.3 # this is what we are testing
+
+
+done
