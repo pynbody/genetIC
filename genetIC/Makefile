@@ -63,9 +63,9 @@ ifeq ($(HOST), clema)
 	      CFLAGS = -O3 -fopenmp -std=c++14 -fdiagnostics-color=auto -I`pwd` -DOPENMP -DDOUBLEPRECISION
         CXX = /opt/local/bin/g++-mp-6
  endif
- 
+
 ifeq ($(HOST), jasmi)
-	      CXX = /opt/local/bin/g++-mp-8 -L/opt/local/lib/
+	      CXX = /opt/local/bin/clang++-mp-7.0 -L/opt/local/lib/
 endif
 
 ifeq ($(HOST), Rhodo)
