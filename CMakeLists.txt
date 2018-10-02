@@ -6,7 +6,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/genetIC)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14  -fopenmp -g ")
 
-set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Og")
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O0")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")
 
 set(SOURCE_FILES
@@ -59,7 +59,7 @@ set(SOURCE_FILES
         genetIC/src/simulation/modifications/modificationmanager.hpp
         genetIC/src/simulation/modifications/linearmodification.hpp
         genetIC/src/simulation/modifications/quadraticmodification.hpp
-        genetIC/src/simulation/multilevelcontext/mask.hpp)
+        genetIC/src/simulation/multilevelcontext/mask.hpp genetIC/src/tools/memmap.hpp)
 
 include_directories( /opt/local/include )
 link_directories(/opt/local/lib )
