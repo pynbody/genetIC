@@ -66,10 +66,12 @@ def compare_grafic(reference_path, test_path):
     test_res = get_grafic_resolutions(test_files)
     assert ref_res==test_res, "Grafic output files do not match in resolutions available"
 
-    for f1,f2,res in zip(test_files, ref_files, ref_res):
+    for fname1,fname2,res in zip(test_files, ref_files, ref_res):
         print("Test resolution",res)
-        compare(pynbody.load(f1),pynbody.load(f2))
-
+        f1 = pynbody.load(fname1)
+        f2 = pynbody.load(fname2)
+        compare(f1,f2)
+        assert (f1['iord']==f2['iord']).all()
 
 def check_comparison_is_possible(dirname):
     # A valid test must have either a tipsy/gadget output and its reference output or numpy grids and their references.
