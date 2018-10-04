@@ -117,11 +117,11 @@ namespace io {
           pb.tick();
           writeBlockHeaderFooter(block_lengths, files);
 
-          std::vector<float*> varMaps;
+          std::vector<tools::MemMapRegion<float>> varMaps;
           for(int m=0; m<9; ++m)
             varMaps.push_back(files[m].getMemMap<float>(targetGrid.size2));
 
-          size_t * idMap = files[9].getMemMap<size_t>(targetGrid.size2);
+          tools::MemMapRegion<size_t> idMap = files[9].getMemMap<size_t>(targetGrid.size2);
 
 #pragma omp parallel for
           for (size_t i_y = 0; i_y < targetGrid.size; ++i_y) {

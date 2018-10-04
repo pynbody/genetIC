@@ -9,9 +9,69 @@
 #include <string>
 #include <fcntl.h>
 #include <errno.h>
+#include <string.h>
 #include <unistd.h>
+#include <iostream>
 
 namespace tools {
+
+  class MemMapFileWriter;
+
+  template<typename DataType>
+  class MemMapRegion {
+  protected:
+    char *addr_aligned;
+    DataType *addr;
+    size_t size_bytes;
+
+    MemMapRegion(int fd, size_t file_offset, size_t n_elements) {
+      size_bytes = n_elements*sizeof(DataType);
+      ::lseek(fd, file_offset+size_bytes-1, SEEK_SET);
+      ::write(fd,"",1);
+
+      size_t npage_offset = size_bytes/::getpagesize();
+      size_t aligned_offset = npage_offset*::getpagesize();
+      size_t byte_page_offset = file_offset-aligned_offset;
+
+      size_bytes+=byte_page_offset;
+
+      addr_aligned = static_cast<char*>(::mmap(nullptr, size_bytes, PROT_READ | PROT_WRITE,
+          MAP_SHARED, fd, aligned_offset));
+
+      if(addr_aligned==MAP_FAILED)
+        throw std::runtime_error("Failed to create a mem-map for output (reason: "+std::string(::strerror(errno))+")");
+
+      addr = reinterpret_cast<DataType*>(&addr_aligned[byte_page_offset]);
+
+    }
+
+    friend class MemMapFileWriter;
+
+  public:
+    ~MemMapRegion() {
+      if (addr_aligned != nullptr) {
+        msync(addr_aligned, size_bytes, MS_SYNC);
+        if(munmap(addr_aligned, size_bytes)!=0) {
+          // This is a catastrophic error that is unrecoverable
+          std::cerr << "ERROR: Failed to delete the mem-map (reason: " << ::strerror(errno) << ")" << std::endl;
+          exit(1);
+        }
+      }
+    }
+
+    MemMapRegion(const MemMapRegion & copy) = delete;
+
+    MemMapRegion(MemMapRegion && move) {
+      this->addr = move.addr;
+      this->addr_aligned = move.addr_aligned;
+      this->size_bytes = move.size_bytes;
+      move.addr_aligned = nullptr;
+    }
+
+    DataType & operator[](size_t offset) {
+      return addr[offset];
+    }
+  };
 
 
   /*!
@@ -28,38 +88,27 @@ namespace tools {
     int fd;
     size_t offset;
     size_t file_length;
-    char *addr;
 
   public:
     MemMapFileWriter(const MemMapFileWriter & copy) = delete;
 
     MemMapFileWriter(MemMapFileWriter && move) {
       this->fd = move.fd;
-      this->addr = move.addr;
       this->offset = move.offset;
       this->file_length = move.file_length;
       move.fd = -1;
-      move.addr = nullptr;
     }
 
     MemMapFileWriter(std::string filename, size_t file_length) : file_length(file_length) {
       fd = open(filename.c_str(), O_RDWR | O_CREAT, (mode_t)0666);
       if(fd==-1)
-        throw std::runtime_error("Failed to open file (reason "+std::to_string(errno)+")");
-      lseek(fd, file_length-1, SEEK_SET);
-      ::write(fd,"",1);
-      addr = static_cast<char*>(mmap(nullptr, file_length, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0));
-      if(addr==MAP_FAILED)
-        throw std::runtime_error("Failed to create a mem-map for output (reason "+std::to_string(errno)+")");
+        throw std::runtime_error("Failed to open file (reason: "+std::string(::strerror(errno))+")");
 
       offset = 0;
     }
 
     ~MemMapFileWriter() {
-      if(addr!=nullptr) {
-        msync(static_cast<void *>(addr), file_length, MS_SYNC);
-        munmap(static_cast<void *>(addr), file_length);
-      }
+
       if(fd!=-1)
         close(fd);
     }
@@ -67,17 +116,16 @@ namespace tools {
     //! Write a single item to the file at the current write location
     template<typename DataType>
     void write(const DataType & data) {
-      assert(offset+sizeof(DataType)<=file_length);
-      *(reinterpret_cast<DataType*>(&(addr[offset]))) = data;
+      ::write(fd, &data, sizeof(data));
       offset+=sizeof(data);
     }
 
     //! Get a memory-mapped view of the file at the current write location, with the intention of writing n_elements
     template<typename DataType>
-    DataType *getMemMap(size_t n_elements) {
-      assert(offset+n_elements*sizeof(DataType)<=file_length);
-      DataType* region=reinterpret_cast<DataType*>(&(addr[offset]));
+    auto getMemMap(size_t n_elements) {
+      auto region = MemMapRegion<DataType>(fd,offset,n_elements);
       offset+=n_elements*sizeof(DataType);
+      ::lseek(fd, offset, SEEK_SET);
       return region;
     }
 
