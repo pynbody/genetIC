@@ -29,7 +29,7 @@ namespace tools {
       ::lseek(fd, file_offset+size_bytes-1, SEEK_SET);
       ::write(fd,"",1);
 
-      size_t npage_offset = size_bytes/::getpagesize();
+      size_t npage_offset = file_offset/::getpagesize();
       size_t aligned_offset = npage_offset*::getpagesize();
       size_t byte_page_offset = file_offset-aligned_offset;
 
@@ -52,7 +52,7 @@ namespace tools {
       if (addr_aligned != nullptr) {
         msync(addr_aligned, size_bytes, MS_SYNC);
         if(munmap(addr_aligned, size_bytes)!=0) {
-          // This is a catastrophic error that is unrecoverable
+          // This probably indicates something has gone catastrophically wrong...
           std::cerr << "ERROR: Failed to delete the mem-map (reason: " << ::strerror(errno) << ")" << std::endl;
           exit(1);
         }
