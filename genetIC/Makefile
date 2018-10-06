@@ -52,9 +52,10 @@ ifeq ($(HOST3), pfe)
 endif
 
 ifeq ($(HOST), Snowd)
-	CPATH = /sw/include/
-	LPATH = /sw/lib/
-	CXX = /opt/local/bin/g++-mp-6 -L/opt/local/lib/
+	CPATH = /opt/local/include/
+	LPATH = /opt/local/lib/
+	CFLAGS = -O3 -fopenmp -std=c++14 -fdiagnostics-color=auto -I`pwd` -DOPENMP -DDOUBLEPRECISION
+	CXX = /opt/local/bin/clang++-mp-6.0
 endif
 
 ifeq ($(HOST), clema)

@@ -66,7 +66,22 @@ link_directories(/opt/local/lib )
 include_directories( genetIC/  )
 link_libraries(fftw3 m fftw3 fftw3_threads gsl gslcblas)
 
-add_definitions(-DFFTW3 -DFFTW_THREADS -DOPENMP -DGIT_VERSION -DGIT_MODIFIED -DDOUBLEPRECISION -DOUTPUT_IN_DOUBLEPRECISION)
+
+exec_program(
+        "git"
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        ARGS "rev-parse --short HEAD"
+        OUTPUT_VARIABLE GIT_VERSION
+)
+
+exec_program(
+        "bash"
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        ARGS "-c 'git ls-files -m | tr \"\\n\" \" \"'"
+        OUTPUT_VARIABLE GIT_MODIFIED
+)
+
+add_definitions(-DFFTW3 -DFFTW_THREADS -DOPENMP -DGIT_VERSION="${GIT_VERSION}" -DGIT_MODIFIED="${GIT_MODIFIED}" -DDOUBLEPRECISION -DOUTPUT_IN_DOUBLEPRECISION)
 add_compile_options(-Wextra)
 add_executable(IC ${SOURCE_FILES})
 
