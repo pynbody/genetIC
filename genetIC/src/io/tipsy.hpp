@@ -1,6 +1,7 @@
 #ifndef IC_TIPSY_HPP
 #define IC_TIPSY_HPP
 
+#include <src/tools/memmap.hpp>
 #include "src/io.hpp"
 #include "src/simulation/particles/mapper/mapper.hpp"
 
@@ -62,7 +63,7 @@ namespace io {
     class TipsyOutput {
     protected:
       const particle::AbstractMultiLevelParticleGenerator<GridDataType> &generator;
-      FILE *fd;
+      tools::MemMapFileWriter writer;
       std::ofstream photogenic_file;
       size_t iord;
       double pos_factor, vel_factor, mass_factor, min_mass, max_mass;
@@ -76,13 +77,8 @@ namespace io {
 
         const size_t n = particleAr.size();
 
-        /*
-        for(auto &q: {xAr,yAr,zAr,vxAr,vyAr,vzAr,massAr,epsAr}) {
-          assert(q.size()==n);
-        }
-        */
+        auto p = writer.getMemMap<ParticleType>(n);
 
-        std::vector<ParticleType> p(n);
 
 #pragma omp parallel for
         for (size_t i = 0; i < n; i++) {
@@ -109,7 +105,7 @@ namespace io {
         }
         iord += n;
 
-        fwrite(p.data(), sizeof(ParticleType), n, fd);
+
       }
 
       template<typename ParticleType>
@@ -146,7 +142,7 @@ namespace io {
           p.vz = thisParticle.vel.z * vel_factor;
           p.mass = thisParticle.mass * mass_factor;
 
-          fwrite(&p, sizeof(ParticleType), 1, fd);
+          writer.write<ParticleType>(p);
 
           if (mass == min_mass) {
             photogenic_file << iord << std::endl;
@@ -227,11 +223,12 @@ namespace io {
 
         paramfile.close();
 
-        fd = fopen(filename.c_str(), "w");
-        if (!fd) throw std::runtime_error("Unable to open file for writing");
+        size_t length = sizeof(io_header_tipsy)
+                        + sizeof(TipsyParticle::gas)*header.ngas
+                        + sizeof(TipsyParticle::dark)*header.ndark;
+        writer = tools::MemMapFileWriter(filename, length);
 
-
-        fwrite(&header, sizeof(io_header_tipsy), 1, fd);
+        writer.write<>(header);
 
         saveTipsyParticles<TipsyParticle::gas>(pMapper->beginGas(generator), pMapper->endGas(generator));
         saveTipsyParticles<TipsyParticle::dark>(pMapper->beginDm(generator), pMapper->endDm(generator));

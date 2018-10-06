@@ -90,14 +90,25 @@ namespace tools {
     size_t file_length;
 
   public:
+    MemMapFileWriter() {
+      this->fd = -1;
+    }
+
     MemMapFileWriter(const MemMapFileWriter & copy) = delete;
 
     MemMapFileWriter(MemMapFileWriter && move) {
-      this->fd = move.fd;
-      this->offset = move.offset;
-      this->file_length = move.file_length;
-      move.fd = -1;
+      (*this)=std::move(move);
     }
+
+    MemMapFileWriter & operator=(MemMapFileWriter &&move) {
+      fd = move.fd;
+      offset = move.offset;
+      file_length = move.file_length;
+      move.fd = -1;
+      return (*this);
+    }
+
+
 
     MemMapFileWriter(std::string filename, size_t file_length) : file_length(file_length) {
       fd = open(filename.c_str(), O_RDWR | O_CREAT, (mode_t)0666);
