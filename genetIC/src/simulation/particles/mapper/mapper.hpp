@@ -226,10 +226,12 @@ namespace particle {
       /** Iterate over all particles in order of the gadget particle types
        * (which may not be the same as the genetIC mapper order)
        * **/
-      void iterateParticlesOfAllTypes(const particle::AbstractMultiLevelParticleGenerator<GridDataType> &generator,
-                                      const std::function<void(const iterator &)> &callback) const {
+      void iterateParticlesOfAllTypes(const std::vector<std::shared_ptr<particle::AbstractMultiLevelParticleGenerator<GridDataType>>> &generator,
+                                      const std::function<void(const iterator &)> &callback,const size_t* redirect) const {
+        //This function needs to know how to map generators to particle types - information that is held by redirect. This will be
+        //different if, say, we switch baryon transfer functions off, as then everything uses the DM generator.
         for(unsigned int particle_type=0; particle_type<6; particle_type++) {
-          iterateParticlesOfType(generator, particle_type, callback);
+          iterateParticlesOfType(*generator[redirect[particle_type]], particle_type, callback);
         }
       }
 

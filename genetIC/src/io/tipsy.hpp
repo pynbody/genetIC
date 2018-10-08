@@ -61,7 +61,10 @@ namespace io {
     template<typename GridDataType, typename FloatType=tools::datatypes::strip_complex<GridDataType>>
     class TipsyOutput {
     protected:
-      const particle::AbstractMultiLevelParticleGenerator<GridDataType> &generator;
+      //const particle::AbstractMultiLevelParticleGenerator<GridDataType> &generator;
+      //Replace this with a vector of references, but this means they aren't constant...
+      //std::vector<particle::AbstractMultiLevelParticleGenerator<GridDataType>&> generator;
+      std::vector<std::shared_ptr<particle::AbstractMultiLevelParticleGenerator<GridDataType>>> generator;
       FILE *fd;
       std::ofstream photogenic_file;
       size_t iord;
@@ -160,9 +163,10 @@ namespace io {
     public:
 
       TipsyOutput(double boxLength,
-                  const particle::AbstractMultiLevelParticleGenerator<GridDataType> &generator,
+                  //const particle::AbstractMultiLevelParticleGenerator<GridDataType> &generator,
+                  const std::vector<std::shared_ptr<particle::AbstractMultiLevelParticleGenerator<GridDataType>>> &_generator,
                   std::shared_ptr<particle::mapper::ParticleMapper<GridDataType>> pMapper,
-                  const cosmology::CosmologicalParameters<FloatType> &cosmology) : generator(generator),
+                  const cosmology::CosmologicalParameters<FloatType> &cosmology) : generator(_generator),
                                                                                    iord(0),
                                                                                    boxLength(boxLength),
                                                                                    pMapper(pMapper),
@@ -183,7 +187,8 @@ namespace io {
 
         FloatType mass, tot_mass = 0.0;
 
-        for (auto i = pMapper->begin(generator); i != pMapper->end(generator); ++i) {
+        //Accessing only the DM here:
+        for (auto i = pMapper->begin(*generator[0]); i != pMapper->end(*generator[0]); ++i) {
           // progress("Pre-write scan file",iord, totlen);
           mass = i.getMass(); // sometimes can be MUCH faster than getParticle
           if (min_mass > mass) min_mass = mass;
@@ -233,15 +238,23 @@ namespace io {
 
         fwrite(&header, sizeof(io_header_tipsy), 1, fd);
 
-        saveTipsyParticles<TipsyParticle::gas>(pMapper->beginGas(generator), pMapper->endGas(generator));
-        saveTipsyParticles<TipsyParticle::dark>(pMapper->beginDm(generator), pMapper->endDm(generator));
+        //Swtich off baryon transfer function if not enabled:
+        size_t redirect[] = {0,1};
+        if(generator.size() < 2)
+        {
+            redirect[1] = 0;
+        }
+
+        saveTipsyParticles<TipsyParticle::gas>(pMapper->beginGas(*generator[redirect[1]]), pMapper->endGas(*generator[redirect[1]]));
+        saveTipsyParticles<TipsyParticle::dark>(pMapper->beginDm(*generator[redirect[0]]), pMapper->endDm(*generator[redirect[0]]));
 
       }
     };
 
     template<typename GridDataType, typename T>
     void save(const std::string &filename, double Boxlength,
-              const particle::AbstractMultiLevelParticleGenerator<GridDataType> &generator,
+              //const particle::AbstractMultiLevelParticleGenerator<GridDataType> &generator,
+              const std::vector<std::shared_ptr<particle::AbstractMultiLevelParticleGenerator<GridDataType>>> &generator,
               std::shared_ptr<particle::mapper::ParticleMapper<GridDataType>> pMapper,
               const cosmology::CosmologicalParameters<T> &cosmology) {
 

@@ -28,9 +28,13 @@ namespace io {
     protected:
       std::string outputFilename;
       multilevelcontext::MultiLevelContextInformation<DataType> context;
-      std::shared_ptr<particle::AbstractMultiLevelParticleGenerator<DataType>> generator;
+      //std::shared_ptr<particle::AbstractMultiLevelParticleGenerator<DataType>> generator;
+      std::vector<std::shared_ptr<particle::AbstractMultiLevelParticleGenerator<DataType>>>& generator;
       const cosmology::CosmologicalParameters<T> &cosmology;
       multilevelcontext::GraficMask<DataType,T>* mask;
+      std::vector<fields::OutputField<DataType>>& outputField;
+
+
       T pvarValue;
 
       T lengthFactorHeader;
@@ -41,17 +45,23 @@ namespace io {
     public:
       GraficOutput(const std::string &fname,
                    multilevelcontext::MultiLevelContextInformation<DataType> &levelContext,
-                   particle::AbstractMultiLevelParticleGenerator<DataType> &particleGenerator,
+                   //particle::AbstractMultiLevelParticleGenerator<DataType> &particleGenerator,
+                   std::vector<std::shared_ptr<particle::AbstractMultiLevelParticleGenerator<DataType>>> &particleGenerator,
                    const cosmology::CosmologicalParameters<T> &cosmology,
                     const T pvarValue,
                    Coordinate<T> center,
                    size_t subsample,
                    size_t supersample,
-                   std::vector<std::vector<size_t>>& input_mask) :
+                   std::vector<std::vector<size_t>>& input_mask,
+                   std::vector<fields::OutputField<DataType>>& outField) :
           outputFilename(fname),
-          generator(particleGenerator.shared_from_this()),
+          //generator(particleGenerator.shared_from_this()),
+          generator(particleGenerator),
           cosmology(cosmology),
-          pvarValue(pvarValue){
+          pvarValue(pvarValue),
+          outputField(outField)
+          {
+
         levelContext.copyContextWithCenteredIntermediate(context, center, 2, subsample, supersample);
 
         mask = new multilevelcontext::GraficMask<DataType,T>(&context, input_mask);
@@ -73,7 +83,7 @@ namespace io {
     protected:
 
       void writeGrid(const grids::Grid<T> &targetGrid, size_t level) {
-        auto evaluator = generator->makeEvaluatorForGrid(targetGrid);
+        auto evaluator_dm = generator[0]->makeEvaluatorForGrid(targetGrid);
 
         const grids::Grid<T> &baseGrid = context.getGridForLevel(0);
         size_t effective_size = tools::getRatioAndAssertPositiveInteger(baseGrid.cellSize * baseGrid.size,
@@ -105,6 +115,16 @@ namespace io {
           writeHeaderForGrid(files.back(), targetGrid);
         }
 
+        //If we are using baryon transfer functions, then we need to make sure that the field
+        //is real, but only bother with this if we will actually need it:
+        //QUERY - do we want the output in Fourier space or real space? I assume real...
+        if(this->outputField.size() > 1)
+        {
+            for(size_t i = 0;i < outputField.size();i++)
+            {
+                this->outputField[i].toReal();
+            }
+        }
 
         for (size_t i_z = 0; i_z < targetGrid.size; ++i_z) {
           pb.tick();
@@ -113,13 +133,26 @@ namespace io {
             for (size_t i_x = 0; i_x < targetGrid.size; ++i_x) {
               size_t i = targetGrid.getIndexFromCoordinateNoWrap(i_x, i_y, i_z);
               size_t global_index = i + iordOffset;
-              auto particle = evaluator->getParticleNoOffset(i);
+              auto particle = evaluator_dm->getParticleNoOffset(i);
 
               Coordinate<float> velScaled(particle.vel * velFactor);
               Coordinate<float> posScaled(particle.pos * lengthFactorDisplacements);
 
               // TODO For now, the baryon density is not calculated and set to zero
-              float deltab = 0;
+              //Detect whether we are using baryons:
+              float deltab;
+              if(this->outputField.size() < 2)
+              {
+                deltab = 0;
+              }
+              else
+              {
+                //Get data from output field:
+                //We're always assuming here that the second element corresponds
+                //to the baryons...
+                deltab = outputField[1].getFieldForLevel(level)[i];
+              }
+
               float mask = this->mask->isInMask(level, i);
               float pvar = pvarValue * mask;
 
@@ -175,13 +208,14 @@ namespace io {
 
     template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
     void save(const std::string &filename,
-              particle::AbstractMultiLevelParticleGenerator<DataType> &generator,
+              std::vector<std::shared_ptr<particle::AbstractMultiLevelParticleGenerator<DataType>>> &generator,
               multilevelcontext::MultiLevelContextInformation<DataType> &context,
               const cosmology::CosmologicalParameters<T> &cosmology,
               const T pvarValue, Coordinate<T> center, size_t subsample, size_t supersample,
-              std::vector<std::vector<size_t>>& input_mask) {
-      GraficOutput<DataType> output(filename, context,
-                                    generator, cosmology, pvarValue, center, subsample, supersample, input_mask);
+              std::vector<std::vector<size_t>>& input_mask,
+              std::vector<fields::OutputField<DataType>>& outputField) {
+      GraficOutput<DataType> output(filename, context, generator,
+                                    cosmology, pvarValue, center, subsample, supersample, input_mask,outputField);
       output.write();
     }
 

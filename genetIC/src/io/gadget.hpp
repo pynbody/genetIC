@@ -29,7 +29,7 @@ namespace io {
         if (max_mass < mass) max_mass = mass;
         num++;
       });
-      
+
     }
 
     size_t my_fwrite(void *ptr, size_t size, size_t nmemb, FILE *stream) //stolen from Gadget
@@ -561,7 +561,8 @@ int save_phases(complex<FloatType> *phk, FloatType* ph, complex<FloatType> *delt
     template<typename GridDataType, typename FloatType>
     void save(const std::string &name, double Boxlength,
               particle::mapper::ParticleMapper<GridDataType> &mapper,
-              particle::AbstractMultiLevelParticleGenerator<GridDataType> &generator,
+              //particle::AbstractMultiLevelParticleGenerator<GridDataType> &generator,
+              std::vector<std::shared_ptr<particle::AbstractMultiLevelParticleGenerator<GridDataType>>> &generator,
               const cosmology::CosmologicalParameters<FloatType> &cosmology, int gadgetformat) {
 
 
@@ -571,12 +572,22 @@ int save_phases(complex<FloatType> *phk, FloatType* ph, complex<FloatType> *delt
       vector<long> npart(6,0);
       size_t nTotal(0);
 
+      //Map for the generators. Assume that the non-gas elements (gadget type 2+)
+      //map to DM. Note that baryon generator is generator[1], DM is generator[0],
+      //which is the opposite order to gadget.
+      size_t redirect[6] = {1,0,0,0,0,0};
+      //If not using gas, we should re-direct everything to DM:
+      if(generator.size() < 2)
+      {
+        redirect[0] = 0;
+      }
+
       cerr << "Gadget output preliminary scan..." << endl;
 
       for(unsigned int ptype=0; ptype<6; ++ptype) {
         FloatType min_mass, max_mass;
         size_t n;
-        getParticleInfo(generator, mapper, min_mass, max_mass, n, ptype);
+        getParticleInfo(*generator[redirect[ptype]], mapper, min_mass, max_mass, n, ptype);
         if(n>0) {
           if (min_mass != max_mass) {
             variableMass = true;
@@ -645,7 +656,7 @@ int save_phases(complex<FloatType> *phk, FloatType* ph, complex<FloatType> *delt
         output_cache = particle.pos.z;
         my_fwrite(&output_cache, sizeof(output_cache), 1, fd);
         ntotthis++;
-      });
+      },redirect);
 
       assert(ntotthis==nTotal);
 
@@ -664,7 +675,7 @@ int save_phases(complex<FloatType> *phk, FloatType* ph, complex<FloatType> *delt
         output_cache = particle.vel.z;
         my_fwrite(&output_cache, sizeof(output_cache), 1, fd);
         ntotthis++;
-      });
+      },redirect);
       my_fwrite(&fortranFieldSize, sizeof(fortranFieldSize), 1, fd); //end of velocity block
 
       //particle IDs (one for each gas, high res and low res particle)
@@ -676,7 +687,7 @@ int save_phases(complex<FloatType> *phk, FloatType* ph, complex<FloatType> *delt
       mapper.iterateParticlesOfAllTypes(generator, [&](const auto & i) {
         long index = long(i.getIndex());
         my_fwrite(&index, sizeof(long), 1, fd);
-      });
+      },redirect);
 
       my_fwrite(&fortranFieldSize, sizeof(fortranFieldSize), 1, fd);
 
@@ -686,7 +697,7 @@ int save_phases(complex<FloatType> *phk, FloatType* ph, complex<FloatType> *delt
         mapper.iterateParticlesOfAllTypes(generator, [&](const auto & i) {
           output_cache = i.getMass();
           my_fwrite(&output_cache, sizeof(output_cache), 1, fd);
-        });
+        },redirect);
         my_fwrite(&fortranFieldSize, sizeof(fortranFieldSize), 1, fd);
       }
 

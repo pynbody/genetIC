@@ -47,6 +47,10 @@ void setup_parser(tools::ClassDispatch<ICf, void> &dispatch) {
   dispatch.add_class_route("seed", &ICf::setSeed);
   dispatch.add_class_route("seedfourier", &ICf::setSeedFourier);
   dispatch.add_class_route("seedfourier_reverse", &ICf::setSeedFourierReverseOrder);
+  dispatch.add_class_route("seed_all", &ICf::setSeedAll);
+  dispatch.add_class_route("seedfourier_all", &ICf::setSeedFourierAll);
+  dispatch.add_class_route("seedfourier_reverse_all", &ICf::setSeedFourierReverseOrderAll);
+
 
   // Optional computational properties
   dispatch.add_class_route("exact_power_spectrum_enforcement", &ICf::setExactPowerSpectrumEnforcement);
@@ -113,6 +117,9 @@ void setup_parser(tools::ClassDispatch<ICf, void> &dispatch) {
 
   // Load existing random field instead of generating
   dispatch.add_class_route("import_level", &ICf::importLevel );
+
+  //Extra commands related to the transfer functions:
+  dispatch.add_class_route("baryon_tf_on",&ICf::setUsingBaryons);
 
   // To debug
   dispatch.add_class_route("zeroLevel", &ICf::zeroLevel);

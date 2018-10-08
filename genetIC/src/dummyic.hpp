@@ -64,23 +64,23 @@ public:
   }
 
 
-  void zeroLevel(size_t /*level*/) override {}
+  void zeroLevel(size_t /*level*/,size_t) override {}
 
-  void applyPowerSpec() override {}
+  void applyPowerSpec(size_t) override {}
 
-  void dumpGrid(size_t /*level*/) override {}
+  void dumpGrid(size_t /*level*/,size_t) override {}
 
   void dumpPS(size_t,size_t) override {}
 
   void dumpMask() override {}
 
-  virtual void initialiseParticleGenerator() override {}
+  virtual void initialiseParticleGenerator(size_t) override {}
 
   void dumpID(string /*fname*/) override {}
 
   void write() override {}
 
-  void modify(string /*name*/, string /*string*/, float /*value*/) override {}
+  void modify(string /*name*/, string /*string*/, float /*value*/,size_t) override {}
 
   void done() override {}
 };
