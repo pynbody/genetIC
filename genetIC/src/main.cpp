@@ -44,9 +44,17 @@ void setup_parser(tools::ClassDispatch<ICf, void> &dispatch) {
   dispatch.add_class_route("zin", &ICf::setZ0);
 
   // Set seeds for random draws
-  dispatch.add_class_route("seed", &ICf::setSeed);
-  dispatch.add_class_route("seedfourier", &ICf::setSeedFourier);
-  dispatch.add_class_route("seedfourier_reverse", &ICf::setSeedFourierReverseOrder);
+  //Static casts here needed to differentiate between overloaded versions of setSeed,
+  //now that we have both DM and baryon fields to seed.
+  dispatch.add_class_route("seed", static_cast<void (ICf::*)(int)>(&ICf::setSeed));
+  //dispatch.add_class_route("seed", &ICf::setSeed);
+  dispatch.add_class_route("seed_field", static_cast<void (ICf::*)(int,size_t)>(&ICf::setSeed));
+  dispatch.add_class_route("seedfourier", static_cast<void (ICf::*)(int)>(&ICf::setSeedFourier));
+  //dispatch.add_class_route("seedfourier", &ICf::setSeedFourier);
+  dispatch.add_class_route("seed_field_fourier",static_cast<void (ICf::*)(int,size_t)>(&ICf::setSeedFourier));
+  dispatch.add_class_route("seedfourier_reverse",static_cast<void (ICf::*)(int)>(&ICf::setSeedFourierReverseOrder));
+  //dispatch.add_class_route("seedfourier_reverse",&ICf::setSeedFourierReverseOrder);
+  dispatch.add_class_route("seed_field_fourier_reverse", static_cast<void (ICf::*)(int,size_t)>(&ICf::setSeedFourierReverseOrder));
   dispatch.add_class_route("seed_all", &ICf::setSeedAll);
   dispatch.add_class_route("seedfourier_all", &ICf::setSeedFourierAll);
   dispatch.add_class_route("seedfourier_reverse_all", &ICf::setSeedFourierReverseOrderAll);
@@ -110,19 +118,27 @@ void setup_parser(tools::ClassDispatch<ICf, void> &dispatch) {
   dispatch.add_class_route("reseed_small_k", &ICf::reseedSmallK);
 
   // Write objects to files
-  dispatch.add_class_route("dump_grid", &ICf::dumpGrid);
-  dispatch.add_class_route("dump_ps", &ICf::dumpPS);
+  //dispatch.add_class_route("dump_grid", &ICf::dumpGrid);
+  dispatch.add_class_route("dump_grid", static_cast<void (ICf::*)(size_t)>(&ICf::dumpGrid));
+  dispatch.add_class_route("dump_grid_for_field", static_cast<void (ICf::*)(size_t,size_t)>(&ICf::dumpGrid));
+  //dispatch.add_class_route("dump_ps", &ICf::dumpPS);
+  dispatch.add_class_route("dump_ps", static_cast<void (ICf::*)(size_t)>(&ICf::dumpPS));
+  dispatch.add_class_route("dump_ps_for_field", static_cast<void (ICf::*)(size_t,size_t)>(&ICf::dumpPS));
   dispatch.add_class_route("dump_tipsy", &ICf::saveTipsyArray);
   dispatch.add_class_route("dump_mask", &ICf::dumpMask);
 
   // Load existing random field instead of generating
-  dispatch.add_class_route("import_level", &ICf::importLevel );
+  //dispatch.add_class_route("import_level", &ICf::importLevel );
+  dispatch.add_class_route("import_level", static_cast<void (ICf::*)(size_t,std::string)>(&ICf::importLevel));
+  dispatch.add_class_route("import_level_for_field", static_cast<void (ICf::*)(size_t,std::string,size_t)>(&ICf::importLevel));
 
   //Extra commands related to the transfer functions:
   dispatch.add_class_route("baryon_tf_on",&ICf::setUsingBaryons);
 
   // To debug
-  dispatch.add_class_route("zeroLevel", &ICf::zeroLevel);
+  //dispatch.add_class_route("zeroLevel", &ICf::zeroLevel);
+  dispatch.add_class_route("zeroLevel", static_cast<void (ICf::*)(size_t)>(&ICf::zeroLevel));
+  dispatch.add_class_route("zeroLevel_for_field", static_cast<void (ICf::*)(size_t,size_t)>(&ICf::zeroLevel));
 
 }
 

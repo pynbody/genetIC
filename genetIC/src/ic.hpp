@@ -503,14 +503,37 @@ public:
     }
   }
 
-  void setSeed(int seed,size_t nField = 0) {
+  //Could do this with a default parameter too, but that plays
+  //havoc with the recursive templates used by the parser,
+  //which can't see the default arguments and thinks
+  //not enough arguments have been supplied.
+
+
+
+  //!Set the seed in real space.
+  void setSeed(int seed,size_t nField) {
     randomFieldGenerator[nField].seed(seed);
   }
 
-  void setSeedFourier(int seed,size_t nField = 0) {
+  //!For backwards compatibility with scripts that don't use baryon transfer function
+  void setSeed(int seed)
+  {
+    this->setSeed(seed,0);
+  }
+
+
+
+  //!Set the seed in fourier space
+  void setSeedFourier(int seed,size_t nField) {
     randomFieldGenerator[nField].seed(seed);
     randomFieldGenerator[nField].setDrawInFourierSpace(true);
     randomFieldGenerator[nField].setReverseRandomDrawOrder(false);
+  }
+
+  //!For backwards compatibility with scripts that don't use baryon transfer function
+  void setSeedFourier(int seed)
+  {
+    this->setSeedFourier(seed,0);
   }
 
   //! Set the gadget particle type to be produced by the deepest level currently in the grid hiearchy
@@ -537,10 +560,16 @@ public:
   /*!
    * Provided for compatibility problems as different compilers handle the draw order differently
    */
-  void setSeedFourierReverseOrder(int seed,size_t nField = 0) {
+  void setSeedFourierReverseOrder(int seed,size_t nField) {
     randomFieldGenerator[nField].seed(seed);
     randomFieldGenerator[nField].setDrawInFourierSpace(true);
     randomFieldGenerator[nField].setReverseRandomDrawOrder(true);
+  }
+
+  //!For backwards compatibility with scripts that don't use baryon transfer function
+  void setSeedFourierReverseOrder(int seed)
+  {
+    this->setSeedFourierReverseOrder(seed,0);
   }
 
   //!Seed in reverse order for all fields with the same seed.
@@ -590,7 +619,7 @@ public:
   }
 
   //! Zeroes field values at a given level. Meant for debugging.
-  virtual void zeroLevel(size_t level,size_t nField = 0) {
+  virtual void zeroLevel(size_t level,size_t nField) {
     cerr << "*** Warning: your script calls zeroLevel(" << level << "). This is intended for testing purposes only!"
          << endl;
 
@@ -601,6 +630,13 @@ public:
     std::fill(fieldData.begin(), fieldData.end(), 0);
   }
 
+  //!For backwards compatibility with scripts that don't use baryon transfer function
+  virtual void zeroLevel(size_t level)
+  {
+    this->zeroLevel(level,0);
+  }
+
+  //!Imports random field data for a level from a supplies file.
   virtual void importLevel(size_t level, std::string filename,size_t nField = 0) {
     if (!haveInitialisedRandomComponent[nField])
       initialiseRandomComponent(nField);
@@ -613,12 +649,25 @@ public:
     cerr << "... success!" << endl;
   }
 
-  virtual void applyPowerSpec(size_t nField = 0) {
+  //!For backwards compatibility with scripts that don't use baryon transfer function
+  virtual void importLevel(size_t level,std::string filename)
+  {
+    this->importLevel(level,filename,0);
+  }
+
+  //!Apply the power spectrum to the white noise fields
+  virtual void applyPowerSpec(size_t nField) {
     if (this->exactPowerSpectrum) {
       outputField[nField].enforceExactPowerSpectrum();
     } else {
       outputField[nField].applyPowerSpectrum();
     }
+  }
+
+  //!For backwards compatibility with scripts that don't use baryon transfer function
+  virtual void applyPowerSpec()
+  {
+    this->applyPowerSpec(0);
   }
 
   template<typename TField>
@@ -661,7 +710,7 @@ public:
   }
 
   //! Dumps field at a given level in a file named grid-level
-  virtual void dumpGrid(size_t level,size_t nField = 0) {
+  virtual void dumpGrid(size_t level,size_t nField) {
     //May need to modify this to work better with multiple fields - do we want them in the same or different fields?
     if(level < 0 || level > this->multiLevelContext.getNumLevels() -1){
       throw std::runtime_error("Trying to dump an undefined level");
@@ -669,6 +718,11 @@ public:
     outputField[nField].toReal();
     dumpGridData(level, outputField[nField].getFieldForLevel(level));
     outputField[nField].toFourier();
+  }
+
+  //!For backwards compatibility with scripts that don't use baryon transfer function
+  virtual void dumpGrid(size_t level) {
+    this->dumpGrid(level,0);
   }
 
   // TODO Is this used at all ? Should be linked to a command in main if we want to keep it.
@@ -679,12 +733,21 @@ public:
   }
 
   //! Dumps power spectrum generated from the field and the theory at a given level in a .ps file
-  virtual void dumpPS(size_t level = 0,size_t nField = 0) {
+  virtual void dumpPS(size_t level,size_t nField) {
     auto &field = outputField[nField].getFieldForLevel(level);
     field.toFourier();
     cosmology::dumpPowerSpectrum(field,
                                  multiLevelContext.getCovariance(level,nField),
                                  (getOutputPath() + "_" + ((char) (level + '0')) + ".ps").c_str());
+  }
+
+  //!For backwards compatibility with scripts that don't use baryon transfer function
+  virtual void dumpPS(size_t level) {
+    this->dumpPS(level,0);
+  }
+  //!For backwards compatibility with scripts that don't use baryon transfer function
+  virtual void dumpPS() {
+    this->dumpPS(0,0);
   }
 
   //! Dumps mask information to numpy grid files
