@@ -1,6 +1,8 @@
 #include <sys/stat.h>
 #include <src/simulation/particles/multilevelgenerator.hpp>
 #include <src/simulation/multilevelcontext/mask.hpp>
+#include "src/tools/memmap.hpp"
+#include <algorithm>
 
 namespace io {
   namespace grafic {
@@ -83,8 +85,8 @@ namespace io {
         std::string thisGridFilename = outputFilename + "_" + std::to_string(effective_size);
         mkdir(thisGridFilename.c_str(), 0777);
 
-        auto filenames = {"ic_velcx", "ic_velcy", "ic_velcz", "ic_poscx", "ic_poscy",
-                          "ic_poscz", "ic_particle_ids", "ic_deltab", "ic_refmap", "ic_pvar_00001"};
+        std::vector<std::string> filenames = {"ic_velcx", "ic_velcy", "ic_velcz", "ic_poscx", "ic_poscy",
+                                              "ic_poscz",  "ic_deltab", "ic_refmap", "ic_pvar_00001", "ic_particle_ids"};
 
         std::vector<size_t> block_lengths = {sizeof(float) * targetGrid.size2,
                                              sizeof(float) * targetGrid.size2,
@@ -92,23 +94,36 @@ namespace io {
                                              sizeof(float) * targetGrid.size2,
                                              sizeof(float) * targetGrid.size2,
                                              sizeof(float) * targetGrid.size2,
-                                             sizeof(size_t) * targetGrid.size2,
                                              sizeof(float) * targetGrid.size2,
                                              sizeof(float) * targetGrid.size2,
-                                             sizeof(float) * targetGrid.size2};
+                                             sizeof(float) * targetGrid.size2,
+                                             sizeof(size_t) * targetGrid.size2};
 
-        std::vector<std::ofstream> files;
+        std::vector<tools::MemMapFileWriter> files;
 
 
-        for (auto filename_i: filenames) {
-          files.emplace_back(thisGridFilename + "/" + filename_i, std::ios::binary);
+        for (size_t i=0; i<filenames.size(); ++i) {
+          auto filename_i = filenames[i];
+          auto block_length_i = block_lengths[i];
+          files.emplace_back(thisGridFilename + "/" + filename_i,
+              (block_length_i+2*sizeof(int))*targetGrid.size
+              + sizeof(io_header_grafic) + sizeof(int)*2);
           writeHeaderForGrid(files.back(), targetGrid);
         }
+
 
 
         for (size_t i_z = 0; i_z < targetGrid.size; ++i_z) {
           pb.tick();
           writeBlockHeaderFooter(block_lengths, files);
+
+          std::vector<tools::MemMapRegion<float>> varMaps;
+          for(int m=0; m<9; ++m)
+            varMaps.push_back(files[m].getMemMap<float>(targetGrid.size2));
+
+          tools::MemMapRegion<size_t> idMap = files[9].getMemMap<size_t>(targetGrid.size2);
+
+#pragma omp parallel for
           for (size_t i_y = 0; i_y < targetGrid.size; ++i_y) {
             for (size_t i_x = 0; i_x < targetGrid.size; ++i_x) {
               size_t i = targetGrid.getIndexFromCoordinateNoWrap(i_x, i_y, i_z);
@@ -122,18 +137,19 @@ namespace io {
               float deltab = 0;
               float mask = this->mask->isInMask(level, i);
               float pvar = pvarValue * mask;
+              size_t file_index = i_y*targetGrid.size+i_x;
 
-              // Eek. The following code is horrible. Is there a way to make it neater?
-              files[0].write((char *) (&velScaled.x), sizeof(float));
-              files[1].write((char *) (&velScaled.y), sizeof(float));
-              files[2].write((char *) (&velScaled.z), sizeof(float));
-              files[3].write((char *) (&posScaled.x), sizeof(float));
-              files[4].write((char *) (&posScaled.y), sizeof(float));
-              files[5].write((char *) (&posScaled.z), sizeof(float));
-              files[6].write((char *) (&global_index), sizeof(size_t));
-              files[7].write((char *) (&deltab), sizeof(float));
-              files[8].write((char *) (&mask), sizeof(float));
-              files[9].write((char *) (&pvar), sizeof(float));
+
+              varMaps[0][file_index] = velScaled.x;
+              varMaps[1][file_index] = velScaled.y;
+              varMaps[2][file_index] = velScaled.z;
+              varMaps[3][file_index] = posScaled.x;
+              varMaps[4][file_index] = posScaled.y;
+              varMaps[5][file_index] = posScaled.z;
+              varMaps[6][file_index] = deltab;
+              varMaps[7][file_index] = mask;
+              varMaps[8][file_index] = pvar;
+              idMap[file_index] = global_index;
             }
           }
           writeBlockHeaderFooter(block_lengths, files);
@@ -141,20 +157,19 @@ namespace io {
         iordOffset += targetGrid.size3;
       }
 
-      void writeBlockHeaderFooter(const vector<size_t> &block_lengths, vector<ofstream> &files) const {
+      void writeBlockHeaderFooter(const vector<size_t> &block_lengths, vector<tools::MemMapFileWriter> &files) const {
         assert(block_lengths.size() == files.size());
         for (size_t i = 0; i < block_lengths.size(); ++i) {
-          int block_length_as_integer = int(block_lengths[i]);
-          files[i].write((char *) &block_length_as_integer, sizeof(int));
+          files[i].write<int>(int(block_lengths[i]));
         }
       }
 
-      void writeHeaderForGrid(std::ofstream &outFile, const grids::Grid<T> &targetGrid) {
+      void writeHeaderForGrid(tools::MemMapFileWriter & file, const grids::Grid<T> &targetGrid) {
         io_header_grafic header = getHeaderForGrid(targetGrid);
         int header_length = static_cast<int>(sizeof(io_header_grafic));
-        outFile.write((char *) (&header_length), sizeof(int));
-        outFile.write((char *) (&header), sizeof(io_header_grafic));
-        outFile.write((char *) (&header_length), sizeof(int));
+        file.write<int>(header_length);
+        file.write<io_header_grafic>(header);
+        file.write<int>(header_length);
       }
 
       io_header_grafic getHeaderForGrid(const grids::Grid<T> &targetGrid) const {

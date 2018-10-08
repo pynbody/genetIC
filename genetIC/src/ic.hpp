@@ -26,6 +26,7 @@
 #include "src/simulation/particles/mapper/twolevelmapper.hpp"
 #include "src/simulation/particles/mapper/gasmapper.hpp"
 #include "src/simulation/particles/mapper/graficmapper.hpp"
+#include "src/simulation/particles/velocityoffsetgenerator.hpp"
 
 #include "src/cosmology/camb.hpp"
 #include "src/simulation/window.hpp"
@@ -64,6 +65,9 @@ protected:
   fields::RandomFieldGenerator<GridDataType> randomFieldGenerator;
 
   cosmology::CAMB<GridDataType> spectrum;
+
+  //! Velocity offset to be added uniformly to output (default 0,0,0)
+  Coordinate<GridDataType> velOffset;
 
   //! Gadget particle types to be generated on each level (default 1)
   std::vector<unsigned int> gadgetTypesForLevels;
@@ -140,6 +144,7 @@ public:
       randomFieldGenerator(outputField),
       pMapper(new particle::mapper::ParticleMapper<GridDataType>()),
       interpreter(interpreter) {
+    velOffset = {0,0,0};
     pInputMapper = nullptr;
     pInputMultiLevelContext = nullptr;
     cosmology.hubble = 0.701;   // old default
@@ -187,6 +192,12 @@ public:
     allowStrayParticles = true;
   }
 
+  //! Sets a whole-box velocity offset in km/s -- e.g. for testing AMR sensitivity to movement relative to grid structure
+  void setVelocityOffset(T vx, T vy, T vz) {
+    // convert to km a^1/2 s^-1 (gadget units internally in code)
+    T conversion = pow(cosmology.scalefactor, -0.5);
+    velOffset = {vx*conversion,vy*conversion,vz*conversion};
+  }
 
   void setSigma8(T in) {
     cosmology.sigma8 = in;
@@ -623,9 +634,15 @@ public:
     // methods of generating the particles from the fields
 
     using GridLevelGeneratorType = particle::ZeldovichParticleGenerator<GridDataType>;
+    using OffsetGeneratorType = particle::VelocityOffsetMultiLevelParticleGenerator<GridDataType>;
 
     pParticleGenerator = std::make_shared<
         particle::MultiLevelParticleGenerator<GridDataType, GridLevelGeneratorType>>(outputField, cosmology);
+
+    if(velOffset!=Coordinate<GridDataType>({0,0,0})) {
+      cerr << "Adding a velocity offset to the output" << endl;
+      pParticleGenerator = std::make_shared<OffsetGeneratorType>(pParticleGenerator, velOffset);
+    }
 
   }
 

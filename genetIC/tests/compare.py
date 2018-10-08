@@ -8,6 +8,7 @@ import sys
 import glob
 import os.path
 import warnings
+import re
 
 def compare(f1,f2) :
     npt.assert_almost_equal(f1['mass'],f2['mass'],decimal=6)
@@ -51,6 +52,27 @@ def compare_outputlogfile(reference_file, test_file):
                 assert(s in tests), "Line %s from reference.txt is not present in the logged output" % s
     print("Log output matches")
 
+def get_grafic_files(path):
+    return sorted(glob.glob(os.path.join(path,"*.grafic_*")))
+
+def get_grafic_resolutions(files):
+    res = [int(re.match(r".*\.grafic_([0-9]*)$", f).group(1)) for f in files]
+    return res
+
+def compare_grafic(reference_path, test_path):
+    ref_files = get_grafic_files(reference_path)
+    test_files = get_grafic_files(test_path)
+    ref_res = get_grafic_resolutions(ref_files)
+    test_res = get_grafic_resolutions(test_files)
+    assert ref_res==test_res, "Grafic output files do not match in resolutions available"
+
+    for fname1,fname2,res in zip(test_files, ref_files, ref_res):
+        print("Test resolution",res)
+        f1 = pynbody.load(fname1)
+        f2 = pynbody.load(fname2)
+        compare(f1,f2)
+        assert (f1['iord']==f2['iord']).all()
+
 def check_comparison_is_possible(dirname):
     # A valid test must have either a tipsy/gadget output and its reference output or numpy grids and their references.
 
@@ -60,14 +82,18 @@ def check_comparison_is_possible(dirname):
     output_grids = [os.path.basename(x) for x in glob.glob(dirname+"grid-?.npy")]
     assert(len(output_grids)>=0)
 
-    if len(output_file)==0:
-    # If a particle test output is not generated, you must at least provide numpy grids
+    output_grafic = get_grafic_files(dirname)
+
+    if len(output_file)==0 and len(output_grafic)==0:
+        # If a particle test output is not generated, you must at least provide numpy grids
         if len(output_grids)==0:
             raise IOError("There are no particle files or numpy files to test against")
         elif not os.path.exists(dirname+"/reference_grid"):
             raise IOError("You must provide a reference_grid folder to test against if no particle output is generated")
 
-    elif len(output_file)==1:
+    elif len(output_grafic)>0 and len(output_file)==0:
+        pass # no specific tests implemented here
+    elif len(output_file)==1 and len(output_grafic)==0:
         if not os.path.isfile(sys.argv[1]+"/reference_output"):
             raise IOError("A particle output is present but there is no reference_output to test against.")
 
@@ -89,6 +115,9 @@ def default_comparisons():
 
     if os.path.exists(sys.argv[1]+"/reference_grid"):
         compare_grids(sys.argv[1]+"/reference_grid/",sys.argv[1]+"/")
+
+    if os.path.exists(sys.argv[1]+"/reference_grafic/"):
+        compare_grafic(sys.argv[1]+"/reference_grafic/", sys.argv[1])
 
     powspecs = sorted(glob.glob(sys.argv[1]+"/*.ps"))
     powspecs_test = sorted(glob.glob(sys.argv[1]+"/reference_ps/*.ps"))

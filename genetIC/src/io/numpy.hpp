@@ -301,7 +301,7 @@ namespace io {
 #endif
       if (!is_same_endian) {
         throw std::runtime_error(
-            "formatting error: difference endian is not supported.");
+            "The numpy file has a different endian convention, which is not supported.");
       }
       const char data_type = header[descr_loc + 1];
       size_t word_size;
@@ -311,7 +311,7 @@ namespace io {
       if (data_type != detail::DescriptorDataType<Scalar>::value ||
           word_size != sizeof(Scalar)) {
         throw std::runtime_error(
-            "formatting error: the type of .npy file is not equal to that of std::vector<T>");
+            "The .npy file data type does not match the expected type");
       }
 
       // load data
