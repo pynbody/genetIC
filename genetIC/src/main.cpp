@@ -105,17 +105,33 @@ void setup_parser(tools::ClassDispatch<ICf, void> &dispatch) {
   dispatch.add_class_route("adapt_mask", &ICf::adaptMask);
 
   // Deal with modifications
-  dispatch.add_class_route("calculate", &ICf::calculate);
+  //dispatch.add_class_route("calculate", &ICf::calculate);
+  dispatch.add_class_route("calculate", static_cast<void(ICf::*)(std::string)>(&ICf::calculate));
+  dispatch.add_class_route("calculate_field", static_cast<void(ICf::*)(std::string,size_t)>(&ICf::calculate));
   dispatch.add_class_route("filtering_scale", &ICf::setVarianceFilteringScale);
-  dispatch.add_class_route("modify", &ICf::modify);
-  dispatch.add_class_route("clear_modifications", &ICf::clearModifications);
+  //dispatch.add_class_route("modify", &ICf::modify);
+  dispatch.add_class_route("modify", static_cast< void (ICf::*)(std::string,std::string,float)>(&ICf::modify));
+  dispatch.add_class_route("modify_field", static_cast< void (ICf::*)(std::string,std::string,float,size_t)>(&ICf::modify));
+  //dispatch.add_class_route("clear_modifications", &ICf::clearModifications);
+  dispatch.add_class_route("clear_modifications", static_cast<void(ICf::*)()>(&ICf::clearModifications));
+  dispatch.add_class_route("clear_modifications_field", static_cast<void(ICf::*)(size_t)>(&ICf::clearModifications));
   dispatch.add_class_route("done", &ICf::done);
-  dispatch.add_class_route("apply_modifications", &ICf::applyModifications);
-  dispatch.add_class_route("chi2", &ICf::getFieldChi2);
+  //dispatch.add_class_route("apply_modifications", &ICf::applyModifications);
+  dispatch.add_class_route("apply_modifications", static_cast<void(ICf::*)()>(&ICf::applyModifications));
+  dispatch.add_class_route("apply_modifications_field", static_cast<void(ICf::*)(size_t)>(&ICf::applyModifications));
+  //dispatch.add_class_route("chi2", &ICf::getFieldChi2);
+  dispatch.add_class_route("chi2", static_cast<void(ICf::*)()>(&ICf::getFieldChi2));
+  dispatch.add_class_route("chi2_field", static_cast<void(ICf::*)(size_t)>(&ICf::getFieldChi2));
 
-  dispatch.add_class_route("reverse", &ICf::reverse);
-  dispatch.add_class_route("reverse_small_k", &ICf::reverseSmallK);
-  dispatch.add_class_route("reseed_small_k", &ICf::reseedSmallK);
+  //dispatch.add_class_route("reverse", &ICf::reverse);
+  dispatch.add_class_route("reverse", static_cast<void(ICf::*)()>(&ICf::reverse));
+  dispatch.add_class_route("reverse_field", static_cast<void(ICf::*)(size_t)>(&ICf::reverse));
+  //dispatch.add_class_route("reverse_small_k", &ICf::reverseSmallK);
+  dispatch.add_class_route("reverse_small_k", static_cast<void(ICf::*)(FloatType)>(&ICf::reverseSmallK));
+  dispatch.add_class_route("reverse_small_k_field", static_cast<void(ICf::*)(FloatType,size_t)>(&ICf::reverseSmallK));
+  //dispatch.add_class_route("reseed_small_k", &ICf::reseedSmallK);
+  dispatch.add_class_route("reseed_small_k", static_cast<void(ICf::*)(FloatType,int)>(&ICf::reseedSmallK));
+  dispatch.add_class_route("reseed_small_k_field", static_cast<void(ICf::*)(FloatType,int,size_t)>(&ICf::reseedSmallK));
 
   // Write objects to files
   //dispatch.add_class_route("dump_grid", &ICf::dumpGrid);
@@ -123,14 +139,16 @@ void setup_parser(tools::ClassDispatch<ICf, void> &dispatch) {
   dispatch.add_class_route("dump_grid_for_field", static_cast<void (ICf::*)(size_t,size_t)>(&ICf::dumpGrid));
   //dispatch.add_class_route("dump_ps", &ICf::dumpPS);
   dispatch.add_class_route("dump_ps", static_cast<void (ICf::*)(size_t)>(&ICf::dumpPS));
-  dispatch.add_class_route("dump_ps_for_field", static_cast<void (ICf::*)(size_t,size_t)>(&ICf::dumpPS));
-  dispatch.add_class_route("dump_tipsy", &ICf::saveTipsyArray);
+  dispatch.add_class_route("dump_ps_field", static_cast<void (ICf::*)(size_t,size_t)>(&ICf::dumpPS));
+  //dispatch.add_class_route("dump_tipsy", &ICf::saveTipsyArray);
+  dispatch.add_class_route("dump_tipsy", static_cast<void(ICf::*)(std::string)>(&ICf::saveTipsyArray));
+  dispatch.add_class_route("dump_tipsy_field", static_cast<void(ICf::*)(std::string,size_t)>(&ICf::saveTipsyArray));
   dispatch.add_class_route("dump_mask", &ICf::dumpMask);
 
   // Load existing random field instead of generating
   //dispatch.add_class_route("import_level", &ICf::importLevel );
   dispatch.add_class_route("import_level", static_cast<void (ICf::*)(size_t,std::string)>(&ICf::importLevel));
-  dispatch.add_class_route("import_level_for_field", static_cast<void (ICf::*)(size_t,std::string,size_t)>(&ICf::importLevel));
+  dispatch.add_class_route("import_level_field", static_cast<void (ICf::*)(size_t,std::string,size_t)>(&ICf::importLevel));
 
   //Extra commands related to the transfer functions:
   dispatch.add_class_route("baryon_tf_on",&ICf::setUsingBaryons);
@@ -138,7 +156,7 @@ void setup_parser(tools::ClassDispatch<ICf, void> &dispatch) {
   // To debug
   //dispatch.add_class_route("zeroLevel", &ICf::zeroLevel);
   dispatch.add_class_route("zeroLevel", static_cast<void (ICf::*)(size_t)>(&ICf::zeroLevel));
-  dispatch.add_class_route("zeroLevel_for_field", static_cast<void (ICf::*)(size_t,size_t)>(&ICf::zeroLevel));
+  dispatch.add_class_route("zeroLevel_field", static_cast<void (ICf::*)(size_t,size_t)>(&ICf::zeroLevel));
 
 }
 

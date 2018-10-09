@@ -87,6 +87,7 @@ namespace multilevelcontext {
 
     void
     addLevel(const cosmology::CAMB<DataType> &spectrum, T size, size_t nside, const Coordinate<T> &offset = {0, 0, 0}) {
+
       if (!spectrum.isUsable())
         throw std::runtime_error("Cannot add a grid level until the power spectrum has been specified");
 
@@ -104,7 +105,6 @@ namespace multilevelcontext {
       }
       //auto C0 = spectrum.getPowerSpectrumForGrid(*grid);
       addLevel(C0, grid);
-
     }
 
     void addLevel(const std::vector<std::shared_ptr<const fields::Field<DataType, T>>>& C0, std::shared_ptr<grids::Grid<T>> pG) {
@@ -165,11 +165,31 @@ namespace multilevelcontext {
     //TODO - make this safe against going out of bounds by making sure
     //multiLevelContext always stores a CAMB object so that it can check whether
     //the baryon transfer function is being used or not.
+    //TODO - find a better way than this cascade of ifs...
     const fields::Field<DataType> &getCovariance(size_t level,size_t nTransfer = 0) const {
-      if (C0s.size() > level && C0s[level][nTransfer] != nullptr)
-        return *C0s[level][nTransfer];
+      if (C0s.size() > level)
+      {
+          if(C0s[level].size() > nTransfer)
+          {
+              if(C0s[level][nTransfer] != nullptr)
+                {
+                    return *C0s[level][nTransfer];
+                }
+              else
+              {
+                  throw std::out_of_range("No covariance yet specified for this level");
+              }
+          }
+          else
+          {
+              throw std::out_of_range("No covariance yet specified for this level");
+          }
+      }
       else
-        throw std::out_of_range("No covariance yet specified for this level");
+      {
+          throw std::out_of_range("No covariance yet specified for this level");
+      }
+
     }
 
     size_t deepestLevelwithFlaggedCells() {

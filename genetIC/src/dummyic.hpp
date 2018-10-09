@@ -32,21 +32,27 @@ public:
 
       //covarianceFieldPtr = nullptr;
 
-      covarianceFieldPtr.assign(nTransferCount,nullptr);
+      //covarianceFieldPtr.assign(this->outputField.size(),nullptr);
 
       underlyingGrid = std::make_shared<grids::Grid<T>>(deepestUnderlyingGrid.periodicDomainSize, nside,
                                                         gridSize / nside, offset.x, offset.y, offset.z);
     } else {
       underlyingGrid = pUnderlying->multiLevelContext.getGridForLevel(newLevel).shared_from_this();
-      try {
-      for(size_t i = 0;i < nTransferCount;i++)
+
+      for(size_t i = 0;i < this->outputField.size();i++)
       {
-        covarianceFieldPtr[i] = pUnderlying->multiLevelContext.getCovariance(newLevel,i).shared_from_this();
+          //TODO - this is very messy - is there a better way?
+        try{
+        auto resPointer = pUnderlying->multiLevelContext.getCovariance(newLevel,i).shared_from_this();
+        covarianceFieldPtr.push_back(resPointer);// pUnderlying->multiLevelContext.getCovariance(newLevel,i).shared_from_this();
+        } catch (const std::out_of_range &e) {
+              // leave covarianceFieldPtr as nullptr
+              covarianceFieldPtr.push_back(nullptr);
+        }
       }
         //covarianceFieldPtr = pUnderlying->multiLevelContext.getCovariance(newLevel).shared_from_this();
-      } catch (const std::out_of_range &e) {
-        // leave covarianceFieldPtr as nullptr
-      }
+
+
 
     }
 

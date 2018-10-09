@@ -112,7 +112,7 @@ namespace cosmology {
     //the transfer functions:
     void read(std::string incamb, const CosmologicalParameters <CoordinateType> &cosmology) {
       readLinesFromCambOutput(incamb);
-      for(int i = 0;i < this->T.size();i++)
+      for(size_t i = 0;i < this->T.size();i++)
       {
             this->interpolator[i].initialise(kcamb,this->T[i]);
       }
@@ -143,7 +143,7 @@ namespace cosmology {
   //formats can be used, and the function will detect which.
     void readLinesFromCambOutput(std::string incamb) {
       kcamb.clear();
-      for(int i  =0;i < this->T.size();i++)
+      for(size_t i  =0;i < this->T.size();i++)
       {
         T[i].clear();
       }
@@ -178,7 +178,7 @@ namespace cosmology {
         if (input[c * j] > 0) {
           // hard-coded to first two columns of CAMB file -
           kcamb.push_back(CoordinateType(input[c * j]));
-          for(int i = 0;i < this->T.size();i++)
+          for(size_t i = 0;i < this->T.size();i++)
           {
             T[i].push_back(CoordinateType(input[c * j + this->cambCols[i]]) / ap);
           }
@@ -192,7 +192,7 @@ namespace cosmology {
       // at these high k's (see operator() below).
 
       std::vector<CoordinateType> T_f;
-      for(int i = 0;i < this->T.size();i++)
+      for(size_t i = 0;i < this->T.size();i++)
       {
         T_f.push_back(T[i].back());
       }
@@ -203,7 +203,7 @@ namespace cosmology {
       while (kcamb.back() < 1e7) {
         kcamb.push_back(kcamb.back() + 1.0);
         CoordinateType kratio = kcamb.back() / kcamb_max_in_file;
-        for(int i = 0;i < this->T.size();i++)
+        for(size_t i = 0;i < this->T.size();i++)
         {
             T[i].push_back(T_f[i] * pow(kratio, -2.0) * log(kcamb.back() / keq) / log(kcamb_max_in_file / keq));
         }

@@ -296,6 +296,8 @@ public:
     if (multiLevelContext.getNumLevels() > 0)
       throw std::runtime_error("Cannot re-initialize the base grid");
 
+
+    std::cerr << "haveInitialisedRandomComponent.size() = " << haveInitialisedRandomComponent.size() << std::endl;
     for(size_t i = 0;i < haveInitialisedRandomComponent.size();i++)
     {
         if(haveInitialisedRandomComponent[i])
@@ -304,9 +306,16 @@ public:
         }
     }
 
+    std::cerr << "Checks complete." << std::endl;
+
+    std::cerr << "spectrum.nTransfers = " << spectrum.nTransfers << std::endl;
+    std::cerr << "boxSize = " << boxSize << std::endl;
+    std::cerr << "n = " << n << std::endl;
 
     addLevelToContext(spectrum, boxSize, n);
+    std::cerr << "addLevelToContext complete." << std::endl;
     updateParticleMapper();
+    std::cerr << "updateParticleMapper complete." << std::endl;
 
   }
 
@@ -709,6 +718,12 @@ public:
     io::tipsy::saveFieldTipsyArray(fname, *pMapper, *pParticleGenerator[nField], outputField[nField]);
   }
 
+  //!For backwards compatibility.
+  virtual void saveTipsyArray(std::string fname)
+  {
+    this->saveTipsyArray(fname,0);
+  }
+
   //! Dumps field at a given level in a file named grid-level
   virtual void dumpGrid(size_t level,size_t nField) {
     //May need to modify this to work better with multiple fields - do we want them in the same or different fields?
@@ -803,6 +818,7 @@ public:
     cerr << "******** Running commands in " << fname << " to work out relationship ***********" << endl;
 
     tools::ChangeCwdWhileInScope temporary(tools::getDirectoryName(fname));
+    //cerr << "\nSuccessfully changed directory.";
 
     dispatch.run_loop(inf);
     cerr << *(pseudoICs.pMapper) << endl;
@@ -1192,11 +1208,17 @@ public:
     return Coordinate<T>(boxsize/2,boxsize/2,boxsize/2);
   }
 
-  virtual void getFieldChi2(size_t nField = 0){
+  virtual void getFieldChi2(size_t nField){
     if (!haveInitialisedRandomComponent[nField])
       initialiseRandomComponent(nField);
 
     std::cerr << "Calculated chi^2 = " << this->outputField[nField].getChi2() <<std::endl;
+  }
+
+  //!For backwards compatibility
+  virtual void getFieldChi2()
+  {
+    this->getFieldChi2(0);
   }
 
   //! Calculate physical quantities of the field
@@ -1212,6 +1234,11 @@ public:
     cout << name << ": calculated value = " << val << endl;
   }
 
+  //!For backwards compatibility
+  void calculate(std::string name) {
+    this->calculate(name,0);
+  }
+
   //! Define a modification to be applied to the field
   /*!
    * @param type  Modification can be relative to existing value or absolute
@@ -1223,6 +1250,12 @@ public:
       initialiseRandomComponent(nField);
 
     modificationManager[nField].addModificationToList(name, type, target,this->initial_number_steps, this->precision, this->variance_filterscale);
+  }
+
+  //!For backwards compatibility with scripts that don't use baryon transfer function
+  virtual void modify(string name, string type, float target)
+  {
+    this->modify(name,type,target,0);
   }
 
   //! Empty modification list
@@ -1269,6 +1302,8 @@ public:
         this->done(i);
     }
 
+    std::cout << "\nOperations applied to all fields. Writing to disk...";
+
     //Not sure how well this works if we call it multiple times yet - need to test.
     //Just call it on the DM particles for now.
     write();
@@ -1295,6 +1330,12 @@ public:
       for (size_t i = 0; i < N; i++)
         field_data[i] = -field_data[i];
     }
+  }
+
+  //!For backwards compatibility
+  void reverse()
+  {
+    this->reverse(0);
   }
 
   //TODO What is this method doing? Looks like inverted initial conditions properties
@@ -1331,6 +1372,12 @@ public:
 
   }
 
+  //!For backwards compatibility:
+  void reseedSmallK(T kmax,int seed)
+  {
+    this->reseedSmallK(kmax,seed,0);
+  }
+
   void reverseSmallK(T kmax,size_t nField = 0) {
 
     T k2max = kmax * kmax;
@@ -1349,6 +1396,11 @@ public:
 
       cerr << "reverseSmallK: k reversal at " << sqrt(k2max) << endl;
     }
+  }
+
+  //!For backwards compatibility
+  void reverseSmallK(T kmax){
+    this->reverseSmallK(kmax,0);
   }
 
   //Functions to control whether we use only the dark matter or include baryons:
