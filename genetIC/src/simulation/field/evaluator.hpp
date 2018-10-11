@@ -9,7 +9,7 @@
 #include <string>
 
 namespace fields {
-  /*! The base class for field evaluators.
+  /*! \brief The base class for field evaluators.
    *
    * Field evaluators exist to allow fields to be evaluated on grids which are not the same literal grid that
    * they are stored on. This is useful for example when supersampling or subsampling.

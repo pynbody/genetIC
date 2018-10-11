@@ -55,9 +55,6 @@ void setup_parser(tools::ClassDispatch<ICf, void> &dispatch) {
   dispatch.add_class_route("seedfourier_reverse",static_cast<void (ICf::*)(int)>(&ICf::setSeedFourierReverseOrder));
   //dispatch.add_class_route("seedfourier_reverse",&ICf::setSeedFourierReverseOrder);
   dispatch.add_class_route("seed_field_fourier_reverse", static_cast<void (ICf::*)(int,size_t)>(&ICf::setSeedFourierReverseOrder));
-  dispatch.add_class_route("seed_all", &ICf::setSeedAll);
-  dispatch.add_class_route("seedfourier_all", &ICf::setSeedFourierAll);
-  dispatch.add_class_route("seedfourier_reverse_all", &ICf::setSeedFourierReverseOrderAll);
 
 
   // Optional computational properties

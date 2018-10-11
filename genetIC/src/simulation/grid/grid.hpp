@@ -171,6 +171,10 @@ namespace grids {
       tools::sortAndEraseDuplicate(flags);
     }
 
+    //!\brief For each existing flag, flags the point one step ahead and one step behind.
+    //! So, if there is initially a flag at position (x0,y0,z0), and we step by (x,y,z), then
+    //! afterwards the points (x0-x,y0-y,z0-z), (x0,y0,z0), and (x0 + x,y0 + y,z0 + z) will all
+    //! be flagged. Triples the number of flags, but removes any duplicates.
     virtual void expandFlaggedRegionInDirection(const Coordinate<int> &step) {
       size_t old_size = flags.size();
       flags.resize(old_size*3);
@@ -182,6 +186,7 @@ namespace grids {
       tools::sortAndEraseDuplicate(flags);
     }
 
+    //!Expands the flagged region by ncells cells in each of the x,y,z directions.
     virtual void expandFlaggedRegion(size_t ncells=1) {
       for(size_t i=0; i<ncells; i++) {
         expandFlaggedRegionInDirection({0,0,1});
