@@ -21,7 +21,7 @@ public:
     std::shared_ptr<grids::Grid<T>> underlyingGrid;
     std::vector<std::shared_ptr<const fields::Field<GridDataType, T>>> covarianceFieldPtr;
 
-    size_t nTransferCount = spectrum.dmOnly ? 1 : spectrum.nTransfers;
+    //size_t nTransferCount = spectrum.dmOnly ? 1 : spectrum.nTransfers;
 
     if (pUnderlying->multiLevelContext.getNumLevels() <= newLevel) {
       // source file has extra zoom levels compared to us. Make a grid with our specifications, and any

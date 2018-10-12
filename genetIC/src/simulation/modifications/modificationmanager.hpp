@@ -19,10 +19,14 @@ namespace modifications {
     std::vector<std::shared_ptr<LinearModification<DataType, T>>> linearModificationList;  /*!< Modifications to be applied */
     std::vector<std::shared_ptr<QuadraticModification<DataType, T>>> quadraticModificationList;
 
+    size_t transferType; /*!Type of transfer function to use in defining covectors for modifications. 0 = dark matter, 1 = baryons*/
+
     ModificationManager(multilevelcontext::MultiLevelContextInformation<DataType> &multiLevelContext_,
                         const cosmology::CosmologicalParameters<T> &cosmology_,
                         fields::OutputField<DataType> &outputField_) :
-        outputField(outputField_), underlying(multiLevelContext_), cosmology(cosmology_) {}
+        outputField(outputField_), underlying(multiLevelContext_), cosmology(cosmology_) {
+        this->transferType = outputField_.transferType;
+        }
 
     //! Calculate existing value of the quantity defined by name
     template<typename ... Args>
@@ -129,15 +133,15 @@ namespace modifications {
 
     std::shared_ptr<LinearModification<DataType, T>> getLinearModificationFromName(std::string name_) {
       if ((strcasecmp(name_.c_str(), "overdensity") == 0)) {
-        return make_shared<OverdensityModification<DataType, T>>(underlying, cosmology);
+        return make_shared<OverdensityModification<DataType, T>>(underlying, cosmology,this->transferType);
       } else if ((strcasecmp(name_.c_str(), "potential") == 0)) {
-        return make_shared<PotentialModification<DataType, T>>(underlying, cosmology);
+        return make_shared<PotentialModification<DataType, T>>(underlying, cosmology,this->transferType);
       } else if ((strcasecmp(name_.c_str(), "lx") == 0)) {
-        return make_shared<AngMomentumModification<DataType, T>>(underlying, cosmology, 0);
+        return make_shared<AngMomentumModification<DataType, T>>(underlying, cosmology, 0,this->transferType);
       } else if ((strcasecmp(name_.c_str(), "ly") == 0)) {
-        return make_shared<AngMomentumModification<DataType, T>>(underlying, cosmology, 1);
+        return make_shared<AngMomentumModification<DataType, T>>(underlying, cosmology, 1,this->transferType);
       } else if ((strcasecmp(name_.c_str(), "lz") == 0)) {
-        return make_shared<AngMomentumModification<DataType, T>>(underlying, cosmology, 2);
+        return make_shared<AngMomentumModification<DataType, T>>(underlying, cosmology, 2,this->transferType);
       } else {
         throw UnknownModificationException(name_ + " " + "is an unknown modification name");
       }
@@ -147,7 +151,7 @@ namespace modifications {
     std::shared_ptr<QuadraticModification<DataType, T>>
     getQuadraticModificationFromName(std::string name_, Args &&... args) {
       if ((strcasecmp(name_.c_str(), "variance") == 0)) {
-        return make_shared<FilteredVarianceModification<DataType, T>>(underlying, cosmology,
+        return make_shared<FilteredVarianceModification<DataType, T>>(underlying, cosmology,this->transferType,
                                                                       std::forward<Args>(args) ...);
       } else {
         throw UnknownModificationException(name_ + " " + "is an unknown modification name");

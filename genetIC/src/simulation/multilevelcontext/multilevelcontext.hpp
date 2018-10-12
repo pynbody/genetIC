@@ -211,8 +211,12 @@ namespace multilevelcontext {
     }
 
     //! From finest level, use interpolation to construct other levels
+    //! Since multiLevelContext doesn't know which type of field it is creating
+    //! (baryons or dark matter) we have to supply this information as a parameter.
+    //! \param data - field data
+    //! \param nField - nField = 0 for dark matter (default), nField = 1 for baryons.
     std::shared_ptr<fields::ConstraintField<DataType>>
-    generateMultilevelFromHighResField(fields::Field<DataType, T> &&data) {
+    generateMultilevelFromHighResField(fields::Field<DataType, T> &&data,size_t nField = 0) {
       assert(&data.getGrid() == pGrid.back().get());
 
       // Generate the fields on each level. Fill low-res levels with zeros to start with.
@@ -237,7 +241,7 @@ namespace multilevelcontext {
 
       return std::make_shared<fields::ConstraintField<DataType>>(
           *dynamic_cast<MultiLevelContextInformation<DataType, T> *>(this),
-          dataOnLevels);
+          dataOnLevels,nField);
     }
 
     void forEachLevel(std::function<void(grids::Grid<T> &)> newLevelCallback) {

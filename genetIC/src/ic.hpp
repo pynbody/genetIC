@@ -158,7 +158,7 @@ public:
     //Set default parameters, in case input file didn't specify these:
     //By default, we assume there is only one field - the DM field:
     nFields = 1;
-    outputField.emplace_back(multiLevelContext);
+    outputField.emplace_back(multiLevelContext,0);
     modificationManager.emplace_back(multiLevelContext, cosmology, outputField[0]);
     randomFieldGenerator.emplace_back(outputField[0]);
     transferSwitch.push_back(0);
@@ -236,7 +236,8 @@ public:
     {
         this->nFields = 2;
         std::cerr<< "Baryon field enabled." << std::endl;
-        outputField.emplace_back(multiLevelContext);
+        //Create a field for the baryons, with transfer type 1:
+        outputField.emplace_back(multiLevelContext,1);
         modificationManager.emplace_back(multiLevelContext, cosmology, outputField[1]);
         randomFieldGenerator.emplace_back(outputField[1]);
         transferSwitch.push_back(1);
@@ -1302,6 +1303,7 @@ public:
   //! Calculate physical quantities of the field
   /*!
    * @param filterscale Filtering scale in Mpc if the quantity needs it
+   * @param nField - field to calculate for (0 = dark matter [default], 1 = baryons)
    */
   void calculate(string name,size_t nField = 0) {
     if (!haveInitialisedRandomComponent[nField])
@@ -1313,7 +1315,7 @@ public:
     cout << name << ": calculated value = " << val << endl;
   }
 
-  //!For backwards compatibility
+  //!Calculate for all fields:
   void calculate(std::string name) {
     for(size_t i = 0;i < this->outputField.size();i++)
     {
@@ -1323,8 +1325,10 @@ public:
 
   //! Define a modification to be applied to the field
   /*!
+   * \param name String with the name of the modification to be added.
    * @param type  Modification can be relative to existing value or absolute
    * @param target Absolute target or factor by which the existing will be multiplied
+   * \param nField Field to apply the modification to (0 = dark matter, 1 = baryons)
    */
   virtual void modify(string name, string type, float target,size_t nField = 0) {
 
@@ -1334,10 +1338,14 @@ public:
     modificationManager[nField].addModificationToList(name, type, target,this->initial_number_steps, this->precision, this->variance_filterscale);
   }
 
-  //!For backwards compatibility with scripts that don't use baryon transfer function
+  //!\brief Add modification to the list for all fields.
+  //! Note that this will apply to all fields, but with different covariance matrices
   virtual void modify(string name, string type, float target)
   {
-    this->modify(name,type,target,0);
+    for(size_t i = 0;i < this->outputField.size();i++)
+    {
+        this->modify(name,type,target,i);
+    }
   }
 
   //! Empty modification list

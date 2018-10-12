@@ -58,8 +58,8 @@ namespace io {
           //generator(particleGenerator.shared_from_this()),
           generator(particleGenerator),
           cosmology(cosmology),
-          pvarValue(pvarValue),
-          outputField(outField)
+          outputField(outField),
+          pvarValue(pvarValue)
           {
 
         levelContext.copyContextWithCenteredIntermediate(context, center, 2, subsample, supersample);

@@ -12,8 +12,8 @@ namespace modifications {
   public:
 
     LinearModification(multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
-                       const cosmology::CosmologicalParameters<T> &cosmology_) :
-        Modification<DataType, T>(underlying_, cosmology_) {
+                       const cosmology::CosmologicalParameters<T> &cosmology_,size_t transfer_type) :
+        Modification<DataType, T>(underlying_, cosmology_,transfer_type) {
       this->order = 1;
       this->flaggedCellsFinestGrid = this->flaggedCells[this->underlying.getNumLevels() - 1];
     };
@@ -32,6 +32,7 @@ namespace modifications {
     std::vector<size_t> flaggedCellsFinestGrid;       /*!< Linear modifications only use high-res information and extrapolate from there */
 
     //! Calculate covector on finest level and generate from it the multi-grid field
+    //! \param nField - type of field to create. nField = 0 for dark matter (default), 1 for baryons
     std::shared_ptr<fields::ConstraintField<DataType>> calculateCovectorOnAllLevels() {
 
       size_t level = this->underlying.getNumLevels() - 1;
@@ -42,7 +43,7 @@ namespace modifications {
       if (level != 0) {
         highResModif.getDataVector() /= this->underlying.getWeightForLevel(level);
       }
-      return this->underlying.generateMultilevelFromHighResField(std::move(highResModif));
+      return this->underlying.generateMultilevelFromHighResField(std::move(highResModif),this->transferType);
     }
 
     //! To be overridden with specific implementations of linear properties
@@ -125,29 +126,37 @@ namespace modifications {
   };
 
 
+  /*!
+  \class OverdensityModification
+  \brief Constrains the average of the field at the flagged points to be equal to the target.
+  */
   template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
   class OverdensityModification : public LinearModification<DataType, T> {
   public:
 
     OverdensityModification(multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
-                            const cosmology::CosmologicalParameters<T> &cosmology_) :
-        LinearModification<DataType, T>(underlying_, cosmology_) {
+                            const cosmology::CosmologicalParameters<T> &cosmology_,size_t transfer_type) :
+        LinearModification<DataType, T>(underlying_, cosmology_,transfer_type) {
       this->covector = this->calculateCovectorOnAllLevels();
       this->covector->toFourier();
     };
 
     fields::Field<DataType, T> calculateCovectorOnOneLevel(grids::Grid<T> &grid) override {
 
+      //Want to return the average of the field over only the flagged cells.
       fields::Field<DataType, T> outputField = fields::Field<DataType, T>(grid, false);
       std::vector<DataType> &outputData = outputField.getDataVector();
 
 
+      //1/number of flagged particles:
       T w = 1.0 / this->flaggedCellsFinestGrid.size();
 
+      //Include only flagged cells in the sum, so first zero out the covector:
       for (size_t i = 0; i < grid.size3; ++i) {
         outputData[i] = 0;
       }
 
+      //Then weight every flagged cell by 1/(# of flagged cells):
       for (size_t i = 0; i < this->flaggedCellsFinestGrid.size(); i++) {
         outputData[this->flaggedCellsFinestGrid[i]] += w;
       }
@@ -158,12 +167,16 @@ namespace modifications {
   };
 
 
+  /*!
+  \class PotentialModification
+  \brief
+  */
   template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
   class PotentialModification : public LinearModification<DataType, T> {
   public:
     PotentialModification(multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
-                          const cosmology::CosmologicalParameters<T> &cosmology_) : LinearModification<DataType, T>(
-        underlying_, cosmology_) {
+                          const cosmology::CosmologicalParameters<T> &cosmology_,size_t transfer_type) : LinearModification<DataType, T>(
+        underlying_, cosmology_,transfer_type) {
       this->covector = this->calculateCovectorOnAllLevels();
       this->covector->toFourier();
     };
@@ -172,16 +185,21 @@ namespace modifications {
       fields::Field<DataType, T> outputField = fields::Field<DataType, T>(grid, false);
       std::vector<DataType> &outputData = outputField.getDataVector();
 
+      //Weight for all flagged cells is 1/(# of flagged cells), used to take average over
+      //flagged cells only:
       T w = 1.0 / this->flaggedCellsFinestGrid.size();
 
+      //Zero out everythin so we only include flagged cells:
       for (size_t i = 0; i < grid.size3; ++i) {
         outputData[i] = 0;
       }
 
+      //Apply wweight to flagged cells:
       for (size_t i = 0; i < this->flaggedCellsFinestGrid.size(); i++) {
         outputData[this->flaggedCellsFinestGrid[i]] += w;
       }
 
+      //Convert overdensity into a Newtonian potential:
       densityToPotential(outputField, this->cosmology);
       return outputField;
 
@@ -197,8 +215,8 @@ namespace modifications {
 
   public:
     AngMomentumModification(multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
-                            const cosmology::CosmologicalParameters<T> &cosmology_, int direction_) :
-        LinearModification<DataType, T>(underlying_, cosmology_) {
+                            const cosmology::CosmologicalParameters<T> &cosmology_, int direction_,size_t transfer_type) :
+        LinearModification<DataType, T>(underlying_, cosmology_,transfer_type) {
 
       if (direction_ < 0 || direction_ > 2)
         throw std::runtime_error("Angular momentum direction must be 0 (x), 1 (y) or 2 (z)");

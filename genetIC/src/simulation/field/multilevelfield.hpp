@@ -20,10 +20,7 @@ namespace fields {
     tools::Signaling::connection_t connection;
     bool isCovector;
 
-    //Variable that stores which transfer function the field should request from the multi-level context.
-    //transferType = 0 -> Cold dark matter
-    //transferType = 1 -> Baryons.
-    size_t transferType;
+
 
     std::vector<std::shared_ptr<Field<DataType, T>>> fieldsOnLevels;
 
@@ -35,6 +32,11 @@ namespace fields {
 
 
   public:
+
+  //Variable that stores which transfer function the field should request from the multi-level context.
+    //transferType = 0 -> Cold dark matter
+    //transferType = 1 -> Baryons.
+    size_t transferType;
 
     template<typename FilterType>
     void setupFilters() {
@@ -429,7 +431,7 @@ namespace fields {
     }
 
   public:
-    OutputField(multilevelcontext::MultiLevelContextInformation<DataType> &multiLevelContext,size_t transfer_type = 0)
+    OutputField(multilevelcontext::MultiLevelContextInformation<DataType> &multiLevelContext,size_t transfer_type)
         : MultiLevelField<DataType>(
         multiLevelContext,transfer_type) {
       outputState = PRE_SEPARATION;
@@ -471,7 +473,7 @@ namespace fields {
 
   public:
     ConstraintField(multilevelcontext::MultiLevelContextInformation<DataType> &multiLevelContext,
-                    const std::vector<std::shared_ptr<Field<DataType, T>>> &fieldsOnGrids,size_t transfer_type = 0)
+                    const std::vector<std::shared_ptr<Field<DataType, T>>> &fieldsOnGrids,size_t transfer_type)
         : MultiLevelField<DataType>(multiLevelContext, std::move(fieldsOnGrids),transfer_type) {
       this->isCovector = true;
       updateMultiLevelContext();
