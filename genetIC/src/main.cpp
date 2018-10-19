@@ -46,6 +46,7 @@ void setup_parser(tools::ClassDispatch<ICf, void> &dispatch) {
   // Set seeds for random draws
   dispatch.add_class_route("seed", &ICf::setSeed);
   dispatch.add_class_route("seedfourier", &ICf::setSeedFourier);
+  dispatch.add_class_route("seedfourier_parallel", &ICf::setSeedFourierParallel);
   dispatch.add_class_route("seedfourier_reverse", &ICf::setSeedFourierReverseOrder);
 
   // Optional computational properties

@@ -46,7 +46,7 @@ ifeq ($(HOST3), pfe)
 	CXX = /nasa/pkgsrc/2016Q2/gcc5/bin/g++
 	CPATH = /u/apontzen/genetIC/genetIC:/nasa/gsl/1.14/include/:/nasa/intel/Compiler/2016.2.181/compilers_and_libraries_2016.2.181/linux/mkl/include/fftw
 	LPATH =  /nasa/gsl/1.14/lib/ -L/nasa/intel/Compiler/2016.2.181/compilers_and_libraries_2016.2.181/linux/mkl/lib/intel64/
-	CFLAGS = -Wall -g -O3 -fopenmp -std=c++14 -fdiagnostics-color=auto -I`pwd` -DOPENMP -DDOUBLEPRECISION 
+	CFLAGS = -Wall -g -O3 -fopenmp -std=c++14 -fdiagnostics-color=auto -I`pwd` -DOPENMP -DDOUBLEPRECISION
 	FFTWLIB = -ldl -lpthread -lm -lstdc++ -lgfortran -lmkl_intel_ilp64 -lmkl_gnu_thread -lmkl_core
 	FFTW = -DFFTW3 -DFFTW_THREADS
 	GSLFLAGS = /nasa/gsl/1.14/lib/libgsl.a /nasa/gsl/1.14/lib/libgslcblas.a
@@ -57,6 +57,13 @@ ifeq ($(HOST), Snowd)
 	LPATH = /sw/lib/
 	CXX = /opt/local/bin/g++-mp-6 -L/opt/local/lib/
 endif
+
+ifeq ($(HOST), clema)
+        CPATH = /opt/local/include/
+        LPATH = /opt/local/lib/
+	      CFLAGS = -O2 -fopenmp -std=c++14 -fdiagnostics-color=auto -I`pwd` -DOPENMP -DDOUBLEPRECISION
+        CXX = /opt/local/bin/clang++-mp-6.0
+ endif
 
 ifeq ($(HOST), jasmi)
 	CXX = /opt/local/bin/g++-mp-8 -L/opt/local/lib/
