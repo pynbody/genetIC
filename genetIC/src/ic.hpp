@@ -60,7 +60,8 @@ protected:
   multilevelcontext::MultiLevelContextInformation<GridDataType> multiLevelContext;
 
   //Vector of output fields (defaults to just a single field)
-  std::vector<fields::OutputField<GridDataType>> outputField;
+  std::vector<std::reference_wrapper<fields::OutputField<GridDataType>>> outputField;//references to the fields.
+  fields::OutputField<GridDataType>* fieldData[2];//Actual locations of data where the fields are stored.
   int nFields;
   //fields::OutputField<GridDataType> outputField
   //modifications::ModificationManager<GridDataType> modificationManager;
@@ -158,7 +159,16 @@ public:
     //Set default parameters, in case input file didn't specify these:
     //By default, we assume there is only one field - the DM field:
     nFields = 1;
-    outputField.emplace_back(multiLevelContext,0);
+    std::cerr << "Creating dm field:";
+    //As odd as the following seems, it avoid copy operations when we
+    //resize the outputField vector (to add baryons, for example), thus
+    //preventing any hanging references:
+    fieldData[0] = new fields::OutputField<GridDataType> (multiLevelContext,0);
+    outputField.emplace_back(*fieldData[0]);
+    //outputField.emplace_back(multiLevelContext,0);
+    //fields::OutputField<GridDataType> dmField(multiLevelContext,0);
+    //outputField.push_back(dmField);
+    std::cerr << "DM field successfully created.";
     modificationManager.emplace_back(multiLevelContext, cosmology, outputField[0]);
     randomFieldGenerator.emplace_back(outputField[0]);
     transferSwitch.push_back(0);
@@ -183,7 +193,13 @@ public:
   }
 
   ~ICGenerator() {
-
+    //Only delete fieldData elements if we actually created them dynamically. Creating a new
+    //field should ALWAYS be accompanied by expanding outputField, which contains
+    //a list of references:
+    for(size_t i = 0;i < outputField.size();i++)
+    {
+        delete fieldData[i];
+    }
   }
 
   //!\brief Sets the dark matter density fraction to in.
@@ -237,7 +253,21 @@ public:
         this->nFields = 2;
         std::cerr<< "Baryon field enabled." << std::endl;
         //Create a field for the baryons, with transfer type 1:
-        outputField.emplace_back(multiLevelContext,1);
+        /*
+        std::cerr << "Do I cause the error?...";
+        fields::OutputField<GridDataType> baryonField(multiLevelContext,1);
+        std::cerr << "No!";
+        fields::OutputField<GridDataType> dmFieldCopy(outputField[0]);
+        std::cerr << "nTransferType = " << baryonField.transferType << ".";
+        std::cerr << "Do I cause the error?...";
+        fields::OutputField<GridDataType> baryonFieldCopy(baryonField);
+        std::cerr << "No!";
+        std::cerr << "Do I cause the error?...";
+        outputField.push_back(baryonField);
+        */
+        fieldData[1] = new fields::OutputField<GridDataType> (multiLevelContext,1);
+        outputField.emplace_back(*fieldData[1]);
+        std::cerr << "No!";
         modificationManager.emplace_back(multiLevelContext, cosmology, outputField[1]);
         randomFieldGenerator.emplace_back(outputField[1]);
         transferSwitch.push_back(1);
@@ -591,6 +621,7 @@ public:
    * \param nField - field to set the seed for: 0 = Dark-Matter, 1 = Baryons.
    */
   void setSeedFourierReverseOrder(int seed,size_t nField) {
+    std::cerr << "seed = " << seed << " nField = " << nField << std::endl;
     randomFieldGenerator[nField].seed(seed);
     randomFieldGenerator[nField].setDrawInFourierSpace(true);
     randomFieldGenerator[nField].setReverseRandomDrawOrder(true);
@@ -599,8 +630,10 @@ public:
   //!Seed in reverse order for all fields with the same seed.
   void setSeedFourierReverseOrder(int seed)
   {
+    std::cerr << "randomFieldGenerator.size() = " << randomFieldGenerator.size() << std::endl;
     for(size_t i = 0;i < outputField.size();i++)
     {
+        std::cerr << "&randomFieldGenerator[" << i << "] = " << &randomFieldGenerator[i] << std::endl;
         this->setSeedFourierReverseOrder(seed,i);
     }
   }
@@ -656,7 +689,7 @@ public:
     if (!haveInitialisedRandomComponent[nField])
       initialiseRandomComponent(nField);
 
-    auto &fieldData = outputField[nField].getFieldForLevel(level).getDataVector();
+    auto &fieldData = outputField[nField].get().getFieldForLevel(level).getDataVector();
     std::fill(fieldData.begin(), fieldData.end(), 0);
   }
 
@@ -678,7 +711,7 @@ public:
 
     cerr << "Importing random field on level " << level << " from " <<filename << endl;
 
-    auto & levelField = outputField[nField].getFieldForLevel(level);
+    auto & levelField = outputField[nField].get().getFieldForLevel(level);
     levelField.loadGridData(filename);
     levelField.setFourier(false);
     cerr << "... success!" << endl;
@@ -694,9 +727,9 @@ public:
   //! \param nField - field to apply power spectrum to. 0 = dark matter, 1 = baryons.
   virtual void applyPowerSpec(size_t nField) {
     if (this->exactPowerSpectrum) {
-      outputField[nField].enforceExactPowerSpectrum();
+      outputField[nField].get().enforceExactPowerSpectrum();
     } else {
-      outputField[nField].applyPowerSpectrum();
+      outputField[nField].get().applyPowerSpectrum();
     }
   }
 
@@ -754,7 +787,7 @@ public:
   \param nField - field to dump. 0 = dark matter, 1 = baryons.
   */
   virtual void saveTipsyArray(string fname,size_t nField = 0) {
-    io::tipsy::saveFieldTipsyArray(fname, *pMapper, *pParticleGenerator[nField], outputField[nField]);
+    io::tipsy::saveFieldTipsyArray(fname, *pMapper, *pParticleGenerator[nField], outputField[nField].get());
   }
 
   //!For backwards compatibility. Dumpys dark matter in tipsy format.
@@ -773,9 +806,9 @@ public:
     if(level < 0 || level > this->multiLevelContext.getNumLevels() -1){
       throw std::runtime_error("Trying to dump an undefined level");
     }
-    outputField[nField].toReal();
-    dumpGridData(level, outputField[nField].getFieldForLevel(level));
-    outputField[nField].toFourier();
+    outputField[nField].get().toReal();
+    dumpGridData(level, outputField[nField].get().getFieldForLevel(level));
+    outputField[nField].get().toFourier();
   }
 
   //!For backwards compatibility. Dumpts baryons to field at requested level to file named grid-level.
@@ -786,7 +819,7 @@ public:
   // TODO Is this used at all ? Should be linked to a command in main if we want to keep it.
   virtual void dumpGridFourier(size_t level = 0,size_t nField = 0) {
     fields::Field<complex<T>, T> fieldToWrite = tools::numerics::fourier::getComplexFourierField(
-        outputField[nField].getFieldForLevel(level));
+        outputField[nField].get().getFieldForLevel(level));
     dumpGridData(level, fieldToWrite);
   }
 
@@ -796,11 +829,20 @@ public:
   \param nField - field to dump. 0 = dark matter, 1 = baryons.
   */
   virtual void dumpPS(size_t level,size_t nField) {
-    auto &field = outputField[nField].getFieldForLevel(level);
+    auto &field = outputField[nField].get().getFieldForLevel(level);
     field.toFourier();
+    std::string filename;
+    if(nField == 1)
+    {
+        filename = (getOutputPath() + "_" + ((char) (level + '0')) + "_baryons.ps");
+    }
+    else
+    {
+        filename = (getOutputPath() + "_" + ((char) (level + '0')) + ".ps");
+    }
     cosmology::dumpPowerSpectrum(field,
                                  multiLevelContext.getCovariance(level,nField),
-                                 (getOutputPath() + "_" + ((char) (level + '0')) + ".ps").c_str());
+                                 filename.c_str());
   }
 
   //!For backwards compatibility. Dumps dark matter power spectrum on the requested level.
@@ -1288,7 +1330,8 @@ public:
       initialiseRandomComponent(nField);
 
     //std::cerr << "Calculated chi^2 for field " << nField << " = " << this->outputField[nField].getChi2() <<std::endl;
-    std::cerr << "Calculated chi^2 = " << this->outputField[nField].getChi2() <<std::endl;
+    T val = this->outputField[nField].get().getChi2();
+    std::cerr << "Calculated chi^2 = " <<  val <<std::endl;
   }
 
   //!Print chi2 for all fields:
@@ -1423,7 +1466,7 @@ public:
   //TODO This method does not really belong here but in MultiLevelField class
   void reverse(size_t nField = 0) {
     for_each_level(level) {
-      auto &field = outputField[nField].getFieldForLevel(level);
+      auto &field = outputField[nField].get().getFieldForLevel(level);
       size_t N = field.getGrid().size3;
       auto &field_data = field.getDataVector();
       for (size_t i = 0; i < N; i++)
@@ -1446,7 +1489,7 @@ public:
     // take a copy of all the fields
     std::vector<FieldType> fieldCopies;
     for_each_level(level) {
-      auto &field = outputField[nField].getFieldForLevel(level);
+      auto &field = outputField[nField].get().getFieldForLevel(level);
       field.toFourier();
       fieldCopies.emplace_back(field);
     }
@@ -1458,7 +1501,7 @@ public:
     // copy back the old field
     for_each_level(level) {
       FieldType &oldField = fieldCopies[level];
-      auto &field = outputField[nField].getFieldForLevel(level);
+      auto &field = outputField[nField].get().getFieldForLevel(level);
       int k2max_i = tools::getRatioAndAssertInteger(k2max, field.getGrid().getFourierKmin());
       field.forEachFourierCell([k2max_i, &oldField](std::complex<T> val, int kx, int ky, int kz) {
         int k2_i = kx * kx + ky * ky + kz * kz;
@@ -1482,7 +1525,7 @@ public:
     T k2max = kmax * kmax;
 
     for_each_level(level) {
-      auto &field = outputField[nField].getFieldForLevel(level);
+      auto &field = outputField[nField].get().getFieldForLevel(level);
       field.toFourier();
 
       field.forEachFourierCell([k2max](std::complex<T> val, T kx, T ky, T kz) {

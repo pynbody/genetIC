@@ -32,7 +32,8 @@ namespace io {
       std::vector<std::shared_ptr<particle::AbstractMultiLevelParticleGenerator<DataType>>>& generator;
       const cosmology::CosmologicalParameters<T> &cosmology;
       multilevelcontext::GraficMask<DataType,T>* mask;
-      std::vector<fields::OutputField<DataType>>& outputField;
+      //std::vector<fields::OutputField<DataType>>& outputField;
+      std::vector<std::reference_wrapper<fields::OutputField<DataType>>>& outputField;
 
 
       T pvarValue;
@@ -53,7 +54,8 @@ namespace io {
                    size_t subsample,
                    size_t supersample,
                    std::vector<std::vector<size_t>>& input_mask,
-                   std::vector<fields::OutputField<DataType>>& outField) :
+                   //std::vector<fields::OutputField<DataType>>& outField) :
+                   std::vector<std::reference_wrapper<fields::OutputField<DataType>>>& outField) :
           outputFilename(fname),
           //generator(particleGenerator.shared_from_this()),
           generator(particleGenerator),
@@ -122,7 +124,7 @@ namespace io {
         {
             for(size_t i = 0;i < outputField.size();i++)
             {
-                this->outputField[i].toReal();
+                this->outputField[i].get().toReal();
             }
         }
 
@@ -150,7 +152,7 @@ namespace io {
                 //Get data from output field:
                 //We're always assuming here that the second element corresponds
                 //to the baryons...
-                deltab = outputField[1].getFieldForLevel(level)[i];
+                deltab = outputField[1].get().getFieldForLevel(level)[i];
               }
 
               float mask = this->mask->isInMask(level, i);
@@ -213,7 +215,8 @@ namespace io {
               const cosmology::CosmologicalParameters<T> &cosmology,
               const T pvarValue, Coordinate<T> center, size_t subsample, size_t supersample,
               std::vector<std::vector<size_t>>& input_mask,
-              std::vector<fields::OutputField<DataType>>& outputField) {
+              //std::vector<fields::OutputField<DataType>>& outputField) {
+              std::vector<std::reference_wrapper<fields::OutputField<DataType>>>& outputField) {
       GraficOutput<DataType> output(filename, context, generator,
                                     cosmology, pvarValue, center, subsample, supersample, input_mask,outputField);
       output.write();

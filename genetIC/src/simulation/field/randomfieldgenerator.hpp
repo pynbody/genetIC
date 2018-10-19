@@ -22,6 +22,7 @@ namespace fields {
     bool reverseRandomDrawOrder;
     bool seeded;
     MultiLevelField <DataType> &field;
+    unsigned long currentSeed;
 
 
   public:
@@ -30,8 +31,25 @@ namespace fields {
       randomNumberGeneratorType = gsl_rng_ranlxs2; // shouldn't this be gsl_rng_ranlxd2 for FloatType = double? -> it's single precision for compatibility with previous versions!
       randomState = gsl_rng_alloc(randomNumberGeneratorType); //this allocates memory for the generator with type T
       gsl_rng_set(randomState, seed);
+      currentSeed = seed;
       drawInFourierSpace = false;
       seeded = false;
+    }
+
+    //Need a copy constructor if we are to successfully use this inside a vector:
+    RandomFieldGenerator(const RandomFieldGenerator& copy) : field(copy.field)
+    {
+        //Copy accross old variables:
+        seeded = copy.seeded;
+        currentSeed = copy.currentSeed;
+        randomNumberGeneratorType = copy.randomNumberGeneratorType;
+        drawInFourierSpace = copy.drawInFourierSpace;
+        reverseRandomDrawOrder = copy.reverseRandomDrawOrder;
+
+        //Construct our copy's own generator (resizing a vector of randomFieldGenerators will
+        //delete the object randomState points to otherwise, so each copy needs its own instance!):
+        randomState = gsl_rng_alloc(randomNumberGeneratorType);
+        gsl_rng_set(randomState,copy.currentSeed);
     }
 
     virtual ~RandomFieldGenerator() {
@@ -52,23 +70,37 @@ namespace fields {
 
     void seed(unsigned long seed) {
       if (seeded)
+      {
         throw std::runtime_error("The random number generator has already been seeded");
+      }
       else
+      {
         gsl_rng_set(randomState, seed);
+        currentSeed = seed;
+      }
       seeded = true;
     }
 
     void draw() {
+      std::cerr << "Ok at the start of draw()." << std::endl;
+      std::cerr << "this is NULL = " << (this == nullptr) << " this = " << this << std::endl;
       if (!seeded)
         throw std::runtime_error("The random number generator has not been seeded");
+      std::cerr << "Accessing seeded ok." << std::endl;
       for (size_t i = 0; i < field.getNumLevels(); ++i) {
+        std::cerr << "Starting iteration " << i << std::endl;
         auto &fieldOnGrid = field.getFieldForLevel(i);
+        std::cerr << "getFieldForLevel ok." << std::endl;
         if (drawInFourierSpace) {
           fieldOnGrid.toFourier();
+          std::cerr << "toFourier ok." << std::endl;
           drawRandomForSpecifiedGridFourier(fieldOnGrid);
+          std::cerr << "drawRandomForSpecifiedGridFourier ok." << std::endl;
         } else {
           drawRandomForSpecifiedGrid(fieldOnGrid);
+          std::cerr << "drawRandomForSpecifiedGrid ok." << std::endl;
         }
+        std::cerr << "Ok for level " << i << std::endl;
       }
     }
 

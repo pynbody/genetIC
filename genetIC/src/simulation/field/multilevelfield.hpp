@@ -43,6 +43,7 @@ namespace fields {
       const T FRACTIONAL_K_SPLIT = 0.3;
 
       size_t nLevels = this->multiLevelContext->getNumLevels();
+      //std::cerr << "\nShould have setup pFilter here.";
       this->pFilters = make_shared<FilterType>();
       for (size_t level = 0; level < nLevels - 1; ++level) {
         const grids::Grid<T> &grid0(this->multiLevelContext->getGridForLevel(level));
@@ -57,18 +58,19 @@ namespace fields {
     //Constructor with fields unspecified - only multi-level context.
     MultiLevelField(multilevelcontext::MultiLevelContextInformation<DataType> &multiLevelContext,size_t transfer_type = 0) : multiLevelContext(
         &multiLevelContext) {
+      transferType = transfer_type;
       setupConnection();
       isCovector = false;
-      transferType = transfer_type;
     }
 
     //Comnstructor with fields and multi-level context. specified.
     MultiLevelField(multilevelcontext::MultiLevelContextInformation<DataType> &multiLevelContext,
                     const std::vector<std::shared_ptr<Field<DataType, T>>> &fieldsOnGrids,size_t transfer_type = 0) :
         multiLevelContext(&multiLevelContext), fieldsOnLevels(fieldsOnGrids) {
+      transferType = transfer_type;
       setupConnection();
       isCovector = false;
-      transferType = transfer_type;
+
     }
 
     //Copy constructor
@@ -78,14 +80,26 @@ namespace fields {
       for (size_t level = 0; level < multiLevelContext->getNumLevels(); level++) {
         fieldsOnLevels.push_back(std::make_shared<Field<DataType, T>>(copy.getFieldForLevel(level)));
       }
-      setupConnection();
-      pFilters = std::make_shared<filters::FilterFamily<T>>(*copy.pFilters);
-      isCovector = copy.isCovector;
       transferType = copy.transferType;
+      setupConnection();
+
+      //NB - adding this if here, because the std::make_shared call here will lead to a segmentation fault if
+      //copy.pFilters is null, which is required at construction because the filter depends on the level-structure, which isn't
+      //specified until later:
+      if(copy.pFilters == nullptr)
+      {
+        pFilters = nullptr;
+      }
+      else
+      {
+        pFilters = std::make_shared<filters::FilterFamily<T>>(*copy.pFilters);
+      }
+      isCovector = copy.isCovector;
     }
 
-    virtual void updateMultiLevelContext() {
+    virtual ~MultiLevelField() {}
 
+    virtual void updateMultiLevelContext() {
     }
 
     virtual multilevelcontext::MultiLevelContextInformation<DataType> &getContext() const {
