@@ -1,12 +1,11 @@
 # Reasonably sensible defaults
-CFLAGS	= -Wall -g -Og -fopenmp -std=c++14   -fdiagnostics-color=auto -I`pwd` -DOPENMP -DDOUBLEPRECISION -DOUTPUT_IN_DOUBLEPRECISION
+CFLAGS	= -Wall -g -lpthread -Og -fopenmp -std=c++14   -fdiagnostics-color=auto -I`pwd` -DOPENMP  -DDOUBLEPRECISION -DOUTPUT_IN_DOUBLEPRECISION
 CPATH 	= /opt/local/include/
 LPATH   = /opt/local/lib
 
 GSLFLAGS = -lgsl -lgslcblas
 
 # Use -DFFTW3 to use FFTW3 (instead of FFTW 2).
-#
 #
 # Additionally use -DFFTW3_THREADS=n to use threads. This will use n threads
 # UNLESS you are compiling with openmp, in which case you do not need to set n
@@ -53,9 +52,10 @@ ifeq ($(HOST3), pfe)
 endif
 
 ifeq ($(HOST), Snowd)
-	CPATH = /sw/include/
-	LPATH = /sw/lib/
-	CXX = /opt/local/bin/g++-mp-6 -L/opt/local/lib/
+	CPATH = /opt/local/include/
+	LPATH = /opt/local/lib/
+	CFLAGS = -O3 -fopenmp -std=c++14 -fdiagnostics-color=auto -I`pwd` -DOPENMP -DDOUBLEPRECISION
+	CXX = /opt/local/bin/clang++-mp-6.0
 endif
 
 ifeq ($(HOST), clema)
@@ -66,7 +66,8 @@ ifeq ($(HOST), clema)
  endif
 
 ifeq ($(HOST), jasmi)
-	CXX = /opt/local/bin/g++-mp-8 -L/opt/local/lib/
+	CXX = /opt/local/bin/clang++-mp-7.0 -L/opt/local/lib/
+	CFLAGS = -O2 -fopenmp -std=c++14 -I`pwd` -DOPENMP -DDOUBLEPRECISION
 endif
 
 ifeq ($(HOST), Rhodo)
@@ -116,5 +117,7 @@ IC: src/main.o src/tools/filesystem.o src/tools/progress/progress.o
 		$(CXX) $(CFLAGS) -o IC $(GIT_VARIABLES) -I$(CPATH) $(FFTW) src/main.o src/tools/filesystem.o src/tools/progress/progress.o -L$(LPATH) $(GSLFLAGS) -lm $(FFTWLIB)  $(HDF5_FLAGS)
 
 clean:
-	rm -rf IC
-	rm -rf src/*.o
+	rm -f IC
+	rm -f src/*.o
+	rm -f src/*/*.o
+	rm -f src/*/*/*.o
