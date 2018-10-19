@@ -168,22 +168,10 @@ namespace particle {
         return i;
       }
 
-      size_t getNextNParticles(std::vector<Particle<T>> &particles) {
-        size_t n = 1024 * 256;
-        if (n + i > pMapper->size())
-          n = pMapper->size() - i;
-
-        particles.resize(n);
-
-        n = parallelIterate([&](size_t local_i, const MapperIterator &localIterator) {
-          particles[local_i] = localIterator.getParticle();
-
-        }, n);
-
-        return n;
+      size_t getNumRemainingParticles() const {
+        return pMapper->size()-getIndex();
       }
 
-    protected:
       size_t parallelIterate(std::function<void(size_t, const MapperIterator &
 
       )> callback,
@@ -228,8 +216,6 @@ namespace particle {
         return n;
       }
 
-
-    public:
 
       T getMass() const {
         ConstGridPtrType pGrid;
