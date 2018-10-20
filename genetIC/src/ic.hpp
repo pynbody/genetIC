@@ -446,6 +446,26 @@ public:
     randomFieldGenerator.seed(seed);
     randomFieldGenerator.setDrawInFourierSpace(true);
     randomFieldGenerator.setReverseRandomDrawOrder(false);
+    randomFieldGenerator.setParallel(false);
+  }
+
+  //! Enable parallel random field generation, at the cost of not being backwards-compatible
+  void setSeedFourierParallel(int seed) {
+    randomFieldGenerator.seed(seed);
+    randomFieldGenerator.setDrawInFourierSpace(true);
+    randomFieldGenerator.setParallel(true);
+    randomFieldGenerator.setReverseRandomDrawOrder(false);
+  }
+
+  //! Reverses the order of draws between real and imaginary part of complex numbers
+  /*!
+   * Provided for compatibility problems as different compilers handle the draw order differently
+   */
+  void setSeedFourierReverseOrder(int seed) {
+    randomFieldGenerator.seed(seed);
+    randomFieldGenerator.setDrawInFourierSpace(true);
+    randomFieldGenerator.setReverseRandomDrawOrder(true);
+    randomFieldGenerator.setParallel(false);
   }
 
   //! Set the gadget particle type to be produced by the deepest level currently in the grid hiearchy
@@ -468,15 +488,7 @@ public:
     this->updateParticleMapper();
   }
 
-  //! Reverses the order of draws between real and imaginary part of complex numbers
-  /*!
-   * Provided for compatibility problems as different compilers handle the draw order differently
-   */
-  void setSeedFourierReverseOrder(int seed) {
-    randomFieldGenerator.seed(seed);
-    randomFieldGenerator.setDrawInFourierSpace(true);
-    randomFieldGenerator.setReverseRandomDrawOrder(true);
-  }
+
 
   void setExactPowerSpectrumEnforcement() {
     exactPowerSpectrum = true;
@@ -804,7 +816,7 @@ public:
     switch (outputFormat) {
       case OutputFormat::gadget2:
       case OutputFormat::gadget3:
-        gadget::save(getOutputPath() + ".gadget", boxlen, *pMapper,
+        gadget::save<float>(getOutputPath() + ".gadget", boxlen, *pMapper,
                      *pParticleGenerator,
                      cosmology, static_cast<int>(outputFormat));
         break;

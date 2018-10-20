@@ -62,14 +62,19 @@ namespace tools {
     MemMapRegion(const MemMapRegion & copy) = delete;
 
     MemMapRegion(MemMapRegion && move) {
-      this->addr = move.addr;
-      this->addr_aligned = move.addr_aligned;
-      this->size_bytes = move.size_bytes;
-      move.addr_aligned = nullptr;
+      (*this)=std::move(move);
     }
 
     DataType & operator[](size_t offset) {
       return addr[offset];
+    }
+
+    MemMapRegion & operator=(MemMapRegion && move) noexcept {
+      this->addr = move.addr;
+      this->addr_aligned = move.addr_aligned;
+      this->size_bytes = move.size_bytes;
+      move.addr_aligned = nullptr;
+      return (*this);
     }
   };
 
@@ -87,7 +92,6 @@ namespace tools {
   protected:
     int fd;
     size_t offset;
-    size_t file_length;
 
   public:
     MemMapFileWriter() {
@@ -103,18 +107,17 @@ namespace tools {
     MemMapFileWriter & operator=(MemMapFileWriter &&move) {
       fd = move.fd;
       offset = move.offset;
-      file_length = move.file_length;
       move.fd = -1;
       return (*this);
     }
 
 
 
-    MemMapFileWriter(std::string filename, size_t file_length) : file_length(file_length) {
-      fd = open(filename.c_str(), O_RDWR | O_CREAT, (mode_t)0666);
+    MemMapFileWriter(std::string filename)  {
+      fd = ::open(filename.c_str(), O_RDWR | O_CREAT, (mode_t)0666);
       if(fd==-1)
         throw std::runtime_error("Failed to open file (reason: "+std::string(::strerror(errno))+")");
-
+      ::ftruncate(fd, 0);
       offset = 0;
     }
 
@@ -131,12 +134,31 @@ namespace tools {
       offset+=sizeof(data);
     }
 
+    //! Write a single item to the file, using Fortran-style size blocks
+    template<typename DataType>
+    void writeFortran(const DataType &data) {
+      constexpr int fortranFieldSize = sizeof(DataType);
+      write(fortranFieldSize);
+      write(data);
+      write(fortranFieldSize);
+    }
+
     //! Get a memory-mapped view of the file at the current write location, with the intention of writing n_elements
     template<typename DataType>
     auto getMemMap(size_t n_elements) {
       auto region = MemMapRegion<DataType>(fd,offset,n_elements);
       offset+=n_elements*sizeof(DataType);
       ::lseek(fd, offset, SEEK_SET);
+      return region;
+    }
+
+    //! Get a memory-mapped view of the file for writing, and surround it with Fortran-style size blocks
+    template<typename DataType>
+    auto getMemMapFortran(size_t n_elements) {
+      int fortranFieldSize = n_elements*sizeof(DataType);
+      write(fortranFieldSize);
+      auto region = getMemMap<DataType>(n_elements);
+      write(fortranFieldSize);
       return region;
     }
 

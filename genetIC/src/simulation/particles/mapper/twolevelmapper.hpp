@@ -80,6 +80,23 @@ namespace particle {
       }
 
     protected:
+      /*! Create an iterator for this mapper, given iterators for the two submappers.
+       *
+       * First, the level 1 iterator is inspected. If it is not already at the end, we are assumed to be in a state
+       * where level 1 particles are being iterated over (regardless of the state of the level 2 iterator). The level
+       * 1 iterator is adjusted if it's not already on an unzoomed particle, otherwise it's left alone.  The index
+       * of the new iterator is set to the corresponding position. The level 2 iterator is reset to the
+       * appropriate starting position.
+       *
+       * If level 1 iterator is at its endpoint, the default assumption is that we are at the *start* of the zoom
+       * particles, i.e. the level 2 iterator is NOT inspected. This is because it is an expensive and, in general,
+       * not totally well defined operation to go from a general point in the level 2 iterator to a unique
+       * point in the overarching iterator, because no particular ordering is assured.
+       *
+       * The one exception is that if the level 2 iterator points to a null mapper, we are being requested NOT to
+       * return any level 2 particles, so we store a nullptr in place of the level 2 iterator to be sure of this.
+       *
+       */
       iterator iteratorFromSubiterators(const iterator & l1Iterator, const iterator & l2Iterator) const  {
         if (level1ParticlesToReplace.size() == 0)
           return this->end(l1Iterator.generator);
@@ -88,31 +105,25 @@ namespace particle {
         x.extraData.push_back(0); // current position in zoom ID list
         x.extraData.push_back(level1ParticlesToReplace[0]); // next entry in zoom ID list
 
-        if (!skipLevel1)
+        if (!skipLevel1 && l1Iterator.pMapper!=nullptr) {
           x.subIterators.emplace_back(new iterator(l1Iterator));
-        else
-          x.subIterators.emplace_back(nullptr);
-
-        // recall level 2 is guaranteed to point to a one-level-particle mapper. Therefore either it is entirely
-        // included, or entirely excluded.
-
-
-        x.subIterators.emplace_back(new iterator(l2Iterator));
-
-        if(l2Iterator!=pLevel2->end(l2Iterator.generator)) {
-          // TODO: is the following definitely needed?
-          adjustLevel2IteratorForNextZoomParticle(0, *(x.subIterators.back()));
-        }
-
-        if(!skipLevel1) {
-          // now we need to find the correct index for this iterator given where the level 1 iterator is
-          setIteratorIndexFromLevel1SubIterator(x);
           moveLevel1SubIteratorPastZoomedParticles(x);
+          setIteratorIndexFromLevel1SubIterator(x);
+        } else {
+          x.i = firstLevel2Particle;
+          x.subIterators.emplace_back(nullptr);
         }
 
-        if(x.i>=firstLevel2Particle) {
-          if(l2Iterator==pLevel2->end(l2Iterator.generator))
-            x.i=size();
+        if (l2Iterator.pMapper!=nullptr) {
+          x.subIterators.emplace_back(new iterator(l2Iterator));
+          if(l2Iterator!=pLevel2->end(l2Iterator.generator)) {
+            // TODO: is the following definitely needed?
+            adjustLevel2IteratorForSpecifiedZoomParticle(0, *(x.subIterators.back()));
+          } else {
+            x.i = size();
+          }
+        } else {
+          x.subIterators.emplace_back(nullptr);
         }
 
         return x;
@@ -485,16 +496,15 @@ namespace particle {
 
           if (i == firstLevel2Particle) {
             next_zoom = 0;
-            // if the level 2 iterator points to the end, it means we are to skip it
-            if(level2iterator==this->pLevel2->end(pIterator->generator)) {
-              i = this->size();
-              return;
+            if(&level2iterator==nullptr) {
+             // if there is no level 2 iterator, we are finished iterating
+             return;
             }
           } else {
             ++next_zoom;
           }
 
-          adjustLevel2IteratorForNextZoomParticle(next_zoom, level2iterator);
+          adjustLevel2IteratorForSpecifiedZoomParticle(next_zoom, level2iterator);
 
 
         } else {
@@ -512,7 +522,7 @@ namespace particle {
 
       // Low-level iterator synchronization methods:
 
-      void adjustLevel2IteratorForNextZoomParticle(const size_t &next_zoom, iterator &level2iterator) const {
+      void adjustLevel2IteratorForSpecifiedZoomParticle(const size_t &next_zoom, iterator &level2iterator) const {
         if (next_zoom >= zoomParticleArrayHiresUnsorted.size()) {
           // beyond end. This is OK because we need to be able to go one beyond the end in an iterator loop
           assert(next_zoom == zoomParticleArrayHiresUnsorted.size());

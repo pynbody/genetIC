@@ -71,42 +71,43 @@ namespace io {
       std::shared_ptr<particle::mapper::ParticleMapper<GridDataType>> pMapper;
       const cosmology::CosmologicalParameters<FloatType> &cosmology;
 
-
       template<typename ParticleType>
-      void saveTipsyParticlesFromBlock(std::vector<particle::Particle<FloatType>> &particleAr) {
+      void saveNextBlockOfTipsyParticles(particle::mapper::MapperIterator<GridDataType> &begin,
+                                         size_t nMax = 256 * 1024 * 1024) {
 
-        const size_t n = particleAr.size();
+        size_t n = std::min({nMax, begin.getNumRemainingParticles()});
 
         auto p = writer.getMemMap<ParticleType>(n);
 
 
-#pragma omp parallel for
-        for (size_t i = 0; i < n; i++) {
-          TipsyParticle::initialise(p[i], cosmology);
-          particle::Particle<FloatType> &thisParticle = particleAr[i];
+        begin.parallelIterate([&](size_t i, const particle::mapper::MapperIterator<GridDataType> &localIterator) {
+            TipsyParticle::initialise(p[i], cosmology);
+            auto thisParticle = localIterator.getParticle();
+            p[i].x = thisParticle.pos.x * pos_factor - 0.5;
+            p[i].y = thisParticle.pos.y * pos_factor - 0.5;
+            p[i].z = thisParticle.pos.z * pos_factor - 0.5;
+            p[i].eps = thisParticle.soft * pos_factor;
 
-          p[i].x = thisParticle.pos.x * pos_factor - 0.5;
-          p[i].y = thisParticle.pos.y * pos_factor - 0.5;
-          p[i].z = thisParticle.pos.z * pos_factor - 0.5;
-          p[i].eps = thisParticle.soft * pos_factor;
-
-          p[i].vx = thisParticle.vel.x * vel_factor;
-          p[i].vy = thisParticle.vel.y * vel_factor;
-          p[i].vz = thisParticle.vel.z * vel_factor;
-          p[i].mass = thisParticle.mass * mass_factor;
+            p[i].vx = thisParticle.vel.x * vel_factor;
+            p[i].vy = thisParticle.vel.y * vel_factor;
+            p[i].vz = thisParticle.vel.z * vel_factor;
+            p[i].mass = thisParticle.mass * mass_factor;
 
 #ifdef _OPENMP
-          if (thisParticle.mass == min_mass && omp_get_thread_num() == 0)
+            if (thisParticle.mass == min_mass && omp_get_thread_num() == 0)
 #else
-            if(thisParticle.mass==min_mass)
+              if(thisParticle.mass==min_mass)
 #endif
-            photogenic_file << iord + i << std::endl;
+              photogenic_file << iord + i << std::endl;
 
-        }
+        }, n);
+
         iord += n;
 
 
       }
+
+
 
       template<typename ParticleType>
       void saveTipsyParticles(particle::mapper::MapperIterator<GridDataType> &&begin,
@@ -114,11 +115,10 @@ namespace io {
 
         ParticleType p;
         TipsyParticle::initialise(p, cosmology);
-        std::vector<particle::Particle<FloatType>> particles;
         auto i = begin;
+        std::thread writerThread;
         while (i != end) {
-          i.getNextNParticles(particles);
-          saveTipsyParticlesFromBlock<ParticleType>(particles);
+          saveNextBlockOfTipsyParticles<ParticleType>(i);
         }
       }
 
@@ -179,15 +179,14 @@ namespace io {
 
         FloatType mass, tot_mass = 0.0;
 
-        for (auto i = pMapper->begin(generator); i != pMapper->end(generator); ++i) {
-          // progress("Pre-write scan file",iord, totlen);
+        const auto end = pMapper->end(generator); // don't want to keep re-evaluating this
+
+        for (auto i = pMapper->begin(generator); i != end; ++i) {
           mass = i.getMass(); // sometimes can be MUCH faster than getParticle
           if (min_mass > mass) min_mass = mass;
           if (max_mass < mass) max_mass = mass;
           tot_mass += mass;
         }
-
-        // end_progress();
 
         if (min_mass != max_mass) {
           photogenic_file.open("photogenic.txt");
@@ -223,10 +222,7 @@ namespace io {
 
         paramfile.close();
 
-        size_t length = sizeof(io_header_tipsy)
-                        + sizeof(TipsyParticle::gas)*header.ngas
-                        + sizeof(TipsyParticle::dark)*header.ndark;
-        writer = tools::MemMapFileWriter(filename, length);
+        writer = tools::MemMapFileWriter(filename);
 
         writer.write<>(header);
 

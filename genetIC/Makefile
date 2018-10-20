@@ -23,16 +23,6 @@ FFTWLIB = -lfftw3 -lfftw3_threads
 #FFTWLIB = -ldfftw -ldrfftw
 
 
-# If you want to use HDF5, something like the following is necessary.
-#
-#HDF5_FLAGS = -lhdf5 -D H5_USE_16_API -DHAVE_HDF5
-#
-# WARNING - HDF5 has not been tested recently and in particular won't work
-# with zoom simulations as the code does not support varying mass particles
-
-
-
-
 # Some customizations for known systems
 
 HOST	= $(shell if [ `which scutil 2>/dev/null` ]; then scutil --get ComputerName | cut -c1-5; else hostname | cut -c1-5 ; fi )
@@ -61,13 +51,13 @@ endif
 ifeq ($(HOST), clema)
         CPATH = /opt/local/include/
         LPATH = /opt/local/lib/
-	      CFLAGS = -O3 -fopenmp -std=c++14 -fdiagnostics-color=auto -I`pwd` -DOPENMP -DDOUBLEPRECISION
-        CXX = /opt/local/bin/g++-mp-6
+	      CFLAGS = -O2 -fopenmp -std=c++14 -fdiagnostics-color=auto -I`pwd` -DOPENMP -DDOUBLEPRECISION
+        CXX = /opt/local/bin/clang++-mp-6.0
  endif
 
 ifeq ($(HOST), jasmi)
 	CXX = /opt/local/bin/clang++-mp-7.0 -L/opt/local/lib/
-	CFLAGS = -O3 -fopenmp -std=c++14 -I`pwd` -DOPENMP -DDOUBLEPRECISION
+	CFLAGS = -O2 -fopenmp -std=c++14 -I`pwd` -DOPENMP -DDOUBLEPRECISION
 endif
 
 ifeq ($(HOST), Rhodo)
@@ -114,7 +104,7 @@ all: IC
 %.o: %.cpp ; $(CXX) $(CFLAGS) $(GIT_VARIABLES) -I$(CPATH) $(FFTW) -c $< -o $@
 
 IC: src/main.o src/tools/filesystem.o src/tools/progress/progress.o
-		$(CXX) $(CFLAGS) -o IC $(GIT_VARIABLES) -I$(CPATH) $(FFTW) src/main.o src/tools/filesystem.o src/tools/progress/progress.o -L$(LPATH) $(GSLFLAGS) -lm $(FFTWLIB)  $(HDF5_FLAGS)
+		$(CXX) $(CFLAGS) -o IC $(GIT_VARIABLES) -I$(CPATH) $(FFTW) src/main.o src/tools/filesystem.o src/tools/progress/progress.o -L$(LPATH) $(GSLFLAGS) -lm $(FFTWLIB)
 
 clean:
 	rm -f IC

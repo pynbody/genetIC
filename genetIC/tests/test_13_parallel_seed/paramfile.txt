@@ -1,0 +1,19 @@
+# Test uniform volume with parallel seeding
+
+Om  0.279
+Ol  0.721
+#Ob  0.04
+s8  0.817
+zin	99
+
+seedfourier_parallel	42
+camb	../camb_transfer_kmax40_z0.dat
+
+outname test_13
+outdir	 ./
+outformat 4
+
+
+basegrid 10.0 8
+
+done
