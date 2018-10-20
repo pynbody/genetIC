@@ -816,7 +816,7 @@ public:
     switch (outputFormat) {
       case OutputFormat::gadget2:
       case OutputFormat::gadget3:
-        gadget::save(getOutputPath() + ".gadget", boxlen, *pMapper,
+        gadget::save<float>(getOutputPath() + ".gadget", boxlen, *pMapper,
                      *pParticleGenerator,
                      cosmology, static_cast<int>(outputFormat));
         break;

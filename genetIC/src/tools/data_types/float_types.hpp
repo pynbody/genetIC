@@ -1,3 +1,6 @@
+#ifndef __FLOAT_TYPES
+#define __FLOAT_TYPES
+
 namespace tools {
   namespace datatypes {
     template<typename FloatType>
@@ -19,3 +22,5 @@ namespace tools {
     };
   }
 }
+
+#endif

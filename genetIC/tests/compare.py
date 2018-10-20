@@ -22,6 +22,8 @@ def compare(f1,f2) :
 
     npt.assert_almost_equal(f1['vel'],f2['vel'],decimal=compare_decimal)
     npt.assert_almost_equal(f1['pos'],f2['pos'],decimal=compare_decimal)
+    if 'iord' in f1.loadable_keys():
+        assert (f1['iord']==f2['iord']).all()
     print("Particle output matches")
     if 'overdensity' in f1.loadable_keys():
         npt.assert_almost_equal(f1['overdensity'],f2['overdensity'],decimal=5)

@@ -222,10 +222,7 @@ namespace io {
 
         paramfile.close();
 
-        size_t length = sizeof(io_header_tipsy)
-                        + sizeof(TipsyParticle::gas)*header.ngas
-                        + sizeof(TipsyParticle::dark)*header.ndark;
-        writer = tools::MemMapFileWriter(filename, length);
+        writer = tools::MemMapFileWriter(filename);
 
         writer.write<>(header);
 

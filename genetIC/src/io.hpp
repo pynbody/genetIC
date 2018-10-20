@@ -8,10 +8,6 @@
 #include "src/simulation/particles/mapper/mapper.hpp"
 
 
-#ifdef HAVE_HDF5
-hid_t hdf_float = H5Tcopy (H5T_NATIVE_DOUBLE);
-hid_t hdf_double = H5Tcopy (H5T_NATIVE_DOUBLE);
-#endif
 
 
 namespace cosmology {

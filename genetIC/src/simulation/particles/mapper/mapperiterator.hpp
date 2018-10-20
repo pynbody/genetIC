@@ -172,14 +172,13 @@ namespace particle {
         return pMapper->size()-getIndex();
       }
 
-      size_t parallelIterate(std::function<void(size_t, const MapperIterator &
+      size_t parallelIterate(std::function<void(size_t, const MapperIterator &)> callback, size_t nMax)  {
+        if(pMapper==nullptr) return 0;
 
-      )> callback,
-                             size_t nMax
-      ) {
         size_t n = std::min(pMapper->size() - i, nMax);
         size_t final_i = i + n;
 
+        if(n==0) return 0;
 
 #pragma omp parallel
         {

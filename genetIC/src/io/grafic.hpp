@@ -105,9 +105,7 @@ namespace io {
         for (size_t i=0; i<filenames.size(); ++i) {
           auto filename_i = filenames[i];
           auto block_length_i = block_lengths[i];
-          files.emplace_back(thisGridFilename + "/" + filename_i,
-              (block_length_i+2*sizeof(int))*targetGrid.size
-              + sizeof(io_header_grafic) + sizeof(int)*2);
+          files.emplace_back(thisGridFilename + "/" + filename_i);
           writeHeaderForGrid(files.back(), targetGrid);
         }
 

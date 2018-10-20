@@ -101,13 +101,17 @@ namespace particle {
         if(gadgetParticleType==particleType) {
           return this->begin(generator);
         } else {
-          return this->end(generator);
+          return iterator(nullptr, generator);
         }
       }
 
       virtual iterator endParticleType(const AbstractMultiLevelParticleGenerator<GridDataType> &generator,
-                                       unsigned int /*particleType*/) const override {
-        return this->end(generator);
+                                       unsigned int particleType) const override {
+        if(gadgetParticleType==particleType) {
+          return this->end(generator);
+        } else {
+          return iterator(nullptr, generator);
+        }
       }
 
       std::pair<MapPtrType, MapPtrType> addGas(T massRatio, const std::vector<GridPtrType> &toGrids) override {

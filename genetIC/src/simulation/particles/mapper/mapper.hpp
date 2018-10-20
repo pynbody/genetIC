@@ -219,6 +219,9 @@ namespace particle {
         auto begin = beginParticleType(generator, particle_type);
         auto end = endParticleType(generator, particle_type);
         for(auto i=begin; i!=end; ++i) {
+          if(i.getIndex()>end.getIndex()-5) {
+            cerr << i.getIndex() << " ";
+          }
           callback(i);
         }
       }
