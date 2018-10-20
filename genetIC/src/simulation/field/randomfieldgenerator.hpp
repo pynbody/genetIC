@@ -176,8 +176,6 @@ namespace fields {
               drawOneFourierMode(field, ks, k1, k2, sigma, localRandomState);
               drawOneFourierMode(field, k1, ks, k2, sigma, localRandomState);
               drawOneFourierMode(field, k1, k2, ks, sigma, localRandomState);
-              if(ks<4 && k1>0 && k2>0)
-                std::cerr << k1 << " " << k2 << " " << ks << " " << field.getFourierCoefficient(k1, k2, ks) << std::endl;
             }
           }
           gsl_rng_free(localRandomState);
