@@ -105,6 +105,31 @@ namespace modifications {
       std::cerr << "         Total delta chi^2 = " << post_modif_chi2_from_field - pre_modif_chi2_from_field << std::endl;
     }
 
+
+    //!\brief Propagate modifications of another field to this one:
+    //!NB - only works if modifiedField is the ONLY field that has been modified.
+    //!Otherwise, the cross correlations will not be correct.
+    void propagateModifications(fields::OutputField<DataType>& modifiedField)
+    {
+        //Must be in Fourier space to do this:
+        outputField.toFourier();
+        modifiedField.toFourier();
+
+        T pre_modif_chi2_from_field = this->outputField.getChi2();
+        std::cerr << "BEFORE modifications chi^2 = " << pre_modif_chi2_from_field << std::endl;
+
+        //First, copy across the modified field:
+        outputField.copyData(modifiedField);
+
+        //Divide by modifiedField power spectrum and apply outputField's power spectrum:
+        outputField.applyInversePowerSpectrumOf(modifiedField.transferType);
+        outputField.applyPowerSpectrum();
+
+        T post_modif_chi2_from_field = this->outputField.getChi2();
+        std::cerr << "AFTER  modifications chi^2 = " << post_modif_chi2_from_field << std::endl;
+        std::cerr << "         Total delta chi^2 = " << post_modif_chi2_from_field - pre_modif_chi2_from_field << std::endl;
+    }
+
     void clearModifications() {
       std::cout << "Clearing modification list" << std::endl;
       linearModificationList.clear();

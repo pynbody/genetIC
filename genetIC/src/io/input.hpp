@@ -2,6 +2,7 @@
 #define IC_INPUT_HPP
 
 #include "src/io.hpp"
+#include <sstream>
 
 namespace io {
   template<typename T>
@@ -17,6 +18,35 @@ namespace io {
       if (f.fail() && !f.eof())
         throw std::runtime_error("Error reading file " + filename);
     }
+  }
+
+  //! Returns the number of columns in the supplied data file.
+  size_t getNumberOfColumns(std::string filename)
+  {
+    std::ifstream f(filename);
+    std::stringstream ss;
+    if(!f.is_open())
+    {
+        throw std::runtime_error("File " + filename + " not found");
+    }
+    //Extract the first line, and count the number of entries:
+    std::string line;
+    std::getline(f,line);
+    ss << line;
+    size_t nCols = 0;
+    while(!ss.eof())
+    {
+        double temp;
+        if(ss >> temp)
+        {
+            nCols++;
+        }
+        else
+        {
+            throw std::runtime_error("Error reading file " + filename + ". Could not determine number of columns.");
+        }
+    }
+    return nCols;
   }
 
   template<typename T>

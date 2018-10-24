@@ -223,6 +223,30 @@ namespace fields {
 
     }
 
+    //!\brief Copy across data from another field.
+    //! Note that this is different to operator=, which sets this object equal to the specified field
+    //! on a class level. Here, we simply set the field data equal to that of the specified field,
+    //! without acquiring any of its other properties (such as transferType, which would change which
+    //! transfer function the field uses).
+    void copyData(const MultiLevelField<DataType> &other)
+    {
+        assert (isCompatible(other));
+        assert(other.isFourierOnAllLevels());
+        toFourier();
+        for (size_t level = 0; level < getNumLevels(); level++)
+        {
+            if (hasFieldOnGrid(level) && other.hasFieldOnGrid(level))
+            {
+                Field<DataType> &fieldThis = getFieldForLevel(level);
+                const Field<DataType> &fieldOther = other.getFieldForLevel(level);
+                fieldThis.forEachFourierCellInt([&fieldOther](ComplexType currentVal, int kx, int ky, int kz)
+                {
+                    return fieldOther.getFourierCoefficient(kx, ky, kz);
+                });
+            }
+        }
+    }
+
     //! Takes the inner product between two fields.
     /*! The inner product is defined as the operation between a covector a and a vector b : a * b elementwise.
      * In our case, a and b are split in Fourier space between high and low k modes using their internal filter.
@@ -348,6 +372,26 @@ namespace fields {
       }
     }
 
+    //!Divide by the power spectrum of another field.
+    void applyInversePowerSpectrumOf(size_t nField)
+    {
+        toFourier();
+        for (size_t i = 0; i < multiLevelContext->getNumLevels(); ++i) {
+        auto &grid = multiLevelContext->getGridForLevel(i);
+
+        applyInverseSpectrumOneGrid(getFieldForLevel(i),
+                             multiLevelContext->getCovariance(i,nField),
+                             grid);
+
+      }
+    }
+
+    //!Invert the application of the power spectrum.
+    void applyInversePowerSpectrum()
+    {
+        this->applyInversePowerSpectrumOf(this->transferType);
+    }
+
     T getChi2() {
 
       this->toFourier();
@@ -358,6 +402,8 @@ namespace fields {
       return chi2;
     }
 
+
+
   private:
     void applySpectrumOneGrid(Field<DataType> &field,
                               const Field<DataType> &spectrum,
@@ -367,6 +413,18 @@ namespace fields {
                                       (complex<T> existingValue, int kx, int ky, int kz) {
         T sqrt_spec = sqrt(spectrum.getFourierCoefficient(kx, ky, kz).real());
         return existingValue * sqrt_spec;
+      });
+    }
+
+    //!Invert applySpectrumOneGrid
+    void applyInverseSpectrumOneGrid(Field<DataType> &field,
+                              const Field<DataType> &spectrum,
+                              const grids::Grid<T> &grid) {
+
+      field.forEachFourierCellInt([&grid, &field, &spectrum]
+                                      (complex<T> existingValue, int kx, int ky, int kz) {
+        T sqrt_spec = sqrt(spectrum.getFourierCoefficient(kx, ky, kz).real());
+        return existingValue / sqrt_spec;
       });
     }
 
@@ -411,9 +469,7 @@ namespace fields {
         T b = sqrt_spec * existingValue.imag() / absExistingValue;
         return complex<T>(a, b);
       });
-
     }
-
 
   };
 

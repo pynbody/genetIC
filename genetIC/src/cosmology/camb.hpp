@@ -123,6 +123,7 @@ namespace cosmology {
       ns = cosmology.ns;
 
       calculateOverallNormalization(cosmology);
+      std::cerr << "amplitude = " << this->amplitude << std::endl;
 
 
       // TODO: here is where we'd insert a conversion of the power spectrum to match the real-space correlation function.
@@ -161,6 +162,9 @@ namespace cosmology {
       io::getBuffer(input, incamb);
 
       //Check whether the input file is in the pre-2015 or post-2015 format (and throw an error if it is neither).
+      //STEPHEN - This will actually miss-classify if the post-2015 file happens to also have a number of entries
+      //divisible by 7. Need to rethink this!
+      /*
       if(input.size() > c_old_camb && input.size() % c_old_camb == 0){
         std::cerr << "Using pre 2015 CAMB transfer function" << std::endl;
         c = c_old_camb;
@@ -170,10 +174,29 @@ namespace cosmology {
       } else{
         throw std::runtime_error("CAMB transfer file doesn't have a sensible number of rows and columns");
       }
+      */
+
+      c = io::getNumberOfColumns(incamb);
+
+      std::cerr << "c = " << c << std::endl;
+
+      if(c == c_old_camb)
+      {
+        std::cerr << "Using pre 2015 CAMB transfer function" << std::endl;
+      }
+      else if(c == c_new_camb)
+      {
+        std::cerr << "Using post 2015 CAMB transfer function" << std::endl;
+      }
+      else
+      {
+        throw std::runtime_error("CAMB transfer file doesn't have a sensible number of rows and columns");
+      }
 
 
       CoordinateType ap = input[1]; //to normalise CAMB transfer function so T(0)= 1, doesn't matter if we normalise here in terms of accuracy, but feels more natural
       //Copy file into vectors. Normalise both so that the DM tranfer function starts at 1.
+      std::cerr << "ap = " << ap << std::endl;
       for (j = 0; j < input.size() / c; j++) {
         if (input[c * j] > 0) {
           // hard-coded to first two columns of CAMB file -
