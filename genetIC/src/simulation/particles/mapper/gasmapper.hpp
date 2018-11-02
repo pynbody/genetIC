@@ -122,7 +122,8 @@ namespace particle {
         }
 
         // At present we ONLY distribute particles onto the DM grids
-        if (gasFirst)
+        // MR: Not sure what this means?
+        if (first.empty() && !second.empty())
           secondMap->flagParticles(second);
         else
           firstMap->flagParticles(first);

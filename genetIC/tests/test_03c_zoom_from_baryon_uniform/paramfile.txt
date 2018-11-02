@@ -1,0 +1,22 @@
+# Test generating a DMO zoom from gas ids from a uniform gas volume
+
+Om  0.279
+Ol  0.721
+#Ob  0.04
+s8  0.817
+zin	99
+
+seed	8896131
+camb	../camb_transfer_kmax40_z0.dat
+
+outname test_3
+outdir	 ./
+outformat 4
+
+basegrid 50.0 64
+mapper_relative_to ../test_03a_baryons_basegrid/paramfile.txt
+
+IDfile puregasids.txt
+zoomgrid 4 64
+
+done
