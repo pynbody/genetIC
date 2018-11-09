@@ -196,6 +196,18 @@ namespace fields {
       }
     }
 
+    //! Flips the sign of the field.
+    void reverse()
+    {
+      for(size_t level=0; level<multiLevelContext->getNumLevels(); ++level) {
+      auto &field = this->getFieldForLevel(level);
+      size_t N = field.getGrid().size3;
+      auto &field_data = field.getDataVector();
+      for (size_t i = 0; i < N; i++)
+        field_data[i] = -field_data[i];
+        }
+    }
+
     //! Add a scaled multilevel field to the current one
     /*!
         The two fields can have different filters on each level,
@@ -239,10 +251,21 @@ namespace fields {
             {
                 Field<DataType> &fieldThis = getFieldForLevel(level);
                 const Field<DataType> &fieldOther = other.getFieldForLevel(level);
+
                 fieldThis.forEachFourierCellInt([&fieldOther](ComplexType currentVal, int kx, int ky, int kz)
                 {
                     return fieldOther.getFourierCoefficient(kx, ky, kz);
                 });
+                //Slightly hackier way of doing this:
+                /*
+                if(fieldThis.getDataVector().size() != fieldOther.getDataVector().size())
+                {
+                    throw(std::runtime_error("Cannot copy field of different size."));
+                }
+                for(size_t i = 0;i < fieldThis.getDataVector().size();i++)
+                {
+                    fieldThis[i] = fieldOther[i];
+                }*/
             }
         }
     }
@@ -386,6 +409,44 @@ namespace fields {
       }
     }
 
+    //!Divide by one power spectrum and multiply by another:
+    void applyTransferRatio(size_t nField)
+    {
+        toFourier();
+        for (size_t i = 0; i < multiLevelContext->getNumLevels(); ++i) {
+        auto &grid = multiLevelContext->getGridForLevel(i);
+        applyTransferRatioOneGrid(getFieldForLevel(i),
+                                  multiLevelContext->getCovariance(i,nField),
+                                  multiLevelContext->getCovariance(i,this->transferType),
+                                  grid);
+        }
+    }
+
+    void applyTransferRatioOneGrid(Field<DataType> &field,
+                              const Field<DataType> &spectrum1,
+                              const Field<DataType> &spectrum2,
+                              const grids::Grid<T> &grid)
+    {
+        field.forEachFourierCellInt([&grid, &field, &spectrum1,&spectrum2]
+                                      (complex<T> existingValue, int kx, int ky, int kz) {
+        T sqrt_spec1 = sqrt(spectrum1.getFourierCoefficient(kx, ky, kz).real());
+        T sqrt_spec2 = sqrt(spectrum2.getFourierCoefficient(kx, ky, kz).real());
+        complex<T> new_val;
+        if(abs(sqrt_spec1) < std::numeric_limits<T>::epsilon())
+        {
+            //This can only happen if the power spectrum is zero, ie k = 0, in which case,
+            //it will be zero for baryons too, so just return 0:
+            new_val = existingValue*0.0;
+        }
+        else
+        {
+            new_val = existingValue * sqrt_spec2 / sqrt_spec1;
+        }
+        return new_val;
+        });
+    }
+
+
     //!Invert the application of the power spectrum.
     void applyInversePowerSpectrum()
     {
@@ -424,7 +485,14 @@ namespace fields {
       field.forEachFourierCellInt([&grid, &field, &spectrum]
                                       (complex<T> existingValue, int kx, int ky, int kz) {
         T sqrt_spec = sqrt(spectrum.getFourierCoefficient(kx, ky, kz).real());
-        return existingValue / sqrt_spec;
+        if(abs(sqrt_spec) < std::numeric_limits<T>::epsilon())
+        {
+            return existingValue*0.0;
+        }
+        else
+        {
+            return existingValue / sqrt_spec;
+        }
       });
     }
 

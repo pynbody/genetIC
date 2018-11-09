@@ -581,6 +581,7 @@ int save_phases(complex<FloatType> *phk, FloatType* ph, complex<FloatType> *delt
       {
         redirect[0] = 0;
       }
+      std::cerr << "generator.size() = " << generator.size() << std::endl;
 
       cerr << "Gadget output preliminary scan..." << endl;
 
@@ -657,6 +658,41 @@ int save_phases(complex<FloatType> *phk, FloatType* ph, complex<FloatType> *delt
         my_fwrite(&output_cache, sizeof(output_cache), 1, fd);
         ntotthis++;
       },redirect);
+
+      //Particle data in text format (only used for debugging):
+      std::ofstream debugfile;
+      debugfile.open("baryons_particle_data.dat");
+      if(!debugfile)
+      {
+          throw(std::runtime_error("Cannot open baryon debug file."));
+      }
+      FloatType min_mass, max_mass;
+      size_t n;
+      getParticleInfo(*generator[redirect[0]], mapper, min_mass, max_mass, n, 0);
+      debugfile << n << std::endl;
+      FloatType boxsize = mapper.getCoarsestGrid()->periodicDomainSize;
+      mapper.iterateParticlesOfType(*generator[redirect[0]],0, [&](const auto & i) {
+        auto particle = i.getParticle();
+
+        debugfile << particle.pos.x/boxsize << " " << particle.pos.y/boxsize << " "
+                  << particle.pos.z/boxsize << " " << particle.mass << std::endl;
+      });
+      debugfile.close();
+      debugfile.open("dark_matter_particle_data.dat");
+      if(!debugfile)
+      {
+          throw(std::runtime_error("Cannot open dark matter debug file."));
+      }
+      getParticleInfo(*generator[redirect[1]], mapper, min_mass, max_mass, n, 1);
+      debugfile << n << std::endl;
+      mapper.iterateParticlesOfType(*generator[redirect[1]], 1, [&](const auto & i) {
+        auto particle = i.getParticle();
+
+        debugfile << particle.pos.x/boxsize << " " << particle.pos.y/boxsize << " "
+                  << particle.pos.z/boxsize << " " << particle.mass << std::endl;
+      });
+      debugfile.close();
+
 
       assert(ntotthis==nTotal);
 

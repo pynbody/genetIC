@@ -62,6 +62,7 @@ void setup_parser(tools::ClassDispatch<ICf, void> &dispatch) {
   dispatch.add_class_route("strays_on", &ICf::setStraysOn);
   dispatch.add_class_route("supersample", &ICf::setSupersample);
   dispatch.add_class_route("subsample", &ICf::setSubsample);
+  dispatch.add_class_route("eps_norm",&ICf::setEpsNorm);
 
   // Grafic options
   dispatch.add_class_route("pvar", &ICf::setpvarValue);
@@ -115,7 +116,7 @@ void setup_parser(tools::ClassDispatch<ICf, void> &dispatch) {
   dispatch.add_class_route("done", &ICf::done);
   //dispatch.add_class_route("apply_modifications", &ICf::applyModifications);
   dispatch.add_class_route("apply_modifications", static_cast<void(ICf::*)()>(&ICf::applyModifications));
-  dispatch.add_class_route("apply_modifications_field", static_cast<void(ICf::*)(size_t)>(&ICf::applyModifications));
+  //dispatch.add_class_route("apply_modifications_field", static_cast<void(ICf::*)(size_t)>(&ICf::applyModifications));
   //dispatch.add_class_route("chi2", &ICf::getFieldChi2);
   dispatch.add_class_route("chi2", static_cast<void(ICf::*)()>(&ICf::getFieldChi2));
   dispatch.add_class_route("chi2_field", static_cast<void(ICf::*)(size_t)>(&ICf::getFieldChi2));
@@ -134,6 +135,8 @@ void setup_parser(tools::ClassDispatch<ICf, void> &dispatch) {
   //dispatch.add_class_route("dump_grid", &ICf::dumpGrid);
   dispatch.add_class_route("dump_grid", static_cast<void (ICf::*)(size_t)>(&ICf::dumpGrid));
   dispatch.add_class_route("dump_grid_for_field", static_cast<void (ICf::*)(size_t,size_t)>(&ICf::dumpGrid));
+  dispatch.add_class_route("dump_grid_fourier", static_cast<void (ICf::*)(size_t)>(&ICf::dumpGridFourier));
+  dispatch.add_class_route("dump_grid_fourier_for_field", static_cast<void (ICf::*)(size_t,size_t)>(&ICf::dumpGridFourier));
   //dispatch.add_class_route("dump_ps", &ICf::dumpPS);
   dispatch.add_class_route("dump_ps", static_cast<void (ICf::*)(size_t)>(&ICf::dumpPS));
   dispatch.add_class_route("dump_ps_field", static_cast<void (ICf::*)(size_t,size_t)>(&ICf::dumpPS));

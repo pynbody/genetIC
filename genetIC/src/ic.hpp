@@ -31,7 +31,7 @@
 #include "src/simulation/window.hpp"
 
 //TODO: remove ugly macro
-#define for_each_level(level) for(size_t level=0; level<multiLevelContext.getNumLevels(); ++level)
+//#define for_each_level(level) for(size_t level=0; level<multiLevelContext.getNumLevels(); ++level)
 
 using namespace std;
 
@@ -89,6 +89,9 @@ protected:
   //! Subsampling on base grid
   int subsample;
 
+  //!Normalisation used for cell softening scale:
+  T epsNorm = 0.01075;//Default value arbitrary to coincide with normal UW resolution
+
 
   io::OutputFormat outputFormat;
   string outputFolder, outputFilename;
@@ -109,6 +112,7 @@ protected:
   //! If true, the box are recentered on the last centered point in the parameter file
   //TODO This is currently a grafic only option and ought to be generic
   bool centerOnTargetRegion = false ;
+  bool haveCentred = false;
 
 
   std::vector<size_t> flaggedParticles;
@@ -116,7 +120,8 @@ protected:
 
 
   //! Coordinates of the cell of current interest
-  T x0, y0, z0;
+  T x0 = 0.0, y0 = 0.0, z0 = 0.0;
+  //T x0, y0, z0;//STEPHEN - This can lead to bugs in certain situations if they aren't initialised...
 
   //! Value of passive variable for refinement masks if needed
   T pvarValue = 1.0;
@@ -176,7 +181,9 @@ public:
     pInputMapper = nullptr;
     pInputMultiLevelContext = nullptr;
     cosmology.hubble = 0.701;   // old default
-    cosmology.OmegaBaryons0 = -1.0;
+    //STEPHEN - This is going to create problems for the baryons...
+    //cosmology.OmegaBaryons0 = -1.0;
+    cosmology.OmegaBaryons0 = 0.0;
     cosmology.ns = 0.96;      // old default
     cosmology.TCMB = 2.725;
     //haveInitialisedRandomComponent = false;
@@ -189,6 +196,8 @@ public:
     pParticleGenerator.push_back(_pParticleGenerator);
     flaggedParticlesHaveDifferentGadgetType = false;
     flaggedGadgetParticleType = 1;
+
+    //Default values for centre (could cause issues if someone called center_grafic_output without specifying a centre)
 
   }
 
@@ -250,6 +259,10 @@ public:
     }
     else
     {
+        if(this->spectrum.dataRead)
+        {
+            throw(std::runtime_error("Cannot switch on baryons after transfer function data already read."));
+        }
         this->nFields = 2;
         std::cerr<< "Baryon field enabled." << std::endl;
         //Create a field for the baryons, with transfer type 1:
@@ -281,6 +294,12 @@ public:
   //! Sets the sigma8 parameter.
   void setSigma8(T in) {
     cosmology.sigma8 = in;
+  }
+
+  //! Set the normalisation of the cell softening scale. Defaults to 0.01075
+  void setEpsNorm(T in)
+  {
+    this->epsNorm = in;
   }
 
   //! Add a higher resolution grid to the stack by supersampling the finest grid.
@@ -320,6 +339,11 @@ public:
   }
 
   void setCenteringOnRegion(){
+  /*
+    if(!this->haveCentred)
+    {
+        throw(std::runtime_error("Cannot use center_grafic_output option without first specifying a centre."));
+    }*/
     this->centerOnTargetRegion = true;
     updateParticleMapper();
   }
@@ -340,7 +364,6 @@ public:
       throw std::runtime_error("Cannot re-initialize the base grid");
 
 
-    std::cerr << "haveInitialisedRandomComponent.size() = " << haveInitialisedRandomComponent.size() << std::endl;
     for(size_t i = 0;i < haveInitialisedRandomComponent.size();i++)
     {
         if(haveInitialisedRandomComponent[i])
@@ -349,16 +372,8 @@ public:
         }
     }
 
-    std::cerr << "Checks complete." << std::endl;
-
-    std::cerr << "spectrum.nTransfers = " << spectrum.nTransfers << std::endl;
-    std::cerr << "boxSize = " << boxSize << std::endl;
-    std::cerr << "n = " << n << std::endl;
-
     addLevelToContext(spectrum, boxSize, n);
-    std::cerr << "addLevelToContext complete." << std::endl;
     updateParticleMapper();
-    std::cerr << "updateParticleMapper complete." << std::endl;
 
   }
 
@@ -698,6 +713,13 @@ public:
     cerr << "*** Warning: your script calls zeroLevel(" << level << "). This is intended for testing purposes only!"
          << endl;
 
+    if(level > outputField[nField].get().getNumLevels() - 1)
+    {
+        throw(std::runtime_error("Specified level does not exist."));
+    }
+
+
+
     if (!haveInitialisedRandomComponent[nField])
       initialiseRandomComponent(nField);
 
@@ -727,6 +749,11 @@ public:
       initialiseRandomComponent(nField);
 
     cerr << "Importing random field on level " << level << " from " <<filename << endl;
+    if(level > outputField[nField].get().getNumLevels() - 1)
+    {
+        throw(std::runtime_error("Specified level does not exist."));
+    }
+
 
     auto & levelField = outputField[nField].get().getFieldForLevel(level);
     levelField.loadGridData(filename);
@@ -770,7 +797,7 @@ public:
   * \param TField - field to dump.
   */
   template<typename TField>
-  void dumpGridData(size_t level, const TField &data) {
+  void dumpGridData(size_t level, const TField &data,size_t nField) {
 
 
   //Unsure if this is necessary. May have to do this only for a single field,
@@ -784,13 +811,50 @@ public:
     auto levelGrid = data.getGrid();
 
     ostringstream filename;
-    filename << outputFolder << "/grid-" << level << ".npy";
+    if(nField == 0)
+    {
+        filename << outputFolder << "/grid-" << level;
+        if(data.isFourier())
+        {
+            filename << "-fourier";
+        }
+        filename << ".npy";
+    }
+    else
+    {
+        filename << outputFolder << "/grid-" << level << "-field-" << nField;;
+        if(data.isFourier())
+        {
+            filename << "-fourier";
+        }
+        filename << ".npy";
+    }
+
 
     data.dumpGridData(filename.str());
 
     filename.str("");
 
     filename << outputFolder << "/grid-info-" << level << ".txt";
+    if(nField == 0)
+    {
+        filename << outputFolder << "/grid-info-" << level;
+        if(data.isFourier())
+        {
+            filename << "-fourier";
+        }
+        filename << ".txt";
+    }
+    else
+    {
+        filename << outputFolder << "/grid-info-" << level << "-field-" << nField;
+        if(data.isFourier())
+        {
+            filename << "-fourier";
+        }
+        filename << ".txt";
+    }
+
 
     ofstream ifile;
     ifile.open(filename.str());
@@ -802,6 +866,14 @@ public:
     ifile << "It gives the x-offset, y-offset and z-offset of the low-left corner and also the box length" << endl;
     ifile.close();
   }
+
+  //Overload that does this for the dark matter (for backwards compatibility):
+  template<typename TField>
+  void dumpGridData(size_t level, const TField& data)
+  {
+    this->dumpGridData(level,data,0);
+  }
+
 
   //! Dumps field in a tipsy format
   /*!
@@ -834,12 +906,11 @@ public:
         throw(std::runtime_error("Attempted to apply operations to field that has not been setup. Use baryon_tf_on to enable baryons."));
     }
 
-    //May need to modify this to work better with multiple fields - do we want them in the same or different fields?
     if(level < 0 || level > this->multiLevelContext.getNumLevels() -1){
       throw std::runtime_error("Trying to dump an undefined level");
     }
     outputField[nField].get().toReal();
-    dumpGridData(level, outputField[nField].get().getFieldForLevel(level));
+    dumpGridData(level, outputField[nField].get().getFieldForLevel(level),nField);
     outputField[nField].get().toFourier();
   }
 
@@ -848,16 +919,24 @@ public:
     this->dumpGrid(level,0);
   }
 
+  //!For backwards compatibility. Dumpts baryons to field at requested level to file named grid-level.
+  virtual void dumpGridFourier(size_t level = 0) {
+    this->dumpGridFourier(level,0);
+  }
+
   // TODO Is this used at all ? Should be linked to a command in main if we want to keep it.
   virtual void dumpGridFourier(size_t level = 0,size_t nField = 0) {
     if(nField > outputField.size() - 1)
     {
         throw(std::runtime_error("Attempted to apply operations to field that has not been setup. Use baryon_tf_on to enable baryons."));
     }
+    if(level < 0 || level > this->multiLevelContext.getNumLevels() -1){
+      throw std::runtime_error("Trying to dump an undefined level");
+    }
 
     fields::Field<complex<T>, T> fieldToWrite = tools::numerics::fourier::getComplexFourierField(
         outputField[nField].get().getFieldForLevel(level));
-    dumpGridData(level, fieldToWrite);
+    dumpGridData(level, fieldToWrite,nField);
   }
 
   //! Dumps power spectrum generated from the field and the theory at a given level in a .ps file
@@ -869,6 +948,10 @@ public:
     if(nField > outputField.size() - 1)
     {
         throw(std::runtime_error("Attempted to apply operations to field that has not been setup. Use baryon_tf_on to enable baryons."));
+    }
+    if(level > outputField[nField].get().getNumLevels() - 1)
+    {
+        throw(std::runtime_error("Specified level does not exist."));
     }
 
     auto &field = outputField[nField].get().getFieldForLevel(level);
@@ -936,7 +1019,7 @@ public:
     using GridLevelGeneratorType = particle::ZeldovichParticleGenerator<GridDataType>;
 
     pParticleGenerator[nField] = std::make_shared<
-        particle::MultiLevelParticleGenerator<GridDataType, GridLevelGeneratorType>>(outputField[nField], cosmology);
+        particle::MultiLevelParticleGenerator<GridDataType, GridLevelGeneratorType>>(outputField[nField], cosmology, epsNorm);
 
   }
 
@@ -1000,6 +1083,7 @@ public:
     if (outputFormat == io::OutputFormat::grafic) {
       // Grafic format just writes out the grids in turn. Grafic mapper only center when writing grids.
       // All internal calculations are done with center kept constant at boxsize/2.
+      std::cerr << "(x0,y0,z0) = (" << x0 << "," << y0 << "," << z0 << ")." << std::endl;
       pMapper = std::make_shared<particle::mapper::GraficMapper<GridDataType>>(multiLevelContext, Coordinate<T>(x0,y0,z0),
                                                                                subsample, supersample);
       return;
@@ -1046,8 +1130,18 @@ public:
 
       // Add gas only to the deepest level. Pass the whole pGrid
       // vector if you want to add gas to every level.
-      auto gasMapper = pMapper->addGas(cosmology.OmegaBaryons0 / cosmology.OmegaM0,
-                                       {multiLevelContext.getGridForLevel(nLevels - 1).shared_from_this()});
+      //STEPHEN - this is obvious wrong if we want to include baryons.
+      /*auto gasMapper = pMapper->addGas(cosmology.OmegaBaryons0 / cosmology.OmegaM0,
+                                       {multiLevelContext.getGridForLevel(nLevels - 1).shared_from_this()});*/
+      //Need this for compatibility with old tests:
+      auto gasMapper = pMapper->addGas(cosmology.OmegaBaryons0 / (cosmology.OmegaM0),
+                                       multiLevelContext.getGrid());
+      //But should probably replace with the following:
+      /*
+      auto gasMapper = pMapper->addGas(cosmology.OmegaBaryons0 / (cosmology.OmegaM0 + cosmology.OmegaBaryons0),
+                                       multiLevelContext.getGrid());
+      */
+
 
       bool gasFirst = outputFormat == io::OutputFormat::tipsy;
 
@@ -1240,6 +1334,7 @@ public:
   //! Defines the currently interesting coordinates using a particle ID
   void centreParticle(long id) {
     std::tie(x0, y0, z0) = multiLevelContext.getGridForLevel(0).getCentroidFromIndex(id);
+    this->haveCentred = true;
   }
 
   //! Flag the nearest cell to the coordinates currently pointed at
@@ -1263,11 +1358,11 @@ public:
     // unflag all grids first. This can't be in the loop below in case there are subtle
     // relationships between grids (in particular the ResolutionMatchingGrid which actually
     // points to two levels simultaneously).
-    for_each_level(level) {
+    for(size_t level=0; level<multiLevelContext.getNumLevels(); ++level) {
       getOutputGrid(level)->unflagAllCells();
     }
 
-    for_each_level(level) {
+    for(size_t level=0; level<multiLevelContext.getNumLevels(); ++level) {
       std::vector<size_t> particleArray;
       auto grid = getOutputGrid(level);
       size_t N = grid->size3;
@@ -1314,7 +1409,7 @@ public:
       throw std::runtime_error("No grid has yet been initialised");
     }
     std::cerr << "Expand flagged region by "<<nCells<< " cells" << std::endl;
-    for_each_level(level) {
+    for(size_t level=0; level<multiLevelContext.getNumLevels(); ++level) {
       grids::Grid<T> &thisGrid = multiLevelContext.getGridForLevel(level);
       size_t initial_length = thisGrid.numFlaggedCells();
       thisGrid.expandFlaggedRegion(nCells);
@@ -1364,6 +1459,7 @@ public:
     x0 = xin;
     y0 = yin;
     z0 = zin;
+    this->haveCentred = true;
   }
 
   //! Returns the coordinate of the centre of the lowest resolution grid
@@ -1501,16 +1597,24 @@ public:
         throw(std::runtime_error("Attempted to apply operations to field that has not been setup. Use baryon_tf_on to enable baryons."));
     }
 
+    std::cerr << "modificationManager.size() = " << modificationManager.size() << std::endl;
     if(nField == 0)
     {
+        std::cerr << "Modify DM field:" << std::endl;
         modificationManager[nField].applyModifications();
+        for(size_t i = 1;i < outputField.size();i++)
+        {
+            modificationManager[nField].propagateModifications(outputField[i]);
+        }
     }
+    /*
     else
     {
         //Other fields should just have their modifications propagated from the dark matter
         //modification - modifications across multiple fields are not yet implemented:
+        std::cerr << "Modify field " << nField << ":" << std::endl;
         modificationManager[nField].propagateModifications(outputField[0]);
-    }
+    }*/
   }
 
   //! Apply the modifications, calculate the corresponding delta chi^2 and recombine low and high-ks between grids to write a particle output
@@ -1547,6 +1651,8 @@ public:
     if (!haveInitialisedRandomComponent[nField])
       initialiseRandomComponent(nField);
 
+    //Currently modifications are only set for dark matter, but need to propagate them, so only apply
+    //modifications if the dark matter was modified:
     if(modificationManager[nField].hasModifications())
       applyModifications(nField);
 
@@ -1561,13 +1667,15 @@ public:
         throw(std::runtime_error("Attempted to apply operations to field that has not been setup. Use baryon_tf_on to enable baryons."));
     }
 
-    for_each_level(level) {
+    outputField[nField].get().reverse();
+    /*
+    for(size_t level=0; level<multiLevelContext.getNumLevels(); ++level) {
       auto &field = outputField[nField].get().getFieldForLevel(level);
       size_t N = field.getGrid().size3;
       auto &field_data = field.getDataVector();
       for (size_t i = 0; i < N; i++)
         field_data[i] = -field_data[i];
-    }
+    }*/
   }
 
   //!For backwards compatibility
@@ -1589,7 +1697,7 @@ public:
 
     // take a copy of all the fields
     std::vector<FieldType> fieldCopies;
-    for_each_level(level) {
+    for(size_t level=0; level<multiLevelContext.getNumLevels(); ++level) {
       auto &field = outputField[nField].get().getFieldForLevel(level);
       field.toFourier();
       fieldCopies.emplace_back(field);
@@ -1600,7 +1708,7 @@ public:
     initialiseRandomComponent(nField);
 
     // copy back the old field
-    for_each_level(level) {
+    for(size_t level=0; level<multiLevelContext.getNumLevels(); ++level) {
       FieldType &oldField = fieldCopies[level];
       auto &field = outputField[nField].get().getFieldForLevel(level);
       int k2max_i = tools::getRatioAndAssertInteger(k2max, field.getGrid().getFourierKmin());
@@ -1630,7 +1738,7 @@ public:
 
     T k2max = kmax * kmax;
 
-    for_each_level(level) {
+    for(size_t level=0; level<multiLevelContext.getNumLevels(); ++level) {
       auto &field = outputField[nField].get().getFieldForLevel(level);
       field.toFourier();
 

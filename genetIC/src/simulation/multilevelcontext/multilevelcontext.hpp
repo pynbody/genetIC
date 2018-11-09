@@ -54,18 +54,6 @@ namespace multilevelcontext {
     size_t nLevels;
     T simSize;
 
-    //TODO Never used, should delete ?
-//    void mapIdToLevelId(size_t i, size_t &level, size_t &level_id) {
-//      level = 0;
-//      while (level < nLevels && i >= Ns[level]) {
-//        i -= Ns[level];
-//        level++;
-//      }
-//      if (i >= Ns[level])
-//        throw std::runtime_error("ID out of range when mapping into underlying fields in mapIdToLevelId");
-//      level_id = i;
-//    }
-
     MultiLevelContextInformationBase(size_t N) {
       nLevels = 1;
       Ns.push_back(N);
@@ -157,14 +145,17 @@ namespace multilevelcontext {
       return *pGrid[level];
     }
 
+    //!\brief Return a reference to the grid vector. Needed to add gas to all levels, for example.
+    std::vector<std::shared_ptr<grids::Grid<T>>>& getGrid()
+    {
+        return pGrid;
+    }
+
     T getWeightForLevel(size_t level) {
       return weights[level];
     }
 
     //Main function used by the code to retrieve the power spectrum.
-    //TODO - make this safe against going out of bounds by making sure
-    //multiLevelContext always stores a CAMB object so that it can check whether
-    //the baryon transfer function is being used or not.
     //TODO - find a better way than this cascade of ifs...
     const fields::Field<DataType> &getCovariance(size_t level,size_t nTransfer = 0) const {
       if (C0s.size() > level)
@@ -418,6 +409,7 @@ namespace multilevelcontext {
   };
 
   //TODO Is this class used at all ? It looks an unused specialization of base class
+  /*
   template<typename T>
   class MultiLevelContextInformation<std::complex<T>, T>
       : public MultiLevelContextInformationBase<std::complex<T>, T> {
@@ -430,7 +422,7 @@ namespace multilevelcontext {
   public:
 
 
-  };
+  };*/
 };
 
 #endif

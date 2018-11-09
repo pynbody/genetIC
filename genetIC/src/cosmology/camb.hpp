@@ -49,11 +49,13 @@ namespace cosmology {
     const size_t nTransfers = 2;
     //Flags whether we want to only use the DM transfer function (true, default option) or to include baryons/others (false);
     bool dmOnly;
+    bool dataRead;
 
     //Constructor:
     CAMB(bool useOnlyDM = true)
     {
         this->dmOnly = useOnlyDM;
+        this->dataRead = false;
         //Initialise the interpolators and transfer functions vectors to be the
         //appropriate size, containing default constructed objects.
         if(useOnlyDM)
@@ -136,6 +138,7 @@ namespace cosmology {
       cerr << "k=" << obj.generateKArray() << endl;
       cerr << "Pk=" << obj.generatePkArray(*this) << endl;
       */
+      this->dataRead = true;
 
     }
 
