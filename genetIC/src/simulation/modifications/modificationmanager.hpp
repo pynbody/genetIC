@@ -138,7 +138,13 @@ namespace modifications {
         return make_shared<AngMomentumModification<DataType, T>>(underlying, cosmology, 1);
       } else if ((strcasecmp(name_.c_str(), "lz") == 0)) {
         return make_shared<AngMomentumModification<DataType, T>>(underlying, cosmology, 2);
-      } else {
+      } else if ((strcasecmp(name_.c_str(), "vx") == 0)) {
+        return make_shared<VelocityModification<DataType, T>>(underlying, cosmology, 0);
+      } else if ((strcasecmp(name_.c_str(), "vy") == 0)) {
+        return make_shared<VelocityModification<DataType, T>>(underlying, cosmology, 1);
+      } else if ((strcasecmp(name_.c_str(), "vz") == 0)) {
+        return make_shared<VelocityModification<DataType, T>>(underlying, cosmology, 2);
+      }else {
         throw UnknownModificationException(name_ + " " + "is an unknown modification name");
       }
     }

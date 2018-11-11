@@ -1,7 +1,13 @@
 #ifndef IC_LINEARMODIFICATION_HPP
 #define IC_LINEARMODIFICATION_HPP
 
+#include <cstddef>
+#include <vector>
+#include <tuple>
+#include <src/simulation/grid/grid.hpp>
 #include <src/simulation/modifications/modification.hpp>
+#include <src/simulation/multilevelcontext/multilevelcontext.hpp>
+#include <src/simulation/field/field.hpp>
 
 namespace modifications {
 
@@ -58,9 +64,6 @@ namespace modifications {
     }
 
 
-    /*!
-     * Mostly useful for angular momentum modifications. Has not been tested for two years.
-     */
     void
     centralDifference4thOrder(grids::Grid<T> &grid, std::vector<DataType> &outputData, size_t index, int direc, T x0,
                               T y0, T z0) {
@@ -101,12 +104,6 @@ namespace modifications {
         int neg_step1[3] = {0, 0, 0};
         step1[di] = 1;
         neg_step1[di] = -1;
-
-        // N.B. can't wrap - might be on subgrid -> we do it anyway! this will likely break with zoom-in
-        //ind_m1=grid.findNextIndNoWrap(index, neg_step1);
-        //ind_p1=grid.findNextIndNoWrap(index, step1);
-        //ind_m2=grid.findNextIndNoWrap(ind_m1, neg_step1);
-        //ind_p2=grid.findNextIndNoWrap(ind_p1, step1);
 
         ind_m1 = grid.getIndexFromIndexAndStep(index, neg_step1);
         ind_p1 = grid.getIndexFromIndexAndStep(index, step1);
@@ -183,6 +180,40 @@ namespace modifications {
       }
 
       densityToPotential(outputField, this->cosmology);
+      return outputField;
+
+    }
+  };
+
+  template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
+  class VelocityModification : public PotentialModification<DataType, T> {
+  protected:
+    int direction;
+  public:
+    VelocityModification(multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
+                          const cosmology::CosmologicalParameters<T> &cosmology_, int direction_) :
+                          PotentialModification<DataType, T>(underlying_, cosmology_), direction(direction_) {};
+
+    fields::Field<DataType, T> calculateCovectorOnOneLevel(grids::Grid<T> &grid) override {
+      fields::Field<DataType, T> outputField = PotentialModification<DataType, T>::calculateCovectorOnOneLevel(grid);
+      outputField.toFourier(); // probably already in Fourier space, but best to be sure
+      std::complex<T> I(0,1);
+
+      if(direction==0)
+        outputField.forEachFourierCell([I](std::complex<T> current_value, T kx, T ky, T kz) {
+          return current_value * I * kx;
+        });
+      else if(direction==1)
+        outputField.forEachFourierCell([I](std::complex<T> current_value, T kx, T ky, T kz) {
+          return current_value * I * ky;
+        });
+      else if(direction==2)
+        outputField.forEachFourierCell([I](std::complex<T> current_value, T kx, T ky, T kz) {
+          return current_value * I * kz;
+        });
+      else {
+        throw std::runtime_error("Unknown direction passed to velocity modification");
+      }
       return outputField;
 
     }
