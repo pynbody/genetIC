@@ -25,11 +25,13 @@ namespace modifications {
     };
 
     T calculateCurrentValue(const fields::MultiLevelField<DataType> &field) override {
-      T val = this->covector->innerProduct(field).real();
+      T val = this->getCovector()->innerProduct(field).real();
       return val;
     }
 
     std::shared_ptr<fields::ConstraintField<DataType>> getCovector() {
+      if(this->covector==nullptr)
+        this->covector = this->calculateCovectorOnAllLevels();
       return this->covector;
     }
 
@@ -129,8 +131,7 @@ namespace modifications {
     OverdensityModification(multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
                             const cosmology::CosmologicalParameters<T> &cosmology_) :
         LinearModification<DataType, T>(underlying_, cosmology_) {
-      this->covector = this->calculateCovectorOnAllLevels();
-      this->covector->toFourier();
+
     };
 
     fields::Field<DataType, T> calculateCovectorOnOneLevel(grids::Grid<T> &grid) override {
@@ -161,8 +162,7 @@ namespace modifications {
     PotentialModification(multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
                           const cosmology::CosmologicalParameters<T> &cosmology_) : LinearModification<DataType, T>(
         underlying_, cosmology_) {
-      this->covector = this->calculateCovectorOnAllLevels();
-      this->covector->toFourier();
+
     };
 
     fields::Field<DataType, T> calculateCovectorOnOneLevel(grids::Grid<T> &grid) override {
@@ -186,30 +186,39 @@ namespace modifications {
   };
 
   template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
-  class VelocityModification : public PotentialModification<DataType, T> {
+  class VelocityModification : public OverdensityModification<DataType, T> {
   protected:
     int direction;
   public:
     VelocityModification(multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
                           const cosmology::CosmologicalParameters<T> &cosmology_, int direction_) :
-                          PotentialModification<DataType, T>(underlying_, cosmology_), direction(direction_) {};
+                          OverdensityModification<DataType, T>(underlying_, cosmology_), direction(direction_) {};
 
     fields::Field<DataType, T> calculateCovectorOnOneLevel(grids::Grid<T> &grid) override {
-      fields::Field<DataType, T> outputField = PotentialModification<DataType, T>::calculateCovectorOnOneLevel(grid);
+      fields::Field<DataType, T> outputField = OverdensityModification<DataType, T>::calculateCovectorOnOneLevel(grid);
       outputField.toFourier(); // probably already in Fourier space, but best to be sure
       std::complex<T> I(0,1);
 
+      auto kinv = [](T kx, T ky, T kz) -> T {
+          T k = std::sqrt(kx*kx+ky*ky+kz*kz);
+          if(k==0)
+            return 0;
+          else
+            return 1./k;
+      };
+
       if(direction==0)
-        outputField.forEachFourierCell([I](std::complex<T> current_value, T kx, T ky, T kz) {
-          return current_value * I * kx;
+        outputField.forEachFourierCell([I, kinv](std::complex<T> current_value, T kx, T ky, T kz) {
+
+          return current_value * I * kx*kinv(kx,ky,kz);
         });
       else if(direction==1)
-        outputField.forEachFourierCell([I](std::complex<T> current_value, T kx, T ky, T kz) {
-          return current_value * I * ky;
+        outputField.forEachFourierCell([I, kinv](std::complex<T> current_value, T kx, T ky, T kz) {
+          return current_value * I * ky*kinv(kx,ky,kz);
         });
       else if(direction==2)
-        outputField.forEachFourierCell([I](std::complex<T> current_value, T kx, T ky, T kz) {
-          return current_value * I * kz;
+        outputField.forEachFourierCell([I, kinv](std::complex<T> current_value, T kx, T ky, T kz) {
+          return current_value * I * kz*kinv(kx,ky,kz);
         });
       else {
         throw std::runtime_error("Unknown direction passed to velocity modification");
@@ -235,8 +244,7 @@ namespace modifications {
         throw std::runtime_error("Angular momentum direction must be 0 (x), 1 (y) or 2 (z)");
 
       direction = direction_;
-      this->covector = this->calculateCovectorOnAllLevels();
-      this->covector->toFourier();
+
     };
 
     fields::Field<DataType, T> calculateCovectorOnOneLevel(grids::Grid<T> &grid) override {
