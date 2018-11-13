@@ -24,7 +24,7 @@ namespace cosmology {
                                                        (1. + 0.5 * Om / powf(a, 3.0) / Hsq) *
                                                        (1. + 1. / 70. * Ol / Hsq));
     // TODO: check accuracy and/or simplify this expression
-    //UPDATE - valid, but looks to be ignoring Omegabaryons0 (and Omega_rad, but we can live with that).
+    //UPDATE - valid
 
     return d;
   }

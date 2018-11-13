@@ -29,8 +29,12 @@ centre 32.5 32.5 32.5
 select_sphere 9.0
 zoomgrid 3 64
 
-#centre 32.5 32.5 32.5
-#select_sphere 2.5
-#zoomgrid 3 64
 
 done
+
+#Output power spectrum for comparison
+dump_ps_field 0 0
+dump_ps_field 0 1
+dump_ps_field 1 0
+dump_ps_field 1 1
+

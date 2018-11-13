@@ -114,6 +114,9 @@ protected:
   bool centerOnTargetRegion = false ;
   bool haveCentred = false;
 
+  //!If true, then the code will generate baryons on all levels, rather than just the deepest level.
+  bool baryonsOnAllLevels;
+
 
   std::vector<size_t> flaggedParticles;
   std::vector<std::vector<size_t>> zoomParticleArray;
@@ -196,6 +199,7 @@ public:
     pParticleGenerator.push_back(_pParticleGenerator);
     flaggedParticlesHaveDifferentGadgetType = false;
     flaggedGadgetParticleType = 1;
+    this->baryonsOnAllLevels = false;
 
     //Default values for centre (could cause issues if someone called center_grafic_output without specifying a centre)
 
@@ -211,7 +215,7 @@ public:
     }
   }
 
-  //!\brief Sets the dark matter density fraction to in.
+  //!\brief Sets the matter density fraction to in.
   void setOmegaM0(T in) {
     cosmology.OmegaM0 = in;
   }
@@ -288,6 +292,12 @@ public:
         pParticleGenerator.push_back(_pParticleGenerator);
         this->spectrum.enableAllTransfers();
     }
+  }
+
+  //! Enables outputting baryons on all levels, rather than only the deepest level.
+  void setBaryonsOnAllLevels()
+  {
+    this->baryonsOnAllLevels = true;
   }
 
 
@@ -647,6 +657,7 @@ public:
     {
         throw(std::runtime_error("Attempted to apply operations to field that has not been setup. Use baryon_tf_on to enable baryons."));
     }
+    std::cerr << "*** Warning: seed_field_fourier_reverse and seedfourier_reverse are deprecated commands and should be avoided.***" << std::endl;
     randomFieldGenerator[nField].seed(seed);
     randomFieldGenerator[nField].setDrawInFourierSpace(true);
     randomFieldGenerator[nField].setReverseRandomDrawOrder(true);
@@ -1130,17 +1141,23 @@ public:
 
       // Add gas only to the deepest level. Pass the whole pGrid
       // vector if you want to add gas to every level.
-      //STEPHEN - this is obvious wrong if we want to include baryons.
-      /*auto gasMapper = pMapper->addGas(cosmology.OmegaBaryons0 / cosmology.OmegaM0,
-                                       {multiLevelContext.getGridForLevel(nLevels - 1).shared_from_this()});*/
-      //Need this for compatibility with old tests:
-      auto gasMapper = pMapper->addGas(cosmology.OmegaBaryons0 / (cosmology.OmegaM0),
+
+      typedef std::pair<std::shared_ptr<particle::mapper::ParticleMapper<GridDataType>>,
+                        std::shared_ptr<particle::mapper::ParticleMapper<GridDataType>>> gasMapperType;
+
+      gasMapperType gasMapper;
+      if(this->baryonsOnAllLevels)
+      {
+        //If we want to output baryons on all levels:
+        gasMapper = pMapper->addGas(cosmology.OmegaBaryons0 / (cosmology.OmegaM0),
                                        multiLevelContext.getGrid());
-      //But should probably replace with the following:
-      /*
-      auto gasMapper = pMapper->addGas(cosmology.OmegaBaryons0 / (cosmology.OmegaM0 + cosmology.OmegaBaryons0),
-                                       multiLevelContext.getGrid());
-      */
+      }
+      else
+      {
+        //Default
+        gasMapper = pMapper->addGas(cosmology.OmegaBaryons0 / cosmology.OmegaM0,
+                                       {multiLevelContext.getGridForLevel(nLevels - 1).shared_from_this()});
+      }
 
 
       bool gasFirst = outputFormat == io::OutputFormat::tipsy;

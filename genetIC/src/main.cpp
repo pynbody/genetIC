@@ -152,6 +152,7 @@ void setup_parser(tools::ClassDispatch<ICf, void> &dispatch) {
 
   //Extra commands related to the transfer functions:
   dispatch.add_class_route("baryon_tf_on",&ICf::setUsingBaryons);
+  dispatch.add_class_route("baryons_all_levels",&ICf::setBaryonsOnAllLevels);
 
   // To debug
   //dispatch.add_class_route("zeroLevel", &ICf::zeroLevel);

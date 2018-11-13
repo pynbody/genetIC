@@ -49,7 +49,6 @@ namespace particle {
       T Ol = cosmology.OmegaLambda0;
       //According to Carrol and Press (1992) should use:
       //f = powf(( Om/(a*a*a) )/( Om/(a*a*a) + (1.0 - Om - Ol)/(a*a) + Ol ),4.0/7.0);
-      //But this would only really work for dark matter, not baryons.
 
       velocityToOffsetRatio = f * 100. * sqrt( ( Om / (a*a*a) ) +
           // + (1.0 - cosmology.OmegaM0 - cosmology.OmegaLambda0)/(a*a) //We use the curvature term elsewhere, so why not here?
@@ -69,8 +68,6 @@ namespace particle {
       //Msol is the mass of the sun ('solar mass'). Needed because volumes are expected in units of Mpc/h
       //But - shouldn't this total mass actually include the mass of baryons?
       boxMass = 27.744948 * cosmology.OmegaM0 * powf(onGrid->periodicDomainSize, 3.0);
-      //We should probably replace this with:
-      //boxMass = 27.744948 * (cosmology.OmegaM0 + cosmology.OmegaBaryons0) * powf(onGrid->periodicDomainSize, 3.0);
     }
 
   public:
