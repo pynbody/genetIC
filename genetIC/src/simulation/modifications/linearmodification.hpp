@@ -198,6 +198,7 @@ namespace modifications {
       fields::Field<DataType, T> outputField = OverdensityModification<DataType, T>::calculateCovectorOnOneLevel(grid);
       outputField.toFourier(); // probably already in Fourier space, but best to be sure
       std::complex<T> I(0,1);
+      T scale = cosmology::zeldovichVelocityToOffsetRatio(this->cosmology);
 
       auto kinv = [](T kx, T ky, T kz) -> T {
           T k = std::sqrt(kx*kx+ky*ky+kz*kz);
@@ -208,17 +209,17 @@ namespace modifications {
       };
 
       if(direction==0)
-        outputField.forEachFourierCell([I, kinv](std::complex<T> current_value, T kx, T ky, T kz) {
+        outputField.forEachFourierCell([I, kinv, scale](std::complex<T> current_value, T kx, T ky, T kz) {
 
-          return current_value * I * kx*kinv(kx,ky,kz);
+          return scale * current_value * I * kx*kinv(kx,ky,kz);
         });
       else if(direction==1)
-        outputField.forEachFourierCell([I, kinv](std::complex<T> current_value, T kx, T ky, T kz) {
-          return current_value * I * ky*kinv(kx,ky,kz);
+        outputField.forEachFourierCell([I, kinv, scale](std::complex<T> current_value, T kx, T ky, T kz) {
+          return scale * current_value * I * ky*kinv(kx,ky,kz);
         });
       else if(direction==2)
-        outputField.forEachFourierCell([I, kinv](std::complex<T> current_value, T kx, T ky, T kz) {
-          return current_value * I * kz*kinv(kx,ky,kz);
+        outputField.forEachFourierCell([I, kinv, scale](std::complex<T> current_value, T kx, T ky, T kz) {
+          return scale * current_value * I * kz*kinv(kx,ky,kz);
         });
       else {
         throw std::runtime_error("Unknown direction passed to velocity modification");

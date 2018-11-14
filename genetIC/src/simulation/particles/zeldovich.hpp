@@ -42,13 +42,7 @@ namespace particle {
 
     void calculateVelocityToOffsetRatio() {
 
-      velocityToOffsetRatio = 1. * 100. * sqrt(
-          cosmology.OmegaM0 / cosmology.scalefactor / cosmology.scalefactor / cosmology.scalefactor +
-          cosmology.OmegaLambda0) * sqrt(
-          cosmology.scalefactor);
-
-      //this should be f*H(t)*a, but gadget wants vel/sqrt(a), so we use H(t)*sqrt(a)
-      //TODO: hardcoded value of f=1 is inaccurate - should be a function of omega
+      velocityToOffsetRatio = cosmology::zeldovichVelocityToOffsetRatio(cosmology);
 
     }
 
