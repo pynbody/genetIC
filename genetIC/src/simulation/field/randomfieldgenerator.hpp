@@ -21,8 +21,10 @@ namespace fields {
     bool drawInFourierSpace;
     bool reverseRandomDrawOrder;
     bool seeded;
+    bool parallel;
+    unsigned long baseSeed;
     MultiLevelField <DataType> &field;
-    unsigned long currentSeed;
+    //unsigned long currentSeed;//CONFLICT_RESOLUTION: Same function as baseSeed - remove to fix conflict.
 
 
   public:
@@ -31,9 +33,11 @@ namespace fields {
       randomNumberGeneratorType = gsl_rng_ranlxs2; // shouldn't this be gsl_rng_ranlxd2 for FloatType = double? -> it's single precision for compatibility with previous versions!
       randomState = gsl_rng_alloc(randomNumberGeneratorType); //this allocates memory for the generator with type T
       gsl_rng_set(randomState, seed);
-      currentSeed = seed;
+      //currentSeed = seed;//CONFLICT_RESOLUTION
+      this->baseSeed = seed;//CONFLICT_RESOLUTION
       drawInFourierSpace = false;
       seeded = false;
+      parallel = false;
     }
 
     //Need a copy constructor if we are to successfully use this inside a vector:
@@ -41,7 +45,9 @@ namespace fields {
     {
         //Copy accross old variables:
         seeded = copy.seeded;
-        currentSeed = copy.currentSeed;
+        //currentSeed = copy.currentSeed;//CONFLICT_RESOLUTION
+        baseSeed = copy.baseSeed;//CONFLICT_RESOLUTION
+        parallel = copy.parallel;//CONFLICT_RESOLUTION
         randomNumberGeneratorType = copy.randomNumberGeneratorType;
         drawInFourierSpace = copy.drawInFourierSpace;
         reverseRandomDrawOrder = copy.reverseRandomDrawOrder;
@@ -49,7 +55,9 @@ namespace fields {
         //Construct our copy's own generator (resizing a vector of randomFieldGenerators will
         //delete the object randomState points to otherwise, so each copy needs its own instance!):
         randomState = gsl_rng_alloc(randomNumberGeneratorType);
-        gsl_rng_set(randomState,copy.currentSeed);
+        //gsl_rng_set(randomState,copy.currentSeed);//CONFLICT_RESOLUTION
+        gsl_rng_set(randomState,copy.baseSeed);//CONFLICT_RESOLUTION
+
     }
 
     virtual ~RandomFieldGenerator() {
@@ -64,6 +72,10 @@ namespace fields {
       drawInFourierSpace = value;
     }
 
+    void setParallel(bool value) {
+      parallel = value;
+    }
+
     void setReverseRandomDrawOrder(bool value) {
       reverseRandomDrawOrder = value;
     }
@@ -76,9 +88,16 @@ namespace fields {
       else
       {
         gsl_rng_set(randomState, seed);
+/*<<<<<<< HEAD //Original conflict:
         currentSeed = seed;
       }
+=======
+      this->baseSeed = seed;
+>>>>>>> a8da23afe6907009e76ea1768aef96485bf41140*/
+//Proposed resolution://CONFLICT_RESOLUTION
+      this->baseSeed = seed;
       seeded = true;
+      }
     }
 
     void draw() {
@@ -106,14 +125,13 @@ namespace fields {
 
   protected:
 
-
     void drawOneFourierMode(Field <DataType> &field, int k1, int k2, int k3,
-                            FloatType norm) {
+                            FloatType norm, gsl_rng *localRandomState) {
 
       // these need to be initialized in explicit order - can't leave it to compilers
       // to choose as they choose differently...
-      FloatType a = norm * gsl_ran_gaussian_ziggurat(randomState, 1.);
-      FloatType b = norm * gsl_ran_gaussian_ziggurat(randomState, 1.);
+      FloatType a = norm * gsl_ran_gaussian_ziggurat(localRandomState, 1.);
+      FloatType b = norm * gsl_ran_gaussian_ziggurat(localRandomState, 1.);
 
       if (reverseRandomDrawOrder)
         field.setFourierCoefficient(k1, k2, k3, tools::datatypes::ensure_complex<DataType>(b, a));
@@ -175,21 +193,48 @@ namespace fields {
       tools::progress::ProgressBar pb("");
 
       std::cerr << "Drawing random numbers in fourier space..." << std::endl;
-      int ks, k1, k2;
 
       FloatType  sigma = 1.0 / sqrt(2.0);
 
-      // N.B. DO NOT PARALLELIZE this loop - want things to be done in a reliable order
-      // Do it in square k-shells, in order of increasing |k|, so that
-      // resolution can be scaled by factors of 2 and we still get
-      // the 'same' field
-      for (ks = 0; ks < int(g.size / 2); ks++) {
-        pb.setProgress(float(ks * ks) * (ks * 8) / g.size3);
-        for (k1 = -ks; k1 < ks; k1++) {
-          for (k2 = -ks; k2 < ks; k2++) {
-            drawOneFourierMode(field, ks, k1, k2, sigma);
-            drawOneFourierMode(field, k1, ks, k2, sigma);
-            drawOneFourierMode(field, k1, k2, ks, sigma);
+
+
+      // Both approaches to making the random field below do it in square k-shells, in order of increasing |k|, so that
+      // resolution can be scaled and we still get the 'same' field.
+      //
+      // The original, serial approach uses a single seed. The new parallel approach uses a seed for each shell in
+      // k space. Note that one therefore gets different fields when running in parallel vs in serial.
+
+      if(parallel) {
+        // N.B. Parallel implementation produces results that are incompatible with the original serial
+        // implementation
+
+#pragma omp parallel for schedule(dynamic)
+        for (int ks = 0; ks < int(g.size / 2); ks++) {
+          gsl_rng * localRandomState = gsl_rng_alloc(randomNumberGeneratorType);
+          gsl_rng_set(localRandomState, baseSeed+ks);
+          if(omp_get_thread_num()==0)
+            pb.setProgress(float(ks * ks) * (ks * 8) / g.size3);
+          for (int k1 = -ks; k1 < ks; k1++) {
+            for (int k2 = -ks; k2 < ks; k2++) {
+              drawOneFourierMode(field, ks, k1, k2, sigma, localRandomState);
+              drawOneFourierMode(field, k1, ks, k2, sigma, localRandomState);
+              drawOneFourierMode(field, k1, k2, ks, sigma, localRandomState);
+            }
+          }
+          gsl_rng_free(localRandomState);
+
+        }
+
+      } else {
+        // N.B. This is the original way of doing things that does not allow for parallelization
+        for (int ks = 0; ks < int(g.size / 2); ks++) {
+          pb.setProgress(float(ks * ks) * (ks * 8) / g.size3);
+          for (int k1 = -ks; k1 < ks; k1++) {
+            for (int k2 = -ks; k2 < ks; k2++) {
+              drawOneFourierMode(field, ks, k1, k2, sigma, randomState);
+              drawOneFourierMode(field, k1, ks, k2, sigma, randomState);
+              drawOneFourierMode(field, k1, k2, ks, sigma, randomState);
+            }
           }
         }
       }
@@ -198,8 +243,11 @@ namespace fields {
     }
 
 
+
+
   };
 
 }
+
 
 #endif //IC_RANDOMFIELDGENERATOR_HPP

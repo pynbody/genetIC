@@ -44,6 +44,7 @@ void setup_parser(tools::ClassDispatch<ICf, void> &dispatch) {
   dispatch.add_class_route("zin", &ICf::setZ0);
 
   // Set seeds for random draws
+/*<<<<<<< HEAD//Original conflict
   //Static casts here needed to differentiate between overloaded versions of setSeed,
   //now that we have both DM and baryon fields to seed.
   dispatch.add_class_route("seed", static_cast<void (ICf::*)(int)>(&ICf::setSeed));
@@ -56,7 +57,30 @@ void setup_parser(tools::ClassDispatch<ICf, void> &dispatch) {
   //dispatch.add_class_route("seedfourier_reverse",&ICf::setSeedFourierReverseOrder);
   dispatch.add_class_route("seed_field_fourier_reverse", static_cast<void (ICf::*)(int,size_t)>(&ICf::setSeedFourierReverseOrder));
 
+=======
+  dispatch.add_class_route("seed", &ICf::setSeed);
+  dispatch.add_class_route("seedfourier", &ICf::setSeedFourier);
+  dispatch.add_class_route("seedfourier_parallel", &ICf::setSeedFourierParallel);
+  dispatch.add_class_route("seedfourier_reverse", &ICf::setSeedFourierReverseOrder);
+>>>>>>> a8da23afe6907009e76ea1768aef96485bf41140*/
+//Proposed resolution://CONFLICT_RESOLUTION
+//==================================================================================
 
+//Static casts here needed to differentiate between overloaded versions of setSeed,
+  //now that we have both DM and baryon fields to seed.
+  dispatch.add_class_route("seed", static_cast<void (ICf::*)(int)>(&ICf::setSeed));
+  //dispatch.add_class_route("seed", &ICf::setSeed);
+  dispatch.add_class_route("seed_field", static_cast<void (ICf::*)(int,size_t)>(&ICf::setSeed));
+  dispatch.add_class_route("seedfourier", static_cast<void (ICf::*)(int)>(&ICf::setSeedFourier));
+  //dispatch.add_class_route("seedfourier", &ICf::setSeedFourier);
+  dispatch.add_class_route("seed_field_fourier",static_cast<void (ICf::*)(int,size_t)>(&ICf::setSeedFourier));
+  dispatch.add_class_route("seedfourier_reverse",static_cast<void (ICf::*)(int)>(&ICf::setSeedFourierReverseOrder));
+  //dispatch.add_class_route("seedfourier_reverse",&ICf::setSeedFourierReverseOrder);
+  dispatch.add_class_route("seed_field_fourier_reverse", static_cast<void (ICf::*)(int,size_t)>(&ICf::setSeedFourierReverseOrder));
+
+  dispatch.add_class_route("seedfourier_parallel", static_cast<void (ICf::*)(int)>(&ICf::setSeedFourierParallel));//CONFLICT_RESOLUTION: add new command, but need to differentiate it from overloads needed to implement baryons.
+
+//==================================================================================
   // Optional computational properties
   dispatch.add_class_route("exact_power_spectrum_enforcement", &ICf::setExactPowerSpectrumEnforcement);
   dispatch.add_class_route("strays_on", &ICf::setStraysOn);
@@ -154,10 +178,25 @@ void setup_parser(tools::ClassDispatch<ICf, void> &dispatch) {
   dispatch.add_class_route("baryon_tf_on",&ICf::setUsingBaryons);
   dispatch.add_class_route("baryons_all_levels",&ICf::setBaryonsOnAllLevels);
 
+/*<<<<<<< HEAD
   // To debug
   //dispatch.add_class_route("zeroLevel", &ICf::zeroLevel);
   dispatch.add_class_route("zeroLevel", static_cast<void (ICf::*)(size_t)>(&ICf::zeroLevel));
   dispatch.add_class_route("zeroLevel_field", static_cast<void (ICf::*)(size_t,size_t)>(&ICf::zeroLevel));
+=======
+  // To debug, allow a level to be replaced with zeroes
+  dispatch.add_class_route("zeroLevel", &ICf::zeroLevel);
+>>>>>>> a8da23afe6907009e76ea1768aef96485bf41140*/
+//Proposed resolution://CONFLICT_RESOLUTION
+//==================================================================================
+// To debug
+  //dispatch.add_class_route("zeroLevel", &ICf::zeroLevel);
+  dispatch.add_class_route("zeroLevel", static_cast<void (ICf::*)(size_t)>(&ICf::zeroLevel));
+  dispatch.add_class_route("zeroLevel_field", static_cast<void (ICf::*)(size_t,size_t)>(&ICf::zeroLevel));
+
+//==================================================================================
+  // Set an overall velocity offset for the entire box (useful for testing AMR sensitivity to flows)
+  dispatch.add_class_route("velocity_offset", &ICf::setVelocityOffset);
 
 }
 

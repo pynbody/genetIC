@@ -1,6 +1,7 @@
 #ifndef IC_TIPSY_HPP
 #define IC_TIPSY_HPP
 
+#include <src/tools/memmap.hpp>
 #include "src/io.hpp"
 #include "src/simulation/particles/mapper/mapper.hpp"
 
@@ -61,11 +62,27 @@ namespace io {
     template<typename GridDataType, typename FloatType=tools::datatypes::strip_complex<GridDataType>>
     class TipsyOutput {
     protected:
+/*<<<<<<< HEAD//Original conflict:
       //const particle::AbstractMultiLevelParticleGenerator<GridDataType> &generator;
       //Replace this with a vector of references, but this means they aren't constant...
       //std::vector<particle::AbstractMultiLevelParticleGenerator<GridDataType>&> generator;
       std::vector<std::shared_ptr<particle::AbstractMultiLevelParticleGenerator<GridDataType>>> generator;
       FILE *fd;
+=======
+      const particle::AbstractMultiLevelParticleGenerator<GridDataType> &generator;
+      tools::MemMapFileWriter writer;
+>>>>>>> a8da23afe6907009e76ea1768aef96485bf41140*/
+//Proposed resolution://CONFLICT_RESOLUTION
+//==================================================================================
+//const particle::AbstractMultiLevelParticleGenerator<GridDataType> &generator;
+      //Replace this with a vector of references, but this means they aren't constant...
+      //std::vector<particle::AbstractMultiLevelParticleGenerator<GridDataType>&> generator;
+      std::vector<std::shared_ptr<particle::AbstractMultiLevelParticleGenerator<GridDataType>>> generator;
+      //FILE *fd;//CONFLICT_RESOLUTION: no longer needed as the way tipsy output works has changed.
+
+      //const particle::AbstractMultiLevelParticleGenerator<GridDataType> &generator;//CONFLICT_RESOLUTION - need to remove, as multiple generators (one per field).
+      tools::MemMapFileWriter writer;
+//==================================================================================
       std::ofstream photogenic_file;
       size_t iord;
       double pos_factor, vel_factor, mass_factor, min_mass, max_mass;
@@ -73,47 +90,44 @@ namespace io {
       std::shared_ptr<particle::mapper::ParticleMapper<GridDataType>> pMapper;
       const cosmology::CosmologicalParameters<FloatType> &cosmology;
 
-
+      //CONFLICT_RESOLUTION: changes here don't really matter, because they don't affect generator
       template<typename ParticleType>
-      void saveTipsyParticlesFromBlock(std::vector<particle::Particle<FloatType>> &particleAr) {
+      void saveNextBlockOfTipsyParticles(particle::mapper::MapperIterator<GridDataType> &begin,
+                                         size_t nMax = 256 * 1024 * 1024) {
 
-        const size_t n = particleAr.size();
+        size_t n = std::min({nMax, begin.getNumRemainingParticles()});
 
-        /*
-        for(auto &q: {xAr,yAr,zAr,vxAr,vyAr,vzAr,massAr,epsAr}) {
-          assert(q.size()==n);
-        }
-        */
+        auto p = writer.getMemMap<ParticleType>(n);
 
-        std::vector<ParticleType> p(n);
 
-#pragma omp parallel for
-        for (size_t i = 0; i < n; i++) {
-          TipsyParticle::initialise(p[i], cosmology);
-          particle::Particle<FloatType> &thisParticle = particleAr[i];
+        begin.parallelIterate([&](size_t i, const particle::mapper::MapperIterator<GridDataType> &localIterator) {
+            TipsyParticle::initialise(p[i], cosmology);
+            auto thisParticle = localIterator.getParticle();
+            p[i].x = thisParticle.pos.x * pos_factor - 0.5;
+            p[i].y = thisParticle.pos.y * pos_factor - 0.5;
+            p[i].z = thisParticle.pos.z * pos_factor - 0.5;
+            p[i].eps = thisParticle.soft * pos_factor;
 
-          p[i].x = thisParticle.pos.x * pos_factor - 0.5;
-          p[i].y = thisParticle.pos.y * pos_factor - 0.5;
-          p[i].z = thisParticle.pos.z * pos_factor - 0.5;
-          p[i].eps = thisParticle.soft * pos_factor;
-
-          p[i].vx = thisParticle.vel.x * vel_factor;
-          p[i].vy = thisParticle.vel.y * vel_factor;
-          p[i].vz = thisParticle.vel.z * vel_factor;
-          p[i].mass = thisParticle.mass * mass_factor;
+            p[i].vx = thisParticle.vel.x * vel_factor;
+            p[i].vy = thisParticle.vel.y * vel_factor;
+            p[i].vz = thisParticle.vel.z * vel_factor;
+            p[i].mass = thisParticle.mass * mass_factor;
 
 #ifdef _OPENMP
-          if (thisParticle.mass == min_mass && omp_get_thread_num() == 0)
+            if (thisParticle.mass == min_mass && omp_get_thread_num() == 0)
 #else
-            if(thisParticle.mass==min_mass)
+              if(thisParticle.mass==min_mass)
 #endif
-            photogenic_file << iord + i << std::endl;
+              photogenic_file << iord + i << std::endl;
 
-        }
+        }, n);
+
         iord += n;
 
-        fwrite(p.data(), sizeof(ParticleType), n, fd);
+
       }
+
+
 
       template<typename ParticleType>
       void saveTipsyParticles(particle::mapper::MapperIterator<GridDataType> &&begin,
@@ -121,11 +135,10 @@ namespace io {
 
         ParticleType p;
         TipsyParticle::initialise(p, cosmology);
-        std::vector<particle::Particle<FloatType>> particles;
         auto i = begin;
+        std::thread writerThread;
         while (i != end) {
-          i.getNextNParticles(particles);
-          saveTipsyParticlesFromBlock<ParticleType>(particles);
+          saveNextBlockOfTipsyParticles<ParticleType>(i);
         }
       }
 
@@ -149,7 +162,7 @@ namespace io {
           p.vz = thisParticle.vel.z * vel_factor;
           p.mass = thisParticle.mass * mass_factor;
 
-          fwrite(&p, sizeof(ParticleType), 1, fd);
+          writer.write<ParticleType>(p);
 
           if (mass == min_mass) {
             photogenic_file << iord << std::endl;
@@ -187,16 +200,27 @@ namespace io {
 
         FloatType mass, tot_mass = 0.0;
 
+/*<<<<<<< HEAD//Original conflict:
         //Accessing only the DM here:
         for (auto i = pMapper->begin(*generator[0]); i != pMapper->end(*generator[0]); ++i) {
           // progress("Pre-write scan file",iord, totlen);
+=======
+        const auto end = pMapper->end(generator); // don't want to keep re-evaluating this
+
+        for (auto i = pMapper->begin(generator); i != end; ++i) {
+>>>>>>> a8da23afe6907009e76ea1768aef96485bf41140*/
+//Proposed resolution://CONFLICT_RESOLUTION: incorporate master changes, but alter way dark matter
+//generatro is accessed.
+//==================================================================================
+        const auto end = pMapper->end(*generator[0]); // don't want to keep re-evaluating this
+        for (auto i = pMapper->begin(*generator[0]); i != end; ++i) {
+
+//==================================================================================
           mass = i.getMass(); // sometimes can be MUCH faster than getParticle
           if (min_mass > mass) min_mass = mass;
           if (max_mass < mass) max_mass = mass;
           tot_mass += mass;
         }
-
-        // end_progress();
 
         if (min_mass != max_mass) {
           photogenic_file.open("photogenic.txt");
@@ -232,11 +256,9 @@ namespace io {
 
         paramfile.close();
 
-        fd = fopen(filename.c_str(), "w");
-        if (!fd) throw std::runtime_error("Unable to open file for writing");
+        writer = tools::MemMapFileWriter(filename);
 
-
-        fwrite(&header, sizeof(io_header_tipsy), 1, fd);
+        writer.write<>(header);
 
         //Swtich off baryon transfer function if not enabled:
         size_t redirect[] = {0,1};

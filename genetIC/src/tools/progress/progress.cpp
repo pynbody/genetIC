@@ -124,6 +124,6 @@ namespace tools {
         p = 1.0;
       progress = p;
     }
-
   }
 }
+

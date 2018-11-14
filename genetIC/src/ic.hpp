@@ -26,6 +26,7 @@
 #include "src/simulation/particles/mapper/twolevelmapper.hpp"
 #include "src/simulation/particles/mapper/gasmapper.hpp"
 #include "src/simulation/particles/mapper/graficmapper.hpp"
+#include "src/simulation/particles/velocityoffsetgenerator.hpp"
 
 #include "src/cosmology/camb.hpp"
 #include "src/simulation/window.hpp"
@@ -75,6 +76,9 @@ protected:
 
 
   cosmology::CAMB<GridDataType> spectrum;
+
+  //! Velocity offset to be added uniformly to output (default 0,0,0)
+  Coordinate<GridDataType> velOffset;
 
   //! Gadget particle types to be generated on each level (default 1)
   std::vector<unsigned int> gadgetTypesForLevels;
@@ -163,6 +167,7 @@ public:
       //randomFieldGenerator(outputField),
       pMapper(new particle::mapper::ParticleMapper<GridDataType>()),
       interpreter(interpreter) {
+/*<<<<<<< HEAD //Original conflict:
 
     //Set default parameters, in case input file didn't specify these:
     //By default, we assume there is only one field - the DM field:
@@ -180,6 +185,30 @@ public:
     modificationManager.emplace_back(multiLevelContext, cosmology, outputField[0]);
     randomFieldGenerator.emplace_back(outputField[0]);
     transferSwitch.push_back(0);
+
+=======
+    velOffset = {0,0,0};
+>>>>>>> a8da23afe6907009e76ea1768aef96485bf41140*/
+//Proposed resolution://CONFLICT_RESOLUTION
+//==================================================================================
+    //Set default parameters, in case input file didn't specify these:
+    //By default, we assume there is only one field - the DM field:
+    nFields = 1;
+    std::cerr << "Creating dm field:";
+    //As odd as the following seems, it avoid copy operations when we
+    //resize the outputField vector (to add baryons, for example), thus
+    //preventing any hanging references:
+    fieldData[0] = new fields::OutputField<GridDataType> (multiLevelContext,0);
+    outputField.emplace_back(*fieldData[0]);
+    //outputField.emplace_back(multiLevelContext,0);
+    //fields::OutputField<GridDataType> dmField(multiLevelContext,0);
+    //outputField.push_back(dmField);
+    std::cerr << "DM field successfully created.";
+    modificationManager.emplace_back(multiLevelContext, cosmology, outputField[0]);
+    randomFieldGenerator.emplace_back(outputField[0]);
+    transferSwitch.push_back(0);
+    velOffset = {0,0,0};//Just include the velocity offset
+//==================================================================================
 
     pInputMapper = nullptr;
     pInputMultiLevelContext = nullptr;
@@ -248,7 +277,70 @@ public:
     allowStrayParticles = true;
   }
 
+/*<<<<<<< HEAD //Original conflict:
   //!\brief Enables the use of a baryon density field.
+  //! If flagged on, the code will extract the transfer function for baryons from CAMB separately from
+  //! the dark matter transfer. This causes twice as many fields to be stored and generated, but
+  //! produces more accurate results for baryons than assuming they follow the same transfer function
+  //! (which holds only at late times).
+  void setUsingBaryons()
+  {
+    //Really have to make sure that this is run near the beginning of the parameter file,
+    //otherwise we will encounter serious problems if we start doing calculations and then try to add in baryons.
+    if(this->nFields > 1)
+    {
+        std::cerr<< "Already using baryons!" << std::endl;
+    }
+    else
+    {
+        if(this->spectrum.dataRead)
+        {
+            throw(std::runtime_error("Cannot switch on baryons after transfer function data already read."));
+        }
+        this->nFields = 2;
+        std::cerr<< "Baryon field enabled." << std::endl;
+        //Create a field for the baryons, with transfer type 1:
+        /*
+        std::cerr << "Do I cause the error?...";
+        fields::OutputField<GridDataType> baryonField(multiLevelContext,1);
+        std::cerr << "No!";
+        fields::OutputField<GridDataType> dmFieldCopy(outputField[0]);
+        std::cerr << "nTransferType = " << baryonField.transferType << ".";
+        std::cerr << "Do I cause the error?...";
+        fields::OutputField<GridDataType> baryonFieldCopy(baryonField);
+        std::cerr << "No!";
+        std::cerr << "Do I cause the error?...";
+        outputField.push_back(baryonField);
+        *//*
+        fieldData[1] = new fields::OutputField<GridDataType> (multiLevelContext,1);
+        outputField.emplace_back(*fieldData[1]);
+        modificationManager.emplace_back(multiLevelContext, cosmology, outputField[1]);
+        randomFieldGenerator.emplace_back(outputField[1]);
+        transferSwitch.push_back(1);
+        haveInitialisedRandomComponent.push_back(false);
+        auto _pParticleGenerator = std::make_shared<particle::NullMultiLevelParticleGenerator<GridDataType>>();
+        pParticleGenerator.push_back(_pParticleGenerator);
+        this->spectrum.enableAllTransfers();
+    }
+  }
+
+  //! Enables outputting baryons on all levels, rather than only the deepest level.
+  void setBaryonsOnAllLevels()
+  {
+    this->baryonsOnAllLevels = true;
+  }
+
+=======
+  //! Sets a whole-box velocity offset in km/s -- e.g. for testing AMR sensitivity to movement relative to grid structure
+  void setVelocityOffset(T vx, T vy, T vz) {
+    // convert to km a^1/2 s^-1 (gadget units internally in code)
+    T conversion = pow(cosmology.scalefactor, -0.5);
+    velOffset = {vx*conversion,vy*conversion,vz*conversion};
+  }
+>>>>>>> a8da23afe6907009e76ea1768aef96485bf41140 */
+//Proposed resolution://CONFLICT_RESOLUTION
+//==================================================================================
+//!\brief Enables the use of a baryon density field.
   //! If flagged on, the code will extract the transfer function for baryons from CAMB separately from
   //! the dark matter transfer. This causes twice as many fields to be stored and generated, but
   //! produces more accurate results for baryons than assuming they follow the same transfer function
@@ -299,7 +391,13 @@ public:
   {
     this->baryonsOnAllLevels = true;
   }
-
+  //! Sets a whole-box velocity offset in km/s -- e.g. for testing AMR sensitivity to movement relative to grid structure
+  void setVelocityOffset(T vx, T vy, T vz) {
+    // convert to km a^1/2 s^-1 (gadget units internally in code)
+    T conversion = pow(cosmology.scalefactor, -0.5);
+    velOffset = {vx*conversion,vy*conversion,vz*conversion};
+  }
+//==================================================================================
 
   //! Sets the sigma8 parameter.
   void setSigma8(T in) {
@@ -611,7 +709,49 @@ public:
     randomFieldGenerator[nField].seed(seed);
   }
 
+/*<<<<<<< HEAD //Original conflict:
   //!\brief Set the seed in fourier space
+  /*!
+  \param seed - seed to set.
+  \param nField - field to set the seed for. 0 = dark matter, 1 = baryons.
+  *//*
+  void setSeedFourier(int seed,size_t nField) {
+    if(nField > outputField.size() - 1)
+    {
+        throw(std::runtime_error("Attempted to apply operations to field that has not been setup. Use baryon_tf_on to enable baryons."));
+    }
+    randomFieldGenerator[nField].seed(seed);
+    randomFieldGenerator[nField].setDrawInFourierSpace(true);
+    randomFieldGenerator[nField].setReverseRandomDrawOrder(false);
+=======
+  void setSeedFourier(int seed) {
+    randomFieldGenerator.seed(seed);
+    randomFieldGenerator.setDrawInFourierSpace(true);
+    randomFieldGenerator.setReverseRandomDrawOrder(false);
+    randomFieldGenerator.setParallel(false);
+  }
+
+  //! Enable parallel random field generation, at the cost of not being backwards-compatible
+  void setSeedFourierParallel(int seed) {
+    randomFieldGenerator.seed(seed);
+    randomFieldGenerator.setDrawInFourierSpace(true);
+    randomFieldGenerator.setParallel(true);
+    randomFieldGenerator.setReverseRandomDrawOrder(false);
+  }
+
+  //! Reverses the order of draws between real and imaginary part of complex numbers
+  /*!
+   * Provided for compatibility problems as different compilers handle the draw order differently
+   *//*
+  void setSeedFourierReverseOrder(int seed) {
+    randomFieldGenerator.seed(seed);
+    randomFieldGenerator.setDrawInFourierSpace(true);
+    randomFieldGenerator.setReverseRandomDrawOrder(true);
+    randomFieldGenerator.setParallel(false);
+>>>>>>> a8da23afe6907009e76ea1768aef96485bf41140*/
+//Proposed resolution://CONFLICT_RESOLUTION
+//==================================================================================
+//!\brief Set the seed in fourier space
   /*!
   \param seed - seed to set.
   \param nField - field to set the seed for. 0 = dark matter, 1 = baryons.
@@ -624,7 +764,26 @@ public:
     randomFieldGenerator[nField].seed(seed);
     randomFieldGenerator[nField].setDrawInFourierSpace(true);
     randomFieldGenerator[nField].setReverseRandomDrawOrder(false);
+    randomFieldGenerator[nField].setParallel(false);//CONFLICT_RESOLUTION
+    }
+
+    //! Enable parallel random field generation, at the cost of not being backwards-compatible
+  void setSeedFourierParallel(int seed,size_t nField) {
+    randomFieldGenerator[nField].seed(seed);//CONFLICT_RESOLUTION
+    randomFieldGenerator[nField].setDrawInFourierSpace(true);//CONFLICT_RESOLUTION
+    randomFieldGenerator[nField].setParallel(true);//CONFLICT_RESOLUTION
+    randomFieldGenerator[nField].setReverseRandomDrawOrder(false);//CONFLICT_RESOLUTION
   }
+  //! Apply only to the dark matter field:
+  void setSeedFourierParallel(int seed)//CONFLICT_RESOLUTION
+  {
+    for(size_t i = 0;i < this->outputField.size();i++)
+    {
+        this->setSeedFourierParallel(seed,i);
+    }
+  }
+//==================================================================================
+  //}//CONFLICT_RESOLUTION
 
   //! Set the gadget particle type to be produced by the deepest level currently in the grid hiearchy
   void setGadgetParticleType(unsigned int type) {
@@ -646,12 +805,13 @@ public:
     this->updateParticleMapper();
   }
 
+/*<<<<<<< HEAD //Original conflict:
   //!\brief Specifies the seed in fourier space, but with reversed order of draws between real and imaginary part of complex numbers.
   /*!
    * Provided for compatibility problems as different compilers handle the draw order differently
    * \param seed - seed to set.
    * \param nField - field to set the seed for: 0 = Dark-Matter, 1 = Baryons.
-   */
+   *//*
   void setSeedFourierReverseOrder(int seed,size_t nField) {
     if(nField > outputField.size() - 1)
     {
@@ -671,7 +831,38 @@ public:
         this->setSeedFourierReverseOrder(seed,i);
     }
   }
+=======
 
+>>>>>>> a8da23afe6907009e76ea1768aef96485bf41140*/
+//Proposed resolution://CONFLICT_RESOLUTION
+//==================================================================================
+//!\brief Specifies the seed in fourier space, but with reversed order of draws between real and imaginary part of complex numbers.
+  /*!
+   * Provided for compatibility problems as different compilers handle the draw order differently
+   * \param seed - seed to set.
+   * \param nField - field to set the seed for: 0 = Dark-Matter, 1 = Baryons.
+   */
+  void setSeedFourierReverseOrder(int seed,size_t nField) {
+    if(nField > outputField.size() - 1)
+    {
+        throw(std::runtime_error("Attempted to apply operations to field that has not been setup. Use baryon_tf_on to enable baryons."));
+    }
+    std::cerr << "*** Warning: seed_field_fourier_reverse and seedfourier_reverse are deprecated commands and should be avoided.***" << std::endl;
+    randomFieldGenerator[nField].seed(seed);
+    randomFieldGenerator[nField].setDrawInFourierSpace(true);
+    randomFieldGenerator[nField].setReverseRandomDrawOrder(true);
+    randomFieldGenerator[nField].setParallel(false);//CONFLICT_RESOLUTION: incorporating new parallel seeding
+  }
+
+  //!Seed in reverse order for all fields with the same seed.
+  void setSeedFourierReverseOrder(int seed)
+  {
+    for(size_t i = 0;i < outputField.size();i++)
+    {
+        this->setSeedFourierReverseOrder(seed,i);
+    }
+  }
+//==================================================================================
   void setExactPowerSpectrumEnforcement() {
     exactPowerSpectrum = true;
   }
@@ -1028,9 +1219,18 @@ public:
     // methods of generating the particles from the fields
 
     using GridLevelGeneratorType = particle::ZeldovichParticleGenerator<GridDataType>;
+    using OffsetGeneratorType = particle::VelocityOffsetMultiLevelParticleGenerator<GridDataType>;
 
     pParticleGenerator[nField] = std::make_shared<
         particle::MultiLevelParticleGenerator<GridDataType, GridLevelGeneratorType>>(outputField[nField], cosmology, epsNorm);
+//CONFLICT_RESOLUTION
+//This is one git didn't spot - need to do this for all the particle generators, not just the dark matter!
+//=====================================================================================================
+    if(velOffset!=Coordinate<GridDataType>({0,0,0})) {
+      cerr << "Adding a velocity offset to the output" << endl;
+      pParticleGenerator[nField] = std::make_shared<OffsetGeneratorType>(pParticleGenerator[nField], velOffset);//CONFLICT_RESOLUTION
+    }
+//=====================================================================================================
 
   }
 
@@ -1220,8 +1420,18 @@ public:
     switch (outputFormat) {
       case OutputFormat::gadget2:
       case OutputFormat::gadget3:
+/*<<<<<<< HEAD//Original conflict:
         gadget::save(getOutputPath() + ".gadget", boxlen, *pMapper,
                      pParticleGenerator,
+=======
+        gadget::save<float>(getOutputPath() + ".gadget", boxlen, *pMapper,
+                     *pParticleGenerator,
+>>>>>>> a8da23afe6907009e76ea1768aef96485bf41140*/
+//Proposed resolution://CONFLICT_RESOLUTION: Incorporate both changes:
+//==================================================================================
+        gadget::save<float>(getOutputPath() + ".gadget", boxlen, *pMapper,
+                     pParticleGenerator,
+//==================================================================================
                      cosmology, static_cast<int>(outputFormat));
         break;
       case OutputFormat::tipsy:

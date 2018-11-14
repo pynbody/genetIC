@@ -1,8 +1,11 @@
 #ifndef IC_GADGET_HPP
 #define IC_GADGET_HPP
 
+#include "src/tools/memmap.hpp"
+#include "src/tools/data_types/float_types.hpp"
 #include "src/io.hpp"
 #include <vector>
+
 
 namespace io {
   namespace gadget {
@@ -10,38 +13,6 @@ namespace io {
     using std::endl;
     using std::vector;
 
-
-
-    template<typename GridDataType, typename FloatType=tools::datatypes::strip_complex<GridDataType>>
-    void getParticleInfo(const particle::AbstractMultiLevelParticleGenerator<GridDataType> &generator,
-                         particle::mapper::ParticleMapper<GridDataType> &mapper,
-                         FloatType &min_mass, FloatType &max_mass,
-                         size_t &num, unsigned int particle_type) {
-
-      min_mass = std::numeric_limits<FloatType>::max();
-      max_mass = 0;
-      num = 0;
-
-      FloatType mass;
-      mapper.iterateParticlesOfType(generator, particle_type, [&](const auto & i) {
-        mass = i.getMass(); // sometimes can be MUCH faster than getParticle
-        if (min_mass > mass) min_mass = mass;
-        if (max_mass < mass) max_mass = mass;
-        num++;
-      });
-
-    }
-
-    size_t my_fwrite(void *ptr, size_t size, size_t nmemb, FILE *stream) //stolen from Gadget
-    {
-      size_t nwritten;
-
-      if ((nwritten = fwrite(ptr, size, nmemb, stream)) != nmemb) {
-        printf("I/O error (fwrite) has occured.\n");
-        fflush(stdout);
-      }
-      return nwritten;
-    }
 
     struct io_header_2 //header for gadget2
     {
@@ -128,17 +99,16 @@ namespace io {
 
 
 
-    template<typename FloatType>
-    io_header_2 CreateGadget2Header(vector<FloatType> masses, vector<long> npart, double Boxlength,
-                                    const cosmology::CosmologicalParameters<FloatType> &cosmology) {
-      //types 2,3,4 are currently unused (only one zoom level)
+    template<typename OutputFloatType, typename InternalFloatType>
+    io_header_2 createGadget2Header(vector<InternalFloatType> masses, vector<long> npart, double Boxlength,
+                                    const cosmology::CosmologicalParameters<InternalFloatType> &cosmology) {
       io_header_2 header2;
-      header2.npart[0] = npart[0]; //gas
-      header2.npart[1] = npart[1]; //higres
+      header2.npart[0] = npart[0];
+      header2.npart[1] = npart[1];
       header2.npart[2] = npart[2];
       header2.npart[3] = npart[3];
       header2.npart[4] = npart[4];
-      header2.npart[5] = npart[5]; //lowres
+      header2.npart[5] = npart[5];
       header2.mass[0] = masses[0];
       header2.mass[1] = masses[1];
       header2.mass[2] = masses[2];
@@ -172,12 +142,9 @@ namespace io {
       return header2;
     }
 
-    template<typename FloatType>
-    io_header_3 CreateGadget3Header(vector<FloatType> masses, vector<long> npart, double Boxlength,
-                                    const cosmology::CosmologicalParameters<FloatType> &cosmology) {
-
-      //types 2,3,4 are currently unused (only one zoom level)
-
+    template<typename OutputFloatType, typename InternalFloatType>
+    io_header_3 createGadget3Header(vector<InternalFloatType> masses, vector<long> npart, double Boxlength,
+                                    const cosmology::CosmologicalParameters<InternalFloatType> &cosmology) {
       io_header_3 header3;
       header3.npart[0] = (unsigned int) (npart[0]);
       header3.npart[1] = (unsigned int) (npart[1]);
@@ -216,7 +183,7 @@ namespace io {
       header3.nPartTotalHighWord[4] = (unsigned int) (npart[4] >> 32);
       header3.nPartTotalHighWord[5] = (unsigned int) (npart[5] >> 32);
       header3.flag_entropy_instead_u = 0; /*!< flags that IC-file contains entropy instead of u */
-      header3.flag_doubleprecision = tools::datatypes::floatinfo<FloatType>::doubleprecision;
+      header3.flag_doubleprecision = tools::datatypes::floatinfo<OutputFloatType>::doubleprecision;
       header3.flag_ic_info = 1;
       header3.lpt_scalingfactor = 0.f; /*!dummy value since we never use ic_info!=1 */
 
@@ -234,513 +201,191 @@ namespace io {
     }
 
 
-#ifdef HAVE_HDF5
-    template<typename FloatType>
-void SaveHDF(const char* Filename, int n, io_header_3 header, FloatType *p_Data1,  FloatType *p_Data2, FloatType *p_Data3, FloatType *v_Data1,  FloatType *v_Data2, FloatType *v_Data3, const char *name1, const char *name2, const char *name3) //saves 3 arrays as datasets "name1", "name2" and "name3" in one HDF5 file
-{
-  hid_t       file_id, gidh, gid, dset_id,ndset_id,iddset_id, hdset_id,mt_id;   /* file and dataset identifiers */
-  hid_t       nfilespace,dataspace_id, memspace, hboxfs,mt,idfilespace,IDmemspace,iddataspace_id;/* file and memory dataspace identifiers */
-  hsize_t ncount[2],ncount2[2], noffset[2], h[1], stride[2],  idcount[2],idoffset[2],idstride[2],mta[1],idblock[2];
-  h[0]=1;
-  int m_nGrid[3]={n,n,n};
-  mta[0]=6;
 
-  file_id = H5Fcreate( Filename, H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT );
-  gidh=H5Gcreate(file_id, "Header", 100 ); //100 gives max number of arguments (?)
-
-   FloatType *box=new FloatType[1];
-   FloatType *mtt=new FloatType[6];
-   int *boxi=new int[1];
-   mtt[0]=header.mass[0];
-   mtt[1]=header.mass[1];
-   mtt[2]=header.mass[2];
-   mtt[3]=header.mass[3];
-   mtt[4]=header.mass[4];
-   mtt[5]=header.mass[5];
-   mt = H5Screate_simple( 1, mta, NULL );
-
-   mt_id = H5Acreate( gidh, "MassTable", hdf_float, mt, H5P_DEFAULT );
-   H5Awrite( mt_id, hdf_float, mtt);
-   H5Aclose(mt_id);
-
-   hboxfs = H5Screate_simple( 1, h, NULL );
-   box[0]=header.Omega0;
-   hdset_id = H5Acreate( gidh, "OM", hdf_float, hboxfs, H5P_DEFAULT );
-   H5Awrite( hdset_id, hdf_float, box);
-   H5Aclose(hdset_id);
-
-   box[0]=header.OmegaLambda;
-   hdset_id = H5Acreate( gidh, "OLambda", hdf_float, hboxfs, H5P_DEFAULT );
-   H5Awrite( hdset_id, hdf_float, box);
-   H5Aclose(hdset_id);
-
-   box[0]=header.BoxSize;
-   hdset_id = H5Acreate( gidh, "BoxSize", hdf_float, hboxfs, H5P_DEFAULT );
-   H5Awrite( hdset_id, hdf_float, box);
-   H5Aclose(hdset_id);
-
-   box[0]=header.redshift;
-   hdset_id = H5Acreate( gidh, "Redshift", hdf_float, hboxfs, H5P_DEFAULT );
-   H5Awrite( hdset_id, hdf_float, box);
-   H5Aclose(hdset_id);
-
-   box[0]=header.time;
-   hdset_id = H5Acreate( gidh, "Time", hdf_float, hboxfs, H5P_DEFAULT );
-   H5Awrite( hdset_id, hdf_float, box);
-   H5Aclose(hdset_id);
-
-   //box[0]=0.; //fix: read as input
-   //hdset_id = H5Acreate( gidh, "fnl", hdf_float, hboxfs, H5P_DEFAULT );
-   //H5Awrite( hdset_id, hdf_float, box);
-   //H5Aclose(hdset_id);
-
-   box[0]=0.817;//fix: read as input
-   hdset_id = H5Acreate( gidh, "sigma8", hdf_float, hboxfs, H5P_DEFAULT );
-   H5Awrite( hdset_id, hdf_float, box);
-   H5Aclose(hdset_id);
-
-   long *boxu=(long*)calloc(6,sizeof(long));
-   boxu[1]=(long)(m_nGrid[0]*m_nGrid[1]*m_nGrid[2]);
-   hdset_id = H5Acreate( gidh, "NumPart_Total", H5T_NATIVE_UINT, mt, H5P_DEFAULT );
-   H5Awrite( hdset_id, H5T_NATIVE_UINT, boxu);
-   H5Aclose(hdset_id);
-
-   //hdset_id = H5Acreate( gidh, "NumPart_ThisFile", H5T_NATIVE_UINT, mt, H5P_DEFAULT );
-   //H5Awrite( hdset_id, H5T_NATIVE_UINT, boxu);
-   //H5Aclose(hdset_id);
-
-   boxu[1]=header.nPartTotalHighWord[1];
-   hdset_id = H5Acreate( gidh, "NumPart_Total_HighWord", H5T_NATIVE_UINT, mt, H5P_DEFAULT );
-   H5Awrite( hdset_id, H5T_NATIVE_UINT, boxu);
-   H5Aclose(hdset_id);
-
-   boxi[0]=header.flag_ic_info;
-   hdset_id = H5Acreate( gidh, "Flag_IC_Info", H5T_NATIVE_INT, hboxfs, H5P_DEFAULT );
-   H5Awrite( hdset_id, H5T_NATIVE_INT, boxi);
-   H5Aclose(hdset_id);
-
-   boxi[0]=header.flag_doubleprecision;
-   hdset_id = H5Acreate( gidh, "flag_doubleprecision", H5T_NATIVE_INT, hboxfs, H5P_DEFAULT );
-   H5Awrite( hdset_id, H5T_NATIVE_INT, boxi);
-   H5Aclose(hdset_id);
-
-   //boxi[0]=header.num_files;
-   //hdset_id = H5Acreate( gidh, "NumFilesPerSnapshot", H5T_NATIVE_INT, hboxfs, H5P_DEFAULT );
-   //H5Awrite( hdset_id, H5T_NATIVE_INT, boxi);
-   //H5Aclose(hdset_id);
-
-
-   H5Sclose(mt);
-   H5Sclose(hboxfs);
-
-    //close "header" group
-       H5Gclose(gidh);
-
-  gid=H5Gcreate(file_id, "PartType1", 100 );
-  idcount[0]=m_nGrid[0]*m_nGrid[1]*m_nGrid[2];
-  idcount[1]=1;
-  idfilespace = H5Screate_simple( 2, idcount, NULL );
-  iddset_id = H5Dcreate( gid, name3, H5T_NATIVE_LONG, idfilespace, H5P_DEFAULT );
-  H5Sclose(idfilespace);
-
-  IDmemspace = H5Screate_simple( 2, idcount, NULL );
-
-  idoffset[0]=0;
-  idoffset[1]=0;
-  idstride[0]=1;
-  idstride[1]=1;
-  idblock[0]=1;
-  idblock[1]=1;
-
-  long i;
-  long* ID=(long*)calloc(n*n*n,sizeof(long));
-  for (i=0; i< (long)(n*n*n); i++){ID[i]=i;}
-
-  iddataspace_id= H5Dget_space(iddset_id);
-  H5Sselect_hyperslab(iddataspace_id, H5S_SELECT_SET, idoffset, idstride, idcount, idblock);
-  H5Dwrite( iddset_id, H5T_NATIVE_LONG, H5S_ALL, H5S_ALL, H5P_DEFAULT, ID );
-
-  free(ID);
-
-  H5Sclose(iddataspace_id);
-  H5Sclose(IDmemspace);
-  H5Dclose(iddset_id);
-
-  ncount[0]=m_nGrid[0]*m_nGrid[1]*m_nGrid[2]; //total number of particles
-  ncount[1]=3; //3 components of position vector
-  nfilespace = H5Screate_simple( 2, ncount, NULL ); //works! for (n**3, (x1,x2,x3) ) array (part pos./vel.)
-  dset_id = H5Dcreate( gid, name1, hdf_float, nfilespace, H5P_DEFAULT );
-  ndset_id = H5Dcreate( gid, name2, hdf_float, nfilespace, H5P_DEFAULT );
-  H5Sclose(nfilespace);
-
-  noffset[0] = 0;
-  noffset[1] = 0;
-
-  ncount2[0]=m_nGrid[0]*m_nGrid[1]*m_nGrid[2];
-  ncount2[1]=1;
-
-  memspace = H5Screate_simple( 2, ncount2, NULL );
-
-  dataspace_id= H5Dget_space(dset_id);
-
-  stride[0]=1;
-  stride[1]=1;
-
-  H5Sselect_hyperslab(dataspace_id, H5S_SELECT_SET, noffset, stride, ncount2, NULL);
-    H5Dwrite( dset_id, hdf_float, memspace, dataspace_id, H5P_DEFAULT, p_Data1 );
-
-    noffset[0] = 0;
-    noffset[1] = 1;
-
-    H5Sselect_hyperslab(dataspace_id, H5S_SELECT_SET, noffset, stride, ncount2, NULL);
-    H5Dwrite( dset_id, hdf_float, memspace, dataspace_id, H5P_DEFAULT, p_Data2 );
-
-    noffset[0] = 0;
-    noffset[1] = 2;
-
-    H5Sselect_hyperslab(dataspace_id, H5S_SELECT_SET, noffset, stride, ncount2, NULL);
-    H5Dwrite( dset_id, hdf_float, memspace, dataspace_id, H5P_DEFAULT, p_Data3 );
-
-    noffset[0] = 0;
-    noffset[1] = 0;
-   H5Sselect_hyperslab(dataspace_id, H5S_SELECT_SET, noffset, NULL, ncount2, NULL);
-   H5Dwrite( ndset_id, hdf_float, memspace, dataspace_id, H5P_DEFAULT, v_Data1 );
-
-   noffset[0] = 0;
-    noffset[1] = 1;
-   H5Sselect_hyperslab(dataspace_id, H5S_SELECT_SET, noffset, NULL, ncount2, NULL);
-   H5Dwrite( ndset_id, hdf_float, memspace, dataspace_id, H5P_DEFAULT, v_Data2 );
-
-   noffset[0] = 0;
-    noffset[1] = 2;
-   H5Sselect_hyperslab(dataspace_id, H5S_SELECT_SET, noffset, NULL, ncount2, NULL);
-   H5Dwrite( ndset_id, hdf_float, memspace, dataspace_id, H5P_DEFAULT, v_Data3 );
-
-  H5Sclose(memspace);
-  H5Dclose(dset_id);
-  H5Dclose(ndset_id);
-  H5Sclose(dataspace_id);
-
-  //close "particle" group
-    H5Gclose(gid);
-
-      //close overall file
-         H5Fclose(file_id);
-
-    free(box);
-    free(boxi);
-    free(boxu);
-    free(mtt);
-
-}
-
-template<typename FloatType>
-int save_phases(complex<FloatType> *phk, FloatType* ph, complex<FloatType> *delta, int n, const char *name){
-
-    FloatType *helper=(FloatType*)calloc(n*n*n, sizeof(FloatType));
-    int i;
-    for(i=0;i<n*n*n;i++){helper[i]=delta[i].real();}
-
-    hid_t     idfilespace,  file_id, gid, iddset_id,IDmemspace,iddataspace_id ;
-    hsize_t idcount[2];
-    file_id = H5Fcreate( name, H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT );
-    gid=H5Gcreate(file_id, "Potential", 100 );
-    idcount[0]=n*n*n;
-    idcount[1]=2;
-    idfilespace = H5Screate_simple( 2, idcount, NULL );
-    iddset_id = H5Dcreate( gid, "Psi_k", hdf_float, idfilespace, H5P_DEFAULT );
-    H5Sclose(idfilespace);
-
-    IDmemspace = H5Screate_simple( 2, idcount, NULL );
-
-    iddataspace_id= H5Dget_space(iddset_id);
-    H5Dwrite( iddset_id, hdf_float, H5S_ALL, H5S_ALL, H5P_DEFAULT, phk );
-
-    H5Sclose(iddataspace_id);
-    H5Sclose(IDmemspace);
-    H5Dclose(iddset_id);
-
-    idcount[1]=1;
-    idfilespace = H5Screate_simple( 2, idcount, NULL );
-    iddset_id = H5Dcreate( gid, "Psi_r", hdf_float, idfilespace, H5P_DEFAULT );
-    H5Sclose(idfilespace);
-
-    IDmemspace = H5Screate_simple( 2, idcount, NULL );
-
-    iddataspace_id= H5Dget_space(iddset_id);
-    H5Dwrite( iddset_id, hdf_float, H5S_ALL, H5S_ALL, H5P_DEFAULT, ph );
-
-    H5Sclose(iddataspace_id);
-    H5Sclose(IDmemspace);
-    H5Dclose(iddset_id);
-
-    idfilespace = H5Screate_simple( 2, idcount, NULL );
-    iddset_id = H5Dcreate( gid, "delta_r", hdf_float, idfilespace, H5P_DEFAULT );
-    H5Sclose(idfilespace);
-
-    IDmemspace = H5Screate_simple( 2, idcount, NULL );
-
-    iddataspace_id= H5Dget_space(iddset_id);
-    H5Dwrite( iddset_id, hdf_float, H5S_ALL, H5S_ALL, H5P_DEFAULT, helper );
-
-    H5Sclose(iddataspace_id);
-    H5Sclose(IDmemspace);
-    H5Dclose(iddset_id);
-
-    //close "particle" group
-    H5Gclose(gid);
-
-    //close overall file
-    H5Fclose(file_id);
-
-    return 0;
-}
-#endif
-
-    template<typename FloatType>
-    void SaveGadget2(const char *filename, long nPart, io_header_2 header1, FloatType *Pos1, FloatType *Vel1,
-                     FloatType *Pos2,
-                     FloatType *Vel2, FloatType *Pos3, FloatType *Vel3, FloatType *Mass = NULL) {
-      FILE *fd = fopen(filename, "w");
-      if (!fd) throw std::runtime_error("Unable to open file for writing");
-      FloatType *Pos = (FloatType *) calloc(3, sizeof(FloatType));
-      int dummy;
-      long i;
-      //header block
-      dummy = sizeof(header1);
-      my_fwrite(&dummy, sizeof(dummy), 1, fd);
-      my_fwrite(&header1, sizeof(header1), 1, fd);
-      my_fwrite(&dummy, sizeof(dummy), 1, fd);
-
-      //position block
-      dummy = sizeof(FloatType) * (nPart) *
-              3; //this will be 0 or some strange number for n>563; BUT: gagdget does not actually use this value; it gets the number of particles from the header
-      my_fwrite(&dummy, sizeof(dummy), 1, fd);
-      for (i = 0; i < nPart; i++) {
-        Pos[0] = Pos1[i];
-        Pos[1] = Pos2[i];
-        Pos[2] = Pos3[i];
-        my_fwrite(Pos, sizeof(FloatType), 3, fd);
-      }
-      my_fwrite(&dummy, sizeof(dummy), 1, fd);
-
-      //velocity block
-      //dummy=sizeof(FloatType)*3*nPart; //this will be 0 or some strange number for n>563; BUT: gagdget does not actually use this value; it gets the number of particles from the header
-      my_fwrite(&dummy, sizeof(dummy), 1, fd);
-      for (i = 0; i < nPart; i++) {
-        Pos[0] = Vel1[i];
-        Pos[1] = Vel2[i];
-        Pos[2] = Vel3[i];
-        my_fwrite(Pos, sizeof(FloatType), 3, fd);
-      }
-
-      free(Pos);
-      my_fwrite(&dummy, sizeof(dummy), 1, fd);
-
-      dummy = sizeof(long) *
-              nPart; //here: gadget just checks if the IDs are ints or long longs; still the number of particles is read from the header file
-      my_fwrite(&dummy, sizeof(dummy), 1, fd);
-      for (i = 0; i < nPart; i++) {
-        my_fwrite(&i, sizeof(long), 1, fd);
-
-      }
-      my_fwrite(&dummy, sizeof(dummy), 1, fd);
-
-      if (Mass != NULL) {
-        dummy = sizeof(FloatType) * nPart;
-        my_fwrite(&dummy, sizeof(dummy), 1, fd);
-        my_fwrite(Mass, sizeof(FloatType), nPart, fd);
-        my_fwrite(&dummy, sizeof(dummy), 1, fd);
-      }
-
-
-      fclose(fd);
-
-    }
-
-    template<typename GridDataType, typename FloatType>
-    void save(const std::string &name, double Boxlength,
-              particle::mapper::ParticleMapper<GridDataType> &mapper,
-              //particle::AbstractMultiLevelParticleGenerator<GridDataType> &generator,
-              std::vector<std::shared_ptr<particle::AbstractMultiLevelParticleGenerator<GridDataType>>> &generator,
-              const cosmology::CosmologicalParameters<FloatType> &cosmology, int gadgetformat) {
-
-
-      bool variableMass = false;
-
-      vector<FloatType> masses(6,0.0);
-      vector<long> npart(6,0);
-      size_t nTotal(0);
-
+    template<typename GridDataType, typename OutputFloatType>
+    class GadgetOutput {
+    protected:
+      using InternalFloatType = tools::datatypes::strip_complex<GridDataType>;
+
+      particle::mapper::ParticleMapper<GridDataType> &mapper;
+      //particle::AbstractMultiLevelParticleGenerator<GridDataType> &generator;//CONFLICT_RESOLUTION
+      std::vector<std::shared_ptr<particle::AbstractMultiLevelParticleGenerator<GridDataType>>> &generator;//CONFLICT_RESOLUTION
+      const cosmology::CosmologicalParameters<InternalFloatType> &cosmology;
+      tools::MemMapFileWriter writer;
+      size_t nTotal;
+      double boxLength;
+      int gadgetVersion;
+      vector<InternalFloatType> masses;
+      vector<long> npart;
+      bool variableMass;
+
+      //CONFLICT_RESOLUTION:
+      //==================================================================================
       //Map for the generators. Assume that the non-gas elements (gadget type 2+)
       //map to DM. Note that baryon generator is generator[1], DM is generator[0],
       //which is the opposite order to gadget.
       size_t redirect[6] = {1,0,0,0,0,0};
-      //If not using gas, we should re-direct everything to DM:
-      if(generator.size() < 2)
-      {
-        redirect[0] = 0;
+      //==================================================================================
+
+      template<typename WriteType>
+      void saveGadgetBlock(std::function<WriteType(const particle::mapper::MapperIterator<GridDataType> &)> getData) {
+
+        size_t current_n=0;
+
+        auto currentWriteBlockC = writer.getMemMapFortran<WriteType>(nTotal);
+
+        for(unsigned int particle_type=0; particle_type<6; particle_type++) {
+          auto begin = mapper.beginParticleType(*generator[redirect[particle_type]], particle_type);//CONFLICT_RESOLUTION
+          auto end = mapper.endParticleType(*generator[redirect[particle_type]], particle_type);//CONFLICT_RESOLUTION
+          size_t nMax = end.getIndex()-begin.getIndex();
+
+          current_n+=begin.parallelIterate([&](size_t n_offset, const particle::mapper::MapperIterator<GridDataType> &localIterator) {
+            size_t addr = n_offset+current_n;
+            currentWriteBlockC[addr] = getData(localIterator);
+          }, nMax);
+
+        }
+
+        assert(current_n==nTotal);
+
       }
-      std::cerr << "generator.size() = " << generator.size() << std::endl;
 
-      cerr << "Gadget output preliminary scan..." << endl;
+      void preScanForMassesAndParticleNumbers() {
+        variableMass = false;
+        masses = vector<InternalFloatType>(6, 0.0);
+        npart = vector<long>(6, 0);
+        nTotal = 0;
 
-      for(unsigned int ptype=0; ptype<6; ++ptype) {
-        FloatType min_mass, max_mass;
-        size_t n;
-        getParticleInfo(*generator[redirect[ptype]], mapper, min_mass, max_mass, n, ptype);
-        if(n>0) {
-          if (min_mass != max_mass) {
-            variableMass = true;
+        cerr << "Gadget output preliminary scan..." << endl;
+
+        for (unsigned int ptype = 0; ptype < 6; ++ptype) {
+          InternalFloatType min_mass, max_mass;
+          size_t n;
+          getParticleInfo(min_mass, max_mass, n, ptype);
+          if (n > 0) {
+            if (min_mass != max_mass) {
+              variableMass = true;
+            }
+
+            cerr << "Particle type " << ptype << ": " << n << " particles" << endl;
+            cerr << "Min and max particle mass : " << min_mass << " " << max_mass << endl;
+            npart[ptype] = n;
+            masses[ptype] = min_mass;
+            nTotal += n;
           }
-
-          cerr << "Particle type " << ptype << ": " << n << " particles" << endl;
-          cerr << "Min and max particle mass : " << min_mass << " " << max_mass << endl;
-          npart[ptype] = n;
-          masses[ptype] = min_mass;
-          nTotal+=n;
         }
-      }
 
-      cerr << "" << endl;
+        cerr << "" << endl;
 
-      if(variableMass) {
-        cerr << "Using variable-mass format" << endl;
-        for(unsigned int ptype=0; ptype<6; ++ptype) {
-          masses[ptype] = 0;
+        if (variableMass) {
+          cerr << "Using variable-mass format" << endl;
+          for (unsigned int ptype = 0; ptype < 6; ++ptype) {
+            masses[ptype] = 0;
+          }
         }
       }
 
 
-      std::stringstream filename;
-      filename << name << gadgetformat;
-      FILE *fd;
-      fd = fopen(filename.str().c_str(), "w");
-      if (!fd) throw std::runtime_error("Unable to open file for writing");
+      void getParticleInfo(InternalFloatType &min_mass, InternalFloatType &max_mass,
+                           size_t &num, unsigned int particle_type) {
 
+        min_mass = std::numeric_limits<InternalFloatType>::max();
+        max_mass = 0;
+        num = 0;
 
-      int fortranFieldSize;
+        InternalFloatType mass;
+        mapper.iterateParticlesOfType(*generator[redirect[particle_type]], particle_type, [&](const auto & i) {//CONFLICT_RESOLUTION
+          mass = i.getMass(); // sometimes can be MUCH faster than getParticle
+          if (min_mass > mass) min_mass = mass;
+          if (max_mass < mass) max_mass = mass;
+          num++;
+        });
 
-      if (gadgetformat == 3) {
-        io_header_3 header1 = CreateGadget3Header(masses, npart, Boxlength, cosmology);
-        //header block
-        fortranFieldSize = sizeof(header1);
-        my_fwrite(&fortranFieldSize, sizeof(fortranFieldSize), 1, fd);
-        my_fwrite(&header1, sizeof(header1), 1, fd);
-        my_fwrite(&fortranFieldSize, sizeof(fortranFieldSize), 1, fd);
-      } else if (gadgetformat == 2) {
-        io_header_2 header1 = CreateGadget2Header(masses, npart, Boxlength, cosmology);
-        fortranFieldSize = sizeof(header1);
-        my_fwrite(&fortranFieldSize, sizeof(fortranFieldSize), 1, fd);
-        my_fwrite(&header1, sizeof(header1), 1, fd);
-        my_fwrite(&fortranFieldSize, sizeof(fortranFieldSize), 1, fd);
-      } else {
-        throw std::runtime_error("Unknown gadget format");
       }
 
-      float output_cache;
-
-      fortranFieldSize = sizeof(output_cache) * (nTotal) * 3;
-
-      my_fwrite(&fortranFieldSize, sizeof(fortranFieldSize), 1, fd);
-
-      size_t ntotthis=0;
-
-      // positions
-      mapper.iterateParticlesOfAllTypes(generator, [&](const auto & i) {
-        auto particle = i.getParticle();
-
-        output_cache = particle.pos.x;
-        my_fwrite(&output_cache, sizeof(output_cache), 1, fd);
-        output_cache = particle.pos.y;
-        my_fwrite(&output_cache, sizeof(output_cache), 1, fd);
-        output_cache = particle.pos.z;
-        my_fwrite(&output_cache, sizeof(output_cache), 1, fd);
-        ntotthis++;
-      },redirect);
-
-      //Particle data in text format (only used for debugging):
-      std::ofstream debugfile;
-      debugfile.open("baryons_particle_data.dat");
-      if(!debugfile)
-      {
-          throw(std::runtime_error("Cannot open baryon debug file."));
-      }
-      FloatType min_mass, max_mass;
-      size_t n;
-      getParticleInfo(*generator[redirect[0]], mapper, min_mass, max_mass, n, 0);
-      debugfile << n << std::endl;
-      FloatType boxsize = mapper.getCoarsestGrid()->periodicDomainSize;
-      mapper.iterateParticlesOfType(*generator[redirect[0]],0, [&](const auto & i) {
-        auto particle = i.getParticle();
-
-        debugfile << particle.pos.x/boxsize << " " << particle.pos.y/boxsize << " "
-                  << particle.pos.z/boxsize << " " << particle.mass << std::endl;
-      });
-      debugfile.close();
-      debugfile.open("dark_matter_particle_data.dat");
-      if(!debugfile)
-      {
-          throw(std::runtime_error("Cannot open dark matter debug file."));
-      }
-      getParticleInfo(*generator[redirect[1]], mapper, min_mass, max_mass, n, 1);
-      debugfile << n << std::endl;
-      mapper.iterateParticlesOfType(*generator[redirect[1]], 1, [&](const auto & i) {
-        auto particle = i.getParticle();
-
-        debugfile << particle.pos.x/boxsize << " " << particle.pos.y/boxsize << " "
-                  << particle.pos.z/boxsize << " " << particle.mass << std::endl;
-      });
-      debugfile.close();
-
-
-      assert(ntotthis==nTotal);
-
-      my_fwrite(&fortranFieldSize, sizeof(fortranFieldSize), 1, fd); //end of position block
-
-      // velocities
-      my_fwrite(&fortranFieldSize, sizeof(fortranFieldSize), 1, fd); //beginning of velocity block
-
-      mapper.iterateParticlesOfAllTypes(generator, [&](const auto & i) {
-        auto particle = i.getParticle();
-
-        output_cache = particle.vel.x;
-        my_fwrite(&output_cache, sizeof(output_cache), 1, fd);
-        output_cache = particle.vel.y;
-        my_fwrite(&output_cache, sizeof(output_cache), 1, fd);
-        output_cache = particle.vel.z;
-        my_fwrite(&output_cache, sizeof(output_cache), 1, fd);
-        ntotthis++;
-      },redirect);
-      my_fwrite(&fortranFieldSize, sizeof(fortranFieldSize), 1, fd); //end of velocity block
-
-      //particle IDs (one for each gas, high res and low res particle)
-      fortranFieldSize = sizeof(long) * (nTotal);
-      // gadget uses this to check if the IDs are ints or long longs
-
-      my_fwrite(&fortranFieldSize, sizeof(fortranFieldSize), 1, fd);
-
-      mapper.iterateParticlesOfAllTypes(generator, [&](const auto & i) {
-        long index = long(i.getIndex());
-        my_fwrite(&index, sizeof(long), 1, fd);
-      },redirect);
-
-      my_fwrite(&fortranFieldSize, sizeof(fortranFieldSize), 1, fd);
-
-      if(variableMass) {
-        fortranFieldSize = sizeof(output_cache) * nTotal;
-        my_fwrite(&fortranFieldSize, sizeof(fortranFieldSize), 1, fd);
-        mapper.iterateParticlesOfAllTypes(generator, [&](const auto & i) {
-          output_cache = i.getMass();
-          my_fwrite(&output_cache, sizeof(output_cache), 1, fd);
-        },redirect);
-        my_fwrite(&fortranFieldSize, sizeof(fortranFieldSize), 1, fd);
+      void writeHeader() {
+        if (gadgetVersion == 3) {
+          writer.writeFortran(createGadget3Header<OutputFloatType>(masses, npart, boxLength, cosmology));
+        } else if (gadgetVersion == 2) {
+          writer.writeFortran(createGadget2Header<OutputFloatType>(masses, npart, boxLength, cosmology));
+        } else {
+          throw std::runtime_error("Unknown gadget format");
+        }
       }
 
+    public:
+      GadgetOutput(double boxLength,
+                   particle::mapper::ParticleMapper<GridDataType> &mapper,
+                   //particle::AbstractMultiLevelParticleGenerator<GridDataType> &generator,//CONFLICT_RESOLUTION
+                   std::vector<std::shared_ptr<particle::AbstractMultiLevelParticleGenerator<GridDataType>>> &generator,//CONFLICT_RESOLUTION
+                   const cosmology::CosmologicalParameters<tools::datatypes::strip_complex<GridDataType>> &cosmology,
+                   int gadgetVersion) :
+                   mapper(mapper), generator(generator), cosmology(cosmology), boxLength(boxLength),
+                   gadgetVersion(gadgetVersion) {
 
-      fclose(fd);
+                   //CONFLICT_RESOLUTION:
+//==================================================================================
+                   //If not using gas, we should re-direct everything to DM:
+                  if(generator.size() < 2)
+                  {
+                    this->redirect[0] = 0;
+                  }
+//==================================================================================
+
+       }
+
+       void operator()(const std::string &name) {
+
+         preScanForMassesAndParticleNumbers();
+
+         writer = tools::MemMapFileWriter(name + std::to_string(gadgetVersion));
+
+         writeHeader();
+
+         // positions
+         saveGadgetBlock<Coordinate<OutputFloatType>>(
+           [](auto &localIterator) {
+             auto particle = localIterator.getParticle();
+             return Coordinate<OutputFloatType>(particle.pos);
+           });
+
+         // velocities
+         saveGadgetBlock<Coordinate<OutputFloatType>>(
+           [](auto &localIterator) {
+             auto particle = localIterator.getParticle();
+             return Coordinate<OutputFloatType>(particle.vel);
+           });
+
+         // IDs
+         saveGadgetBlock<long>(
+           [](auto &localIterator) {
+             return localIterator.getIndex();
+           });
+
+
+         if (variableMass) {
+           saveGadgetBlock<OutputFloatType>(
+             [](auto &localIterator) {
+               return localIterator.getMass();
+             });
+         }
+       }
+
+
+    };
+
+
+    template<typename OutputFloatType, typename GridDataType>
+    void save(const std::string &name, double Boxlength,
+              particle::mapper::ParticleMapper<GridDataType> &mapper,
+              //particle::AbstractMultiLevelParticleGenerator<GridDataType> &generator,//CONFLICT_RESOLUTION
+              std::vector<std::shared_ptr<particle::AbstractMultiLevelParticleGenerator<GridDataType>>> &generator,//CONFLICT_RESOLUTION
+              const cosmology::CosmologicalParameters<tools::datatypes::strip_complex<GridDataType>> &cosmology, int gadgetformat) {
+
+      GadgetOutput<GridDataType, OutputFloatType> output(Boxlength, mapper, generator, cosmology, gadgetformat);
+      output(name);
+
     }
-
 
   }
 }

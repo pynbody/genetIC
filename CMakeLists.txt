@@ -6,7 +6,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/genetIC)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14  -fopenmp -g ")
 
-set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Og")
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O0")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")
 
 set(SOURCE_FILES
@@ -52,20 +52,36 @@ set(SOURCE_FILES
         genetIC/src/simulation/particles/mapper/twolevelmapper.hpp
         genetIC/src/simulation/particles/mapper/gasmapper.hpp
         genetIC/src/simulation/particles/mapper/graficmapper.hpp
+        genetIC/src/simulation/particles/velocityoffsetgenerator.hpp
         genetIC/src/simulation/field/evaluator.hpp
         genetIC/src/simulation/window.hpp
         genetIC/src/simulation/modifications/modification.hpp
         genetIC/src/simulation/modifications/modificationmanager.hpp
         genetIC/src/simulation/modifications/linearmodification.hpp
         genetIC/src/simulation/modifications/quadraticmodification.hpp
-        genetIC/src/simulation/multilevelcontext/mask.hpp)
+        genetIC/src/simulation/multilevelcontext/mask.hpp genetIC/src/tools/memmap.hpp)
 
 include_directories( /opt/local/include )
 link_directories(/opt/local/lib )
 include_directories( genetIC/  )
 link_libraries(fftw3 m fftw3 fftw3_threads gsl gslcblas)
 
-add_definitions(-DFFTW3 -DFFTW_THREADS -DOPENMP -DGIT_VERSION -DGIT_MODIFIED -DDOUBLEPRECISION -DOUTPUT_IN_DOUBLEPRECISION)
+
+exec_program(
+        "git"
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        ARGS "rev-parse --short HEAD"
+        OUTPUT_VARIABLE GIT_VERSION
+)
+
+exec_program(
+        "bash"
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        ARGS "-c 'git ls-files -m | tr \"\\n\" \" \"'"
+        OUTPUT_VARIABLE GIT_MODIFIED
+)
+
+add_definitions(-DFFTW3 -DFFTW_THREADS -DOPENMP -DGIT_VERSION="${GIT_VERSION}" -DGIT_MODIFIED="${GIT_MODIFIED}" -DDOUBLEPRECISION -DOUTPUT_IN_DOUBLEPRECISION)
 add_compile_options(-Wextra)
 add_executable(IC ${SOURCE_FILES})
 
