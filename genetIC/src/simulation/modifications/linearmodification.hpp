@@ -30,8 +30,10 @@ namespace modifications {
     }
 
     std::shared_ptr<fields::ConstraintField<DataType>> getCovector() {
-      if(this->covector==nullptr)
+      if(this->covector==nullptr) {
         this->covector = this->calculateCovectorOnAllLevels();
+        this->covector->toFourier();
+      }
       return this->covector;
     }
 
@@ -189,41 +191,45 @@ namespace modifications {
   class VelocityModification : public OverdensityModification<DataType, T> {
   protected:
     int direction;
+
   public:
     VelocityModification(multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
                           const cosmology::CosmologicalParameters<T> &cosmology_, int direction_) :
                           OverdensityModification<DataType, T>(underlying_, cosmology_), direction(direction_) {};
 
     fields::Field<DataType, T> calculateCovectorOnOneLevel(grids::Grid<T> &grid) override {
+      using compT = std::complex<T>;
       fields::Field<DataType, T> outputField = OverdensityModification<DataType, T>::calculateCovectorOnOneLevel(grid);
       outputField.toFourier(); // probably already in Fourier space, but best to be sure
       std::complex<T> I(0,1);
       T scale = cosmology::zeldovichVelocityToOffsetRatio(this->cosmology);
+      const T nyquist = tools::numerics::fourier::getNyquistModeThatMustBeReal(grid) * grid.getFourierKmin();
 
-      auto kinv = [](T kx, T ky, T kz) -> T {
-          T k = std::sqrt(kx*kx+ky*ky+kz*kz);
-          if(k==0)
-            return 0;
-          else
-            return 1./k;
+      auto calcCell =
+              [I, scale, nyquist](std::complex<T> overdensityFieldValue, T kx, T ky, T kz, T k_chosen_direction) -> std::complex<T> {
+
+        // This lambda evaluates the derivative for the given Fourier-space cell. kx,ky,kz are the
+        // input k-space coordinates, and k_chosen_direction must be set to whichever of these specifies
+        // the derivative direction
+
+        T k2 = kx*kx+ky*ky+kz*kz;
+
+        if(k_chosen_direction==nyquist || k2==0)
+          return std::complex<T>(0);
+        else
+          return -scale * overdensityFieldValue * I * k_chosen_direction/k2;
       };
 
-      if(direction==0)
-        outputField.forEachFourierCell([I, kinv, scale](std::complex<T> current_value, T kx, T ky, T kz) {
 
-          return scale * current_value * I * kx*kinv(kx,ky,kz);
-        });
+      if(direction==0)
+        outputField.forEachFourierCell([calcCell](compT v, T kx, T ky, T kz) { return calcCell(v,kx,ky,kz,kx);});
       else if(direction==1)
-        outputField.forEachFourierCell([I, kinv, scale](std::complex<T> current_value, T kx, T ky, T kz) {
-          return scale * current_value * I * ky*kinv(kx,ky,kz);
-        });
+        outputField.forEachFourierCell([calcCell](compT v, T kx, T ky, T kz) { return calcCell(v,kx,ky,kz,ky);});
       else if(direction==2)
-        outputField.forEachFourierCell([I, kinv, scale](std::complex<T> current_value, T kx, T ky, T kz) {
-          return scale * current_value * I * kz*kinv(kx,ky,kz);
-        });
-      else {
-        throw std::runtime_error("Unknown direction passed to velocity modification");
-      }
+        outputField.forEachFourierCell([calcCell](compT v, T kx, T ky, T kz) { return calcCell(v,kx,ky,kz,kz);});
+      else
+        throw std::runtime_error("Unknown velocity direction");
+
       return outputField;
 
     }

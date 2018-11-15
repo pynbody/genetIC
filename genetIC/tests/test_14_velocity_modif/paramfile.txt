@@ -18,8 +18,6 @@ basegrid 50.0 8
 
 idfile ids.txt
 
-calculate vx
-calculate vy
-calculate vz
+modify vx absolute 0
 
 done
