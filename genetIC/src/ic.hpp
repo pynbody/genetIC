@@ -121,6 +121,9 @@ protected:
   //!If true, then the code will generate baryons on all levels, rather than just the deepest level.
   bool baryonsOnAllLevels;
 
+  //!Flags whether an output format has been specified or not, so that an error can be generated if not.
+  bool formatSpecified = false;
+
 
   std::vector<size_t> flaggedParticles;
   std::vector<std::vector<size_t>> zoomParticleArray;
@@ -891,6 +894,7 @@ public:
    */
   void setOutputFormat(int format) {
     outputFormat = static_cast<io::OutputFormat>(format);
+    this->formatSpecified = true;
     updateParticleMapper();
   }
 
@@ -1285,6 +1289,8 @@ public:
   void updateParticleMapper() {
     // TODO: This routine contains too much format-dependent logic and should be refactored so that the knowledge
     // resides somewhere in the io namespace
+
+
 
     size_t nLevels = multiLevelContext.getNumLevels();
 
@@ -1862,8 +1868,13 @@ public:
 
     std::cout << "\nOperations applied to all fields. Writing to disk...";
 
-    //Not sure how well this works if we call it multiple times yet - need to test.
-    //Just call it on the DM particles for now.
+    //Should exit gracefully if no output format specified (will be checked later,
+    //but since format variable is undefined if not specified, it might accidentally
+    //produce something unpredictable):
+    if(!this->formatSpecified)
+    {
+        throw(std::runtime_error("No output format specified!"));
+    }
     write();
   }
 
