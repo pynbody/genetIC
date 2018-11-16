@@ -5,6 +5,11 @@
 #include <sstream>
 
 namespace io {
+//! \brief Read numerical data from a file into a vector.
+/*!
+    Data must be formatted in columns separated by spaces, and rows
+    separated by new lines.
+*/
   template<typename T>
   void getBuffer(std::vector<T> &store, std::string filename) {
     std::ifstream f(filename);
@@ -20,7 +25,8 @@ namespace io {
     }
   }
 
-  //! Returns the number of columns in the supplied data file.
+  //! \brief Returns the number of columns in the supplied data file.
+    //! This is used to distinguish between old and new CAMB formats.
   size_t getNumberOfColumns(std::string filename)
   {
     std::ifstream f(filename);
@@ -49,6 +55,7 @@ namespace io {
     return nCols;
   }
 
+  //! \brief Output the numerical contents of the vector store to filename
   template<typename T>
   void dumpBuffer(const std::vector<T> &store, std::string filename) {
     std::ofstream f(filename);

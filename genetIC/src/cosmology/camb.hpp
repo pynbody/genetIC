@@ -13,7 +13,8 @@
  */
 namespace cosmology {
 
-  /** Load in and provide interpolation routines for the cosmological power spectrum.
+    /*!\class CAMB
+   * \brief Load in and provide interpolation routines for the cosmological power spectrum.
    *
    * Currently tied to the CAMB transfer function output format, though this could easily
    * be relaxed in future by creating an abstract base class and deriving different
@@ -51,7 +52,7 @@ namespace cosmology {
     bool dmOnly;
     bool dataRead;
 
-    //Constructor:
+    //!Constructor:
     CAMB(bool useOnlyDM = true)
     {
         this->dmOnly = useOnlyDM;
@@ -75,25 +76,12 @@ namespace cosmology {
         }
     }
 
-    //Function to switch to using both DM and baryons:
-    void setDMOnly()
-    {
-        this->dmOnly = true;
-        if(this->T.size() > 1)
-        {
-            std::cerr << "WARNING: imported CAMB data for additional transfer functions will be lost!!" << std::endl;
-        }
-        this->interpolator.resize(1);
-        this->T.resize(1);
-        transferSwitch.assign(this->T.size(),0);
-    }
-    //Function to enable using the baryon transfer function:
+    //!Enables the use of the baryon transfer function
     void enableAllTransfers()
     {
         this->dmOnly = false;
         if(this->T.size() < 2)
         {
-            std::cerr << "All transfer functions enabled. Remember to read in new CAMB data." << std::endl;
             this->kcamb.clear();
             this->T.clear();
         }
@@ -105,21 +93,18 @@ namespace cosmology {
         }
     }
 
-    //Checks whether the CAMB object actually stores any data:
+    //!Checks whether the CAMB object actually stores any data:
     bool isUsable() const {
       return (kcamb.size() > 0);
     }
 
-    //Import data from CAMB file and initialise the interpolation functions used to compute
-    //the transfer functions:
+    //!Import data from CAMB file and initialise the interpolation functions used to compute the transfer functions:
     void read(std::string incamb, const CosmologicalParameters <CoordinateType> &cosmology) {
       readLinesFromCambOutput(incamb);
       for(size_t i = 0;i < this->T.size();i++)
       {
             this->interpolator[i].initialise(kcamb,this->T[i]);
       }
-      //interpolator.initialise(kcamb, Tcamb);
-      //interpolator_baryons.initialise(kcamb, Tbar);
 
       // a bit awkward that we have to copy this value:
       ns = cosmology.ns;
@@ -127,24 +112,13 @@ namespace cosmology {
       calculateOverallNormalization(cosmology);
       std::cerr << "amplitude = " << this->amplitude << std::endl;
 
-
-      // TODO: here is where we'd insert a conversion of the power spectrum to match the real-space correlation function.
-      // This work was paused because it's not so obvious whether we really want it or not (literature generally claims
-      // yes, but claims are not totally convincing.)
-
-      /*
-      realspace::RealSpaceGenerators<FloatType> obj(200.0,8192*2);
-
-      cerr << "k=" << obj.generateKArray() << endl;
-      cerr << "Pk=" << obj.generatePkArray(*this) << endl;
-      */
       this->dataRead = true;
 
     }
 
   protected:
-  //This function imports data from a CAMB file, supplied as a file-name string argument (incamb). Both pre-2015 and post-2015
-  //formats can be used, and the function will detect which.
+  //!\brief This function imports data from a CAMB file, supplied as a file-name string argument (incamb).
+  //!Both pre-2015 and post-2015 formats can be used, and the function will detect which.
     void readLinesFromCambOutput(std::string incamb) {
       kcamb.clear();
       for(size_t i  =0;i < this->T.size();i++)
@@ -164,7 +138,7 @@ namespace cosmology {
 
       io::getBuffer(input, incamb);
 
-      //Check whether the input file is in the pre-2015 or post-2015 format (and throw an error if it is neither).
+
       //STEPHEN - This will actually miss-classify if the post-2015 file happens to also have a number of entries
       //divisible by 7. Need to rethink this!
       /*
@@ -179,6 +153,7 @@ namespace cosmology {
       }
       */
 
+      //Check whether the input file is in the pre-2015 or post-2015 format (and throw an error if it is neither).
       c = io::getNumberOfColumns(incamb);
 
       std::cerr << "c = " << c << std::endl;
@@ -242,7 +217,7 @@ namespace cosmology {
 
   public:
 
-    //! Evaluate power spectrum nTransfer at wavenumber k (Mpc/h), including the normalisation
+    //!\brief Evaluate power spectrum nTransfer at wavenumber k (Mpc/h), including the normalisation
     //! nTransfer = 0 -> DM
     //! nTransfer = 1 -> baryons.
     //!NB - for efficiency, we don't check that nTransfer is within bounds. This is handled by
@@ -264,7 +239,7 @@ namespace cosmology {
       return amplitude * powf(k, ns) * linearTransfer * linearTransfer;
     }
 
-    //! Calculate and associate the theoretical power spectrum to a given grid
+    //!\brief Calculate and associate the theoretical power spectrum to a given grid
     std::shared_ptr<fields::Field<DataType, CoordinateType>>
     getPowerSpectrumForGrid(const grids::Grid<CoordinateType> &grid,size_t nTransfer = 0) const {
       /* Get the variance for each Fourier cell of the specified grid  */
@@ -302,6 +277,7 @@ namespace cosmology {
 
 
   protected:
+    //!\brief Return the cosmology-dependent part of the normalisation of the power spectrum.
     void calculateOverallNormalization(const CosmologicalParameters <CoordinateType> &cosmology) {
       CoordinateType ourGrowthFactor = growthFactor(cosmology);
       CoordinateType growthFactorNormalized = ourGrowthFactor / growthFactor(cosmologyAtRedshift(cosmology, 0));
@@ -314,6 +290,8 @@ namespace cosmology {
 
   public:
 
+
+    //!\brief Return the box- and fft-dependent part of the normalisation of the power spectrum
     static CoordinateType getPowerSpectrumNormalizationForGrid(const grids::Grid<CoordinateType> &grid) {
 
       CoordinateType kw = 2. * M_PI / grid.thisGridSize;
@@ -329,7 +307,7 @@ namespace cosmology {
     }
 
 
-    //Compute the power spectrum averaged over a spherical top hat window.
+    //!Compute the power spectrum averaged over a spherical top hat window.
     CoordinateType calculateLinearVarianceInSphere(CoordinateType radius,size_t nTransfer = 0) const {
       //Bounds check
       if(transferSwitch[nTransfer] > this->T.size() - 1)

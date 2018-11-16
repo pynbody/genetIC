@@ -72,6 +72,7 @@ namespace fields {
       assert(data.size() == fourierManager->getRequiredDataSize());
     }
 
+    //! Copy constructor
     Field(const Field<DataType, CoordinateType> &copy)
         : std::enable_shared_from_this<Field<DataType, CoordinateType>>(),
           pGrid(copy.pGrid), data(copy.data),
@@ -107,27 +108,33 @@ namespace fields {
 
   public:
 
+  //! \brief Returns a reference to the underlying grid
     TGrid &getGrid() const {
       return const_cast<TGrid &>(*pGrid);
     }
 
+    //! Returns a reference to the data vector that stores the field
     TData &getDataVector() {
       return data;
     }
 
+    //!Returns a constant reference to the data vector that stores the field.
     const TData &getDataVector() const {
       return data;
     }
 
+    //!Operator(), which returns a reference to the data vector storing the field.
     operator std::vector<DataType> &() {
       return getDataVector();
     }
 
+    //!Operator(), which returns a constant reference to the data vector storing the field.
     operator const std::vector<DataType> &() const {
       return getDataVector();
     }
 
 
+    //!Evaluates the field at the crid point nearest to the supplied co-ordinate.
     DataType evaluateNearest(const Coordinate<CoordinateType> &location) const {
       auto offsetLower = pGrid->offsetLower;
       int x_p_0, y_p_0, z_p_0;
@@ -142,6 +149,7 @@ namespace fields {
     }
 
 
+    //! Evaluates the field at the specified co-ordinate using interpolation.
     DataType evaluateInterpolated(Coordinate<CoordinateType> location) const {
       auto offsetLower = pGrid->offsetLower;
       int x_p_0, y_p_0, z_p_0, x_p_1, y_p_1, z_p_1;
@@ -214,10 +222,12 @@ namespace fields {
              xw1 * yw1 * zw0 * (*this)[pGrid->getIndexFromCoordinateNoWrap(x_p_1, y_p_1, z_p_0)];
     }
 
+    //! Returns a constant reference to the value of the field at linear index i (cannot be edited)
     const DataType &operator[](size_t i) const {
       return data[i];
     }
 
+    //! Returns a reference to the value of the field at linear index i (can be edited)
     DataType &operator[](size_t i) {
       return data[i];
     }
@@ -226,6 +236,7 @@ namespace fields {
      * FOURIER TRANSFORM SUPPORT
      */
 
+     //! Converts the field to the same co-ordinates (Fourier or Real space) as the specified field.
     template<typename T>
     void matchFourier(const T &other) {
       if (other.isFourier())
@@ -234,31 +245,42 @@ namespace fields {
         toReal();
     }
 
+    //! Returns true if the field is in Fourier space.
     bool isFourier() const {
       return fourier;
     }
 
+    //! Flags the field as being in Fourier space, without actually applying any transform
     void setFourier(bool fourier) {
-      // Set a flag to indicate whether this field is in Fourier space or not - without actually applying any transform
       this->fourier = fourier;
     }
 
+    //! \brief Converts the field to Fourier space
+    /*!
+        Does nothing if already in Fourier space.
+    */
     void toFourier() {
       if (fourier) return;
       fourierManager->performTransform();
       assert(fourier);
     }
 
+    //! \brief Converts the field to real space
+    /*!
+        Does nothing if already in real space.
+    */
     void toReal() {
       if (!fourier) return;
       fourierManager->performTransform();
       assert(!fourier);
     }
 
+    //! Returns the value of the field in Fourier space at the specified Fourier mode
     ComplexType getFourierCoefficient(int kx, int ky, int kz) const {
       return fourierManager->getFourierCoefficient(kx, ky, kz);
     }
 
+    //! Generate a set of three Fourier fields from a function of k and the Fourier space field, supplied as an argument.
     template<typename... Args>
     auto generateNewFourierFields(Args &&... args) {
       return fourierManager->generateNewFourierFields(args...);
@@ -267,7 +289,7 @@ namespace fields {
     //! Iterate (potentially in parallel) over each Fourier cell.
     /*!
      * The passed function takes arguments (value, kx, ky, kz) where value is the Fourier coeff value
-     * at k-mode kx, ky, kz.
+     * at k-mode kx, ky, kz, and kx,ky,kz are the modes in physical (Mpc/h) coordinates.
      * If the function returns a value, the Fourier coeff in that cell is updated accordingly.
      */
     template<typename... Args>
@@ -275,11 +297,13 @@ namespace fields {
       fourierManager->forEachFourierCell(args...);
     }
 
+    //! Overload of forEachFourierCell that cannot modify the field
     template<typename... Args>
     void forEachFourierCell(Args &&... args) const {
       fourierManager->forEachFourierCell(args...);
     }
 
+    //! Iterate over Fourier cells with a function taking integer kx,ky,kz arguments.
     template<typename... Args>
     void forEachFourierCellInt(Args &&... args) const {
       fourierManager->forEachFourierCellInt(args...);
@@ -294,6 +318,13 @@ namespace fields {
       return fourierManager->accumulateForEachFourierCell(args...);
     }
 
+    //! \brief Sets the value of the field in Fourier space, at the specified mode.
+    /*!
+    \param kx - integer kx mode
+    \param ky - integer ky mode
+    \param kz - integer kz mode
+    \param value - value to set the field to at this mode
+    */
     void setFourierCoefficient(int kx, int ky, int kz, const ComplexType &value) {
       fourierManager->setFourierCoefficient(kx, ky, kz, value);
     }
@@ -309,6 +340,7 @@ namespace fields {
       const_cast<FourierManager &>(*fourierManager).ensureFourierModesAreMirrored();
     }
 
+    //! Apply a Fourier space filter that suppresses the field at some k
     void applyFilter(const filters::Filter<CoordinateType> &filter) {
       forEachFourierCell([&filter](ComplexType current_value, CoordinateType kx, CoordinateType ky, CoordinateType kz) {
         CoordinateType k = sqrt(double(kx * kx + ky * ky + kz * kz));
@@ -316,7 +348,11 @@ namespace fields {
       });
     }
 
-
+    //! Adds the supplied field to this one, even if it is defined using a different grid
+    /*!
+        This is done through evaluators, and will thus use interpolation is necessary.
+        It does not modify the grid in question
+    */
     void addFieldFromDifferentGrid(const Field<DataType, CoordinateType> &source) {
       assert(!source.isFourier());
       toReal();
@@ -356,6 +392,7 @@ namespace fields {
 
 #else
 
+    //!Add a field defined on a different grid to this one, first applying a filter field to be added.
     void addFieldFromDifferentGridWithFilter(Field<DataType, CoordinateType> &source,
                                              const filters::Filter<CoordinateType> &filter) {
 
@@ -384,17 +421,20 @@ namespace fields {
 
 #endif
 
+    //! Overload of addFieldFromDifferentGrid, casting a non-constant reference to a constant reference.
     void addFieldFromDifferentGrid(Field<DataType, CoordinateType> &source) {
       source.toReal();
       addFieldFromDifferentGrid(const_cast<const Field<DataType, CoordinateType> &>(source));
     }
 
+    //! Outputs the field as a numpy array to the specified filename.
     void dumpGridData(std::string filename) const {
       int n = static_cast<int>(getGrid().size);
       const int dim[3] = {n, n, n};
       io::numpy::SaveArrayAsNumpy(filename, false, 3, dim, data.data());
     }
 
+    //! Loads field data from the specified numpy file, if this is possible.
     void loadGridData(std::string filename) {
       int n = static_cast<int>(getGrid().size);
       int n0, n1, n2;
@@ -409,6 +449,7 @@ namespace fields {
 
   };
 
+  //TODO - this function is never actually used anywhere...
   //! Mostly used for debugging. Convert a field from holding one data type to another, e.g. complex to real.
   template<typename TargetDataType, typename SourceDataType, typename CoordinateType>
   std::shared_ptr<Field<TargetDataType, CoordinateType>>
@@ -427,6 +468,8 @@ namespace fields {
     return newField;
   };
 
+  //TODO - it doesn't look like this function is really converting anything, so it's a bit of an odd name. Also, it's never actually used...
+  //! Returns a shared pointer to this field
   template<typename TargetDataType, typename CoordinateType>
   std::shared_ptr<Field<TargetDataType, CoordinateType>>
   convertField(Field<TargetDataType, CoordinateType> &field) {

@@ -1996,20 +1996,6 @@ public:
   void reverseSmallK(T kmax){
     this->reverseSmallK(kmax,0);
   }
-
-  //Functions to control whether we use only the dark matter or include baryons:
-  //Switch to using DM only:
-  /*
-  void setDMOnly()
-  {
-    this->spectrum.setDMOnly();
-  }
-  //Switch to allowing baryon transfer functions:
-  void enableAllTransfers()
-  {
-    this->spectrum.enableAllTransfers();
-  }
-  */
 };
 
 #endif

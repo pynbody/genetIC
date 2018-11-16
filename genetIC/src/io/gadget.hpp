@@ -202,6 +202,9 @@ namespace io {
 
 
 
+    /*! \class GadgetOutput
+    \brief Class to handle output to gadget files.
+    */
     template<typename GridDataType, typename OutputFloatType>
     class GadgetOutput {
     protected:
@@ -211,13 +214,13 @@ namespace io {
       //particle::AbstractMultiLevelParticleGenerator<GridDataType> &generator;//CONFLICT_RESOLUTION
       std::vector<std::shared_ptr<particle::AbstractMultiLevelParticleGenerator<GridDataType>>> &generator;//CONFLICT_RESOLUTION
       const cosmology::CosmologicalParameters<InternalFloatType> &cosmology;
-      tools::MemMapFileWriter writer;
-      size_t nTotal;
-      double boxLength;
-      int gadgetVersion;
-      vector<InternalFloatType> masses;
-      vector<long> npart;
-      bool variableMass;
+      tools::MemMapFileWriter writer;//Used to write in the gadget format.
+      size_t nTotal;//Total number of particles to output.
+      double boxLength;//Size of simulation box.
+      int gadgetVersion;//Which version of the gadget file to output. Allowed values 2 or 3.
+      vector<InternalFloatType> masses;//Masses of particles if constant. Zero if variable.
+      vector<long> npart;//Number of particles of each gadget type
+      bool variableMass;//Stores whether we are using variable mass gadget particles
 
       //CONFLICT_RESOLUTION:
       //==================================================================================
@@ -227,6 +230,7 @@ namespace io {
       size_t redirect[6] = {1,0,0,0,0,0};
       //==================================================================================
 
+      //! \brief Save a block of gadget particles
       template<typename WriteType>
       void saveGadgetBlock(std::function<WriteType(const particle::mapper::MapperIterator<GridDataType> &)> getData) {
 
@@ -250,6 +254,7 @@ namespace io {
 
       }
 
+      //! \brief Scan through data to obtain information on particles and their masses.
       void preScanForMassesAndParticleNumbers() {
         variableMass = false;
         masses = vector<InternalFloatType>(6, 0.0);
@@ -285,7 +290,7 @@ namespace io {
         }
       }
 
-
+        //! \brief Extract the minimum mass, maximum mass, and number of a particle species
       void getParticleInfo(InternalFloatType &min_mass, InternalFloatType &max_mass,
                            size_t &num, unsigned int particle_type) {
 
@@ -303,6 +308,7 @@ namespace io {
 
       }
 
+      //! \brief Output the gadget3 or gadget2 header:
       void writeHeader() {
         if (gadgetVersion == 3) {
           writer.writeFortran(createGadget3Header<OutputFloatType>(masses, npart, boxLength, cosmology));
@@ -314,6 +320,7 @@ namespace io {
       }
 
     public:
+    //! \brief Constructor
       GadgetOutput(double boxLength,
                    particle::mapper::ParticleMapper<GridDataType> &mapper,
                    //particle::AbstractMultiLevelParticleGenerator<GridDataType> &generator,//CONFLICT_RESOLUTION
@@ -334,6 +341,7 @@ namespace io {
 
        }
 
+       //! \brief Operation to save gadget particles
        void operator()(const std::string &name) {
 
          preScanForMassesAndParticleNumbers();
@@ -375,6 +383,15 @@ namespace io {
     };
 
 
+    //! \brief Creates GadgetOutput class and calls its save function.
+    /*!
+    \param name - name of output file
+    \param Boxlength - simulation size in Mpc/h
+    \param mapper - particle mapper used to link particles to grid locations
+    \param generator - particles generators for each particle species (vector)
+    \param cosmology - cosmological parameters
+    \param gadgetformat - 2 or 3, gives type of gadget output (gadget2 or gadget3)
+    */
     template<typename OutputFloatType, typename GridDataType>
     void save(const std::string &name, double Boxlength,
               particle::mapper::ParticleMapper<GridDataType> &mapper,

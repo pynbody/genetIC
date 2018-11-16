@@ -38,6 +38,7 @@ namespace fields {
     //transferType = 1 -> Baryons.
     size_t transferType;
 
+    //! Sets up filters for each level of the multi-level field.
     template<typename FilterType>
     void setupFilters() {
       const T FRACTIONAL_K_SPLIT = 0.3;
@@ -55,7 +56,7 @@ namespace fields {
 
     }
 
-    //Constructor with fields unspecified - only multi-level context.
+    //! Constructor with fields unspecified - only multi-level context.
     MultiLevelField(multilevelcontext::MultiLevelContextInformation<DataType> &multiLevelContext,size_t transfer_type = 0) : multiLevelContext(
         &multiLevelContext) {
       transferType = transfer_type;
@@ -63,7 +64,7 @@ namespace fields {
       isCovector = false;
     }
 
-    //Comnstructor with fields and multi-level context. specified.
+    //! Constructor with fields and multi-level context. specified.
     MultiLevelField(multilevelcontext::MultiLevelContextInformation<DataType> &multiLevelContext,
                     const std::vector<std::shared_ptr<Field<DataType, T>>> &fieldsOnGrids,size_t transfer_type = 0) :
         multiLevelContext(&multiLevelContext), fieldsOnLevels(fieldsOnGrids) {
@@ -73,7 +74,7 @@ namespace fields {
 
     }
 
-    //Copy constructor
+    //! Copy constructor
     MultiLevelField(const MultiLevelField<DataType> &copy) :
         std::enable_shared_from_this<MultiLevelField<DataType>>(), multiLevelContext(&(copy.getContext())) {
 
@@ -97,29 +98,36 @@ namespace fields {
       isCovector = copy.isCovector;
     }
 
+    //! Destructor
     virtual ~MultiLevelField() {}
 
+    //! Updates the multi-level-fields's multi-level context, particularly with regards filters on each level
     virtual void updateMultiLevelContext() {
     }
 
+    //! Returns a reference to the multi-level context associated to this multi-level field.
     virtual multilevelcontext::MultiLevelContextInformation<DataType> &getContext() const {
       return const_cast<multilevelcontext::MultiLevelContextInformation<DataType> &>(*multiLevelContext);
     }
 
+    //! Returns a reference to the filters associated to each level of the multi-level field.
     const filters::FilterFamily<T> &getFilters() const {
       return *pFilters;
     }
 
 
+    //! Returns a constant reference to the field on level i of the multi-level context (cannot edit field)
     virtual const Field<DataType, T> &getFieldForLevel(size_t i) const {
       assert(i < fieldsOnLevels.size());
       return *(fieldsOnLevels[i]);
     }
 
+    //! Returns a constant reference to the field on the specified grid.
     virtual const Field<DataType, T> &getFieldForGrid(const grids::Grid<T> &grid) const {
       return (const_cast<MultiLevelField<DataType> *>(this))->getFieldForGrid(grid);
     };
 
+    //! Returns a reference to the field on the specified grid.
     virtual Field<DataType, T> &getFieldForGrid(const grids::Grid<T> &grid) {
       // TODO: problematically slow implementation
       // MR: Is this still up to date ? (Oct 2017)
@@ -130,51 +138,62 @@ namespace fields {
       throw (std::runtime_error("Cannot find a field for the specified grid"));
     };
 
+    //! Returns a reference to the field on level i of the multi-level context (can edit field)
     virtual Field<DataType, T> &getFieldForLevel(size_t i) {
       return *(fieldsOnLevels[i]);
     }
 
 
+    //! Returns the number of levels in this field's multi-level-context
     size_t getNumLevels() const {
       return multiLevelContext->getNumLevels();
     }
 
+    //! Checks whether a field is defined on the specified level.
     bool hasFieldOnGrid(size_t i) const {
       return this->getFieldForLevel(i).getDataVector().size() > 0;
     }
 
+    //! Returns a reference to the filter on the specified level
     virtual const filters::Filter<T> &getFilterForLevel(size_t i) const {
       return pFilters->getFilterOnLevel(i);
     }
 
+    //! Returns a reference to the high pass filter on the specified level.
     virtual const filters::Filter<T> &getHighPassFilterForLevel(size_t i) const {
       return pFilters->getHighPassFilterOnLevel(i);
     }
 
+    //! Returns a reference to the low pass filter on the specified level.
     virtual const filters::Filter<T> &getLowPassFilterForLevel(size_t i) const {
       return pFilters->getLowPassFilterOnLevel(i);
     }
 
+    //! Converts the fields on each level to real space, if they are not already.
     void toReal() {
       for (size_t i = 0; i < multiLevelContext->getNumLevels(); ++i)
         getFieldForLevel(i).toReal();
     }
 
+    //! Converts the fields on each level to Fourier space, if they are not already.
     void toFourier() {
       for (size_t i = 0; i < multiLevelContext->getNumLevels(); ++i)
         getFieldForLevel(i).toFourier();
     }
 
+    //! Returns true if the specified field has the same multi-level context as this one.
     bool isCompatible(const MultiLevelField<DataType> &other) const {
       return other.multiLevelContext == multiLevelContext;
     }
 
+    //! Returns trueif the field is Real space on all levels.
     bool isRealOnAllLevels() const {
       for (size_t i = 0; i < multiLevelContext->getNumLevels(); ++i)
         if (getFieldForLevel(i).isFourier()) return false;
       return true;
     }
 
+    //! Returns true if the field is Fourier space on all levels.
     bool isFourierOnAllLevels() const {
       for (size_t i = 0; i < multiLevelContext->getNumLevels(); ++i)
         if (!getFieldForLevel(i).isFourier()) return false;
@@ -182,11 +201,13 @@ namespace fields {
     }
 
 
+    //! Adds the specified multi-level field to this one.
     void operator+=(const MultiLevelField<DataType> &other) {
       assert (isCompatible(other));
       addScaled(other, 1.0);
     }
 
+    //! Divides the field on each level by the specified ratio.
     void operator/=(DataType ratio) {
       using namespace tools::numerics;
 
@@ -331,6 +352,7 @@ namespace fields {
       return result;
     }
 
+    //! Applies the filters on all levels.
     void applyFilters() {
       for (size_t level = 0; level < getNumLevels(); ++level) {
         if (hasFieldOnGrid(level)) {
@@ -341,6 +363,11 @@ namespace fields {
       pFilters = make_shared<filters::FilterFamily<T>>(multiLevelContext->getNumLevels());
     }
 
+    //! Converts the field into a covecor, using the covariance matrix associated to the field.
+    /*!
+        For this to work, the transferType needs to have been specified for the field (defaulting to 0, dark matter).
+        Can be either dark matter (0) or baryonic (1).
+    */
     void convertToCovector() {
       assert(!isCovector);
       toFourier();
@@ -356,6 +383,7 @@ namespace fields {
       isCovector = true;
     }
 
+    //! Converts the field back to a vector if it has been converted to or defined as a covector field.
     void convertToVector() {
       assert(isCovector);
       toFourier();
@@ -371,6 +399,7 @@ namespace fields {
       isCovector = false;
     }
 
+    //! Multiplies the field by the relevant power spectrum in Fourier space.
     void applyPowerSpectrum() {
       toFourier();
       for (size_t i = 0; i < multiLevelContext->getNumLevels(); ++i) {
@@ -383,6 +412,11 @@ namespace fields {
       }
     }
 
+    //! \brief Applies an 'exact' power spectrum in Fourier space.
+    /*! This means that effectively only the phase of the field at each Fourier mode is randomised,
+    not the amplitude. This can be used to perform simulations that can quickly estimate ensemble parameters
+    (see Angulo and Pontzen 2016).
+    */
     void enforceExactPowerSpectrum() {
       toFourier();
       for (size_t i = 0; i < multiLevelContext->getNumLevels(); ++i) {
@@ -409,7 +443,7 @@ namespace fields {
       }
     }
 
-    //!Divide by one power spectrum and multiply by another:
+    //!Divide by one power spectrum and multiply by another for all levels:
     void applyTransferRatio(size_t nField)
     {
         toFourier();
@@ -422,6 +456,7 @@ namespace fields {
         }
     }
 
+    //! Divide by one power spectrum and multiply by another for a single level.
     void applyTransferRatioOneGrid(Field<DataType> &field,
                               const Field<DataType> &spectrum1,
                               const Field<DataType> &spectrum2,
@@ -453,6 +488,7 @@ namespace fields {
         this->applyInversePowerSpectrumOf(this->transferType);
     }
 
+    //! Returns the value of chi^2, with respect to the relevant covariance matrix.
     T getChi2() {
 
       this->toFourier();
@@ -466,6 +502,12 @@ namespace fields {
 
 
   private:
+    //! \brief Applies the power spectrum to a single level of the multi level field.
+    /*!
+    \param field - field to apply to
+    \param spectrum - covariance matrix to use
+    \param grid - grid on which field is defined.
+    */
     void applySpectrumOneGrid(Field<DataType> &field,
                               const Field<DataType> &spectrum,
                               const grids::Grid<T> &grid) {
@@ -477,7 +519,12 @@ namespace fields {
       });
     }
 
-    //!Invert applySpectrumOneGrid
+    //! \brief Invert applySpectrumOneGrid
+    /*!
+    \param field - field to apply to
+    \param spectrum - covariance matrix to use
+    \param grid - grid on which field is defined.
+    */
     void applyInverseSpectrumOneGrid(Field<DataType> &field,
                               const Field<DataType> &spectrum,
                               const grids::Grid<T> &grid) {
@@ -496,6 +543,13 @@ namespace fields {
       });
     }
 
+    //! \brief Multiplies one level of the multi level field by the relevant covariance matrix.
+    /*!
+    \param field - field to apply to
+    \param spectrum - covariance matrix to use
+    \param grid - grid on which field is defined.
+    \param weight - extra factor to multiply by along with the covariance.
+    */
     void multiplyByCovarianceOneGrid(Field<DataType> &field,
                                      const Field<DataType> &spectrum,
                                      const grids::Grid<T> &grid,
@@ -508,6 +562,13 @@ namespace fields {
       });
     }
 
+    //! \brief Divides one level by the relevant covariance matrix.
+    /*!
+    \param field - field to apply to
+    \param spectrum - covariance matrix to use
+    \param grid - grid on which field is defined.
+    \param weight - extra factor to multiply by along with the covariance.
+    */
     void divideByCovarianceOneGrid(Field<DataType> &field,
                                    const Field<DataType> &spectrum,
                                    const grids::Grid<T> &grid,
@@ -524,6 +585,12 @@ namespace fields {
       });
     }
 
+    //! Apply 'exact' power spectrum on a single grid:
+    /*!
+    \param field - field to apply to
+    \param spectrum - covariance matrix to use
+    \param grid - grid on which field is defined.
+    */
     void enforceSpectrumOneGrid(Field<DataType> &field,
                                 const Field<DataType> &spectrum,
                                 const grids::Grid<T> &grid) {
@@ -541,6 +608,9 @@ namespace fields {
 
   };
 
+  /*! \class OutputField
+    \brief Main type of field used to store overdensities for generating output data.
+  */
 
   template<typename DataType>
   class OutputField : public MultiLevelField<DataType> {
@@ -553,9 +623,11 @@ namespace fields {
       RECOMBINED
     } t_output_state;
 
-    t_output_state outputState;
-    bool fieldsOnLevelsPopulated;
+    t_output_state outputState;//Current output state
+    bool fieldsOnLevelsPopulated;//True if already populated the fields on all levels.
 
+
+    //! Populates the fields on each level with all zeros
     void populateFieldsOnLevels() {
       this->multiLevelContext->forEachLevel([this](grids::Grid<T> &g) {
         this->fieldsOnLevels.emplace_back(std::make_shared<Field<DataType, T>>(g));
@@ -563,12 +635,18 @@ namespace fields {
       fieldsOnLevelsPopulated = true;
     }
 
+    //! Checks whether fields on each level are populated, and populate them if not.
     void populateFieldsOnLevelsIfRequired() {
       if (!fieldsOnLevelsPopulated)
         populateFieldsOnLevels();
     }
 
   public:
+  //!\param Constructor with a given multi-level context and transfer type.
+    /*!
+    \param multiLevelContext - multiLevel context to define the field on
+    \param transfer_type - 0 for dark matter field, 1 for baryonic field.
+    */
     OutputField(multilevelcontext::MultiLevelContextInformation<DataType> &multiLevelContext,size_t transfer_type)
         : MultiLevelField<DataType>(
         multiLevelContext,transfer_type) {
@@ -576,11 +654,13 @@ namespace fields {
       fieldsOnLevelsPopulated = false;
     }
 
+    //! Copy constructor
     OutputField(const OutputField<DataType> &copy) : MultiLevelField<DataType>(copy) {
       outputState = copy.outputState;
       fieldsOnLevelsPopulated = copy.fieldsOnLevelsPopulated;
     }
 
+    //! Update the filters and clear all fields.
     void updateMultiLevelContext() override {
       assert(outputState == PRE_SEPARATION);
       this->template setupFilters<filters::MultiLevelFilterFamily<T>>();
@@ -588,11 +668,13 @@ namespace fields {
       fieldsOnLevelsPopulated = false;
     }
 
+    //! Sets the internal state to RECOMBINED and sets up the filters
     void setStateRecombined() {
       outputState = RECOMBINED;
       this->template setupFilters<filters::MultiLevelRecombinedFilterFamily<T>>();
     }
 
+    //! Returns the field on the specified level, populating it if not yet populated.
     Field<DataType, T> &getFieldForLevel(size_t i) override {
       populateFieldsOnLevelsIfRequired();
       return *(this->fieldsOnLevels[i]);
@@ -602,6 +684,11 @@ namespace fields {
   };
 
 
+  /*! \class ConstraintField
+    \brief Fields used for defining constraints.
+
+    Note, ConstraintFields are naturally covectors.
+  */
   template<typename DataType>
   class ConstraintField : public MultiLevelField<DataType> {
 
@@ -610,6 +697,12 @@ namespace fields {
 
 
   public:
+  //! \brief Constructor
+  /*!
+  \param multiLevelContext - current multi-level context
+  \param fieldsOnGrids - fields that define the constraint field on each level
+  \param transfer_type - 0 for dark matter, 1 for baryons
+  */
     ConstraintField(multilevelcontext::MultiLevelContextInformation<DataType> &multiLevelContext,
                     const std::vector<std::shared_ptr<Field<DataType, T>>> &fieldsOnGrids,size_t transfer_type)
         : MultiLevelField<DataType>(multiLevelContext, std::move(fieldsOnGrids),transfer_type) {
@@ -618,6 +711,7 @@ namespace fields {
     }
 
 
+    //! Update multi-level context, setting up the filters on each level.
     virtual void updateMultiLevelContext() override {
       this->template setupFilters<filters::MultiLevelDependentFilterFamily<T>>();
     }
