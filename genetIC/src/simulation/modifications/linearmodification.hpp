@@ -15,7 +15,15 @@ namespace modifications {
                        const cosmology::CosmologicalParameters<T> &cosmology_) :
         Modification<DataType, T>(underlying_, cosmology_) {
       this->order = 1;
-      this->flaggedCellsFinestGrid = this->flaggedCells[this->underlying.getNumLevels() - 1];
+
+      if(this->flaggedCells[this->underlying.getNumLevels() - 1].empty()){
+           throw std::runtime_error("Linear modifications use exclusively information from the highest resolution grid "
+                                            "but no cells have been flagged on this grid.\n"
+                                            "Change flagged cells selection to use linear modifications.");
+      } else {
+        this->flaggedCellsFinestGrid = this->flaggedCells[this->underlying.getNumLevels() - 1];
+      }
+
     };
 
     T calculateCurrentValue(const fields::MultiLevelField<DataType> &field) override {
