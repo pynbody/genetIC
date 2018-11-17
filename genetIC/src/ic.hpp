@@ -799,6 +799,7 @@ public:
 
     if (pInputMapper != nullptr) {
       pMapper->unflagAllParticles();
+      pInputMapper->unflagAllParticles();
       pInputMapper->flagParticles(flaggedParticles);
       pInputMapper->extendParticleListToUnreferencedGrids(multiLevelContext);
       pMapper->extendParticleListToUnreferencedGrids(*pInputMultiLevelContext);
