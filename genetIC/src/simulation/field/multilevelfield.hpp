@@ -467,11 +467,12 @@ namespace fields {
         T sqrt_spec1 = sqrt(spectrum1.getFourierCoefficient(kx, ky, kz).real());
         T sqrt_spec2 = sqrt(spectrum2.getFourierCoefficient(kx, ky, kz).real());
         complex<T> new_val;
-        if(abs(sqrt_spec1) < std::numeric_limits<T>::epsilon())
+        //if(abs(sqrt_spec1) < std::numeric_limits<T>::epsilon())
+        if(sqrt_spec1 == 0.0)
         {
             //This can only happen if the power spectrum is zero, ie k = 0, in which case,
             //it will be zero for baryons too, so just return 0:
-            new_val = existingValue*0.0;
+            new_val = 0.0;
         }
         else
         {
@@ -532,7 +533,7 @@ namespace fields {
       field.forEachFourierCellInt([&grid, &field, &spectrum]
                                       (complex<T> existingValue, int kx, int ky, int kz) {
         T sqrt_spec = sqrt(spectrum.getFourierCoefficient(kx, ky, kz).real());
-        if(abs(sqrt_spec) < std::numeric_limits<T>::epsilon())
+        if(sqrt_spec == 0.0)
         {
             return existingValue*0.0;
         }
