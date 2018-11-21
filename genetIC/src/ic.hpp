@@ -1020,19 +1020,20 @@ public:
     if(nField == 0)
     {
         filename << outputFolder << "/grid-" << level;
-        if(data.isFourier())
+        /*if(data.isFourier())
         {
             filename << "-fourier";
-        }
+        }*/
         filename << ".npy";
     }
     else
     {
-        filename << outputFolder << "/grid-" << level << "-field-" << nField;;
-        if(data.isFourier())
+        filename << outputFolder << "/grid-" << level << "-field-" << nField;
+        //This is actually causing conflicts with some tests. TODO - change name of fourier output?
+        /*if(data.isFourier())
         {
             filename << "-fourier";
-        }
+        }*/
         filename << ".npy";
     }
 
