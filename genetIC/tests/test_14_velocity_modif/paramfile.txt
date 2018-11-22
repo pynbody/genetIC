@@ -1,0 +1,27 @@
+# Test velocity modifications
+
+Om  0.279
+Ol  0.721
+#Ob  0.04
+s8  0.817
+zin	99
+
+seed	8896131
+camb	../camb_transfer_kmax40_z0.dat
+
+outname test_1
+outdir	 ./
+outformat 3
+
+
+basegrid 50.0 8
+
+idfile ids.txt
+
+#zoomgrid 2 4
+
+calculate vx
+modify vx absolute 0
+
+done
+calculate vx
