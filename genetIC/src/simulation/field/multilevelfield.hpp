@@ -12,9 +12,11 @@ namespace fields {
   template<typename DataType>
   class MultiLevelField : public std::enable_shared_from_this<MultiLevelField<DataType>> {
 
-  protected:
+  public:
     using T = tools::datatypes::strip_complex<DataType>;
     using ComplexType = tools::datatypes::ensure_complex<DataType>;
+  protected:
+
     multilevelcontext::MultiLevelContextInformation<DataType> *multiLevelContext;
     std::shared_ptr<filters::FilterFamily<T>> pFilters;   // filters to be applied when used as a vector
     tools::Signaling::connection_t connection;

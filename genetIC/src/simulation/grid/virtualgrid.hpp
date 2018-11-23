@@ -21,6 +21,8 @@ namespace grids {
   class Grid;
 
 
+  /*!
+  */
   template<typename T>
   class VirtualGrid : public Grid<T> {
   protected:

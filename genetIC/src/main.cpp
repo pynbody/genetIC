@@ -152,8 +152,14 @@ void setup_parser(tools::ClassDispatch<ICf, void> &dispatch) {
   dispatch.add_class_route("reverse_small_k", static_cast<void(ICf::*)(FloatType)>(&ICf::reverseSmallK));
   dispatch.add_class_route("reverse_small_k_field", static_cast<void(ICf::*)(FloatType,size_t)>(&ICf::reverseSmallK));
   //dispatch.add_class_route("reseed_small_k", &ICf::reseedSmallK);
-  dispatch.add_class_route("reseed_small_k", static_cast<void(ICf::*)(FloatType,int)>(&ICf::reseedSmallK));
-  dispatch.add_class_route("reseed_small_k_field", static_cast<void(ICf::*)(FloatType,int,size_t)>(&ICf::reseedSmallK));
+
+  //Removing these functions, because they don't actually do what they advertise
+  //dispatch.add_class_route("reseed_small_k", static_cast<void(ICf::*)(FloatType,int)>(&ICf::reseedSmallK));
+  //dispatch.add_class_route("reseed_small_k_field", static_cast<void(ICf::*)(FloatType,int,size_t)>(&ICf::reseedSmallK));
+
+  //Replacing them with these instead:
+  dispatch.add_class_route("reseed_high_k", static_cast<void(ICf::*)(FloatType,int)>(&ICf::reseedHighK));
+  dispatch.add_class_route("reseed_high_k_field", static_cast<void(ICf::*)(FloatType,int,size_t)>(&ICf::reseedHighK));
 
   // Write objects to files
   //dispatch.add_class_route("dump_grid", &ICf::dumpGrid);
@@ -191,8 +197,9 @@ void setup_parser(tools::ClassDispatch<ICf, void> &dispatch) {
 //==================================================================================
 // To debug
   //dispatch.add_class_route("zeroLevel", &ICf::zeroLevel);
-  dispatch.add_class_route("zeroLevel", static_cast<void (ICf::*)(size_t)>(&ICf::zeroLevel));
-  dispatch.add_class_route("zeroLevel_field", static_cast<void (ICf::*)(size_t,size_t)>(&ICf::zeroLevel));
+  dispatch.add_class_route("zeroLevel", static_cast<void (ICf::*)(size_t)>(&ICf::zeroLevel));//Retained for backwards compatibility.
+  dispatch.add_class_route("zero_level", static_cast<void (ICf::*)(size_t)>(&ICf::zeroLevel));//Use this instead.
+  dispatch.add_class_route("zero_level_field", static_cast<void (ICf::*)(size_t,size_t)>(&ICf::zeroLevel));
 
 //==================================================================================
   // Set an overall velocity offset for the entire box (useful for testing AMR sensitivity to flows)

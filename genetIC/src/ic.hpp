@@ -1001,9 +1001,10 @@ public:
   /*!
   * \param level - level of multi-level context on which field is found.
   * \param TField - field to dump.
+  * \param prefix - prefix to define filename of output files.
   */
   template<typename TField>
-  void dumpGridData(size_t level, const TField &data,size_t nField) {
+  void dumpGridData(size_t level, const TField &data,size_t nField,std::string prefix = "grid") {
 
 
   //Unsure if this is necessary. May have to do this only for a single field,
@@ -1019,7 +1020,7 @@ public:
     ostringstream filename;
     if(nField == 0)
     {
-        filename << outputFolder << "/grid-" << level;
+        filename << outputFolder << "/" << prefix << "-" << level;
         /*if(data.isFourier())
         {
             filename << "-fourier";
@@ -1028,7 +1029,7 @@ public:
     }
     else
     {
-        filename << outputFolder << "/grid-" << level << "-field-" << nField;
+        filename << outputFolder << "/" <<  prefix << "-" << level << "-field-" << nField;
         //This is actually causing conflicts with some tests. TODO - change name of fourier output?
         /*if(data.isFourier())
         {
@@ -1042,10 +1043,10 @@ public:
 
     filename.str("");
 
-    filename << outputFolder << "/grid-info-" << level << ".txt";
+    filename << outputFolder << "/" << prefix << "-" << level << ".txt";
     if(nField == 0)
     {
-        filename << outputFolder << "/grid-info-" << level;
+        filename << outputFolder << "/" << prefix << "-" << level;
         if(data.isFourier())
         {
             filename << "-fourier";
@@ -1054,7 +1055,7 @@ public:
     }
     else
     {
-        filename << outputFolder << "/grid-info-" << level << "-field-" << nField;
+        filename << outputFolder << "/" << prefix << "-" << level << "-field-" << nField;
         if(data.isFourier())
         {
             filename << "-fourier";
@@ -1074,7 +1075,15 @@ public:
     ifile.close();
   }
 
-  //Overload that does this for the dark matter (for backwards compatibility):
+  /*//!Overload that dumps files with the prefix 'grid'.
+  template<typename TField>
+  void dumpGridData(size_t level, const TField &data,size_t nField)
+  {
+    this->dumpGridData(level,data,nField,"grid");
+  }*/
+
+
+  //!Overload that the dark matter only (for backwards compatibility):
   template<typename TField>
   void dumpGridData(size_t level, const TField& data)
   {
@@ -1205,7 +1214,7 @@ public:
 
     auto maskfield = dumpingMask.convertToField();
     for(size_t level=0; level<newcontext.getNumLevels(); level++){
-      dumpGridData(level, maskfield->getFieldForLevel(level));
+      dumpGridData(level, maskfield->getFieldForLevel(level),0,std::string("mask"));
     }
   }
 
@@ -1924,7 +1933,10 @@ public:
   }
 
   //TODO What is this method doing? Looks like inverted initial conditions properties
-  void reseedSmallK(T kmax, int seed,size_t nField = 0) {
+  //STEPHEN - renaming because this function actually reseeds high k, not small k
+  //void reseedSmallK(T kmax, int seed,size_t nField = 0) {
+  //!Reseeds the high k modes, leaving low-k modes unchanged.
+  void reseedHighK(T kmax, int seed,size_t nField = 0) {
 
     if(nField > outputField.size() - 1)
     {
@@ -1954,7 +1966,7 @@ public:
       field.forEachFourierCell([k2max_i, &oldField](std::complex<T> val, int kx, int ky, int kz) {
         int k2_i = kx * kx + ky * ky + kz * kz;
         if (k2_i < k2max_i && k2_i != 0) {
-          val = oldField.getFourierCoefficient(kx, ky, kz);
+          val = oldField.getFourierCoefficient(kx, ky, kz);//This line actually restores the original seeds for the small k modes, not the high k
         }
         return val;
       });
@@ -1963,11 +1975,12 @@ public:
   }
 
   //!For backwards compatibility:
-  void reseedSmallK(T kmax,int seed)
+  void reseedHighK(T kmax,int seed)
   {
-    this->reseedSmallK(kmax,seed,0);
+    this->reseedHighK(kmax,seed,0);
   }
 
+  //!Reverses the sign of the low-k modes.
   void reverseSmallK(T kmax,size_t nField = 0) {
 
     if(nField > outputField.size() - 1)
