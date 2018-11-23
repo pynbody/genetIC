@@ -13,11 +13,11 @@ outname test_1
 outdir	 ./
 outformat 3
 
-# this should have no effect, since we are miles from any edges
-# but there were bugs which made this flag have side-effects:
+# switching strays_on should have no effect, since we are miles from any edges
+# BUT there were bugs which made this flag have side-effects:
 #  (a) The zoom window was incorrectly placed
-#  (b) The resolution of the high-res window was downsampled 
-#strays_on
+#  (b) The resolution of the high-res window was inappropriately downsampled
+strays_on
 
 basegrid 64.0 8
 centre 40 40 40
