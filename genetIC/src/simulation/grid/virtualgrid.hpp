@@ -186,8 +186,7 @@ namespace grids {
     }
 
     bool pointsToGrid(const Grid<T> *pOther) const override {
-      return this == pOther || pUnderlyingLoResInterpolated->pointsToGrid(pOther) ||
-             pUnderlyingHiRes->pointsToGrid(pOther);
+      return this == pOther || pUnderlyingHiRes->pointsToGrid(pOther);
     }
 
     void debugName(std::ostream &s) const override {
