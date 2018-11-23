@@ -97,7 +97,7 @@ namespace fields {
       // TODO: problematically slow implementation
       // MR: Is this still up to date ? (Oct 2017)
       for (size_t i = 0; i < multiLevelContext->getNumLevels(); ++i) {
-        if (grid.pointsToGrid(&multiLevelContext->getGridForLevel(i)))
+        if (grid.isProxyFor(&multiLevelContext->getGridForLevel(i)))
           return getFieldForLevel(i);
       }
       throw (std::runtime_error("Cannot find a field for the specified grid"));
