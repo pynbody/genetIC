@@ -442,11 +442,18 @@ namespace particle {
         pLevel1->flagParticles(level1ParticlesToReplace);
         ssub1->getFinestGrid()->getFlaggedCells(particlesToZoomOnNewFinestL1grid);
 
-        auto result = std::make_shared<TwoLevelParticleMapper<GridDataType>>(
+        try {
+          auto result = std::make_shared<TwoLevelParticleMapper<GridDataType>>(
             ssub1, ssub2, particlesToZoomOnNewFinestL1grid,
             skipLevel1);
 
-        return result;
+          return result;
+        }
+        catch (std::out_of_range &e) {
+          // Logically the above operation could fail.
+          // See test_15_edge_subsampling for an example of when this might happen
+          throw std::runtime_error("Following sub/super-sampling, the zoom particles no longer fit fully on their grids. Try rerunning with strays_on, or (better) increase the size of the zoom region.");
+        };
       }
 
 
@@ -579,10 +586,20 @@ namespace particle {
       void calculateHiresParticleList() const {
         zoomParticleArrayHiresUnsorted.resize(level1ParticlesToReplace.size() * n_hr_per_lr);
 
+        bool failed=false;
+
 #pragma omp parallel for
         for (size_t i = 0; i < level1CellsToReplace.size(); ++i) {
-          insertLevel2IdsFromLevel1CellId(level1CellsToReplace[i],
-                                          zoomParticleArrayHiresUnsorted.begin() + (i * n_hr_per_lr));
+          try {
+            insertLevel2IdsFromLevel1CellId(level1CellsToReplace[i],
+                                            zoomParticleArrayHiresUnsorted.begin() + (i * n_hr_per_lr));
+          } catch(std::out_of_range &e) {
+            failed=true; // OpenMP does not allow exceptions to propagate out of the parallel region :-(
+          }
+        }
+
+        if(failed) {
+          throw std::out_of_range("Requested zoom region falls outside high resolution grid");
         }
 
         if (!pLevel2->supportsReverseIterator()) {

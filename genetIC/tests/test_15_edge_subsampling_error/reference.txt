@@ -1,0 +1,1 @@
+Error "Following sub/super-sampling, the zoom particles no longer fit fully on their grids. Try rerunning with strays_on, or (better) increase the size of the zoom region." on line 29 ("subsample 2")

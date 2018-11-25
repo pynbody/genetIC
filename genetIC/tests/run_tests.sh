@@ -8,7 +8,7 @@ function runtest {
   IC=${IC:-../../IC}
   command="$IC paramfile.txt > IC_output.txt 2>&1"
   eval "$command"
-  if [ $? -ne 0 ]
+  if [[ $? -ne 0 && "$1" != *error* ]]
   then
       echo "--> TEST ERRORED"
       cat IC_output.txt

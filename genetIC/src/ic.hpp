@@ -310,7 +310,7 @@ public:
           "Zoom particles do not fit in specified sub-box. Decrease zoom, or choose different particles"));
     }
 
-    if (n_required < n_user && !allowStrayParticles)
+    if (n_required < n_user)
       zoomWindow.expandSymmetricallyToSize(n_user);
 
     // The edges of zooms regions carry numerical errors due to interpolation between levels (see ref)
