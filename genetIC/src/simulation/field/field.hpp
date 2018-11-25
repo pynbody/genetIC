@@ -57,6 +57,8 @@ namespace fields {
     using ComplexType = tools::datatypes::ensure_complex<DataType>;
 
     using FourierManager = tools::numerics::fourier::FieldFourierManager<DataType>;
+    enum {x, y, z} DirectionType;
+
 
   protected:
     const TPtrGrid pGrid;
@@ -126,7 +128,6 @@ namespace fields {
     operator const std::vector<DataType> &() const {
       return getDataVector();
     }
-
 
     DataType evaluateNearest(const Coordinate<CoordinateType> &location) const {
       auto offsetLower = pGrid->offsetLower;

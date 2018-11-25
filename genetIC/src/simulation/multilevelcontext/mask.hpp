@@ -160,7 +160,7 @@ namespace multilevelcontext {
     //! Generate a full multilevel field storing the mask information.
     /*! Increases memory requirement for the code but useful for debugging.
      */
-    fields::MultiLevelField<DataType>* convertToField(){
+    std::shared_ptr<fields::MultiLevelField<DataType>> convertToField(){
       std::vector<std::shared_ptr<fields::Field<DataType, T>>> fields;
 
       // Field full of zeros
@@ -169,7 +169,7 @@ namespace multilevelcontext {
             new fields::Field<DataType, T>(this->multilevelcontext->getGridForLevel(level))));
       }
 
-      auto maskfield = new fields::MultiLevelField<DataType>(*(this->multilevelcontext), fields);
+      auto maskfield = std::make_shared<fields::MultiLevelField<DataType>>(*(this->multilevelcontext), fields);
 
       // Field with mask information
       for (size_t level = 0; level < this->multilevelcontext->getNumLevels(); ++level) {

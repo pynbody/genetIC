@@ -242,6 +242,11 @@ namespace grids {
       pUnderlyingHiRes->flagCells(hiresCellsArray);
     }
 
+    void unflagAllCells() override {
+      pUnderlyingLoResInterpolated->unflagAllCells();
+      pUnderlyingHiRes->unflagAllCells();
+    }
+
     bool isInHiResWindow(const Coordinate<int> &coordinate) const {
       return coordinate.inWindow(windowLowerCornerInclusive, windowUpperCornerExclusive);
     }

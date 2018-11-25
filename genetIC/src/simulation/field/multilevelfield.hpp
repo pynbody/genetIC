@@ -206,6 +206,13 @@ namespace fields {
      * Accounting for this contribution at each level of the multi-level grid is done by multiplying by the filtered
      * b.
      *
+     * If the field is in a *recombined* state (i.e. right before output to file, or after output to file), its filters
+     * are set up in such a way that the inner product only occurs on the finest zoom level. The innerProduct function
+     * respects this. It should therefore return an accurate result e.g. for an overdensity covector which is local
+     * to the finest zoom level. But it will be completely wrong for e.g. a velocity covector which is by necessity
+     * highly non-local. Fixing this would require implementation of a real-space filter that allows information on
+     * the coarse levels to be used outside the zoom window.
+     *
      * If the two fields are covectors, an extra weighting is applied to convert one of them to a vector by
      * multiplying by the covariance matrix, i.e. the metric in our space.
      */

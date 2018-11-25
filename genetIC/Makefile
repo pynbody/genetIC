@@ -56,7 +56,7 @@ ifeq ($(HOST), clema)
  endif
 
 ifeq ($(HOST), jasmi)
-	CXX = /opt/local/bin/clang++-mp-7.0 -L/opt/local/lib/
+	CXX = /opt/local/bin/g++-mp-8 -L/opt/local/lib/
 	CFLAGS = -O2 -fopenmp -std=c++14 -I`pwd` -DOPENMP -DDOUBLEPRECISION
 endif
 
