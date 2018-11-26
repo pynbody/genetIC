@@ -1,0 +1,29 @@
+# Test subsampling with stray particles
+
+Om  0.279
+Ol  0.721
+#Ob  0.04
+s8  0.817
+zin	99
+
+seed	8896131
+camb	../camb_transfer_kmax40_z0.dat
+
+outname test_1
+outdir	 ./
+outformat 3
+
+# switching strays_on should have no effect, since we are miles from any edges
+# BUT there were bugs which made this flag have side-effects:
+#  (a) The zoom window was incorrectly placed
+#  (b) The resolution of the high-res window was inappropriately downsampled
+strays_on
+
+basegrid 64.0 8
+centre 40 40 40
+select_cube 16.0
+zoomgrid 2 8
+
+subsample 2
+
+done

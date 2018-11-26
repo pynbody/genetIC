@@ -23,7 +23,7 @@ select_sphere 1
 zoomgrid 4 64
 
 IDfile test_ids.txt
-zoomgrid 4 64
+#zoomgrid 4 64
 
 dump_idfile output.txt
 

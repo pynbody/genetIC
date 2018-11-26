@@ -160,18 +160,21 @@ namespace modifications {
     }
 
 
+    // Note - these functions would have to pass transferType if we wanted to modify baryons too. Currently
+    // the code doesn't support this, so it isn't an issue, but it would have to be taken into account if
+    // baryon modifications were implemented.
     std::shared_ptr<LinearModification<DataType, T>> getLinearModificationFromName(std::string name_) {
       if ((strcasecmp(name_.c_str(), "overdensity") == 0)) {
-        return make_shared<OverdensityModification<DataType, T>>(underlying, cosmology,this->transferType);
+        return make_shared<OverdensityModification<DataType, T>>(underlying, cosmology);
       } else if ((strcasecmp(name_.c_str(), "potential") == 0)) {
-        return make_shared<PotentialModification<DataType, T>>(underlying, cosmology,this->transferType);
-      } else if ((strcasecmp(name_.c_str(), "lx") == 0)) {
-        return make_shared<AngMomentumModification<DataType, T>>(underlying, cosmology, 0,this->transferType);
-      } else if ((strcasecmp(name_.c_str(), "ly") == 0)) {
-        return make_shared<AngMomentumModification<DataType, T>>(underlying, cosmology, 1,this->transferType);
-      } else if ((strcasecmp(name_.c_str(), "lz") == 0)) {
-        return make_shared<AngMomentumModification<DataType, T>>(underlying, cosmology, 2,this->transferType);
-      } else {
+        return make_shared<PotentialModification<DataType, T>>(underlying, cosmology);
+      } else if ((strcasecmp(name_.c_str(), "vx") == 0)) {
+        return make_shared<VelocityModification<DataType, T>>(underlying, cosmology, 0);
+      } else if ((strcasecmp(name_.c_str(), "vy") == 0)) {
+        return make_shared<VelocityModification<DataType, T>>(underlying, cosmology, 1);
+      } else if ((strcasecmp(name_.c_str(), "vz") == 0)) {
+        return make_shared<VelocityModification<DataType, T>>(underlying, cosmology, 2);
+      }else {
         throw UnknownModificationException(name_ + " " + "is an unknown modification name");
       }
     }

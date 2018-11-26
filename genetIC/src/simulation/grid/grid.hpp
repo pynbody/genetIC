@@ -110,9 +110,9 @@ namespace grids {
     ******************************/
 
     //!Returns true is at least one of the supplied pointers points to this grid, and false otherwise.
-    bool pointsToAnyGrid(std::vector<std::shared_ptr<Grid<T>>> grids) {
+    bool isProxyForAnyOf(std::vector<std::shared_ptr<Grid<T>>> grids) {
       for (auto g: grids) {
-        if (pointsToGrid(g.get()))
+        if (isProxyFor(g.get()))
           return true;
       }
       return false;
@@ -126,7 +126,7 @@ namespace grids {
 
     /*! Return true if this grid has a known relationship to pOther, in the sense that a field defined on pOther
     * could be evaluated on this grid. */
-    virtual bool pointsToGrid(const Grid *pOther) const {
+    virtual bool isProxyFor(const Grid *pOther) const {
       return this == pOther;
     }
 
@@ -527,10 +527,16 @@ namespace grids {
       int yb = ((int) floor((y0c + dxc / 2 - cellSize / 2) / cellSize));
       int zb = ((int) floor((z0c + dxc / 2 - cellSize / 2) / cellSize));
 
+      // Whether wrapping the cube partially around the box would be appropriate is context-dependent
+      // So let's just disallow it altogether
+
+      if(xa<0 || ya<0 || za<0 || size_t(xb)>=size || size_t(yb)>=size || size_t(zb)>=size)
+        throw(std::out_of_range("Requested cube does not fit into this grid"));
+
       iterateOverCube<int>(Coordinate<int>(xa, ya, za),
                            Coordinate<int>(xb, yb, zb) + 1,
                            [&start, this](const Coordinate<int> &cellCoord) {
-                             (*start) = getIndexFromCoordinate(cellCoord);
+                             (*start) = getIndexFromCoordinateNoWrap(cellCoord);
                              assert(*start < size3);
                              ++start;
                            });

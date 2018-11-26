@@ -41,22 +41,7 @@ namespace particle {
     std::shared_ptr<const GridType> onGrid;
 
     void calculateVelocityToOffsetRatio() {
-
-    //Just to make this easier to read (should be optimised away by the compiler anyway):
-      T f = 1.0;
-      T a = cosmology.scalefactor;
-      T Om = cosmology.OmegaM0;
-      T Ol = cosmology.OmegaLambda0;
-      //According to Carrol and Press (1992) should use:
-      //f = powf(( Om/(a*a*a) )/( Om/(a*a*a) + (1.0 - Om - Ol)/(a*a) + Ol ),4.0/7.0);
-
-      velocityToOffsetRatio = f * 100. * sqrt( ( Om / (a*a*a) ) +
-          // + (1.0 - cosmology.OmegaM0 - cosmology.OmegaLambda0)/(a*a) //We use the curvature term elsewhere, so why not here?
-          Ol) * sqrt(a);
-
-      //this should be f*H(t)*a, but gadget wants vel/sqrt(a), so we use H(t)*sqrt(a)
-      //TODO: hardcoded value of f=1 is inaccurate - should be a function of omega
-
+      velocityToOffsetRatio = cosmology::zeldovichVelocityToOffsetRatio(cosmology);
     }
 
     void calculateSimulationMass() {

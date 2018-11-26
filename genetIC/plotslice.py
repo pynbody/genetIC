@@ -52,9 +52,14 @@ def plotslice_onegrid_with_wrapping(*args, **kwargs):
     p.ylim(-wrap/2,wrap/2)
     return X
 
-def plotslice_onegrid(prefix="output/",grid=0,slice=None,vmin=-0.15,vmax=0.15,padcells=0,offset=None,plot_offset=(0,0)):
+def plotslice_onegrid(prefix="output/",grid=0,slice=None,vmin=-0.15,vmax=0.15,padcells=0,offset=None,plot_offset=(0,0),
+                      diff_prefix=None):
     new_plot = p.gcf().axes == []
     a = np.load(prefix+"grid-%d.npy"%grid)
+
+    if diff_prefix is not None:
+        b = np.load(diff_prefix+"grid-%d.npy"%grid)
+        a-=b
 
     ax,ay,az,aL = [float(x) for x in open(prefix+"grid-info-%d.txt"%grid).readline().split()]
 
@@ -97,7 +102,8 @@ def plotslice_onegrid(prefix="output/",grid=0,slice=None,vmin=-0.15,vmax=0.15,pa
     return slice, vmin, vmax, offset
 
 
-def plotslice(prefix="output/",maxgrid=10,slice=None,onelevel=False,vmin=-0.15,vmax=0.15,padcells=4, offset=None):
+def plotslice(prefix="output/",maxgrid=10,slice=None,onelevel=False,vmin=-0.15,vmax=0.15,padcells=4, offset=None,
+              diff_prefix=None):
     maxgrid_on_disk = len(glob.glob(prefix+"grid-?.npy"))
     print(maxgrid_on_disk)
     if maxgrid_on_disk<maxgrid:
@@ -109,7 +115,8 @@ def plotslice(prefix="output/",maxgrid=10,slice=None,onelevel=False,vmin=-0.15,v
 
     for level in levels:
         slice, vmin, vmax, offset = plotslice_onegrid_with_wrapping(prefix,level,slice,vmin,vmax,
-                                                      padcells=0 if level==0 else padcells, offset=offset)
+                                                      padcells=0 if level==0 else padcells, offset=offset,
+                                                                    diff_prefix=diff_prefix)
 
 
 

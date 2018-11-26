@@ -43,8 +43,24 @@ namespace cosmology {
     return retVal;
   }
 
-  /** \brief Dump an estimated power spectrum for the field, alongside the specified theory power spectrum, to disk
-    */
+  /** \brief Dump an estimated power spectrum for the field, alongside the specified theory power spectrum, to disk*/
+  template <typename FloatType>
+  FloatType zeldovichVelocityToOffsetRatio(const CosmologicalParameters<FloatType> &cosmology) {
+
+    FloatType velocityToOffsetRatio = 1. * 100. * sqrt(
+      cosmology.OmegaM0 / cosmology.scalefactor / cosmology.scalefactor / cosmology.scalefactor +
+      cosmology.OmegaLambda0) * sqrt(
+      cosmology.scalefactor);
+
+    return velocityToOffsetRatio;
+
+    //this should be f*H(t)*a, but gadget wants vel/sqrt(a), so we use H(t)*sqrt(a)
+    //TODO: hardcoded value of f=1 is inaccurate - should be a function of omega
+
+  }
+
+
+  /** Dump an estimated power spectrum for the field, alongside the specified theory power spectrum, to disk*/
   //TODO Refactor this to use grid methods and normalisations method. It could be compacted in a few lines method
   // and avoid repeating assumptions from elsewhere in the code.
   template<typename DataType, typename FloatType=tools::datatypes::strip_complex<DataType>>

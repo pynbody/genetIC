@@ -134,7 +134,7 @@ namespace fields {
       // TODO: problematically slow implementation
       // MR: Is this still up to date ? (Oct 2017)
       for (size_t i = 0; i < multiLevelContext->getNumLevels(); ++i) {
-        if (grid.pointsToGrid(&multiLevelContext->getGridForLevel(i)))
+        if (grid.isProxyFor(&multiLevelContext->getGridForLevel(i)))
           return getFieldForLevel(i);
       }
       throw (std::runtime_error("Cannot find a field for the specified grid"));
@@ -302,6 +302,13 @@ namespace fields {
      * the fine grid. However, there is a contribution coming from the cross-terms which mixes the different levels.
      * Accounting for this contribution at each level of the multi-level grid is done by multiplying by the filtered
      * b.
+     *
+     * If the field is in a *recombined* state (i.e. right before output to file, or after output to file), its filters
+     * are set up in such a way that the inner product only occurs on the finest zoom level. The innerProduct function
+     * respects this. It should therefore return an accurate result e.g. for an overdensity covector which is local
+     * to the finest zoom level. But it will be completely wrong for e.g. a velocity covector which is by necessity
+     * highly non-local. Fixing this would require implementation of a real-space filter that allows information on
+     * the coarse levels to be used outside the zoom window.
      *
      * If the two fields are covectors, an extra weighting is applied to convert one of them to a vector by
      * multiplying by the covariance matrix, i.e. the metric in our space.

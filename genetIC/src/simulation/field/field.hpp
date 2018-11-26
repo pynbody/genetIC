@@ -57,6 +57,8 @@ namespace fields {
     using ComplexType = tools::datatypes::ensure_complex<DataType>;
 
     using FourierManager = tools::numerics::fourier::FieldFourierManager<DataType>;
+    enum {x, y, z} DirectionType;
+
 
   protected:
     const TPtrGrid pGrid;
@@ -118,23 +120,22 @@ namespace fields {
       return data;
     }
 
-    //!Returns a constant reference to the data vector that stores the field.
+    //! Returns a constant reference to the data vector that stores the field.
     const TData &getDataVector() const {
       return data;
     }
 
-    //!Operator(), which returns a reference to the data vector storing the field.
+    //! Operator(), which returns a reference to the data vector storing the field.
     operator std::vector<DataType> &() {
       return getDataVector();
     }
 
-    //!Operator(), which returns a constant reference to the data vector storing the field.
+    //! Operator(), which returns a constant reference to the data vector storing the field.
     operator const std::vector<DataType> &() const {
       return getDataVector();
     }
 
-
-    //!Evaluates the field at the crid point nearest to the supplied co-ordinate.
+    //! Evaluates the field at the crid point nearest to the supplied co-ordinate.
     DataType evaluateNearest(const Coordinate<CoordinateType> &location) const {
       auto offsetLower = pGrid->offsetLower;
       int x_p_0, y_p_0, z_p_0;
@@ -392,7 +393,7 @@ namespace fields {
 
 #else
 
-    //!Add a field defined on a different grid to this one, first applying a filter field to be added.
+    //! Add a field defined on a different grid to this one, first applying a filter field to be added.
     void addFieldFromDifferentGridWithFilter(Field<DataType, CoordinateType> &source,
                                              const filters::Filter<CoordinateType> &filter) {
 
