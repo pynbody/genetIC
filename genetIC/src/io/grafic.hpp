@@ -30,12 +30,10 @@ namespace io {
     protected:
       std::string outputFilename;
       multilevelcontext::MultiLevelContextInformation<DataType> context;
-      //std::shared_ptr<particle::AbstractMultiLevelParticleGenerator<DataType>> generator;
       std::vector<std::shared_ptr<particle::AbstractMultiLevelParticleGenerator<DataType>>>& generator;
       const cosmology::CosmologicalParameters<T> &cosmology;
       multilevelcontext::GraficMask<DataType,T>* mask;
-      //std::vector<fields::OutputField<DataType>>& outputField;
-      std::vector<std::reference_wrapper<fields::OutputField<DataType>>>& outputField;
+      std::vector<std::shared_ptr<fields::OutputField<DataType>>>& outputFields;
 
 
       T pvarValue;
@@ -57,13 +55,12 @@ namespace io {
                    size_t subsample,
                    size_t supersample,
                    std::vector<std::vector<size_t>>& input_mask,
-                   //std::vector<fields::OutputField<DataType>>& outField) :
-                   std::vector<std::reference_wrapper<fields::OutputField<DataType>>>& outField) :
+                   std::vector<std::shared_ptr<fields::OutputField<DataType>>>& outFields) :
           outputFilename(fname),
           //generator(particleGenerator.shared_from_this()),
           generator(particleGenerator),
           cosmology(cosmology),
-          outputField(outField),
+          outputFields(outFields),
           pvarValue(pvarValue)
           {
 
@@ -131,11 +128,11 @@ namespace io {
         //If we are using baryon transfer functions, then we need to make sure that the field
         //is real, but only bother with this if we will actually need it:
         //QUERY - do we want the output in Fourier space or real space? I assume real...
-        if(this->outputField.size() > 1)
+        if(this->outputFields.size() > 1)
         {
-            for(size_t i = 0;i < outputField.size();i++)
+            for(size_t i = 0;i < outputFields.size();i++)
             {
-                this->outputField[i].get().toReal();
+                this->outputFields[i]->toReal();
             }
         }
 
@@ -162,7 +159,7 @@ namespace io {
 
               //Detect whether we are using baryons:
               float deltab;
-              if(this->outputField.size() < 2)
+              if(this->outputFields.size() < 2)
               {
                 deltab = 0;
               }
@@ -171,7 +168,7 @@ namespace io {
                 //Get data from output field:
                 //We're always assuming here that the second element corresponds
                 //to the baryons...
-                deltab = outputField[1].get().getFieldForLevel(level)[i];
+                deltab = outputFields[1]->getFieldForLevel(level)[i];
               }
 
               float mask = this->mask->isInMask(level, i);
@@ -252,7 +249,7 @@ namespace io {
     \param subsample - subsample factor specified in paramter file
     \param supersample - supersample factor specified in paramter file
     \param input_mask - Grafic mask being used
-    \param outputField - Vector of references to underlying overdensity fields
+    \param outputFields - Vector of references to underlying overdensity fields
     */
     template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
     void save(const std::string &filename,
@@ -261,10 +258,9 @@ namespace io {
               const cosmology::CosmologicalParameters<T> &cosmology,
               const T pvarValue, Coordinate<T> center, size_t subsample, size_t supersample,
               std::vector<std::vector<size_t>>& input_mask,
-              //std::vector<fields::OutputField<DataType>>& outputField) {
-              std::vector<std::reference_wrapper<fields::OutputField<DataType>>>& outputField) {
+              std::vector<std::shared_ptr<fields::OutputField<DataType>>>& outputFields) {
       GraficOutput<DataType> output(filename, context, generator,
-                                    cosmology, pvarValue, center, subsample, supersample, input_mask,outputField);
+                                    cosmology, pvarValue, center, subsample, supersample, input_mask,outputFields);
       output.write();
     }
 

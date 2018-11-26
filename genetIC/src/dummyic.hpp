@@ -39,7 +39,7 @@ public:
     } else {
       underlyingGrid = pUnderlying->multiLevelContext.getGridForLevel(newLevel).shared_from_this();
 
-      for(size_t i = 0;i < this->outputField.size();i++)
+      for(size_t i = 0;i < this->outputFields.size();i++)
       {
           //TODO - this is very messy - is there a better way?
         try{
@@ -86,7 +86,7 @@ public:
 
   void write() override {}
 
-  void modify(string /*name*/, string /*string*/, float /*value*/,size_t) override {}
+  void modify(string /*name*/, string /*string*/, float /*value*/) override {}
 
   void done() override {}
 };

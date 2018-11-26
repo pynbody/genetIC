@@ -61,12 +61,12 @@ protected:
   multilevelcontext::MultiLevelContextInformation<GridDataType> multiLevelContext;
 
   //Vector of output fields (defaults to just a single field)
-  std::vector<std::reference_wrapper<fields::OutputField<GridDataType>>> outputField;//references to the fields.
-  fields::OutputField<GridDataType>* fieldData[2];//Actual locations of data where the fields are stored.
+  //std::vector<std::reference_wrapper<fields::OutputField<GridDataType>>> outputFields;
+  std::vector<std::shared_ptr<fields::OutputField<GridDataType>>> outputFields; // references to the fields.
+  //fields::OutputField<GridDataType>* fieldData[2];//Actual locations of data where the fields are stored.
   int nFields;
-  //fields::OutputField<GridDataType> outputField
-  //modifications::ModificationManager<GridDataType> modificationManager;
-  std::vector<modifications::ModificationManager<GridDataType>> modificationManager;
+  //fields::OutputField<GridDataType> outputFields
+  modifications::ModificationManager<GridDataType> modificationManager;
   //fields::RandomFieldGenerator<GridDataType> randomFieldGenerator;
   std::vector<fields::RandomFieldGenerator<GridDataType>> randomFieldGenerator;
 
@@ -101,8 +101,7 @@ protected:
   string outputFolder, outputFilename;
 
   //! Track whether the random realisation has yet been made
-  //bool haveInitialisedRandomComponent;
-  std::vector<bool> haveInitialisedRandomComponent;
+  bool haveInitialisedRandomComponent;
 
   //! Enforce the exact power spectrum, as in Angulo & Pontzen 2016
   bool exactPowerSpectrum;
@@ -165,53 +164,28 @@ public:
   //!\brief Main constructor for this class.
   //! Requires a single interpreter to initialise, from which it will receive input commands.
   ICGenerator(tools::ClassDispatch<ICGenerator<GridDataType>, void> &interpreter) :
-      //outputField(multiLevelContext),//This will have to be changed, because we can no longer provide it as an argument to modificationManager and randomFieldGenerator
-      //modificationManager(multiLevelContext, cosmology, outputField),
-      //randomFieldGenerator(outputField),
+      //outputFields(multiLevelContext),//This will have to be changed, because we can no longer provide it as an argument to modificationManager and randomFieldGenerator
+      modificationManager(multiLevelContext, cosmology, outputFields),
+      //randomFieldGenerator(outputFields),
       pMapper(new particle::mapper::ParticleMapper<GridDataType>()),
       interpreter(interpreter) {
-/*<<<<<<< HEAD //Original conflict:
-
     //Set default parameters, in case input file didn't specify these:
     //By default, we assume there is only one field - the DM field:
     nFields = 1;
     std::cerr << "Creating dm field:";
     //As odd as the following seems, it avoid copy operations when we
-    //resize the outputField vector (to add baryons, for example), thus
+    //resize the outputFields vector (to add baryons, for example), thus
     //preventing any hanging references:
-    fieldData[0] = new fields::OutputField<GridDataType> (multiLevelContext,0);
-    outputField.emplace_back(*fieldData[0]);
-    //outputField.emplace_back(multiLevelContext,0);
+    //fieldData[0] = new fields::OutputField<GridDataType> (multiLevelContext,0);
+    outputFields.push_back(std::make_shared<fields::OutputField<GridDataType>>(multiLevelContext,0));
+    //outputFields.emplace_back(multiLevelContext,0);
     //fields::OutputField<GridDataType> dmField(multiLevelContext,0);
-    //outputField.push_back(dmField);
+    //outputFields.push_back(dmField);
     std::cerr << "DM field successfully created.";
-    modificationManager.emplace_back(multiLevelContext, cosmology, outputField[0]);
-    randomFieldGenerator.emplace_back(outputField[0]);
-    transferSwitch.push_back(0);
-
-=======
-    velOffset = {0,0,0};
->>>>>>> a8da23afe6907009e76ea1768aef96485bf41140*/
-//Proposed resolution://CONFLICT_RESOLUTION
-//==================================================================================
-    //Set default parameters, in case input file didn't specify these:
-    //By default, we assume there is only one field - the DM field:
-    nFields = 1;
-    std::cerr << "Creating dm field:";
-    //As odd as the following seems, it avoid copy operations when we
-    //resize the outputField vector (to add baryons, for example), thus
-    //preventing any hanging references:
-    fieldData[0] = new fields::OutputField<GridDataType> (multiLevelContext,0);
-    outputField.emplace_back(*fieldData[0]);
-    //outputField.emplace_back(multiLevelContext,0);
-    //fields::OutputField<GridDataType> dmField(multiLevelContext,0);
-    //outputField.push_back(dmField);
-    std::cerr << "DM field successfully created.";
-    modificationManager.emplace_back(multiLevelContext, cosmology, outputField[0]);
-    randomFieldGenerator.emplace_back(outputField[0]);
+    //Will have to create a modification manager here and then copy it, because we need the outputFields[0] defined to do so:
+    randomFieldGenerator.emplace_back(*(outputFields[0]));
     transferSwitch.push_back(0);
     velOffset = {0,0,0};//Just include the velocity offset
-//==================================================================================
 
     pInputMapper = nullptr;
     pInputMultiLevelContext = nullptr;
@@ -221,8 +195,7 @@ public:
     cosmology.OmegaBaryons0 = 0.0;
     cosmology.ns = 0.96;      // old default
     cosmology.TCMB = 2.725;
-    //haveInitialisedRandomComponent = false;
-    haveInitialisedRandomComponent.push_back(false);
+    haveInitialisedRandomComponent = false;
     supersample = 1;
     subsample = 1;
     exactPowerSpectrum = false;
@@ -238,13 +211,6 @@ public:
   }
 
   ~ICGenerator() {
-    //Only delete fieldData elements if we actually created them dynamically. Creating a new
-    //field should ALWAYS be accompanied by expanding outputField, which contains
-    //a list of references:
-    for(size_t i = 0;i < outputField.size();i++)
-    {
-        delete fieldData[i];
-    }
   }
 
   //!\brief Sets the matter density fraction to in.
@@ -280,109 +246,28 @@ public:
     allowStrayParticles = true;
   }
 
-/*<<<<<<< HEAD //Original conflict:
-  //!\brief Enables the use of a baryon density field.
-  //! If flagged on, the code will extract the transfer function for baryons from CAMB separately from
-  //! the dark matter transfer. This causes twice as many fields to be stored and generated, but
-  //! produces more accurate results for baryons than assuming they follow the same transfer function
-  //! (which holds only at late times).
-  void setUsingBaryons()
-  {
-    //Really have to make sure that this is run near the beginning of the parameter file,
-    //otherwise we will encounter serious problems if we start doing calculations and then try to add in baryons.
-    if(this->nFields > 1)
-    {
-        std::cerr<< "Already using baryons!" << std::endl;
-    }
-    else
-    {
-        if(this->spectrum.dataRead)
-        {
-            throw(std::runtime_error("Cannot switch on baryons after transfer function data already read."));
-        }
-        this->nFields = 2;
-        std::cerr<< "Baryon field enabled." << std::endl;
-        //Create a field for the baryons, with transfer type 1:
-        /*
-        std::cerr << "Do I cause the error?...";
-        fields::OutputField<GridDataType> baryonField(multiLevelContext,1);
-        std::cerr << "No!";
-        fields::OutputField<GridDataType> dmFieldCopy(outputField[0]);
-        std::cerr << "nTransferType = " << baryonField.transferType << ".";
-        std::cerr << "Do I cause the error?...";
-        fields::OutputField<GridDataType> baryonFieldCopy(baryonField);
-        std::cerr << "No!";
-        std::cerr << "Do I cause the error?...";
-        outputField.push_back(baryonField);
-        *//*
-        fieldData[1] = new fields::OutputField<GridDataType> (multiLevelContext,1);
-        outputField.emplace_back(*fieldData[1]);
-        modificationManager.emplace_back(multiLevelContext, cosmology, outputField[1]);
-        randomFieldGenerator.emplace_back(outputField[1]);
-        transferSwitch.push_back(1);
-        haveInitialisedRandomComponent.push_back(false);
-        auto _pParticleGenerator = std::make_shared<particle::NullMultiLevelParticleGenerator<GridDataType>>();
-        pParticleGenerator.push_back(_pParticleGenerator);
-        this->spectrum.enableAllTransfers();
-    }
-  }
-
-  //! Enables outputting baryons on all levels, rather than only the deepest level.
-  void setBaryonsOnAllLevels()
-  {
-    this->baryonsOnAllLevels = true;
-  }
-
-=======
-  //! Sets a whole-box velocity offset in km/s -- e.g. for testing AMR sensitivity to movement relative to grid structure
-  void setVelocityOffset(T vx, T vy, T vz) {
-    // convert to km a^1/2 s^-1 (gadget units internally in code)
-    T conversion = pow(cosmology.scalefactor, -0.5);
-    velOffset = {vx*conversion,vy*conversion,vz*conversion};
-  }
->>>>>>> a8da23afe6907009e76ea1768aef96485bf41140 */
-//Proposed resolution://CONFLICT_RESOLUTION
-//==================================================================================
 //!\brief Enables the use of a baryon density field.
   //! If flagged on, the code will extract the transfer function for baryons from CAMB separately from
   //! the dark matter transfer. This causes twice as many fields to be stored and generated, but
   //! produces more accurate results for baryons than assuming they follow the same transfer function
   //! (which holds only at late times).
-  void setUsingBaryons()
-  {
+  void setUsingBaryons() {
     //Really have to make sure that this is run near the beginning of the parameter file,
     //otherwise we will encounter serious problems if we start doing calculations and then try to add in baryons.
-    if(this->nFields > 1)
-    {
+    if(this->nFields > 1) {
         std::cerr<< "Already using baryons!" << std::endl;
     }
-    else
-    {
-        if(this->spectrum.dataRead)
-        {
+    else {
+        if(this->spectrum.dataRead) {
             throw(std::runtime_error("Cannot switch on baryons after transfer function data already read."));
         }
         this->nFields = 2;
         std::cerr<< "Baryon field enabled." << std::endl;
-        //Create a field for the baryons, with transfer type 1:
-        /*
-        std::cerr << "Do I cause the error?...";
-        fields::OutputField<GridDataType> baryonField(multiLevelContext,1);
-        std::cerr << "No!";
-        fields::OutputField<GridDataType> dmFieldCopy(outputField[0]);
-        std::cerr << "nTransferType = " << baryonField.transferType << ".";
-        std::cerr << "Do I cause the error?...";
-        fields::OutputField<GridDataType> baryonFieldCopy(baryonField);
-        std::cerr << "No!";
-        std::cerr << "Do I cause the error?...";
-        outputField.push_back(baryonField);
-        */
-        fieldData[1] = new fields::OutputField<GridDataType> (multiLevelContext,1);
-        outputField.emplace_back(*fieldData[1]);
-        modificationManager.emplace_back(multiLevelContext, cosmology, outputField[1]);
-        randomFieldGenerator.emplace_back(outputField[1]);
+        //fieldData[1] = new fields::outputFields<GridDataType> (multiLevelContext,1);
+        //outputFields.emplace_back(*fieldData[1]);
+        outputFields.push_back(std::make_shared<fields::OutputField<GridDataType>>(multiLevelContext,1));
+        randomFieldGenerator.emplace_back(*(outputFields[1]));
         transferSwitch.push_back(1);
-        haveInitialisedRandomComponent.push_back(false);
         auto _pParticleGenerator = std::make_shared<particle::NullMultiLevelParticleGenerator<GridDataType>>();
         pParticleGenerator.push_back(_pParticleGenerator);
         this->spectrum.enableAllTransfers();
@@ -390,8 +275,7 @@ public:
   }
 
   //! Enables outputting baryons on all levels, rather than only the deepest level.
-  void setBaryonsOnAllLevels()
-  {
+  void setBaryonsOnAllLevels() {
     this->baryonsOnAllLevels = true;
   }
   //! Sets a whole-box velocity offset in km/s -- e.g. for testing AMR sensitivity to movement relative to grid structure
@@ -400,7 +284,6 @@ public:
     T conversion = pow(cosmology.scalefactor, -0.5);
     velOffset = {vx*conversion,vy*conversion,vz*conversion};
   }
-//==================================================================================
 
   //! Sets the sigma8 parameter.
   void setSigma8(T in) {
@@ -408,8 +291,7 @@ public:
   }
 
   //! Set the normalisation of the cell softening scale. Defaults to 0.01075
-  void setEpsNorm(T in)
-  {
+  void setEpsNorm(T in) {
     this->epsNorm = in;
   }
 
@@ -450,11 +332,6 @@ public:
   }
 
   void setCenteringOnRegion(){
-  /*
-    if(!this->haveCentred)
-    {
-        throw(std::runtime_error("Cannot use center_grafic_output option without first specifying a centre."));
-    }*/
     this->centerOnTargetRegion = true;
     updateParticleMapper();
   }
@@ -475,12 +352,8 @@ public:
       throw std::runtime_error("Cannot re-initialize the base grid");
 
 
-    for(size_t i = 0;i < haveInitialisedRandomComponent.size();i++)
-    {
-        if(haveInitialisedRandomComponent[i])
-        {
-            throw (std::runtime_error("Trying to initialize a grid after the random field was already drawn"));
-        }
+    if(haveInitialisedRandomComponent) {
+        throw (std::runtime_error("Trying to initialize a grid after the random field was already drawn"));
     }
 
     addLevelToContext(spectrum, boxSize, n);
@@ -500,12 +373,8 @@ public:
    * \param n Number of cells in the zoom grid
    */
   void initZoomGrid(size_t zoomfac, size_t n) {
-    for(size_t i = 0;i < haveInitialisedRandomComponent.size();i++)
-    {
-        if(haveInitialisedRandomComponent[i])
-        {
-            throw (std::runtime_error("Trying to initialize a grid after the random field was already drawn"));
-        }
+    if(haveInitialisedRandomComponent) {
+        throw (std::runtime_error("Trying to initialize a grid after the random field was already drawn"));
     }
 
 
@@ -676,18 +545,14 @@ public:
   /*!
   \param - seed to be applied.
   */
-  void setSeed(int seed)
-  {
-    for(size_t i = 0;i < outputField.size();i++)
-    {
+  void setSeed(int seed) {
+    for(size_t i = 0;i < outputFields.size();i++) {
         this->setSeed(seed,i);
     }
   }
   //!Seed all fields in Fourier space with the same seed.
-  void setSeedFourier(int seed)
-  {
-    for(size_t i = 0;i < outputField.size();i++)
-    {
+  void setSeedFourier(int seed) {
+    for(size_t i = 0;i < outputFields.size();i++) {
         this->setSeedFourier(seed,i);
     }
   }
@@ -705,88 +570,40 @@ public:
   \param nField - field to set the seed for. 0 = dark matter, 1 = baryons.
   */
   void setSeed(int seed,size_t nField) {
-    if(nField > outputField.size() - 1)
-    {
+    if(nField > outputFields.size() - 1) {
         throw(std::runtime_error("Attempted to apply operations to field that has not been setup. Use baryon_tf_on to enable baryons."));
     }
     randomFieldGenerator[nField].seed(seed);
   }
 
-/*<<<<<<< HEAD //Original conflict:
   //!\brief Set the seed in fourier space
-  /*!
-  \param seed - seed to set.
-  \param nField - field to set the seed for. 0 = dark matter, 1 = baryons.
-  *//*
-  void setSeedFourier(int seed,size_t nField) {
-    if(nField > outputField.size() - 1)
-    {
-        throw(std::runtime_error("Attempted to apply operations to field that has not been setup. Use baryon_tf_on to enable baryons."));
-    }
-    randomFieldGenerator[nField].seed(seed);
-    randomFieldGenerator[nField].setDrawInFourierSpace(true);
-    randomFieldGenerator[nField].setReverseRandomDrawOrder(false);
-=======
-  void setSeedFourier(int seed) {
-    randomFieldGenerator.seed(seed);
-    randomFieldGenerator.setDrawInFourierSpace(true);
-    randomFieldGenerator.setReverseRandomDrawOrder(false);
-    randomFieldGenerator.setParallel(false);
-  }
-
-  //! Enable parallel random field generation, at the cost of not being backwards-compatible
-  void setSeedFourierParallel(int seed) {
-    randomFieldGenerator.seed(seed);
-    randomFieldGenerator.setDrawInFourierSpace(true);
-    randomFieldGenerator.setParallel(true);
-    randomFieldGenerator.setReverseRandomDrawOrder(false);
-  }
-
-  //! Reverses the order of draws between real and imaginary part of complex numbers
-  /*!
-   * Provided for compatibility problems as different compilers handle the draw order differently
-   *//*
-  void setSeedFourierReverseOrder(int seed) {
-    randomFieldGenerator.seed(seed);
-    randomFieldGenerator.setDrawInFourierSpace(true);
-    randomFieldGenerator.setReverseRandomDrawOrder(true);
-    randomFieldGenerator.setParallel(false);
->>>>>>> a8da23afe6907009e76ea1768aef96485bf41140*/
-//Proposed resolution://CONFLICT_RESOLUTION
-//==================================================================================
-//!\brief Set the seed in fourier space
   /*!
   \param seed - seed to set.
   \param nField - field to set the seed for. 0 = dark matter, 1 = baryons.
   */
   void setSeedFourier(int seed,size_t nField) {
-    if(nField > outputField.size() - 1)
-    {
+    if(nField > outputFields.size() - 1) {
         throw(std::runtime_error("Attempted to apply operations to field that has not been setup. Use baryon_tf_on to enable baryons."));
     }
     randomFieldGenerator[nField].seed(seed);
     randomFieldGenerator[nField].setDrawInFourierSpace(true);
     randomFieldGenerator[nField].setReverseRandomDrawOrder(false);
-    randomFieldGenerator[nField].setParallel(false);//CONFLICT_RESOLUTION
+    randomFieldGenerator[nField].setParallel(false);
     }
 
     //! Enable parallel random field generation, at the cost of not being backwards-compatible
   void setSeedFourierParallel(int seed,size_t nField) {
-    randomFieldGenerator[nField].seed(seed);//CONFLICT_RESOLUTION
-    randomFieldGenerator[nField].setDrawInFourierSpace(true);//CONFLICT_RESOLUTION
-    randomFieldGenerator[nField].setParallel(true);//CONFLICT_RESOLUTION
-    randomFieldGenerator[nField].setReverseRandomDrawOrder(false);//CONFLICT_RESOLUTION
+    randomFieldGenerator[nField].seed(seed);
+    randomFieldGenerator[nField].setDrawInFourierSpace(true);
+    randomFieldGenerator[nField].setParallel(true);
+    randomFieldGenerator[nField].setReverseRandomDrawOrder(false);
   }
   //! Apply only to the dark matter field:
-  void setSeedFourierParallel(int seed)//CONFLICT_RESOLUTION
-  {
-    for(size_t i = 0;i < this->outputField.size();i++)
-    {
+  void setSeedFourierParallel(int seed) {
+    for(size_t i = 0;i < this->outputFields.size();i++) {
         this->setSeedFourierParallel(seed,i);
     }
   }
-//==================================================================================
-  //}//CONFLICT_RESOLUTION
 
   //! Set the gadget particle type to be produced by the deepest level currently in the grid hiearchy
   void setGadgetParticleType(unsigned int type) {
@@ -808,37 +625,6 @@ public:
     this->updateParticleMapper();
   }
 
-/*<<<<<<< HEAD //Original conflict:
-  //!\brief Specifies the seed in fourier space, but with reversed order of draws between real and imaginary part of complex numbers.
-  /*!
-   * Provided for compatibility problems as different compilers handle the draw order differently
-   * \param seed - seed to set.
-   * \param nField - field to set the seed for: 0 = Dark-Matter, 1 = Baryons.
-   *//*
-  void setSeedFourierReverseOrder(int seed,size_t nField) {
-    if(nField > outputField.size() - 1)
-    {
-        throw(std::runtime_error("Attempted to apply operations to field that has not been setup. Use baryon_tf_on to enable baryons."));
-    }
-    std::cerr << "*** Warning: seed_field_fourier_reverse and seedfourier_reverse are deprecated commands and should be avoided.***" << std::endl;
-    randomFieldGenerator[nField].seed(seed);
-    randomFieldGenerator[nField].setDrawInFourierSpace(true);
-    randomFieldGenerator[nField].setReverseRandomDrawOrder(true);
-  }
-
-  //!Seed in reverse order for all fields with the same seed.
-  void setSeedFourierReverseOrder(int seed)
-  {
-    for(size_t i = 0;i < outputField.size();i++)
-    {
-        this->setSeedFourierReverseOrder(seed,i);
-    }
-  }
-=======
-
->>>>>>> a8da23afe6907009e76ea1768aef96485bf41140*/
-//Proposed resolution://CONFLICT_RESOLUTION
-//==================================================================================
 //!\brief Specifies the seed in fourier space, but with reversed order of draws between real and imaginary part of complex numbers.
   /*!
    * Provided for compatibility problems as different compilers handle the draw order differently
@@ -846,26 +632,22 @@ public:
    * \param nField - field to set the seed for: 0 = Dark-Matter, 1 = Baryons.
    */
   void setSeedFourierReverseOrder(int seed,size_t nField) {
-    if(nField > outputField.size() - 1)
-    {
+    if(nField > outputFields.size() - 1) {
         throw(std::runtime_error("Attempted to apply operations to field that has not been setup. Use baryon_tf_on to enable baryons."));
     }
     std::cerr << "*** Warning: seed_field_fourier_reverse and seedfourier_reverse are deprecated commands and should be avoided.***" << std::endl;
     randomFieldGenerator[nField].seed(seed);
     randomFieldGenerator[nField].setDrawInFourierSpace(true);
     randomFieldGenerator[nField].setReverseRandomDrawOrder(true);
-    randomFieldGenerator[nField].setParallel(false);//CONFLICT_RESOLUTION: incorporating new parallel seeding
+    randomFieldGenerator[nField].setParallel(false);
   }
 
   //!Seed in reverse order for all fields with the same seed.
-  void setSeedFourierReverseOrder(int seed)
-  {
-    for(size_t i = 0;i < outputField.size();i++)
-    {
+  void setSeedFourierReverseOrder(int seed) {
+    for(size_t i = 0;i < outputFields.size();i++) {
         this->setSeedFourierReverseOrder(seed,i);
     }
   }
-//==================================================================================
   void setExactPowerSpectrumEnforcement() {
     exactPowerSpectrum = true;
   }
@@ -910,26 +692,34 @@ public:
     return fname_stream.str();
   }
 
-  //! Zeroes field values at a given level. Meant for debugging.
-  virtual void zeroLevel(size_t level,size_t nField) {
-    if(nField > outputField.size() - 1)
-    {
+  void checkLevelExists(size_t level,size_t nField) {
+    if(level > outputFields[nField]->getNumLevels() - 1) {
+        throw(std::runtime_error("Specified level does not exist."));
+    }
+  }
+
+  void checkFieldExists(size_t nField) {
+    if(nField > outputFields.size() - 1) {
         throw(std::runtime_error("Attempted to apply operations to field that has not been setup. Use baryon_tf_on to enable baryons."));
     }
+  }
+
+  void initialiseRandomComponentIfUninitialised() {
+    if (!haveInitialisedRandomComponent) {
+        initialiseAllRandomComponents();
+    }
+  }
+
+  //! Zeroes field values at a given level. Meant for debugging.
+  virtual void zeroLevel(size_t level,size_t nField) {
+    checkFieldExists(nField);
     cerr << "*** Warning: your script calls zeroLevel(" << level << "). This is intended for testing purposes only!"
          << endl;
 
-    if(level > outputField[nField].get().getNumLevels() - 1)
-    {
-        throw(std::runtime_error("Specified level does not exist."));
-    }
+    checkLevelExists(level,nField);
+    initialiseRandomComponentIfUninitialised();
 
-
-
-    if (!haveInitialisedRandomComponent[nField])
-      initialiseRandomComponent(nField);
-
-    auto &fieldData = outputField[nField].get().getFieldForLevel(level).getDataVector();
+    auto &fieldData = outputFields[nField]->getFieldForLevel(level).getDataVector();
     std::fill(fieldData.begin(), fieldData.end(), 0);
   }
 
@@ -946,53 +736,38 @@ public:
   * \param nField - optional (default is field 0). Specifies which field to import the data into. 0 = dark matter, 1 = baryons.
   */
   virtual void importLevel(size_t level, std::string filename,size_t nField = 0) {
-    if(nField > outputField.size() - 1)
-    {
-        throw(std::runtime_error("Attempted to apply operations to field that has not been setup. Use baryon_tf_on to enable baryons."));
-    }
-
-    if (!haveInitialisedRandomComponent[nField])
-      initialiseRandomComponent(nField);
-
+    checkFieldExists(nField);
+    initialiseRandomComponentIfUninitialised();
     cerr << "Importing random field on level " << level << " from " <<filename << endl;
-    if(level > outputField[nField].get().getNumLevels() - 1)
-    {
-        throw(std::runtime_error("Specified level does not exist."));
-    }
+    checkLevelExists(level,nField);
 
 
-    auto & levelField = outputField[nField].get().getFieldForLevel(level);
+    auto & levelField = outputFields[nField]->getFieldForLevel(level);
     levelField.loadGridData(filename);
     levelField.setFourier(false);
     cerr << "... success!" << endl;
   }
 
   //!For backwards compatibility with scripts that don't use baryon transfer function. Imports data into dark matter field.
-  virtual void importLevel(size_t level,std::string filename)
-  {
+  virtual void importLevel(size_t level,std::string filename) {
     this->importLevel(level,filename,0);
   }
 
   //!\brief Apply the power spectrum to a specific field.
   //! \param nField - field to apply power spectrum to. 0 = dark matter, 1 = baryons.
   virtual void applyPowerSpec(size_t nField) {
-    if(nField > outputField.size() - 1)
-    {
-        throw(std::runtime_error("Attempted to apply operations to field that has not been setup. Use baryon_tf_on to enable baryons."));
-    }
+    checkFieldExists(nField);
 
     if (this->exactPowerSpectrum) {
-      outputField[nField].get().enforceExactPowerSpectrum();
+      outputFields[nField]->enforceExactPowerSpectrum();
     } else {
-      outputField[nField].get().applyPowerSpectrum();
+      outputFields[nField]->applyPowerSpectrum();
     }
   }
 
   //!Applies appropriate power spectrum to all fields.
-  virtual void applyPowerSpec()
-  {
-    for(size_t i = 0;i < this->outputField.size();i++)
-    {
+  virtual void applyPowerSpec() {
+    for(size_t i = 0;i < this->outputFields.size();i++) {
         this->applyPowerSpec(i);
     }
   }
@@ -1006,35 +781,17 @@ public:
   template<typename TField>
   void dumpGridData(size_t level, const TField &data,size_t nField,std::string prefix = "grid") {
 
-
-  //Unsure if this is necessary. May have to do this only for a single field,
-  //But as it is supplied as an argument, we can't tell which one it was!
-    for(size_t i = 0;i < modificationManager.size();i++)
-    {
-        if (!haveInitialisedRandomComponent[i])
-            initialiseRandomComponent(i);
-    }
+    initialiseRandomComponentIfUninitialised();
 
     auto levelGrid = data.getGrid();
 
     ostringstream filename;
-    if(nField == 0)
-    {
+    if(nField == 0) {
         filename << outputFolder << "/" << prefix << "-" << level;
-        /*if(data.isFourier())
-        {
-            filename << "-fourier";
-        }*/
         filename << ".npy";
     }
-    else
-    {
+    else {
         filename << outputFolder << "/" <<  prefix << "-" << level << "-field-" << nField;
-        //This is actually causing conflicts with some tests. TODO - change name of fourier output?
-        /*if(data.isFourier())
-        {
-            filename << "-fourier";
-        }*/
         filename << ".npy";
     }
 
@@ -1044,20 +801,16 @@ public:
     filename.str("");
 
     filename << outputFolder << "/" << prefix << "-" << level << ".txt";
-    if(nField == 0)
-    {
+    if(nField == 0) {
         filename << outputFolder << "/" << prefix << "-" << level;
-        if(data.isFourier())
-        {
+        if(data.isFourier()) {
             filename << "-fourier";
         }
         filename << ".txt";
     }
-    else
-    {
+    else {
         filename << outputFolder << "/" << prefix << "-" << level << "-field-" << nField;
-        if(data.isFourier())
-        {
+        if(data.isFourier()) {
             filename << "-fourier";
         }
         filename << ".txt";
@@ -1075,18 +828,9 @@ public:
     ifile.close();
   }
 
-  /*//!Overload that dumps files with the prefix 'grid'.
-  template<typename TField>
-  void dumpGridData(size_t level, const TField &data,size_t nField)
-  {
-    this->dumpGridData(level,data,nField,"grid");
-  }*/
-
-
   //!Overload that the dark matter only (for backwards compatibility):
   template<typename TField>
-  void dumpGridData(size_t level, const TField& data)
-  {
+  void dumpGridData(size_t level, const TField& data) {
     this->dumpGridData(level,data,0);
   }
 
@@ -1097,12 +841,8 @@ public:
   \param nField - field to dump. 0 = dark matter, 1 = baryons.
   */
   virtual void saveTipsyArray(string fname,size_t nField = 0) {
-    if(nField > outputField.size() - 1)
-    {
-        throw(std::runtime_error("Attempted to apply operations to field that has not been setup. Use baryon_tf_on to enable baryons."));
-    }
-
-    io::tipsy::saveFieldTipsyArray(fname, *pMapper, *pParticleGenerator[nField], outputField[nField].get());
+    checkFieldExists(nField);
+    io::tipsy::saveFieldTipsyArray(fname, *pMapper, *pParticleGenerator[nField], *(outputFields[nField]) );
   }
 
   //!For backwards compatibility. Dumpys dark matter in tipsy format.
@@ -1117,17 +857,11 @@ public:
   * \param nField - field to dump. 0 = dark matter, 1 = baryons.
   */
   virtual void dumpGrid(size_t level,size_t nField) {
-    if(nField > outputField.size() - 1)
-    {
-        throw(std::runtime_error("Attempted to apply operations to field that has not been setup. Use baryon_tf_on to enable baryons."));
-    }
-
-    if(level < 0 || level > this->multiLevelContext.getNumLevels() -1){
-      throw std::runtime_error("Trying to dump an undefined level");
-    }
-    outputField[nField].get().toReal();
-    dumpGridData(level, outputField[nField].get().getFieldForLevel(level),nField);
-    outputField[nField].get().toFourier();
+    checkFieldExists(nField);
+    checkLevelExists(level,nField);
+    outputFields[nField]->toReal();
+    dumpGridData(level, outputFields[nField]->getFieldForLevel(level),nField);
+    outputFields[nField]->toFourier();
   }
 
   //!For backwards compatibility. Dumpts baryons to field at requested level to file named grid-level.
@@ -1142,16 +876,11 @@ public:
 
   // TODO Is this used at all ? Should be linked to a command in main if we want to keep it.
   virtual void dumpGridFourier(size_t level = 0,size_t nField = 0) {
-    if(nField > outputField.size() - 1)
-    {
-        throw(std::runtime_error("Attempted to apply operations to field that has not been setup. Use baryon_tf_on to enable baryons."));
-    }
-    if(level < 0 || level > this->multiLevelContext.getNumLevels() -1){
-      throw std::runtime_error("Trying to dump an undefined level");
-    }
+    checkFieldExists(nField);
+    checkLevelExists(level,nField);
 
     fields::Field<complex<T>, T> fieldToWrite = tools::numerics::fourier::getComplexFourierField(
-        outputField[nField].get().getFieldForLevel(level));
+        outputFields[nField]->getFieldForLevel(level));
     dumpGridData(level, fieldToWrite,nField);
   }
 
@@ -1161,24 +890,16 @@ public:
   \param nField - field to dump. 0 = dark matter, 1 = baryons.
   */
   virtual void dumpPS(size_t level,size_t nField) {
-    if(nField > outputField.size() - 1)
-    {
-        throw(std::runtime_error("Attempted to apply operations to field that has not been setup. Use baryon_tf_on to enable baryons."));
-    }
-    if(level > outputField[nField].get().getNumLevels() - 1)
-    {
-        throw(std::runtime_error("Specified level does not exist."));
-    }
+    checkFieldExists(nField);
+    checkLevelExists(level,nField);
 
-    auto &field = outputField[nField].get().getFieldForLevel(level);
+    auto &field = outputFields[nField]->getFieldForLevel(level);
     field.toFourier();
     std::string filename;
-    if(nField == 1)
-    {
+    if(nField == 1) {
         filename = (getOutputPath() + "_" + ((char) (level + '0')) + "_baryons.ps");
     }
-    else
-    {
+    else {
         filename = (getOutputPath() + "_" + ((char) (level + '0')) + ".ps");
     }
     cosmology::dumpPowerSpectrum(field,
@@ -1224,10 +945,7 @@ public:
   * \param nField - field to initialise particle generator for. 0 = dark matter, 1 = baryons.
   */
   virtual void initialiseParticleGenerator(size_t nField = 0) {
-    if(nField > outputField.size() - 1)
-    {
-        throw(std::runtime_error("Attempted to apply operations to field that has not been setup. Use baryon_tf_on to enable baryons."));
-    }
+    checkFieldExists(nField);
 
     // in principle this could now be easily extended to slot in higher order PT or other
     // methods of generating the particles from the fields
@@ -1236,21 +954,16 @@ public:
     using OffsetGeneratorType = particle::VelocityOffsetMultiLevelParticleGenerator<GridDataType>;
 
     pParticleGenerator[nField] = std::make_shared<
-        particle::MultiLevelParticleGenerator<GridDataType, GridLevelGeneratorType>>(outputField[nField], cosmology, epsNorm);
-//CONFLICT_RESOLUTION
-//This is one git didn't spot - need to do this for all the particle generators, not just the dark matter!
-//=====================================================================================================
+        particle::MultiLevelParticleGenerator<GridDataType, GridLevelGeneratorType>>( *(outputFields[nField]) , cosmology, epsNorm);
     if(velOffset!=Coordinate<GridDataType>({0,0,0})) {
       cerr << "Adding a velocity offset to the output" << endl;
-      pParticleGenerator[nField] = std::make_shared<OffsetGeneratorType>(pParticleGenerator[nField], velOffset);//CONFLICT_RESOLUTION
+      pParticleGenerator[nField] = std::make_shared<OffsetGeneratorType>(pParticleGenerator[nField], velOffset);
     }
-//=====================================================================================================
 
   }
 
   //! Runs commands of a given parameter file to set up the input mapper
   void setInputMapper(std::string fname) {
-
     if (multiLevelContext.getNumLevels() == 0)
       throw std::runtime_error("Mapper relative command cannot be used before a basegrid has been initialised.");
 
@@ -1362,14 +1075,12 @@ public:
                         std::shared_ptr<particle::mapper::ParticleMapper<GridDataType>>> gasMapperType;
 
       gasMapperType gasMapper;
-      if(this->baryonsOnAllLevels)
-      {
+      if(this->baryonsOnAllLevels) {
         //If we want to output baryons on all levels:
         gasMapper = pMapper->addGas(cosmology.OmegaBaryons0 / (cosmology.OmegaM0),
                                        multiLevelContext.getGrid());
       }
-      else
-      {
+      else {
         //Default
         gasMapper = pMapper->addGas(cosmology.OmegaBaryons0 / cosmology.OmegaM0,
                                        {multiLevelContext.getGridForLevel(nLevels - 1).shared_from_this()});
@@ -1419,11 +1130,8 @@ public:
     using namespace io;
     //Some work needed here to make sure this works correctly with multiple fields.
 
-    for(size_t i = 0;i < haveInitialisedRandomComponent.size();i++)
-    {
-        if (!haveInitialisedRandomComponent[i])
-            initialiseRandomComponent(i);
-
+    initialiseRandomComponentIfUninitialised();
+    for(size_t i = 0;i < outputFields.size();i++) {
         initialiseParticleGenerator(i);
     }
 
@@ -1436,18 +1144,8 @@ public:
     switch (outputFormat) {
       case OutputFormat::gadget2:
       case OutputFormat::gadget3:
-/*<<<<<<< HEAD//Original conflict:
-        gadget::save(getOutputPath() + ".gadget", boxlen, *pMapper,
-                     pParticleGenerator,
-=======
-        gadget::save<float>(getOutputPath() + ".gadget", boxlen, *pMapper,
-                     *pParticleGenerator,
->>>>>>> a8da23afe6907009e76ea1768aef96485bf41140*/
-//Proposed resolution://CONFLICT_RESOLUTION: Incorporate both changes:
-//==================================================================================
         gadget::save<float>(getOutputPath() + ".gadget", boxlen, *pMapper,
                      pParticleGenerator,
-//==================================================================================
                      cosmology, static_cast<int>(outputFormat));
         break;
       case OutputFormat::tipsy:
@@ -1459,11 +1157,11 @@ public:
           std::cerr << "Replacing coarse grids with centered grids on " << Coordinate<T>(x0,y0,z0) <<  std::endl;
           grafic::save(getOutputPath() + ".grafic",
                        pParticleGenerator, multiLevelContext, cosmology, pvarValue, Coordinate<T>(x0,y0,z0),
-                       subsample, supersample, zoomParticleArray,outputField);
+                       subsample, supersample, zoomParticleArray,outputFields);
         } else {
           grafic::save(getOutputPath() + ".grafic",
                        pParticleGenerator, multiLevelContext, cosmology, pvarValue, this->getBoxCentre(),
-                       subsample, supersample, zoomParticleArray,outputField);
+                       subsample, supersample, zoomParticleArray,outputFields);
         }
 
         break;
@@ -1478,17 +1176,24 @@ public:
   * \param nField - field to apply to. 0 = dark matter, 1 = baryons. Defaults to 0.
   */
   void initialiseRandomComponent(size_t nField = 0) {
-    if(nField > outputField.size() - 1)
-    {
-        throw(std::runtime_error("Attempted to apply operations to field that has not been setup. Use baryon_tf_on to enable baryons."));
-    }
-    if (haveInitialisedRandomComponent[nField])
-      throw (std::runtime_error("Trying to re-draw the random field after it was already initialised"));
-
+    checkFieldExists(nField);
     randomFieldGenerator[nField].draw();
     applyPowerSpec(nField);
 
-    haveInitialisedRandomComponent[nField] = true;
+
+  }
+
+  //! Initialise random components for all the fields.
+  void initialiseAllRandomComponents()
+  {
+    if (haveInitialisedRandomComponent)
+      throw (std::runtime_error("Trying to re-draw the random field after it was already initialised"));
+
+
+    for(size_t i = 0;i < outputFields.size();i++) {
+        this->initialiseRandomComponent(i);
+    }
+    haveInitialisedRandomComponent = true;
   }
 
 
@@ -1587,7 +1292,6 @@ public:
     size_t id = grid.getIndexFromPoint(Coordinate<T>(x0, y0, z0));
     cerr << "selectNearest " << x0 << " " << y0 << " " << z0 << " " << id << " " << endl;
     grid.flagCells({id});
-
   }
 
   //! Selects particles to flag according to a specified function of their co-ordinate.
@@ -1716,24 +1420,23 @@ public:
   * \param nField - field to compute chi^2 for. 0 = dark matter, 1 = baryons.
   */
   virtual void getFieldChi2(size_t nField){
-    if(nField > outputField.size() - 1)
+    if(nField > outputFields.size() - 1)
     {
         throw(std::runtime_error("Attempted to apply operations to field that has not been setup. Use baryon_tf_on to enable baryons."));
     }
 
-    if (!haveInitialisedRandomComponent[nField])
-      initialiseRandomComponent(nField);
+    initialiseRandomComponentIfUninitialised();
 
-    //std::cerr << "Calculated chi^2 for field " << nField << " = " << this->outputField[nField].getChi2() <<std::endl;
-    T val = this->outputField[nField].get().getChi2();
+    T val = this->outputFields[nField]->getChi2();
     std::cerr << "Calculated chi^2 = " <<  val <<std::endl;
   }
 
   //!Print chi2 for all fields:
-  virtual void getFieldChi2()
-  {
-    for(size_t i = 0;i < this->outputField.size();i++)
-    {
+  virtual void getFieldChi2() {
+    for(size_t i = 0;i < this->outputFields.size();i++) {
+        if(i == 1) {
+            std::cout << "Baryons: "; // To differentiate baryon output from dark matter.
+        }
         this->getFieldChi2(i);
     }
   }
@@ -1744,25 +1447,17 @@ public:
    * @param nField - field to calculate for (0 = dark matter [default], 1 = baryons)
    */
   void calculate(string name,size_t nField = 0) {
-    if(nField > outputField.size() - 1)
-    {
-        throw(std::runtime_error("Attempted to apply operations to field that has not been setup. Use baryon_tf_on to enable baryons."));
-    }
-    if (!haveInitialisedRandomComponent[nField])
-      initialiseRandomComponent(nField);
+    checkFieldExists(nField);
+    initialiseRandomComponentIfUninitialised();
 
-    GridDataType val = modificationManager[nField].calculateCurrentValueByName(name, this->variance_filterscale);
-
-    //cout << name << ": calculated value for field " << nField << " = " << val << endl;
+    GridDataType val = modificationManager.calculateCurrentValueByName(name, this->variance_filterscale);
     cout << name << ": calculated value = " << val << endl;
   }
 
-  //!Calculate for all fields:
+  //!Calculate unmodified property for the dark matter field:
   void calculate(std::string name) {
-    for(size_t i = 0;i < this->outputField.size();i++)
-    {
-        this->calculate(name,i);
-    }
+    //Don't really need this for the baryon field, as we aren't modifying it:
+    this->calculate(name,0);
   }
 
   //! Define a modification to be applied to the field
@@ -1770,113 +1465,26 @@ public:
    * \param name String with the name of the modification to be added.
    * @param type  Modification can be relative to existing value or absolute
    * @param target Absolute target or factor by which the existing will be multiplied
-   * \param nField Field to apply the modification to (0 = dark matter, 1 = baryons)
    */
-  virtual void modify(string name, string type, float target,size_t nField = 0) {
-    if(nField > outputField.size() - 1)
-    {
-        throw(std::runtime_error("Attempted to apply operations to field that has not been setup. Use baryon_tf_on to enable baryons."));
-    }
-    if (!haveInitialisedRandomComponent[nField])
-      initialiseRandomComponent(nField);
+  virtual void modify(string name, string type, float target) {
+    initialiseRandomComponentIfUninitialised();
 
-    modificationManager[nField].addModificationToList(name, type, target,this->initial_number_steps, this->precision, this->variance_filterscale);
-  }
-
-  //!\brief Add modification to the list for all fields.
-  //! Note that this can only apply modifications to the dark matter field (which will then also constrain the baryon field).
-  virtual void modify(string name, string type, float target)
-  {
-    //Apply modification to the dark matter:
-    this->modify(name,type,target,0);
-
-    //Don't apply separate modifications to each field, as this won't work:
-    /*
-    for(size_t i = 0;i < this->outputField.size();i++)
-    {
-        this->modify(name,type,target,i);
-    }*/
+    modificationManager.addModificationToList(name, type, target,this->initial_number_steps, this->precision, this->variance_filterscale);
   }
 
   //! Empty modification list
   void clearModifications() {
-    for(size_t i = 0;i < modificationManager.size();i++)
-    {
-        this->clearModifications(i);
-    }
+    modificationManager.clearModifications();
   }
-
-  //! Clears all applies modifications for the specified field.
-  /*!
-  * \param nField - field identifier. 0 = dark matter, 1 = baryons.
-  */
-  void clearModifications(size_t nField)
-  {
-    if(nField > outputField.size() - 1)
-    {
-        throw(std::runtime_error("Attempted to apply operations to field that has not been setup. Use baryon_tf_on to enable baryons."));
-    }
-    modificationManager[nField].clearModifications();
-  }
-
 
   //! Apply the algorithm to produce the modified field
   virtual void applyModifications() {
-    //modificationManager.applyModifications();
-    for(size_t i = 0;i < modificationManager.size();i++)
-    {
-        this->applyModifications(i);
-    }
+    modificationManager.applyModifications(); // This handles propagating the modifications to the other fields too.
   }
 
-  //! Applies modifications to a specified field.
-  /*!
-  * \param nField - field identifier. 0 = dark matter, 1 = baryons.
-  */
-  virtual void applyModifications(size_t nField)
-  {
-    if(nField > outputField.size() - 1)
-    {
-        throw(std::runtime_error("Attempted to apply operations to field that has not been setup. Use baryon_tf_on to enable baryons."));
-    }
-
-    std::cerr << "modificationManager.size() = " << modificationManager.size() << std::endl;
-    if(nField == 0)
-    {
-        std::cerr << "Modify DM field:" << std::endl;
-        modificationManager[nField].applyModifications();
-        for(size_t i = 1;i < outputField.size();i++)
-        {
-            modificationManager[nField].propagateModifications(outputField[i]);
-        }
-    }
-    /*
-    else
-    {
-        //Other fields should just have their modifications propagated from the dark matter
-        //modification - modifications across multiple fields are not yet implemented:
-        std::cerr << "Modify field " << nField << ":" << std::endl;
-        modificationManager[nField].propagateModifications(outputField[0]);
-    }*/
-  }
 
   //! Apply the modifications, calculate the corresponding delta chi^2 and recombine low and high-ks between grids to write a particle output
   virtual void done() {
-  /*
-    if (!haveInitialisedRandomComponent)
-      initialiseRandomComponent();
-
-    if(modificationManager.hasModifications())
-      applyModifications();
-
-    write();
-    */
-    for(size_t i = 0;i < modificationManager.size();i++)
-    {
-        this->done(i);
-    }
-
-    std::cout << "\nOperations applied to all fields. Writing to disk...";
 
     //Should exit gracefully if no output format specified (will be checked later,
     //but since format variable is undefined if not specified, it might accidentally
@@ -1885,51 +1493,28 @@ public:
     {
         throw(std::runtime_error("No output format specified!"));
     }
+
+    initialiseRandomComponentIfUninitialised();
+
+    if(modificationManager.hasModifications())
+      applyModifications();
+
+    std::cout << "\nOperations applied to all fields. Writing to disk...";
+
     write();
-  }
-
-  //! Subroutine of done(). Generates random component and applies modifications to the specified field.
-  virtual void done(size_t nField)
-  {
-    if(nField > outputField.size() - 1)
-    {
-        throw(std::runtime_error("Attempted to apply operations to field that has not been setup. Use baryon_tf_on to enable baryons."));
-    }
-
-    if (!haveInitialisedRandomComponent[nField])
-      initialiseRandomComponent(nField);
-
-    //Currently modifications are only set for dark matter, but need to propagate them, so only apply
-    //modifications if the dark matter was modified:
-    if(modificationManager[nField].hasModifications())
-      applyModifications(nField);
-
-      //May need to edit this in the case of multiple fields!
-    //write(nField);
   }
 
   //TODO This method does not really belong here but in MultiLevelField class
   void reverse(size_t nField = 0) {
-    if(nField > outputField.size() - 1)
-    {
-        throw(std::runtime_error("Attempted to apply operations to field that has not been setup. Use baryon_tf_on to enable baryons."));
-    }
-
-    outputField[nField].get().reverse();
-    /*
-    for(size_t level=0; level<multiLevelContext.getNumLevels(); ++level) {
-      auto &field = outputField[nField].get().getFieldForLevel(level);
-      size_t N = field.getGrid().size3;
-      auto &field_data = field.getDataVector();
-      for (size_t i = 0; i < N; i++)
-        field_data[i] = -field_data[i];
-    }*/
+    checkFieldExists(nField);
+    outputFields[nField]->reverse();
   }
 
   //!For backwards compatibility
-  void reverse()
-  {
-    this->reverse(0);
+  void reverse() {
+    for(size_t i = 0;i < outputFields.size();i++){
+        this->reverse(i);
+    }
   }
 
   //TODO What is this method doing? Looks like inverted initial conditions properties
@@ -1938,10 +1523,7 @@ public:
   //!Reseeds the high k modes, leaving low-k modes unchanged.
   void reseedHighK(T kmax, int seed,size_t nField = 0) {
 
-    if(nField > outputField.size() - 1)
-    {
-        throw(std::runtime_error("Attempted to apply operations to field that has not been setup. Use baryon_tf_on to enable baryons."));
-    }
+    checkFieldExists(nField);
 
     T k2max = kmax * kmax;
 
@@ -1949,7 +1531,7 @@ public:
     // take a copy of all the fields
     std::vector<FieldType> fieldCopies;
     for(size_t level=0; level<multiLevelContext.getNumLevels(); ++level) {
-      auto &field = outputField[nField].get().getFieldForLevel(level);
+      auto &field = outputFields[nField]->getFieldForLevel(level);
       field.toFourier();
       fieldCopies.emplace_back(field);
     }
@@ -1961,7 +1543,7 @@ public:
     // copy back the old field
     for(size_t level=0; level<multiLevelContext.getNumLevels(); ++level) {
       FieldType &oldField = fieldCopies[level];
-      auto &field = outputField[nField].get().getFieldForLevel(level);
+      auto &field = outputFields[nField]->getFieldForLevel(level);
       int k2max_i = tools::getRatioAndAssertInteger(k2max, field.getGrid().getFourierKmin());
       field.forEachFourierCell([k2max_i, &oldField](std::complex<T> val, int kx, int ky, int kz) {
         int k2_i = kx * kx + ky * ky + kz * kz;
@@ -1977,21 +1559,20 @@ public:
   //!For backwards compatibility:
   void reseedHighK(T kmax,int seed)
   {
-    this->reseedHighK(kmax,seed,0);
+    for(size_t i = 0;i < outputFields.size();i++){
+        this->reseedHighK(kmax,seed,i);
+    }
   }
 
   //!Reverses the sign of the low-k modes.
   void reverseSmallK(T kmax,size_t nField = 0) {
 
-    if(nField > outputField.size() - 1)
-    {
-        throw(std::runtime_error("Attempted to apply operations to field that has not been setup. Use baryon_tf_on to enable baryons."));
-    }
+    checkFieldExists(nField);
 
     T k2max = kmax * kmax;
 
     for(size_t level=0; level<multiLevelContext.getNumLevels(); ++level) {
-      auto &field = outputField[nField].get().getFieldForLevel(level);
+      auto &field = outputFields[nField]->getFieldForLevel(level);
       field.toFourier();
 
       field.forEachFourierCell([k2max](std::complex<T> val, T kx, T ky, T kz) {
@@ -2008,7 +1589,9 @@ public:
 
   //!For backwards compatibility
   void reverseSmallK(T kmax){
-    this->reverseSmallK(kmax,0);
+    for(size_t i = 0;i < outputFields.size();i++){
+        this->reverseSmallK(kmax,i);
+    }
   }
 };
 

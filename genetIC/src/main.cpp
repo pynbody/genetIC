@@ -133,10 +133,9 @@ void setup_parser(tools::ClassDispatch<ICf, void> &dispatch) {
   dispatch.add_class_route("filtering_scale", &ICf::setVarianceFilteringScale);
   //dispatch.add_class_route("modify", &ICf::modify);
   dispatch.add_class_route("modify", static_cast< void (ICf::*)(std::string,std::string,float)>(&ICf::modify));
-  dispatch.add_class_route("modify_field", static_cast< void (ICf::*)(std::string,std::string,float,size_t)>(&ICf::modify));
+  dispatch.add_class_route("modify_field", static_cast< void (ICf::*)(std::string,std::string,float)>(&ICf::modify));
   //dispatch.add_class_route("clear_modifications", &ICf::clearModifications);
   dispatch.add_class_route("clear_modifications", static_cast<void(ICf::*)()>(&ICf::clearModifications));
-  dispatch.add_class_route("clear_modifications_field", static_cast<void(ICf::*)(size_t)>(&ICf::clearModifications));
   dispatch.add_class_route("done", &ICf::done);
   //dispatch.add_class_route("apply_modifications", &ICf::applyModifications);
   dispatch.add_class_route("apply_modifications", static_cast<void(ICf::*)()>(&ICf::applyModifications));
