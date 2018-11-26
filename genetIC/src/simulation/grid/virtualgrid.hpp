@@ -63,8 +63,8 @@ namespace grids {
       pUnderlying->debugInfo(s);
     }
 
-    bool pointsToGrid(const Grid<T> *pOther) const override {
-      return this == pOther || pUnderlying.get() == pOther || pUnderlying->pointsToGrid(pOther);
+    bool isProxyFor(const Grid<T> *pOther) const override {
+      return this == pOther || pUnderlying.get() == pOther || pUnderlying->isProxyFor(pOther);
     }
 
     void getFlaggedCells(std::vector<size_t> &targetArray) const override {
@@ -185,9 +185,11 @@ namespace grids {
       return pUnderlyingHiRes;
     }
 
-    bool pointsToGrid(const Grid<T> *pOther) const override {
-      return this == pOther || pUnderlyingLoResInterpolated->pointsToGrid(pOther) ||
-             pUnderlyingHiRes->pointsToGrid(pOther);
+    bool isProxyFor(const Grid<T> *pOther) const override {
+      // Note here that we count this grid as a proxy only for the high resolution underlying grid
+      // This is crucial for the correct behaviour with subsampling; if it claims to be a proxy for the
+      // low resolution grid, it might get further downsampled.
+      return this == pOther || pUnderlyingHiRes->isProxyFor(pOther);
     }
 
     void debugName(std::ostream &s) const override {
@@ -238,6 +240,11 @@ namespace grids {
 
       pUnderlyingLoResInterpolated->flagCells(interpolatedCellsArray);
       pUnderlyingHiRes->flagCells(hiresCellsArray);
+    }
+
+    void unflagAllCells() override {
+      pUnderlyingLoResInterpolated->unflagAllCells();
+      pUnderlyingHiRes->unflagAllCells();
     }
 
     bool isInHiResWindow(const Coordinate<int> &coordinate) const {

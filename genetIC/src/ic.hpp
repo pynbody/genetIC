@@ -310,7 +310,7 @@ public:
           "Zoom particles do not fit in specified sub-box. Decrease zoom, or choose different particles"));
     }
 
-    if (n_required < n_user && !allowStrayParticles)
+    if (n_required < n_user)
       zoomWindow.expandSymmetricallyToSize(n_user);
 
     // The edges of zooms regions carry numerical errors due to interpolation between levels (see ref)
@@ -357,6 +357,7 @@ public:
 
     vector<size_t> trimmedParticleArray;
     vector<size_t> &untrimmedParticleArray = zoomParticleArray.back();
+    vector<size_t> zoomedParticleArray;
 
     int nCoarseCellsOfZoomGrid = nAbove / int(zoomfac);
 
@@ -411,6 +412,7 @@ public:
 
     this->addLevelToContext(spectrum, gridAbove.thisGridSize / zoomfac, n, newOffsetLower);
 
+
     grids::Grid<T> &newGrid = multiLevelContext.getGridForLevel(multiLevelContext.getNumLevels() - 1);
 
     cout << "Initialized a zoom region:" << endl;
@@ -426,7 +428,15 @@ public:
     updateParticleMapper();
 
     cout << "  Total particles = " << pMapper->size() << endl;
+
+    // Update the cell flags. The goal is to flag
+    // Flag all cells on the fine grid which are included in the zoom
+    vector<size_t> transferredCells;
+    gridAbove.makeProxyGridToMatch(newGrid)->getFlaggedCells(transferredCells);
+    newGrid.flagCells(transferredCells);
+
   }
+
 
   virtual void
   addLevelToContext(const cosmology::CAMB<GridDataType> &spectrum, T size, size_t nside,

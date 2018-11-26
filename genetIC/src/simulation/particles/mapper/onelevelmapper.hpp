@@ -115,7 +115,7 @@ namespace particle {
       }
 
       std::pair<MapPtrType, MapPtrType> addGas(T massRatio, const std::vector<GridPtrType> &toGrids) override {
-        if (pGrid->pointsToAnyGrid(toGrids)) {
+        if (pGrid->isProxyForAnyOf(toGrids)) {
           return std::make_pair(
               std::make_shared<OneLevelParticleMapper<GridDataType>>(
                   this->pGrid->makeScaledMassVersion(massRatio)),
@@ -129,7 +129,7 @@ namespace particle {
 
       MapPtrType superOrSubSampleDM(int ratio, const std::vector<GridPtrType> &toGrids, bool super) override {
         std::shared_ptr<OneLevelParticleMapper<GridDataType>> newMapper;
-        if (pGrid->pointsToAnyGrid(toGrids)) {
+        if (pGrid->isProxyForAnyOf(toGrids)) {
           GridPtrType newGrid;
           if (super)
             newGrid = std::make_shared<grids::SuperSampleGrid<T >>(this->pGrid, ratio);

@@ -1,0 +1,33 @@
+# Test subsampling that tips zoom particles off the edge of their grid
+
+Om  0.279
+Ol  0.721
+#Ob  0.04
+s8  0.817
+zin	99
+
+seed	8896131
+camb	../camb_transfer_kmax40_z0.dat
+
+outname test_1
+outdir	 ./
+outformat 3
+
+#strays_on
+
+basegrid 64.0 8
+centre 40 40 40
+select_cube 32.0
+zoomgrid 2 8 # whole fine grid is selected so that we go right to the edges
+
+# The situation at this point is that we have populated with zoom particles
+# all the way to the edge of the fine grid. The fine grid by construction
+# aligns with cells of the coarse grid so all is fine. But now we subsample
+# at which point the cells no longer perfectly align. This means we want to
+# populate with fine particles beyond the edge of the fine grid.
+# This literal edge case caused confusing crashes.
+subsample 2
+
+
+
+done

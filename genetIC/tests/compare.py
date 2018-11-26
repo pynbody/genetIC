@@ -78,6 +78,9 @@ def compare_grafic(reference_path, test_path):
 def check_comparison_is_possible(dirname):
     # A valid test must have either a tipsy/gadget output and its reference output or numpy grids and their references.
 
+    if os.path.exists(dirname+"/reference.txt"):
+        return # OK if we are just looking at the textual output
+
     output_file = particle_files_in_dir(dirname)
     assert(len(output_file)>=0)
 
