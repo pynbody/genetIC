@@ -212,7 +212,7 @@ namespace grids {
           return flaggedWindow.getMaximumDimension();
       }
       else {
-              throw std::runtime_error("Trying to obtain physical size of an empty flagged region");
+          return 0;
           }
     }
 
