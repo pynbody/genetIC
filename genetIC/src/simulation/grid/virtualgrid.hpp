@@ -219,7 +219,7 @@ namespace grids {
       for (size_t i = 0; i < targetArray.size(); ++i) {
         auto coordinate =
             this->pUnderlyingHiRes->getCoordinateFromIndex(targetArray[i]) + this->windowLowerCornerInclusive;
-        coordinate = this->wrapCoordinate(coordinate);
+        // The coordinate will be wrapped (if necessary) within getIndexFromCoordinate
         targetArray[i] = this->pUnderlyingLoResInterpolated->getIndexFromCoordinate(coordinate);
       }
 
