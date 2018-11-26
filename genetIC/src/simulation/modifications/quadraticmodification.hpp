@@ -16,15 +16,15 @@ namespace modifications {
 
   public:
     QuadraticModification(multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
-                          const cosmology::CosmologicalParameters<T> &cosmology_,size_t transfer_type = 0) :
-        Modification<DataType, T>(underlying_, cosmology_,transfer_type) {
+                          const cosmology::CosmologicalParameters<T> &cosmology_) :
+        Modification<DataType, T>(underlying_, cosmology_) {
       this->order = 2;
     };
 
     QuadraticModification(multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
                           const cosmology::CosmologicalParameters<T> &cosmology_, int initNumberSteps_,
-                          T targetPrecision_,size_t transfer_type = 0) :
-        Modification<DataType, T>(underlying_, cosmology_,transfer_type), initNumberSteps(initNumberSteps_) {
+                          T targetPrecision_) :
+        Modification<DataType, T>(underlying_, cosmology_), initNumberSteps(initNumberSteps_) {
       this->targetPrecision = targetPrecision_;
       this->order = 2;
     };
@@ -61,7 +61,7 @@ namespace modifications {
 
       return std::make_shared<fields::ConstraintField<DataType>>(
           *dynamic_cast<multilevelcontext::MultiLevelContextInformation<DataType, T> *>(&(this->underlying)),
-          pushedfields,this->transferType);
+          pushedfields);
     }
 
   protected:
@@ -75,16 +75,16 @@ namespace modifications {
   public:
 
     FilteredVarianceModification(multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
-                                 const cosmology::CosmologicalParameters<T> &cosmology_, size_t transfer_type, T filterscale_) :
-        QuadraticModification<DataType, T>(underlying_, cosmology_,transfer_type), scale(filterscale_) {
+                                 const cosmology::CosmologicalParameters<T> &cosmology_, T filterscale_) :
+        QuadraticModification<DataType, T>(underlying_, cosmology_), scale(filterscale_) {
       checkFilterScale(filterscale_);
       this->scale = filterscale_;
     }
 
     FilteredVarianceModification(multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
-                                 const cosmology::CosmologicalParameters<T> &cosmology_,size_t transfer_type, int initNumberSteps_,
+                                 const cosmology::CosmologicalParameters<T> &cosmology_, int initNumberSteps_,
                                  T targetPrecision_, T filterscale_) :
-        QuadraticModification<DataType, T>(underlying_, cosmology_, initNumberSteps_, targetPrecision_,transfer_type){
+        QuadraticModification<DataType, T>(underlying_, cosmology_, initNumberSteps_, targetPrecision_){
       checkFilterScale(filterscale_);
       this->scale = filterscale_;
     }

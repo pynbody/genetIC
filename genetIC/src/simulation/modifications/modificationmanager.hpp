@@ -183,7 +183,7 @@ namespace modifications {
     std::shared_ptr<QuadraticModification<DataType, T>>
     getQuadraticModificationFromName(std::string name_, Args &&... args) {
       if ((strcasecmp(name_.c_str(), "variance") == 0)) {
-        return make_shared<FilteredVarianceModification<DataType, T>>(underlying, cosmology,this->transferType,
+        return make_shared<FilteredVarianceModification<DataType, T>>(underlying, cosmology,
                                                                       std::forward<Args>(args) ...);
       } else {
         throw UnknownModificationException(name_ + " " + "is an unknown modification name");

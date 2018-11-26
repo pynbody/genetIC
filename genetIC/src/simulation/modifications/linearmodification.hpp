@@ -18,8 +18,8 @@ namespace modifications {
   public:
 
     LinearModification(multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
-                       const cosmology::CosmologicalParameters<T> &cosmology_,size_t transfer_type) :
-        Modification<DataType, T>(underlying_, cosmology_,transfer_type) {
+                       const cosmology::CosmologicalParameters<T> &cosmology_) :
+        Modification<DataType, T>(underlying_, cosmology_) {
       this->order = 1;
       this->flaggedCellsFinestGrid = this->flaggedCells[this->underlying.getNumLevels() - 1];
     };

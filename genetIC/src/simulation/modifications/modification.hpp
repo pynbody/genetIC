@@ -17,16 +17,14 @@ namespace modifications {
     std::vector<std::vector<size_t>> flaggedCells;    /*!< Region targeted by the modification */
     unsigned int order;                  /*!< Linear are first order, qudartic are second etc */
 
-    size_t transferType; /*! Type of transfer function to use in defining the covector. 0 for dark matter, 1 for baryons.*/
 
 
   public:
     Modification(multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
-                 const cosmology::CosmologicalParameters<T> &cosmology_,size_t transfer_type) : underlying(underlying_),
+                 const cosmology::CosmologicalParameters<T> &cosmology_) : underlying(underlying_),
                                                                            cosmology(cosmology_),
                                                                            flaggedCells(underlying_.getNumLevels()) {
 
-      this->transferType = transfer_type;
       for (size_t level=0; level < this->underlying.getNumLevels(); level++) {
         auto grid = this->underlying.getGridForLevel(level);
         grid.getFlaggedCells(flaggedCells[level]);

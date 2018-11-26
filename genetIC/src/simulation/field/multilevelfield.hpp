@@ -714,8 +714,8 @@ namespace fields {
   \param transfer_type - 0 for dark matter, 1 for baryons
   */
     ConstraintField(multilevelcontext::MultiLevelContextInformation<DataType> &multiLevelContext,
-                    const std::vector<std::shared_ptr<Field<DataType, T>>> &fieldsOnGrids,size_t transfer_type)
-        : MultiLevelField<DataType>(multiLevelContext, std::move(fieldsOnGrids),transfer_type) {
+                    const std::vector<std::shared_ptr<Field<DataType, T>>> &fieldsOnGrids)
+        : MultiLevelField<DataType>(multiLevelContext, std::move(fieldsOnGrids)) {
       this->isCovector = true;
       updateMultiLevelContext();
     }
