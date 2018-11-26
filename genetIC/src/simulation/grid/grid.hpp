@@ -203,12 +203,17 @@ namespace grids {
     }
 
     int getFlaggedCellsSize(){
-      Window<int> flaggedWindow(this->getEffectiveSimulationSize(),
-                                this->getCoordinateFromIndex(this->flags[0]));
-      for (auto cell_id : this->flags) {
-        flaggedWindow.expandToInclude(this->getCoordinateFromIndex(cell_id));
+      if (this->numFlaggedCells() > 0 ) {
+          Window<int> flaggedWindow(this->getEffectiveSimulationSize(),
+                                    this->getCoordinateFromIndex(this->flags[0]));
+          for (auto cell_id : this->flags) {
+              flaggedWindow.expandToInclude(this->getCoordinateFromIndex(cell_id));
+          }
+          return flaggedWindow.getMaximumDimension();
       }
-      return flaggedWindow.getMaximumDimension();
+      else {
+          return 0;
+          }
     }
 
     T getFlaggedCellsPhysicalSize(){
