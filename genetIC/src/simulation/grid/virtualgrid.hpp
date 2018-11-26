@@ -142,9 +142,10 @@ namespace grids {
 
     GridPtrType pUnderlyingHiRes, pUnderlyingLoResInterpolated;
     Coordinate<int> windowLowerCornerInclusive;
-    Coordinate<int> windowUpperCornerExclusive;
-    Coordinate<T> windowLowerCorner;
-    Coordinate<T> windowUpperCorner;
+    Window<int> windowInCoordinates;
+    Window<T> windowInSpace;
+
+
 
   public:
 
@@ -160,20 +161,29 @@ namespace grids {
                        pUnderlyingHiRes->cellMassFrac,
                        pUnderlyingHiRes->cellSofteningScale),
         pUnderlyingHiRes(pUnderlyingHiRes) {
+
+      Coordinate<int> windowUpperCornerExclusive;
+      Coordinate<T> windowLowerCornerInSpace;
+      Coordinate<T> windowUpperCornerInSpace;
+
       pUnderlyingLoResInterpolated = std::make_shared<SuperSampleGrid<T>>(pUnderlyingLoRes,
                                                                           this->size / pUnderlyingLoRes->size);
       this->pUnderlying = pUnderlyingLoResInterpolated;
 
       auto offsetLowerRelative = pUnderlyingHiRes->offsetLower - pUnderlyingLoRes->offsetLower;
       windowLowerCornerInclusive = round<int>(offsetLowerRelative / this->cellSize);
-      windowLowerCorner = this->getCentroidFromCoordinate(windowLowerCornerInclusive) - this->cellSize / 2;
+      windowLowerCornerInSpace = this->getCentroidFromCoordinate(windowLowerCornerInclusive) - this->cellSize / 2;
 
       auto offsetLowerRelativeCheck = Coordinate<T>(windowLowerCornerInclusive) * this->cellSize;
       assert(
           offsetLowerRelativeCheck.almostEqual(offsetLowerRelative)); // if this doesn't match, the grids don't line up
 
-      windowUpperCornerExclusive = windowLowerCornerInclusive + pUnderlyingHiRes->size;
-      windowUpperCorner = this->getCentroidFromCoordinate(windowUpperCornerExclusive) - this->cellSize / 2;
+      windowUpperCornerExclusive = this->wrapCoordinate(windowLowerCornerInclusive + pUnderlyingHiRes->size);
+      windowUpperCornerInSpace = this->getCentroidFromCoordinate(windowUpperCornerExclusive) - this->cellSize / 2;
+
+      windowInCoordinates = Window<int>(this->simEquivalentSize, windowLowerCornerInclusive, windowUpperCornerExclusive);
+      windowInSpace = Window<T>(this->periodicDomainSize, windowLowerCornerInSpace, windowUpperCornerInSpace);
+
 
     }
 
@@ -209,13 +219,14 @@ namespace grids {
       for (size_t i = 0; i < targetArray.size(); ++i) {
         auto coordinate =
             this->pUnderlyingHiRes->getCoordinateFromIndex(targetArray[i]) + this->windowLowerCornerInclusive;
+        // The coordinate will be wrapped (if necessary) within getIndexFromCoordinate
         targetArray[i] = this->pUnderlyingLoResInterpolated->getIndexFromCoordinate(coordinate);
       }
 
       for (size_t i = 0; i < interpolatedCellsArray.size(); ++i) {
         size_t thisCell = interpolatedCellsArray[i];
         auto coordinate = pUnderlyingLoResInterpolated->getCoordinateFromIndex(thisCell);
-        if (!coordinate.inWindow(windowLowerCornerInclusive, windowUpperCornerExclusive)) {
+        if (!isInHiResWindow(coordinate)) {
           targetArray.push_back(thisCell);
         }
       }
@@ -248,15 +259,17 @@ namespace grids {
     }
 
     bool isInHiResWindow(const Coordinate<int> &coordinate) const {
-      return coordinate.inWindow(windowLowerCornerInclusive, windowUpperCornerExclusive);
+      return windowInCoordinates.contains(coordinate);
+      //coordinate.inWindow(windowLowerCornerInclusive, windowUpperCornerExclusive);
     }
 
     bool isInHiResWindow(const Coordinate<T> &location) const {
-      return location.inWindow(windowLowerCorner, windowUpperCorner);
+      return windowInSpace.contains(location);
+      //location.inWindow(windowLowerCorner, windowUpperCorner);
     }
 
     size_t getIndexInHiResWindow(const Coordinate<int> &coordinate) const {
-      return pUnderlyingHiRes->getIndexFromCoordinate(coordinate - windowLowerCornerInclusive);
+      return pUnderlyingHiRes->getIndexFromCoordinate(this->wrapCoordinate(coordinate - windowLowerCornerInclusive));
     }
 
 

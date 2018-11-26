@@ -1,0 +1,43 @@
+# Test stray particle system on zoom grid that wraps around
+
+
+# output parameters
+outdir	 ./
+outformat 4
+outname test_6
+
+
+
+# cosmology:
+Om  0.279
+Ol  0.721
+s8  0.817
+zin	99
+camb	../camb_transfer_kmax40_z0.dat
+
+basegrid 50.0 8
+
+# fourier seeding
+seed	8896131
+
+
+
+
+centre 45 45 25
+select_sphere 15.0
+strays_on
+zoomgrid_with_origin_at 6 6 2 2 8
+# zoom grid needs to wrap around
+
+idfile reference.txt
+# Which contains:
+# 0   coarse grid
+# 449 another coarse grid example
+# 452 fine grid, wrapped portion
+# 484 coarse grid interpolated to high resolution, wrapped portion - plus 7 further from the surrounding LR cube
+# 580 coarse grid interpolated to high resolution, unwrapped portion - plus 7 further from the surrounding LR cube
+# 660 fine grid, unwrapped portion
+
+dump_idfile output.txt
+
+done

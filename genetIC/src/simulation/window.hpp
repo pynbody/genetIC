@@ -12,7 +12,7 @@ protected:
   Coordinate<T> lowerCornerInclusive;
 
 
-  bool withinWrapped(T lowInclusive, T highExclusive, T testVal) {
+  bool withinWrapped(T lowInclusive, T highExclusive, T testVal) const {
     if (highExclusive >= lowInclusive)
       return testVal < highExclusive && testVal >= lowInclusive;
     else
@@ -47,6 +47,8 @@ protected:
 
 
 public:
+  Window() : wrapLength(0) { }
+
   Window(T wrapLength, Coordinate<T> initialPosition) : wrapLength(wrapLength) {
     upperCornerExclusive = smallIncrement(initialPosition);
     lowerCornerInclusive = initialPosition;
@@ -161,7 +163,7 @@ public:
 
   }
 
-  bool contains(const Coordinate<T> &test) {
+  bool contains(const Coordinate<T> &test) const  {
     bool inX, inY, inZ;
     inX = withinWrapped(lowerCornerInclusive.x, upperCornerExclusive.x, test.x);
     inY = withinWrapped(lowerCornerInclusive.y, upperCornerExclusive.y, test.y);
@@ -169,7 +171,7 @@ public:
     return inX && inY && inZ;
   }
 
-  bool containsWithBorderSafety(const Coordinate<T> &test, T safety){
+  bool containsWithBorderSafety(const Coordinate<T> &test, T safety) const {
     bool inX, inY, inZ;
     inX = withinWrapped(lowerCornerInclusive.x + safety, upperCornerExclusive.x - safety, test.x);
     inY = withinWrapped(lowerCornerInclusive.y + safety, upperCornerExclusive.y - safety, test.y);
