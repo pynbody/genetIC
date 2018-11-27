@@ -131,7 +131,6 @@ namespace io {
               Coordinate<float> velScaled(particle.vel * velFactor);
               Coordinate<float> posScaled(particle.pos * lengthFactorDisplacements);
 
-              // TODO For now, the baryon density is not calculated and set to zero
               float deltab = (*overdensityFieldEvaluator)[i];
               float mask = this->mask->isInMask(level, i);
               float pvar = pvarValue * mask;
