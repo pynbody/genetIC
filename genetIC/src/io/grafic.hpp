@@ -76,6 +76,7 @@ namespace io {
 
       void writeGrid(const grids::Grid<T> &targetGrid, size_t level) {
         auto evaluator = generator->makeEvaluatorForGrid(targetGrid);
+        auto overdensityFieldEvaluator = generator->makeOverdensityEvaluatorForGrid(targetGrid);
 
         const grids::Grid<T> &baseGrid = context.getGridForLevel(0);
         size_t effective_size = tools::getRatioAndAssertPositiveInteger(baseGrid.cellSize * baseGrid.size,
@@ -131,7 +132,7 @@ namespace io {
               Coordinate<float> posScaled(particle.pos * lengthFactorDisplacements);
 
               // TODO For now, the baryon density is not calculated and set to zero
-              float deltab = 0;
+              float deltab = (*overdensityFieldEvaluator)[i];
               float mask = this->mask->isInMask(level, i);
               float pvar = pvarValue * mask;
               size_t file_index = i_y*targetGrid.size+i_x;

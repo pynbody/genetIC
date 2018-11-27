@@ -49,6 +49,7 @@ namespace particle {
         std::shared_ptr<AbstractMultiLevelParticleGenerator<GridDataType>> underlying;
         Coordinate<GridDataType> velOffset;
         using EvaluatorType = VelocityOffsetEvaluator<GridDataType>;
+        using T = tools::datatypes::strip_complex<GridDataType>;
 
     public:
         VelocityOffsetMultiLevelParticleGenerator( std::shared_ptr<AbstractMultiLevelParticleGenerator<GridDataType>> underlying,
@@ -64,6 +65,11 @@ namespace particle {
         std::shared_ptr<ParticleEvaluator<GridDataType>>
         makeEvaluatorForGrid(const grids::Grid<GridDataType> &grid) override {
           return std::make_shared<EvaluatorType>(underlying->makeEvaluatorForGrid(grid), velOffset);
+        }
+
+        std::shared_ptr<fields::EvaluatorBase<GridDataType, T>>
+        makeOverdensityEvaluatorForGrid(const grids::Grid<T> &grid) override {
+          return underlying->makeOverdensityEvaluatorForGrid(grid);
         }
 
     };

@@ -5,6 +5,7 @@
 #include "src/cosmology/parameters.hpp"
 #include "src/simulation/particles/generator.hpp"
 #include "src/simulation/particles/zeldovich.hpp"
+#include "src/simulation/field/evaluator.hpp"
 
 namespace particle {
   using std::cerr;
@@ -21,6 +22,9 @@ namespace particle {
 
     virtual std::shared_ptr<particle::ParticleEvaluator<GridDataType>>
     makeEvaluatorForGrid(const grids::Grid<T> &grid) =0;
+
+    virtual std::shared_ptr<fields::EvaluatorBase<GridDataType, T>>
+    makeOverdensityEvaluatorForGrid(const grids::Grid<T> &grid)  =0;
 
     std::shared_ptr<const particle::ParticleEvaluator<GridDataType>>
     makeEvaluatorForGrid(const grids::Grid<T> &grid) const {
@@ -44,6 +48,12 @@ namespace particle {
     makeEvaluatorForGrid(const grids::Grid<T> &) override {
       throw std::runtime_error("Attempt to generate particles before they have been calculated");
     }
+
+    std::shared_ptr<fields::EvaluatorBase<GridDataType, T>>
+    makeOverdensityEvaluatorForGrid(const grids::Grid<T> &grid) override  {
+      throw std::runtime_error("Attempt to get overdensity before it has been calculated");
+    }
+
   };
 
   template<typename A, typename B, typename C>
@@ -96,12 +106,13 @@ namespace particle {
 
       }
 
-      generator.outputField.toFourier();
+      generator.outputField.toReal();
 
       generator.outputField.setStateRecombined();
 
       for (size_t i = 0; i < nlevels; ++i)
         generator.pGenerators[i]->toReal();
+
 
       cerr << "done." << endl;
 
@@ -191,9 +202,12 @@ namespace particle {
 
     std::shared_ptr<particle::ParticleEvaluator<GridDataType>>
     makeEvaluatorForGrid(const grids::Grid<T> &grid) override {
-
-
       return makeParticleEvaluatorBasedOnTemplate(*this, grid);
+    }
+
+    std::shared_ptr<fields::EvaluatorBase<GridDataType, T>>
+    makeOverdensityEvaluatorForGrid(const grids::Grid<T> &grid) override {
+      return fields::makeEvaluator(outputField, grid);
     }
 
 
