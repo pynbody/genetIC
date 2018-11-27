@@ -7,6 +7,8 @@
 #include "src/simulation/particles/zeldovich.hpp"
 #include "src/simulation/field/evaluator.hpp"
 
+#include <memory>
+
 namespace particle {
   using std::cerr;
   using std::endl;

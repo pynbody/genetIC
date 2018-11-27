@@ -2,7 +2,10 @@
 #include <src/simulation/particles/multilevelgenerator.hpp>
 #include <src/simulation/multilevelcontext/mask.hpp>
 #include "src/tools/memmap.hpp"
+#include <memory>
+#include <vector>
 #include <algorithm>
+#include <string>
 
 namespace io {
   namespace grafic {
