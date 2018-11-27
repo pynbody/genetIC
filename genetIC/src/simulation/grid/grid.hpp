@@ -222,12 +222,17 @@ namespace grids {
 
     //!Returns the number of cells on one side of the smallest box that could contain all the flagged cells.
     int getFlaggedCellsSize(){
-      Window<int> flaggedWindow(this->getEffectiveSimulationSize(),
-                                this->getCoordinateFromIndex(this->flags[0]));
-      for (auto cell_id : this->flags) {
-        flaggedWindow.expandToInclude(this->getCoordinateFromIndex(cell_id));
+      if (this->numFlaggedCells() > 0 ) {
+          Window<int> flaggedWindow(this->getEffectiveSimulationSize(),
+                                    this->getCoordinateFromIndex(this->flags[0]));
+          for (auto cell_id : this->flags) {
+              flaggedWindow.expandToInclude(this->getCoordinateFromIndex(cell_id));
+          }
+          return flaggedWindow.getMaximumDimension();
       }
-      return flaggedWindow.getMaximumDimension();
+      else {
+          return 0;
+          }
     }
 
     //!Returns the physical size (in Mpc/h) of the smallest box that could contain all the flagged cells.
