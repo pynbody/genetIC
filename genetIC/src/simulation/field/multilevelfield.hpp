@@ -35,9 +35,9 @@ namespace fields {
 
   public:
 
-  //Variable that stores which transfer function the field should request from the multi-level context.
-    //transferType = 0 -> Cold dark matter
-    //transferType = 1 -> Baryons.
+    //! \brief Variable that stores which transfer function the field should request from the multi-level context.
+    /*! transferType = 0 -> Cold dark matter
+        transferType = 1 -> Baryons. */
     size_t transferType;
 
     //! Sets up filters for each level of the multi-level field.
@@ -46,7 +46,6 @@ namespace fields {
       const T FRACTIONAL_K_SPLIT = 0.3;
 
       size_t nLevels = this->multiLevelContext->getNumLevels();
-      //std::cerr << "\nShould have setup pFilter here.";
       this->pFilters = make_shared<FilterType>();
       for (size_t level = 0; level < nLevels - 1; ++level) {
         const grids::Grid<T> &grid0(this->multiLevelContext->getGridForLevel(level));
@@ -86,9 +85,9 @@ namespace fields {
       transferType = copy.transferType;
       setupConnection();
 
-      //NB - adding this if here, because the std::make_shared call here will lead to a segmentation fault if
-      //copy.pFilters is null, which is required at construction because the filter depends on the level-structure, which isn't
-      //specified until later:
+      // NB - adding this if here, because the std::make_shared call here will lead to a segmentation fault if
+      // copy.pFilters is null, which is required at construction because the filter depends on the level-structure, which isn't
+      // specified until later:
       if(copy.pFilters == nullptr)
       {
         pFilters = nullptr;
@@ -223,12 +222,13 @@ namespace fields {
     void reverse()
     {
       for(size_t level=0; level<multiLevelContext->getNumLevels(); ++level) {
-      auto &field = this->getFieldForLevel(level);
-      size_t N = field.getGrid().size3;
-      auto &field_data = field.getDataVector();
-      for (size_t i = 0; i < N; i++)
-        field_data[i] = -field_data[i];
-        }
+          auto &field = this->getFieldForLevel(level);
+          size_t N = field.getGrid().size3;
+          auto &field_data = field.getDataVector();
+          for (size_t i = 0; i < N; i++) {
+            field_data[i] = -field_data[i];
+          }
+      }
     }
 
     //! Add a scaled multilevel field to the current one
@@ -275,20 +275,15 @@ namespace fields {
                 Field<DataType> &fieldThis = getFieldForLevel(level);
                 const Field<DataType> &fieldOther = other.getFieldForLevel(level);
 
-                fieldThis.forEachFourierCellInt([&fieldOther](ComplexType currentVal, int kx, int ky, int kz)
-                {
-                    return fieldOther.getFourierCoefficient(kx, ky, kz);
-                });
-                //Slightly hackier way of doing this:
-                /*
-                if(fieldThis.getDataVector().size() != fieldOther.getDataVector().size())
-                {
-                    throw(std::runtime_error("Cannot copy field of different size."));
+                if(fieldThis.getGrid() != fieldOther.getGrid()) {
+                    throw std::runtime_error("Attempting to copy data from incompatible grids");
                 }
-                for(size_t i = 0;i < fieldThis.getDataVector().size();i++)
-                {
-                    fieldThis[i] = fieldOther[i];
-                }*/
+
+                auto& dataThis = fieldThis .getDataVector();
+                const auto& dataOther = fieldOther.getDataVector();
+
+                assert(dataOther.size() == dataThis.size());
+                std::copy(dataOther.begin(), dataOther.end(), dataThis.begin());
             }
         }
     }
@@ -372,7 +367,7 @@ namespace fields {
       pFilters = make_shared<filters::FilterFamily<T>>(multiLevelContext->getNumLevels());
     }
 
-    //! Converts the field into a covecor, using the covariance matrix associated to the field.
+    //! Converts the field into a covector, using the covariance matrix associated to the field.
     /*!
         For this to work, the transferType needs to have been specified for the field (defaulting to 0, dark matter).
         Can be either dark matter (0) or baryonic (1).
@@ -438,7 +433,7 @@ namespace fields {
       }
     }
 
-    //!Divide by the power spectrum of another field.
+    //! Divide by the power spectrum of another field.
     void applyInversePowerSpectrumOf(size_t nField)
     {
         toFourier();
@@ -452,7 +447,7 @@ namespace fields {
       }
     }
 
-    //!Divide by one power spectrum and multiply by another for all levels:
+    //! Divide by one power spectrum and multiply by another for all levels:
     void applyTransferRatio(size_t nField)
     {
         toFourier();
@@ -476,9 +471,9 @@ namespace fields {
         T sqrt_spec1 = sqrt(spectrum1.getFourierCoefficient(kx, ky, kz).real());
         T sqrt_spec2 = sqrt(spectrum2.getFourierCoefficient(kx, ky, kz).real());
         complex<T> new_val;
-        //if(abs(sqrt_spec1) < std::numeric_limits<T>::epsilon())
         if(sqrt_spec1 == 0.0)
         {
+            assert(sqrt_spec2 == 0.0);
             //This can only happen if the power spectrum is zero, ie k = 0, in which case,
             //it will be zero for baryons too, so just return 0:
             new_val = 0.0;
@@ -633,8 +628,8 @@ namespace fields {
       RECOMBINED
     } t_output_state;
 
-    t_output_state outputState;//Current output state
-    bool fieldsOnLevelsPopulated;//True if already populated the fields on all levels.
+    t_output_state outputState; // Current output state
+    bool fieldsOnLevelsPopulated; // True if already populated the fields on all levels.
 
 
     //! Populates the fields on each level with all zeros
@@ -697,7 +692,8 @@ namespace fields {
   /*! \class ConstraintField
     \brief Fields used for defining constraints.
 
-    Note, ConstraintFields are naturally covectors.
+    Note, ConstraintFields are naturally covectors because they map a field onto a single number. For example;
+    a constraint might map the density vector to the mean density in some region.
   */
   template<typename DataType>
   class ConstraintField : public MultiLevelField<DataType> {

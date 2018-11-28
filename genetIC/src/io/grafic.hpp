@@ -30,10 +30,10 @@ namespace io {
     protected:
       std::string outputFilename;
       multilevelcontext::MultiLevelContextInformation<DataType> context;
-      std::vector<std::shared_ptr<particle::AbstractMultiLevelParticleGenerator<DataType>>>& generator;
+      std::vector<std::shared_ptr<particle::AbstractMultiLevelParticleGenerator<DataType>>> generators;
       const cosmology::CosmologicalParameters<T> &cosmology;
       multilevelcontext::GraficMask<DataType,T>* mask;
-      std::vector<std::shared_ptr<fields::OutputField<DataType>>>& outputFields;
+      std::vector<std::shared_ptr<fields::OutputField<DataType>>> outputFields;
 
 
       T pvarValue;
@@ -47,22 +47,21 @@ namespace io {
     //! \brief Constructor
       GraficOutput(const std::string &fname,
                    multilevelcontext::MultiLevelContextInformation<DataType> &levelContext,
-                   //particle::AbstractMultiLevelParticleGenerator<DataType> &particleGenerator,
-                   std::vector<std::shared_ptr<particle::AbstractMultiLevelParticleGenerator<DataType>>> &particleGenerator,
+                   std::vector<std::shared_ptr<particle::AbstractMultiLevelParticleGenerator<DataType>>> particleGenerators,
                    const cosmology::CosmologicalParameters<T> &cosmology,
                     const T pvarValue,
                    Coordinate<T> center,
                    size_t subsample,
                    size_t supersample,
                    std::vector<std::vector<size_t>>& input_mask,
-                   std::vector<std::shared_ptr<fields::OutputField<DataType>>>& outFields) :
+                   std::vector<std::shared_ptr<fields::OutputField<DataType>>> outFields) :
           outputFilename(fname),
-          //generator(particleGenerator.shared_from_this()),
-          generator(particleGenerator),
           cosmology(cosmology),
-          outputFields(outFields),
           pvarValue(pvarValue)
           {
+
+        this->generators = particleGenerators;
+        this->outputFields = outFields;
 
         levelContext.copyContextWithCenteredIntermediate(context, center, 2, subsample, supersample);
 
@@ -91,15 +90,17 @@ namespace io {
     \param level - level to output.
     */
       void writeGrid(const grids::Grid<T> &targetGrid, size_t level) {
-        auto evaluator_dm = generator[0]->makeEvaluatorForGrid(targetGrid);
+        auto evaluator_dm = generators[0]->makeEvaluatorForGrid(targetGrid);
 
         const grids::Grid<T> &baseGrid = context.getGridForLevel(0);
         size_t effective_size = tools::getRatioAndAssertPositiveInteger(baseGrid.cellSize * baseGrid.size,
                                                                         targetGrid.cellSize);
         tools::progress::ProgressBar pb("write grid " + std::to_string(effective_size), targetGrid.size);
 
+
         std::string thisGridFilename = outputFilename + "_" + std::to_string(effective_size);
         mkdir(thisGridFilename.c_str(), 0777);
+
 
         std::vector<std::string> filenames = {"ic_velcx", "ic_velcy", "ic_velcz", "ic_poscx", "ic_poscy",
                                               "ic_poscz",  "ic_deltab", "ic_refmap", "ic_pvar_00001", "ic_particle_ids"};
@@ -118,23 +119,23 @@ namespace io {
         std::vector<tools::MemMapFileWriter> files;
 
 
+
         for (size_t i=0; i<filenames.size(); ++i) {
           auto filename_i = filenames[i];
           files.emplace_back(thisGridFilename + "/" + filename_i);
           writeHeaderForGrid(files.back(), targetGrid);
         }
 
-        //If we are using baryon transfer functions, then we need to make sure that the field
-        //is real, but only bother with this if we will actually need it:
-        //QUERY - do we want the output in Fourier space or real space? I assume real...
+        std::shared_ptr<fields::Field<DataType, T>> baryonFieldOnLevelPtr = nullptr;
         if(this->outputFields.size() > 1)
         {
-            for(size_t i = 0;i < outputFields.size();i++)
+            for(size_t i = 0; i < outputFields.size(); i++)
             {
-                this->outputFields[i]->toReal();
+                this->outputFields[i]->toReal(); // Field should be output in real space
             }
-        }
 
+            baryonFieldOnLevelPtr = outputFields[1]->getFieldForLevel(level).shared_from_this();
+        }
 
         for (size_t i_z = 0; i_z < targetGrid.size; ++i_z) {
           pb.tick();
@@ -156,7 +157,8 @@ namespace io {
               Coordinate<float> velScaled(particle.vel * velFactor);
               Coordinate<float> posScaled(particle.pos * lengthFactorDisplacements);
 
-              //Detect whether we are using baryons:
+
+              // Detect whether we are using baryons:
               float deltab;
               if(this->outputFields.size() < 2)
               {
@@ -164,11 +166,10 @@ namespace io {
               }
               else
               {
-                //Get data from output field:
-                //We're always assuming here that the second element corresponds
-                //to the baryons...
-                deltab = outputFields[1]->getFieldForLevel(level)[i];
+                // Get data from output field:
+                deltab = (*baryonFieldOnLevelPtr)[i];
               }
+
 
               float mask = this->mask->isInMask(level, i);
               float pvar = pvarValue * mask;
@@ -185,6 +186,7 @@ namespace io {
               varMaps[7][file_index] = mask;
               varMaps[8][file_index] = pvar;
               idMap[file_index] = global_index;
+
             }
           }
           writeBlockHeaderFooter(block_lengths, files);
@@ -240,7 +242,7 @@ namespace io {
     //! \brief Save particles in grafic format.
     /*!
     \param filename - name of output file
-    \param generator - vector of particles generators for each type of particle (dark matter, baryons)
+    \param generators - vector of particles generators for each type of particle (dark matter, baryons)
     \param context - multi-level context on which the overdensity fields are defined.
     \param cosmology - cosmological parameters
     \param pvarValue - passive variables for refinement masks
@@ -252,13 +254,13 @@ namespace io {
     */
     template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
     void save(const std::string &filename,
-              std::vector<std::shared_ptr<particle::AbstractMultiLevelParticleGenerator<DataType>>> &generator,
+              std::vector<std::shared_ptr<particle::AbstractMultiLevelParticleGenerator<DataType>>> generators,
               multilevelcontext::MultiLevelContextInformation<DataType> &context,
               const cosmology::CosmologicalParameters<T> &cosmology,
               const T pvarValue, Coordinate<T> center, size_t subsample, size_t supersample,
               std::vector<std::vector<size_t>>& input_mask,
               std::vector<std::shared_ptr<fields::OutputField<DataType>>>& outputFields) {
-      GraficOutput<DataType> output(filename, context, generator,
+      GraficOutput<DataType> output(filename, context, generators,
                                     cosmology, pvarValue, center, subsample, supersample, input_mask,outputFields);
       output.write();
     }

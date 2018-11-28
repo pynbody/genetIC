@@ -172,8 +172,8 @@ namespace filters {
   template<typename T>
   class LowPassFermiFilter : public Filter<T> {
   private:
-    T kcut;//Cutoff value
-    T temperature;//'Temperature' of the fermi dirac distribution
+    T kcut; //!< Cutoff value
+    T temperature; //!< 'Temperature' of the fermi dirac distribution
 
   public:
   //! Constructor, with cutoff as argument

@@ -76,7 +76,15 @@ namespace cosmology {
         }
     }
 
-    //!Enables the use of the baryon transfer function
+    //! Check that the supplied transfer function is valid (ie, that we don't request a transfer function which hasn't been imported)
+    void ensureValidTransferID(const size_t transferID) const {
+        if(transferSwitch[transferID] > this->T.size() - 1)
+      {
+        throw(std::runtime_error("Invalid transfer function requested."));
+      }
+    }
+
+    //! Enables the use of the baryon transfer function
     void enableAllTransfers()
     {
         this->dmOnly = false;
@@ -130,7 +138,7 @@ namespace cosmology {
       // Dealing with the update of the CAMB TF output. Both are kept for backward compatibility.
       const int c_old_camb = 7; // number of columns in camb transfer function pre 2015
       const int c_new_camb = 13; // number of columns in camb transfer function post 2015
-      int c;
+      int numCols;
       size_t j;
 
       //Import data from CAMB file:
@@ -138,31 +146,14 @@ namespace cosmology {
 
       io::getBuffer(input, incamb);
 
-
-      //STEPHEN - This will actually miss-classify if the post-2015 file happens to also have a number of entries
-      //divisible by 7. Need to rethink this!
-      /*
-      if(input.size() > c_old_camb && input.size() % c_old_camb == 0){
-        std::cerr << "Using pre 2015 CAMB transfer function" << std::endl;
-        c = c_old_camb;
-      } else if (input.size() > c_new_camb && input.size() % c_new_camb == 0){
-        std::cerr << "Using post 2015 CAMB transfer function" << std::endl;
-        c = c_new_camb;
-      } else{
-        throw std::runtime_error("CAMB transfer file doesn't have a sensible number of rows and columns");
-      }
-      */
-
       //Check whether the input file is in the pre-2015 or post-2015 format (and throw an error if it is neither).
-      c = io::getNumberOfColumns(incamb);
+      numCols = io::getNumberOfColumns(incamb);
 
-      std::cerr << "c = " << c << std::endl;
-
-      if(c == c_old_camb)
+      if(numCols == c_old_camb)
       {
         std::cerr << "Using pre 2015 CAMB transfer function" << std::endl;
       }
-      else if(c == c_new_camb)
+      else if(numCols == c_new_camb)
       {
         std::cerr << "Using post 2015 CAMB transfer function" << std::endl;
       }
@@ -172,19 +163,16 @@ namespace cosmology {
       }
 
 
-      CoordinateType ap = input[1]; //to normalise CAMB transfer function so T(0)= 1, doesn't matter if we normalise here in terms of accuracy, but feels more natural
+      CoordinateType transferNormalisation = input[1]; //to normalise CAMB transfer function so T(0)= 1, doesn't matter if we normalise here in terms of accuracy, but feels more natural
       //Copy file into vectors. Normalise both so that the DM tranfer function starts at 1.
-      std::cerr << "ap = " << ap << std::endl;
-      for (j = 0; j < input.size() / c; j++) {
-        if (input[c * j] > 0) {
+      for (j = 0; j < input.size() / numCols; j++) {
+        if (input[numCols * j] > 0) {
           // hard-coded to first two columns of CAMB file -
-          kcamb.push_back(CoordinateType(input[c * j]));
+          kcamb.push_back(CoordinateType(input[numCols * j]));
           for(size_t i = 0;i < this->T.size();i++)
           {
-            T[i].push_back(CoordinateType(input[c * j + this->cambCols[i]]) / ap);
+            T[i].push_back(CoordinateType(input[numCols * j + this->cambCols[i]]) / transferNormalisation);
           }
-          //Tcamb.push_back(CoordinateType(input[c * j + 1]) / ap);
-          //Tbar.push_back(CoordinateType(input[c * j + 2]) / ap);
         } else continue;
       }
 
@@ -197,8 +185,6 @@ namespace cosmology {
       {
         T_f.push_back(T[i].back());
       }
-      //CoordinateType Tcamb_f = Tcamb.back();
-      //CoordinateType Tbar_f = Tbar.back();
       kcamb_max_in_file = kcamb.back();
       CoordinateType keq = 0.01;
       while (kcamb.back() < 1e7) {
@@ -208,8 +194,6 @@ namespace cosmology {
         {
             T[i].push_back(T_f[i] * pow(kratio, -2.0) * log(kcamb.back() / keq) / log(kcamb_max_in_file / keq));
         }
-        //Tcamb.push_back(Tcamb_f * pow(kratio, -2.0) * log(kcamb.back() / keq) / log(kcamb_max_in_file / keq));
-        //Tbar.push_back(Tbar_f * pow(kratio, -2.0) * log(kcamb.back() / keq) / log(kcamb_max_in_file / keq));
       }
 
 
@@ -227,8 +211,8 @@ namespace cosmology {
       CoordinateType linearTransfer;
       if (k != 0)
         linearTransfer = interpolator[transferSwitch[nTransfer]](k);
-        //transferSwitch ensures that if extra transfer functions are switched off, then we always
-        //call the dark matter interpolator, rather than falling out of bounds.
+        // transferSwitch ensures that if extra transfer functions are switched off, then we always
+        // call the dark matter interpolator, rather than falling out of bounds.
       else
         linearTransfer = 0.0;
 
@@ -244,15 +228,11 @@ namespace cosmology {
     getPowerSpectrumForGrid(const grids::Grid<CoordinateType> &grid,size_t nTransfer = 0) const {
       /* Get the variance for each Fourier cell of the specified grid  */
       assert(kcamb.size() == T[0].size());
-      //Check that the requested transfer function is actually available, and if it isn't, use the DM transfer function instead.
-      //Do this here instead of inside operator() for efficiency.
-      if(transferSwitch[nTransfer] > this->T.size() - 1)
-      {
-        std::cerr << "WARNING: invalid transfer function requested. Defaulting to dark matter transfer function." << std::endl;
-        nTransfer = 0;
-      }
-      //transferSwitch ensures that if extra transfer functions are switched off, then we always
-      //call the dark matter interpolator, rather than falling out of bounds.
+      // Check that the requested transfer function is actually available, and if it isn't, use the DM transfer function instead.
+      // Do this here instead of inside operator() for efficiency.
+      ensureValidTransferID(nTransfer);
+      // transferSwitch ensures that if extra transfer functions are switched off, then we always
+      // call the dark matter interpolator, rather than falling out of bounds.
 
       CoordinateType norm = getPowerSpectrumNormalizationForGrid(grid);
 
@@ -307,14 +287,10 @@ namespace cosmology {
     }
 
 
-    //!Compute the power spectrum averaged over a spherical top hat window.
-    CoordinateType calculateLinearVarianceInSphere(CoordinateType radius,size_t nTransfer = 0) const {
-      //Bounds check
-      if(transferSwitch[nTransfer] > this->T.size() - 1)
-      {
-        std::cerr << "WARNING: invalid transfer function requested. Defaulting to dark matter transfer function." << std::endl;
-        nTransfer = 0;
-      }
+    //! Compute the variance in a spherical top hat window
+    CoordinateType calculateLinearVarianceInSphere(CoordinateType radius,size_t nTrans = 0) const {
+      // Bounds check
+      ensureValidTransferID(nTrans);
 
       CoordinateType s = 0., k, t;
 
@@ -326,13 +302,13 @@ namespace cosmology {
       for (k = kmin; k < kmax; k += dk) {
 
 
-      //Call the appropriate interpolation function for the requested transfer function
-      //transferSwitch ensures that if extra transfer functions are switched off, then we always
-      //call the dark matter interpolator, rather than falling out of bounds.
-        t = interpolator[transferSwitch[nTransfer]](k);
+      // Call the appropriate interpolation function for the requested transfer function
+      // transferSwitch ensures that if extra transfer functions are switched off, then we always
+      // call the dark matter interpolator, rather than falling out of bounds.
+        t = interpolator[transferSwitch[nTrans]](k);
 
-        //Multiply power spectrum by the fourier transform of the spherical top hat, to give the fourier transform
-        //of the averaged (convolved) power spectrum over the sphere.
+        // Multiply power spectrum by the fourier transform of the spherical top hat, to give the fourier transform
+        // of the averaged (convolved) power spectrum over the sphere.
         s += powf(k, ns + 2.) *
              ((sin(k * radius) - k * radius * cos(k * radius)) / ((k * radius) * (k * radius) * (k * radius))) *
              ((sin(k * radius) - k * radius * cos(k * radius)) / ((k * radius) * (k * radius) * (k * radius))) * t * t;

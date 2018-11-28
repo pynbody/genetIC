@@ -105,7 +105,7 @@ namespace modifications {
       std::cerr << "AFTER  modifications chi^2 = " << post_modif_chi2_from_field << std::endl;
       std::cerr << "         Total delta chi^2 = " << post_modif_chi2_from_field - pre_modif_chi2_from_field << std::endl;
 
-      //Propagate them modification to the other fields if present:
+      // Propagate them modification to the other fields if present:
       for(size_t i = 1;i < this->outputFields.size();i++) {
         propagateModifications(*(outputFields[i]));
       }
@@ -120,7 +120,8 @@ namespace modifications {
         otherField.toFourier();
 
         T pre_modif_chi2_from_field = otherField.getChi2();
-        std::cerr << "BEFORE modifications chi^2 = " << pre_modif_chi2_from_field << std::endl;
+        std::cerr << "Propagating modification to field " << otherField.transferType << std::endl
+                  << ". BEFORE modifications chi^2 = " << pre_modif_chi2_from_field << std::endl;
 
         //First, copy across the modified field:
         otherField.copyData( *(outputFields[transferType]) );

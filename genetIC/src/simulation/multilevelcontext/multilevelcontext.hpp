@@ -39,7 +39,6 @@ namespace multilevelcontext {
   class MultiLevelContextInformationBase : public tools::Signaling {
   private:
     std::vector<std::shared_ptr<grids::Grid<T>>> pGrid;
-    //std::vector<std::shared_ptr<const fields::Field<DataType, T>>> C0s;
     std::vector<std::vector<std::shared_ptr<const fields::Field<DataType, T>>>> C0s;
     std::vector<T> weights;
 
@@ -91,7 +90,6 @@ namespace multilevelcontext {
       {
         C0[i] = spectrum.getPowerSpectrumForGrid(*grid,i);
       }
-      //auto C0 = spectrum.getPowerSpectrumForGrid(*grid);
       addLevel(C0, grid);
     }
 
@@ -110,7 +108,7 @@ namespace multilevelcontext {
       this->changed();
     }
 
-    //For adding a vector where each element is the same:
+    // For adding a vector where each element is the same:
     void addLevel(std::shared_ptr<const fields::Field<DataType, T>> C0,std::shared_ptr<grids::Grid<T>> pG)
     {
         std::vector<std::shared_ptr<const fields::Field<DataType, T>>> constArray (this->nTransferFunctions,C0);
@@ -118,7 +116,6 @@ namespace multilevelcontext {
     }
 
     void clear() {
-      //C0s.clear();
       C0s.clear();
       pGrid.clear();
       Ns.clear();
@@ -145,8 +142,8 @@ namespace multilevelcontext {
       return *pGrid[level];
     }
 
-    //!\brief Return a reference to the grid vector. Needed to add gas to all levels, for example.
-    std::vector<std::shared_ptr<grids::Grid<T>>>& getGrid()
+    //! \brief Return a reference to the grid vector. Needed to add gas to all levels, for example.
+    std::vector<std::shared_ptr<grids::Grid<T>>> getAllGrids()
     {
         return pGrid;
     }
@@ -155,8 +152,8 @@ namespace multilevelcontext {
       return weights[level];
     }
 
-    //Main function used by the code to retrieve the power spectrum.
-    //TODO - find a better way than this cascade of ifs...
+    // Main function used by the code to retrieve the power spectrum.
+    // TODO - find a better way than this cascade of ifs...
     const fields::Field<DataType> &getCovariance(size_t level,size_t nTransfer = 0) const {
       if (C0s.size() > level)
       {
@@ -166,21 +163,10 @@ namespace multilevelcontext {
                 {
                     return *C0s[level][nTransfer];
                 }
-              else
-              {
-                  throw std::out_of_range("No covariance yet specified for this level");
-              }
-          }
-          else
-          {
-              throw std::out_of_range("No covariance yet specified for this level");
           }
       }
-      else
-      {
-          throw std::out_of_range("No covariance yet specified for this level");
-      }
-
+      // Throw if not returned anything:
+      throw std::out_of_range("No covariance yet specified for this level");
     }
 
     size_t deepestLevelwithFlaggedCells() {
@@ -267,9 +253,9 @@ namespace multilevelcontext {
       */
       newStack.clear();
 
-      //TODO Refactor this loop to make it neater.
+      // TODO Refactor this loop to make it neater.
       // First intermediate resolution
-      //Second Low res subsample stuffed from the base level
+      // Second Low res subsample stuffed from the base level
       // Third High res supersampled stuff from the finest level
       for (size_t level = 0; level < nLevels; ++level) {
         size_t neff = size_t(round(pGrid[0]->cellSize / pGrid[level]->cellSize)) * pGrid[0]->size;
@@ -292,7 +278,6 @@ namespace multilevelcontext {
         }
 
         std::cerr << "Adding real grid with resolution " << neff << std::endl;
-        //newStack.addLevel(C0s[level], pGrid[level]);
         newStack.addLevel(C0s[level], pGrid[level]);
       }
 
@@ -407,22 +392,6 @@ namespace multilevelcontext {
       return accum;
     }
   };
-
-  //TODO Is this class used at all ? It looks an unused specialization of base class
-  /*
-  template<typename T>
-  class MultiLevelContextInformation<std::complex<T>, T>
-      : public MultiLevelContextInformationBase<std::complex<T>, T> {
-  protected:
-    using DataType= std::complex<T>;
-    using MultiLevelContextInformationBase<DataType, T>::cumu_Ns;
-    using MultiLevelContextInformationBase<DataType, T>::Ns;
-    using MultiLevelContextInformationBase<DataType, T>::nLevels;
-
-  public:
-
-
-  };*/
 };
 
 #endif

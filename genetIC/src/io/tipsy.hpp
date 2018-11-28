@@ -88,35 +88,15 @@ namespace io {
     template<typename GridDataType, typename FloatType=tools::datatypes::strip_complex<GridDataType>>
     class TipsyOutput {
     protected:
-/*<<<<<<< HEAD//Original conflict:
-      //const particle::AbstractMultiLevelParticleGenerator<GridDataType> &generator;
-      //Replace this with a vector of references, but this means they aren't constant...
-      //std::vector<particle::AbstractMultiLevelParticleGenerator<GridDataType>&> generator;
-      std::vector<std::shared_ptr<particle::AbstractMultiLevelParticleGenerator<GridDataType>>> generator;
-      FILE *fd;
-=======
-      const particle::AbstractMultiLevelParticleGenerator<GridDataType> &generator;
+      std::vector<std::shared_ptr<particle::AbstractMultiLevelParticleGenerator<GridDataType>>> generators; // Particle generators
       tools::MemMapFileWriter writer;
->>>>>>> a8da23afe6907009e76ea1768aef96485bf41140*/
-//Proposed resolution://CONFLICT_RESOLUTION
-//==================================================================================
-//const particle::AbstractMultiLevelParticleGenerator<GridDataType> &generator;
-      //Replace this with a vector of references, but this means they aren't constant...
-      //std::vector<particle::AbstractMultiLevelParticleGenerator<GridDataType>&> generator;
-      std::vector<std::shared_ptr<particle::AbstractMultiLevelParticleGenerator<GridDataType>>> generator;//Particle generators
-      //FILE *fd;//CONFLICT_RESOLUTION: no longer needed as the way tipsy output works has changed.
-
-      //const particle::AbstractMultiLevelParticleGenerator<GridDataType> &generator;//CONFLICT_RESOLUTION - need to remove, as multiple generators (one per field).
-      tools::MemMapFileWriter writer;
-//==================================================================================
       std::ofstream photogenic_file;
       size_t iord;
       double pos_factor, vel_factor, mass_factor, min_mass, max_mass;
-      double boxLength;//Simulation size in Mpc/h
-      std::shared_ptr<particle::mapper::ParticleMapper<GridDataType>> pMapper;//Particle mapper
-      const cosmology::CosmologicalParameters<FloatType> &cosmology;//Cosmological paramters
+      double boxLength; // Simulation size in Mpc/h
+      std::shared_ptr<particle::mapper::ParticleMapper<GridDataType>> pMapper; // Particle mapper
+      const cosmology::CosmologicalParameters<FloatType> &cosmology; // Cosmological paramters
 
-      //CONFLICT_RESOLUTION: changes here don't really matter, because they don't affect generator
       //! \brief Save a block of tipsy particles in parallel
       template<typename ParticleType>
       void saveNextBlockOfTipsyParticles(particle::mapper::MapperIterator<GridDataType> &begin,
@@ -204,10 +184,9 @@ namespace io {
     public:
     //! \brief Constructor
       TipsyOutput(double boxLength,
-                  //const particle::AbstractMultiLevelParticleGenerator<GridDataType> &generator,
-                  const std::vector<std::shared_ptr<particle::AbstractMultiLevelParticleGenerator<GridDataType>>> &_generator,
+                  const std::vector<std::shared_ptr<particle::AbstractMultiLevelParticleGenerator<GridDataType>>> &_generators,
                   std::shared_ptr<particle::mapper::ParticleMapper<GridDataType>> pMapper,
-                  const cosmology::CosmologicalParameters<FloatType> &cosmology) : generator(_generator),
+                  const cosmology::CosmologicalParameters<FloatType> &cosmology) : generators(_generators),
                                                                                    iord(0),
                                                                                    boxLength(boxLength),
                                                                                    pMapper(pMapper),
@@ -229,22 +208,8 @@ namespace io {
 
         FloatType mass, tot_mass = 0.0;
 
-/*<<<<<<< HEAD//Original conflict:
-        //Accessing only the DM here:
-        for (auto i = pMapper->begin(*generator[0]); i != pMapper->end(*generator[0]); ++i) {
-          // progress("Pre-write scan file",iord, totlen);
-=======
-        const auto end = pMapper->end(generator); // don't want to keep re-evaluating this
-
-        for (auto i = pMapper->begin(generator); i != end; ++i) {
->>>>>>> a8da23afe6907009e76ea1768aef96485bf41140*/
-//Proposed resolution://CONFLICT_RESOLUTION: incorporate master changes, but alter way dark matter
-//generatro is accessed.
-//==================================================================================
-        const auto end = pMapper->end(*generator[0]); // don't want to keep re-evaluating this
-        for (auto i = pMapper->begin(*generator[0]); i != end; ++i) {
-
-//==================================================================================
+        const auto end = pMapper->end(*generators[0]); // don't want to keep re-evaluating this
+        for (auto i = pMapper->begin(*generators[0]); i != end; ++i) {
           mass = i.getMass(); // sometimes can be MUCH faster than getParticle
           if (min_mass > mass) min_mass = mass;
           if (max_mass < mass) max_mass = mass;
@@ -289,15 +254,17 @@ namespace io {
 
         writer.write<>(header);
 
-        //Swtich off baryon transfer function if not enabled:
-        size_t redirect[] = {0,1};
-        if(generator.size() < 2)
+        // Switch off baryon transfer function if not enabled:
+        std::vector<size_t> redirectToDMifNoBaryonTransfer {0,1};
+        if(generators.size() < 2)
         {
-            redirect[1] = 0;
+            for(auto& i : redirectToDMifNoBaryonTransfer) {
+                i = 0;
+            }
         }
 
-        saveTipsyParticles<TipsyParticle::gas>(pMapper->beginGas(*generator[redirect[1]]), pMapper->endGas(*generator[redirect[1]]));
-        saveTipsyParticles<TipsyParticle::dark>(pMapper->beginDm(*generator[redirect[0]]), pMapper->endDm(*generator[redirect[0]]));
+        saveTipsyParticles<TipsyParticle::gas>(pMapper->beginGas(*generators[redirectToDMifNoBaryonTransfer[1]]), pMapper->endGas(*generators[redirectToDMifNoBaryonTransfer[1]]));
+        saveTipsyParticles<TipsyParticle::dark>(pMapper->beginDm(*generators[redirectToDMifNoBaryonTransfer[0]]), pMapper->endDm(*generators[redirectToDMifNoBaryonTransfer[0]]));
 
       }
     };
@@ -305,19 +272,18 @@ namespace io {
     //! \brief Creates TipsyOutput object and uses it to save particles in tipsy format.
     /*!
     \param filename - name of tipsy output file
-    \param Boxlength - simulation size in Mpc/h
-    \param generator - vector of particles generators for each particle type
+    \param boxLength - simulation size in Mpc/h
+    \param generators - vector of particles generators for each particle type
     \param pMapper - Particle mapper, linking particles to grid locations.
     \param cosmology - cosmological parameters
     */
     template<typename GridDataType, typename T>
-    void save(const std::string &filename, double Boxlength,
-              //const particle::AbstractMultiLevelParticleGenerator<GridDataType> &generator,
-              const std::vector<std::shared_ptr<particle::AbstractMultiLevelParticleGenerator<GridDataType>>> &generator,
+    void save(const std::string &filename, double boxLength,
+              const std::vector<std::shared_ptr<particle::AbstractMultiLevelParticleGenerator<GridDataType>>> &generators,
               std::shared_ptr<particle::mapper::ParticleMapper<GridDataType>> pMapper,
               const cosmology::CosmologicalParameters<T> &cosmology) {
 
-      TipsyOutput<GridDataType> output(Boxlength, generator, pMapper, cosmology);
+      TipsyOutput<GridDataType> output(boxLength, generators, pMapper, cosmology);
       output(filename);
     }
 

@@ -211,24 +211,21 @@ namespace io {
       using InternalFloatType = tools::datatypes::strip_complex<GridDataType>;
 
       particle::mapper::ParticleMapper<GridDataType> &mapper;
-      //particle::AbstractMultiLevelParticleGenerator<GridDataType> &generator;//CONFLICT_RESOLUTION
-      std::vector<std::shared_ptr<particle::AbstractMultiLevelParticleGenerator<GridDataType>>> &generator;//CONFLICT_RESOLUTION
+      std::vector<std::shared_ptr<particle::AbstractMultiLevelParticleGenerator<GridDataType>>> &generator;
       const cosmology::CosmologicalParameters<InternalFloatType> &cosmology;
-      tools::MemMapFileWriter writer;//Used to write in the gadget format.
-      size_t nTotal;//Total number of particles to output.
-      double boxLength;//Size of simulation box.
-      int gadgetVersion;//Which version of the gadget file to output. Allowed values 2 or 3.
-      vector<InternalFloatType> masses;//Masses of particles if constant. Zero if variable.
-      vector<long> npart;//Number of particles of each gadget type
-      bool variableMass;//Stores whether we are using variable mass gadget particles
+      tools::MemMapFileWriter writer; // Used to write in the gadget format.
+      size_t nTotal; // Total number of particles to output.
+      double boxLength; // Size of simulation box.
+      int gadgetVersion; // Which version of the gadget file to output. Allowed values 2 or 3.
+      vector<InternalFloatType> masses; // Masses of particles if constant. Zero if variable.
+      vector<long> npart; // Number of particles of each gadget type
+      bool variableMass; // Stores whether we are using variable mass gadget particles
 
-      //CONFLICT_RESOLUTION:
-      //==================================================================================
-      //Map for the generators. Assume that the non-gas elements (gadget type 2+)
-      //map to DM. Note that baryon generator is generator[1], DM is generator[0],
-      //which is the opposite order to gadget.
-      size_t redirect[6] = {1,0,0,0,0,0};
-      //==================================================================================
+
+      // Map for the generators. Assume that the non-gas elements (gadget type 2+)
+      // map to DM. Note that baryon generator is generator[1], DM is generator[0],
+      // which is the opposite order to gadget.
+      std::vector<size_t> gadgetTypeToFieldType {1,0,0,0,0,0};
 
       //! \brief Save a block of gadget particles
       template<typename WriteType>
@@ -239,8 +236,8 @@ namespace io {
         auto currentWriteBlockC = writer.getMemMapFortran<WriteType>(nTotal);
 
         for(unsigned int particle_type=0; particle_type<6; particle_type++) {
-          auto begin = mapper.beginParticleType(*generator[redirect[particle_type]], particle_type);//CONFLICT_RESOLUTION
-          auto end = mapper.endParticleType(*generator[redirect[particle_type]], particle_type);//CONFLICT_RESOLUTION
+          auto begin = mapper.beginParticleType(*generator[gadgetTypeToFieldType[particle_type]], particle_type);
+          auto end = mapper.endParticleType(*generator[gadgetTypeToFieldType[particle_type]], particle_type);
           size_t nMax = end.getIndex()-begin.getIndex();
 
           current_n+=begin.parallelIterate([&](size_t n_offset, const particle::mapper::MapperIterator<GridDataType> &localIterator) {
@@ -299,7 +296,7 @@ namespace io {
         num = 0;
 
         InternalFloatType mass;
-        mapper.iterateParticlesOfType(*generator[redirect[particle_type]], particle_type, [&](const auto & i) {//CONFLICT_RESOLUTION
+        mapper.iterateParticlesOfType(*generator[gadgetTypeToFieldType[particle_type]], particle_type, [&](const auto & i) {//CONFLICT_RESOLUTION
           mass = i.getMass(); // sometimes can be MUCH faster than getParticle
           if (min_mass > mass) min_mass = mass;
           if (max_mass < mass) max_mass = mass;
@@ -323,22 +320,19 @@ namespace io {
     //! \brief Constructor
       GadgetOutput(double boxLength,
                    particle::mapper::ParticleMapper<GridDataType> &mapper,
-                   //particle::AbstractMultiLevelParticleGenerator<GridDataType> &generator,//CONFLICT_RESOLUTION
-                   std::vector<std::shared_ptr<particle::AbstractMultiLevelParticleGenerator<GridDataType>>> &generator,//CONFLICT_RESOLUTION
+                   std::vector<std::shared_ptr<particle::AbstractMultiLevelParticleGenerator<GridDataType>>> &generator,
                    const cosmology::CosmologicalParameters<tools::datatypes::strip_complex<GridDataType>> &cosmology,
                    int gadgetVersion) :
                    mapper(mapper), generator(generator), cosmology(cosmology), boxLength(boxLength),
                    gadgetVersion(gadgetVersion) {
 
-                   //CONFLICT_RESOLUTION:
-//==================================================================================
                    //If not using gas, we should re-direct everything to DM:
                   if(generator.size() < 2)
                   {
-                    this->redirect[0] = 0;
+                    for(auto& i : gadgetTypeToFieldType) {
+                        i = 0;
+                    }
                   }
-//==================================================================================
-
        }
 
        //! \brief Operation to save gadget particles

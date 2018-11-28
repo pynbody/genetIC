@@ -290,7 +290,7 @@ namespace fields {
     //! Iterate (potentially in parallel) over each Fourier cell.
     /*!
      * The passed function takes arguments (value, kx, ky, kz) where value is the Fourier coeff value
-     * at k-mode kx, ky, kz, and kx,ky,kz are the modes in physical (Mpc/h) coordinates.
+     * at k-mode kx, ky, kz, and kx,ky,kz are the modes in comoving (h/Mpc) coordinates.
      * If the function returns a value, the Fourier coeff in that cell is updated accordingly.
      */
     template<typename... Args>
@@ -352,7 +352,7 @@ namespace fields {
     //! Adds the supplied field to this one, even if it is defined using a different grid
     /*!
         This is done through evaluators, and will thus use interpolation is necessary.
-        It does not modify the grid in question
+        It does not modify the grid that is being added to this one.
     */
     void addFieldFromDifferentGrid(const Field<DataType, CoordinateType> &source) {
       assert(!source.isFourier());
@@ -469,7 +469,7 @@ namespace fields {
     return newField;
   };
 
-  //TODO - it doesn't look like this function is really converting anything, so it's a bit of an odd name. Also, it's never actually used...
+  // TODO - it doesn't look like this function is really converting anything, so it's a bit of an odd name. Also, it's never actually used...
   //! Returns a shared pointer to this field
   template<typename TargetDataType, typename CoordinateType>
   std::shared_ptr<Field<TargetDataType, CoordinateType>>

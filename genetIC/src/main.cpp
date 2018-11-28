@@ -33,7 +33,7 @@ void setup_parser(tools::ClassDispatch<ICf, void> &dispatch) {
 
   // Link command names used in parameter file to methods
 
-  //Set the cosmology
+  // Set the cosmology
   dispatch.add_class_route("TCMB", &ICf::setTCMB);
   dispatch.add_class_route("Om", &ICf::setOmegaM0);
   dispatch.add_class_route("Ob", &ICf::setOmegaB0);
@@ -44,43 +44,16 @@ void setup_parser(tools::ClassDispatch<ICf, void> &dispatch) {
   dispatch.add_class_route("zin", &ICf::setZ0);
 
   // Set seeds for random draws
-/*<<<<<<< HEAD//Original conflict
-  //Static casts here needed to differentiate between overloaded versions of setSeed,
-  //now that we have both DM and baryon fields to seed.
+  // Static casts here needed to differentiate between overloaded versions of setSeed,
+  // now that we have both DM and baryon fields to seed.
   dispatch.add_class_route("seed", static_cast<void (ICf::*)(int)>(&ICf::setSeed));
-  //dispatch.add_class_route("seed", &ICf::setSeed);
   dispatch.add_class_route("seed_field", static_cast<void (ICf::*)(int,size_t)>(&ICf::setSeed));
   dispatch.add_class_route("seedfourier", static_cast<void (ICf::*)(int)>(&ICf::setSeedFourier));
-  //dispatch.add_class_route("seedfourier", &ICf::setSeedFourier);
   dispatch.add_class_route("seed_field_fourier",static_cast<void (ICf::*)(int,size_t)>(&ICf::setSeedFourier));
   dispatch.add_class_route("seedfourier_reverse",static_cast<void (ICf::*)(int)>(&ICf::setSeedFourierReverseOrder));
-  //dispatch.add_class_route("seedfourier_reverse",&ICf::setSeedFourierReverseOrder);
   dispatch.add_class_route("seed_field_fourier_reverse", static_cast<void (ICf::*)(int,size_t)>(&ICf::setSeedFourierReverseOrder));
+  dispatch.add_class_route("seedfourier_parallel", static_cast<void (ICf::*)(int)>(&ICf::setSeedFourierParallel));
 
-=======
-  dispatch.add_class_route("seed", &ICf::setSeed);
-  dispatch.add_class_route("seedfourier", &ICf::setSeedFourier);
-  dispatch.add_class_route("seedfourier_parallel", &ICf::setSeedFourierParallel);
-  dispatch.add_class_route("seedfourier_reverse", &ICf::setSeedFourierReverseOrder);
->>>>>>> a8da23afe6907009e76ea1768aef96485bf41140*/
-//Proposed resolution://CONFLICT_RESOLUTION
-//==================================================================================
-
-//Static casts here needed to differentiate between overloaded versions of setSeed,
-  //now that we have both DM and baryon fields to seed.
-  dispatch.add_class_route("seed", static_cast<void (ICf::*)(int)>(&ICf::setSeed));
-  //dispatch.add_class_route("seed", &ICf::setSeed);
-  dispatch.add_class_route("seed_field", static_cast<void (ICf::*)(int,size_t)>(&ICf::setSeed));
-  dispatch.add_class_route("seedfourier", static_cast<void (ICf::*)(int)>(&ICf::setSeedFourier));
-  //dispatch.add_class_route("seedfourier", &ICf::setSeedFourier);
-  dispatch.add_class_route("seed_field_fourier",static_cast<void (ICf::*)(int,size_t)>(&ICf::setSeedFourier));
-  dispatch.add_class_route("seedfourier_reverse",static_cast<void (ICf::*)(int)>(&ICf::setSeedFourierReverseOrder));
-  //dispatch.add_class_route("seedfourier_reverse",&ICf::setSeedFourierReverseOrder);
-  dispatch.add_class_route("seed_field_fourier_reverse", static_cast<void (ICf::*)(int,size_t)>(&ICf::setSeedFourierReverseOrder));
-
-  dispatch.add_class_route("seedfourier_parallel", static_cast<void (ICf::*)(int)>(&ICf::setSeedFourierParallel));//CONFLICT_RESOLUTION: add new command, but need to differentiate it from overloads needed to implement baryons.
-
-//==================================================================================
   // Optional computational properties
   dispatch.add_class_route("exact_power_spectrum_enforcement", &ICf::setExactPowerSpectrumEnforcement);
   dispatch.add_class_route("strays_on", &ICf::setStraysOn);
@@ -110,7 +83,7 @@ void setup_parser(tools::ClassDispatch<ICf, void> &dispatch) {
   dispatch.add_class_route("zoomgrid", &ICf::initZoomGrid);
   dispatch.add_class_route("zoomgrid_with_origin_at", &ICf::initZoomGridWithLowLeftCornerAt);
 
-  //Input Output of flagged particles
+  // Input Output of flagged particles
   dispatch.add_class_route("IDfile", &ICf::loadID);
   dispatch.add_class_route("append_IDfile", &ICf::appendID);
   dispatch.add_class_route("dump_IDfile", &ICf::dumpID);
@@ -127,80 +100,51 @@ void setup_parser(tools::ClassDispatch<ICf, void> &dispatch) {
   dispatch.add_class_route("adapt_mask", &ICf::adaptMask);
 
   // Deal with modifications
-  //dispatch.add_class_route("calculate", &ICf::calculate);
   dispatch.add_class_route("calculate", static_cast<void(ICf::*)(std::string)>(&ICf::calculate));
   dispatch.add_class_route("calculate_field", static_cast<void(ICf::*)(std::string,size_t)>(&ICf::calculate));
   dispatch.add_class_route("filtering_scale", &ICf::setVarianceFilteringScale);
-  //dispatch.add_class_route("modify", &ICf::modify);
   dispatch.add_class_route("modify", static_cast< void (ICf::*)(std::string,std::string,float)>(&ICf::modify));
   dispatch.add_class_route("modify_field", static_cast< void (ICf::*)(std::string,std::string,float)>(&ICf::modify));
-  //dispatch.add_class_route("clear_modifications", &ICf::clearModifications);
   dispatch.add_class_route("clear_modifications", static_cast<void(ICf::*)()>(&ICf::clearModifications));
   dispatch.add_class_route("done", &ICf::done);
-  //dispatch.add_class_route("apply_modifications", &ICf::applyModifications);
   dispatch.add_class_route("apply_modifications", static_cast<void(ICf::*)()>(&ICf::applyModifications));
-  //dispatch.add_class_route("apply_modifications_field", static_cast<void(ICf::*)(size_t)>(&ICf::applyModifications));
-  //dispatch.add_class_route("chi2", &ICf::getFieldChi2);
   dispatch.add_class_route("chi2", static_cast<void(ICf::*)()>(&ICf::getFieldChi2));
   dispatch.add_class_route("chi2_field", static_cast<void(ICf::*)(size_t)>(&ICf::getFieldChi2));
 
-  //dispatch.add_class_route("reverse", &ICf::reverse);
   dispatch.add_class_route("reverse", static_cast<void(ICf::*)()>(&ICf::reverse));
   dispatch.add_class_route("reverse_field", static_cast<void(ICf::*)(size_t)>(&ICf::reverse));
-  //dispatch.add_class_route("reverse_small_k", &ICf::reverseSmallK);
   dispatch.add_class_route("reverse_small_k", static_cast<void(ICf::*)(FloatType)>(&ICf::reverseSmallK));
   dispatch.add_class_route("reverse_small_k_field", static_cast<void(ICf::*)(FloatType,size_t)>(&ICf::reverseSmallK));
-  //dispatch.add_class_route("reseed_small_k", &ICf::reseedSmallK);
 
-  //Removing these functions, because they don't actually do what they advertise
-  //dispatch.add_class_route("reseed_small_k", static_cast<void(ICf::*)(FloatType,int)>(&ICf::reseedSmallK));
-  //dispatch.add_class_route("reseed_small_k_field", static_cast<void(ICf::*)(FloatType,int,size_t)>(&ICf::reseedSmallK));
-
-  //Replacing them with these instead:
+  // Replacing them with these instead:
   dispatch.add_class_route("reseed_high_k", static_cast<void(ICf::*)(FloatType,int)>(&ICf::reseedHighK));
   dispatch.add_class_route("reseed_high_k_field", static_cast<void(ICf::*)(FloatType,int,size_t)>(&ICf::reseedHighK));
 
   // Write objects to files
-  //dispatch.add_class_route("dump_grid", &ICf::dumpGrid);
+  // dispatch.add_class_route("dump_grid", &ICf::dumpGrid);
   dispatch.add_class_route("dump_grid", static_cast<void (ICf::*)(size_t)>(&ICf::dumpGrid));
   dispatch.add_class_route("dump_grid_for_field", static_cast<void (ICf::*)(size_t,size_t)>(&ICf::dumpGrid));
   dispatch.add_class_route("dump_grid_fourier", static_cast<void (ICf::*)(size_t)>(&ICf::dumpGridFourier));
   dispatch.add_class_route("dump_grid_fourier_for_field", static_cast<void (ICf::*)(size_t,size_t)>(&ICf::dumpGridFourier));
-  //dispatch.add_class_route("dump_ps", &ICf::dumpPS);
   dispatch.add_class_route("dump_ps", static_cast<void (ICf::*)(size_t)>(&ICf::dumpPS));
   dispatch.add_class_route("dump_ps_field", static_cast<void (ICf::*)(size_t,size_t)>(&ICf::dumpPS));
-  //dispatch.add_class_route("dump_tipsy", &ICf::saveTipsyArray);
   dispatch.add_class_route("dump_tipsy", static_cast<void(ICf::*)(std::string)>(&ICf::saveTipsyArray));
   dispatch.add_class_route("dump_tipsy_field", static_cast<void(ICf::*)(std::string,size_t)>(&ICf::saveTipsyArray));
   dispatch.add_class_route("dump_mask", &ICf::dumpMask);
 
   // Load existing random field instead of generating
-  //dispatch.add_class_route("import_level", &ICf::importLevel );
   dispatch.add_class_route("import_level", static_cast<void (ICf::*)(size_t,std::string)>(&ICf::importLevel));
   dispatch.add_class_route("import_level_field", static_cast<void (ICf::*)(size_t,std::string,size_t)>(&ICf::importLevel));
 
-  //Extra commands related to the transfer functions:
+  // Extra commands related to the transfer functions:
   dispatch.add_class_route("baryon_tf_on",&ICf::setUsingBaryons);
   dispatch.add_class_route("baryons_all_levels",&ICf::setBaryonsOnAllLevels);
 
-/*<<<<<<< HEAD
   // To debug
-  //dispatch.add_class_route("zeroLevel", &ICf::zeroLevel);
-  dispatch.add_class_route("zeroLevel", static_cast<void (ICf::*)(size_t)>(&ICf::zeroLevel));
-  dispatch.add_class_route("zeroLevel_field", static_cast<void (ICf::*)(size_t,size_t)>(&ICf::zeroLevel));
-=======
-  // To debug, allow a level to be replaced with zeroes
-  dispatch.add_class_route("zeroLevel", &ICf::zeroLevel);
->>>>>>> a8da23afe6907009e76ea1768aef96485bf41140*/
-//Proposed resolution://CONFLICT_RESOLUTION
-//==================================================================================
-// To debug
-  //dispatch.add_class_route("zeroLevel", &ICf::zeroLevel);
-  dispatch.add_class_route("zeroLevel", static_cast<void (ICf::*)(size_t)>(&ICf::zeroLevel));//Retained for backwards compatibility.
-  dispatch.add_class_route("zero_level", static_cast<void (ICf::*)(size_t)>(&ICf::zeroLevel));//Use this instead.
+  dispatch.add_class_route("zeroLevel", static_cast<void (ICf::*)(size_t)>(&ICf::zeroLevel)); // Retained for backwards compatibility.
+  dispatch.add_class_route("zero_level", static_cast<void (ICf::*)(size_t)>(&ICf::zeroLevel)); // Use this instead.
   dispatch.add_class_route("zero_level_field", static_cast<void (ICf::*)(size_t,size_t)>(&ICf::zeroLevel));
 
-//==================================================================================
   // Set an overall velocity offset for the entire box (useful for testing AMR sensitivity to flows)
   dispatch.add_class_route("velocity_offset", &ICf::setVelocityOffset);
 

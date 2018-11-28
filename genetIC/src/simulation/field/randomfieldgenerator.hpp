@@ -17,15 +17,14 @@ namespace fields {
   protected:
     using FloatType = tools::datatypes::strip_complex<DataType>;
 
-    gsl_rng *randomState; //Pointer to the random number generator
-    const gsl_rng_type *randomNumberGeneratorType; //pointer to the type of random number generator being used.
-    bool drawInFourierSpace; //If true, random numbers are drawn in Fourier space.
-    bool reverseRandomDrawOrder; //If true, order in which random numbers for complex numbers is drawn is reversed.
-    bool seeded; //True if the random number generator has already been seeded
-    bool parallel; //True if we want to draw random numbers in parallel
-    unsigned long baseSeed; //Stores the last seed used.
-    MultiLevelField <DataType> &field; //Reference to the multilevel field we are drawing random numbers for.
-    //unsigned long currentSeed;//CONFLICT_RESOLUTION: Same function as baseSeed - remove to fix conflict.
+    gsl_rng *randomState; //!< Pointer to the random number generator
+    const gsl_rng_type *randomNumberGeneratorType; //!< pointer to the type of random number generator being used.
+    bool drawInFourierSpace; //!< If true, random numbers are drawn in Fourier space.
+    bool reverseRandomDrawOrder; //!< If true, order in which random numbers for complex numbers is drawn is reversed.
+    bool seeded; //!< True if the random number generator has already been seeded
+    bool parallel; //!< True if we want to draw random numbers in parallel
+    unsigned long baseSeed; //!< Stores the last seed used.
+    MultiLevelField <DataType> &field; //!< Reference to the multilevel field we are drawing random numbers for.
 
 
   public:
@@ -33,10 +32,9 @@ namespace fields {
     RandomFieldGenerator(MultiLevelField <DataType> &field_, unsigned long seed = 0) :
         field(field_) {
       randomNumberGeneratorType = gsl_rng_ranlxs2; // shouldn't this be gsl_rng_ranlxd2 for FloatType = double? -> it's single precision for compatibility with previous versions!
-      randomState = gsl_rng_alloc(randomNumberGeneratorType); //this allocates memory for the generator with type T
+      randomState = gsl_rng_alloc(randomNumberGeneratorType); // this allocates memory for the generator with type T
       gsl_rng_set(randomState, seed);
-      //currentSeed = seed;//CONFLICT_RESOLUTION
-      this->baseSeed = seed;//CONFLICT_RESOLUTION
+      this->baseSeed = seed;
       drawInFourierSpace = false;
       seeded = false;
       parallel = false;
@@ -45,20 +43,18 @@ namespace fields {
     //! Copy constructor
     RandomFieldGenerator(const RandomFieldGenerator& copy) : field(copy.field)
     {
-        //Copy accross old variables:
+        // Copy accross old variables:
         seeded = copy.seeded;
-        //currentSeed = copy.currentSeed;//CONFLICT_RESOLUTION
-        baseSeed = copy.baseSeed;//CONFLICT_RESOLUTION
-        parallel = copy.parallel;//CONFLICT_RESOLUTION
+        baseSeed = copy.baseSeed;
+        parallel = copy.parallel;
         randomNumberGeneratorType = copy.randomNumberGeneratorType;
         drawInFourierSpace = copy.drawInFourierSpace;
         reverseRandomDrawOrder = copy.reverseRandomDrawOrder;
 
-        //Construct our copy's own generator (resizing a vector of randomFieldGenerators will
-        //delete the object randomState points to otherwise, so each copy needs its own instance!):
+        // Construct our copy's own generator (resizing a vector of randomFieldGenerators will
+        // delete the object randomState points to otherwise, so each copy needs its own instance!):
         randomState = gsl_rng_alloc(randomNumberGeneratorType);
-        //gsl_rng_set(randomState,copy.currentSeed);//CONFLICT_RESOLUTION
-        gsl_rng_set(randomState,copy.baseSeed);//CONFLICT_RESOLUTION
+        gsl_rng_set(randomState,copy.baseSeed);
 
     }
 
@@ -100,13 +96,6 @@ namespace fields {
       else
       {
         gsl_rng_set(randomState, seed);
-/*<<<<<<< HEAD //Original conflict:
-        currentSeed = seed;
-      }
-=======
-      this->baseSeed = seed;
->>>>>>> a8da23afe6907009e76ea1768aef96485bf41140*/
-//Proposed resolution://CONFLICT_RESOLUTION
       this->baseSeed = seed;
       seeded = true;
       }
@@ -118,21 +107,14 @@ namespace fields {
       std::cerr << "this is NULL = " << (this == nullptr) << " this = " << this << std::endl;
       if (!seeded)
         throw std::runtime_error("The random number generator has not been seeded");
-      std::cerr << "Accessing seeded ok." << std::endl;
       for (size_t i = 0; i < field.getNumLevels(); ++i) {
-        std::cerr << "Starting iteration " << i << std::endl;
         auto &fieldOnGrid = field.getFieldForLevel(i);
-        std::cerr << "getFieldForLevel ok." << std::endl;
         if (drawInFourierSpace) {
           fieldOnGrid.toFourier();
-          std::cerr << "toFourier ok." << std::endl;
           drawRandomForSpecifiedGridFourier(fieldOnGrid);
-          std::cerr << "drawRandomForSpecifiedGridFourier ok." << std::endl;
         } else {
           drawRandomForSpecifiedGrid(fieldOnGrid);
-          std::cerr << "drawRandomForSpecifiedGrid ok." << std::endl;
         }
-        std::cerr << "Ok for level " << i << std::endl;
       }
     }
 

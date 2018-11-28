@@ -17,12 +17,12 @@ namespace filters {
   protected:
     friend class ResidualFilterFamily<T>;
 
-    std::vector<std::shared_ptr<filters::Filter<T>>> filters;//!Filters for a given level
-    std::vector<std::shared_ptr<filters::Filter<T>>> complementFilters; //!Complementary filters for a given level
-    std::vector<std::shared_ptr<filters::Filter<T>>> hpFilters;//!High pass filters for a given level
-    std::vector<std::shared_ptr<filters::Filter<T>>> lpFilters;//!Low pass filters for a given level
+    std::vector<std::shared_ptr<filters::Filter<T>>> filters;//!< Filters for a given level
+    std::vector<std::shared_ptr<filters::Filter<T>>> complementFilters; //!< Complementary filters for a given level
+    std::vector<std::shared_ptr<filters::Filter<T>>> hpFilters;//!< High pass filters for a given level
+    std::vector<std::shared_ptr<filters::Filter<T>>> lpFilters;//!< Low pass filters for a given level
 
-    //!Default constructor
+    //! Default constructor
     FilterFamily() {
 
     }

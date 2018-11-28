@@ -49,16 +49,17 @@ namespace fields {
   public:
     DirectEvaluator(const Field <DataType, CoordinateType> &field) : field(field.shared_from_this()) {};
 
-    //! \brief Direct evaluation
+    //! \brief Direct evaluation of the field at a point where its value is stored.
     DataType operator[](size_t i) const override {
       return (*field)[i];
     }
 
-    //! \brief Interpolation
+    //! \brief Evaluate the field at a given point using interpolation
     DataType operator()(const Coordinate<CoordinateType> &at) const override {
       return field->evaluateInterpolated(at);
     }
 
+    //! Check whether the specified point actually lies within this grid
     bool contains(size_t i) const override {
       return i < field->getGrid().size3;
     }
@@ -120,7 +121,7 @@ namespace fields {
       return (*underlying)[grid->mapIndexToUnderlying(i)];
     }
 
-    //! \brief Interpolation
+    //! \brief Evaluate the field at a given point using interpolation
     DataType operator()(const Coordinate<CoordinateType> &at) const override {
       return (*underlying)(at);
     }
@@ -158,7 +159,7 @@ namespace fields {
       return returnVal / localFactor3;
     }
 
-    //! Interpolation
+    //! \brief Evaluate the field at a given point using interpolation
     DataType operator()(const Coordinate<CoordinateType> &at) const override {
       return (*underlying)(at);
     }
@@ -219,11 +220,6 @@ namespace fields {
                                                                          const grids::Grid<CoordinateType> &grid) {
 
     multilevelcontext::MultiLevelContextInformation<DataType> dummyContext;
-    //TODO - the multi-level context object really needs to know about the CAMB class (ie, store an instance of it, or a
-    //reference to it) so that it knows whether we have switched the baryon transfer function usage on or off. A work-around
-    //is to store this information in the multiLevelContext class, but this is risky because currently multiLevelContext only
-    //knows about the spectrum instance of a CAMB via its member functions. This could easily mean the value stores there becomes
-    //out of date. We need to change the way it works so that the multiLevelContext always has the up to date information.
     dummyContext.addLevel(nullptr, const_cast<grids::Grid<CoordinateType> &>(field.getGrid()).shared_from_this());
     MultiLevelField<DataType> dummyMultiField(dummyContext,
                                               {const_cast<Field<DataType, CoordinateType> &>(field).shared_from_this()});
