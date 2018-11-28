@@ -78,7 +78,7 @@ namespace io {
     protected:
 
       void writeGrid(const grids::Grid<T> &targetGrid, size_t level) {
-        auto evaluator = generator->makeEvaluatorForGrid(targetGrid);
+        auto evaluator = generator->makeParticleEvaluatorForGrid(targetGrid);
         auto overdensityFieldEvaluator = generator->makeOverdensityEvaluatorForGrid(targetGrid);
 
         const grids::Grid<T> &baseGrid = context.getGridForLevel(0);
