@@ -12,17 +12,21 @@ namespace modifications {
   class ModificationManager {
 
   public:
-    fields::OutputField<DataType> &outputField;                                      /*!< Future modified field */
+    std::vector<std::shared_ptr<fields::OutputField<DataType>>> &outputFields;      /*!< All fields to propagate modifications to*/
     multilevelcontext::MultiLevelContextInformation<DataType> &underlying;          /*!< Grid context in which modifications take place */
     const cosmology::CosmologicalParameters<T> &cosmology;                          /*!< Cosmology context in which modifications take place */
 
     std::vector<std::shared_ptr<LinearModification<DataType, T>>> linearModificationList;  /*!< Modifications to be applied */
     std::vector<std::shared_ptr<QuadraticModification<DataType, T>>> quadraticModificationList;
 
+    size_t transferType; /*!Type of transfer function to use in defining covectors for modifications. 0 = dark matter, 1 = baryons*/
+
     ModificationManager(multilevelcontext::MultiLevelContextInformation<DataType> &multiLevelContext_,
                         const cosmology::CosmologicalParameters<T> &cosmology_,
-                        fields::OutputField<DataType> &outputField_) :
-        outputField(outputField_), underlying(multiLevelContext_), cosmology(cosmology_) {}
+                        std::vector<std::shared_ptr<fields::OutputField<DataType>>> &outputFields_) :
+        outputFields(outputFields_), underlying(multiLevelContext_), cosmology(cosmology_) {
+            this->transferType = 0; // Always modifying dark matter, never baryons.
+        }
 
     //! Calculate existing value of the quantity defined by name
     template<typename ... Args>
@@ -30,7 +34,7 @@ namespace modifications {
 
       std::shared_ptr<Modification<DataType, T>> modification = getModificationFromName(name_,
                                                                                         std::forward<Args>(args)...);
-      T value = modification->calculateCurrentValue(outputField);
+      T value = modification->calculateCurrentValue( *(outputFields[transferType]) );
       return value;
     }
 
@@ -48,7 +52,7 @@ namespace modifications {
       T target = target_;
 
       if (relative) {
-        T value = modification->calculateCurrentValue(outputField);
+        T value = modification->calculateCurrentValue( *(outputFields[transferType]) );
         target *= value;
       }
 
@@ -76,7 +80,7 @@ namespace modifications {
       T pre_modif_chi2_from_field ;
       T post_modif_chi2_from_field ;
 
-      pre_modif_chi2_from_field = this->outputField.getChi2();
+      pre_modif_chi2_from_field = outputFields[transferType]->getChi2();
       std::cerr << "BEFORE modifications chi^2 = " << pre_modif_chi2_from_field << std::endl;
 
 
@@ -84,21 +88,51 @@ namespace modifications {
       for (size_t i = 0; i < linearModificationList.size(); i++) {
         alphas.push_back(linearModificationList[i]->getCovector());
         linear_targets.push_back(linearModificationList[i]->getTarget());
+        std::cerr << "linear_targets[" << i << "] = " << linear_targets[i] << std::endl;
       }
 
       // Apply all linear modifications
       orthonormaliseModifications(alphas, linear_targets);
-      std::cerr << "Delta chi^2 from linear modifications = " << getDeltaChi2FromLinearModifs(outputField, alphas, linear_targets) << std::endl;
-      applyLinearModif(outputField, alphas, linear_targets);
+      std::cerr << "Delta chi^2 from linear modifications = " << getDeltaChi2FromLinearModifs( *(outputFields[transferType]) , alphas, linear_targets) << std::endl;
+      applyLinearModif( *(outputFields[transferType]) , alphas, linear_targets);
 
 
       // Apply the joint linear and quadratic in an iterative procedure
       // TODO DeltaChi2 from quadratic could be calculated from the iterations and added here.
       applyLinQuadModif(alphas);
 
-      post_modif_chi2_from_field = this->outputField.getChi2();
+      post_modif_chi2_from_field = outputFields[transferType]->getChi2();
       std::cerr << "AFTER  modifications chi^2 = " << post_modif_chi2_from_field << std::endl;
       std::cerr << "         Total delta chi^2 = " << post_modif_chi2_from_field - pre_modif_chi2_from_field << std::endl;
+
+      // Propagate them modification to the other fields if present:
+      for(size_t i = 1;i < this->outputFields.size();i++) {
+        propagateModifications(*(outputFields[i]));
+      }
+    }
+
+
+    //!\brief Propagate modifications of this field to another field:
+    void propagateModifications(fields::OutputField<DataType>& otherField)
+    {
+        //Must be in Fourier space to do this:
+        outputFields[transferType]->toFourier();
+        otherField.toFourier();
+
+        T pre_modif_chi2_from_field = otherField.getChi2();
+        std::cerr << "Propagating modification to field " << otherField.transferType << std::endl
+                  << ". BEFORE modifications chi^2 = " << pre_modif_chi2_from_field << std::endl;
+
+        //First, copy across the modified field:
+        otherField.copyData( *(outputFields[transferType]) );
+
+        //Divide by modifiedField power spectrum and apply outputField's power spectrum:
+        otherField.applyTransferRatio(outputFields[transferType]->transferType);
+        std::cerr << "otherField.transferType = " << otherField.transferType << std::endl;
+
+        T post_modif_chi2_from_field = otherField.getChi2();
+        std::cerr << "AFTER  modifications chi^2 = " << post_modif_chi2_from_field << std::endl;
+        std::cerr << "         Total delta chi^2 = " << post_modif_chi2_from_field - pre_modif_chi2_from_field << std::endl;
     }
 
     void clearModifications() {
@@ -127,6 +161,9 @@ namespace modifications {
     }
 
 
+    // Note - these functions would have to pass transferType if we wanted to modify baryons too. Currently
+    // the code doesn't support this, so it isn't an issue, but it would have to be taken into account if
+    // baryon modifications were implemented.
     std::shared_ptr<LinearModification<DataType, T>> getLinearModificationFromName(std::string name_) {
       if ((strcasecmp(name_.c_str(), "overdensity") == 0)) {
         return make_shared<OverdensityModification<DataType, T>>(underlying, cosmology);
@@ -192,17 +229,17 @@ namespace modifications {
         int init_n_steps = modif_i->getInitNumberSteps();
 
         // Try the procedure on a test field and deduce the correct number of steps
-        auto test_field = fields::OutputField<DataType>(outputField);
+        auto test_field = fields::OutputField<DataType>( *(outputFields[transferType]) );
         performIterations(test_field, alphas, modif_i, init_n_steps);
         int n_steps = calculateCorrectNumberSteps(test_field, modif_i, init_n_steps);
 
         // Perform procedure on real output
         if (n_steps > init_n_steps) {
           std::cout << n_steps << " steps are required for the quadratic algorithm " << std::endl;
-          performIterations(outputField, alphas, modif_i, n_steps);
+          performIterations( *(outputFields[transferType]) , alphas, modif_i, n_steps);
         } else {
           std::cout << "No need to do more steps to achieve target precision" << std::endl;
-          performIterations(outputField, alphas, modif_i, init_n_steps);
+          performIterations( *(outputFields[transferType]) , alphas, modif_i, init_n_steps);
         }
 
 
@@ -330,8 +367,8 @@ namespace modifications {
 
       for (size_t i = 0; i < n; i++){
         for (size_t j = 0; j < i; j++){
-          auto pushed_i = quadraticModificationList[i]->pushMultiLevelFieldThroughMatrix(outputField);
-          auto pushed_j = quadraticModificationList[j]->pushMultiLevelFieldThroughMatrix(outputField);
+          auto pushed_i = quadraticModificationList[i]->pushMultiLevelFieldThroughMatrix( *(outputFields[transferType]) );
+          auto pushed_j = quadraticModificationList[j]->pushMultiLevelFieldThroughMatrix( *(outputFields[transferType]) );
 
           auto ortho = pushed_i->innerProduct(*pushed_j).real();
 

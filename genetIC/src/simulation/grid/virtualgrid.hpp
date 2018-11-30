@@ -21,6 +21,8 @@ namespace grids {
   class Grid;
 
 
+  /*!
+  */
   template<typename T>
   class VirtualGrid : public Grid<T> {
   protected:
@@ -477,7 +479,7 @@ namespace grids {
     using typename Grid<T>::GridPtrType;
 
   private:
-    const Coordinate<int> offset;
+    const Coordinate<int> offset;//Vector; points from the centre of this virtual grid to the centre of the underlying grid.
   public:
     CenteredGrid(GridPtrType pUnderlying, Coordinate<T> center) :
         VirtualGrid<T>(pUnderlying,
@@ -507,57 +509,72 @@ namespace grids {
     }
 
     //! Get inverse centering transformation
+    /*!
+    Ie, points from the centre of the underlying grid to the centre of this grid, in
+    integer units
+    */
     Coordinate<int> getInverseOffset() const {
       return Coordinate<int>(- this->offset.x, - this->offset.y, - this->offset.z);
     }
 
+    //! \brief Inverse offset, in Mpc/h
     Coordinate<T> getInversePointOffset() const {
       return this->getPointOffsetfromCoordinateOffset(this->getInverseOffset());
     }
 
   protected:
 
+    //! \brief Returns index in underlying grid from co-ordinate relative to centred grid (unsigned int version)
     size_t getIndexFromCoordinateNoWrap(size_t x, size_t y, size_t z) const override{
       return this->pUnderlying->getIndexFromIndexAndStep(
           this->pUnderlying->getIndexFromCoordinateNoWrap(x,y,z), this->getInverseOffset());
     }
 
+    //! \brief Returns index in underlying grid from co-ordinate relative to centred grid (int version)
     size_t getIndexFromCoordinateNoWrap(int x, int y, int z) const override {
       return this->pUnderlying->getIndexFromIndexAndStep(
           this->pUnderlying->getIndexFromCoordinateNoWrap(x,y,z), this->getInverseOffset());
     }
 
+    //! \brief Returns index in underlying grid from co-ordinate relative to centred grid (coordinate version)
     size_t getIndexFromCoordinateNoWrap(const Coordinate<int> &coordinate) const override {
       return this->pUnderlying->getIndexFromIndexAndStep(
           this->pUnderlying->getIndexFromCoordinateNoWrap(coordinate), this->getInverseOffset());
     }
 
+    //! \brief Returns index in underlying grid from co-ordinate relative to centred grid (without wrapping)
     size_t getIndexFromCoordinate(Coordinate<int> coord) const override{
       coord = this->pUnderlying->wrapCoordinate(coord);
       return this->getIndexFromCoordinateNoWrap(coord);
     }
 
+    //! \brief Coordinate of a cell relative to the centred grid
     Coordinate<int> getCoordinateFromIndex(size_t id) const override {
       return this->pUnderlying->wrapCoordinate(this->pUnderlying->getCoordinateFromIndex(id) + this->offset);
     }
 
+    //! \brief converts coordinates with respect to the underlying grid to co-ordinates with respect to the centred grid.
     Coordinate<T> getCentroidFromCoordinate(const Coordinate<int> &coord) const override {
       return this->pUnderlying->getCentroidFromCoordinate(
           this->pUnderlying->wrapCoordinate(this->offset + coord));
     }
 
+    //! \brief Co-ordinate of centre of cell, with respect to centred grid
     Coordinate<T> getCentroidFromIndex(size_t id) const override{
       return this->wrapPoint(this->pUnderlying->getCentroidFromIndex(id) + this->getPointOffset());
     }
 
+    //! \brief Returns index in underlying grid from co-ordinate relative to centred grid
     size_t getIndexFromPoint(Coordinate<T> point) const override{
       return this->pUnderlying->getIndexFromPoint(point + this->getInversePointOffset());
     }
 
+    //! \brief Returns co-ordinate in underlying grid from co-ordinate relative to centred grid
     Coordinate<int> getCoordinateFromPoint(Coordinate<T> point) const override{
       return this->pUnderlying->getCoordinateFromPoint(point);
     }
 
+    //! \brief Returns the flagged cells from the underlying grid.
     void getFlaggedCells(std::vector<size_t> &targetArray) const override {
       this->pUnderlying->getFlaggedCells(targetArray);
     }

@@ -18,6 +18,7 @@ namespace modifications {
     unsigned int order;                  /*!< Linear are first order, qudartic are second etc */
 
 
+
   public:
     Modification(multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
                  const cosmology::CosmologicalParameters<T> &cosmology_) : underlying(underlying_),

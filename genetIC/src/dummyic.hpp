@@ -15,11 +15,12 @@ public:
 
   }
 
-  void addLevelToContext(const cosmology::CAMB<GridDataType> & /*spectrum*/, T gridSize, size_t nside,
+  void addLevelToContext(const cosmology::CAMB<GridDataType> & spectrum, T gridSize, size_t nside,
                          const Coordinate<T> &offset = {0, 0, 0}) override {
-    size_t newLevel = this->multiLevelContext.getNumLevels(); //getNumLevels counts from 1 to N rather than 0 to N-1, which is why newLevel defined this way does not exist yet
+    size_t newLevel = this->multiLevelContext.getNumLevels(); // getNumLevels counts from 1 to N rather than 0 to N-1, which is why newLevel defined this way does not exist yet
     std::shared_ptr<grids::Grid<T>> underlyingGrid;
-    std::shared_ptr<const fields::Field<GridDataType, T>> covarianceFieldPtr;
+    std::vector<std::shared_ptr<const fields::Field<GridDataType, T>>> covarianceFieldPtr;
+
 
     if (pUnderlying->multiLevelContext.getNumLevels() <= newLevel) {
       // source file has extra zoom levels compared to us. Make a grid with our specifications, and any
@@ -28,18 +29,22 @@ public:
       grids::Grid<T> &deepestUnderlyingGrid =
           pUnderlying->multiLevelContext.getGridForLevel(pUnderlying->multiLevelContext.getNumLevels() - 1);
 
-      covarianceFieldPtr = nullptr;
-
       underlyingGrid = std::make_shared<grids::Grid<T>>(deepestUnderlyingGrid.periodicDomainSize, nside,
                                                         gridSize / nside, offset.x, offset.y, offset.z);
     } else {
       underlyingGrid = pUnderlying->multiLevelContext.getGridForLevel(newLevel).shared_from_this();
-      try {
-        covarianceFieldPtr = pUnderlying->multiLevelContext.getCovariance(newLevel).shared_from_this();
-      } catch (const std::out_of_range &e) {
-        // leave covarianceFieldPtr as nullptr
-      }
 
+      for(size_t i = 0; i < this->outputFields.size(); i++)
+      {
+          // TODO - this is very messy - is there a better way?
+        try {
+        auto resPointer = pUnderlying->multiLevelContext.getCovariance(newLevel,i).shared_from_this();
+        covarianceFieldPtr.push_back(resPointer);
+        } catch (const std::out_of_range &e) {
+              // leave covarianceFieldPtr as nullptr
+              covarianceFieldPtr.push_back(nullptr);
+        }
+      }
     }
 
     if (underlyingGrid->size != nside)
@@ -56,17 +61,17 @@ public:
   }
 
 
-  void zeroLevel(size_t /*level*/) override {}
+  void zeroLevel(size_t /*level*/,size_t) override {}
 
-  void applyPowerSpec() override {}
+  void applyPowerSpec(size_t) override {}
 
-  void dumpGrid(size_t /*level*/) override {}
+  void dumpGrid(size_t /*level*/,size_t) override {}
 
-  void dumpPS(size_t /*level*/) override {}
+  void dumpPS(size_t,size_t) override {}
 
   void dumpMask() override {}
 
-  virtual void initialiseParticleGenerator() override {}
+  virtual void initialiseParticleGenerator(size_t) override {}
 
   void dumpID(string /*fname*/) override {}
 

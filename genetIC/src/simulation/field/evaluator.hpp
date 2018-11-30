@@ -9,7 +9,7 @@
 #include <string>
 
 namespace fields {
-  /*! The base class for field evaluators.
+  /*! \brief The base class for field evaluators.
    *
    * Field evaluators exist to allow fields to be evaluated on grids which are not the same literal grid that
    * they are stored on. This is useful for example when supersampling or subsampling.
@@ -17,12 +17,16 @@ namespace fields {
   template<typename DataType, typename CoordinateType = tools::datatypes::strip_complex<DataType>>
   class EvaluatorBase : public std::enable_shared_from_this<EvaluatorBase<DataType, CoordinateType>> {
   public:
+  //! \brief Returns the field evaluates at linear index i
     virtual DataType operator[](size_t i) const =0;
 
+    //! \brief Evaluates the field at the position 'at', using interpolation if necessary.
     virtual DataType operator()(const Coordinate<CoordinateType> &at) const = 0;
 
+    //!\brief Returns true if index i corresponds to a point in the field.
     virtual bool contains(size_t i) const =0;
 
+    //! \brief Adds this field to the destination field.
     void addTo(Field <DataType, CoordinateType> &destination) {
 
       size_t size3 = destination.getGrid().size3;
@@ -35,7 +39,7 @@ namespace fields {
     }
   };
 
-  //! Evaluator that is appropriate when the grid and the field match perfectly.
+  //! \brief Evaluator that is appropriate when the grid and the field match perfectly.
   template<typename DataType, typename CoordinateType = tools::datatypes::strip_complex<DataType>>
   class DirectEvaluator : public EvaluatorBase<DataType, CoordinateType> {
 
@@ -45,21 +49,24 @@ namespace fields {
   public:
     DirectEvaluator(const Field <DataType, CoordinateType> &field) : field(field.shared_from_this()) {};
 
+    //! \brief Direct evaluation of the field at a point where its value is stored.
     DataType operator[](size_t i) const override {
       return (*field)[i];
     }
 
+    //! \brief Evaluate the field at a given point using interpolation
     DataType operator()(const Coordinate<CoordinateType> &at) const override {
       return field->evaluateInterpolated(at);
     }
 
+    //! Check whether the specified point actually lies within this grid
     bool contains(size_t i) const override {
       return i < field->getGrid().size3;
     }
   };
 
 
-  //! Evaluator that is appropriate when the grid is at a different resolution compared with the grid storage
+  //! \brief Evaluator that is appropriate when the grid is at a different resolution compared with the grid storage
   template<typename DataType, typename CoordinateType = tools::datatypes::strip_complex<DataType>>
   class SuperSampleEvaluator : public EvaluatorBase<DataType, CoordinateType> {
 
@@ -76,11 +83,13 @@ namespace fields {
 
     }
 
+    //! \brief Interpolates to get the field at the centre of specified virtual cell.
     DataType operator[](size_t i) const override {
       auto centroid = grid->getCentroidFromIndex(i);
       return (*underlying)(centroid);
     }
 
+    //! \brief Interpolates the underlying field at 'at'
     DataType operator()(const Coordinate<CoordinateType> &at) const override {
       return (*underlying)(at);
     }
@@ -90,7 +99,7 @@ namespace fields {
     }
   };
 
-  //! Evaluator that is appropriate when the grid is mapped using SectionOfGrid
+  //! \brief Evaluator that is appropriate when the grid is mapped using SectionOfGrid
   template<typename DataType, typename CoordinateType = tools::datatypes::strip_complex<DataType>>
   class SectionEvaluator : public EvaluatorBase<DataType, CoordinateType> {
 
@@ -107,21 +116,24 @@ namespace fields {
 
     }
 
+    //! Map to point in underlying grid and evaluate directly there.
     DataType operator[](size_t i) const override {
       return (*underlying)[grid->mapIndexToUnderlying(i)];
     }
 
+    //! \brief Evaluate the field at a given point using interpolation
     DataType operator()(const Coordinate<CoordinateType> &at) const override {
       return (*underlying)(at);
     }
 
+    //! Check whether the supplied point actually lies in this SectionOfGrid
     bool contains(size_t i) const override {
       return grid->containsCell(i);
     }
 
   };
 
-
+  //! \brief Evaluator used for sub-sampled grids.
   template<typename DataType, typename CoordinateType = tools::datatypes::strip_complex<DataType>>
   class SubSampleEvaluator : public EvaluatorBase<DataType, CoordinateType> {
 
@@ -138,6 +150,7 @@ namespace fields {
 
     }
 
+    //! Average (coarse-grain) the points in the stored grid corresponding to the sub-sampled grid point
     virtual DataType operator[](size_t i) const override {
       DataType returnVal(0);
       CoordinateType localFactor3 = grid->forEachSubcell(i, [this, &returnVal](size_t local_id) {
@@ -146,6 +159,7 @@ namespace fields {
       return returnVal / localFactor3;
     }
 
+    //! \brief Evaluate the field at a given point using interpolation
     DataType operator()(const Coordinate<CoordinateType> &at) const override {
       return (*underlying)(at);
     }
@@ -155,6 +169,7 @@ namespace fields {
     }
   };
 
+  //! \brief Evaluator used for resolution-matching grids.
   template<typename DataType, typename CoordinateType = tools::datatypes::strip_complex<DataType>>
   class ResolutionMatchingEvaluator : public EvaluatorBase<DataType, CoordinateType> {
 
@@ -174,6 +189,7 @@ namespace fields {
 
     }
 
+    //! \brief Check whether i is in a high-resolution window and evaluate there if so; if not, directly evaluate it.
     virtual DataType operator[](size_t i) const override {
       auto coordinate = grid->getCoordinateFromIndex(i);
       if (grid->isInHiResWindow(coordinate)) {
@@ -184,6 +200,7 @@ namespace fields {
       }
     }
 
+    //! Interpolate, using the appropriate high resolution window if available for the given point.
     DataType operator()(const Coordinate<CoordinateType> &at) const override {
       if (grid->isInHiResWindow(at))
         return (*underlyingHiRes)(at);
@@ -197,7 +214,7 @@ namespace fields {
   };
 
 
-  //! Return an object suitable for evaluating the specified field at coordinates on the specified grid
+  //! \brief Return an object suitable for evaluating the specified field at coordinates on the specified grid
   template<typename DataType, typename CoordinateType>
   std::shared_ptr<EvaluatorBase<DataType, CoordinateType>> makeEvaluator(const Field <DataType, CoordinateType> &field,
                                                                          const grids::Grid<CoordinateType> &grid) {
@@ -210,7 +227,7 @@ namespace fields {
 
   };
 
-  //! Return an object suitable for evaluating the specified field at coordinates on the specified grid
+  //! \brief Return an object suitable for evaluating the specified field at coordinates on the specified grid
   template<typename DataType, typename CoordinateType>
   std::shared_ptr<EvaluatorBase<DataType, CoordinateType>> makeEvaluator(const MultiLevelField <DataType> &field,
                                                                          const grids::Grid<CoordinateType> &grid) {

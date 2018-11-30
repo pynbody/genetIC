@@ -31,7 +31,7 @@ namespace cosmology {
     See http://stackoverflow.com/questions/165101/invalid-use-of-incomplete-type-error-with-partial-template-specialization
 
  */
-namespace multilevelcontext {   
+namespace multilevelcontext {
   template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
   class MultiLevelContextInformation;
 
@@ -39,8 +39,12 @@ namespace multilevelcontext {
   class MultiLevelContextInformationBase : public tools::Signaling {
   private:
     std::vector<std::shared_ptr<grids::Grid<T>>> pGrid;
-    std::vector<std::shared_ptr<const fields::Field<DataType, T>>> C0s;
+    std::vector<std::vector<std::shared_ptr<const fields::Field<DataType, T>>>> C0s;
     std::vector<T> weights;
+
+  public:
+    size_t nTransferFunctions;
+
 
   protected:
     std::vector<size_t> Ns;
@@ -49,22 +53,11 @@ namespace multilevelcontext {
     size_t nLevels;
     T simSize;
 
-    //TODO Never used, should delete ?
-//    void mapIdToLevelId(size_t i, size_t &level, size_t &level_id) {
-//      level = 0;
-//      while (level < nLevels && i >= Ns[level]) {
-//        i -= Ns[level];
-//        level++;
-//      }
-//      if (i >= Ns[level])
-//        throw std::runtime_error("ID out of range when mapping into underlying fields in mapIdToLevelId");
-//      level_id = i;
-//    }
-
     MultiLevelContextInformationBase(size_t N) {
       nLevels = 1;
       Ns.push_back(N);
       Ntot = N;
+      nTransferFunctions = 1;
     }
 
 
@@ -73,6 +66,7 @@ namespace multilevelcontext {
     MultiLevelContextInformationBase() {
       nLevels = 0;
       Ntot = 0;
+      nTransferFunctions = 1;
     }
 
     virtual ~MultiLevelContextInformationBase() {}
@@ -80,6 +74,7 @@ namespace multilevelcontext {
 
     void
     addLevel(const cosmology::CAMB<DataType> &spectrum, T size, size_t nside, const Coordinate<T> &offset = {0, 0, 0}) {
+
       if (!spectrum.isUsable())
         throw std::runtime_error("Cannot add a grid level until the power spectrum has been specified");
 
@@ -87,12 +82,18 @@ namespace multilevelcontext {
         simSize = size;
 
       auto grid = std::make_shared<grids::Grid<T>>(simSize, nside, size / nside, offset.x, offset.y, offset.z);
-      auto C0 = spectrum.getPowerSpectrumForGrid(*grid);
-      addLevel(C0, grid);
 
+      nTransferFunctions = spectrum.dmOnly ? 1 : spectrum.nTransfers;
+
+      std::vector<std::shared_ptr<const fields::Field<DataType, T>>> C0 (nTransferFunctions);
+      for(size_t i = 0;i < nTransferFunctions;i++)
+      {
+        C0[i] = spectrum.getPowerSpectrumForGrid(*grid,i);
+      }
+      addLevel(C0, grid);
     }
 
-    void addLevel(std::shared_ptr<const fields::Field<DataType, T>> C0, std::shared_ptr<grids::Grid<T>> pG) {
+    void addLevel(const std::vector<std::shared_ptr<const fields::Field<DataType, T>>>& C0, std::shared_ptr<grids::Grid<T>> pG) {
       C0s.push_back(C0);
       if (pGrid.size() == 0) {
         weights.push_back(1.0);
@@ -105,6 +106,13 @@ namespace multilevelcontext {
       Ntot += pG->size3;
       nLevels += 1;
       this->changed();
+    }
+
+    // For adding a vector where each element is the same:
+    void addLevel(std::shared_ptr<const fields::Field<DataType, T>> C0,std::shared_ptr<grids::Grid<T>> pG)
+    {
+        std::vector<std::shared_ptr<const fields::Field<DataType, T>>> constArray (this->nTransferFunctions,C0);
+        this->addLevel(constArray,pG);
     }
 
     void clear() {
@@ -134,15 +142,31 @@ namespace multilevelcontext {
       return *pGrid[level];
     }
 
+    //! \brief Return a reference to the grid vector. Needed to add gas to all levels, for example.
+    std::vector<std::shared_ptr<grids::Grid<T>>> getAllGrids()
+    {
+        return pGrid;
+    }
+
     T getWeightForLevel(size_t level) {
       return weights[level];
     }
 
-    const fields::Field<DataType> &getCovariance(size_t level) const {
-      if (C0s.size() > level && C0s[level] != nullptr)
-        return *C0s[level];
-      else
-        throw std::out_of_range("No covariance yet specified for this level");
+    // Main function used by the code to retrieve the power spectrum.
+    // TODO - find a better way than this cascade of ifs...
+    const fields::Field<DataType> &getCovariance(size_t level,size_t nTransfer = 0) const {
+      if (C0s.size() > level)
+      {
+          if(C0s[level].size() > nTransfer)
+          {
+              if(C0s[level][nTransfer] != nullptr)
+                {
+                    return *C0s[level][nTransfer];
+                }
+          }
+      }
+      // Throw if not returned anything:
+      throw std::out_of_range("No covariance yet specified for this level");
     }
 
     size_t deepestLevelwithFlaggedCells() {
@@ -164,6 +188,10 @@ namespace multilevelcontext {
     }
 
     //! From finest level, use interpolation to construct other levels
+    //! Since multiLevelContext doesn't know which type of field it is creating
+    //! (baryons or dark matter) we have to supply this information as a parameter.
+    //! \param data - field data
+    //! \param nField - nField = 0 for dark matter (default), nField = 1 for baryons.
     std::shared_ptr<fields::ConstraintField<DataType>>
     generateMultilevelFromHighResField(fields::Field<DataType, T> &&data) {
       assert(&data.getGrid() == pGrid.back().get());
@@ -225,9 +253,9 @@ namespace multilevelcontext {
       */
       newStack.clear();
 
-      //TODO Refactor this loop to make it neater.
+      // TODO Refactor this loop to make it neater.
       // First intermediate resolution
-      //Second Low res subsample stuffed from the base level
+      // Second Low res subsample stuffed from the base level
       // Third High res supersampled stuff from the finest level
       for (size_t level = 0; level < nLevels; ++level) {
         size_t neff = size_t(round(pGrid[0]->cellSize / pGrid[level]->cellSize)) * pGrid[0]->size;
@@ -363,21 +391,6 @@ namespace multilevelcontext {
 
       return accum;
     }
-  };
-
-  //TODO Is this class used at all ? It looks an unused specialization of base class
-  template<typename T>
-  class MultiLevelContextInformation<std::complex<T>, T>
-      : public MultiLevelContextInformationBase<std::complex<T>, T> {
-  protected:
-    using DataType= std::complex<T>;
-    using MultiLevelContextInformationBase<DataType, T>::cumu_Ns;
-    using MultiLevelContextInformationBase<DataType, T>::Ns;
-    using MultiLevelContextInformationBase<DataType, T>::nLevels;
-
-  public:
-
-
   };
 };
 

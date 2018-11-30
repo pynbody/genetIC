@@ -10,33 +10,55 @@
 
 namespace fields {
 
-  /** This class handles drawing random white noise across all grids in a multi-level field. */
+  /*! \class RandomFieldGenerator
+  \brief This class handles drawing random white noise across all grids in a multi-level field. */
   template<typename DataType>
   class RandomFieldGenerator {
   protected:
     using FloatType = tools::datatypes::strip_complex<DataType>;
 
-    gsl_rng *randomState;
-    const gsl_rng_type *randomNumberGeneratorType;
-    bool drawInFourierSpace;
-    bool reverseRandomDrawOrder;
-    bool seeded;
-    bool parallel;
-    unsigned long baseSeed;
-    MultiLevelField <DataType> &field;
+    gsl_rng *randomState; //!< Pointer to the random number generator
+    const gsl_rng_type *randomNumberGeneratorType; //!< pointer to the type of random number generator being used.
+    bool drawInFourierSpace; //!< If true, random numbers are drawn in Fourier space.
+    bool reverseRandomDrawOrder; //!< If true, order in which random numbers for complex numbers is drawn is reversed.
+    bool seeded; //!< True if the random number generator has already been seeded
+    bool parallel; //!< True if we want to draw random numbers in parallel
+    unsigned long baseSeed; //!< Stores the last seed used.
+    MultiLevelField <DataType> &field; //!< Reference to the multilevel field we are drawing random numbers for.
 
 
   public:
+  //! Constructor with known multi-level field.
     RandomFieldGenerator(MultiLevelField <DataType> &field_, unsigned long seed = 0) :
         field(field_) {
       randomNumberGeneratorType = gsl_rng_ranlxs2; // shouldn't this be gsl_rng_ranlxd2 for FloatType = double? -> it's single precision for compatibility with previous versions!
-      randomState = gsl_rng_alloc(randomNumberGeneratorType); //this allocates memory for the generator with type T
+      randomState = gsl_rng_alloc(randomNumberGeneratorType); // this allocates memory for the generator with type T
       gsl_rng_set(randomState, seed);
+      this->baseSeed = seed;
       drawInFourierSpace = false;
       seeded = false;
       parallel = false;
     }
 
+    //! Copy constructor
+    RandomFieldGenerator(const RandomFieldGenerator& copy) : field(copy.field)
+    {
+        // Copy accross old variables:
+        seeded = copy.seeded;
+        baseSeed = copy.baseSeed;
+        parallel = copy.parallel;
+        randomNumberGeneratorType = copy.randomNumberGeneratorType;
+        drawInFourierSpace = copy.drawInFourierSpace;
+        reverseRandomDrawOrder = copy.reverseRandomDrawOrder;
+
+        // Construct our copy's own generator (resizing a vector of randomFieldGenerators will
+        // delete the object randomState points to otherwise, so each copy needs its own instance!):
+        randomState = gsl_rng_alloc(randomNumberGeneratorType);
+        gsl_rng_set(randomState,copy.baseSeed);
+
+    }
+
+    //! Destructor - frees the random state
     virtual ~RandomFieldGenerator() {
       gsl_rng_free(randomState);
     }
@@ -45,28 +67,44 @@ namespace fields {
     using FieldType = std::remove_reference_t<RefFieldType>;
 
 
+    //! Sets drawInFourierSpace to true or false
     void setDrawInFourierSpace(bool value) {
       drawInFourierSpace = value;
     }
 
+    //! Sets parallel to true or false
     void setParallel(bool value) {
       parallel = value;
     }
 
+    //! Sets reverseRandomDrawOrder to true or false
     void setReverseRandomDrawOrder(bool value) {
       reverseRandomDrawOrder = value;
     }
 
+    //!\brief Seeds the random number generator with the specified seed.
+    /*!
+        \param seed - seed we wish to use
+
+        Note that we cannot seed more than once, or an error will be generated.
+    */
     void seed(unsigned long seed) {
       if (seeded)
+      {
         throw std::runtime_error("The random number generator has already been seeded");
+      }
       else
+      {
         gsl_rng_set(randomState, seed);
       this->baseSeed = seed;
       seeded = true;
+      }
     }
 
+    //! Draws random numbers for multi level field.
     void draw() {
+      std::cerr << "Ok at the start of draw()." << std::endl;
+      std::cerr << "this is NULL = " << (this == nullptr) << " this = " << this << std::endl;
       if (!seeded)
         throw std::runtime_error("The random number generator has not been seeded");
       for (size_t i = 0; i < field.getNumLevels(); ++i) {
@@ -82,6 +120,7 @@ namespace fields {
 
   protected:
 
+  //! Draws a random number for a given Fourier mode.
     void drawOneFourierMode(Field <DataType> &field, int k1, int k2, int k3,
                             FloatType norm, gsl_rng *localRandomState) {
 
@@ -112,14 +151,15 @@ namespace fields {
     }
 
 
-    void drawRandomForSpecifiedGrid(Field <DataType> &field) {
-      /* Draw random white noise in real space.
+    /*! \brief Draw random white noise in real space.
        *
        *  Kept for historical compatibility, even though the recommended approach is
        * to seed in Fourier space (routine drawRandomForSpecifiedGridFourier, accessed using command
        * seedfourier in the paramfile)
        *
        */
+    void drawRandomForSpecifiedGrid(Field <DataType> &field) {
+
 
       field.setFourier(false);
       auto &g = field.getGrid();
@@ -139,8 +179,12 @@ namespace fields {
       std::cerr << "done" << std::endl;
     }
 
+    /*! \brief Draw random white noise in Fourier space.
+        \param field - field to draw for
+        Draws will potentially be in parallel if this option has been specified.
+    */
     void drawRandomForSpecifiedGridFourier(Field <DataType> &field) {
-      /* Draw random white noise in Fourier space. */
+
       std::vector<DataType> &vec = field.getDataVector();
 
       std::fill(vec.begin(), vec.end(), DataType(0));
@@ -205,5 +249,6 @@ namespace fields {
   };
 
 }
+
 
 #endif //IC_RANDOMFIELDGENERATOR_HPP

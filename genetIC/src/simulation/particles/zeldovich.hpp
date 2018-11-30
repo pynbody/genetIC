@@ -36,14 +36,12 @@ namespace particle {
 
     const cosmology::CosmologicalParameters<T> &cosmology;
 
-    T velocityToOffsetRatio, boxMass;
+    T velocityToOffsetRatio, boxMass, epsNorm;
 
     std::shared_ptr<const GridType> onGrid;
 
     void calculateVelocityToOffsetRatio() {
-
       velocityToOffsetRatio = cosmology::zeldovichVelocityToOffsetRatio(cosmology);
-
     }
 
     void calculateSimulationMass() {
@@ -51,12 +49,15 @@ namespace particle {
       // sqrt(3*(100 h km/s/Mpc)^2/(8 pi G))
       //
       // Gadget units are used internally, so express as Msol h
+      // To be precise, this pre-factor is the critical density in units of (10^10*Msol//)/(Mpc/h)^3, where
+      // Msol is the mass of the sun ('solar mass'). Needed because volumes are expected in units of Mpc/h
       boxMass = 27.744948 * cosmology.OmegaM0 * powf(onGrid->periodicDomainSize, 3.0);
     }
 
   public:
     ZeldovichParticleEvaluator(EvaluatorType evalOffX, EvaluatorType evalOffY, EvaluatorType evalOffZ,
-                               const GridType &grid, const cosmology::CosmologicalParameters<T> &cosmology)
+                               const GridType &grid, const cosmology::CosmologicalParameters<T> &cosmology,
+                               T epsNorm_ = 0.01075) // Using default value (arbitrary to coincide with normal UW resolution)
         : ParticleEvaluator<GridDataType>(grid), cosmology(cosmology) {
       pOffsetXEvaluator = evalOffX;
       pOffsetYEvaluator = evalOffY;
@@ -64,6 +65,7 @@ namespace particle {
       onGrid = grid.shared_from_this();
       calculateSimulationMass();
       calculateVelocityToOffsetRatio();
+      epsNorm = epsNorm_;
     }
 
     virtual particle::Particle<T> getParticleNoOffset(size_t id) const override {
@@ -94,8 +96,7 @@ namespace particle {
     }
 
     virtual T getEps() const override {
-      return onGrid->cellSize * onGrid->cellSofteningScale *
-             0.01075; // <-- arbitrary to coincide with normal UW resolution. TODO: Find a way to make this flexible.
+      return onGrid->cellSize * onGrid->cellSofteningScale * epsNorm;
     }
 
   };
