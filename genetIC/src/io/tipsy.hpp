@@ -6,8 +6,14 @@
 #include "src/simulation/particles/mapper/mapper.hpp"
 
 namespace io {
+/*! \namespace tipsy
+    \brief Functions related to outputting particles in tipsy format.
+*/
   namespace tipsy {
 
+  //! \struct io_header_tipsy
+  /*! \brief Struct to hold tipsy header information.
+  */
     struct io_header_tipsy {
       double scalefactor;
       int n;
@@ -18,6 +24,13 @@ namespace io {
     } header_tipsy;
 
 
+    //! \brief Saves the specified multi-level field as a tipsy array.
+    /*!
+    \param filename - name of tipsy output file
+    \param mapper - Mapper used to link particles to grid locations.
+    \param generator - particle generator for this multi-level field.
+    \param field - multi-level field to be output to tipsy format.
+    */
     template<typename GridType, typename FloatType=tools::datatypes::strip_complex<GridType>>
     void saveFieldTipsyArray(const std::string &filename,
                              particle::mapper::ParticleMapper<GridType> &mapper,
@@ -34,22 +47,32 @@ namespace io {
         outfile.write(reinterpret_cast<char *>(&data), 4);
       }
     }
-
+/*! \namespace TipsyParticle
+    \brief Classes related to defining tipsy particles.
+*/
     namespace TipsyParticle {
 
+      //! \struct dark
+      /*! \brief Dark matter particles.
+      */
       struct dark {
         float mass, x, y, z, vx, vy, vz, eps, phi;
       };
 
+      //! \struct gas
+      /*! \brief Baryonic particles.
+      */
       struct gas {
         float mass, x, y, z, vx, vy, vz, rho, temp, eps, metals, phi;
       };
 
+      //! \brief Initialise dark matter particles
       template<typename T>
       void initialise(dark &p, const cosmology::CosmologicalParameters<T> & /*&cosmo*/) {
         p.phi = 0.0;
       }
 
+      //! \brief Initialise baryonic particles:
       template<typename T>
       void initialise(gas &p, const cosmology::CosmologicalParameters<T> &cosmo) {
         p.temp = cosmo.TCMB / cosmo.scalefactor;
@@ -59,18 +82,22 @@ namespace io {
     }
 
 
+    //! \class TipsyOutput
+    /*! \brief Class to handle outputting to tipsy format.
+    */
     template<typename GridDataType, typename FloatType=tools::datatypes::strip_complex<GridDataType>>
     class TipsyOutput {
     protected:
-      const particle::AbstractMultiLevelParticleGenerator<GridDataType> &generator;
+      std::vector<std::shared_ptr<particle::AbstractMultiLevelParticleGenerator<GridDataType>>> generators; // Particle generators
       tools::MemMapFileWriter writer;
       std::ofstream photogenic_file;
       size_t iord;
       double pos_factor, vel_factor, mass_factor, min_mass, max_mass;
-      double boxLength;
-      std::shared_ptr<particle::mapper::ParticleMapper<GridDataType>> pMapper;
-      const cosmology::CosmologicalParameters<FloatType> &cosmology;
+      double boxLength; // Simulation size in Mpc/h
+      std::shared_ptr<particle::mapper::ParticleMapper<GridDataType>> pMapper; // Particle mapper
+      const cosmology::CosmologicalParameters<FloatType> &cosmology; // Cosmological paramters
 
+      //! \brief Save a block of tipsy particles in parallel
       template<typename ParticleType>
       void saveNextBlockOfTipsyParticles(particle::mapper::MapperIterator<GridDataType> &begin,
                                          size_t nMax = 256 * 1024 * 1024) {
@@ -108,7 +135,7 @@ namespace io {
       }
 
 
-
+        //! \brief Saves particles in tipsy format
       template<typename ParticleType>
       void saveTipsyParticles(particle::mapper::MapperIterator<GridDataType> &&begin,
                               particle::mapper::MapperIterator<GridDataType> &&end) {
@@ -122,6 +149,7 @@ namespace io {
         }
       }
 
+      //! \brief Save tipsy particles in a single thread
       template<typename ParticleType>
       void saveTipsyParticlesSingleThread(particle::mapper::MapperIterator<GridDataType> &&begin,
                                           particle::mapper::MapperIterator<GridDataType> &&end) {
@@ -154,11 +182,11 @@ namespace io {
 
 
     public:
-
+    //! \brief Constructor
       TipsyOutput(double boxLength,
-                  const particle::AbstractMultiLevelParticleGenerator<GridDataType> &generator,
+                  const std::vector<std::shared_ptr<particle::AbstractMultiLevelParticleGenerator<GridDataType>>> &_generators,
                   std::shared_ptr<particle::mapper::ParticleMapper<GridDataType>> pMapper,
-                  const cosmology::CosmologicalParameters<FloatType> &cosmology) : generator(generator),
+                  const cosmology::CosmologicalParameters<FloatType> &cosmology) : generators(_generators),
                                                                                    iord(0),
                                                                                    boxLength(boxLength),
                                                                                    pMapper(pMapper),
@@ -166,6 +194,7 @@ namespace io {
 
       }
 
+      //! \brief Main save operation
       void operator()(const std::string &filename) {
 
         // originally:
@@ -179,9 +208,8 @@ namespace io {
 
         FloatType mass, tot_mass = 0.0;
 
-        const auto end = pMapper->end(generator); // don't want to keep re-evaluating this
-
-        for (auto i = pMapper->begin(generator); i != end; ++i) {
+        const auto end = pMapper->end(*generators[0]); // don't want to keep re-evaluating this
+        for (auto i = pMapper->begin(*generators[0]); i != end; ++i) {
           mass = i.getMass(); // sometimes can be MUCH faster than getParticle
           if (min_mass > mass) min_mass = mass;
           if (max_mass < mass) max_mass = mass;
@@ -226,19 +254,36 @@ namespace io {
 
         writer.write<>(header);
 
-        saveTipsyParticles<TipsyParticle::gas>(pMapper->beginGas(generator), pMapper->endGas(generator));
-        saveTipsyParticles<TipsyParticle::dark>(pMapper->beginDm(generator), pMapper->endDm(generator));
+        // Switch off baryon transfer function if not enabled:
+        std::vector<size_t> redirectToDMifNoBaryonTransfer {0,1};
+        if(generators.size() < 2)
+        {
+            for(auto& i : redirectToDMifNoBaryonTransfer) {
+                i = 0;
+            }
+        }
+
+        saveTipsyParticles<TipsyParticle::gas>(pMapper->beginGas(*generators[redirectToDMifNoBaryonTransfer[1]]), pMapper->endGas(*generators[redirectToDMifNoBaryonTransfer[1]]));
+        saveTipsyParticles<TipsyParticle::dark>(pMapper->beginDm(*generators[redirectToDMifNoBaryonTransfer[0]]), pMapper->endDm(*generators[redirectToDMifNoBaryonTransfer[0]]));
 
       }
     };
 
+    //! \brief Creates TipsyOutput object and uses it to save particles in tipsy format.
+    /*!
+    \param filename - name of tipsy output file
+    \param boxLength - simulation size in Mpc/h
+    \param generators - vector of particles generators for each particle type
+    \param pMapper - Particle mapper, linking particles to grid locations.
+    \param cosmology - cosmological parameters
+    */
     template<typename GridDataType, typename T>
-    void save(const std::string &filename, double Boxlength,
-              const particle::AbstractMultiLevelParticleGenerator<GridDataType> &generator,
+    void save(const std::string &filename, double boxLength,
+              const std::vector<std::shared_ptr<particle::AbstractMultiLevelParticleGenerator<GridDataType>>> &generators,
               std::shared_ptr<particle::mapper::ParticleMapper<GridDataType>> pMapper,
               const cosmology::CosmologicalParameters<T> &cosmology) {
 
-      TipsyOutput<GridDataType> output(Boxlength, generator, pMapper, cosmology);
+      TipsyOutput<GridDataType> output(boxLength, generators, pMapper, cosmology);
       output(filename);
     }
 

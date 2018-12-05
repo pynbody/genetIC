@@ -122,11 +122,11 @@ namespace particle {
   template<typename GridDataType, typename T>
   std::shared_ptr<particle::ParticleEvaluator<GridDataType>> makeParticleEvaluatorBasedOnTemplate(
       MultiLevelParticleGenerator<GridDataType, ZeldovichParticleGenerator<GridDataType>, T> &generator,
-      const grids::Grid<T> &grid) {
+      const grids::Grid<T> &grid, T epsNorm = 0.01075) {
     auto fieldEvaluators = generator.getOutputFieldEvaluatorsForGrid(grid);
     return std::make_shared<ZeldovichParticleEvaluator<GridDataType>>(fieldEvaluators[0], fieldEvaluators[1],
                                                                       fieldEvaluators[2],
-                                                                      grid, generator.cosmoParams);
+                                                                      grid, generator.cosmoParams, epsNorm);
   };
 
 
@@ -139,6 +139,7 @@ namespace particle {
     std::vector<std::shared_ptr<TParticleGenerator>> pGenerators;
     const cosmology::CosmologicalParameters<T> &cosmoParams;
     std::vector<std::shared_ptr<fields::MultiLevelField<GridDataType>>> outputFields;
+    T epsNorm;
 
 
     void initialise() {
@@ -182,18 +183,19 @@ namespace particle {
 
     friend std::shared_ptr<particle::ParticleEvaluator<GridDataType>> makeParticleEvaluatorBasedOnTemplate<>(
         MultiLevelParticleGenerator<GridDataType, TParticleGenerator, T> &generator,
-        const grids::Grid<T> &grid
+        const grids::Grid<T> &grid, T epsNorm
     );
 
 
   public:
 
     MultiLevelParticleGenerator(fields::OutputField<GridDataType> &field,
-                                const cosmology::CosmologicalParameters<T> &params) :
+                                const cosmology::CosmologicalParameters<T> &params,T epsNorm_ = 0.01075) :
         overdensityField(field),
         context(field.getContext()),
         cosmoParams(params) {
       initialise();
+      epsNorm = epsNorm_;
     }
 
     particle::ParticleGenerator<GridDataType> &getGeneratorForLevel(size_t level) override {
@@ -202,7 +204,7 @@ namespace particle {
 
     std::shared_ptr<particle::ParticleEvaluator<GridDataType>>
     makeParticleEvaluatorForGrid(const grids::Grid<T> &grid) override {
-      return makeParticleEvaluatorBasedOnTemplate(*this, grid);
+      return makeParticleEvaluatorBasedOnTemplate(*this, grid,epsNorm);
     }
 
     std::shared_ptr<fields::EvaluatorBase<GridDataType, T>>

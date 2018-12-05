@@ -1,0 +1,40 @@
+# Baryons, multi-level
+
+# cosmology:
+Ob	 	 0.0486
+Om	         0.2670
+#Om		 0.3156
+Ol	         0.6844
+s8	         0.831
+ns	         0.9645
+hubble	     0.6727
+zin	         500
+#Include baryons:
+baryon_tf_on
+
+camb	../camb_transfer_kmax40_z500.dat
+seed	8896131
+
+
+# output:
+outname test_12b
+outdir	 ./
+outformat 3
+
+# 64 Mpc/h, 64 cells
+basegrid 64.0 64
+
+# open a zoom region, 1/3rd scale, 64^3
+centre 32.5 32.5 32.5
+select_sphere 9.0
+zoomgrid 3 64
+
+
+done
+
+#Output power spectrum for comparison
+dump_ps_field 0 0
+dump_ps_field 0 1
+dump_ps_field 1 0
+dump_ps_field 1 1
+

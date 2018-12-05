@@ -50,6 +50,7 @@ namespace modifications {
     std::vector<size_t> flaggedCellsFinestGrid;       /*!< Linear modifications only use high-res information and extrapolate from there */
 
     //! Calculate covector on finest level and generate from it the multi-grid field
+    //! \param nField - type of field to create. nField = 0 for dark matter (default), 1 for baryons
     std::shared_ptr<fields::ConstraintField<DataType>> calculateCovectorOnAllLevels() {
 
       size_t level = this->underlying.getNumLevels() - 1;
@@ -60,6 +61,8 @@ namespace modifications {
       if (level != 0) {
         highResModif.getDataVector() /= this->underlying.getWeightForLevel(level);
       }
+
+      //Note - implicitly applies to dark matter only (baryon modifications not implemented):
       auto multiLevelConstraint = this->underlying.generateMultilevelFromHighResField(std::move(highResModif));
       for(level=0; level<this->underlying.getNumLevels(); ++level) {
         turnLocalisationCovectorIntoModificationCovector(multiLevelConstraint->getFieldForLevel(level));
@@ -158,20 +161,29 @@ namespace modifications {
   };
 
 
+  /*!
+  \class OverdensityModification
+  \brief Constrains the average of the field at the flagged points to be equal to the target.
+  */
   template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
   class OverdensityModification : public LinearModification<DataType, T> {
   public:
 
     OverdensityModification(multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
                             const cosmology::CosmologicalParameters<T> &cosmology_) :
-        LinearModification<DataType, T>(underlying_, cosmology_) {
+                                LinearModification<DataType, T>(underlying_, cosmology_) {
 
     };
+
 
     void turnLocalisationCovectorIntoModificationCovector(fields::Field<DataType, T> &fieldOnLevel) const override {}
   };
 
 
+  /*!
+  \class PotentialModification
+  \brief
+  */
   template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
   class PotentialModification : public LinearModification<DataType, T> {
   public:
@@ -243,8 +255,8 @@ namespace modifications {
 
   public:
     AngMomentumModification(multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
-                            const cosmology::CosmologicalParameters<T> &cosmology_, int direction_) :
-        LinearModification<DataType, T>(underlying_, cosmology_) {
+                            const cosmology::CosmologicalParameters<T> &cosmology_, int direction_,size_t transfer_type) :
+        LinearModification<DataType, T>(underlying_, cosmology_,transfer_type) {
 
       if (direction_ < 0 || direction_ > 2)
         throw std::runtime_error("Angular momentum direction must be 0 (x), 1 (y) or 2 (z)");
