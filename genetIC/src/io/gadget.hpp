@@ -202,22 +202,32 @@ namespace io {
 
 
 
+    /*! \class GadgetOutput
+    \brief Class to handle output to gadget files.
+    */
     template<typename GridDataType, typename OutputFloatType>
     class GadgetOutput {
     protected:
       using InternalFloatType = tools::datatypes::strip_complex<GridDataType>;
 
       particle::mapper::ParticleMapper<GridDataType> &mapper;
-      particle::AbstractMultiLevelParticleGenerator<GridDataType> &generator;
+      std::vector<std::shared_ptr<particle::AbstractMultiLevelParticleGenerator<GridDataType>>> &generator;
       const cosmology::CosmologicalParameters<InternalFloatType> &cosmology;
-      tools::MemMapFileWriter writer;
-      size_t nTotal;
-      double boxLength;
-      int gadgetVersion;
-      vector<InternalFloatType> masses;
-      vector<long> npart;
-      bool variableMass;
+      tools::MemMapFileWriter writer; // Used to write in the gadget format.
+      size_t nTotal; // Total number of particles to output.
+      double boxLength; // Size of simulation box.
+      int gadgetVersion; // Which version of the gadget file to output. Allowed values 2 or 3.
+      vector<InternalFloatType> masses; // Masses of particles if constant. Zero if variable.
+      vector<long> npart; // Number of particles of each gadget type
+      bool variableMass; // Stores whether we are using variable mass gadget particles
 
+
+      // Map for the generators. Assume that the non-gas elements (gadget type 2+)
+      // map to DM. Note that baryon generator is generator[1], DM is generator[0],
+      // which is the opposite order to gadget.
+      std::vector<size_t> gadgetTypeToFieldType {1,0,0,0,0,0};
+
+      //! \brief Save a block of gadget particles
       template<typename WriteType>
       void saveGadgetBlock(std::function<WriteType(const particle::mapper::MapperIterator<GridDataType> &)> getData) {
 
@@ -226,8 +236,8 @@ namespace io {
         auto currentWriteBlockC = writer.getMemMapFortran<WriteType>(nTotal);
 
         for(unsigned int particle_type=0; particle_type<6; particle_type++) {
-          auto begin = mapper.beginParticleType(generator, particle_type);
-          auto end = mapper.endParticleType(generator, particle_type);
+          auto begin = mapper.beginParticleType(*generator[gadgetTypeToFieldType[particle_type]], particle_type);
+          auto end = mapper.endParticleType(*generator[gadgetTypeToFieldType[particle_type]], particle_type);
           size_t nMax = end.getIndex()-begin.getIndex();
 
           current_n+=begin.parallelIterate([&](size_t n_offset, const particle::mapper::MapperIterator<GridDataType> &localIterator) {
@@ -241,6 +251,7 @@ namespace io {
 
       }
 
+      //! \brief Scan through data to obtain information on particles and their masses.
       void preScanForMassesAndParticleNumbers() {
         variableMass = false;
         masses = vector<InternalFloatType>(6, 0.0);
@@ -276,7 +287,7 @@ namespace io {
         }
       }
 
-
+        //! \brief Extract the minimum mass, maximum mass, and number of a particle species
       void getParticleInfo(InternalFloatType &min_mass, InternalFloatType &max_mass,
                            size_t &num, unsigned int particle_type) {
 
@@ -285,7 +296,7 @@ namespace io {
         num = 0;
 
         InternalFloatType mass;
-        mapper.iterateParticlesOfType(generator, particle_type, [&](const auto & i) {
+        mapper.iterateParticlesOfType(*generator[gadgetTypeToFieldType[particle_type]], particle_type, [&](const auto & i) {//CONFLICT_RESOLUTION
           mass = i.getMass(); // sometimes can be MUCH faster than getParticle
           if (min_mass > mass) min_mass = mass;
           if (max_mass < mass) max_mass = mass;
@@ -294,6 +305,7 @@ namespace io {
 
       }
 
+      //! \brief Output the gadget3 or gadget2 header:
       void writeHeader() {
         if (gadgetVersion == 3) {
           writer.writeFortran(createGadget3Header<OutputFloatType>(masses, npart, boxLength, cosmology));
@@ -305,16 +317,25 @@ namespace io {
       }
 
     public:
+    //! \brief Constructor
       GadgetOutput(double boxLength,
                    particle::mapper::ParticleMapper<GridDataType> &mapper,
-                   particle::AbstractMultiLevelParticleGenerator<GridDataType> &generator,
+                   std::vector<std::shared_ptr<particle::AbstractMultiLevelParticleGenerator<GridDataType>>> &generator,
                    const cosmology::CosmologicalParameters<tools::datatypes::strip_complex<GridDataType>> &cosmology,
                    int gadgetVersion) :
                    mapper(mapper), generator(generator), cosmology(cosmology), boxLength(boxLength),
                    gadgetVersion(gadgetVersion) {
 
+                   //If not using gas, we should re-direct everything to DM:
+                  if(generator.size() < 2)
+                  {
+                    for(auto& i : gadgetTypeToFieldType) {
+                        i = 0;
+                    }
+                  }
        }
 
+       //! \brief Operation to save gadget particles
        void operator()(const std::string &name) {
 
          preScanForMassesAndParticleNumbers();
@@ -356,10 +377,20 @@ namespace io {
     };
 
 
+    //! \brief Creates GadgetOutput class and calls its save function.
+    /*!
+    \param name - name of output file
+    \param Boxlength - simulation size in Mpc/h
+    \param mapper - particle mapper used to link particles to grid locations
+    \param generator - particles generators for each particle species (vector)
+    \param cosmology - cosmological parameters
+    \param gadgetformat - 2 or 3, gives type of gadget output (gadget2 or gadget3)
+    */
     template<typename OutputFloatType, typename GridDataType>
     void save(const std::string &name, double Boxlength,
               particle::mapper::ParticleMapper<GridDataType> &mapper,
-              particle::AbstractMultiLevelParticleGenerator<GridDataType> &generator,
+              //particle::AbstractMultiLevelParticleGenerator<GridDataType> &generator,//CONFLICT_RESOLUTION
+              std::vector<std::shared_ptr<particle::AbstractMultiLevelParticleGenerator<GridDataType>>> &generator,//CONFLICT_RESOLUTION
               const cosmology::CosmologicalParameters<tools::datatypes::strip_complex<GridDataType>> &cosmology, int gadgetformat) {
 
       GadgetOutput<GridDataType, OutputFloatType> output(Boxlength, mapper, generator, cosmology, gadgetformat);

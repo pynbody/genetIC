@@ -47,16 +47,17 @@ namespace grids {
 
   public:
     const T periodicDomainSize;
-    const T thisGridSize;   /*!< Grid (one side) size in Mpc */
-    const T cellSize;
-    const Coordinate<T> offsetLower; ///< Coordinate of the pixel edge of lower corner of the grid
-    const size_t size; ///<the number of cells on a side
-    const size_t size2; ///< the number of cells on a face
-    const size_t size3; ///< the total number of cells in the grid cube
-    const size_t simEquivalentSize; ///< the total number of cells on the box side of a simulation if it were all at this resolution
-    const T cellMassFrac; ///< the fraction of mass of the full simulation in a single cell of this grid
-    const T cellSofteningScale; ///< normally 1.0; scales softening relative to dx
+    const T thisGridSize;   //!< Grid (one side) size in Mpc/h
+    const T cellSize; //!< Size of one cell in Mpc/h
+    const Coordinate<T> offsetLower; //!< Coordinate of the pixel edge of lower front left hand corner of the grid
+    const size_t size; //!<the number of cells on a side
+    const size_t size2; //!< the number of cells on a face
+    const size_t size3; //!< the total number of cells in the grid cube
+    const size_t simEquivalentSize; //!< the total number of cells on the box side of a simulation if it were all at this resolution
+    const T cellMassFrac; //!< the fraction of mass of the full simulation in a single cell of this grid
+    const T cellSofteningScale; //!< normally 1.0; scales softening relative to dx
 
+    //! Detailed constructor - supply all properties
     Grid(T simsize, size_t n, T dx = 1.0, T x0 = 0.0, T y0 = 0.0, T z0 = 0.0,
          T massFrac = 0.0, T softScale = 1.0) :
         periodicDomainSize(simsize), thisGridSize(dx * n),
@@ -68,7 +69,7 @@ namespace grids {
       setKmin();
     }
 
-
+    //! Basic constructor - everything but the size is assumed.
     explicit Grid(size_t n) : periodicDomainSize(0), thisGridSize(n),
                      cellSize(1.0), offsetLower(0, 0, 0),
                      size(n), size2(n * n), size3(n * n * n), simEquivalentSize(0), cellMassFrac(0.0),
@@ -78,24 +79,28 @@ namespace grids {
 
 
   protected:
+  //! Set the fundamental mode for the box
     void setKmin() {
       kMin = 2. * M_PI / thisGridSize;
     }
 
   public:
-
+    //! Returns true if the box contains the entire basegrid.
     bool coversFullSimulation() const {
       return periodicDomainSize == thisGridSize;
     }
 
+    //! Returns the fundamental mode fo the box in (h/Mpc) units.
     T getFourierKmin() const {
       return kMin;
     }
 
+    //! Returns debug information about this object (debug use only)
     virtual void debugInfo(std::ostream &s) const {
       s << "Grid of side " << size << " address " << this << "; " << this->flags.size() << " cells marked";
     }
 
+    //! Returns the number of cells that would be on one side if the entire simulation were at this resolution.
     int getEffectiveSimulationSize() const {
       return tools::getRatioAndAssertInteger(periodicDomainSize, cellSize);
     }
@@ -104,6 +109,7 @@ namespace grids {
     * Methods dealing with the creation of virtual grids and relationships between grids.
     ******************************/
 
+    //! Returns true is at least one of the supplied pointers points to this grid, and false otherwise.
     bool isProxyForAnyOf(std::vector<std::shared_ptr<Grid<T>>> grids) {
       for (auto g: grids) {
         if (isProxyFor(g.get()))
@@ -112,6 +118,7 @@ namespace grids {
       return false;
     }
 
+    //! Returns true if the grid is an upsampled or downsampled virtual grid (overridden)
     virtual bool isUpsampledOrDownsampled(){
       return false;
     }
@@ -121,6 +128,16 @@ namespace grids {
     * could be evaluated on this grid. */
     virtual bool isProxyFor(const Grid *pOther) const {
       return this == pOther;
+    }
+
+    //! Check whether two grids are equal:
+    bool operator==(const Grid& gridOther) const {
+        return this->isProxyFor(&gridOther);
+    }
+
+    //! Check whether two girds are not equal:
+    bool operator!=(const Grid& gridOther) const {
+        return !(this->operator==(gridOther));
     }
 
 
@@ -151,6 +168,7 @@ namespace grids {
       return proxy;
     }
 
+    //! Creates a virtual grid based on this one that has its total mass multiplied by massRatio
     virtual std::shared_ptr<Grid<T>> makeScaledMassVersion(T massRatio) {
       return std::make_shared<MassScaledGrid<T>>(this->shared_from_this(), massRatio);
     }
@@ -159,10 +177,12 @@ namespace grids {
      * Methods dealing with flagging cells on the grid
      ******************************/
 
+     //! Copies a list of the linear indices of the currently flagged cells into targetArray
     virtual void getFlaggedCells(std::vector<size_t> &targetArray) const {
       targetArray.insert(targetArray.end(), flags.begin(), flags.end());
     }
 
+    //! Flags the cells specified by linear indices in sourceArray
     virtual void flagCells(const std::vector<size_t> &sourceArray) {
       std::vector<size_t> newFlags(flags.size() + sourceArray.size());
       auto end = std::set_union(flags.begin(), flags.end(), sourceArray.begin(), sourceArray.end(), newFlags.begin());
@@ -171,6 +191,10 @@ namespace grids {
       tools::sortAndEraseDuplicate(flags);
     }
 
+    //! \brief For each existing flag, flags the point one step ahead and one step behind.
+    //! So, if there is initially a flag at position (x0,y0,z0), and we step by (x,y,z), then
+    //! afterwards the points (x0-x,y0-y,z0-z), (x0,y0,z0), and (x0 + x,y0 + y,z0 + z) will all
+    //! be flagged. Triples the number of flags, but removes any duplicates.
     virtual void expandFlaggedRegionInDirection(const Coordinate<int> &step) {
       size_t old_size = flags.size();
       flags.resize(old_size*3);
@@ -182,6 +206,7 @@ namespace grids {
       tools::sortAndEraseDuplicate(flags);
     }
 
+    //! Expands the flagged region by ncells cells in each of the x,y,z directions.
     virtual void expandFlaggedRegion(size_t ncells=1) {
       for(size_t i=0; i<ncells; i++) {
         expandFlaggedRegionInDirection({0,0,1});
@@ -190,18 +215,22 @@ namespace grids {
       }
     }
 
+    //! Removes all cells flags - used as part of clearing.
     virtual void unflagAllCells() {
       flags.clear();
     }
 
+    //! Returns the number of cells that have been flagged.
     virtual size_t numFlaggedCells() const {
       return flags.size();
     }
 
+    //! Gets the geometric centre of the currently flagged cells, guaranteed to be a vector pointing to within the box.
     Coordinate<T> getFlaggedCellsCentre(){
       return this->getCentreWrapped(this->flags);
     }
 
+    //! Returns the number of cells on one side of the smallest box that could contain all the flagged cells.
     int getFlaggedCellsSize(){
       if (this->numFlaggedCells() > 0 ) {
           Window<int> flaggedWindow(this->getEffectiveSimulationSize(),
@@ -216,12 +245,17 @@ namespace grids {
           }
     }
 
+    //! Returns the physical size (in Mpc/h) of the smallest box that could contain all the flagged cells.
     T getFlaggedCellsPhysicalSize(){
         return T(this->getFlaggedCellsSize()) * this->cellSize;
     };
 
   protected:
 
+    //! \brief Converts cell flags from a low resolution grid into flags in a high resolution grid.
+    /*! Used by super-sampled virtual grids to return flags stored at lower resolution, and by
+    sub-sampled virtual grids to flag cells stored at a higher resolution.
+    */
     static void upscaleCellFlagVector(const std::vector<size_t> sourceArray,
                                       std::vector<size_t> &targetArray,
                                       const Grid<T> *source,
@@ -243,6 +277,10 @@ namespace grids {
       }
     }
 
+    //! \brief Converts flags from a high resolution grid to flags in a low resolution grid.
+    /*! Used by sub-sampled virtual grids to return flags stored at higher resolution, and by
+    super-sampled virtual grids to flag cells stored at a lower resolution.
+    */
     static void downscaleCellFlagVector(const std::vector<size_t> sourceArray,
                                         std::vector<size_t> &targetArray,
                                         const Grid<T> *source,
@@ -276,6 +314,7 @@ namespace grids {
     ******************************/
 
   public:
+  //! Gets the displacement between x0 and x1, wrapped so that it lies within the periodic domain.
     T getWrappedOffset(T x0, T x1) const {
       T result = x0 - x1;
       if (result > periodicDomainSize / 2) {
@@ -287,6 +326,7 @@ namespace grids {
       return result;
     }
 
+    //! Gets the vector displacement between a and b, wrapped to lie within the periodic domain.
     Coordinate<T> getWrappedOffset(const Coordinate<T> a, const Coordinate<T> b) const {
       return Coordinate<T>(getWrappedOffset(a.x, b.x), getWrappedOffset(a.y, b.y), getWrappedOffset(a.z, b.z));
     }
@@ -343,6 +383,7 @@ namespace grids {
                        offsetLower + thisGridSize).containsWithBorderSafety(coord, safety * cellSize);
     }
 
+    //! Wraps a point so that it lies within the periodic domain.
     Coordinate<T> wrapPoint(Coordinate<T> pos) const {
       pos.x = fmod(pos.x, periodicDomainSize);
       if (pos.x < 0) pos.x += periodicDomainSize;
@@ -366,7 +407,7 @@ namespace grids {
       return i < size3;
     }
 
-
+    //! Returns the linear index of the point displaced from index by the co-ordinate vector step.
     size_t getIndexFromIndexAndStep(size_t index, const Coordinate<int> &step) const {
       auto coord = getCoordinateFromIndex(index);
       coord += step;
@@ -388,18 +429,20 @@ namespace grids {
       return coord;
     }
 
-
+    //! Converts integer co-ordinates to linear indices, wrapping if necessary so that they point to somewhere in the box.
     virtual size_t getIndexFromCoordinate(Coordinate<int> coord) const {
       coord = wrapCoordinate(coord);
       return getIndexFromCoordinateNoWrap(coord);
     }
 
+    //! Converts positive-integer co-ordinates to linear indices, assuming the co-ordinate lies within the box.
     virtual size_t getIndexFromCoordinateNoWrap(size_t x, size_t y, size_t z) const {
       size_t index = (x * size + y) * size + z;
       assert(this->containsCell(index));
       return index;
     }
 
+    //! Converts a set of integers to a linear index without wrapping.
     virtual size_t getIndexFromCoordinateNoWrap(int x, int y, int z) const {
 
 #ifdef SAFER_SLOWER
@@ -411,6 +454,7 @@ namespace grids {
       return index;
     }
 
+    //! Converts an integer co-ordinate to a linear index without wrapping.
      virtual size_t getIndexFromCoordinateNoWrap(const Coordinate<int> &coordinate) const {
       return getIndexFromCoordinateNoWrap(coordinate.x, coordinate.y, coordinate.z);
     }
@@ -443,7 +487,7 @@ namespace grids {
       return getCentroidFromCoordinate(coord);
     }
 
-
+    //! Returns the comoving position in Mpc/h of the centre of the cell refered to by an integer co-ordinate.
     virtual Coordinate<T> getCentroidFromCoordinate(const Coordinate<int> &coord) const {
       Coordinate<T> result(coord);
       result *= cellSize;
@@ -453,6 +497,7 @@ namespace grids {
       return result;
     }
 
+    //! Gets the index of the cell closest to a physical point.
     virtual size_t getIndexFromPoint(Coordinate<T> point) const {
 //      auto coords = floor(wrapPoint(point - offsetLower - cellSize / 2) / cellSize);
        auto coords = floor(wrapPoint(point - offsetLower) / cellSize);
@@ -460,6 +505,7 @@ namespace grids {
       return getIndexFromCoordinateNoWrap(coords);
     }
 
+    //! Converts a physical point into the integer co-ordinate of the nearest cell.
     virtual Coordinate<int> getCoordinateFromPoint(Coordinate<T> point) const {
       return this->getCoordinateFromIndex(this->getIndexFromPoint(point));
     }
@@ -468,6 +514,12 @@ namespace grids {
     * Methods dealing with insertion of new ids
     ******************************/
 
+    //!Adds to ids a list of all linear indices pointing to cells that lie in the cube specified.
+    //!\param x0c = x position of lower front left hand corern of cube.
+    //!\param y0c = y position of lower front left hand corern of cube.
+    //!\param z0c = z position of lower front left hand corern of cube.
+    //!\param dxc = side-length of cube in Mpc/h
+    //!\param ids = vector of linear indices to append to.
     void appendIdsInCubeToVector(T x0c, T y0c, T z0c, T dxc, vector<size_t> &ids) {
       size_t offset = ids.size();
       int added_size = std::round(dxc / cellSize);
@@ -476,8 +528,9 @@ namespace grids {
       insertCubeIdsIntoVector(x0c, y0c, z0c, dxc, ids.begin() + offset);
     }
 
+    //! Returns all the grid IDs whose centres lie within the specified cube
     void insertCubeIdsIntoVector(T x0c, T y0c, T z0c, T dxc, vector<size_t>::iterator start) {
-      // return all the grid IDs whose centres lie within the specified cube
+
 
       std::tie(x0c, y0c, z0c) = wrapPoint(Coordinate<T>(x0c, y0c, z0c) - offsetLower);
 

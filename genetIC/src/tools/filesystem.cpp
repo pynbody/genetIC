@@ -1,3 +1,4 @@
+#include <stdexcept>
 #include "src/tools/filesystem.h"
 #include <unistd.h>
 #include <libgen.h>
