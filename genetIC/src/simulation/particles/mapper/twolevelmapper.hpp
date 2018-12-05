@@ -9,9 +9,8 @@ namespace particle {
     using std::endl;
     using std::cerr;
 
-    template<typename GridDataType>
-    class TwoLevelParticleMapper : public ParticleMapper<GridDataType> {
-      /* TwoLevelParticleMapper - the critical class for mapping different grids into an assembled zoom simulation
+    /*! \class TwoLevelParticleMapper
+       *  \brief The critical class for mapping different grids into an assembled zoom simulation
        *
        * This class points to two other mappers, referred to as level 1 and level 2. The level 2 mapper _must_ be
        * a OneLevelParticleMapper, i.e. it can only point to a single grid. The level 1 mapper on the other hand
@@ -21,6 +20,9 @@ namespace particle {
        * This means that level 1 particles have both a particle ID and a cell ID which may in general be different,
        * whereas level 2 particles always have a particle and cell ID that match.
        */
+    template<typename GridDataType>
+    class TwoLevelParticleMapper : public ParticleMapper<GridDataType> {
+
     private:
 
       using MapType = ParticleMapper<GridDataType>;
@@ -37,25 +39,27 @@ namespace particle {
       GridPtrType pGrid1;
       GridPtrType pGrid2;
 
-      size_t n_hr_per_lr; //< Number of level 2 particles per replaced level 1 particle
+      size_t n_hr_per_lr; //!< Number of level 2 particles per replaced level 1 particle
 
-      size_t totalParticles; //< Total number of particles in the map
-      size_t firstLevel2Particle; //< Index of the first level 2 particle in the map
+      size_t totalParticles; //!< Total number of particles in the map
+      size_t firstLevel2Particle; //!< Index of the first level 2 particle in the map
 
-      bool skipLevel1; //< Flag to indicate that the map should not include any particles from level 1, only the particles from level 2
+      bool skipLevel1; //!< Flag to indicate that the map should not include any particles from level 1, only the particles from level 2
 
-      std::vector<size_t> level1ParticlesToReplace; //< the particles on the level-1 (finest available) grid, which we wish to replace with their zooms
-      std::vector<size_t> level1CellsToReplace; //< the cells on the level-1 (finest available) grid, which we wish to replace with their zooms
+      std::vector<size_t> level1ParticlesToReplace; //!< the particles on the level-1 (finest available) grid, which we wish to replace with their zooms
+      std::vector<size_t> level1CellsToReplace; //!< the cells on the level-1 (finest available) grid, which we wish to replace with their zooms
       mutable std::vector<size_t> zoomParticleArrayHiresUnsorted; //< the particles/cells on the level-2 grid that are included
 
-      void insertLevel2IdsFromLevel1CellId(size_t id, std::vector<size_t>::iterator start) const {
-        /* Write n_hr_per_lr level 2 ids into a vector at the given starting index, corresponding to the level 1 cell id.
+      /*! \brief Write n_hr_per_lr level 2 ids into a vector at the given starting index, corresponding to the level 1 cell id.
+         *  \param id - level 1 id
+            \param start - iterator for the vector to store level 2 ids in
          *
          * Note that level 2 ids are the same whether we're talking about the level 2 mapper or level 2 grid (because
          * level 2 must be a OneLevelMapper).
          *
          * It is the responsibility of the caller to be sure there is enough space reserved in the vector
          */
+      void insertLevel2IdsFromLevel1CellId(size_t id, std::vector<size_t>::iterator start) const {
         T x0, y0, z0;
         std::tie(x0, y0, z0) = pGrid1->getCentroidFromIndex(id);
         pGrid2->insertCubeIdsIntoVector(x0, y0, z0, pGrid1->cellSize, start);
@@ -63,24 +67,43 @@ namespace particle {
 
     public:
 
+      /*! \brief Returns an iterator pointing at the end of the list of particles with the specified type
+        \param generator - generator to be used to create particles
+        \param particleType - gadget type of the particles we want to find the end of
+
+        Note that this function has the effect of going to the end of the particles lists for both
+        the levels that the two level mapper points to.
+      */
       virtual iterator endParticleType(const AbstractMultiLevelParticleGenerator <GridDataType> &generator,
                                          unsigned int particleType) const override {
         return iteratorFromSubiterators(pLevel1->endParticleType(generator, particleType),
                                         pLevel2->endParticleType(generator, particleType));
       }
 
+      /*! \brief Returns an iterator pointing at the beginning of the list of particles with the specified type
+        \param generator - generator to be used to create particles
+        \param particleType - gadget type of the particles we want to find the beginning of
+
+        Note that this function has the effect of going to the begining of the particles lists for both
+        the levels that the two level mapper points to.
+      */
       virtual iterator beginParticleType(const AbstractMultiLevelParticleGenerator <GridDataType> &generator,
                                          unsigned int particleType) const override {
         return iteratorFromSubiterators(pLevel1->beginParticleType(generator, particleType),
                                         pLevel2->beginParticleType(generator, particleType));
       }
 
+      /*! \brief Returns an iterator pointing to the beginning of the particle list, for both levels pointed to
+        \param generator - particle generator to use for this iterator
+      */
       virtual iterator begin(const AbstractMultiLevelParticleGenerator <GridDataType> &generator) const override {
         return iteratorFromSubiterators(pLevel1->begin(generator), pLevel2->begin(generator));
       }
 
     protected:
-      /*! Create an iterator for this mapper, given iterators for the two submappers.
+      /*! \brief Create an iterator for this mapper, given iterators for the two submappers.
+       *  \param l1Iterator - iterator for the first level (a one or two level mapper)
+       *  \param l2Iterator - iterator for the second level (must be a one level mapper)
        *
        * First, the level 1 iterator is inspected. If it is not already at the end, we are assumed to be in a state
        * where level 1 particles are being iterated over (regardless of the state of the level 2 iterator). The level
@@ -129,6 +152,7 @@ namespace particle {
         return x;
       }
 
+      //! Uses the iterators on the deepers levels (level 2) to set the index of iterator x on level 1
       void setIteratorIndexFromLevel1SubIterator(iterator & x) const {
         size_t targetLevel1Index = x.subIterators[0]->i;
         if(targetLevel1Index==0)
@@ -150,6 +174,13 @@ namespace particle {
     public:
 
 
+      /*! \brief Constructs a two level mapper from two mappers and a vector of particles on the coarse level to replace
+        \param pLevel1 - the coarser particle mapper, which can itself have multiple levels
+        \param pLevel2 - the fine particle mapper, which can point to only one grid (i.e. must be OneLevelParticleMapper)
+        \param level1CellsToReplace - the list of cells on level 1 that will be zoomed. NB these are specified
+                                        relative to the finest grid on level 1 (not relative to the level 1 mapper itself)
+        \param skipLevel1 - If true, only the level 2 particles are listed, otherwise, level1 particles are listed first, then level 2
+      */
       TwoLevelParticleMapper(MapPtrType pLevel1,
                              MapPtrType pLevel2,
                              const std::vector<size_t> &level1CellsToReplace,
@@ -159,13 +190,6 @@ namespace particle {
           pGrid2(pLevel2->getCoarsestGrid()),
           skipLevel1(skipLevel1),
           level1CellsToReplace(level1CellsToReplace) {
-        /* @param pLevel1 - the coarser particle mapper, which can itself have multiple levels
-         * @param pLevel2 - the fine particle mapper, which can point to only one grid (i.e. must be OneLevelParticleMapper)
-         * @param level1CellsToReplace - the list of cells on level 1 that will be zoomed. NB these are specified
-         *                               relative to the finest grid on level 1 (not relative to the level 1 mapper itself)
-         *
-         *
-         */
 
         assert(level1CellsToReplace.size() > 0);
         assert(typeid(*pLevel2) == typeid(OneLevelParticleMapper<GridDataType>));
@@ -207,6 +231,10 @@ namespace particle {
 
       }
 
+      /*! \brief Output debug information about this mapper to the specified stream, regarding the specified level
+          \param s - stream to output debug information to
+          \param level - level about which to output debug information
+      */
       virtual void debugInfo(std::ostream &s, int level = 0) const override {
         tools::indent(s, level);
         s << "TwoLevelParticleMapper, n_hr_per_lr=" << n_hr_per_lr << ", firstLevel2Particle="
@@ -227,15 +255,18 @@ namespace particle {
         s << "TwoLevelParticleMapper ends" << std::endl;
       }
 
+      //! Returns true if either level 1 or level 2 references the specified grid.
       bool references(GridPtrType grid) const override {
         return pLevel1->references(grid) || pLevel2->references(grid);
       }
 
+      //! Unflags all the flagged particles on level 1 and 2
       virtual void unflagAllParticles() override {
         pLevel1->unflagAllParticles();
         pLevel2->unflagAllParticles();
       }
 
+      //! Flags the particles specified by orderedParticleIndices. Flags the level 1 particles first, and then the level 2 particles that lie in the high-res region
       void flagParticles(const std::vector<size_t> &orderedParticleIndices) override {
 
         std::vector<size_t> level1particles;
@@ -339,6 +370,7 @@ namespace particle {
       }
 
 
+      //! Copies the ids of flagged particles into particleArray.
       void getFlaggedParticles(std::vector<size_t> &particleArray) const override {
 
         // translate level 1 particles - just need to exclude the zoomed particles
@@ -384,18 +416,30 @@ namespace particle {
 
       }
 
+      //! Returns a pointer to the coarsest grid, which is one of the levels of the level 1 grid
       virtual GridPtrType getCoarsestGrid() override {
         return pLevel1->getCoarsestGrid();
       }
 
+      //! Return a pointer to the finest grid, which in this case is the level 2 grid
       GridPtrType getFinestGrid() override {
+        // Note - the total mapper always starts with the deepest grid in the stack, with level 1 being the grids above that.
+        // This means that getting the finest grid this way from the total mapper will always return the actual finest grid,
+        // but if for some reason we called this function on a two-level mapper higher in the stack, it would point only to the
+        // deepest grid in that stack, not the deepest in this one. This is different to the getCoarsestGrid function, which
+        // always recurses until it reaches the coarsest grid.
         return pLevel2->getFinestGrid();
       }
 
+      //! Returns the total number of particles in the stack
       virtual size_t size() const override {
         return totalParticles;
       }
 
+      /*! \brief Makes two copies of the mapper with differently scaled mass fractions, one for dark matter, one for baryons
+          \param massRatio - fraction of total matter mass in the first mapper
+          \param toGrids - only adds gas if the grids of the levels pointed to by this mapper correspond to the grids specified here
+      */
       std::pair<MapPtrType, MapPtrType> addGas(T massRatio, const std::vector<GridPtrType> &toGrids) override {
         bool newskip = skipLevel1;
 
@@ -431,6 +475,11 @@ namespace particle {
 
       }
 
+      /*! \brief Sub- or super-samples the dark matter
+          \param ratio - factor to sub- or super-sample by
+          \param toGrids - only perform the sub/super-sampling if the grids match this list
+          \param super - super-sample if true, sub-sample if false
+      */
       MapPtrType superOrSubSampleDM(int ratio, const std::vector<GridPtrType> &toGrids, bool super) override {
 
         auto ssub1 = pLevel1->superOrSubSampleDM(ratio, toGrids, super);
@@ -461,6 +510,7 @@ namespace particle {
 
 
 
+      //!  Outputs debug informaiton about the specified iterator to the specified stream
       void debugInfoForIterator(std::ostream &s, int n, const iterator *pIterator) const override {
         tools::indent(s, n);
         s << "i=" << pIterator->i << " into iterator for TwoLevelParticleMapper " << endl;
@@ -483,6 +533,7 @@ namespace particle {
         }
       }
 
+      //! Increments the iterator by incrementing the relevent sub-iterator for the level pointed to
       virtual void incrementIterator(iterator *pIterator) const override {
 
         // set up some helpful shortcut references
@@ -529,6 +580,10 @@ namespace particle {
 
       // Low-level iterator synchronization methods:
 
+      /*! \brief Moves the specified iterator to the position of the specified particle index (unless it is beyond the end of the list, in which case do nothing)
+          \param next_zoom - particle id to move to, defined relative to level 2
+          \param level2iterator - iterator for level 2 that needs to be moved
+      */
       void adjustLevel2IteratorForSpecifiedZoomParticle(const size_t &next_zoom, iterator &level2iterator) const {
         if (next_zoom >= zoomParticleArrayHiresUnsorted.size()) {
           // beyond end. This is OK because we need to be able to go one beyond the end in an iterator loop
@@ -545,6 +600,7 @@ namespace particle {
         assert(level2iterator.i == zoomParticleArrayHiresUnsorted[next_zoom]);
       }
 
+      //! Moves the specified level 1 iterator past the zoom particles on level 2, if we are incremented into that list.
       void moveLevel1SubIteratorPastZoomedParticles(iterator &forIterator) const {
         iterator &level1iterator = *(forIterator.subIterators[0]);
         size_t &next_zoom = forIterator.extraData[0];
@@ -567,6 +623,10 @@ namespace particle {
       }
 
 
+      /*! \brief Increments the specified iterator by the specified amount
+        \param pIterator - iterator to move
+        \param increment - number of steps to increment the iterator by
+      */
       virtual void incrementIteratorBy(iterator *pIterator, size_t increment) const override {
         // could be optimized:
         for (size_t i = 0; i < increment; ++i)
@@ -574,6 +634,11 @@ namespace particle {
 
       }
 
+      /*! \brief Dereference the specified iterator, storing the pointed to grid and cell index
+        \param pIterator - iterator to dereference
+        \param gp - reference to where the grid pointer should be stored
+        \param i - reference to where the cell index should be stored
+      */
       virtual void
       dereferenceIterator(const iterator *pIterator, ConstGridPtrType &gp, size_t &i) const override {
         if (pIterator->i >= firstLevel2Particle)
@@ -583,6 +648,7 @@ namespace particle {
       }
 
 
+      //! Creates a list of zoom particles from the list of level 1 particles that need to be replaced
       void calculateHiresParticleList() const {
         zoomParticleArrayHiresUnsorted.resize(level1ParticlesToReplace.size() * n_hr_per_lr);
 

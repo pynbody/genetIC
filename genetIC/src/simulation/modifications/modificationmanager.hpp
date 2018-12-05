@@ -12,15 +12,20 @@ namespace modifications {
   class ModificationManager {
 
   public:
-    std::vector<std::shared_ptr<fields::OutputField<DataType>>> &outputFields;      /*!< All fields to propagate modifications to*/
-    multilevelcontext::MultiLevelContextInformation<DataType> &underlying;          /*!< Grid context in which modifications take place */
-    const cosmology::CosmologicalParameters<T> &cosmology;                          /*!< Cosmology context in which modifications take place */
+    std::vector<std::shared_ptr<fields::OutputField<DataType>>> &outputFields;      //!< All fields to propagate modifications to
+    multilevelcontext::MultiLevelContextInformation<DataType> &underlying;          //!< Grid context in which modifications take place
+    const cosmology::CosmologicalParameters<T> &cosmology;                          //!< Cosmology context in which modifications take place
 
-    std::vector<std::shared_ptr<LinearModification<DataType, T>>> linearModificationList;  /*!< Modifications to be applied */
-    std::vector<std::shared_ptr<QuadraticModification<DataType, T>>> quadraticModificationList;
+    std::vector<std::shared_ptr<LinearModification<DataType, T>>> linearModificationList;  //!< Modifications to be applied
+    std::vector<std::shared_ptr<QuadraticModification<DataType, T>>> quadraticModificationList; //!< List of quadratic modifications to be applied
 
-    size_t transferType; /*!Type of transfer function to use in defining covectors for modifications. 0 = dark matter, 1 = baryons*/
+    size_t transferType; //!< Type of transfer function to use in defining covectors for modifications. 0 = dark matter, 1 = baryons
 
+    //! \brief Constructor which accepts a multi-level context, cosmological parameters, and the fields to modify
+    /*! \param multiLevelContext_ - reference to the multi-level context object
+        \param cosmology_ - stores cosmological parameters
+        \param outputFields_ - vector of shared pointers to the output fields. Only the dark matter is modified, but we need to propagate the modifications to the others.
+    */
     ModificationManager(multilevelcontext::MultiLevelContextInformation<DataType> &multiLevelContext_,
                         const cosmology::CosmologicalParameters<T> &cosmology_,
                         std::vector<std::shared_ptr<fields::OutputField<DataType>>> &outputFields_) :
@@ -38,9 +43,11 @@ namespace modifications {
       return value;
     }
 
-    /*!
-        \param type_ Modification can be relative to existing value or absolute
-        \param target_ Absolute target or factor by which the existing will be multiplied
+    /*! \brief Adds the specified modification to the list of modifications to be applied, if it exists.
+
+        \param name_ - String naming the modification required.
+        \param type_ - Modification can be relative to existing value or absolute.
+        \param target_ - Absolute target or factor by which the existing will be multiplied.
       */
     template<typename ... Args>
     void addModificationToList(std::string name_, std::string type_, T target_, Args &&... args) {
@@ -68,11 +75,12 @@ namespace modifications {
       }
     }
 
+    //! Returns true if modifications have been added to the list
     bool hasModifications(){
       return !this->linearModificationList.empty() || !this->quadraticModificationList.empty();
     }
 
-    //! Construct the modified field with all modifications present in the modification list
+    //! Construct the modified field with all modifications present in the modification list, then propagate it to the other fields.
     void applyModifications() {
 
       std::vector<std::shared_ptr<fields::ConstraintField<DataType>>> alphas;
@@ -135,6 +143,7 @@ namespace modifications {
         std::cerr << "         Total delta chi^2 = " << post_modif_chi2_from_field - pre_modif_chi2_from_field << std::endl;
     }
 
+    //! Clear all modifications from the list of modifications to be applied.
     void clearModifications() {
       std::cout << "Clearing modification list" << std::endl;
       linearModificationList.clear();
@@ -143,6 +152,7 @@ namespace modifications {
 
 
   private:
+    //! Returns the modification a supplied string
     template<typename ... Args>
     std::shared_ptr<Modification<DataType, T>> getModificationFromName(std::string name_, Args &&... args) {
       try {
@@ -164,6 +174,7 @@ namespace modifications {
     // Note - these functions would have to pass transferType if we wanted to modify baryons too. Currently
     // the code doesn't support this, so it isn't an issue, but it would have to be taken into account if
     // baryon modifications were implemented.
+    //! Returns the appropriate linear modification from the supplied string, if it exists
     std::shared_ptr<LinearModification<DataType, T>> getLinearModificationFromName(std::string name_) {
       if ((strcasecmp(name_.c_str(), "overdensity") == 0)) {
         return make_shared<OverdensityModification<DataType, T>>(underlying, cosmology);
@@ -180,6 +191,7 @@ namespace modifications {
       }
     }
 
+    //! Returns the appropriate quadratic modification from the supplied string, if it exists
     template<typename ... Args>
     std::shared_ptr<QuadraticModification<DataType, T>>
     getQuadraticModificationFromName(std::string name_, Args &&... args) {
@@ -218,6 +230,7 @@ namespace modifications {
       }
     }
 
+    //! Apply quadratic modifications with the specified covectors
     void applyLinQuadModif(std::vector<std::shared_ptr<fields::ConstraintField<DataType>>> alphas) {
 
       // If quadratic are independent, we can apply them one by one in a loop.
@@ -274,6 +287,7 @@ namespace modifications {
 
     }
 
+    //! Compute number of steps needed to apply a quadratic modification.
     int calculateCorrectNumberSteps(const fields::OutputField<DataType> &field,
                                     std::shared_ptr<QuadraticModification<DataType, T>> modif, int previous_n_steps) {
 
@@ -330,6 +344,7 @@ namespace modifications {
       (*alpha) /= norm;
     }
 
+    //! Returns true if the supplied string is "relative", false if "absolute", and an error if anything else.
     bool isRelative(std::string type) {
       bool relative = false;
       if (strcasecmp(type.c_str(), "relative") == 0) {

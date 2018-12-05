@@ -11,7 +11,15 @@
 namespace fields {
 
   /*! \class RandomFieldGenerator
-  \brief This class handles drawing random white noise across all grids in a multi-level field. */
+      \brief This class handles drawing random white noise across all grids in a multi-level field.
+
+      Essentially, the class stores GSL random number generators, together with a list of options for how
+      the random numbers should be drawn. It also keeps track of the seed used, and the field for which it
+      is generating random data.
+
+      RandomFieldGenerator allows numbers to be drawn both in parallel and in series, depending on the options chosen.
+      However, by construction, it does not allow reseeding of an already seeded field.
+    */
   template<typename DataType>
   class RandomFieldGenerator {
   protected:

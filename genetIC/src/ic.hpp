@@ -39,7 +39,7 @@ class DummyICGenerator;
 
 /*!
    \class ICGenerator
-   \brief top level object responsible for coordinating the generation of initial conditions, including genetic modifications.
+   \brief Top level object responsible for coordinating the generation of initial conditions, including genetic modifications.
 
    This class exposes all methods accessible at user level through main.o
 
@@ -54,21 +54,21 @@ protected:
 
   friend class DummyICGenerator<GridDataType>;
 
-  cosmology::CosmologicalParameters<T> cosmology;
-  multilevelcontext::MultiLevelContextInformation<GridDataType> multiLevelContext;
+  cosmology::CosmologicalParameters<T> cosmology; //!< Cosmological parameters
+  multilevelcontext::MultiLevelContextInformation<GridDataType> multiLevelContext; //!< Class to keep track of the multi-level context of the simulation
 
   //! Vector of output fields (defaults to just a single field)
   std::vector<std::shared_ptr<fields::OutputField<GridDataType>>> outputFields;
-  int nFields;
-  modifications::ModificationManager<GridDataType> modificationManager;
-  std::vector<fields::RandomFieldGenerator<GridDataType>> randomFieldGenerator;
+  int nFields; //!< Number of output fields
+  modifications::ModificationManager<GridDataType> modificationManager; //!< Handles applying modificaitons to the various fields.
+  std::vector<fields::RandomFieldGenerator<GridDataType>> randomFieldGenerator; //!< Generate white noise for the output fields
 
   //! Switch to re-direct calls to the baryon field to the DM field if we are not using it:
   std::vector<size_t> transferSwitch;
 
 
 
-  cosmology::CAMB<GridDataType> spectrum;
+  cosmology::CAMB<GridDataType> spectrum; //!< Transfer function data
 
   //! Velocity offset to be added uniformly to output (default 0,0,0)
   Coordinate<GridDataType> velOffset;
@@ -78,6 +78,8 @@ protected:
 
   //! If true, at output time assign a different gadget particle type to the flagged particles on the finest known level
   bool flaggedParticlesHaveDifferentGadgetType;
+
+  //! Gadget type of flagged particles.
   unsigned int flaggedGadgetParticleType;
 
   //! DM supersampling to perform on zoom grid
@@ -90,8 +92,9 @@ protected:
   T epsNorm = 0.01075; // Default value arbitrary to coincide with normal UW resolution
 
 
-  io::OutputFormat outputFormat;
-  string outputFolder, outputFilename;
+  io::OutputFormat outputFormat; //!< Output format used by the code for particle data.
+  string outputFolder; //!< Name of folder for output files.
+  string outputFilename; //!< Name of files for output.
 
   //! Track whether the random realisation has yet been made
   bool haveInitialisedRandomComponent;
@@ -99,7 +102,8 @@ protected:
   //! Enforce the exact power spectrum, as in Angulo & Pontzen 2016
   bool exactPowerSpectrum;
 
-  /*!
+  /*! \brief True if stray particles are allowed.
+
    Stray" particles are high-res particles outside a high-res grid,
    constructed through interpolation of the surrounding low-res grid. Disabled by default.
    */
@@ -108,6 +112,8 @@ protected:
   //! If true, the box are recentered on the last centered point in the parameter file
   // TODO This is currently a grafic only option and ought to be generic
   bool centerOnTargetRegion = false ;
+
+  //! True if we have centred the simulation at some point.
   bool haveCentred = false;
 
   //! If true, then the code will generate baryons on all levels, rather than just the deepest level.
@@ -117,7 +123,9 @@ protected:
   bool formatSpecified = false;
 
 
+  //! Vector storing flagged particle ids.
   std::vector<size_t> flaggedParticles;
+  //! Zoom masks for each level.
   std::vector<std::vector<size_t>> zoomParticleArray;
 
 
@@ -137,18 +145,22 @@ protected:
   // precision is the target precision at which the quadratic modification will be achieved. More precision requires
   // more steps. In practice, we are limited by other errors in the code (namely recombination of low and high ks for fields)
   // of order of 1%. precision=0.1% is therefore sufficient and carries an acceptable numerical cost.
-  int initial_number_steps = 10;
-  T precision = 0.001;
+  int initial_number_steps = 10; //!< Number of steps always used by quadratic modifications.
+  T precision = 0.001; //!< Target precision required of quadratic modifications.
 
+  //! Mapper that keep track of particles in the mulit-level context.
   shared_ptr<particle::mapper::ParticleMapper<GridDataType>> pMapper;
+  //! Input mapper, used to relate particles in a different simulation to particles in this one.
   shared_ptr<particle::mapper::ParticleMapper<GridDataType>> pInputMapper;
+  //! Multi-level context of the input mapper.
   shared_ptr<multilevelcontext::MultiLevelContextInformation<GridDataType>> pInputMultiLevelContext;
 
+  //! Particle generators for each particle species.
   std::vector<shared_ptr<particle::AbstractMultiLevelParticleGenerator<GridDataType>>> pParticleGenerator;
 
   using FieldType = fields::Field<GridDataType>;
 
-  tools::ClassDispatch<ICGenerator<GridDataType>, void> &interpreter;
+  tools::ClassDispatch<ICGenerator<GridDataType>, void> &interpreter; //!< Parser for parameter files
 
 
 public:
@@ -190,6 +202,7 @@ public:
     this->baryonsOnAllLevels = false; // Baryons only output on the finest level by default.
   }
 
+  //! Destructor
   ~ICGenerator() {
   }
 
@@ -345,7 +358,8 @@ public:
     cosmology.ns = in;
   }
 
-  /*! Define the zoomed grid encompassing all flagged cells/particles
+  /*! \brief Define the zoomed grid encompassing all flagged cells/particles.
+
    * The zoom region is defined such that the flagged cells are roughly in the middle of it. Its physical size
    * must ensure that all flagged cells fit inside it.
    * \param zoomfac Ratio between the physical sizes of the base and zoom grid
@@ -423,7 +437,7 @@ public:
     gridAbove.getFlaggedCells(levelZoomParticleArray);
   }
 
-  /*! Define a zoomed grid with user defined coordinates
+  /*! \brief Define a zoomed grid with user defined coordinates
    * \param x0, y0, z0  Coordinates in pixel number of the lower left corner
    */
   void initZoomGridWithLowLeftCornerAt(int x0, int y0, int z0, size_t zoomfac, size_t n) {
@@ -630,6 +644,8 @@ public:
         this->setSeedFourierReverseOrder(seed,i);
     }
   }
+
+  //! Enables exact power spectrum enforcement.
   void setExactPowerSpectrumEnforcement() {
     exactPowerSpectrum = true;
   }
@@ -964,7 +980,7 @@ public:
         (pseudoICs.multiLevelContext);
   }
 
-  /*! Get the grid on which the output is defined for a particular level.
+  /*! \brief Get the grid on which the output is defined for a particular level.
    *
    * This may differ from the grid on which the fields are defined either because there is an offset or
    * there are differences in the resolution between the output and the literal fields.
@@ -1189,6 +1205,7 @@ protected:
     return multiLevelContext.getNumLevels();
   }
 
+  //! Gets the difference between the arguments, wrapped using the periodicity scale.
   T get_wrapped_delta(T x0, T x1) {
     return multiLevelContext.getGridForLevel(0).getWrappedOffset(x0, x1);
   }
@@ -1481,23 +1498,23 @@ public:
     write();
   }
 
-  //TODO This method does not really belong here but in MultiLevelField class
+  //! Reverses the sign of the specified field.
   void reverse(size_t nField = 0) {
     checkFieldExists(nField);
     outputFields[nField]->reverse();
   }
 
-  //!For backwards compatibility
+  //! For backwards compatibility
   void reverse() {
     for(size_t i = 0; i < outputFields.size(); i++){
         this->reverse(i);
     }
   }
 
-  //TODO What is this method doing? Looks like inverted initial conditions properties
-  //STEPHEN - renaming because this function actually reseeds high k, not small k
-  //void reseedSmallK(T kmax, int seed,size_t nField = 0) {
-  //!Reseeds the high k modes, leaving low-k modes unchanged.
+  // TODO What is this method doing? Looks like inverted initial conditions properties
+  // STEPHEN - renaming because this function actually reseeds high k, not small k
+  // void reseedSmallK(T kmax, int seed,size_t nField = 0) {
+  //! Reseeds the high k modes, leaving low-k modes unchanged.
   void reseedHighK(T kmax, int seed,size_t nField = 0) {
 
     checkFieldExists(nField);
@@ -1525,7 +1542,7 @@ public:
       field.forEachFourierCell([k2max_i, &oldField](std::complex<T> val, int kx, int ky, int kz) {
         int k2_i = kx * kx + ky * ky + kz * kz;
         if (k2_i < k2max_i && k2_i != 0) {
-          val = oldField.getFourierCoefficient(kx, ky, kz);//This line actually restores the original seeds for the small k modes, not the high k
+          val = oldField.getFourierCoefficient(kx, ky, kz); // This line actually restores the original seeds for the small k modes, not the high k
         }
         return val;
       });

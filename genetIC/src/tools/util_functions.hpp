@@ -10,7 +10,7 @@
 
  */
 namespace tools {
-  // Argsort function from http://stackoverflow.com/questions/1577475/c-sorting-and-keeping-track-of-indexes
+  //! Argsort function from http://stackoverflow.com/questions/1577475/c-sorting-and-keeping-track-of-indexes
   template<typename T>
   std::vector<size_t> argsort(const std::vector<T> &v) {
 
@@ -25,6 +25,11 @@ namespace tools {
     return idx;
   }
 
+  /*! \brief Returns the integer ratio of two variables, throwing a run-time error if the ratio is not sufficiently close to an integer
+      \param p - numerator
+      \param q - denominator
+      \param tolerance - how close to an integer we are willing to tolerate.
+  */
   template<typename T>
   int getRatioAndAssertInteger(T p, T q, T tolerance = 1e-8) {
     T ratio = p / q;
@@ -35,6 +40,7 @@ namespace tools {
     return rounded_ratio;
   }
 
+  //! As getRatioAndAssertInteger, but additionally throws an error if the arguments are not positive.
   template<typename T>
   size_t getRatioAndAssertPositiveInteger(T p, T q, T tolerance = 1e-8) {
     assert(p > 0);
@@ -47,24 +53,27 @@ namespace tools {
     return getRatioAndAssertInteger(log(p), log(n));
   }
 
+  //! Sets a given variable to zero (for real numbers)
   template<typename T>
   void set_zero(T &item) {
     item = 0;
   }
 
+  //! Sets a given complex number to zero
   template<typename T>
   void set_zero(std::complex<T> &item) {
     item.real(0);
     item.imag(0);
   }
 
-  // helper function for dumps in mapper
+  //! Helper function for dumps in mapper
   void indent(std::ostream &s, int level = 0) {
     for (int i = 0; i < level; i++) s << "| ";
     s << "+ ";
 
   }
 
+  //! Creates a linearly spaced vector with n elments between start and end.
   template<typename T>
   std::vector<T> linspace(T start, T end, int n) {
     std::vector<T> array;
@@ -82,6 +91,7 @@ namespace tools {
     return array;
   }
 
+  //! Sorts a vector and removes any duplicated entries (used for sorting lists of flagged cells)
   template<typename T>
   void sortAndEraseDuplicate( std::vector<T> & vector){
     std::sort(vector.begin(), vector.end());

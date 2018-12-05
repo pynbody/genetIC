@@ -8,19 +8,24 @@
 namespace modifications {
 
 
+  /*! \class QuadraticModification
+    \brief Defines quadratic modifications, ie, those defined with quadratic functions of the field.
+  */
   template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
   class QuadraticModification : public Modification<DataType, T> {
   protected:
-    int initNumberSteps;
+    int initNumberSteps; //!< Initial number of steps required.
     T targetPrecision;    /*!< Precision at which the target should be achieved. 0.01 input is 1% required accuracy */
 
   public:
+    //! Constructor that leaves initNumberSteps and targetPrecision unspecified
     QuadraticModification(multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
                           const cosmology::CosmologicalParameters<T> &cosmology_) :
         Modification<DataType, T>(underlying_, cosmology_) {
       this->order = 2;
     };
 
+    //! Constructor that specifies initNumberSteps and targetPrecision
     QuadraticModification(multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
                           const cosmology::CosmologicalParameters<T> &cosmology_, int initNumberSteps_,
                           T targetPrecision_) :
@@ -29,15 +34,18 @@ namespace modifications {
       this->order = 2;
     };
 
+    //! Returns the initial number of steps
     int getInitNumberSteps() {
       return this->initNumberSteps;
     }
 
+    //! Returns the target precision
     T getTargetPrecision() {
       return this->targetPrecision;
     }
 
 
+    //! Calculates the current value of the quadratic modification evaluated on the field which we are trying to constrain
     T calculateCurrentValue(const fields::MultiLevelField<DataType> &field) override {
 
       auto pushedField = pushMultiLevelFieldThroughMatrix(field);
@@ -46,6 +54,7 @@ namespace modifications {
       return value;
     }
 
+    //! Applies matrix operation to each level of the multi-level field supplied
     std::shared_ptr<fields::ConstraintField<DataType>>
     pushMultiLevelFieldThroughMatrix(const fields::MultiLevelField<DataType> &field) {
 
@@ -65,15 +74,21 @@ namespace modifications {
     }
 
   protected:
+    //! Applies matrix operation that defines the quadratic modification to the specified level of the multi-level field.
     virtual fields::Field<DataType, T>
     pushOneLevelFieldThroughMatrix(const fields::Field<DataType, T> &/* field */, size_t /* level */) = 0;
   };
 
+  /*! \class FilteredVarianceModification
+    \brief Modifies the variance of the field, applying a filter in Fourier space
+
+  */
   template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
   class FilteredVarianceModification : public QuadraticModification<DataType, T> {
 
   public:
 
+    //! Constructor to specify filter space
     FilteredVarianceModification(multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
                                  const cosmology::CosmologicalParameters<T> &cosmology_, T filterscale_) :
         QuadraticModification<DataType, T>(underlying_, cosmology_), scale(filterscale_) {
@@ -81,6 +96,7 @@ namespace modifications {
       this->scale = filterscale_;
     }
 
+    //! Constructor to specify filter space in addition to initial number of steps and target precision.
     FilteredVarianceModification(multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
                                  const cosmology::CosmologicalParameters<T> &cosmology_, int initNumberSteps_,
                                  T targetPrecision_, T filterscale_) :
@@ -89,6 +105,7 @@ namespace modifications {
       this->scale = filterscale_;
     }
 
+    //! Check to see if the user actually specified a filter scale, and if it is suitable if they did
     void checkFilterScale(T scale_) {
       if(scale_ < 0.0){
         throw std::runtime_error("Trying to calculate filtered variance without initialising variance filtering scale."
@@ -113,6 +130,7 @@ namespace modifications {
 
     }
 
+    //! Apply the matrix operation to a single level that defines this quadratic modification
     fields::Field<DataType, T> pushOneLevelFieldThroughMatrix(const fields::Field<DataType, T> &field, size_t level) override {
 
       fields::Field<DataType, T> pushedField = fields::Field<DataType, T>(field);
@@ -136,8 +154,9 @@ namespace modifications {
     }
 
   private:
-    T scale;
+    T scale; //!< Filter scale used by the modification
 
+    //! Zeros out everything that has not been flagged.
     void windowOperator(fields::Field<DataType, T> &field, size_t level) {
 
       assert(!field.isFourier()); // Windowing is done in real space
@@ -153,6 +172,7 @@ namespace modifications {
       }
     }
 
+    //! Defines the high pass fermi filter, with the filter-scale as the cutoff paramter.
     void filterOperator(fields::Field<DataType, T> &field) {
 
       assert(field.isFourier());  //Filtering must be done in Fourier space
@@ -164,6 +184,7 @@ namespace modifications {
       field.applyFilter(highPassFermi);
     }
 
+    //! Compute mean variance in the flagged region
     void varianceOperator(fields::Field<DataType, T> &field, size_t level) {
 
       assert(!field.isFourier()); // Variance is calculated in real space

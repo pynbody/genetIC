@@ -7,8 +7,15 @@
 namespace io {
   namespace grafic {
 
+  /*! \namespace io::grafic
+      \brief Classes to handle output of particles in the grafic format.
+  */
+
     using std::ofstream;
 
+    /*! \struct io_header_grafic
+        \brief Contains data for grafic-format headers.
+    */
     struct io_header_grafic {
       int nx, ny, nz;
       float dx;
@@ -17,8 +24,9 @@ namespace io {
       float omegaM, omegaL, h0;
     } header_grafic;
 
-    //! Export initial conditions in grafIC format, most likely for use with RAMSES.
-    /**
+    /*! \class GraficOutput
+        \brief Export initial conditions in grafIC format, most likely for use with RAMSES.
+
      * WARNING: Grafic as described in Bertschinger 2001 uses "Mpc a" for header lengths and displacements, and
        "proper km s**-1" for velocities.
        However, RAMSES expects "Mpc a" for header, "Mpc a h^-1" for displacements and "proper km s**-1" for velocities,
@@ -28,23 +36,35 @@ namespace io {
     template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
     class GraficOutput {
     protected:
-      std::string outputFilename;
-      multilevelcontext::MultiLevelContextInformation<DataType> context;
-      std::vector<std::shared_ptr<particle::AbstractMultiLevelParticleGenerator<DataType>>> generators;
-      const cosmology::CosmologicalParameters<T> &cosmology;
-      multilevelcontext::GraficMask<DataType,T>* mask;
-      std::vector<std::shared_ptr<fields::OutputField<DataType>>> outputFields;
+      std::string outputFilename; //!< Filename used for the output files.
+      multilevelcontext::MultiLevelContextInformation<DataType> context; //!< Multi-level context for grafic output.
+      std::vector<std::shared_ptr<particle::AbstractMultiLevelParticleGenerator<DataType>>> generators; //!< Vector of generators used to create particles of different species.
+      const cosmology::CosmologicalParameters<T> &cosmology; //!< Struct containing cosmological parameters.
+      multilevelcontext::GraficMask<DataType,T>* mask; //!< Grafic mask to be used.
+      std::vector<std::shared_ptr<fields::OutputField<DataType>>> outputFields; //!< Vector of output fields (needed for baryon overdensity).
 
 
-      T pvarValue;
+      T pvarValue; //!< Passive variable.
 
-      T lengthFactorHeader;
-      T lengthFactorDisplacements;
-      T velFactor;
-      size_t iordOffset;
+      T lengthFactorHeader; //!< Inverse of Hubble rate.
+      T lengthFactorDisplacements; //!< Multiplicative factor in position displacements (defaults to 1.0).
+      T velFactor; //!< Factor required to convert gadget output velocities (used internally) to grafic output velocities.
+      size_t iordOffset; //!< Offset for converting grid indices on each level into particle list indices. Accumulates as levels are processed.
 
     public:
-    //! \brief Constructor
+    /*! \brief Constructor
+
+        \param fname - filename used for output.
+        \param levelContext - multi-level context object used internally.
+        \param particleGenerators - vector of particle generators for each particle species.
+        \param cosmology - struct storing cosmological parameters.
+        \param pvarValue - value of passive variable.
+        \param center - location of center of the simulation.
+        \param subsample - factor to subsample dark matter by.
+        \param supersample - factor to supersample dark matter by.
+        \param input_mask - masks used on each level.
+        \param outFields - vector of output overdensity fields (needed for baryon output).
+    */
       GraficOutput(const std::string &fname,
                    multilevelcontext::MultiLevelContextInformation<DataType> &levelContext,
                    std::vector<std::shared_ptr<particle::AbstractMultiLevelParticleGenerator<DataType>>> particleGenerators,

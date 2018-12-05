@@ -8,7 +8,12 @@
 
 namespace fields {
 
-  /** Class to manage a field defined across multiple grids. */
+  /*!   \class MultiLevelField
+        \brief Class to manage a field defined across multiple grids.
+
+        The multi-level field it to fields what the multi-level context is to grids. It defines a collection
+        of fields on different grids, describing different levels of the field at different resolutions.
+  */
   template<typename DataType>
   class MultiLevelField : public std::enable_shared_from_this<MultiLevelField<DataType>> {
 
@@ -17,15 +22,16 @@ namespace fields {
     using ComplexType = tools::datatypes::ensure_complex<DataType>;
   protected:
 
-    multilevelcontext::MultiLevelContextInformation<DataType> *multiLevelContext;
-    std::shared_ptr<filters::FilterFamily<T>> pFilters;   // filters to be applied when used as a vector
-    tools::Signaling::connection_t connection;
-    bool isCovector;
+    multilevelcontext::MultiLevelContextInformation<DataType> *multiLevelContext; //!< Pointer to the underlying multi-level context
+    std::shared_ptr<filters::FilterFamily<T>> pFilters;   //!< filters to be applied when used as a vector
+    tools::Signaling::connection_t connection; //!< Connection to the multi-level context. Used to signal when the context needs updating.
+    bool isCovector; //!< True if the multi-level field is a covector, used to define a modification.
 
 
 
-    std::vector<std::shared_ptr<Field<DataType, T>>> fieldsOnLevels;
+    std::vector<std::shared_ptr<Field<DataType, T>>> fieldsOnLevels; //!< Vector that stores all the fields on the different levels
 
+    //! Sets up a signalling connection the multi-level context, allowing the multi-level field to signal that the context needs to be updated.
     void setupConnection() {
       connection = multiLevelContext->connect([this]() {
         this->updateMultiLevelContext();
@@ -36,6 +42,7 @@ namespace fields {
   public:
 
     //! \brief Variable that stores which transfer function the field should request from the multi-level context.
+
     /*! transferType = 0 -> Cold dark matter
         transferType = 1 -> Baryons. */
     size_t transferType;
@@ -258,7 +265,7 @@ namespace fields {
 
     }
 
-    //!\brief Copy across data from another field.
+    //! \brief Copy across data from another field.
     //! Note that this is different to operator=, which sets this object equal to the specified field
     //! on a class level. Here, we simply set the field data equal to that of the specified field,
     //! without acquiring any of its other properties (such as transferType, which would change which
@@ -288,8 +295,9 @@ namespace fields {
         }
     }
 
-    //! Takes the inner product between two fields.
-    /*! The inner product is defined as the operation between a covector a and a vector b : a * b elementwise.
+    /*! \brief Takes the inner product between two fields.
+
+     * The inner product is defined as the operation between a covector a and a vector b : a * b elementwise.
      * In our case, a and b are split in Fourier space between high and low k modes using their internal filter.
      * The product reads (a_high * b_high) + (a_low * b_low) + (a_high * b_low) + (a_low * b_high).
      *
@@ -367,8 +375,8 @@ namespace fields {
       pFilters = make_shared<filters::FilterFamily<T>>(multiLevelContext->getNumLevels());
     }
 
-    //! Converts the field into a covector, using the covariance matrix associated to the field.
-    /*!
+    /*! \brief Converts the field into a covector, using the covariance matrix associated to the field.
+
         For this to work, the transferType needs to have been specified for the field (defaulting to 0, dark matter).
         Can be either dark matter (0) or baryonic (1).
     */
@@ -416,8 +424,9 @@ namespace fields {
       }
     }
 
-    //! \brief Applies an 'exact' power spectrum in Fourier space.
-    /*! This means that effectively only the phase of the field at each Fourier mode is randomised,
+    /*! \brief Applies an 'exact' power spectrum in Fourier space.
+
+    This means that effectively only the phase of the field at each Fourier mode is randomised,
     not the amplitude. This can be used to perform simulations that can quickly estimate ensemble parameters
     (see Angulo and Pontzen 2016).
     */
@@ -487,7 +496,7 @@ namespace fields {
     }
 
 
-    //!Invert the application of the power spectrum.
+    //! Invert the application of the power spectrum.
     void applyInversePowerSpectrum()
     {
         this->applyInversePowerSpectrumOf(this->transferType);
@@ -614,7 +623,11 @@ namespace fields {
   };
 
   /*! \class OutputField
-    \brief Main type of field used to store overdensities for generating output data.
+      \brief Main type of field used to store overdensities for generating output data.
+
+      This is a type of multi-level field. The main difference to the base class is that is
+      stores an integer describing its output state, and has the ability to create the fields on
+      each level (zeroed out) if these are requested before they have been setup.
   */
 
   template<typename DataType>
@@ -628,8 +641,8 @@ namespace fields {
       RECOMBINED
     } t_output_state;
 
-    t_output_state outputState; // Current output state
-    bool fieldsOnLevelsPopulated; // True if already populated the fields on all levels.
+    t_output_state outputState; //!< Current output state of the OutputField
+    bool fieldsOnLevelsPopulated; //!< True if already populated the fields on all levels.
 
 
     //! Populates the fields on each level with all zeros

@@ -34,6 +34,12 @@ using std::make_shared;
 
 namespace grids {
 
+  /*! \class Grid
+      \brief Base grid object, defining the properties of a grid on a single level
+
+      Stores properties of the grid such as the number of cells, the fraction of the simulation mass in each cell,
+      the comoving size of the grid, and the total size of the simulation.
+  */
   template<typename T>
   class Grid : public std::enable_shared_from_this<Grid<T>> {
   public:
@@ -46,7 +52,7 @@ namespace grids {
     std::vector<size_t> flags;  /*!< Flagged cells on this grid */
 
   public:
-    const T periodicDomainSize;
+    const T periodicDomainSize; //!< Size of the domain that repeats periodically. Usually the size of the simulation.
     const T thisGridSize;   //!< Grid (one side) size in Mpc/h
     const T cellSize; //!< Size of one cell in Mpc/h
     const Coordinate<T> offsetLower; //!< Coordinate of the pixel edge of lower front left hand corner of the grid
@@ -57,7 +63,17 @@ namespace grids {
     const T cellMassFrac; //!< the fraction of mass of the full simulation in a single cell of this grid
     const T cellSofteningScale; //!< normally 1.0; scales softening relative to dx
 
-    //! Detailed constructor - supply all properties
+    /*! \brief Detailed constructor - supply all properties
+
+        \param simsize - size of the simulation in comoving units
+        \param n - number of cells along one side of the grid
+        \param dx - size of one cell in comoving units
+        \param x0 - x co-ordinate of lower front left hand side corner of the grid.
+        \param y0 - y co-ordinate of lower front left hand side corner of the grid.
+        \param z0 - z co-ordinate of lower front left hand side corner of the grid.
+        \param massFrac - fraction of the total simulation mass in one cell (computed from other properties if not specified)
+        \param softScale - cell softening scale
+    */
     Grid(T simsize, size_t n, T dx = 1.0, T x0 = 0.0, T y0 = 0.0, T z0 = 0.0,
          T massFrac = 0.0, T softScale = 1.0) :
         periodicDomainSize(simsize), thisGridSize(dx * n),
@@ -191,10 +207,11 @@ namespace grids {
       tools::sortAndEraseDuplicate(flags);
     }
 
-    //! \brief For each existing flag, flags the point one step ahead and one step behind.
-    //! So, if there is initially a flag at position (x0,y0,z0), and we step by (x,y,z), then
-    //! afterwards the points (x0-x,y0-y,z0-z), (x0,y0,z0), and (x0 + x,y0 + y,z0 + z) will all
-    //! be flagged. Triples the number of flags, but removes any duplicates.
+    /*! \brief For each existing flag, flags the point one step ahead and one step behind.
+
+     So, if there is initially a flag at position (x0,y0,z0), and we step by (x,y,z), then
+     afterwards the points (x0-x,y0-y,z0-z), (x0,y0,z0), and (x0 + x,y0 + y,z0 + z) will all
+     be flagged. Triples the number of flags, but removes any duplicates.*/
     virtual void expandFlaggedRegionInDirection(const Coordinate<int> &step) {
       size_t old_size = flags.size();
       flags.resize(old_size*3);
@@ -252,9 +269,10 @@ namespace grids {
 
   protected:
 
-    //! \brief Converts cell flags from a low resolution grid into flags in a high resolution grid.
-    /*! Used by super-sampled virtual grids to return flags stored at lower resolution, and by
-    sub-sampled virtual grids to flag cells stored at a higher resolution.
+    /*! \brief Converts cell flags from a low resolution grid into flags in a high resolution grid.
+
+        Used by super-sampled virtual grids to return flags stored at lower resolution, and by
+        sub-sampled virtual grids to flag cells stored at a higher resolution.
     */
     static void upscaleCellFlagVector(const std::vector<size_t> sourceArray,
                                       std::vector<size_t> &targetArray,
@@ -277,8 +295,9 @@ namespace grids {
       }
     }
 
-    //! \brief Converts flags from a high resolution grid to flags in a low resolution grid.
-    /*! Used by sub-sampled virtual grids to return flags stored at higher resolution, and by
+    /*! \brief Converts flags from a high resolution grid to flags in a low resolution grid.
+
+    Used by sub-sampled virtual grids to return flags stored at higher resolution, and by
     super-sampled virtual grids to flag cells stored at a lower resolution.
     */
     static void downscaleCellFlagVector(const std::vector<size_t> sourceArray,
@@ -331,9 +350,10 @@ namespace grids {
       return Coordinate<T>(getWrappedOffset(a.x, b.x), getWrappedOffset(a.y, b.y), getWrappedOffset(a.z, b.z));
     }
 
-    //! Calculate the centre in box coordinate of a vector of ids
-    /*! The underlying assumption of this method is that the centering is done on the coarse grid.
-     * Centering on zoom grids is not taken care off.
+    /*! \brief Calculate the centre in box coordinate of a vector of ids
+
+        The underlying assumption of this method is that the centering is done on the coarse grid.
+     *  Centering on zoom grids is not taken care off.
      */
     Coordinate<T> const getCentreWrapped(const std::vector<size_t>& vector_ids){
       if(vector_ids.empty()){
@@ -394,8 +414,9 @@ namespace grids {
       return pos;
     }
 
-    //! True if cell with pixel coordinates is on this grid
-    /*! Does not take into account offset or physical coordinates
+    /*! \brief True if cell with pixel coordinates is on this grid
+
+        Does not take into account offset or physical coordinates
      */
     virtual bool containsCellWithCoordinate(Coordinate<int> coord) const {
       return coord.x >= 0 && coord.y >= 0 && coord.z >= 0 &&
@@ -415,7 +436,7 @@ namespace grids {
     }
 
 
-    /*! Wrap the coordinate such that it lies within [0,size) of the base grid if this is possible.
+    /*! \brief Wrap the coordinate such that it lies within [0,size) of the base grid if this is possible.
      *
      * Note that for efficiency this routine only "corrects" coordinates within one boxsize of the fundamental domain.
      */
@@ -479,8 +500,9 @@ namespace grids {
       return coord;
     }
 
-    //! Returns coordinate of centre of cell id, in physical box coordinates
-    /*! Takes into account grid offsets wrt base grid, pixel size etc
+    /*! \brief Returns coordinate of centre of cell id, in physical box coordinates
+
+        Takes into account grid offsets wrt base grid, pixel size etc
      */
     virtual Coordinate<T> getCentroidFromIndex(size_t id) const {
       Coordinate<int> coord = getCoordinateFromIndex(id);
@@ -514,12 +536,13 @@ namespace grids {
     * Methods dealing with insertion of new ids
     ******************************/
 
-    //!Adds to ids a list of all linear indices pointing to cells that lie in the cube specified.
-    //!\param x0c = x position of lower front left hand corern of cube.
-    //!\param y0c = y position of lower front left hand corern of cube.
-    //!\param z0c = z position of lower front left hand corern of cube.
-    //!\param dxc = side-length of cube in Mpc/h
-    //!\param ids = vector of linear indices to append to.
+    /*! \brief Adds to ids a list of all linear indices pointing to cells that lie in the cube specified.
+
+        \param x0c = x position of lower front left hand corern of cube.
+        \param y0c = y position of lower front left hand corern of cube.
+        \param z0c = z position of lower front left hand corern of cube.
+        \param dxc = side-length of cube in Mpc/h
+        \param ids = vector of linear indices to append to.*/
     void appendIdsInCubeToVector(T x0c, T y0c, T z0c, T dxc, vector<size_t> &ids) {
       size_t offset = ids.size();
       int added_size = std::round(dxc / cellSize);

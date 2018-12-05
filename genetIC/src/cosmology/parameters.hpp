@@ -7,16 +7,26 @@
 
 namespace cosmology {
 
+  /*! \struct CosmologicalParameters
+      \brief Stores data about the cosmological model being assumed.
+
+      This allow us to quickly pass a long list of cosmological parameters to
+      different parts of the code.
+  */
   template<typename FloatType>
   struct CosmologicalParameters {
-  /*! \class CosmologicalParameters
-  \brief Stores data about the cosmological model being assumed.
-  */
-    FloatType OmegaM0, OmegaLambda0, OmegaBaryons0, hubble, redshift;
-    FloatType scalefactor, sigma8, ns, TCMB;
+    FloatType OmegaM0; //!< Total matter density fraction (dark matter + baryons);
+    FloatType OmegaLambda0; //!< Dark energy density fraction
+    FloatType OmegaBaryons0; //!< Baryon density fraction
+    FloatType hubble; //!< Hubble rate in units of 100kms^{-1}Mpc^{-1}
+    FloatType redshift; //!< Redshift at which we are generating the initial conditions.
+    FloatType scalefactor; //!< Scale factor at this redshift, relative to the scale factor at z = 0
+    FloatType sigma8; //!< Sigma8 parameter
+    FloatType ns; //!< Scalar spectral index
+    FloatType TCMB; //!< CMB temperature today, in K
   };
 
-  //!\brief Computes an estimate of the structure growth factor.
+  //! Computes an estimate of the structure growth factor.
   template<typename FloatType>
   FloatType growthFactor(const CosmologicalParameters<FloatType> &cosmology) {
     const FloatType a = cosmology.scalefactor;
@@ -35,7 +45,7 @@ namespace cosmology {
   }
 
 
-  //!\brief Returns a copy of the cosmological parameters with the scalefactor updated to match redshift z
+  //! Returns a copy of the cosmological parameters with the scalefactor updated to match redshift z
   template<typename FloatType>
   CosmologicalParameters<FloatType>
   cosmologyAtRedshift(const CosmologicalParameters<FloatType> &referenceCosmology, float redshift) {
@@ -44,7 +54,7 @@ namespace cosmology {
     return retVal;
   }
 
-  /** \brief Dump an estimated power spectrum for the field, alongside the specified theory power spectrum, to disk*/
+  //! Dump an estimated power spectrum for the field, alongside the specified theory power spectrum, to disk
   template <typename FloatType>
   FloatType zeldovichVelocityToOffsetRatio(const CosmologicalParameters<FloatType> &cosmology) {
 
@@ -77,7 +87,7 @@ namespace cosmology {
   }
 
 
-  /** Dump an estimated power spectrum for the field, alongside the specified theory power spectrum, to disk*/
+  //! \brief Dump an estimated power spectrum for the field, alongside the specified theory power spectrum, to disk
   // TODO Refactor this to use grid methods and normalisations method. It could be compacted in a few lines method
   // and avoid repeating assumptions from elsewhere in the code.
   template<typename DataType, typename FloatType=tools::datatypes::strip_complex<DataType>>
@@ -170,7 +180,7 @@ namespace cosmology {
 
   }
 
-  /** Convert the density field to a potential field, in-place. */
+  //! Convert the density field to a potential field, in-place.
   template<typename DataType, typename FloatType=tools::datatypes::strip_complex<DataType>>
   void densityToPotential(fields::Field<DataType, FloatType> &field, const CosmologicalParameters<FloatType> &cosmo) {
 

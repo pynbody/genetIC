@@ -6,10 +6,12 @@
 #include "src/simulation/particles/mapper/mapper.hpp"
 
 namespace io {
-/*! \namespace tipsy
+
+  namespace tipsy {
+  /*! \namespace io::tipsy
     \brief Functions related to outputting particles in tipsy format.
 */
-  namespace tipsy {
+
 
   //! \struct io_header_tipsy
   /*! \brief Struct to hold tipsy header information.
@@ -47,10 +49,11 @@ namespace io {
         outfile.write(reinterpret_cast<char *>(&data), 4);
       }
     }
-/*! \namespace TipsyParticle
-    \brief Classes related to defining tipsy particles.
-*/
+
     namespace TipsyParticle {
+    /*! \namespace io::tipsy::TipsyParticle
+    \brief Classes related to defining tipsy particles.
+    */
 
       //! \struct dark
       /*! \brief Dark matter particles.
@@ -88,14 +91,18 @@ namespace io {
     template<typename GridDataType, typename FloatType=tools::datatypes::strip_complex<GridDataType>>
     class TipsyOutput {
     protected:
-      std::vector<std::shared_ptr<particle::AbstractMultiLevelParticleGenerator<GridDataType>>> generators; // Particle generators
-      tools::MemMapFileWriter writer;
-      std::ofstream photogenic_file;
-      size_t iord;
-      double pos_factor, vel_factor, mass_factor, min_mass, max_mass;
-      double boxLength; // Simulation size in Mpc/h
-      std::shared_ptr<particle::mapper::ParticleMapper<GridDataType>> pMapper; // Particle mapper
-      const cosmology::CosmologicalParameters<FloatType> &cosmology; // Cosmological paramters
+      std::vector<std::shared_ptr<particle::AbstractMultiLevelParticleGenerator<GridDataType>>> generators; //!< Vector of particle generators for each species.
+      tools::MemMapFileWriter writer; //!< Writer used to process output file using memory maps.
+      std::ofstream photogenic_file; //!< Photogenic output file.
+      size_t iord; //!< Cumulative index offset.
+      double pos_factor; //!< Factor to multiply internal position offset by to get tipsy units.
+      double vel_factor; //!< Factor to multiply velocity offset by (especially as internal gadget-units velocities are used).
+      double mass_factor;//!< Factor to multiply masses by to get tipsy units.
+      double min_mass; //!< Minimum mass of particles in the simulation.
+      double max_mass; //!< Maximum mass of particles in the simulation.
+      double boxLength; //!< Simulation size in Mpc/h.
+      std::shared_ptr<particle::mapper::ParticleMapper<GridDataType>> pMapper; //!< Particle mapper.
+      const cosmology::CosmologicalParameters<FloatType> &cosmology; //!< Cosmological paramters.
 
       //! \brief Save a block of tipsy particles in parallel
       template<typename ParticleType>

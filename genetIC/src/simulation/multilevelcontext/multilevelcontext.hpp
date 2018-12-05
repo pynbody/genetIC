@@ -32,27 +32,37 @@ namespace cosmology {
 
  */
 namespace multilevelcontext {
+
+    /*! \class MultiLevelContextInformation
+    \brief Object used to store information about the multi-level context
+
+    Inherits from the base class in order to specialise to real/complex grids.
+  */
   template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
   class MultiLevelContextInformation;
 
+  /*! \class MultiLevelContextInformationBase
+    \brief Base class defining the multi-level context object. Contains most of the class structure
+  */
   template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
   class MultiLevelContextInformationBase : public tools::Signaling {
   private:
-    std::vector<std::shared_ptr<grids::Grid<T>>> pGrid;
-    std::vector<std::vector<std::shared_ptr<const fields::Field<DataType, T>>>> C0s;
-    std::vector<T> weights;
+    std::vector<std::shared_ptr<grids::Grid<T>>> pGrid; //!< Pointers to the grids for each level
+    std::vector<std::vector<std::shared_ptr<const fields::Field<DataType, T>>>> C0s; //!< Pointers to the transfer functions for each level
+    std::vector<T> weights; //!< Fraction of the volume of the coarsest level's cells that the cells on each level occupy
 
   public:
-    size_t nTransferFunctions;
+    size_t nTransferFunctions; //!< Keeps track of the number of transfer functions currently being used by the code.
 
 
   protected:
-    std::vector<size_t> Ns;
-    std::vector<size_t> cumu_Ns;
-    size_t Ntot;
-    size_t nLevels;
-    T simSize;
+    std::vector<size_t> Ns; //!< Vector that stores the number of cells on each level
+    std::vector<size_t> cumu_Ns; //!< Vector that stores the cumulative number of cells, ie, for each level, holds the number of cells on that level and all levels above it
+    size_t Ntot; //!< Total number of cells in the multi-level context
+    size_t nLevels; //!< Number of levels in the multi-level context.
+    T simSize; //!< Comoving size of the simulation box
 
+    //! Constructor defining a multi-level context with a single level with N cells
     MultiLevelContextInformationBase(size_t N) {
       nLevels = 1;
       Ns.push_back(N);
@@ -63,15 +73,23 @@ namespace multilevelcontext {
 
   public:
 
+    //! Constructor defining a multi-level context with no levels specified.
     MultiLevelContextInformationBase() {
       nLevels = 0;
       Ntot = 0;
       nTransferFunctions = 1;
     }
 
+    //! Destructor
     virtual ~MultiLevelContextInformationBase() {}
 
 
+    /*! \brief Adds a level to the current multi-level context
+        \param spectrum - object holding data about the transfer functions
+        \param size - co-moving size of the level to be added
+        \param nside - number of cells on one side of the grid of the level being added
+        \param offset - offset of the level being added from the lower front left hand corner of the coarsest grid. Defaults to (0,0,0)
+    */
     void
     addLevel(const cosmology::CAMB<DataType> &spectrum, T size, size_t nside, const Coordinate<T> &offset = {0, 0, 0}) {
 
@@ -93,6 +111,10 @@ namespace multilevelcontext {
       addLevel(C0, grid);
     }
 
+    /*! \brief Performs the process of actually adding the level with the appropriate grid and transfer functions
+        \param C0 - transfer functions for this level
+        \param pG - pointer to the grid for this level
+    */
     void addLevel(const std::vector<std::shared_ptr<const fields::Field<DataType, T>>>& C0, std::shared_ptr<grids::Grid<T>> pG) {
       C0s.push_back(C0);
       if (pGrid.size() == 0) {
@@ -108,13 +130,14 @@ namespace multilevelcontext {
       this->changed();
     }
 
-    // For adding a vector where each element is the same:
+    //! Used to add levels when we want the same transfer function for all fields (especially for adding a vector of null-pointers if we don't want to specify the level yet
     void addLevel(std::shared_ptr<const fields::Field<DataType, T>> C0,std::shared_ptr<grids::Grid<T>> pG)
     {
         std::vector<std::shared_ptr<const fields::Field<DataType, T>>> constArray (this->nTransferFunctions,C0);
         this->addLevel(constArray,pG);
     }
 
+    //! Clears the multi-level context of all data
     void clear() {
       C0s.clear();
       pGrid.clear();
@@ -126,34 +149,41 @@ namespace multilevelcontext {
     }
 
 
+    //! Returns the total number of cells in the multi-level context
     size_t getNumCells() const {
       return Ntot;
     }
 
+    //! Returns the number of levels in the multi-level context
     size_t getNumLevels() const {
       return nLevels;
     }
 
+    //! Returns a reference to the grid for the specified level
     grids::Grid<T> &getGridForLevel(size_t level) {
       return *pGrid[level];
     }
 
+    //! Returns a constant reference to the grid for the specified level
     const grids::Grid<T> &getGridForLevel(size_t level) const {
       return *pGrid[level];
     }
 
-    //! \brief Return a reference to the grid vector. Needed to add gas to all levels, for example.
+    //! Return a vector of shared pointers to the grids. Needed to add gas to all levels, for example.
     std::vector<std::shared_ptr<grids::Grid<T>>> getAllGrids()
     {
         return pGrid;
     }
 
+    //! Returns the weight for the specified level
     T getWeightForLevel(size_t level) {
       return weights[level];
     }
 
-    // Main function used by the code to retrieve the power spectrum.
-    // TODO - find a better way than this cascade of ifs...
+    /*! \brief Returns a reference to the specified transfer function for the specified level
+        \param level - level to get transfer function for
+        \param nTransfer - transfer function to retrieve. 0 for dark matter, 1 for baryons.
+    */
     const fields::Field<DataType> &getCovariance(size_t level,size_t nTransfer = 0) const {
       if (C0s.size() > level)
       {
@@ -169,6 +199,7 @@ namespace multilevelcontext {
       throw std::out_of_range("No covariance yet specified for this level");
     }
 
+    //! Returns the index of the deepest level that has flagged cells
     size_t deepestLevelwithFlaggedCells() {
 
       for (int i = this->getNumLevels() - 1; i >= 0; --i) {
@@ -179,6 +210,7 @@ namespace multilevelcontext {
       throw std::runtime_error("No level has any particles selected");
     }
 
+    //! Returns the index of the deepest 'coarse grid', ie, the deepest level that covers the entire simulation.
     size_t deepestCoarseGrid() const {
       for (int i = this->getNumLevels() - 1; i >= 0; --i) {
         if (this->getGridForLevel(i).coversFullSimulation())
@@ -187,11 +219,10 @@ namespace multilevelcontext {
       throw std::runtime_error("No coarse grid were found.");
     }
 
-    //! From finest level, use interpolation to construct other levels
-    //! Since multiLevelContext doesn't know which type of field it is creating
-    //! (baryons or dark matter) we have to supply this information as a parameter.
-    //! \param data - field data
-    //! \param nField - nField = 0 for dark matter (default), nField = 1 for baryons.
+    /*! \brief From finest level, use interpolation to construct other levels
+
+        \param data - field data on the highest resolution level.
+    */
     std::shared_ptr<fields::ConstraintField<DataType>>
     generateMultilevelFromHighResField(fields::Field<DataType, T> &&data) {
       assert(&data.getGrid() == pGrid.back().get());
@@ -221,12 +252,14 @@ namespace multilevelcontext {
           dataOnLevels);
     }
 
+    //! Applies the specified operation to the grids on each level of the multi-level context
     void forEachLevel(std::function<void(grids::Grid<T> &)> newLevelCallback) {
       for (size_t level = 0; level < nLevels; level++) {
         newLevelCallback(*pGrid[level]);
       }
     }
 
+    //! Applies the specified operation (that cannot change anything) to the grids for each level.
     void forEachLevel(std::function<void(const grids::Grid<T> &)> newLevelCallback) const {
       for (size_t level = 0; level < nLevels; level++) {
         newLevelCallback(*pGrid[level]);
@@ -238,7 +271,7 @@ namespace multilevelcontext {
                                                     size_t base_factor,
                                                     size_t extra_lores, size_t extra_highres) const {
       //! Copy this MultiLevelContextInformation, but insert intermediate virtual grids such that
-      //!there is a full stack increasing in the specified power.
+      //! there is a full stack increasing in the specified power.
       /*!
        * E.g. if there is a 256^3 and a 1024^3 grid stack, with default parameters this will return a
        * 128^3, 256^3, 512^3 and 1024^3 grid stack.
@@ -294,6 +327,10 @@ namespace multilevelcontext {
 
     }
 
+    /*! \brief Creates a copy of the multi-level context, but centred on the specified point.
+        \param newStack - reference to where the new context should be stored
+        \param pointToCenterOnto - new centre point.
+    */
     void copyContextAndCenter(MultiLevelContextInformation<DataType> &newStack,
                               const Coordinate<T> pointToCenterOnto) const {
 
@@ -315,6 +352,13 @@ namespace multilevelcontext {
       }
     }
 
+    /*! \brief Copies the multi-level context, adding intermediate resolution grids, and centering them all on the specified point.
+        \param newStack - reference to where the new context should be stored
+        \param pointToCenterOnto - new centre point.
+        \param base_factor - grids will be downgraded by factors of base_factor^N where N is an integer
+        \param subsample - factor times smaller resolution that we want the coarsest grid to be
+        \param supersample - factor times higher resolution that we want the finest grid to be
+    */
     void copyContextWithCenteredIntermediate(MultiLevelContextInformation<DataType> &newStack,
                                              const Coordinate<T> pointToCenterOnto,
                                              size_t base_factor,
@@ -336,11 +380,17 @@ namespace multilevelcontext {
     }
 
 
+    /*! \brief Returns the index that the cell on the specified level corresponds to on another level
+        \param currentLevel - level the specified index corresponds to currently
+        \param otherLevel - level we want the index for corresponding to the input index
+        \param cellIndex - index on the current level
+    */
     size_t getIndexOfCellOnOtherLevel(size_t currentLevel, size_t otherLevel, size_t cellIndex){
       Coordinate<T> cell_coord(this->getGridForLevel(currentLevel).getCentroidFromIndex(cellIndex));
       return this->getGridForLevel(otherLevel).getIndexFromPoint(cell_coord);
     }
 
+    //! Returns a vector of all the levels that are neither upsampled nor downsampled.
     std::vector<size_t> getFullResolutionGrids(){
       std::vector<size_t> levelsOfRealGrids;
 
@@ -355,6 +405,11 @@ namespace multilevelcontext {
 
   };
 
+  /*! \class MultiLevelContextInformation<T, T>
+    \brief Object used to store information about the multi-level context
+
+    Inherits from the base class in order to specialise to real/complex grids.
+  */
   template<typename T>
   class MultiLevelContextInformation<T, T> : public MultiLevelContextInformationBase<T, T> {
   protected:
@@ -364,6 +419,10 @@ namespace multilevelcontext {
     using MultiLevelContextInformationBase<DataType, T>::nLevels;
 
   public:
+    /*! \brief Sums the result of evaluating the specified function over the cells on the specified levels
+        \param newLevelCallback - vector of bools indicating which levels to include in the sum
+        \param getCellContribution - function to evaluate on each cell
+    */
     DataType accumulateOverEachModeOfEachLevel(
         std::function<bool(size_t)> newLevelCallback,
         std::function<DataType(size_t, size_t, size_t)> getCellContribution) {
