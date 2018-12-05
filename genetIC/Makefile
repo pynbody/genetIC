@@ -51,7 +51,7 @@ endif
 ifeq ($(HOST), clema)
         CPATH = /opt/local/include/
         LPATH = /opt/local/lib/
-	      CFLAGS = -O2 -fopenmp -std=c++14 -fdiagnostics-color=auto -I`pwd` -DOPENMP -DDOUBLEPRECISION
+	      CFLAGS = -O2 -g -fopenmp -std=c++14 -fdiagnostics-color=auto -I`pwd` -DOPENMP -DDOUBLEPRECISION
         CXX = /opt/local/bin/clang++-mp-6.0
  endif
 

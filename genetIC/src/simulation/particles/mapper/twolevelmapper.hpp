@@ -487,8 +487,8 @@ namespace particle {
 
         // set up some helpful shortcut references
         auto &extraData = pIterator->extraData;
-        iterator &level1iterator = *(pIterator->subIterators[0]);
-        iterator &level2iterator = *(pIterator->subIterators[1]);
+        auto & pLevel1iterator = pIterator->subIterators[0];
+        auto & pLevel2iterator = pIterator->subIterators[1];
         size_t &i = pIterator->i;
 
         size_t &next_zoom = extraData[0];
@@ -503,20 +503,17 @@ namespace particle {
 
           if (i == firstLevel2Particle) {
             next_zoom = 0;
-            if(&level2iterator==nullptr) {
-             // if there is no level 2 iterator, we are finished iterating
-             return;
-            }
           } else {
             ++next_zoom;
           }
 
-          adjustLevel2IteratorForSpecifiedZoomParticle(next_zoom, level2iterator);
+	  if((pLevel2iterator)!=nullptr)
+	    adjustLevel2IteratorForSpecifiedZoomParticle(next_zoom, *pLevel2iterator);
 
 
         } else {
 
-          ++level1iterator;
+          ++(*pLevel1iterator);
 
           moveLevel1SubIteratorPastZoomedParticles(*pIterator);
 
@@ -530,7 +527,8 @@ namespace particle {
       // Low-level iterator synchronization methods:
 
       void adjustLevel2IteratorForSpecifiedZoomParticle(const size_t &next_zoom, iterator &level2iterator) const {
-        if (next_zoom >= zoomParticleArrayHiresUnsorted.size()) {
+	assert (&level2iterator!=nullptr);
+	if (next_zoom >= zoomParticleArrayHiresUnsorted.size()) {
           // beyond end. This is OK because we need to be able to go one beyond the end in an iterator loop
           assert(next_zoom == zoomParticleArrayHiresUnsorted.size());
           return;
