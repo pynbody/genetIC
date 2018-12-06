@@ -131,7 +131,7 @@ namespace particle {
 
     protected:
       void updateGridReference() const {
-        pLastGridEvaluator = generator.makeEvaluatorForGrid(*pLastGrid);
+        pLastGridEvaluator = generator.makeParticleEvaluatorForGrid(*pLastGrid);
       }
 
       mutable const fields::MultiLevelField<GridDataType> *lastMLField;

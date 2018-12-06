@@ -2,7 +2,10 @@
 #include <src/simulation/particles/multilevelgenerator.hpp>
 #include <src/simulation/multilevelcontext/mask.hpp>
 #include "src/tools/memmap.hpp"
+#include <memory>
+#include <vector>
 #include <algorithm>
+#include <string>
 
 namespace io {
   namespace grafic {
@@ -90,7 +93,12 @@ namespace io {
     \param level - level to output.
     */
       void writeGrid(const grids::Grid<T> &targetGrid, size_t level) {
-        auto evaluator_dm = generators[0]->makeEvaluatorForGrid(targetGrid);
+
+        auto evaluator_dm = generators[0]->makeParticleEvaluatorForGrid(targetGrid);
+        auto overdensityFieldEvaluator = generators[0]->makeOverdensityEvaluatorForGrid(targetGrid);
+
+	if(generators.size()>1) // use baryon field
+	  overdensityFieldEvaluator = generators[1]->makeOverdensityEvaluatorForGrid(targetGrid);
 
         const grids::Grid<T> &baseGrid = context.getGridForLevel(0);
         size_t effective_size = tools::getRatioAndAssertPositiveInteger(baseGrid.cellSize * baseGrid.size,
@@ -158,19 +166,9 @@ namespace io {
               Coordinate<float> posScaled(particle.pos * lengthFactorDisplacements);
 
 
+              float deltab = (*overdensityFieldEvaluator)[i];
+
               // Detect whether we are using baryons:
-              float deltab;
-              if(this->outputFields.size() < 2)
-              {
-                deltab = 0;
-              }
-              else
-              {
-                // Get data from output field:
-                deltab = (*baryonFieldOnLevelPtr)[i];
-              }
-
-
               float mask = this->mask->isInMask(level, i);
               float pvar = pvarValue * mask;
               size_t file_index = i_y*targetGrid.size+i_x;

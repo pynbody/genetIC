@@ -34,6 +34,7 @@ namespace modifications {
 
       std::shared_ptr<Modification<DataType, T>> modification = getModificationFromName(name_,
                                                                                         std::forward<Args>(args)...);
+      outputFields[transferType]->toFourier();
       T value = modification->calculateCurrentValue( *(outputFields[transferType]) );
       return value;
     }
