@@ -109,7 +109,6 @@ namespace cosmology {
       ns = cosmology.ns;
 
       calculateOverallNormalization(cosmology);
-      std::cerr << "amplitude = " << this->amplitude << std::endl;
 
       this->dataRead = true;
 

@@ -111,8 +111,6 @@ namespace fields {
 
     //! Draws random numbers for multi level field.
     void draw() {
-      std::cerr << "Ok at the start of draw()." << std::endl;
-      std::cerr << "this is NULL = " << (this == nullptr) << " this = " << this << std::endl;
       if (!seeded)
         throw std::runtime_error("The random number generator has not been seeded");
       for (size_t i = 0; i < field.getNumLevels(); ++i) {

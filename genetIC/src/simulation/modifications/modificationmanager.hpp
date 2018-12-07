@@ -96,7 +96,6 @@ namespace modifications {
       for (size_t i = 0; i < linearModificationList.size(); i++) {
         alphas.push_back(linearModificationList[i]->getCovector());
         linear_targets.push_back(linearModificationList[i]->getTarget());
-        std::cerr << "linear_targets[" << i << "] = " << linear_targets[i] << std::endl;
       }
 
       // Apply all linear modifications
@@ -136,7 +135,6 @@ namespace modifications {
 
         //Divide by modifiedField power spectrum and apply outputField's power spectrum:
         otherField.applyTransferRatio(outputFields[transferType]->transferType);
-        std::cerr << "otherField.transferType = " << otherField.transferType << std::endl;
 
         T post_modif_chi2_from_field = otherField.getChi2();
         std::cerr << "AFTER  modifications chi^2 = " << post_modif_chi2_from_field << std::endl;
