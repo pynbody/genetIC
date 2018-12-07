@@ -10,15 +10,18 @@ import os.path
 import warnings
 import re
 
+def infer_compare_decimal(sim):
+    if sim['vel'].dtype==np.float64:
+        return 5
+    else:
+        return 4
+
 def compare(f1,f2) :
     npt.assert_almost_equal(f1['mass'],f2['mass'],decimal=6)
     if 'eps' in f1.loadable_keys():
         npt.assert_almost_equal(f1['eps'],f2['eps'],decimal=6)
 
-    if f1['vel'].dtype==np.float64:
-        compare_decimal = 5
-    else:
-        compare_decimal = 4
+    compare_decimal = infer_compare_decimal(f1)
 
     npt.assert_almost_equal(f1['vel'],f2['vel'],decimal=compare_decimal)
     npt.assert_almost_equal(f1['pos'],f2['pos'],decimal=compare_decimal)
@@ -84,6 +87,7 @@ def compare_grafic(reference_path, test_path):
         f2 = pynbody.load(fname2)
         compare(f1,f2)
         assert (f1['iord']==f2['iord']).all()
+        npt.assert_almost_equal(f1['deltab'],f2['deltab'],decimal=infer_compare_decimal(f1))
 
 def check_comparison_is_possible(dirname):
     # A valid test must have either a tipsy/gadget output and its reference output or numpy grids and their references.

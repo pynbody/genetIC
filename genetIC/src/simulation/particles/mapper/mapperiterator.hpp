@@ -153,7 +153,7 @@ namespace particle {
     protected:
       //! Updates the stored evaluator to match the last grid pointed to.
       void updateGridReference() const {
-        pLastGridEvaluator = generator.makeEvaluatorForGrid(*pLastGrid);
+        pLastGridEvaluator = generator.makeParticleEvaluatorForGrid(*pLastGrid);
       }
 
       mutable const fields::MultiLevelField<GridDataType> *lastMLField; //!< Pointer to the last multi-level field pointed to
