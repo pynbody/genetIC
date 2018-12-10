@@ -10,25 +10,38 @@ namespace multilevelcontext {
   class AbstractBaseMask {
   public:
 
+    //! Constructor from the specified multi-level context.
     explicit AbstractBaseMask(MultiLevelContextInformation<DataType>* multilevelcontext_):
         multilevelcontext(multilevelcontext_), flaggedIdsAtEachLevel(multilevelcontext->getNumLevels()){}
 
+    /*! \brief Returns 1 if the specified cell is in the mask, 0 otherwise.
+
+        \param level - level of cell to check.
+        \param cellindex - index of cell to check on the specified level.
+    */
     virtual T const isInMask(size_t level, size_t cellindex) = 0;
 
+    //! Currently unimplemented.
     virtual void ensureFlaggedVolumeIsContinuous() = 0;
 
+    //! Processes the information in the multi-level context and uses it to create a graphic mask.
     virtual void calculateMask() = 0;
 
   protected:
-    MultiLevelContextInformation<DataType>* multilevelcontext;
-    std::vector<std::vector<size_t>> flaggedIdsAtEachLevel;
+    MultiLevelContextInformation<DataType>* multilevelcontext; //!< Pointer to the multi-level context object.
+    std::vector<std::vector<size_t>> flaggedIdsAtEachLevel; //!< Vector whose elements are vectors of the ids flagged at each level of the mask.
 
+    //! Calculates the flagged cells on all levels.
     virtual void generateFlagsHierarchy() = 0;
 
   };
 
-  //! Extend the concept of mask for grafic outputs. The masks must be carried through the entire grafic hierarchy, including virtual intermediate grids.
-  //! Useful for generating ic_refmap/ic_pvar files for RAMSES for example
+  /*! \class GraficMask
+      \brief Extend the concept of mask for grafic outputs.
+
+      The masks must be carried through the entire grafic hierarchy, including virtual intermediate grids.
+      Useful for generating ic_refmap/ic_pvar files for RAMSES for example
+  */
   template<typename DataType, typename T=tools::datatypes::strip_complex <DataType>>
   class GraficMask: public AbstractBaseMask<DataType, T> {
 
@@ -37,6 +50,10 @@ namespace multilevelcontext {
     int deepestLevelWithMaskedCells=-1;
 
   public:
+    /*! \brief Constructor, requires a pointer to the multi-level context and a reference to a vector of mask vectors for each level
+        \param multilevelcontext_ - pointer to the multi-level context object.
+        \param input_mask - vector of vectors, where each vector is a mask for a given level.
+    */
     explicit GraficMask(MultiLevelContextInformation<DataType>* multilevelcontext_, std::vector<std::vector<size_t>> &input_mask):
         AbstractBaseMask<DataType, T> (multilevelcontext_), inputzoomParticlesAsMask(input_mask){
       assert(inputzoomParticlesAsMask.size() <= this->flaggedIdsAtEachLevel.size());
@@ -58,12 +75,14 @@ namespace multilevelcontext {
 
     }
 
+    //! Processes the information in the multi-level context and uses it to create a graphic mask
     void calculateMask() override{
       identifyLevelsOfInputMask();
       generateFlagsHierarchy();
       ensureFlaggedVolumeIsContinuous();
     }
 
+    //! Currently unimplemented.
     void ensureFlaggedVolumeIsContinuous() override{
       //TODO Add Lagrangian volume definition if it bothers you
     }
@@ -97,7 +116,7 @@ namespace multilevelcontext {
       }
     }
 
-    //! Calculates the flagged cells on all levels
+    //! \brief Calculates the flagged cells on all levels
     /*!
      * For each level, imports the flagged cells of the level if there are any. If not, e.g.
      * for virtual grids, downgrades the higher resolution mask on the virtual grid.
@@ -113,6 +132,7 @@ namespace multilevelcontext {
       generateHierarchyBelowLevelExclusive(this->deepestLevelWithMaskedCells);
     }
 
+    //! Flags cells for the grafic mask at all levels above (coarser than) the selected deepest level.
     void generateHierarchyAboveLevelInclusive(int deepestLevel){
       for (int level = deepestLevel; level >= 0; level--) {
 
@@ -128,6 +148,7 @@ namespace multilevelcontext {
       }
     }
 
+    //! Flags cells for the grafic mask at all levels below (finer than) the selected level).
     void generateHierarchyBelowLevelExclusive(size_t coarsestLevel){
 
       // Do all level between this level and the finest
@@ -142,15 +163,24 @@ namespace multilevelcontext {
       }
     }
 
+    //! Sorts the flags on the specified level and erases any duplicates.
     void sortAndEraseDuplicate(size_t level){
       tools::sortAndEraseDuplicate(this->flaggedIdsAtEachLevel[level]);
     }
 
+    /*! \brief Returns true if the cell at the specified level is flagged for inclusion in the mask
+        \param id - cell id to check
+        \param level - level the id corresponds to
+    */
     bool isMasked(size_t id, size_t level){
       return std::binary_search(this->flaggedIdsAtEachLevel[level].begin(),
                                 this->flaggedIdsAtEachLevel[level].end(), id);
     }
 
+    /*! \brief Checks whether the cell at the specified level is in the mask
+        \param id - cell id to check
+        \param level - level the id corresponds to
+    */
     bool isPartofInputMask(size_t id, size_t level){
       return std::binary_search(this->inputzoomParticlesAsMask[level].begin(),
                                 this->inputzoomParticlesAsMask[level].end(), id);

@@ -141,6 +141,7 @@ namespace filters {
   class ResidualFilterFamily : public FilterFamily<T> {
 
   public:
+    //! Constructs the family of complimentary filters, given a family of filters.
     ResidualFilterFamily(const FilterFamily<T> &underlying) {
       for (size_t i = 0; i < underlying.getMaxLevel() - 1; i++) {
         this->filters.push_back(underlying.complementFilters[i]->clone());

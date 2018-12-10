@@ -8,6 +8,7 @@
 namespace tools {
   namespace progress {
 
+    //! Returns the size of the current terminal display
     size_t ProgressBar::terminalWidth() {
       struct winsize size;
       if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &size) < 0)
@@ -16,10 +17,12 @@ namespace tools {
         return size_t(size.ws_col);
     }
 
+    //! Returns true if the terminal display is wider than 0
     bool ProgressBar::isInteractive() {
       return terminalWidth() > 0;
     }
 
+    //! Returns an estimate of the time remaining to complete the operation
     void ProgressBar::remainingTime() {
       auto end = std::chrono::system_clock::now();
       double elapsed = ((end - start)).count() / std::chrono::system_clock::duration::period::den;
@@ -30,6 +33,7 @@ namespace tools {
       }
     }
 
+    //! Clears the current line - used to update the display
     void ProgressBar::clearLine() {
       size_t width = terminalWidth();
       stream << "\r";
@@ -38,6 +42,7 @@ namespace tools {
       stream << "\r";
     }
 
+    //! Update the display if possible
     void ProgressBar::update() {
       if (!isInteractive())
         return;
@@ -80,6 +85,7 @@ namespace tools {
 
     }
 
+    //! Updates the progress bar at the specified intervals, until it receives the signal to terminate
     void ProgressBar::runUpdateLoop() {
       std::unique_lock<std::mutex> lock(mutex);
       start = std::chrono::system_clock::now();
@@ -92,6 +98,7 @@ namespace tools {
     }
 
 
+    //! Signals the progress bar to terminate
     void ProgressBar::terminate() {
       setProgress(1.0);
       terminated = true;
@@ -99,12 +106,14 @@ namespace tools {
       thread.join();
     }
 
+    //! Updates the progress variable
     void ProgressBar::tick() {
       std::unique_lock<std::mutex> lock(mutex);
       nOpsCurrent += 1;
       setProgress(float(nOpsCurrent) / nOpsTotal);
     }
 
+    //! Constructor with a given title and number of operations. Starts the progress bar as soon as it is created
     ProgressBar::ProgressBar(const std::string &&title, size_t nOps) : title(title), stream(std::cerr),
                                                                        nOpsTotal(nOps) {
       width = 80;
@@ -115,10 +124,12 @@ namespace tools {
       thread = std::thread([this]() { this->runUpdateLoop(); });
     }
 
+    //! Destructor - terminates progress bar if still in progress.
     ProgressBar::~ProgressBar() {
       terminate();
     }
 
+    //! Updates the progress variable
     void ProgressBar::setProgress(float p) {
       if (p > 1.0)
         p = 1.0;

@@ -14,6 +14,7 @@ namespace particle {
          \class GraficMapper
          \brief A particle mapper specifically for Grafic output, where entire grids are written out in order of
          increasing resolution.
+
         */
     template<typename GridDataType>
     class GraficMapper : public ParticleMapper<GridDataType> {
@@ -28,17 +29,24 @@ namespace particle {
       using typename MapType::ConstGridPtrType;
 
     protected:
-      multilevelcontext::MultiLevelContextInformation<GridDataType> contextInformation;
+      multilevelcontext::MultiLevelContextInformation<GridDataType> contextInformation; //!< Copy of the multi-level context information used by the simulation
 
     public:
 
 
+      /*! \brief Constructor, which accepts a multi-level context, a point in comoving co-ordinates, and the sub/super-sampling factors
+        \param context - reference to the multi-level context being used by the simulation
+        \param center - point to centre the grids used by grafic on
+        \param subsample - sub-sampling factor
+        \param supersample - super-sampling factor
+      */
       GraficMapper(const multilevelcontext::MultiLevelContextInformation<GridDataType> &context,
                    Coordinate<T> center,
                   size_t subsample, size_t supersample) {
         context.copyContextWithCenteredIntermediate(contextInformation, center, 2, subsample, supersample);
       }
 
+      //! Returns true if any grid in the multi-level context is a proxy for the specified grid
       bool references(GridPtrType grid) const override {
         bool hasReference = false;
         contextInformation.forEachLevel([&grid, &hasReference](const GridType &targetGrid) {
@@ -49,15 +57,21 @@ namespace particle {
         return hasReference;
       }
 
+      /*! \brief Outputs debug information to the specified stream about the specified level
+        \param s - stream to output to
+        \param level - level to output information about
+      */
       virtual void debugInfo(std::ostream &s, int level = 0) const override {
         tools::indent(s, level);
         s << "GraficMapper" << endl;
       }
 
+      //! Returns the total number of cells in the stored multi-level context
       virtual size_t size() const override {
         return contextInformation.getNumCells();
       }
 
+      //! Flags the particles in the stored multi-level context specified by genericParticleArray
       virtual void flagParticles(const std::vector<size_t> &genericParticleArray) override {
         size_t gridStart = 0;
         size_t i = 0;
@@ -92,20 +106,24 @@ namespace particle {
         propagateFlagsThroughHierarchy();
       }
 
+      //! Unflag all the particles on every level of the stored multi-level context
       virtual void unflagAllParticles() override {
         contextInformation.forEachLevel([](GridType &targetGrid) {
           targetGrid.unflagAllCells();
         });
       }
 
+      //! Returns a pointer to the coarsest grid in the stored multi-level context
       virtual GridPtrType getCoarsestGrid() override {
         return contextInformation.getGridForLevel(0).shared_from_this();
       }
 
+      //! Returns a pointer to the finest grid in the stored multi-level context
       GridPtrType getFinestGrid() override {
         return contextInformation.getGridForLevel(contextInformation.getNumLevels() - 1).shared_from_this();
       }
 
+      //! Copies the flags in the stored multi-level context to particleArray
       void getFlaggedParticles(std::vector<size_t> &particleArray) const override {
         size_t offset = 0;
         contextInformation.forEachLevel([&particleArray, &offset](const GridType &targetGrid) {
@@ -122,6 +140,7 @@ namespace particle {
         });
       }
 
+      //! Required by the mapper base class, but not implemented.
       virtual void
       dereferenceIterator(const iterator * /* *pIterator */, ConstGridPtrType & /*&gp*/,
                           size_t & /*&i*/) const override {

@@ -70,23 +70,26 @@ namespace filters {
   template<typename T>
   class NullFilter : public Filter<T> {
   public:
+
+    //! Default constructor
     NullFilter() {
-
-
     }
 
+    //! Provided for compatibility with filters that do take a wavenumber cut
     NullFilter(T /*k_cut*/) {
-      // provided for compatibility with filters that do take a wavenumber cut
     }
 
+    //! Returns 0. Everything is filtered out by the null filter.
     T operator()(T /*x*/) const override {
       return 0.0;
     }
 
+    //! Returns a copy of this filter.
     std::shared_ptr<Filter<T>> clone() const override {
       return std::make_shared<NullFilter<T>>();
     }
 
+    //! Output debug information to the specified stream.
     virtual void debugInfo(std::ostream &s) const override {
       s << "NullFilter";
     }
@@ -100,7 +103,8 @@ namespace filters {
   template<typename T>
   class DivisionFilter : public Filter<T> {
   protected:
-    std::shared_ptr<Filter<T>> pFirst, pSecond;
+    std::shared_ptr<Filter<T>> pFirst; //!< Pointer to the first filter (numerator)
+    std::shared_ptr<Filter<T>> pSecond; //!< Pointer to the second filter (denominator)
   public:
     //! \brief Constructor
     /*!
@@ -141,7 +145,7 @@ namespace filters {
 
     }
 
-    //!Clone this filter and its sub-filters.
+    //! Clone this filter and its sub-filters.
     virtual std::shared_ptr<Filter<T>> clone() const override {
       // simplification/optimization:
       if (typeid(*pFirst) == typeid(Filter<T>))
@@ -205,7 +209,7 @@ namespace filters {
 
   /*! \class ComplementaryCovarianceFilterAdaptor
   \brief Complementary filter when applied to covariance
-  Returns \sqrt{1 - f(k)^2} for filter f
+  Returns sqrt{1 - f(k)^2} for filter f
   */
   template<typename UnderlyingType, typename T=typename UnderlyingType::ReturnType>
   class ComplementaryCovarianceFilterAdaptor : public Filter<T> {
@@ -239,15 +243,17 @@ namespace filters {
   };
 
   /*! \class ComplementaryFilterAdaptor
-  \brief Naive complementary filter
-  Returns 1 - f(k) for filter f
+      \brief Naive complementary filter
+
+       This filter is constructed from another filter, and returns 1 - f(k) for filter f.
   */
   template<typename UnderlyingType, typename T=typename UnderlyingType::ReturnType>
   class ComplementaryFilterAdaptor : public Filter<T> {
   private:
-    std::shared_ptr<Filter<T>> pUnderlying;
+    std::shared_ptr<Filter<T>> pUnderlying; //!< Pointer to the underlying filter.
   public:
 
+    //! Constructor taking arbitrary arguments, which are used to construct the underlying filter
     template<typename... Args>
     ComplementaryFilterAdaptor(Args &&... args) {
       pUnderlying = std::make_shared<UnderlyingType>(std::forward<Args>(args)...);

@@ -11,7 +11,8 @@ namespace tools {
  */
   namespace numerics {
 
-    /** Spline interpolation object
+    /*! \class Interpolator
+        \brief Spline interpolation object
        *
        * Wraps the GSL spline library
        */
@@ -22,19 +23,22 @@ namespace tools {
       static_assert(std::is_same<T, double>::value, "Only support interpolation over doubles");
 
     private:
-      gsl_interp_accel *acc;
-      gsl_spline *spline;
+      gsl_interp_accel *acc; //!< Accelerator which allows rapid searching to find the right polynomial to use
+      gsl_spline *spline; //!< Spline object that performs the evaluation
 
     public:
+      //! Default constructor - no spline or acc specified
       Interpolator() {
         acc = nullptr;
         spline = nullptr;
       }
 
+      //! Constructor defined from a source and value vector
       Interpolator(std::vector<T> &x, std::vector<T> &y) : Interpolator() {
         initialise(x, y);
       }
 
+      //! Initialise the gsl spline required for these data
       void initialise(std::vector<T> &x, std::vector<T> &y) {
         assert(x.size() == y.size());
         deinitialise();
@@ -43,6 +47,7 @@ namespace tools {
         gsl_spline_init(spline, x.data(), y.data(), x.size());
       }
 
+      //! De-initialise the gsl spline:
       void deinitialise() {
         if (spline != nullptr)
           gsl_spline_free(spline);
@@ -52,10 +57,12 @@ namespace tools {
         acc = nullptr;
       }
 
+      //! Destructor (de-initialises the spline)
       ~Interpolator() {
         deinitialise();
       }
 
+      //! Evaluates the spline-function at the specified value of x
       T operator()(T x) const {
         return gsl_spline_eval(spline, x,
                                nullptr); // not able to pass accelerator as final argument because it is not thread-safe

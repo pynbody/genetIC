@@ -22,10 +22,14 @@
 
 namespace tools {
   namespace numerics {
+    /*! \namespace tools::numerics::fourier
+        \brief Provides code that handles fourier transforms, and interfaces with the FFTW library.
+    */
     namespace fourier {
 
       bool fftwThreadsInitialised = false;
 
+      //! Initialises the FFTW threads if they haven't already been initialised
       void initialise() {
         if (fftwThreadsInitialised)
           return;
@@ -47,18 +51,22 @@ namespace tools {
         fftwThreadsInitialised = true;
       }
 
+      /*! \class FieldFourierManagerBase
+          \brief Class that handles all operations to do with Fourier transforms used by the code.
+      */
       template<typename DataType>
       class FieldFourierManagerBase {
       protected:
         using CoordinateType = tools::datatypes::strip_complex<DataType>;
         using ComplexType = tools::datatypes::ensure_complex<DataType>;
-        fields::Field<DataType, CoordinateType> &field;
-        const grids::Grid<CoordinateType> &grid;
-        int size;
-        int nyquistIfEvenElseZero;
-        int largestNegativeMode;
+        fields::Field<DataType, CoordinateType> &field; //!< Reference to a field to which Fourier operations will be applied.
+        const grids::Grid<CoordinateType> &grid; //!< Constant reference to the grid on which the Fourier transform is applied.
+        int size; //!< number of points in the Fourier transform
+        int nyquistIfEvenElseZero; //!< Zero if odd number of points, otherwise, half the number of points.
+        int largestNegativeMode; //!< Largest negative mode for Fourier transforms of this size.
 
 
+        //! Construct a FieldFourierManagerBase object for a given field
         FieldFourierManagerBase(fields::Field<DataType, CoordinateType> &field) : field(field), grid(field.getGrid()) {
           size = static_cast<int>(grid.size);
           nyquistIfEvenElseZero = size / 2;
@@ -70,6 +78,7 @@ namespace tools {
             nyquistIfEvenElseZero = 0;
         }
 
+        //! Applies the callback function iteratively over a Fourier space field, summing up the result of the function over all cells
         ComplexType
         iterateFourierCellsWithAccumulation(const std::function<ComplexType(int, int, int)> &callback) const {
           field.toFourier();
@@ -113,6 +122,7 @@ namespace tools {
 
         }
 
+        //! Apply the callback function to all cells (no return type)
         void iterateFourierCells(const std::function<void(int, int, int)> &callback) const {
           // TODO: this is good because we only need to implement the loop over fourier cells once,
           // but bad because functions that are not actually accumulating will waste time accumulating zeros
@@ -126,22 +136,27 @@ namespace tools {
 
       public:
 
+        //! Destructor
         virtual ~FieldFourierManagerBase() {
 
         }
 
+        //! Used to ensure that the Fourier transform of a real quantity will have correctly mirrored Fourier modes
         virtual void ensureFourierModesAreMirrored() {
 
         }
 
-        void forEachFourierCell(
-            const std::function<ComplexType(ComplexType, CoordinateType, CoordinateType, CoordinateType)> &fn) {
-          /** Iterate (potentially in parallel) over each Fourier cell, updating the corresponding value according to the
+        /*! \brief Iterate (potentially in parallel) over each Fourier cell, applying the function fn to each cell
+            \param fn - The passed function takes arguments (value, kx, ky, kz) where value is the Fourier coeff value
+           * at k-mode kx, ky, kz. It returns the new value.
+
+             Updates the corresponding value according to the
            * passed function return value.
            *
-           * The passed function takes arguments (value, kx, ky, kz) where value is the Fourier coeff value
-           * at k-mode kx, ky, kz. It returns the new value.
            */
+        void forEachFourierCell(
+            const std::function<ComplexType(ComplexType, CoordinateType, CoordinateType, CoordinateType)> &fn) {
+
           CoordinateType kMin = grid.getFourierKmin();
           iterateFourierCells([&fn, this, kMin](int kx, int ky, int kz) {
             ComplexType value = getFourierCoefficient(kx, ky, kz);
@@ -151,13 +166,12 @@ namespace tools {
         }
 
 
-        void forEachFourierCell(
-            const std::function<void(ComplexType, CoordinateType, CoordinateType, CoordinateType)> &fn) const {
-          /** Iterate (potentially in parallel) over each Fourier cell.
-           *
-           * The passed function takes arguments (value, kx, ky, kz) where value is the Fourier coeff value
+        /*! \brief Iterate (potentially in parallel) over each Fourier cell, applying function fn which returns no result
+            \param fn - The passed function takes arguments (value, kx, ky, kz) where value is the Fourier coeff value
            * at k-mode kx, ky, kz.
            */
+        void forEachFourierCell(
+            const std::function<void(ComplexType, CoordinateType, CoordinateType, CoordinateType)> &fn) const {
           CoordinateType kMin = grid.getFourierKmin();
           iterateFourierCells([&fn, this, kMin](int kx, int ky, int kz) {
             ComplexType value = getFourierCoefficient(kx, ky, kz);
@@ -165,12 +179,11 @@ namespace tools {
           });
         }
 
-        void forEachFourierCellInt(const std::function<void(ComplexType, int, int, int)> &fn) const {
-          /** Iterate (potentially in parallel) over each Fourier cell.
-           *
-           * The passed function takes arguments (value, kx, ky, kz) where value is the Fourier coeff value
+        /*! \brief Iterate (potentially in parallel) over each Fourier cell.
+            \param fn - The passed function takes arguments (value, kx, ky, kz) where value is the Fourier coeff value
            * at k-mode corresponding to the integer wavenumbers kx*grid.getFourierKmin() etc
            */
+        void forEachFourierCellInt(const std::function<void(ComplexType, int, int, int)> &fn) const {
           CoordinateType kMin = grid.getFourierKmin();
           iterateFourierCells([&fn, this, kMin](int kx, int ky, int kz) {
             ComplexType value = getFourierCoefficient(kx, ky, kz);
@@ -178,13 +191,12 @@ namespace tools {
           });
         }
 
-        void forEachFourierCellInt(const std::function<ComplexType(ComplexType, int, int, int)> &fn) {
-          /** Iterate over, and update the value in, each Fourier cell. Possibly executed in parallel.
-           *
-           * The passed function takes arguments (value, kx, ky, kz) where value is the Fourier coeff value
+        /*! \brief Iterate over, and update the value in, each Fourier cell. Possibly executed in parallel.
+            \param fn - The passed function takes arguments (value, kx, ky, kz) where value is the Fourier coeff value
            * at k-mode corresponding to the integer wavenumbers kx*grid.getFourierKmin() etc.
            * It must return the updated value.
            */
+        void forEachFourierCellInt(const std::function<ComplexType(ComplexType, int, int, int)> &fn) {
           CoordinateType kMin = grid.getFourierKmin();
           iterateFourierCells([&fn, this, kMin](int kx, int ky, int kz) {
             ComplexType value = getFourierCoefficient(kx, ky, kz);
@@ -193,12 +205,11 @@ namespace tools {
           });
         }
 
+        /*! \brief Iterate (potentially in parallel) and accumulate a complex number over each Fourier cell.
+            \param callback - The passed function takes arguments (value, kx, ky, kz). The return value is accumulated.
+           */
         ComplexType
         accumulateForEachFourierCell(const std::function<ComplexType(ComplexType, int, int, int)> &callback) const {
-          /** Iterate (potentially in parallel) and accumulate a complex number over each Fourier cell.
-           *
-           * The passed function takes arguments (value, kx, ky, kz). The return value is accumulated.
-           */
           field.toFourier();
           auto result = iterateFourierCellsWithAccumulation([&callback, this](int kx, int ky, int kz) -> ComplexType {
             ComplexType value = getFourierCoefficient(kx, ky, kz);
@@ -210,6 +221,7 @@ namespace tools {
         }
 
 
+        //! Takes a function outputting a tuple of three complex numbers, and iterates it over the Fourier grid, to create three Fourier fields
         auto generateNewFourierFields(
             const std::function<std::tuple<ComplexType, ComplexType, ComplexType>(ComplexType, CoordinateType,
                                                                                   CoordinateType,
@@ -236,20 +248,26 @@ namespace tools {
 
       public:
 
+        //! Sets the specified Fourier coefficient to the specified value
         virtual void setFourierCoefficient(int kx, int ky, int kz, const ComplexType &val)=0;
 
+        //! Returns the value of the Fourier coefficient at the specified integer wave-numbers
         virtual ComplexType getFourierCoefficient(int kx, int ky, int kz) const =0;
       };
 
+      /*! \class FieldFourierManager<double>
+          \brief Fourier manager class, specialised for real fields
+      */
       template<>
       class FieldFourierManager<double> : public FieldFourierManagerBase<double> {
       protected:
         using T=double;
-        int size;
-        size_t compressed_size;
-        fftw_plan forwardPlan;
-        fftw_plan reversePlan;
+        int size; //!< Number of elements in the set to apply discrete Fourier transform to.
+        size_t compressed_size; //!< Compressed size, exploiting symmetry of real discrete Fourier transforms.
+        fftw_plan forwardPlan; //!< Method used for going from real space to Fourier space.
+        fftw_plan reversePlan; //!< Method used for going from Fourier space to real space.
 
+        //! Re-organises the wave-numbers to lie in the positive quadrant, and returns to a linear index (and whether we conjugated the field)
         auto getRealCoeffLocationAndConjugation(int kx, int ky, int kz) const {
           bool conjugate = false;
           if (kz < 0) {
@@ -272,13 +290,17 @@ namespace tools {
         }
 
       public:
+        /*! \brief Ensures mirrored Fourier modes for real fields.
+
+            For conceptual ease, the FFTW real transformations contain some duplicate data
+            see  http://www.fftw.org/fftw3_doc/Multi_002dDimensional-DFTs-of-Real-Data.html
+
+            we always address positive fourier modes where there is an ambiguity, but it is
+            not clear that FFTW does the same, so before a transform back to real space we need
+            to fill in the missing modes.
+        */
         void ensureFourierModesAreMirrored() override {
-          // for conceptual ease, the FFTW real transformations contain some duplicate data
-          // see  http://www.fftw.org/fftw3_doc/Multi_002dDimensional-DFTs-of-Real-Data.html
-          //
-          // we always address positive fourier modes where there is an ambiguity, but it is
-          // not clear that FFTW does the same, so before a transform back to real space we need
-          // to fill in the missing modes.
+
 
           bool unused;
 
@@ -307,12 +329,15 @@ namespace tools {
 
       protected:
 
+        /*! \brief Convert to the FFTW real format
+
+          More precisely, converts from our internal array format (which is just a standard column-major rep)
+          to the FFTW real-packed version which has padding every grid_size
+
+          see http://www.fftw.org/fftw3_doc/Multi_002dDimensional-DFTs-of-Real-Data.html
+        */
         void padForFFTWRealTransform() {
 
-          // convert from our internal array format (which is just a standard column-major rep)
-          // to the FFTW real-packed version which has padding every grid_size
-          //
-          // see http://www.fftw.org/fftw3_doc/Multi_002dDimensional-DFTs-of-Real-Data.html
           size_t source_range_end = FieldFourierManagerBase::grid.size3;
           size_t padding_amount = compressed_size * 2 - FieldFourierManagerBase::grid.size;
           size_t target_range_end =
@@ -331,8 +356,8 @@ namespace tools {
 
         }
 
+        //! Reverse transformation of padForFFTWRealTransform
         void unpadAfterFFTWRealTransform() {
-          // reverse of padForFFTWRealTransform
 
           size_t source_range_start = 0;
           size_t target_range_start = 0;
@@ -351,6 +376,7 @@ namespace tools {
         }
 
       public:
+        //! Constructor from a real field
         FieldFourierManager(fields::Field<double, double> &field) : FieldFourierManagerBase(field) {
           size = static_cast<int>(FieldFourierManagerBase::grid.size);
           compressed_size = FieldFourierManagerBase::grid.size / 2 + 1;
@@ -358,6 +384,7 @@ namespace tools {
           reversePlan = nullptr;
         }
 
+        //! Destructor
         virtual ~FieldFourierManager() {
           if (forwardPlan != nullptr) {
             fftw_destroy_plan(forwardPlan);
@@ -369,6 +396,7 @@ namespace tools {
           }
         }
 
+        //! Sets the specified Fourier coefficient to val (accounting for mirrored Fourier modes as real field)
         void setFourierCoefficient(int kx, int ky, int kz, const std::complex<T> &val) override {
           bool conj;
           size_t index_re;
@@ -385,6 +413,7 @@ namespace tools {
 
         }
 
+        //! Returns the specified Fourier coefficient (accounting for mirrored Fourier modes as real field)
         std::complex<T> getFourierCoefficient(int kx, int ky, int kz) const override {
           bool conj;
           size_t index_re;
@@ -399,6 +428,7 @@ namespace tools {
 
         }
 
+        //! Returns the size of the data storage needed to store a real Fourier transform (less than for a generic FT)
         size_t getRequiredDataSize() {
           // for FFTW3 real<->complex FFTs
           // see http://www.fftw.org/fftw3_doc/Real_002ddata-DFT-Array-Format.html#Real_002ddata-DFT-Array-Format
@@ -406,6 +436,7 @@ namespace tools {
               FieldFourierManagerBase::field.getGrid().size / 2 + 1);
         }
 
+        //! Performs the Fourier transform, interfacing with FFTW
         void performTransform() {
           auto &fieldData = FieldFourierManagerBase::field.getDataVector();
 
@@ -456,14 +487,17 @@ namespace tools {
 
       };
 
+      //! FieldFourierManager specialisation to deal with Fourier transforms of complex fields.
       template<>
       class FieldFourierManager<std::complex<double>> : public FieldFourierManagerBase<std::complex<double>> {
         using T=double;
       public:
+        //! Constructor from a complex field
         FieldFourierManager(fields::Field<std::complex<T>, T> &field) : FieldFourierManagerBase(field) {
 
         }
 
+        //! Sets the specified Fourier coefficient to val
         void setFourierCoefficient(int kx, int ky, int kz, const std::complex<T> &val) {
           size_t id_k, id_negk;
 
@@ -474,14 +508,17 @@ namespace tools {
           field[id_negk] = std::conj(val);
         }
 
+        //! Returns the specified Fourier coefficient
         std::complex<T> getFourierCoefficient(int kx, int ky, int kz) const {
           return field[grid.getIndexFromCoordinate(Coordinate<int>(kx, ky, kz))];
         }
 
+        //! Returns space required to store Fourier information (always the size of the full grid for Fourier transforms of complex fields)
         size_t getRequiredDataSize() {
           return field.getGrid().size3;
         }
 
+        //! Performs the Fourier transform operation, in this cases assuming the field is generic (ie, complex)
         void performTransform() {
 
           auto &fieldData = field.getDataVector();
@@ -518,9 +555,7 @@ namespace tools {
 
       };
 
-      template<typename T>
-      int getNyquistModeThatMustBeReal(const grids::Grid<T> &g);
-
+      //! Returns half the number of elements in the grid if even, and an arbitrary large number otherwise.
       template<typename T>
       int getNyquistModeThatMustBeReal(const grids::Grid<T> &g) {
         int even_nyquist;
@@ -533,6 +568,7 @@ namespace tools {
       }
 
 
+      //! Creates a copy of the field associated to the Fourier manager
       template<typename T>
       fields::Field<tools::datatypes::ensure_complex<T>, tools::datatypes::strip_complex<T>>
       getComplexFourierField(const fields::Field<T, tools::datatypes::strip_complex<T>> &field) {
@@ -545,13 +581,15 @@ namespace tools {
           out.setFourierCoefficient(kx, ky, kz, value);
         });
 
-        return out;
+        return out; // TODO - this seems quite inefficient, because it returns the field by value (after already creating a copy of it once already!)
       };
 
-
+      //! Performs FFT for specified field (only implemented for T = std::complex<double>, S = double)
       template<typename T, typename S>
       void performFFT(fields::Field<T, S> &field);
 
+
+      //! Specialisation to perform FFT for T = std::complex<double>, S = double
       template<>
       void performFFT(fields::Field<std::complex<double>, double> &field) {
 

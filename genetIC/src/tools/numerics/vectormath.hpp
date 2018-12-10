@@ -6,6 +6,7 @@
 
 namespace tools {
   namespace numerics {
+    //! Multiplyies vector a by constant b
     template<typename T, typename S>
     void operator*=(std::vector<T> &a, S b) {
 #pragma omp parallel for
@@ -14,6 +15,7 @@ namespace tools {
       }
     }
 
+    //! Divides vector a by constant b
     template<typename T, typename S>
     void operator/=(std::vector<T> &a, S b) {
 #pragma omp parallel for
@@ -22,6 +24,7 @@ namespace tools {
       }
     }
 
+    //! Multiplies each element of vector a by the corresponding element of vector b
     template<typename T>
     void operator*=(std::vector<T> &a, const std::vector<T> &b) {
       assert(a.size() == b.size());
@@ -31,6 +34,7 @@ namespace tools {
       }
     }
 
+    //! Divides each element of vector a by the corresponding element of vector b
     template<typename T>
     void operator/=(std::vector<T> &a, const std::vector<T> &b) {
       assert(a.size() == b.size());
@@ -40,6 +44,10 @@ namespace tools {
       }
     }
 
+    /*! \brief Outputs the content of a vector to a stream
+        \param output - stream to output vector to.
+        \param a - vector to output.
+    */
     template<typename T>
     std::ostream &operator<<(std::ostream &output, const std::vector<T> &a) {
       output << "[";
@@ -49,6 +57,7 @@ namespace tools {
       return output;
     }
 
+    //! Returns a vector whose elements are the real parts of the elements of input.
     template<typename T>
     std::vector<T> real(const std::vector<std::complex<T>> &input) {
       std::vector<T> output;
@@ -60,6 +69,7 @@ namespace tools {
       return output;
     }
 
+    //! For real inputs, returns a vector with the same elements as input
     template<typename T>
     std::vector<T> real(const std::vector<T> &input) {
       std::vector<T> output;
@@ -71,6 +81,7 @@ namespace tools {
       return output;
     }
 
+    //! Returns a vector whose elements are the absolute values of the elements of input
     template<typename T>
     std::vector<decltype(std::abs(T{}))> abs(const std::vector<T> &input) {
       std::vector<T> output;
@@ -82,6 +93,7 @@ namespace tools {
       return output;
     }
 
+    //! Returns a vector whose elements are the imaginary parts of the complex vector input.
     template<typename T>
     std::vector<T> imag(const std::vector<std::complex<T>> &input) {
       std::vector<T> output;
@@ -93,6 +105,7 @@ namespace tools {
       return output;
     }
 
+    //! Returns a vector whose elements are the products of the vectors a and b (which are not modified)
     template<typename T>
     std::vector<T> operator*(const std::vector<T> &a, const std::vector<T> &b) {
       std::vector<T> output;
@@ -105,6 +118,7 @@ namespace tools {
       return output;
     }
 
+    //! Returns a vector whose elements are the ratio a_i/b_i for elements a_i and b_i of a and b respectively
     template<typename T>
     std::vector<T> operator/(const std::vector<T> &a, const std::vector<T> &b) {
       std::vector<T> output;

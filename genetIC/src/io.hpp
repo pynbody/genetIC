@@ -33,6 +33,14 @@ namespace io {
     gadget2 = 2, gadget3, tipsy, grafic
   };
 
+  /*! \namespace io::numpy
+      \brief Deals with output to numpy formats.
+  */
+
+  /*! \namespace io::numpy::detail
+      \brief Detailed implementation of numpy output/input.
+  */
+
 }
 
 

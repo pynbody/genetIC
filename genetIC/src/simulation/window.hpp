@@ -4,14 +4,22 @@
 #include "coordinate.hpp"
 #include <cmath>
 
+/*! \class Window
+    \brief Defines a window, ie, a cuboid region defined by a lower front left hand side co-ordinate, and an upper back right hand side co-ordinate
+*/
 template<typename T>
 class Window {
 protected:
-  T wrapLength;
-  Coordinate<T> upperCornerExclusive;
-  Coordinate<T> lowerCornerInclusive;
+  T wrapLength; //!< Periodicity scale after which co-ordinates wrap back on themselves
+  Coordinate<T> upperCornerExclusive; //!< Upper back right hand side corner, but not included in the window itself
+  Coordinate<T> lowerCornerInclusive; //!< Lower front left hand side corner, included in the window
 
 
+  /*! \brief Returns true if a value is in a given range, taking into account periodicity
+      \param lowInclusive - lower bound of the range (included in range)
+      \param highExclusive - upper bound of the range (excluded from range)
+      \param testVal - value we wish to check
+  */
   bool withinWrapped(T lowInclusive, T highExclusive, T testVal) const {
     if (highExclusive >= lowInclusive)
       return testVal < highExclusive && testVal >= lowInclusive;
@@ -19,51 +27,69 @@ protected:
       return testVal < highExclusive || testVal >= lowInclusive;
   }
 
+  //! Increments a variable by the smallest amount computationally possible
   template<typename S>
   static S smallIncrement(S val) {
     return std::nextafter(val, std::numeric_limits<S>::infinity());
   }
 
+  //! Specialisation to integers
   static int smallIncrement(int i) {
     return i + 1;
   }
 
+  //! Decrements a variable by the smallest amount computationally possible
   template<typename S>
   static S smallDecrement(S val) {
     return std::nextafter(val, -std::numeric_limits<S>::infinity());
   }
 
+  //! Specialisation to integers
   static int smallDecrement(int i) {
     return i - 1;
   }
 
+  //! Performs a small increment for all components of a co-ordinate
   static Coordinate<T> smallIncrement(const Coordinate<T> &input) {
     return Coordinate<T>(smallIncrement(input.x), smallIncrement(input.y), smallIncrement(input.z));
   }
 
+  //! Performs a small decrement for all components of a co-ordinate
   static Coordinate<T> smallDecrement(const Coordinate<T> &input) {
     return Coordinate<T>(smallDecrement(input.x), smallDecrement(input.y), smallDecrement(input.z));
   }
 
 
 public:
+  //! Construct an empty window, with zero wrap length
   Window() : wrapLength(0) { }
 
+  /*! \brief Constructs a window with the given wrap length, and the smallest possible size around the specified initial position
+      \param wrapLength - periodicity scale
+      \param initialPosition - lower front left hand corner of window
+  */
   Window(T wrapLength, Coordinate<T> initialPosition) : wrapLength(wrapLength) {
     upperCornerExclusive = smallIncrement(initialPosition);
     lowerCornerInclusive = initialPosition;
     assert(this->contains(initialPosition));
   }
 
+  /*! \brief Constructs a window with the specified wrap length, and lower/upper corner
+      \param wrapLength - periodicity scale
+      \param lowInclusive - lower bound of the range (included in range)
+      \param highExclusive - upper bound of the range (excluded from range)
+  */
   Window(T wrapLength, Coordinate<T> lowerCornerInclusive, Coordinate<T> upperCornerExclusive) :
       wrapLength(wrapLength), upperCornerExclusive(upperCornerExclusive), lowerCornerInclusive(lowerCornerInclusive) {
 
   }
 
+  //! Returns a co-ordinate pointing to the centre of the current window
   Coordinate<T> getCurrentCentre() const {
     return wrap(lowerCornerInclusive + wrap(smallDecrement(upperCornerExclusive) - lowerCornerInclusive) / 2);
   }
 
+  //! Wraps the specified variable with the defined periodicity, so it lies in the fundamental domain
   T wrap(T source) const {
     if (source < 0) source += wrapLength;
     if (source >= wrapLength) source -= wrapLength;
@@ -88,24 +114,32 @@ public:
     return distance;
   }
 
+  //! Get the offset between two co-ordinates, taking into account wrapping
   Coordinate<T> getWrappedOffset(const Coordinate<T> &a, const Coordinate<T> &b) const {
     return Coordinate<T>(getWrappedOffset(a.x, b.x), getWrappedOffset(a.y, b.y), getWrappedOffset(a.z, b.z));
   }
 
+  //! Returns a co-ordinate pointing from the lower front left to the upper back right hand corner, wrapped into the fundamental domain
   Coordinate<T> getSizes() const {
     Coordinate<T> size = upperCornerExclusive - lowerCornerInclusive;
     return wrap(size);
   }
 
+  //! Returns the position of the lower front left hand corner
   Coordinate<T> getLowerCornerInclusive() const {
     return lowerCornerInclusive;
   }
 
+  //! Returns the largest dimension of the cuboid window
   T getMaximumDimension() const {
     auto offset = getSizes();
     return std::max({offset.x, offset.y, offset.z});
   }
 
+  /*! \brief Expand the window to include the specidied co-ordinate, in the specified direction only
+    \param include - co-ordinate we need to include
+    \param coord - x,y, or z, ie, direction to expand in.
+  */
   void expandToInclude(const Coordinate<T> &include, T Coordinate<T>::*coord) {
     if (!withinWrapped(lowerCornerInclusive.*coord, upperCornerExclusive.*coord, include.*coord)) {
       T sizeIfMovingLower = wrap(upperCornerExclusive.*coord - include.*coord - 1) + 1;
@@ -123,12 +157,14 @@ public:
     }
   }
 
+  //! Expand along all dimensions to include the specified co-ordinate in the window
   void expandToInclude(const Coordinate<T> &include) {
     expandToInclude(include, &Coordinate<T>::x);
     expandToInclude(include, &Coordinate<T>::y);
     expandToInclude(include, &Coordinate<T>::z);
   }
 
+  //! Expand symmetrically in all directions to make the new distance between upper and lower corners equal to newSize
   void expandSymmetricallyToSize(T newSize) {
     assert(getMaximumDimension() <= newSize);
     auto centre = getCurrentCentre();
@@ -163,6 +199,7 @@ public:
 
   }
 
+  //! Returns true if the window contains the test co-ordinate
   bool contains(const Coordinate<T> &test) const  {
     bool inX, inY, inZ;
     inX = withinWrapped(lowerCornerInclusive.x, upperCornerExclusive.x, test.x);
@@ -171,6 +208,10 @@ public:
     return inX && inY && inZ;
   }
 
+  /*! \brief Returns true if the test co-ordinate lies within the window, and is not within safety threshold of the edge for any component
+      \param test - co-ordinate to check
+      \param safety - threshold - fails test if some component is closer to the edge than this
+  */
   bool containsWithBorderSafety(const Coordinate<T> &test, T safety) const {
     bool inX, inY, inZ;
     inX = withinWrapped(lowerCornerInclusive.x + safety, upperCornerExclusive.x - safety, test.x);

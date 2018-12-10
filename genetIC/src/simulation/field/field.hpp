@@ -20,6 +20,9 @@
 namespace tools {
   namespace numerics {
     namespace fourier {
+      /*! \class FieldFourierManager
+          \brief Class for handling Fourier transforms. Has complex and real specialisations.
+      */
       template<typename T>
       class FieldFourierManager;
     }
@@ -61,10 +64,10 @@ namespace fields {
 
 
   protected:
-    const TPtrGrid pGrid;
-    std::shared_ptr<FourierManager> fourierManager;
-    TData data;
-    bool fourier;
+    const TPtrGrid pGrid; //!< Pointer to the grid on which the field is defined.
+    std::shared_ptr<FourierManager> fourierManager; //!< Class to handle Fourier transforms of this field.
+    TData data; //!< Vector which stores the underlying data associated to the field
+    bool fourier; //!< If true, then the field is regarded as being in Fourier space. Switched by Fourier transforms.
 
   public:
     //! Construct a field on the specified grid by moving the given field

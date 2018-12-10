@@ -9,7 +9,8 @@
 #include <string>
 
 namespace fields {
-  /*! \brief The base class for field evaluators.
+  /*! \class EvaluatorBase
+      \brief The base class for field evaluators.
    *
    * Field evaluators exist to allow fields to be evaluated on grids which are not the same literal grid that
    * they are stored on. This is useful for example when supersampling or subsampling.
@@ -39,7 +40,12 @@ namespace fields {
     }
   };
 
-  //! \brief Evaluator that is appropriate when the grid and the field match perfectly.
+  /*! \class DirectEvaluator
+      \brief Evaluator that is appropriate when the grid and the field match perfectly.
+
+      If we evaluate at a point that is stored, then this evaluator just retrieves the date, otherwise
+      it will use interpolation to obtain a value at the specified point.
+  */
   template<typename DataType, typename CoordinateType = tools::datatypes::strip_complex<DataType>>
   class DirectEvaluator : public EvaluatorBase<DataType, CoordinateType> {
 
@@ -66,7 +72,12 @@ namespace fields {
   };
 
 
-  //! \brief Evaluator that is appropriate when the grid is at a different resolution compared with the grid storage
+  /*!   \class SuperSampleEvaluator
+        \brief Evaluator that is appropriate when the grid is at a different resolution compared with the grid storage
+
+        This evaluator generally always has to use interpolation to get the field at the specified points, because
+        the data is not stored at the same resolution we are evaluating the field at.
+  */
   template<typename DataType, typename CoordinateType = tools::datatypes::strip_complex<DataType>>
   class SuperSampleEvaluator : public EvaluatorBase<DataType, CoordinateType> {
 
@@ -99,7 +110,12 @@ namespace fields {
     }
   };
 
-  //! \brief Evaluator that is appropriate when the grid is mapped using SectionOfGrid
+  /*!   \class SectionEvaluator
+        \brief Evaluator that is appropriate when the grid is mapped using SectionOfGrid
+
+        Generally speaking, this works in a similar way to the DirectEvaluator, but has
+        to check that the specified points are actually in the grid section it describes.
+  */
   template<typename DataType, typename CoordinateType = tools::datatypes::strip_complex<DataType>>
   class SectionEvaluator : public EvaluatorBase<DataType, CoordinateType> {
 
@@ -133,7 +149,13 @@ namespace fields {
 
   };
 
-  //! \brief Evaluator used for sub-sampled grids.
+  /*!   \class SubSampleEvaluator
+        \brief Evaluator used for sub-sampled grids.
+
+        This class is used when we are accessing data at a lower resolution than it is stored.
+        We have to use  coarse-graining to average over several stored field values to get the
+        evaluated field.
+  */
   template<typename DataType, typename CoordinateType = tools::datatypes::strip_complex<DataType>>
   class SubSampleEvaluator : public EvaluatorBase<DataType, CoordinateType> {
 
@@ -169,7 +191,13 @@ namespace fields {
     }
   };
 
-  //! \brief Evaluator used for resolution-matching grids.
+  /*!   \class ResolutionMatchingEvaluator
+        \brief Evaluator used for resolution-matching grids.
+
+        Resolution matching grids use a high-resolution window embedded in a low resolution box. Thus, this
+        evaluator simply checks whether we are in the high resolution window or not, and passes the
+        evaluation work to the relevant evaluator. It stores evaluators for both grids.
+  */
   template<typename DataType, typename CoordinateType = tools::datatypes::strip_complex<DataType>>
   class ResolutionMatchingEvaluator : public EvaluatorBase<DataType, CoordinateType> {
 

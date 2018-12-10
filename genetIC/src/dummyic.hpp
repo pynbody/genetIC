@@ -3,18 +3,27 @@
 
 #include "ic.hpp"
 
+/*! \class DummyICGenerator
+    \brief Special ICGenerator that is used for running parameter files for an input mapper.
+
+    Adds some additional checking when adding levels, to ensure that we use an input mapper
+    consistent with the underlying ICGenerator. Also, overrides some functions of the ICgenerator
+    class to suppress actions that aren't useful for the purposes of the input mapper.
+*/
 template<typename GridDataType>
 class DummyICGenerator : public ICGenerator<GridDataType> {
 protected:
-  ICGenerator<GridDataType> *pUnderlying;
+  ICGenerator<GridDataType> *pUnderlying; //!< Underlying ICGenerator calling the input mapper
 public:
   using typename ICGenerator<GridDataType>::T;
 
+  //! Constructor with a specified ICGenerator
   DummyICGenerator(ICGenerator<GridDataType> *pUnderlying) : ICGenerator<GridDataType>(pUnderlying->interpreter),
                                                              pUnderlying(pUnderlying) {
 
   }
 
+  //! Adds a level to this dummy context
   void addLevelToContext(const cosmology::CAMB<GridDataType> & spectrum, T gridSize, size_t nside,
                          const Coordinate<T> &offset = {0, 0, 0}) override {
     size_t newLevel = this->multiLevelContext.getNumLevels(); // getNumLevels counts from 1 to N rather than 0 to N-1, which is why newLevel defined this way does not exist yet
@@ -61,24 +70,34 @@ public:
   }
 
 
+  //! Calls to this function will actually have no effect.
   void zeroLevel(size_t /*level*/,size_t) override {}
 
+  //! Calls to this function will actually have no effect.
   void applyPowerSpec(size_t) override {}
 
+  //! Calls to this function will actually have no effect.
   void dumpGrid(size_t /*level*/,size_t) override {}
 
+  //! Calls to this function will actually have no effect.
   void dumpPS(size_t,size_t) override {}
 
+  //! Calls to this function will actually have no effect.
   void dumpMask() override {}
 
+  //! Calls to this function will actually have no effect.
   virtual void initialiseParticleGenerator(size_t) override {}
 
+  //! Calls to this function will actually have no effect.
   void dumpID(string /*fname*/) override {}
 
+  //! Calls to this function will actually have no effect.
   void write() override {}
 
+  //! Calls to this function will actually have no effect.
   void modify(string /*name*/, string /*string*/, float /*value*/) override {}
 
+  //! Calls to this function will actually have no effect.
   void done() override {}
 };
 

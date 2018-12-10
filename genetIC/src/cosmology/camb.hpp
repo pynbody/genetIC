@@ -13,7 +13,7 @@
  */
 namespace cosmology {
 
-    /*!\class CAMB
+   /*! \class CAMB
    * \brief Load in and provide interpolation routines for the cosmological power spectrum.
    *
    * Currently tied to the CAMB transfer function output format, though this could easily
@@ -23,42 +23,33 @@ namespace cosmology {
   class CAMB {
   protected:
     using CoordinateType=tools::datatypes::strip_complex<DataType>;
-    std::vector<CoordinateType> kcamb; /*!< Wavenumbers read from CAMB file */
-    //std::vector<CoordinateType> Tcamb;  /*!< Transfer function at each k read from CAMB file, for DM field */
-    //std::vector<CoordinateType> Tbar;/*!Transfer function for the baryons.*/
-    //Vector to store transfer functions:
-    std::vector<std::vector<CoordinateType>> T;
-    //Columns of CAMB that we request:
-    size_t cambCols[2] = {1,2};
-
-
-    //Interpolation functions:
-    std::vector<tools::numerics::Interpolator<CoordinateType>> interpolator;
-    //tools::numerics::Interpolator<CoordinateType> interpolator;
-    //tools::numerics::Interpolator<CoordinateType> interpolator_baryons;
-    CoordinateType amplitude; /*!< Amplitude of the initial power spectrum */
-    CoordinateType ns;        /*!< tensor to scalar ratio of the initial power spectrum*/
-    mutable CoordinateType kcamb_max_in_file; /*!< Maximum CAMB wavenumber. If too small compared to grid resolution, Meszaros solution will be computed */
+    std::vector<CoordinateType> kcamb; //!< Wavenumbers read from CAMB file
+    std::vector<std::vector<CoordinateType>> T; //!< Vector to store transfer functions:
+    size_t cambCols[2] = {1,2}; //!< Columns of CAMB that we request:
+    std::vector<tools::numerics::Interpolator<CoordinateType>> interpolator; //!< Interpolation functions:
+    CoordinateType amplitude; //!< Amplitude of the initial power spectrum
+    CoordinateType ns;        //!< tensor to scalar ratio of the initial power spectrum
+    mutable CoordinateType kcamb_max_in_file; //!< Maximum CAMB wavenumber. If too small compared to grid resolution, Meszaros solution will be computed
 
   public:
-    //Vector which maps inputs to the correct transfer function. Elements are all zero if dmOnly = true,
-    //and just ascending if dmOnly = false. This prevents calls to operator() etc from going out of bounds if
-    //we switch off the use of extra transfer functions, and avoids having to tell all the fields to request
-    //a different transfer function in this case.
-    std::vector<size_t> transferSwitch;
-    //Total number of transfer functions stored:
-    const size_t nTransfers = 2;
-    //Flags whether we want to only use the DM transfer function (true, default option) or to include baryons/others (false);
-    bool dmOnly;
-    bool dataRead;
+    /*! \brief Vector which maps inputs to the correct transfer function.
 
-    //!Constructor:
+       Elements are all zero if dmOnly = true,
+       and just ascending if dmOnly = false. This prevents calls to operator() etc from going out of bounds if
+       we switch off the use of extra transfer functions, and avoids having to tell all the fields to request
+       a different transfer function in this case.*/
+    std::vector<size_t> transferSwitch;
+    const size_t nTransfers = 2; //!< Total number of transfer functions stored:
+    bool dmOnly; //!< True if only using dark matter transfer function in the simulation
+    bool dataRead; //!< True if we have read in data.
+
+    //! Constructor. Assumes that only dark matter is being used, unless we specify otherwise.
     CAMB(bool useOnlyDM = true)
     {
         this->dmOnly = useOnlyDM;
         this->dataRead = false;
-        //Initialise the interpolators and transfer functions vectors to be the
-        //appropriate size, containing default constructed objects.
+        // Initialise the interpolators and transfer functions vectors to be the
+        // appropriate size, containing default constructed objects.
         if(useOnlyDM)
         {
             this->interpolator.resize(1);
@@ -101,12 +92,12 @@ namespace cosmology {
         }
     }
 
-    //!Checks whether the CAMB object actually stores any data:
+    //! Checks whether the CAMB object actually stores any data:
     bool isUsable() const {
       return (kcamb.size() > 0);
     }
 
-    //!Import data from CAMB file and initialise the interpolation functions used to compute the transfer functions:
+    //! Import data from CAMB file and initialise the interpolation functions used to compute the transfer functions:
     void read(std::string incamb, const CosmologicalParameters <CoordinateType> &cosmology) {
       readLinesFromCambOutput(incamb);
       for(size_t i = 0;i < this->T.size();i++)
@@ -118,15 +109,14 @@ namespace cosmology {
       ns = cosmology.ns;
 
       calculateOverallNormalization(cosmology);
-      std::cerr << "amplitude = " << this->amplitude << std::endl;
 
       this->dataRead = true;
 
     }
 
   protected:
-  //!\brief This function imports data from a CAMB file, supplied as a file-name string argument (incamb).
-  //!Both pre-2015 and post-2015 formats can be used, and the function will detect which.
+  //! \brief This function imports data from a CAMB file, supplied as a file-name string argument (incamb).
+  //! Both pre-2015 and post-2015 formats can be used, and the function will detect which.
     void readLinesFromCambOutput(std::string incamb) {
       kcamb.clear();
       for(size_t i  =0;i < this->T.size();i++)
@@ -141,12 +131,12 @@ namespace cosmology {
       int numCols;
       size_t j;
 
-      //Import data from CAMB file:
+      // Import data from CAMB file:
       std::vector<double> input;
 
       io::getBuffer(input, incamb);
 
-      //Check whether the input file is in the pre-2015 or post-2015 format (and throw an error if it is neither).
+      // Check whether the input file is in the pre-2015 or post-2015 format (and throw an error if it is neither).
       numCols = io::getNumberOfColumns(incamb);
 
       if(numCols == c_old_camb)
@@ -163,8 +153,8 @@ namespace cosmology {
       }
 
 
-      CoordinateType transferNormalisation = input[1]; //to normalise CAMB transfer function so T(0)= 1, doesn't matter if we normalise here in terms of accuracy, but feels more natural
-      //Copy file into vectors. Normalise both so that the DM tranfer function starts at 1.
+      CoordinateType transferNormalisation = input[1]; // to normalise CAMB transfer function so T(0)= 1, doesn't matter if we normalise here in terms of accuracy, but feels more natural
+      // Copy file into vectors. Normalise both so that the DM tranfer function starts at 1.
       for (j = 0; j < input.size() / numCols; j++) {
         if (input[numCols * j] > 0) {
           // hard-coded to first two columns of CAMB file -
@@ -201,10 +191,10 @@ namespace cosmology {
 
   public:
 
-    //!\brief Evaluate power spectrum nTransfer at wavenumber k (Mpc/h), including the normalisation
+    //! \brief Evaluate power spectrum nTransfer at wavenumber k (Mpc/h), including the normalisation
     //! nTransfer = 0 -> DM
     //! nTransfer = 1 -> baryons.
-    //!NB - for efficiency, we don't check that nTransfer is within bounds. This is handled by
+    //! NB - for efficiency, we don't check that nTransfer is within bounds. This is handled by
     //! getPowerSpectrumForGrid, which does a single check before applying a guaranteed safe
     //! value to all fourier cells.
     CoordinateType operator()(CoordinateType k,int nTransfer = 0) const {
@@ -223,7 +213,7 @@ namespace cosmology {
       return amplitude * powf(k, ns) * linearTransfer * linearTransfer;
     }
 
-    //!\brief Calculate and associate the theoretical power spectrum to a given grid
+    //! Calculate and associate the theoretical power spectrum to a given grid
     std::shared_ptr<fields::Field<DataType, CoordinateType>>
     getPowerSpectrumForGrid(const grids::Grid<CoordinateType> &grid,size_t nTransfer = 0) const {
       /* Get the variance for each Fourier cell of the specified grid  */
@@ -257,7 +247,7 @@ namespace cosmology {
 
 
   protected:
-    //!\brief Return the cosmology-dependent part of the normalisation of the power spectrum.
+    //! Return the cosmology-dependent part of the normalisation of the power spectrum.
     void calculateOverallNormalization(const CosmologicalParameters <CoordinateType> &cosmology) {
       CoordinateType ourGrowthFactor = growthFactor(cosmology);
       CoordinateType growthFactorNormalized = ourGrowthFactor / growthFactor(cosmologyAtRedshift(cosmology, 0));
@@ -271,7 +261,7 @@ namespace cosmology {
   public:
 
 
-    //!\brief Return the box- and fft-dependent part of the normalisation of the power spectrum
+    //! Return the box- and fft-dependent part of the normalisation of the power spectrum
     static CoordinateType getPowerSpectrumNormalizationForGrid(const grids::Grid<CoordinateType> &grid) {
 
       CoordinateType kw = 2. * M_PI / grid.thisGridSize;

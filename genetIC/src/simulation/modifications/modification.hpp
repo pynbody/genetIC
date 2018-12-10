@@ -12,14 +12,19 @@ namespace modifications {
     T target;    /*!< Target to be achieved by the modification */
 
   protected:
-    multilevelcontext::MultiLevelContextInformation<DataType> &underlying;
-    const cosmology::CosmologicalParameters<T> &cosmology;
-    std::vector<std::vector<size_t>> flaggedCells;    /*!< Region targeted by the modification */
-    unsigned int order;                  /*!< Linear are first order, qudartic are second etc */
+    multilevelcontext::MultiLevelContextInformation<DataType> &underlying; //!< Underlying multi-level context object.
+    const cosmology::CosmologicalParameters<T> &cosmology; //!< Struct containing cosmological parameters.
+    std::vector<std::vector<size_t>> flaggedCells; //!< Region targeted by the modification.
+    unsigned int order; //!< Linear are first order, qudartic are second etc.
 
 
 
   public:
+  /*! \brief Constructor from underlying multi-level context and cosmological data.
+
+        \param underlying_ - underlying multi-level context object.
+        \param cosmology_ - struct containing cosmological parameters.
+    */
     Modification(multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
                  const cosmology::CosmologicalParameters<T> &cosmology_) : underlying(underlying_),
                                                                            cosmology(cosmology_),
@@ -42,14 +47,17 @@ namespace modifications {
     //! Calculate modification value with a given field
     virtual T calculateCurrentValue(const fields::MultiLevelField<DataType> & /* field */) = 0;
 
+    //! Returns the target of the modification, ie, what we want the function of the field to be constrained to be.
     T getTarget() {
       return target;
     }
 
+    //! Sets the modification's target to the specified value.
     void setTarget(T target_) {
       target = target_;
     }
 
+    //! Returns 1 for linear modifications, and 2 for quadratic modifications (and n for nth order modifications if these were created)
     unsigned int getOrder() {
       return this->order;
     }
@@ -57,6 +65,7 @@ namespace modifications {
   };
 
 
+  //! \brief Exception to identify unknown modifications, if the user requests a modification that isn't recognised.
   class UnknownModificationException : public std::exception {
   public:
 
