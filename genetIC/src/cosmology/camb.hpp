@@ -134,7 +134,8 @@ namespace cosmology {
       // Import data from CAMB file:
       std::vector<double> input;
 
-      io::getBuffer(input, incamb);
+      // Have to do this while stripping out any column headers that might be present in the file:
+      io::getBufferIgnoringColumnHeaders(input, incamb);
 
       // Check whether the input file is in the pre-2015 or post-2015 format (and throw an error if it is neither).
       numCols = io::getNumberOfColumns(incamb);
