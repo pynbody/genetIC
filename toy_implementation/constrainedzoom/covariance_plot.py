@@ -338,6 +338,31 @@ def combined_plots(G: ZoomConstrained, cov:np.ndarray, pad=0, vmin=None, vmax=No
                           "0",
                           "$%.0f$%%" % (vmax * 100)])
 
+def zoom_demo(n1=256, n2=256, hires_window_scale=4, hires_window_offset=10,plaw=-1.5,method=FilteredZoomConstrained,
+              constraint_val=None, no_random=False,pad=None):
+    cov_this = functools.partial(powerlaw_covariance, plaw=plaw)
+    X = method(cov_this, n1=n1, n2=n2, hires_window_scale=hires_window_scale, offset=hires_window_offset)
+    if constraint_val is not None:
+        X.add_constraint(constraint_val)
+    if pad is None:
+        pad = X.get_default_plot_padding()
+
+    delta_P, delta_W = X.realization(no_random=no_random)
+
+    if constraint_val is not None:
+        print("Constraint value = ",np.dot(X._default_constraint_hr_vec(), delta_W), "(target", constraint_val,")")
+
+    xP, xW = X.xs()
+
+    if pad>0:
+        hr_pad = pad*X.pixel_size_ratio
+        xW = xW[hr_pad:-hr_pad]
+        delta_W = delta_W[hr_pad:-hr_pad]
+        print(xW[0],xW[-1])
+
+    line, = p.plot(xW, delta_W)
+
+    p.plot(xP, delta_P, ":", color=line.get_color())
 
 def cov_zoom_demo(n1=256, n2=256,
                   hires_window_scale=4,
@@ -347,6 +372,7 @@ def cov_zoom_demo(n1=256, n2=256,
                   pad=None,vmin=None,vmax=None,errors=False,
                   show_hh=True,one_element=None,subplot=False,
                   plot_type='real',
+                  with_constraint=False,
                   initialization_kwargs={}):
     """End-to-end construction and plotting function for understanding a zoom algorithm
     
@@ -367,6 +393,7 @@ def cov_zoom_demo(n1=256, n2=256,
     :param subplot: if True, place the plot into existing axes
     :param plot_type: one of 'real', 'combined' or 'pspec'. "Real" plots the real-space covariance matrix;
      "combined" plots both real-space and fourier-space covariance matrices. "pspec" plots the power spectrum.
+    :param with_constraint: if True, apply a linear constraint/modification to the centre of the zoom window
     :param initialization_kwargs: kwargs to pass to the target class initialiser
     :return: the class instance used to construct the plot
     """
@@ -379,6 +406,9 @@ def cov_zoom_demo(n1=256, n2=256,
     if pad is None:
         pad = X.get_default_plot_padding()
 
+    if with_constraint:
+        X.add_constraint(0.0)
+
     if estimate:
         cv_est = X.estimate_cov(Ntrials)
     else:
@@ -386,6 +416,9 @@ def cov_zoom_demo(n1=256, n2=256,
 
     if errors:
         Y = FastIdealizedZoomConstrained(cov_this, n1=n1, n2=n2, hires_window_scale=hires_window_scale, offset=hires_window_offset)
+        if with_constraint:
+            Y.add_constraint(0.0)
+
         true_cov = Y.get_cov(one_element=one_element)
         cv_est-=true_cov
         cv_est/=true_cov.max() # variance in hi-res region

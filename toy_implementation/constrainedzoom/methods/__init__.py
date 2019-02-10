@@ -13,6 +13,7 @@ from ..fft_wrapper import FFTArray, unitary_fft, unitary_inverse_fft, in_fourier
 
 class ZoomConstrained(metaclass=abc.ABCMeta):
     description = "Unknown Method"
+    constrain_noise_directly = False
 
     def __init__(self, cov_fn = None, n1=256, n2=256, hires_window_scale=4, offset = 10):
 
@@ -118,11 +119,15 @@ class ZoomConstrained(metaclass=abc.ABCMeta):
         k_high, k_low = self._get_ks()
 
         if no_random:
-            white_noise_lo = np.zeros_like(k_low)
-            white_noise_hi = np.zeros_like(k_high)
+            white_noise_lo = np.zeros_like(k_low).view(FFTArray)
+            white_noise_hi = np.zeros_like(k_high).view(FFTArray)
         else:
             # Generate white-noise, or correctly encapsulate the white-noise samples passed in
             white_noise_lo, white_noise_hi = self._get_whitenoise(white_noise_lo, white_noise_hi)
+
+        # In trad approach, apply constraints directly to the noise; covariance lives in the constraint covectors
+        if self.constrain_noise_directly and len(self.constraints)>0:
+            self._apply_constraints(white_noise_lo, white_noise_hi, verbose)
 
         # Traditional approaches make the low-frequency and high-frequency white noise compatible
         white_noise_lo, white_noise_hi = self._modify_whitenoise(white_noise_lo, white_noise_hi)
@@ -133,8 +138,8 @@ class ZoomConstrained(metaclass=abc.ABCMeta):
         # Filtering approach now pulls only the high-frequency part from delta_high and low-f part from delta_low
         delta_low, delta_high, memos = self._separate_fields(delta_low, delta_high)
 
-        # Now we can apply the constraints
-        if len(self.constraints)>0:
+        # Now we can apply the constraints in the filter approach
+        if (not self.constrain_noise_directly) and len(self.constraints)>0:
             delta_low, delta_high = self._apply_constraints(delta_low, delta_high, verbose)
 
         # Filtering approach now needs to recombine the low-frequency and high-frequency information for the final output
@@ -377,10 +382,6 @@ class ZoomConstrained(metaclass=abc.ABCMeta):
         return unitary_fft(pixelized_highres)
 
     def hr_pixel_to_harmonic(self, vec=None):
-        if vec is None:
-            vec = np.zeros(self.n2)
-            vec[self.n2//2]=1.0
-
         # FA . vec
         vec_k_high = unitary_fft(vec)*self.filter_high(self.k_high)
 
@@ -416,27 +417,18 @@ class ZoomConstrained(metaclass=abc.ABCMeta):
     def C_weighted_inner_product(self, low1, high1, low2, high2):
         return self.inner_product(low1,high1,low2*self.C_low,high2*self.C_high)
 
+    @abc.abstractmethod
     def add_constraint(self, val=0.0, hr_vec=None):
-        """Add a constraint, specifying the constraint covector in the high-res region and the value it should take"""
+        """Add a constraint, specifying the constraint covector in the high-res region and the value it should take.
 
-        self.constraints_real.append(hr_vec) # stored only for information - not part of the algorithm
-        low, high = self.hr_pixel_to_harmonic(hr_vec)
+        If hr_vec is None, use a default constraint covector consisting of a delta function in the centre of the window"""
 
-        # perform Gram-Schmidt orthogonalization
-        for (la, ha),va in zip(self.constraints,self.constraints_val):
-            dotprod = self.xCy(la,ha,low,high)
-            low-=dotprod*la
-            high-=dotprod*ha
-            val-=dotprod*va
-
-
-        norm = self.norm(low,high)
-        low/=math.sqrt(norm)
-        high/=math.sqrt(norm)
-        val/=math.sqrt(norm)
-
-        self.constraints.append((low,high))
-        self.constraints_val.append(val)
+    def _default_constraint_hr_vec(self):
+        hr_vec = np.zeros(self.n2)
+        cval = self.n2 // 2
+        hr_vec[cval] = 1.0
+        hr_vec[cval+1] = -1.0
+        return hr_vec
 
 
 class UnfilteredZoomConstrained(ZoomConstrained):
@@ -450,11 +442,37 @@ class UnfilteredZoomConstrained(ZoomConstrained):
         delta_high += self.upsample_zeroorder(delta_low)
         return delta_low, delta_high
 
-    def _apply_constraints(self, delta_low_k, delta_high_k, verbose):
-        raise RuntimeError("Constraints not implemented for UnfilteredZoomConstrained")
-
     def _modify_whitenoise(self, wn_lo, wn_hi):
         return wn_lo, wn_hi
+
+    def add_constraint(self, val=0.0, lr_covec=None):
+        """Add a constraint to the LR field (note this differs from other classes which apply to the HR field)"""
+
+        lr_covec = lr_covec.view(FFTArray).in_fourier_space()
+
+        # perform Gram-Schmidt orthogonalization
+        if len(self.constraints)!=0:
+            raise RuntimeError("Orthogonalization not implemented yet for UnfilteredZoomConstrained!")
+
+        norm = complex_dot(lr_covec, self.C_low*lr_covec)
+        lr_covec /= math.sqrt(norm)
+        val /= math.sqrt(norm)
+
+        self.constraints.append(lr_covec)
+        self.constraints_val.append(val)
+
+    @in_fourier_space
+    def _apply_constraints(self, delta_low_k, delta_high_k, verbose):
+        # implementation works purely on low-res part; ignores window
+        for al_low_k, d in zip(self.constraints, self.constraints_val):
+            scale = d - complex_dot(al_low_k, delta_low_k)
+
+            if verbose:
+                print("scale=", scale)
+
+            delta_low_k += self.C_low * al_low_k * scale
+        return delta_low_k, delta_high_k
+
 
 
 from . import idealized, ml, traditional, filtered

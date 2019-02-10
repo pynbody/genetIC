@@ -44,13 +44,27 @@ class IdealizedZoomConstrained(ZoomConstrained):
 
         underlying_lores = copy.copy(underlying)
 
-        underlying_lores.in_fourier_space()
-        underlying_lores[self.n1:]=0
-        underlying_lores.in_real_space()
-
-        lores = underlying_lores.reshape((self.n1,self.pixel_size_ratio)).mean(axis=1)
-        hires = underlying[self.offset*self.pixel_size_ratio:self.offset*self.pixel_size_ratio+self.n2]
+        lores = self.downsample(underlying_lores, in_window=False)
+        hires = self._extract_window(underlying)
         return lores, hires
+
+    @property
+    def _window_slice(self):
+        return slice(self.offset * self.pixel_size_ratio, self.offset * self.pixel_size_ratio + self.n2)
+
+    def _extract_window(self, vec):
+        return vec[self._window_slice]
+
+    def _place_window(self, W_vec):
+        vec = np.zeros(self.n1*self.pixel_size_ratio)
+        vec[self._window_slice] = W_vec
+        return vec
+
+    def add_constraint(self, val=0.0, hr_vec=None):
+        if hr_vec is None:
+            hr_vec = self._default_constraint_hr_vec()
+        self.constraints.append(hr_vec) # Do this just so we remember we have a constraint - not actually used in implementation
+        self._underlying.add_constraint(val, self._place_window(hr_vec))
 
     def _apply_constraints(self, delta_low_k, delta_high_k, verbose):
         return delta_low_k, delta_high_k # constraints are applied in underlying object
@@ -68,13 +82,16 @@ class IdealizedZoomConstrained(ZoomConstrained):
 
 
 
+
 class FastIdealizedZoomConstrained(IdealizedZoomConstrained):
 
      def get_cov(self, one_element=False):
             # the base class implementation does work, but this is optimized for the idealized case
 
-            if one_element:
+            if len(self.constraints)>0 or one_element:
+                # idealized implementation does not work, as it assumes translational invariance
                 return super().get_cov(one_element)
+
 
             test_field_lo : FFTArray = np.zeros(self._underlying.n1).view(FFTArray)
             test_field_hi = np.zeros(self._underlying.n2)

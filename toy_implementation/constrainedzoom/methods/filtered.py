@@ -2,6 +2,7 @@ from . import ZoomConstrained
 from ..fft_wrapper import in_fourier_space, in_real_space, unitary_inverse_fft, unitary_fft, complex_dot, FFTArray
 import numpy as np
 import copy
+import math
 
 class FilteredZoomConstrained(ZoomConstrained):
     description = "Fast Filter"
@@ -87,6 +88,31 @@ class FilteredZoomConstrained(ZoomConstrained):
             delta_high = np.zeros(self.n2)
 
         return delta_low, delta_high
+
+    def add_constraint(self, val=0.0, hr_vec=None):
+        """Add a constraint, specifying the constraint covector in the high-res region and the value it should take"""
+
+        if hr_vec is None:
+            hr_vec = self._default_constraint_hr_vec()
+
+        self.constraints_real.append(hr_vec) # stored only for information - not part of the algorithm
+        low, high = self.hr_pixel_to_harmonic(hr_vec)
+
+        # perform Gram-Schmidt orthogonalization
+        for (la, ha),va in zip(self.constraints,self.constraints_val):
+            dotprod = self.xCy(la,ha,low,high)
+            low-=dotprod*la
+            high-=dotprod*ha
+            val-=dotprod*va
+
+
+        norm = self.norm(low,high)
+        low/=math.sqrt(norm)
+        high/=math.sqrt(norm)
+        val/=math.sqrt(norm)
+
+        self.constraints.append((low,high))
+        self.constraints_val.append(val)
 
 
 
