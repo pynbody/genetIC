@@ -3,6 +3,7 @@ import numpy as np
 import pylab as p
 import copy
 import math
+import warnings
 
 class GaussianLowPass(object):
     def __init__(self, k0):
@@ -225,8 +226,8 @@ class FilterExplorer(object):
         p.loglog()
 
     def plot_spectral_index(self):
-        k = self.k[:self.npix / 2]
-        Pk = self.Pk[:self.npix / 2]
+        k = self.k[:self.npix // 2]
+        Pk = self.Pk[:self.npix // 2]
         log_gradient = np.diff(np.log(Pk))/np.diff(np.log(k))
         p.plot((k[:-1]+k[1:])/2, log_gradient)
         p.semilogx()
@@ -274,59 +275,61 @@ def plot_filter_effect(filt, filter_real_space=False,
 
 
 
-    if ns:
-        ps = PowerSpectrum(ns,spacing_Mpc=5e-4,npix=2**21)
-    else:
-        ps = PowerSpectrum(spacing_Mpc=5e-4, npix=2 ** 21)
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore')
+        if ns:
+            ps = PowerSpectrum(ns,spacing_Mpc=5e-4,npix=2**21)
+        else:
+            ps = PowerSpectrum(spacing_Mpc=5e-4, npix=2 ** 21)
 
-    if filter_real_space:
-        filt = filt(coarse_grid_space / FRACTIONAL_K_SPLIT)
-        f1 = ps.correlation.filter(filt)
-        f2 = ps.correlation.filter(Complementary(filt))
-    else:
-        filt = filt(FRACTIONAL_K_SPLIT * 2.0 * np.pi / coarse_grid_space)
-        f1 = ps.filter(filt).correlation
-        f2 = ps.filter(Complementary(filt)).correlation
+        if filter_real_space:
+            filt = filt(coarse_grid_space / FRACTIONAL_K_SPLIT)
+            f1 = ps.correlation.filter(filt)
+            f2 = ps.correlation.filter(Complementary(filt))
+        else:
+            filt = filt(FRACTIONAL_K_SPLIT * 2.0 * np.pi / coarse_grid_space)
+            f1 = ps.filter(filt).correlation
+            f2 = ps.filter(Complementary(filt)).correlation
 
 
-    subsampler = np.array(2**np.arange(0,21,0.025),dtype=int)
+        subsampler = np.array(2**np.arange(0,21,0.025),dtype=int)
 
-    p.clf()
-    p.subplot(211)
-    weight = 1./ps.correlation.xi #f1.r**2
-    p.plot(f1.r[subsampler],(abs(f1.xi)*weight)[subsampler],"k--")
-    p.plot(f1.r[subsampler],(abs(f2.xi)*weight)[subsampler],"k:")
-    p.plot(f1.r[subsampler],abs(ps.correlation.xi*weight)[subsampler],"r")
-    p.xlim(0.001,1000.0)
-    p.loglog()
+        p.clf()
+        p.subplot(211)
+        weight = 1./ps.correlation.xi #f1.r**2
+        p.plot(f1.r[subsampler],(abs(f1.xi)*weight)[subsampler],"k--")
+        p.plot(f1.r[subsampler],(abs(f2.xi)*weight)[subsampler],"k:")
+        p.plot(f1.r[subsampler],abs(ps.correlation.xi*weight)[subsampler],"r")
+        p.xlim(0.001,1000.0)
+        p.loglog()
 
-    p.xlim(1e-3 * coarse_grid_space / 0.2, 10 * coarse_grid_space / 0.2)
+        p.xlim(1e-3 * coarse_grid_space / 0.2, 10 * coarse_grid_space / 0.2)
 
-    p.ylim(1e-3,4.0)
+        p.ylim(1e-3,4.0)
 
-    p.gca().xaxis.tick_top()
-    p.gca().xaxis.set_label_position('top')
-    p.xlabel("$r/Mpc\, h^{-1}$")
-    p.ylabel(r"$\xi_i(r) / \xi(r)$")
+        p.gca().xaxis.tick_top()
+        p.gca().xaxis.set_label_position('top')
+        p.xlabel("$r/Mpc\, h^{-1}$")
+        p.ylabel(r"$\xi_i(r) / \xi(r)$")
 
-    p.subplot(212, sharex=p.gca())
-    f1 = f1.spectrum
-    f2 = f2.spectrum
-    k_recip = 2.0*np.pi/f1.k
-    p.plot(k_recip[subsampler], (f1.Pk/ps.Pk)[subsampler], "k--")
-    p.plot(k_recip[subsampler], (f2.Pk/ps.Pk)[subsampler], "k:")
-    p.plot(k_recip[subsampler], (ps.Pk/ps.Pk)[subsampler], "r")
+        p.subplot(212, sharex=p.gca())
+        f1 = f1.spectrum
+        f2 = f2.spectrum
+        k_recip = 2.0*np.pi/f1.k
+        p.plot(k_recip[subsampler], (f1.Pk/ps.Pk)[subsampler], "k--")
+        p.plot(k_recip[subsampler], (f2.Pk/ps.Pk)[subsampler], "k:")
+        p.plot(k_recip[subsampler], (ps.Pk/ps.Pk)[subsampler], "r")
 
-    p.xlim(1e-3 * coarse_grid_space / 0.2, 10 * coarse_grid_space / 0.2)
-    p.ylim(1e-3,4)
-    p.loglog()
+        p.xlim(1e-3 * coarse_grid_space / 0.2, 10 * coarse_grid_space / 0.2)
+        p.ylim(1e-3,4)
+        p.loglog()
 
-    p.axvline(coarse_grid_space, color=(0.8, 0.8, 0.8), linewidth=2)
-    p.axvline(2 * coarse_grid_space, color=(0.85, 0.85, 0.85), linewidth=2)
-    p.axvline(3 * coarse_grid_space, color=(0.9, 0.9, 0.9), linewidth=2)
-    p.axvline(4 * coarse_grid_space, color=(0.95, 0.95, 0.95), linewidth=2)
+        p.axvline(coarse_grid_space, color=(0.8, 0.8, 0.8), linewidth=2)
+        p.axvline(2 * coarse_grid_space, color=(0.85, 0.85, 0.85), linewidth=2)
+        p.axvline(3 * coarse_grid_space, color=(0.9, 0.9, 0.9), linewidth=2)
+        p.axvline(4 * coarse_grid_space, color=(0.95, 0.95, 0.95), linewidth=2)
 
-    p.xlabel(r"$2\pi/k/Mpc\, h^{-1}$")
-    p.ylabel("$P_i(k)/P(k)$")
+        p.xlabel(r"$2\pi/k/Mpc\, h^{-1}$")
+        p.ylabel("$P_i(k)/P(k)$")
 
 

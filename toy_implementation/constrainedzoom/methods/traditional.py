@@ -5,12 +5,13 @@ from . import UnfilteredZoomConstrained
 
 
 class TraditionalZoomConstrained(UnfilteredZoomConstrained):
-    description = "Traditional"
+    description = "Hahn/Abel"
+    realspace_convolution = True
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.set_Chigh_realspace()
-        #self._apodize_Chigh()
+        if self.realspace_convolution:
+            self.set_Chigh_realspace()
 
     def get_default_plot_padding(self):
         """The default plot padding (in coarse pixels) to hide from the high-res region"""
@@ -53,3 +54,8 @@ class TraditionalZoomConstrained(UnfilteredZoomConstrained):
         delta_low += self._apply_transfer_function(self._delta_low_residual.in_fourier_space()).in_real_space()
 
         return delta_low, delta_high
+
+
+class BertschingerZoomConstrained(TraditionalZoomConstrained):
+    description = "Bertschinger"
+    realspace_convolution = False

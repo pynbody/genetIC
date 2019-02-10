@@ -158,8 +158,8 @@ def plot_fourier_space(G: ZoomConstrained, cov:np.ndarray, pad=0, vmin=None, vma
     U2 = fft_wrapper.unitary_fft_matrix(len(C22))
 
     # keep only positive frequency components
-    U1 = U1[:len(U1)/2]
-    U2 = U2[:len(U2)/2]
+    U1 = U1[:len(U1)//2]
+    U2 = U2[:len(U2)//2]
 
     C11 = U1@C11@U1.conj().T
     C22 = U2@C22@U2.conj().T
@@ -191,7 +191,7 @@ def plot_fourier_space(G: ZoomConstrained, cov:np.ndarray, pad=0, vmin=None, vma
     text_offset = k_nyq_2*0.02
 
     p.imshow(abs(C12).T, extent=[0,k_nyq_1+k_pixel_size_1,k_nyq_2+k_pixel_size_2,0], interpolation='none', vmin=vmin, vmax=vmax)
-    #p.imshow(C11.real, extent=[0,k_nyq_1+k_pixel_size_1,k_nyq_1+k_pixel_size_1,0], interpolation='none', vmin=vmin,vmax=vmax)
+    p.imshow(C11.real, extent=[0,k_nyq_1+k_pixel_size_1,k_nyq_1+k_pixel_size_1,0], interpolation='none', vmin=vmin,vmax=vmax)
 
     p.text(k_nyq_1-text_offset , k_nyq_1+text_offset, 'Fine $\\times$ \n Coarse', horizontalalignment='right',
            verticalalignment='top', color='black', fontsize=15)
@@ -343,7 +343,8 @@ def cov_zoom_demo(n1=256, n2=256,
                   hires_window_scale=4,
                   hires_window_offset=10,
                   estimate=False, Ntrials=2000,
-                  plaw=-1.5, cl=FilteredZoomConstrained,pad=0,vmin=None,vmax=None,errors=False,
+                  plaw=-1.5, method=FilteredZoomConstrained,
+                  pad=None,vmin=None,vmax=None,errors=False,
                   show_hh=True,one_element=None,subplot=False,
                   plot_type='real',
                   initialization_kwargs={}):
@@ -355,8 +356,8 @@ def cov_zoom_demo(n1=256, n2=256,
     :param estimate: if True, use a covariance estimator instead of the exact algorithm (mainly useful for testing the exact algorithm is working)
     :param Ntrials: if estimate is True, the number of trials to use
     :param plaw: the power-law to be used for the underlying covariance matrix P(k) propto k^plaw
-    :param cl: the class to be used for constructing the zoom gaussian realisation
-    :param pad: the real-space padding in low-resolution pixels to be used in the analysis
+    :param method: the class to be used for constructing the zoom gaussian realisation
+    :param pad: the real-space padding in low-resolution pixels to be used in the analysis, or None to use the method-recommended value
     :param vmin: passed to imshow routines
     :param vmax: passed to imshow routines
     :param errors: if True, show the errors as a fraction of the real-space variance instead of the actual output
@@ -373,7 +374,11 @@ def cov_zoom_demo(n1=256, n2=256,
         p.clf()
 
     cov_this = functools.partial(powerlaw_covariance, plaw=plaw)
-    X = cl(cov_this, n1=n1, n2=n2, hires_window_scale=hires_window_scale, offset=hires_window_offset, **initialization_kwargs)
+    X = method(cov_this, n1=n1, n2=n2, hires_window_scale=hires_window_scale, offset=hires_window_offset, **initialization_kwargs)
+
+    if pad is None:
+        pad = X.get_default_plot_padding()
+
     if estimate:
         cv_est = X.estimate_cov(Ntrials)
     else:
@@ -385,9 +390,9 @@ def cov_zoom_demo(n1=256, n2=256,
         cv_est-=true_cov
         cv_est/=true_cov.max() # variance in hi-res region
         if vmin is None:
-            vmin = -max(abs(cv_est[1, 1]), abs(cv_est[-n2 / 2, -n2 / 2]))
+            vmin = -max(abs(cv_est[1, 1]), abs(cv_est[-n2 // 2, -n2 // 2]))
         if vmax is None:
-            vmax = max(abs(cv_est[1, 1]), abs(cv_est[-n2 / 2, -n2 / 2]))
+            vmax = max(abs(cv_est[1, 1]), abs(cv_est[-n2 // 2, -n2 // 2]))
 
     else:
         cv_est/=cv_est.max()
@@ -415,6 +420,7 @@ def cov_zoom_demo(n1=256, n2=256,
             p.xlabel("Real-space pixel 1")
             p.ylabel("Real-space pixel 2")
             p.subplots_adjust(0.04, 0.14, 0.93, 0.95)
+            p.title(X.description)
         else:
             plot_covariance_slice(X, cv_est, one_element)
 

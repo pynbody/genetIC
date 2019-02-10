@@ -7,14 +7,13 @@ import scipy.interpolate
 
 from constrainedzoom.methods import ZoomConstrained
 from constrainedzoom.power_spectrum import powerlaw_covariance
-from . import plot
 from . import fft_wrapper
 from . import methods
 
 # auto-reload to make development easier
 reload(fft_wrapper)
 reload(methods)
-reload(plot)
+#reload(plot)
 
 from .fft_wrapper import *
 
