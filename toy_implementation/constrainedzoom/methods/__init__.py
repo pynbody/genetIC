@@ -381,16 +381,6 @@ class ZoomConstrained(metaclass=abc.ABCMeta):
         pixelized_highres = self._harmonic_to_combined_pixel(low_harmonics, None)[1]
         return unitary_fft(pixelized_highres)
 
-    def hr_pixel_to_harmonic(self, vec=None):
-        # FA . vec
-        vec_k_high = unitary_fft(vec)*self.filter_high(self.k_high)
-
-        vec_lr = self.downsample(vec-unitary_inverse_fft(vec_k_high))
-
-        vec_k_low = unitary_fft(vec_lr)
-
-        return vec_k_low, vec_k_high
-
 
     def norm(self, low, high):
         return self.C_weighted_inner_product(low,high,low,high)
@@ -405,12 +395,12 @@ class ZoomConstrained(metaclass=abc.ABCMeta):
         # in real space has been multiplied by 1/pixel_size_ratio. (Because FFTs are unitary, this
         # applies also to the harmonic space dot product). We need to multiply by pixel_size_ratio to
         # cancel out this change.
-        product = self.pixel_size_ratio*complex_dot(low1,low2)+complex_dot(high1,high2)
+        product = complex_dot(low1,low2)+complex_dot(high1,high2)
         if more_accurate:
             # add in the low1^dagger C high2 + high1 C low2^dagger terms
             low1_as_high = self.high_k_vector_from_low_k_vector(low1)
             low2_as_high = self.high_k_vector_from_low_k_vector(low2)
-            product+=complex_dot(low1_as_high,high2) + complex_dot(high1, low2_as_high)
+            product+=(complex_dot(low1_as_high,high2) + complex_dot(high1, low2_as_high))/2
         return product
 
 
@@ -426,8 +416,9 @@ class ZoomConstrained(metaclass=abc.ABCMeta):
     def _default_constraint_hr_vec(self):
         hr_vec = np.zeros(self.n2)
         cval = self.n2 // 2
-        hr_vec[cval] = 1.0
-        hr_vec[cval+1] = -1.0
+        hr_vec[cval+2] = 1.0
+        print(hr_vec.sum())
+        #hr_vec[cval+1] = -1.0
         return hr_vec
 
 
@@ -465,7 +456,10 @@ class UnfilteredZoomConstrained(ZoomConstrained):
     def _apply_constraints(self, delta_low_k, delta_high_k, verbose):
         # implementation works purely on low-res part; ignores window
         for al_low_k, d in zip(self.constraints, self.constraints_val):
-            scale = d - complex_dot(al_low_k, delta_low_k)
+            scale = d - np.dot(unitary_inverse_fft(al_low_k), unitary_inverse_fft(delta_low_k))
+            #scale = d - complex_dot(al_low_k, delta_low_k)
+            print("dot:",complex_dot(al_low_k, delta_low_k))
+            print("alt-dot:",np.dot(unitary_inverse_fft(al_low_k), unitary_inverse_fft(delta_low_k)))
 
             if verbose:
                 print("scale=", scale)

@@ -9,7 +9,7 @@ class TraditionalZoomConstrained(UnfilteredZoomConstrained):
     description = "Hahn/Abel"
     realspace_convolution = True
     constrain_noise_directly = True # i.e. constraints are applied directly to independent noise vectors
-    convolve_lores_at_hires = False # i.e. bring the lores noise in the centre of W into nW BEFORE convolving; otherwise interpolation errors will be greater
+    convolve_lores_at_hires = True # i.e. bring the lores noise in the centre of W into nW BEFORE convolving; otherwise interpolation errors will be greater
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -82,18 +82,18 @@ class TraditionalZoomConstrained(UnfilteredZoomConstrained):
 
         # filter is (C_P^(1/2) P W^+/m)
         lr_covec = FFTArray(self.downsample(hr_covec, in_window=True)/self.pixel_size_ratio)
-        np.testing.assert_allclose(lr_covec, 0) # temporary while debugging - work only with HR covectors
         lr_covec.in_fourier_space()
-        lr_covec*=self.C_low**0.5
+        lr_covec*=self.C_low**0.5*self.pixel_size_ratio**2 # !! v unclear why this m^2 factor is necessary?
         lr_covec.in_real_space()
 
         # filter is (I-WP^+PW^+) XC^{1/2}X+
         hr_covec = FFTArray(hr_covec)
 
         hr_covec.in_fourier_space()
-        hr_covec*=self.C_high**0.5
+        hr_covec*=self.C_high**0.5/self.pixel_size_ratio**0.5
         hr_covec.in_real_space()
         hr_covec = self._remove_lr_pixel_info(hr_covec)
+        #np.testing.assert_allclose(hr_covec, 0, atol=1e-8)  # temporary while debugging - work only with LR covectors
 
         lr_vec, hr_vec = self._covector_to_vector(lr_covec, hr_covec)
 
@@ -116,9 +116,10 @@ class TraditionalZoomConstrained(UnfilteredZoomConstrained):
         for (P_covec, W_covec), val in zip(self.constraints, self.constraints_val):
             scale = val - np.dot(P_covec, noise_P) - np.dot(W_covec, noise_W)
             P_vec, W_vec = self._covector_to_vector(P_covec, W_covec)
+            #np.testing.assert_allclose(W_vec, 0, atol=1e-8) # temporary while debugging - work only with LR covectors, vectors
             noise_P+=scale*P_vec
             noise_W+=scale*W_vec
-            print("Inf constrained value --> ",np.dot(P_covec, P_vec) + np.dot(W_covec, W_vec))
+            #print("Inf constrained value --> ",np.dot(P_covec, P_vec) + np.dot(W_covec, W_vec))
 
         return noise_P, noise_W
 

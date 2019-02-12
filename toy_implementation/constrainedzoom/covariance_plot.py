@@ -339,7 +339,7 @@ def combined_plots(G: ZoomConstrained, cov:np.ndarray, pad=0, vmin=None, vmax=No
                           "$%.0f$%%" % (vmax * 100)])
 
 def zoom_demo(n1=256, n2=256, hires_window_scale=4, hires_window_offset=10,plaw=-1.5,method=FilteredZoomConstrained,
-              constraint_val=None, no_random=False,pad=None):
+              constraint_val=None, no_random=False,pad=None, verbose=False):
     cov_this = functools.partial(powerlaw_covariance, plaw=plaw)
     X = method(cov_this, n1=n1, n2=n2, hires_window_scale=hires_window_scale, offset=hires_window_offset)
     if constraint_val is not None:
@@ -347,7 +347,7 @@ def zoom_demo(n1=256, n2=256, hires_window_scale=4, hires_window_offset=10,plaw=
     if pad is None:
         pad = X.get_default_plot_padding()
 
-    delta_P, delta_W = X.realization(no_random=no_random)
+    delta_P, delta_W = X.realization(no_random=no_random, verbose=verbose)
 
     if constraint_val is not None:
         print("Constraint value = ",np.dot(X._default_constraint_hr_vec(), delta_W), "(target", constraint_val,")")

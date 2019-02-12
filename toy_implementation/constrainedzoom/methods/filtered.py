@@ -96,7 +96,10 @@ class FilteredZoomConstrained(ZoomConstrained):
             hr_vec = self._default_constraint_hr_vec()
 
         self.constraints_real.append(hr_vec) # stored only for information - not part of the algorithm
-        low, high = self.hr_pixel_to_harmonic(hr_vec)
+
+
+        high = unitary_fft(hr_vec) * (1. - self.filter_low(self.k_high)) ** 0.5
+        low = unitary_fft(self.downsample(hr_vec-unitary_inverse_fft(high)))*self.pixel_size_ratio
 
         # perform Gram-Schmidt orthogonalization
         for (la, ha),va in zip(self.constraints,self.constraints_val):
