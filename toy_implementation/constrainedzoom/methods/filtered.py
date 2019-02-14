@@ -16,7 +16,7 @@ class FilteredZoomConstrained(ZoomConstrained):
         In addition to the standard arguments presented by ZoomConstrained, this accepts
         :param k_cut (0.5): the fraction of the low-res grid nyquist frequency used as the filter frequency"""
 
-        k_cut_fractional = kwargs.pop('k_cut', 0.5)
+        k_cut_fractional = kwargs.pop('k_cut', 0.3)
         super().__init__(*args, **kwargs)
         self.k_cut = k_cut_fractional * self.k_low[-1]
 
@@ -48,68 +48,71 @@ class FilteredZoomConstrained(ZoomConstrained):
     @in_fourier_space
     def _apply_constraints(self, delta_low_k, delta_high_k, verbose):
         for (al_low_k, al_high_k), d in zip(self.constraints, self.constraints_val):
+            scale = d - self.covector_vector_inner_product(al_low_k, al_high_k, delta_low_k, delta_high_k)
+            vec_low_k, vec_high_k = self.covector_to_vector(al_low_k, al_high_k)
 
-            if verbose:
-                print("lowdot=", complex_dot(al_low_k, delta_low_k) * self.pixel_size_ratio)
-                print("highdot=", complex_dot(al_high_k, delta_high_k))
-                print("sum=", complex_dot(al_low_k, delta_low_k) * self.pixel_size_ratio + complex_dot(al_high_k,
-                                                                                                       delta_high_k))
-                al_low, al_high = self._harmonic_to_combined_pixel(al_low_k, al_high_k)
-                print("RS simple dot=", np.dot(unitary_inverse_fft(al_high_k), unitary_inverse_fft(delta_high_k)))
-                print("RS dot=", np.dot(al_high, delta_high_k))
+            delta_low_k += vec_low_k * scale
+            delta_high_k += vec_high_k * scale
 
-            scale = d - complex_dot(al_low_k, delta_low_k) * self.pixel_size_ratio - complex_dot(al_high_k,
-                                                                                                 delta_high_k)
-
-            if verbose:
-                print("scale=", scale)
-
-            delta_low_k += self.C_low * al_low_k * scale
-            delta_high_k += self.C_high * al_high_k * scale
         return delta_low_k, delta_high_k
 
 
-    def _harmonic_to_combined_pixel(self, f_low_k, f_high_k):
-        delta_low, delta_high = self.harmonic_to_pixel(f_low_k, f_high_k)# delta_high does not contain low-frequency contributions.
+    @in_fourier_space
+    def high_k_vector_from_low_k_vector(self, low_harmonics):
+        pixelized_highres = self.upsample_cubic(unitary_inverse_fft(low_harmonics))
+        return unitary_fft(pixelized_highres)
 
-        # interpolate the low frequency contribution into the high-res window
-        # prepare the data range just around the window ...
-        delta_lowhigh = self.upsample_linear(delta_low)
+    @in_fourier_space
+    def covector_norm(self, low, high):
+        return self.covector_covector_inner_product(low, high, low, high)
 
-        delta_high+=delta_lowhigh
+    @in_fourier_space
+    def covector_vector_inner_product(self, low1, high1, low2, high2, more_accurate=True):
 
-        return delta_low, delta_high
+        # The low.low part picks up a pixel_size_ratio factor. We can see this as follows.
+        # Take the ideal case where low1 = f_low v1, high1 = f_high v1, f_low+f_high=1 and f_low f_high = 0.
+        # Without varying pixel sizes, v1 = (low1+high1), and v1.v2 = (low1.low1)+(high1.high1), exactly.
+        # Now, let's downsample the low1 pixel scale. The convention we've adopted is that the big
+        # low1 pixels take on the mean value of the original, finer low1 pixels. So, the new dot product
+        # in real space has been multiplied by 1/pixel_size_ratio. (Because FFTs are unitary, this
+        # applies also to the harmonic space dot product). We need to multiply by pixel_size_ratio to
+        # cancel out this change.
+        product = complex_dot(low1,low2)* self.pixel_size_ratio+complex_dot(high1,high2)
+        if more_accurate:
+            # add in the low1^dagger C high2 + high1 C low2^dagger terms
+            low1_as_high = self.high_k_vector_from_low_k_vector(low1)
+            low2_as_high = self.high_k_vector_from_low_k_vector(low2)
+            product+=(complex_dot(low1_as_high,high2) + complex_dot(high1, low2_as_high))
+        return product
 
-    def harmonic_to_pixel(self, f_low_k, f_high_k):
-        delta_low = unitary_inverse_fft(f_low_k)  # *self.filter_low(self.k_low))
-        if f_high_k is not None:
-            delta_high = unitary_inverse_fft(f_high_k)
-        else:
-            delta_high = np.zeros(self.n2)
+    @in_fourier_space
+    def covector_covector_inner_product(self, low1, high1, low2, high2):
+        return self.covector_vector_inner_product(low1, high1, *self.covector_to_vector(low2, high2))
 
-        return delta_low, delta_high
+    @in_fourier_space
+    def covector_to_vector(self, low, high):
+        return self.C_low*low, self.C_high*high
 
-    def add_constraint(self, val=0.0, hr_vec=None):
+    def add_constraint(self, val=0.0, covec_in_window=None):
         """Add a constraint, specifying the constraint covector in the high-res region and the value it should take"""
 
-        if hr_vec is None:
-            hr_vec = self._default_constraint_hr_vec()
+        if covec_in_window is None:
+            covec_in_window = self._default_constraint_hr_vec()
 
-        self.constraints_real.append(hr_vec) # stored only for information - not part of the algorithm
+        self.constraints_real.append(covec_in_window) # stored only for information - not part of the algorithm
 
 
-        high = unitary_fft(hr_vec) * (1. - self.filter_low(self.k_high)) ** 0.5
-        low = unitary_fft(self.downsample(hr_vec-unitary_inverse_fft(high)))*self.pixel_size_ratio
+        high = unitary_fft(covec_in_window) * (1. - self.filter_low(self.k_high)) ** 0.5
+        low = unitary_fft(self.downsample(covec_in_window - unitary_inverse_fft(high)))
 
         # perform Gram-Schmidt orthogonalization
         for (la, ha),va in zip(self.constraints,self.constraints_val):
-            dotprod = self.xCy(la,ha,low,high)
+            dotprod = self.covector_covector_inner_product(la,ha,low,high)
             low-=dotprod*la
             high-=dotprod*ha
             val-=dotprod*va
 
-
-        norm = self.norm(low,high)
+        norm = self.covector_norm(low, high)
         low/=math.sqrt(norm)
         high/=math.sqrt(norm)
         val/=math.sqrt(norm)

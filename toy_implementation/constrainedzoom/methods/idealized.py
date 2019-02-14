@@ -9,6 +9,8 @@ class IdealizedZoomConstrained(ZoomConstrained):
     """Calculate the low-res/high-res split by making a full box at the high resolution,
     then downgrading the resolution of the low-res region"""
 
+    description = "Idealized"
+
     def __init__(self, cov_fn=powerlaw_covariance, n1=256, n2=768, hires_window_scale=4, offset=10):
         super().__init__(cov_fn, n1, n2, hires_window_scale, offset)
         self._underlying = UnfilteredZoomConstrained(cov_fn, n2*hires_window_scale, n2, hires_window_scale, offset)

@@ -11,7 +11,10 @@ def unitary_inverse_fft(x):
 
 def complex_dot(x,y):
     """Dot product for packed FFT complex coeffs"""
-    return np.dot(x,y) + np.dot(x[1:],y[1:]) # counts +ve and -ve modes
+    if len(x)%2==0:
+        return np.dot(x,y) + np.dot(x[1:-1],y[1:-1]) # counts +ve and -ve modes; NB Nyquist is only ONE mode
+    else:
+        return np.dot(x, y) + np.dot(x[1:], y[1:])  # counts +ve and -ve modes
 
 class FFTArray(np.ndarray):
     def __new__(subtype, data, **kwargs):

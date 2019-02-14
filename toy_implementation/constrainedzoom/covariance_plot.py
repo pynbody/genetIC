@@ -8,6 +8,7 @@ from .methods import ZoomConstrained
 from .methods.filtered import FilteredZoomConstrained
 from .methods.idealized import FastIdealizedZoomConstrained
 from . import fft_wrapper
+from . import constraint_vector
 
 
 def plot_covariance_slice(G: ZoomConstrained, cov: np.ndarray, element_offset=0):
@@ -339,18 +340,36 @@ def combined_plots(G: ZoomConstrained, cov:np.ndarray, pad=0, vmin=None, vmax=No
                           "$%.0f$%%" % (vmax * 100)])
 
 def zoom_demo(n1=256, n2=256, hires_window_scale=4, hires_window_offset=10,plaw=-1.5,method=FilteredZoomConstrained,
-              constraint_val=None, no_random=False,pad=None, verbose=False):
+              constraint_val=None, constraint_covec=None,
+              no_random=False,pad=None, verbose=False,
+              show_covec=False):
+
     cov_this = functools.partial(powerlaw_covariance, plaw=plaw)
     X = method(cov_this, n1=n1, n2=n2, hires_window_scale=hires_window_scale, offset=hires_window_offset)
     if constraint_val is not None:
-        X.add_constraint(constraint_val)
+        if constraint_covec is None:
+            constraint_covec = constraint_vector(10,n2)
+        X.add_constraint(constraint_val, constraint_covec)
     if pad is None:
         pad = X.get_default_plot_padding()
 
     delta_P, delta_W = X.realization(no_random=no_random, verbose=verbose)
 
     if constraint_val is not None:
-        print("Constraint value = ",np.dot(X._default_constraint_hr_vec(), delta_W), "(target", constraint_val,")")
+        cov = FastIdealizedZoomConstrained(cov_this, n1, n2, hires_window_scale=hires_window_scale, offset=hires_window_offset).get_cov()[n1:,n1:]
+        if constraint_val==0.0:
+            cv_var_uncon = np.dot(constraint_covec,np.dot(cov,constraint_covec))
+            cv_var_con = np.dot(constraint_covec, np.dot(X.get_cov()[n1:,n1:] , constraint_covec))
+            print("%s constraint value %.2f (target %.2f; rms %.2f; rms without constraint %.2f; suppression %.1f%%)"%(X.description,
+                                                        np.dot(constraint_covec, delta_W),
+                                                        constraint_val,
+                                                        np.sqrt(cv_var_con),
+                                                        np.sqrt(cv_var_uncon),
+                                                        100.*(1.-np.sqrt(cv_var_con/cv_var_uncon))))
+        else:
+            print("%s constraint value %.2f (target %.2f)"%(X.description,
+                                                        np.dot(constraint_covec, delta_W),
+                                                        constraint_val))
 
     xP, xW = X.xs()
 
@@ -358,11 +377,15 @@ def zoom_demo(n1=256, n2=256, hires_window_scale=4, hires_window_offset=10,plaw=
         hr_pad = pad*X.pixel_size_ratio
         xW = xW[hr_pad:-hr_pad]
         delta_W = delta_W[hr_pad:-hr_pad]
-        print(xW[0],xW[-1])
 
-    line, = p.plot(xW, delta_W)
+    line, = p.plot(xW, delta_W, label=X.description)
 
     p.plot(xP, delta_P, ":", color=line.get_color())
+
+    if show_covec:
+        p.legend()
+        p.twinx()
+        p.plot(X.xs()[1], constraint_covec, color='#aaaaaa')
 
 def cov_zoom_demo(n1=256, n2=256,
                   hires_window_scale=4,

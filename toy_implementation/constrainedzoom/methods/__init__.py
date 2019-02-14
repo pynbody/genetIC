@@ -23,16 +23,17 @@ class ZoomConstrained(metaclass=abc.ABCMeta):
         self.n1 = n1
         self.n2 = n2
         self.window_size_ratio = hires_window_scale
+        self.pixel_size_ratio = (self.window_size_ratio * self.n2) // self.n1
         self.offset = offset
         self.delta_low = 1./self.n1
         self.delta_high = 1./(self.n2 * self.window_size_ratio)
         self.k_low = scipy.fftpack.rfftfreq(self.n1,d=self.delta_low)
         self.k_high = scipy.fftpack.rfftfreq(self.n2,d=self.delta_high)
 
-        self.C_low = self._get_variance_k(self.k_low) * float(self.n1)
-        self.C_high = self._get_variance_k(self.k_high) * float(self.n2)
+        self.C_low = self._get_variance_k(self.k_low) * self.n1
+        self.C_high = self._get_variance_k(self.k_high) * self.n1 / self.window_size_ratio
 
-        self.pixel_size_ratio = (self.window_size_ratio * self.n2) // self.n1
+
         self.constraints =[]
         self.constraints_val = []
         self.constraints_real = []
@@ -52,7 +53,7 @@ class ZoomConstrained(metaclass=abc.ABCMeta):
 
         # pretend high-res is across the full box temporarily; get the TF
 
-        transfer = self._cov_to_transfer(self._get_variance_k(k_high_full) * float(fullbox_n2))
+        transfer = self._cov_to_transfer(self._get_variance_k(k_high_full) * self.n1)
         # now truncate the TF to the correct size
         transfer_hi = np.concatenate((transfer[:num_pixels // 2], transfer[-num_pixels // 2:]))
 
@@ -178,7 +179,7 @@ class ZoomConstrained(metaclass=abc.ABCMeta):
         result_lo = FFTArray(white_noise_lo * np.sqrt(self.C_low))
         result_lo.fourier = True
         if white_noise_hi is not None:
-            result_hi = FFTArray(white_noise_hi * np.sqrt(self.C_high) / self.pixel_size_ratio ** 0.5)
+            result_hi = FFTArray(white_noise_hi * np.sqrt(self.C_high) )
             result_hi.fourier = True
             return result_lo, result_hi
         else:
@@ -377,35 +378,6 @@ class ZoomConstrained(metaclass=abc.ABCMeta):
             vec_lr = hires_vector.reshape((self.n1,self.pixel_size_ratio)).mean(axis=1)
         return vec_lr
 
-    def high_k_vector_from_low_k_vector(self, low_harmonics):
-        pixelized_highres = self._harmonic_to_combined_pixel(low_harmonics, None)[1]
-        return unitary_fft(pixelized_highres)
-
-
-    def norm(self, low, high):
-        return self.C_weighted_inner_product(low,high,low,high)
-
-    def inner_product(self, low1, high1, low2, high2, more_accurate=True):
-
-        # The low.low part picks up a pixel_size_ratio factor. We can see this as follows.
-        # Take the ideal case where low1 = f_low v1, high1 = f_high v1, f_low+f_high=1 and f_low f_high = 0.
-        # Without varying pixel sizes, v1 = (low1+high1), and v1.v2 = (low1.low1)+(high1.high1), exactly.
-        # Now, let's downsample the low1 pixel scale. The convention we've adopted is that the big
-        # low1 pixels take on the mean value of the original, finer low1 pixels. So, the new dot product
-        # in real space has been multiplied by 1/pixel_size_ratio. (Because FFTs are unitary, this
-        # applies also to the harmonic space dot product). We need to multiply by pixel_size_ratio to
-        # cancel out this change.
-        product = complex_dot(low1,low2)+complex_dot(high1,high2)
-        if more_accurate:
-            # add in the low1^dagger C high2 + high1 C low2^dagger terms
-            low1_as_high = self.high_k_vector_from_low_k_vector(low1)
-            low2_as_high = self.high_k_vector_from_low_k_vector(low2)
-            product+=(complex_dot(low1_as_high,high2) + complex_dot(high1, low2_as_high))/2
-        return product
-
-
-    def C_weighted_inner_product(self, low1, high1, low2, high2):
-        return self.inner_product(low1,high1,low2*self.C_low,high2*self.C_high)
 
     @abc.abstractmethod
     def add_constraint(self, val=0.0, hr_vec=None):
@@ -456,11 +428,7 @@ class UnfilteredZoomConstrained(ZoomConstrained):
     def _apply_constraints(self, delta_low_k, delta_high_k, verbose):
         # implementation works purely on low-res part; ignores window
         for al_low_k, d in zip(self.constraints, self.constraints_val):
-            scale = d - np.dot(unitary_inverse_fft(al_low_k), unitary_inverse_fft(delta_low_k))
-            #scale = d - complex_dot(al_low_k, delta_low_k)
-            print("dot:",complex_dot(al_low_k, delta_low_k))
-            print("alt-dot:",np.dot(unitary_inverse_fft(al_low_k), unitary_inverse_fft(delta_low_k)))
-
+            scale = d - complex_dot(al_low_k, delta_low_k)
             if verbose:
                 print("scale=", scale)
 
