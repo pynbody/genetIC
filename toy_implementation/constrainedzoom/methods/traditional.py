@@ -107,6 +107,9 @@ class TraditionalZoomConstrained(UnfilteredZoomConstrained):
         lr_covec2 = FFTArray(copy.copy(hr_covec))
         lr_covec2.in_fourier_space()
         lr_covec2*=self.C_high**0.5/self.pixel_size_ratio
+        lr_covec2.in_real_space()
+        lr_covec2[:self.n2 // 4] = 0
+        lr_covec2[3 * self.n2 // 4:] = 0
         lr_covec+=self.downsample(lr_covec2, in_window=True)
 
 
