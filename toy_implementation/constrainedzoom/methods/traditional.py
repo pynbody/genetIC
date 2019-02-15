@@ -67,11 +67,15 @@ class TraditionalZoomConstrained(UnfilteredZoomConstrained):
 
     @in_real_space
     def _covector_to_vector(self, lr_covec, hr_covec):
-        return lr_covec*self.pixel_size_ratio, self._remove_lr_pixel_info(hr_covec)
+        hr_vec = self._remove_lr_pixel_info(hr_covec)
+        # remove bits outside W but inside the 'pad' region
+        hr_vec[:self.n2//4]=0
+        hr_vec[3*self.n2//4]=0
+        return lr_covec*self.pixel_size_ratio,hr_vec
 
     @in_real_space
     def _covector_vector_inner_product(self, lr1, hr1, lr2, hr2):
-        return np.dot(lr1,lr2) + np.dot(hr1,hr2)
+        return np.dot(lr1,lr2)*self.pixel_size_ratio**2 + np.dot(hr1,hr2)
 
     @in_real_space
     def _covector_covector_inner_product(self, lr_covec1, hr_covec1, lr_covec2, hr_covec2):
@@ -89,14 +93,22 @@ class TraditionalZoomConstrained(UnfilteredZoomConstrained):
             hr_covec = self._default_constraint_hr_vec()
 
         # Unable to constrain in the 'pad' region
-        np.testing.assert_allclose(hr_covec[:self.n2//4], 0, atol=1e-2)
-        np.testing.assert_allclose(hr_covec[(self.n2*3)//4:], 0, atol=1e-2)
+        if not (np.allclose(hr_covec[:self.n2//4], 0, atol=hr_covec.max()*1e-3)
+                and np.allclose(hr_covec[(self.n2*3)//4:], 0, atol=hr_covec.max()*1e-3)):
+            raise ValueError("The constraint extends outside the valid part of the high resolution window (which is only half of n2 for traditional algorithms)")
 
-        # filter is (C_P^(1/2) P W^+/m)
+        # filter is ( (I-W) C_P^(1/2) W  P/m   + P/m W^+ XC^{1/2}X^{+}  )
         lr_covec = FFTArray(self.downsample(hr_covec, in_window=True))
         lr_covec.in_fourier_space()
         lr_covec*=self.C_low**0.5/self.pixel_size_ratio
         lr_covec.in_real_space()
+        lr_covec[self._B_window_slice]=0
+
+        lr_covec2 = FFTArray(copy.copy(hr_covec))
+        lr_covec2.in_fourier_space()
+        lr_covec2*=self.C_high**0.5/self.pixel_size_ratio
+        lr_covec+=self.downsample(lr_covec2, in_window=True)
+
 
         # filter is (I-WP^+PW^+) XC^{1/2}X+
         hr_covec = FFTArray(copy.copy(hr_covec))
@@ -105,6 +117,8 @@ class TraditionalZoomConstrained(UnfilteredZoomConstrained):
         hr_covec*=self.C_high**0.5
         hr_covec.in_real_space()
         hr_covec = self._remove_lr_pixel_info(hr_covec)
+        hr_covec[:self.n2//4]=0
+        hr_covec[3*self.n2//4]=0
 
         if np.allclose(lr_covec, 0, atol=1e-7):
             print("NOTE: pure HR covector")
@@ -122,11 +136,13 @@ class TraditionalZoomConstrained(UnfilteredZoomConstrained):
     def _apply_constraints(self, noise_P, noise_W, verbose):
         for (P_covec, W_covec), val in zip(self.constraints, self.constraints_val):
             scale = val - self._covector_vector_inner_product(P_covec, W_covec, noise_P, noise_W)
+            if verbose:
+                print("Inf un-constrained value --> ",self._covector_vector_inner_product(P_covec, W_covec, noise_P, noise_W))
             P_vec, W_vec = self._covector_to_vector(P_covec, W_covec)
-            #np.testing.assert_allclose(W_vec, 0, atol=1e-8) # temporary while debugging - work only with LR covectors, vectors
             noise_P+=scale*P_vec
             noise_W+=scale*W_vec
-            #print("Inf constrained value --> ",np.dot(P_covec, P_vec) + np.dot(W_covec, W_vec))
+            if verbose:
+                print("Inf constrained value --> ",self._covector_vector_inner_product(P_covec, W_covec, noise_P, noise_W))
 
         return noise_P, noise_W
 

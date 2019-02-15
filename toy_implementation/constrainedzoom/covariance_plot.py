@@ -339,6 +339,15 @@ def combined_plots(G: ZoomConstrained, cov:np.ndarray, pad=0, vmin=None, vmax=No
                           "0",
                           "$%.0f$%%" % (vmax * 100)])
 
+def overlay_grid(n1=256, n2=256, hires_window_scale=4, x_min=0.15, x_max=0.20):
+    X = FastIdealizedZoomConstrained(lambda x:1, n1, n2, hires_window_scale)
+    xP, xW = X.boundary_xs()
+    xW = xW[(xW>x_min) & (xW<x_max)]
+    xP = xP[(xP>x_min) & (xP<x_max)]
+    yrange = p.ylim()
+    p.vlines(xW,yrange[0],yrange[1],color='#eeeeee')
+    p.vlines(xP,yrange[0],yrange[1],color='#cccccc')
+
 def zoom_demo(n1=256, n2=256, hires_window_scale=4, hires_window_offset=10,plaw=-1.5,method=FilteredZoomConstrained,
               constraint_val=None, constraint_covec=None,
               no_random=False,pad=None, verbose=False,
@@ -359,7 +368,7 @@ def zoom_demo(n1=256, n2=256, hires_window_scale=4, hires_window_offset=10,plaw=
         cov = FastIdealizedZoomConstrained(cov_this, n1, n2, hires_window_scale=hires_window_scale, offset=hires_window_offset).get_cov()[n1:,n1:]
         if constraint_val==0.0:
             cv_var_uncon = np.dot(constraint_covec,np.dot(cov,constraint_covec))
-            cv_var_con = np.dot(constraint_covec, np.dot(X.get_cov()[n1:,n1:] , constraint_covec))
+            cv_var_con = np.dot(constraint_covec, np.dot(X.get_cov()[n1:,n1:] , constraint_covec))+1e-10 #1e-10 noise level prevent NaN
             print("%s constraint value %.2f (target %.2f; rms %.2f; rms without constraint %.2f; suppression %.1f%%)"%(X.description,
                                                         np.dot(constraint_covec, delta_W),
                                                         constraint_val,

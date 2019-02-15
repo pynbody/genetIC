@@ -33,7 +33,6 @@ class ZoomConstrained(metaclass=abc.ABCMeta):
         self.C_low = self._get_variance_k(self.k_low) * self.n1
         self.C_high = self._get_variance_k(self.k_high) * self.n1 / self.window_size_ratio
 
-
         self.constraints =[]
         self.constraints_val = []
         self.constraints_real = []
@@ -103,6 +102,11 @@ class ZoomConstrained(metaclass=abc.ABCMeta):
         return (np.arange(self.n1)+0.5)/self.n1, \
                (self.offset + (np.arange(self.n2)+0.5)/self.pixel_size_ratio)/self.n1
 
+    def boundary_xs(self):
+        """Return the real-space coordinates of the pixel boundaries for the outputs"""
+        centre1, centre2 = self.xs()
+        return centre1-0.5/self.n1, centre2-0.5/(self.n1*self.pixel_size_ratio)
+
 
     def realization(self, verbose=False, no_random=False, white_noise_lo=None, white_noise_hi=None) -> [FFTArray, FFTArray] :
         """Generate a realization of the Gaussian random field with constraints, if present.
@@ -128,6 +132,8 @@ class ZoomConstrained(metaclass=abc.ABCMeta):
 
         # In trad approach, apply constraints directly to the noise; covariance lives in the constraint covectors
         if self.constrain_noise_directly and len(self.constraints)>0:
+            if verbose:
+                print("Constraint NOISE")
             self._apply_constraints(white_noise_lo, white_noise_hi, verbose)
 
         # Traditional approaches make the low-frequency and high-frequency white noise compatible
@@ -141,6 +147,8 @@ class ZoomConstrained(metaclass=abc.ABCMeta):
 
         # Now we can apply the constraints in the filter approach
         if (not self.constrain_noise_directly) and len(self.constraints)>0:
+            if verbose:
+                print("Constraint DELTA")
             delta_low, delta_high = self._apply_constraints(delta_low, delta_high, verbose)
 
         # Filtering approach now needs to recombine the low-frequency and high-frequency information for the final output

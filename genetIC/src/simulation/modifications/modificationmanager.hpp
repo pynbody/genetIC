@@ -4,6 +4,8 @@
 #include <src/simulation/modifications/linearmodification.hpp>
 #include <src/simulation/modifications/quadraticmodification.hpp>
 
+#include <string>
+
 //! Deals with the creation of genetically modified fields
 namespace modifications {
 
