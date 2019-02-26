@@ -46,7 +46,7 @@ class IdealizedZoomConstrained(ZoomConstrained):
 
         underlying_lores = copy.copy(underlying)
 
-        lores = self.downsample(underlying_lores, in_window=False)
+        lores = self.downsample(underlying_lores, pad_around_window=False)
         hires = self._extract_window(underlying)
         return lores, hires
 
@@ -60,13 +60,12 @@ class IdealizedZoomConstrained(ZoomConstrained):
     def _place_window(self, W_vec):
         vec = np.zeros(self.n1*self.pixel_size_ratio)
         vec[self._window_slice] = W_vec
-        return vec
+        return FFTArray(vec)
 
-    def add_constraint(self, val=0.0, hr_vec=None):
-        if hr_vec is None:
-            hr_vec = self._default_constraint_hr_vec()
+    def add_constraint(self, val=0.0, hr_vec=None, potential=False):
+        hr_vec_full_box = self._place_window(hr_vec)
         self.constraints.append(hr_vec) # Do this just so we remember we have a constraint - not actually used in implementation
-        self._underlying.add_constraint(val, self._place_window(hr_vec))
+        self._underlying.add_constraint(val, hr_vec_full_box, potential)
 
     def _apply_constraints(self, delta_low_k, delta_high_k, verbose):
         return delta_low_k, delta_high_k # constraints are applied in underlying object

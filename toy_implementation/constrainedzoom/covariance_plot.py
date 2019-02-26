@@ -351,18 +351,36 @@ def overlay_grid(n1=256, n2=256, hires_window_scale=4, x_min=0.15, x_max=0.20):
 def zoom_demo(n1=256, n2=256, hires_window_scale=4, hires_window_offset=10,plaw=-1.5,method=FilteredZoomConstrained,
               constraint_val=None, constraint_covec=None,
               no_random=False,pad=None, verbose=False,
-              show_covec=False):
+              show_covec=False,errors=False,linewidth=None,
+              constrain_potential=False):
+
+    if errors and not no_random:
+        raise ValueError("To display errors in the convolved constraint, you must disable the random component")
 
     cov_this = functools.partial(powerlaw_covariance, plaw=plaw)
+
     X = method(cov_this, n1=n1, n2=n2, hires_window_scale=hires_window_scale, offset=hires_window_offset)
     if constraint_val is not None:
-        if constraint_covec is None:
-            constraint_covec = constraint_vector(10,n2)
-        X.add_constraint(constraint_val, constraint_covec)
+        X.add_constraint(constraint_val, constraint_covec, constrain_potential)
+
+    if errors:
+        Y = FastIdealizedZoomConstrained(cov_this, n1=n1, n2=n2, hires_window_scale=hires_window_scale, offset=hires_window_offset)
+        if constraint_val is not None:
+            Y.add_constraint(constraint_val, constraint_covec, constrain_potential)
+
     if pad is None:
         pad = X.get_default_plot_padding()
 
     delta_P, delta_W = X.realization(no_random=no_random, verbose=verbose)
+
+
+    if errors:
+        delta_Ps, delta_Ws = Y.realization(no_random=no_random, verbose=verbose)
+        delta_P-=delta_Ps
+        delta_W-=delta_Ws
+        delta_P/=delta_Ps.std()
+        delta_W/=delta_Ps.std()
+
 
     if constraint_val is not None:
         cov = FastIdealizedZoomConstrained(cov_this, n1, n2, hires_window_scale=hires_window_scale, offset=hires_window_offset).get_cov()[n1:,n1:]
@@ -387,9 +405,9 @@ def zoom_demo(n1=256, n2=256, hires_window_scale=4, hires_window_offset=10,plaw=
         xW = xW[hr_pad:-hr_pad]
         delta_W = delta_W[hr_pad:-hr_pad]
 
-    line, = p.plot(xW, delta_W, label=X.description)
+    line, = p.plot(xW, delta_W, label=X.description,linewidth=linewidth)
 
-    p.plot(xP, delta_P, ":", color=line.get_color())
+    p.plot(xP, delta_P, ":", color=line.get_color(),linewidth=linewidth)
 
     if show_covec:
         p.legend()

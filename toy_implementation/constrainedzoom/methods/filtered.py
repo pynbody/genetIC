@@ -50,9 +50,9 @@ class FilteredZoomConstrained(ZoomConstrained):
         for (al_low_k, al_high_k), d in zip(self.constraints, self.constraints_val):
             scale = d - self.covector_vector_inner_product(al_low_k, al_high_k, delta_low_k, delta_high_k)
             vec_low_k, vec_high_k = self.covector_to_vector(al_low_k, al_high_k)
-
             delta_low_k += vec_low_k * scale
             delta_high_k += vec_high_k * scale
+            self.delta_low_supplement+=self.low_k_vector_from_high_k_vector(vec_high_k*scale)
 
         return delta_low_k, delta_high_k
 
@@ -61,6 +61,11 @@ class FilteredZoomConstrained(ZoomConstrained):
     def high_k_vector_from_low_k_vector(self, low_harmonics):
         pixelized_highres = self.upsample_cubic(unitary_inverse_fft(low_harmonics))
         return unitary_fft(pixelized_highres)
+
+    @in_fourier_space
+    def low_k_vector_from_high_k_vector(self, high_harmonics):
+        pixelized_lowres = self.downsample(unitary_inverse_fft(high_harmonics))
+        return unitary_fft(pixelized_lowres)
 
     @in_fourier_space
     def covector_norm(self, low, high):
@@ -93,17 +98,22 @@ class FilteredZoomConstrained(ZoomConstrained):
     def covector_to_vector(self, low, high):
         return self.C_low*low, self.C_high*high
 
-    def add_constraint(self, val=0.0, covec_in_window=None):
-        """Add a constraint, specifying the constraint covector in the high-res region and the value it should take"""
+    def add_constraint(self, val=0.0, hr_covec=None, potential=False):
+        """Add a constraint, specifying the constraint covector in the high-res region and the value it should take
+        """
 
-        if covec_in_window is None:
-            covec_in_window = self._default_constraint_hr_vec()
+        if hr_covec is None:
+            hr_covec = self._default_constraint_hr_vec()
 
-        self.constraints_real.append(covec_in_window) # stored only for information - not part of the algorithm
+        self.constraints_real.append(hr_covec) # stored only for information - not part of the algorithm
 
 
-        high = unitary_fft(covec_in_window) * (1. - self.filter_low(self.k_high)) ** 0.5
-        low = unitary_fft(self.downsample(covec_in_window - unitary_inverse_fft(high)))
+        high = unitary_fft(hr_covec) * (1. - self.filter_low(self.k_high)) ** 0.5
+        low = unitary_fft(self.downsample(hr_covec - unitary_inverse_fft(high)))
+
+        if potential:
+            high*=(self.C_high_potential/self.C_high)**0.5
+            low*=(self.C_low_potential/self.C_low)**0.5
 
         # perform Gram-Schmidt orthogonalization
         for (la, ha),va in zip(self.constraints,self.constraints_val):
@@ -154,7 +164,6 @@ class HybridZoomConstrained(FilteredZoomConstrained):
 
         delta_low_upsampled = copy.copy(delta_low)
         delta_low_upsampled.in_fourier_space()
-        #delta_low_upsampled*=self.filter_low(self.k_low)**0.1
 
         delta_low_upsampled = self.upsample_cubic(delta_low_upsampled)
         delta_low_upsampled.in_fourier_space()

@@ -44,7 +44,7 @@ class MLZoomConstrained(UnfilteredZoomConstrained):
 
         return delta_low, delta_high
 
-    def add_constraint(self, val=0.0, hr_vec=None):
+    def add_constraint(self, val=0.0, hr_vec=None, potential=False):
         raise RuntimeError("MLZoomConstrained does not support constraints")
 
     @in_real_space
@@ -79,7 +79,7 @@ class MLZoomConstrained(UnfilteredZoomConstrained):
         else:
             term_ii = self.upsample_zeroorder(white_noise_lo, in_window=False).in_fourier_space()
             term_ii*=C**0.5
-            term_ii = self.downsample(term_ii,in_window=False)
+            term_ii = self.downsample(term_ii, pad_around_window=False)
 
         if approx_iii:
             term_iii = copy.copy(white_noise_lo)
@@ -103,6 +103,6 @@ class MLZoomConstrained(UnfilteredZoomConstrained):
             term_iv -= self.upsample_zeroorder(self.downsample(term_iv))
             term_iv = self.place_window(term_iv).in_fourier_space()
             term_iv*=C**0.5
-            term_iv = self.downsample(term_iv.in_real_space(), in_window=False)
+            term_iv = self.downsample(term_iv.in_real_space(), pad_around_window=False)
 
         return term_ii+term_iv, term_i+term_iii

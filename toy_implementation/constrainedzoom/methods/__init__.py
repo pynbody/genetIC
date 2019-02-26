@@ -33,6 +33,11 @@ class ZoomConstrained(metaclass=abc.ABCMeta):
         self.C_low = self._get_variance_k(self.k_low) * self.n1
         self.C_high = self._get_variance_k(self.k_high) * self.n1 / self.window_size_ratio
 
+        # covariance matrix for potential
+        with np.errstate(divide='ignore'):
+            self.C_low_potential = self._C_delta_to_potential(self.C_low, self.k_low)
+            self.C_high_potential = self._C_delta_to_potential(self.C_high, self.k_high)
+
         self.constraints =[]
         self.constraints_val = []
         self.constraints_real = []
@@ -42,17 +47,27 @@ class ZoomConstrained(metaclass=abc.ABCMeta):
         return 0
 
     # Covariance calculation utilities
+
+    def _C_delta_to_potential(self, C, k):
+        with np.errstate(divide='ignore'):
+            Cpot = C/k**4
+            Cpot[k==0] = 0
+        return Cpot
     
     def set_Chigh_realspace(self):
         self.C_high = self._calc_transfer_fn_realspace(self.n2)
+        self.C_high_potential = self._calc_transfer_fn_realspace(self.n2, potential=True)
 
-    def _calc_transfer_fn_realspace(self, num_pixels):
+    def _calc_transfer_fn_realspace(self, num_pixels, potential=False):
         fullbox_n2 = self.n1 * self.pixel_size_ratio
         k_high_full = scipy.fftpack.rfftfreq(fullbox_n2, d=1. / fullbox_n2)
 
         # pretend high-res is across the full box temporarily; get the TF
 
-        transfer = self._cov_to_transfer(self._get_variance_k(k_high_full) * self.n1)
+        C_high_full = self._get_variance_k(k_high_full) * self.n1
+        if potential:
+            C_high_full = self._C_delta_to_potential(C_high_full, k_high_full)
+        transfer = self._cov_to_transfer(C_high_full)
         # now truncate the TF to the correct size
         transfer_hi = np.concatenate((transfer[:num_pixels // 2], transfer[-num_pixels // 2:]))
 
@@ -143,7 +158,7 @@ class ZoomConstrained(metaclass=abc.ABCMeta):
         delta_low, delta_high = self._apply_transfer_function(white_noise_lo,white_noise_hi)
 
         # Filtering approach now pulls only the high-frequency part from delta_high and low-f part from delta_low
-        delta_low, delta_high, memos = self._separate_fields(delta_low, delta_high)
+        delta_low, delta_high, self.delta_low_supplement = self._separate_fields(delta_low, delta_high)
 
         # Now we can apply the constraints in the filter approach
         if (not self.constrain_noise_directly) and len(self.constraints)>0:
@@ -152,7 +167,7 @@ class ZoomConstrained(metaclass=abc.ABCMeta):
             delta_low, delta_high = self._apply_constraints(delta_low, delta_high, verbose)
 
         # Filtering approach now needs to recombine the low-frequency and high-frequency information for the final output
-        delta_low, delta_high = self._recombine_fields(delta_low, delta_high, memos)
+        delta_low, delta_high = self._recombine_fields(delta_low, delta_high, self.delta_low_supplement)
 
         return delta_low.in_real_space(), delta_high.in_real_space()
 
@@ -376,10 +391,10 @@ class ZoomConstrained(metaclass=abc.ABCMeta):
         return delta_highres.view(type=FFTArray)
 
     @in_real_space
-    def downsample(self, hires_vector: FFTArray, in_window=True) -> FFTArray:
+    def downsample(self, hires_vector: FFTArray, pad_around_window=True) -> FFTArray:
         """Take a high-res region vector and downsample it onto the low-res grid"""
         vec_lr = np.zeros(self.n1).view(type=FFTArray)
-        if in_window:
+        if pad_around_window:
             vec_lr[self.offset:self.offset+self.n2//self.pixel_size_ratio] = \
                   hires_vector.reshape((self.n2//self.pixel_size_ratio,self.pixel_size_ratio)).mean(axis=1)
         else:
@@ -388,10 +403,11 @@ class ZoomConstrained(metaclass=abc.ABCMeta):
 
 
     @abc.abstractmethod
-    def add_constraint(self, val=0.0, hr_vec=None):
+    def add_constraint(self, val=0.0, hr_covec=None, potential=False):
         """Add a constraint, specifying the constraint covector in the high-res region and the value it should take.
 
-        If hr_vec is None, use a default constraint covector consisting of a delta function in the centre of the window"""
+        If hr_covec is None, use a default constraint covector consisting of a delta function in the centre of the window
+        """
 
     def _default_constraint_hr_vec(self):
         hr_vec = np.zeros(self.n2)
@@ -416,10 +432,15 @@ class UnfilteredZoomConstrained(ZoomConstrained):
     def _modify_whitenoise(self, wn_lo, wn_hi):
         return wn_lo, wn_hi
 
-    def add_constraint(self, val=0.0, lr_covec=None):
-        """Add a constraint to the LR field (note this differs from other classes which apply to the HR field)"""
+    def add_constraint(self, val=0.0, lr_covec=None, potential=False):
+        """Add a constraint to the LR field (note this differs from other classes which apply to the HR field)
+        :param potential:
+        """
 
         lr_covec = lr_covec.view(FFTArray).in_fourier_space()
+
+        if potential:
+            lr_covec*=(self.C_low_potential/self.C_low)**0.5
 
         # perform Gram-Schmidt orthogonalization
         if len(self.constraints)!=0:

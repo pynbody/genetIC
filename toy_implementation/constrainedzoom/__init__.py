@@ -32,21 +32,13 @@ def constraint_vector(scale=100,length=768,position=None) :
 def deriv_constraint_vector(smooth=None,length=768,position=None) :
     """Constraint derivative at given position. First arg is ignored
     but could later define smoothing scale"""
+
+    """
     if position is None :
         position = length//2
 
 
     constraint = np.zeros(length)
-    """
-    constraint[position+1]=0.5
-    constraint[position-1]=-0.5
-    if smooth is not None:
-        X = Ufft(constraint)
-        k = scipy.fftpack.rfftfreq(length,d=1.0)
-        X*=np.exp(-k**2*smooth)
-        constraint = Uifft(X)
-    """
-
     if smooth is None:
         smooth = 1
 
@@ -54,6 +46,9 @@ def deriv_constraint_vector(smooth=None,length=768,position=None) :
     constraint[position-smooth]=-0.5
 
     constraint/=np.sqrt(np.dot(constraint,constraint))
+    """
+
+    constraint = np.gradient(constraint_vector(smooth,length,position))
     return constraint
 
 
@@ -70,14 +65,14 @@ def demo(val=2.0,seed=1,plaw=-1.5, deriv=False, n1=1024, n2=256, k_cut=0.2, scal
         np.random.seed(seed)
     G = ZoomConstrained(cov_this, k_cut=k_cut, n2=n2, n1=n1, hires_window_scale=scale, offset=(n1 * (scale - 1)) // (2 * scale))
 
-    G.add_constraint(val,cv_gen(smooth,n2))
+    G.add_constraint(val, cv_gen(smooth, n2))
 
     # set up ideal (uniform) solution
     n1_eff = n2*scale
     print("n1_eff=",n1_eff)
 
     Gs = ZoomConstrained(cov_this, k_cut=10000, n2=n1_eff, n1=n1_eff, hires_window_scale=1, offset=0)
-    Gs.add_constraint(val,cv_gen(smooth,n1_eff))
+    Gs.add_constraint(val, cv_gen(smooth, n1_eff))
     _, r_ideal = Gs.realization(no_random=True)
     x_ideal = (np.arange(n1_eff)+0.5)/(n1_eff/n1)
 
