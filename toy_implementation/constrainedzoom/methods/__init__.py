@@ -1,4 +1,3 @@
-import importlib
 import math
 
 import abc
@@ -9,14 +8,16 @@ import scipy.interpolate
 import numpy as np
 
 from ..fft_wrapper import FFTArray, unitary_fft, unitary_inverse_fft, in_fourier_space, in_real_space, complex_dot
-
+from functools import lru_cache, partial
 
 class ZoomConstrained(metaclass=abc.ABCMeta):
     description = "Unknown Method"
     constrain_noise_directly = False
 
     def __init__(self, cov_fn = None, n1=256, n2=256, hires_window_scale=4, offset = 10):
-
+        if cov_fn is None:
+            from .. import powerlaw_covariance
+            cov_fn = partial(powerlaw_covariance, plaw=-1.0)
         self.cov_fn = cov_fn
         assert n1%hires_window_scale==0, "Scale must divide n1 to fit pixels exactly"
         assert n2%hires_window_scale==0, "Scale must divide n2 to fit pixels exactly"
@@ -29,9 +30,11 @@ class ZoomConstrained(metaclass=abc.ABCMeta):
         self.delta_high = 1./(self.n2 * self.window_size_ratio)
         self.k_low = scipy.fftpack.rfftfreq(self.n1,d=self.delta_low)
         self.k_high = scipy.fftpack.rfftfreq(self.n2,d=self.delta_high)
+        self.k_high_full_box = scipy.fftpack.rfftfreq(self.n1*self.pixel_size_ratio,d=self.delta_high)
 
         self.C_low = self._get_variance_k(self.k_low) * self.n1
         self.C_high = self._get_variance_k(self.k_high) * self.n1 / self.window_size_ratio
+        self.C_high_full_box = self._get_variance_k(self.k_high_full_box) * self.n1 * self.pixel_size_ratio
 
         # covariance matrix for potential
         with np.errstate(divide='ignore'):
@@ -391,16 +394,19 @@ class ZoomConstrained(metaclass=abc.ABCMeta):
         return delta_highres.view(type=FFTArray)
 
     @in_real_space
-    def downsample(self, hires_vector: FFTArray, pad_around_window=True) -> FFTArray:
+    def downsample(self, hires_vector: FFTArray, input_unpadded=True, output_padded=True) -> FFTArray:
         """Take a high-res region vector and downsample it onto the low-res grid"""
         vec_lr = np.zeros(self.n1).view(type=FFTArray)
-        if pad_around_window:
+        if input_unpadded:
             vec_lr[self.offset:self.offset+self.n2//self.pixel_size_ratio] = \
                   hires_vector.reshape((self.n2//self.pixel_size_ratio,self.pixel_size_ratio)).mean(axis=1)
         else:
             vec_lr = hires_vector.reshape((self.n1,self.pixel_size_ratio)).mean(axis=1)
-        return vec_lr
 
+        if output_padded:
+            return vec_lr
+        else:
+            return vec_lr[self.offset:self.offset+self.n2//self.pixel_size_ratio]
 
     @abc.abstractmethod
     def add_constraint(self, val=0.0, hr_covec=None, potential=False):
@@ -416,6 +422,30 @@ class ZoomConstrained(metaclass=abc.ABCMeta):
         print(hr_vec.sum())
         #hr_vec[cval+1] = -1.0
         return hr_vec
+
+    @property
+    @lru_cache()
+    def upsample_cubic_matrix(self):
+        matr = np.zeros((self.n2, self.n1))
+        for i in range(self.n1):
+            test = np.zeros(self.n1)
+            test[i] = 1.0
+            matr[:, i] = self.upsample_cubic(test)
+
+        test = np.random.uniform(0, 1, self.n1)
+        result = self.upsample_cubic(test)
+        np.testing.assert_allclose(np.dot(matr, test), result, atol=1e-5)
+
+        return matr
+
+    @in_real_space
+    def downsample_cubic(self, hr_vec, pad_around_window=True):
+        matr = self.upsample_cubic_matrix.T/self.pixel_size_ratio
+        lr_vec = np.dot(matr,hr_vec)
+        if pad_around_window:
+            return lr_vec.view(FFTArray)
+        else:
+            return lr_vec[self._B_window_slice].view(FFTArray)
 
 
 class UnfilteredZoomConstrained(ZoomConstrained):

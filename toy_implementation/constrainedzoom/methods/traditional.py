@@ -3,10 +3,10 @@ import numpy as np
 import numpy.testing
 from ..fft_wrapper import in_real_space, FFTArray, complex_dot
 from . import UnfilteredZoomConstrained
-from functools import lru_cache
+
 
 class TraditionalZoomConstrained(UnfilteredZoomConstrained):
-    description = "Hahn/Abel"
+    description = "Traditional"
     realspace_convolution = True
     constrain_noise_directly = True # i.e. constraints are applied directly to independent noise vectors
     convolve_lores_at_hires = True # i.e. bring the lores noise in the centre of W into nW BEFORE convolving; otherwise interpolation errors will be greater
@@ -85,72 +85,12 @@ class TraditionalZoomConstrained(UnfilteredZoomConstrained):
     def _covector_norm(self, lr_covec, hr_covec):
         return self._covector_covector_inner_product(lr_covec, hr_covec, lr_covec, hr_covec)
 
-    @property
-    @lru_cache()
-    def upsample_cubic_matrix(self):
-        matr = np.zeros((self.n2, self.n1))
-        for i in range(self.n1):
-            test = np.zeros(self.n1)
-            test[i]=1.0
-            matr[:,i] = self.upsample_cubic(test)
-
-        test = np.random.uniform(0,1,self.n1)
-        result = self.upsample_cubic(test)
-        np.testing.assert_allclose(np.dot(matr, test), result, atol=1e-5)
-
-        return matr
-
-    def downsample_cubic(self, hr_vec, pad_around_window=True):
-        matr = self.upsample_cubic_matrix.T/self.pixel_size_ratio
-        lr_vec = np.dot(matr,hr_vec)
-        if pad_around_window:
-            return lr_vec
-        else:
-            return lr_vec[self._B_window_slice]
 
     def add_constraint(self, val=0.0, hr_covec=None, potential=False):
         if len(self.constraints)>0:
             raise RuntimeError("Multiple constraints not yet implemented for traditional decomposition")
 
-        if potential:
-            C_high = self.C_high_potential
-            C_low = self.C_low_potential
-        else:
-            C_high = self.C_high
-            C_low = self.C_low
-
-        if hr_covec is None:
-            hr_covec = self._default_constraint_hr_vec()
-
-        # Unable to constrain in the 'pad' region
-        if not (np.allclose(hr_covec[:self.n2//4], 0, atol=hr_covec.max()*1e-3)
-                and np.allclose(hr_covec[(self.n2*3)//4:], 0, atol=hr_covec.max()*1e-3)):
-            raise ValueError("The constraint extends outside the valid part of the high resolution window (which is only half of n2 for traditional algorithms)")
-
-        # filter is ( (I-W) C_P^(1/2) W  \hat{P}/m   + P/m W^+ XC^{1/2}X^{+}  )
-        lr_covec = FFTArray(self.downsample_cubic(hr_covec, pad_around_window=True))
-        lr_covec.in_fourier_space()
-        lr_covec*=C_low**0.5/self.pixel_size_ratio
-        lr_covec.in_real_space()
-        lr_covec[self._B_window_slice]=0
-
-        lr_covec2 = FFTArray(copy.copy(hr_covec))
-        lr_covec2.in_fourier_space()
-        lr_covec2*=C_high**0.5/self.pixel_size_ratio
-        lr_covec2.in_real_space()
-        lr_covec2[:self.n2 // 4] = 0
-        lr_covec2[3 * self.n2 // 4:] = 0
-        lr_covec+=self.downsample(lr_covec2, pad_around_window=True)
-
-        # filter is (I-WP^+PW^+) XC^{1/2}X+
-        hr_covec = FFTArray(copy.copy(hr_covec))
-
-        hr_covec.in_fourier_space()
-        hr_covec*=C_high**0.5
-        hr_covec.in_real_space()
-        hr_covec = self._remove_lr_pixel_info(hr_covec)
-        hr_covec[:self.n2//4]=0
-        hr_covec[3*self.n2//4]=0
+        lr_covec, hr_covec = self.zoom_covec_from_uniform_covec_in_window(hr_covec, potential)
 
         if np.allclose(lr_covec, 0, atol=1e-7):
             print("NOTE: pure HR covector")
@@ -163,6 +103,43 @@ class TraditionalZoomConstrained(UnfilteredZoomConstrained):
 
         self.constraints.append((lr_covec, hr_covec))
         self.constraints_val.append(val)
+
+    def zoom_covec_from_uniform_covec_in_window(self, hr_covec, potential):
+        if potential:
+            C_high = self.C_high_potential
+            C_low = self.C_low_potential
+        else:
+            C_high = self.C_high
+            C_low = self.C_low
+        if hr_covec is None:
+            hr_covec = self._default_constraint_hr_vec()
+        # Unable to constrain in the 'pad' region
+        if not (np.allclose(hr_covec[:self.n2 // 4], 0, atol=hr_covec.max() * 1e-3)
+                and np.allclose(hr_covec[(self.n2 * 3) // 4:], 0, atol=hr_covec.max() * 1e-3)):
+            raise ValueError(
+                "The constraint extends outside the valid part of the high resolution window (which is only half of n2 for traditional algorithms)")
+        # filter is ( (I-W) C_P^(1/2) W  \hat{P}/m   + P/m W^+ XC^{1/2}X^{+}  )
+        lr_covec = FFTArray(self.downsample_cubic(hr_covec, pad_around_window=True))
+        lr_covec.in_fourier_space()
+        lr_covec *= C_low ** 0.5 / self.pixel_size_ratio
+        lr_covec.in_real_space()
+        lr_covec[self._B_window_slice] = 0
+        lr_covec2 = FFTArray(copy.copy(hr_covec))
+        lr_covec2.in_fourier_space()
+        lr_covec2 *= C_high ** 0.5 / self.pixel_size_ratio
+        lr_covec2.in_real_space()
+        lr_covec2[:self.n2 // 4] = 0
+        lr_covec2[3 * self.n2 // 4:] = 0
+        lr_covec += self.downsample(lr_covec2, input_unpadded=True)
+        # filter is (I-WP^+PW^+) XC^{1/2}X+
+        hr_covec = FFTArray(copy.copy(hr_covec))
+        hr_covec.in_fourier_space()
+        hr_covec *= C_high ** 0.5
+        hr_covec.in_real_space()
+        hr_covec = self._remove_lr_pixel_info(hr_covec)
+        hr_covec[:self.n2 // 4] = 0
+        hr_covec[3 * self.n2 // 4] = 0
+        return lr_covec, hr_covec
 
     @in_real_space
     def _apply_constraints(self, noise_P, noise_W, verbose):
@@ -180,5 +157,5 @@ class TraditionalZoomConstrained(UnfilteredZoomConstrained):
 
 
 class BertschingerZoomConstrained(TraditionalZoomConstrained):
-    description = "Bertschinger"
+    description = "Naive Traditional"
     realspace_convolution = False

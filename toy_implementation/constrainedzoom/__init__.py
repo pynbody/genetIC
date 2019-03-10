@@ -27,7 +27,7 @@ def constraint_vector(scale=100,length=768,position=None) :
     pixel_vals = np.arange(0.,length)
     constraint = np.exp(-(pixel_vals-position)**2/(2*scale))
     constraint/=constraint.sum()
-    return constraint
+    return constraint.view(FFTArray)
 
 def deriv_constraint_vector(smooth=None,length=768,position=None) :
     """Constraint derivative at given position. First arg is ignored

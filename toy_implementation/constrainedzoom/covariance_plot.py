@@ -8,7 +8,7 @@ from .methods import ZoomConstrained
 from .methods.filtered import FilteredZoomConstrained
 from .methods.idealized import FastIdealizedZoomConstrained
 from . import fft_wrapper
-from . import constraint_vector
+from . import methods
 
 
 def plot_covariance_slice(G: ZoomConstrained, cov: np.ndarray, element_offset=0):
@@ -378,11 +378,12 @@ def zoom_demo(n1=256, n2=256, hires_window_scale=4, hires_window_offset=10,plaw=
         delta_Ps, delta_Ws = Y.realization(no_random=no_random, verbose=verbose)
         delta_P-=delta_Ps
         delta_W-=delta_Ws
-        delta_P/=delta_Ps.std()
-        delta_W/=delta_Ps.std()
+        if not (isinstance(errors, str) and "abs" in errors):
+            delta_P/=delta_Ps.std()
+            delta_W/=delta_Ps.std()
 
 
-    if constraint_val is not None:
+    if constraint_val is not None and (not constrain_potential):
         cov = FastIdealizedZoomConstrained(cov_this, n1, n2, hires_window_scale=hires_window_scale, offset=hires_window_offset).get_cov()[n1:,n1:]
         if constraint_val==0.0:
             cv_var_uncon = np.dot(constraint_covec,np.dot(cov,constraint_covec))
@@ -414,6 +415,57 @@ def zoom_demo(n1=256, n2=256, hires_window_scale=4, hires_window_offset=10,plaw=
         p.twinx()
         p.plot(X.xs()[1], constraint_covec, color='#aaaaaa')
 
+    return X
+
+def compare_constraints(plaw=-1.0, velocity=False, errors=False, covector_width=50,
+                        using_methods=[methods.traditional.TraditionalZoomConstrained, methods.filtered.FilteredZoomConstrained]):
+    from . import constraint_vector, deriv_constraint_vector
+    if velocity:
+        covec = deriv_constraint_vector(covector_width, 256)
+        potential = True
+    else:
+        covec = constraint_vector(covector_width,256)
+        potential = False
+
+    if p.gca() is p.gcf().axes[0]:
+        if velocity:
+            p.title("Constrain velocity; $n=%.1f$"%plaw)
+        else:
+            p.title("Constrain density; $n=%.1f$"%plaw)
+
+    val = 1.0
+    random = False
+    np.random.seed(5)
+
+    for i,m in enumerate(using_methods):
+        zoom_demo(no_random=not random, constraint_val=val, constraint_covec=covec,
+                     method=m,
+                     plaw=plaw, errors=errors, linewidth=1+len(using_methods)-i, constrain_potential=potential)
+
+
+    if not errors:
+        zoom_demo(no_random=not random, constraint_val=val, constraint_covec=covec,
+                     method=methods.idealized.IdealizedZoomConstrained,
+                     plaw=plaw, errors=False, linewidth=1,
+                     constrain_potential=potential)
+    p.legend()
+    p.xlim(0.08, 0.38)
+    if errors:
+        p.ylim(-0.05, 0.05)
+        p.ylabel("Fractional error")
+    else:
+        p.ylabel("Solution")
+    p.xlabel("Position")
+
+def compare_constraints_with_errors(*args, **kwargs):
+    p.clf()
+    f, (sub1, sub2) = p.subplots(2,1,sharex=True,squeeze=True,gridspec_kw={'hspace': 0},num=p.gcf().number)
+    p.sca(sub1)
+    compare_constraints(*args, errors=False, **kwargs)
+    p.sca(sub2)
+    compare_constraints(*args, errors=True, **kwargs)
+
+
 def cov_zoom_demo(n1=256, n2=256,
                   hires_window_scale=4,
                   hires_window_offset=10,
@@ -436,7 +488,7 @@ def cov_zoom_demo(n1=256, n2=256,
     :param pad: the real-space padding in low-resolution pixels to be used in the analysis, or None to use the method-recommended value
     :param vmin: passed to imshow routines
     :param vmax: passed to imshow routines
-    :param errors: if True, show the errors as a fraction of the real-space variance instead of the actual output
+    :param errors: if True, show the errors as a fraction of the real-space variance instead of the actual output.
     :param show_hh: if True (default) show the high x high covariance (otherwise shows only low x low and high x low)
     :param one_element: if not None, show a test of the basic convolution algorithm by using the specified pixel only
                         in the white-noise construction. See method ZoomConstrained._iter_one_cov_element
@@ -503,7 +555,7 @@ def cov_zoom_demo(n1=256, n2=256,
             p.xlabel("Real-space pixel 1")
             p.ylabel("Real-space pixel 2")
             p.subplots_adjust(0.04, 0.14, 0.93, 0.95)
-            p.title(X.description)
+            p.title(X.description+"; $n=%.1f$"%plaw)
         else:
             plot_covariance_slice(X, cv_est, one_element)
 
