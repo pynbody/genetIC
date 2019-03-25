@@ -226,6 +226,52 @@ class FilteredZoomConstrained(FilteredZoomConstrainedOriginal):
     def covector_vector_inner_product(self, low1, high1, low2, high2, more_accurate=True):
         return complex_dot(low1, low2) + complex_dot(high1, high2)
 
+class FilteredZoomConstrainedInNoiseBasis(FilteredZoomConstrained):
+    description = "Fast Filter (noise basis)"
+    constrain_noise_directly = True
+    delta_low_supplement = None
+
+    @in_real_space
+    def zoom_covec_from_uniform_covec_in_window(self, hr_covec, potential):
+        # C_high = self.C_high_potential if potential else self.C_high
+        # C_low = self.C_low_potential if potential else self.C_low
+
+        hr_covec.in_real_space()
+
+        high = copy.copy(hr_covec)
+        low = self.downsample_cubic(hr_covec) * self.pixel_size_ratio
+        low.in_fourier_space()
+        high.in_fourier_space()
+
+        low *= self.filter_low(self.k_low)
+        high *= self.filter_high(self.k_high)
+
+        if potential:
+            low *= self.C_low_potential ** 0.5
+            high *= self.C_high_potential ** 0.5
+        else:
+            low *= self.C_low ** 0.5
+            high *= self.C_high ** 0.5
+
+        return low, high
+
+    @in_fourier_space
+    def covector_to_vector(self, low, high):
+        low_from_low = low * self.filter_low(self.k_low) ** 2 / self.pixel_size_ratio
+        high_from_high = high * self.filter_high(self.k_high) ** 2
+
+        low_from_high = high * self.filter_low(self.k_high) * self.filter_high(self.k_high)
+        assert low_from_high.fourier
+        low_from_high = self.downsample_cubic(low_from_high.in_real_space()).in_fourier_space()
+
+        high_from_low = low * self.filter_low(self.k_low) * self.filter_high(
+            self.k_low) / self.pixel_size_ratio
+        assert high_from_low.fourier
+        high_from_low = self.upsample_cubic(high_from_low.in_real_space()).in_fourier_space()
+        assert high_from_low.fourier
+
+        return low_from_low + low_from_high, \
+               high_from_low + high_from_high
 
 
 class HybridZoomConstrained(FilteredZoomConstrainedOriginal):
@@ -270,6 +316,9 @@ class HybridZoomConstrained(FilteredZoomConstrainedOriginal):
         
         delta_high += delta_low_upsampled
         return delta_low, delta_high
+
+
+
 
 
 

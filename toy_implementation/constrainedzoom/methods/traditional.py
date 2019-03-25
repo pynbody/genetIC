@@ -67,15 +67,15 @@ class TraditionalZoomConstrained(UnfilteredZoomConstrained):
 
     @in_real_space
     def _covector_to_vector(self, lr_covec, hr_covec):
-        hr_vec = self._remove_lr_pixel_info(hr_covec)
+        hr_vec = hr_covec #self._remove_lr_pixel_info(hr_covec)
         # remove bits outside W but inside the 'pad' region
         hr_vec[:self.n2//4]=0
         hr_vec[3*self.n2//4]=0
-        return lr_covec*self.pixel_size_ratio,hr_vec
+        return lr_covec/self.pixel_size_ratio,hr_vec
 
     @in_real_space
     def _covector_vector_inner_product(self, lr1, hr1, lr2, hr2):
-        return np.dot(lr1,lr2)*self.pixel_size_ratio**2 + np.dot(hr1,hr2)
+        return np.dot(lr1,lr2) + np.dot(hr1,hr2)
 
     @in_real_space
     def _covector_covector_inner_product(self, lr_covec1, hr_covec1, lr_covec2, hr_covec2):
@@ -118,15 +118,15 @@ class TraditionalZoomConstrained(UnfilteredZoomConstrained):
                 and np.allclose(hr_covec[(self.n2 * 3) // 4:], 0, atol=hr_covec.max() * 1e-3)):
             raise ValueError(
                 "The constraint extends outside the valid part of the high resolution window (which is only half of n2 for traditional algorithms)")
-        # filter is ( (I-W) C_P^(1/2) W  \hat{P}/m   + P/m W^+ XC^{1/2}X^{+}  )
+        # filter is ( (I-W^+ W) C_P^(1/2) W  \hat{P} m   + P m W^+ XC^{1/2}X^{+}  )
         lr_covec = FFTArray(self.downsample_cubic(hr_covec, pad_around_window=True))
         lr_covec.in_fourier_space()
-        lr_covec *= C_low ** 0.5 / self.pixel_size_ratio
+        lr_covec *= C_low ** 0.5 * self.pixel_size_ratio
         lr_covec.in_real_space()
         lr_covec[self._B_window_slice] = 0
         lr_covec2 = FFTArray(copy.copy(hr_covec))
         lr_covec2.in_fourier_space()
-        lr_covec2 *= C_high ** 0.5 / self.pixel_size_ratio
+        lr_covec2 *= C_high ** 0.5 * self.pixel_size_ratio
         lr_covec2.in_real_space()
         lr_covec2[:self.n2 // 4] = 0
         lr_covec2[3 * self.n2 // 4:] = 0
