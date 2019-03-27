@@ -20,11 +20,7 @@ class TraditionalZoomConstrained(ZoomConstrainedWithGeometricConstraints):
         """The default plot padding (in coarse pixels) to hide from the high-res region"""
         return self.n2 // (self.pixel_size_ratio) // 4
 
-    @property
-    def _B_window_slice(self):
-        B_window_size = self.n2 // (self.pixel_size_ratio) // 2
-        offset_B = self.offset + self.n2 // self.pixel_size_ratio // 2 - B_window_size // 2
-        return slice(offset_B,offset_B+B_window_size)
+
 
 
     @in_real_space

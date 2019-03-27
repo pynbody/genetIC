@@ -43,7 +43,7 @@ class ZoomConstrainedWithGeometricConstraints(ZoomConstrained):
         return self.covector_vector_inner_product(low1, high1, low2v.in_fourier_space(), high2v.in_fourier_space())
 
     @in_fourier_space
-    def _apply_constraints(self, noise_or_delta_low_k, noise_or_delta_high_k, verbose):
+    def _apply_constraints(self, noise_or_delta_low_k, noise_or_delta_high_k):
         for (al_low_k, al_high_k), d in zip(self.constraints, self.constraints_val):
             scale = d - self.covector_vector_inner_product(al_low_k, al_high_k, noise_or_delta_low_k,
                                                            noise_or_delta_high_k)

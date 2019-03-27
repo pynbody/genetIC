@@ -350,7 +350,7 @@ def overlay_grid(n1=256, n2=256, hires_window_scale=4, x_min=0.15, x_max=0.20):
 
 def zoom_demo(n1=256, n2=256, hires_window_scale=4, hires_window_offset=10,plaw=-1.5,method=FilteredZoomConstrained,
               constraint_val=None, constraint_covec=None,
-              no_random=False,pad=None, verbose=False,
+              no_random=False,pad=None,
               show_covec=False,errors=False,linewidth=None,
               constrain_potential=False):
 
@@ -371,11 +371,11 @@ def zoom_demo(n1=256, n2=256, hires_window_scale=4, hires_window_offset=10,plaw=
     if pad is None:
         pad = X.get_default_plot_padding()
 
-    delta_P, delta_W = X.realization(no_random=no_random, verbose=verbose)
+    delta_P, delta_W = X.realization(no_random=no_random)
 
 
     if errors:
-        delta_Ps, delta_Ws = Y.realization(no_random=no_random, verbose=verbose)
+        delta_Ps, delta_Ws = Y.realization(no_random=no_random)
         delta_P-=delta_Ps
         delta_W-=delta_Ws
         if not (isinstance(errors, str) and "abs" in errors):

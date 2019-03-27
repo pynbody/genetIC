@@ -208,7 +208,7 @@ class PowerSpectrumFromCorrelation(PowerSpectrum):
 class FilterExplorer(object):
     def __init__(self, pspec=None, spacing_Mpc=0.1, npix=2**16):
         if pspec is None:
-            pspec = pynbody.analysis.hmf.PowerSpectrumCAMBLive(pynbody.new())
+            pspec = pynbody.analysis.hmf.PowerSpectrumCAMB(pynbody.new())
         self.npix = npix
         self.k = 2*np.pi*np.fft.fftfreq(npix, spacing_Mpc)
         r = np.linspace(0,spacing_Mpc*npix/2,npix//2)

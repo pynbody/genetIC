@@ -1,34 +1,23 @@
-import math
-
 import abc
-
-import scipy.fftpack
-import scipy.integrate
-import scipy.interpolate
+import math
 import numpy as np
-import copy
+import scipy.fftpack
+import scipy.interpolate
 
-from ..fft_wrapper import FFTArray, unitary_fft, unitary_inverse_fft, in_fourier_space, in_real_space, complex_dot
-from functools import lru_cache, partial
+from ..fft_wrapper import FFTArray, in_fourier_space, in_real_space, complex_dot
+from .detail.variance import VarianceCalculationTools
+from .detail.geometry import GeometryAndPixelization
 
-class ZoomConstrained(metaclass=abc.ABCMeta):
+
+class ZoomConstrained(GeometryAndPixelization, VarianceCalculationTools,
+                      metaclass=abc.ABCMeta):
+
     description = "Unknown Method"
     constrain_noise_directly = False
 
     def __init__(self, cov_fn = None, n1=256, n2=256, hires_window_scale=4, offset = 10):
-        if cov_fn is None:
-            from .. import powerlaw_covariance
-            cov_fn = partial(powerlaw_covariance, plaw=-1.0)
-        self.cov_fn = cov_fn
-        assert n1%hires_window_scale==0, "Scale must divide n1 to fit pixels exactly"
-        assert n2%hires_window_scale==0, "Scale must divide n2 to fit pixels exactly"
-        self.n1 = n1
-        self.n2 = n2
-        self.window_size_ratio = hires_window_scale
-        self.pixel_size_ratio = (self.window_size_ratio * self.n2) // self.n1
-        self.offset = offset
-        self.delta_low = 1./self.n1
-        self.delta_high = 1./(self.n2 * self.window_size_ratio)
+        super().__init__(cov_fn, n1, n2, hires_window_scale, offset)
+
         self.k_low = scipy.fftpack.rfftfreq(self.n1,d=self.delta_low)
         self.k_high = scipy.fftpack.rfftfreq(self.n2,d=self.delta_high)
         self.k_high_full_box = scipy.fftpack.rfftfreq(self.n1*self.pixel_size_ratio,d=self.delta_high)
@@ -50,90 +39,12 @@ class ZoomConstrained(metaclass=abc.ABCMeta):
         """The default plot padding (in coarse pixels) to hide from the high-res region"""
         return 0
 
-    # Covariance calculation utilities
-
-    def _C_delta_to_potential(self, C, k):
-        with np.errstate(divide='ignore'):
-            Cpot = C/k**4
-            Cpot[k==0] = 0
-        return Cpot
-    
-    def set_Chigh_realspace(self):
-        self.C_high = self._calc_transfer_fn_realspace(self.n2)
-        self.C_high_potential = self._calc_transfer_fn_realspace(self.n2, potential=True)
-
-    def _calc_transfer_fn_realspace(self, num_pixels, potential=False):
-        fullbox_n2 = self.n1 * self.pixel_size_ratio
-        k_high_full = scipy.fftpack.rfftfreq(fullbox_n2, d=1. / fullbox_n2)
-
-        # pretend high-res is across the full box temporarily; get the TF
-
-        C_high_full = self._get_variance_k(k_high_full) * self.n1
-        if potential:
-            C_high_full = self._C_delta_to_potential(C_high_full, k_high_full)
-        transfer = self._cov_to_transfer(C_high_full)
-        # now truncate the TF to the correct size
-        transfer_hi = np.concatenate((transfer[:num_pixels // 2], transfer[-num_pixels // 2:]))
-
-        return self._transfer_to_cov(transfer_hi)
-
-    def _cov_to_transfer(self, cov):
-        # take real part of C_high (i.e. zero imaginary components)
-        sqrt_C_high_re = np.sqrt(cov)
-        sqrt_C_high_re[2::2] = 0
-
-        # use this to calculate the real-space transfer function
-        T_high = unitary_inverse_fft(sqrt_C_high_re)/np.sqrt(len(cov))
-
-        return T_high
-
-    def _transfer_to_cov(self, transfer):
-        sqrt_C_high_apo_re = unitary_fft(transfer)* np.sqrt(len(transfer))
-
-        # copy back imaginary parts ready for convolution
-        if len(sqrt_C_high_apo_re) % 2 == 0:
-            sqrt_C_high_apo_re[2::2] = sqrt_C_high_apo_re[1:-1:2]
-        else:
-            sqrt_C_high_apo_re[2::2] = sqrt_C_high_apo_re[1::2]
-
-        return sqrt_C_high_apo_re ** 2
-
-    def _get_variance_k(self, k, k_filter=lambda x:1):
-        integrand = lambda k1: self.cov_fn(k1)*k_filter(k1)
-        delta_k = k[1]-k[0]
-        Cv = np.zeros_like(k)
-        for i,ki in enumerate(k):
-            if ki==0:
-                lower_k = 0.0
-            else:
-                lower_k = ki-delta_k/2
-            upper_k = ki + delta_k / 2
-            Cv[i] = scipy.integrate.quad(integrand, lower_k, upper_k)[0]
-
-        #if len(Cv)%2==0:
-        #    Cv[-1]*=np.sqrt(2)
-
-        return Cv
-
-
-    def xs(self):
-        """Return the real-space coordinates of the two outputs"""
-        return (np.arange(self.n1)+0.5)/self.n1, \
-               (self.offset + (np.arange(self.n2)+0.5)/self.pixel_size_ratio)/self.n1
-
-    def boundary_xs(self):
-        """Return the real-space coordinates of the pixel boundaries for the outputs"""
-        centre1, centre2 = self.xs()
-        return centre1-0.5/self.n1, centre2-0.5/(self.n1*self.pixel_size_ratio)
-
-
-    def realization(self, verbose=False, no_random=False, white_noise_lo=None, white_noise_hi=None) -> [FFTArray, FFTArray] :
+    def realization(self, no_random=False, white_noise_lo=None, white_noise_hi=None) -> [FFTArray, FFTArray] :
         """Generate a realization of the Gaussian random field with constraints, if present.
         
         This implementation calls a generic sequence of operations which are overriden in base class implementations to
         achieve different zoom techniques.
-        
-        :param verbose: if True, print more output
+
         :param no_random: if True, create a zeroed random field to see effect of constraints in isolation
         :param white_noise_lo: if present, the array of white noise for the low-frequency (n1) box
         :param white_noise_hi:  if present, the array of white noise for the high-frequency (n2) sub-box
@@ -151,7 +62,7 @@ class ZoomConstrained(metaclass=abc.ABCMeta):
 
         # In trad approach, apply constraints directly to the noise; covariance lives in the constraint covectors
         if self.constrain_noise_directly and len(self.constraints)>0:
-            self._apply_constraints(white_noise_lo, white_noise_hi, verbose)
+            self._apply_constraints(white_noise_lo, white_noise_hi)
 
         # Traditional approaches make the low-frequency and high-frequency white noise compatible
         white_noise_lo, white_noise_hi = self._modify_whitenoise(white_noise_lo, white_noise_hi)
@@ -164,7 +75,7 @@ class ZoomConstrained(metaclass=abc.ABCMeta):
 
         # Now we can apply the constraints in the filter approach
         if (not self.constrain_noise_directly) and len(self.constraints)>0:
-            delta_low, delta_high = self._apply_constraints(delta_low, delta_high, verbose)
+            delta_low, delta_high = self._apply_constraints(delta_low, delta_high)
 
         # Filtering approach now needs to recombine the low-frequency and high-frequency information for the final output
         delta_low, delta_high = self._recombine_fields(delta_low, delta_high)
@@ -228,13 +139,6 @@ class ZoomConstrained(metaclass=abc.ABCMeta):
         :return: delta_low, delta_high: the final version of the fields
         """
         return delta_low, delta_high
-
-    def _get_ks(self):
-        pixel_dx_low = 1. / self.n1
-        pixel_dx_high = 1. / (self.n2 * self.window_size_ratio)
-        k_low = scipy.fftpack.rfftfreq(self.n1, d=pixel_dx_low)
-        k_high = scipy.fftpack.rfftfreq(self.n2, d=pixel_dx_high)
-        return k_high, k_low
 
     def get_cov(self, one_element=None):
         """Get the exact covariance matrix using a deterministic algorithm rather than sampling (see estimate_cov for the latter)"""
@@ -317,115 +221,11 @@ class ZoomConstrained(metaclass=abc.ABCMeta):
 
         yield FFTArray(test_field_lo).in_fourier_space(), FFTArray(test_field_hi).in_fourier_space()
 
-
-    @in_real_space
-    def extract_window(self, delta_highres_unwindowed):
-        return delta_highres_unwindowed[self.offset * self.pixel_size_ratio:self.offset * self.pixel_size_ratio + self.n2]
-
-    @in_real_space
-    def place_window(self, delta_highres_windowed: FFTArray) -> FFTArray:
-        delta_highres_unwindowed = np.zeros(self.n1*self.pixel_size_ratio).view(FFTArray)
-        assert delta_highres_unwindowed.fourier is False
-        delta_highres_unwindowed[self.offset * self.pixel_size_ratio:self.offset * self.pixel_size_ratio + self.n2] = delta_highres_windowed
-        return delta_highres_unwindowed
-
-
-    @in_real_space
-    def upsample_zeroorder(self, delta_low: FFTArray, in_window=True) -> FFTArray:
-        """Take a low-res vector and put it in the high-res region without interpolating"""
-
-        delta_highres = np.zeros(self.n1 * self.pixel_size_ratio)
-        delta_highres = delta_highres.view(type=FFTArray)
-        delta_highres.fourier = False
-
-        for i in range(self.pixel_size_ratio):
-            delta_highres[i::self.pixel_size_ratio] = delta_low
-
-        if in_window:
-            return self.extract_window(delta_highres)
-        else:
-            return delta_highres
-
-    @in_real_space
-    def upsample_linear(self, delta_low) -> FFTArray:
-        """Take a low-res vector and interpolate it into the high-res region"""
-
-        delta_highres = np.zeros(self.n1*self.pixel_size_ratio)
-        delta_low_left = np.roll(delta_low,1)
-        delta_low_right = np.roll(delta_low,-1)
-
-        for i in range(self.pixel_size_ratio):
-            sub_offset = (float(i)+0.5)/self.pixel_size_ratio
-            weight_cen = 1-abs(sub_offset-0.5)
-            weight_left = 0.5-sub_offset
-            if weight_left<0 : weight_left = 0
-            weight_right = sub_offset-0.5
-            if weight_right<0: weight_right = 0
-
-            delta_highres[i::self.pixel_size_ratio] = delta_low * weight_cen
-            delta_highres[i::self.pixel_size_ratio] += delta_low_left * weight_left
-            delta_highres[i::self.pixel_size_ratio] += delta_low_right * weight_right
-
-
-
-        result = delta_highres[self.offset*self.pixel_size_ratio:self.offset*self.pixel_size_ratio+self.n2]
-        return result.view(type=FFTArray)
-
-
-    @in_real_space
-    def upsample_cubic(self, delta_low) -> FFTArray:
-        "Take a low-res vector and interpolate it into the high-res region - cubic interpolation"
-
-        x_vals_low, x_vals_high = self.xs()
-        delta_highres = scipy.interpolate.interp1d(x_vals_low, delta_low, kind='cubic')(x_vals_high)
-
-        return delta_highres.view(type=FFTArray)
-
-    @in_real_space
-    def downsample(self, hires_vector: FFTArray, input_unpadded=True, output_padded=True) -> FFTArray:
-        """Take a high-res region vector and downsample it onto the low-res grid"""
-        vec_lr = np.zeros(self.n1).view(type=FFTArray)
-        if input_unpadded:
-            vec_lr[self.offset:self.offset + self.n2 // self.pixel_size_ratio] = \
-                hires_vector.reshape((self.n2 // self.pixel_size_ratio, self.pixel_size_ratio)).mean(axis=1)
-        else:
-            vec_lr = hires_vector.reshape((self.n1, self.pixel_size_ratio)).mean(axis=1)
-
-        if output_padded:
-            return vec_lr
-        else:
-            return vec_lr[self.offset:self.offset + self.n2 // self.pixel_size_ratio]
-
-    @property
-    @lru_cache()
-    def _upsample_cubic_matrix(self):
-        matr = np.zeros((self.n2, self.n1))
-        for i in range(self.n1):
-            test = np.zeros(self.n1)
-            test[i] = 1.0
-            matr[:, i] = self.upsample_cubic(test)
-
-        test = np.random.uniform(0, 1, self.n1)
-        result = self.upsample_cubic(test)
-        np.testing.assert_allclose(np.dot(matr, test), result, atol=1e-5)
-
-        return matr
-
-    @in_real_space
-    def downsample_cubic(self, hr_vec, pad_around_window=True):
-        matr = self._upsample_cubic_matrix.T/self.pixel_size_ratio
-        lr_vec = np.dot(matr,hr_vec)
-        if pad_around_window:
-            return lr_vec.view(FFTArray)
-        else:
-            return lr_vec[self._B_window_slice].view(FFTArray)
-
     def _default_constraint_hr_vec(self):
+        """Generate a simple constraint covector (in the high resolution window) for quick tests"""
         hr_vec = np.zeros(self.n2)
         cval = self.n2 // 2
         hr_vec[cval + 2] = 1.0
-        print(hr_vec.sum())
-        # hr_vec[cval+1] = -1.0
         return hr_vec
 
     @abc.abstractmethod
@@ -437,7 +237,7 @@ class ZoomConstrained(metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
-    def _apply_constraints(self, noise_or_delta_low_k, noise_or_delta_high_k, verbose):
+    def _apply_constraints(self, noise_or_delta_low_k, noise_or_delta_high_k):
         """Apply the constraints either to the noise or delta zoom vectors.
 
         Returns the modified vectors.
@@ -484,14 +284,12 @@ class UnfilteredZoomConstrained(ZoomConstrained):
         self.constraints_val.append(val)
 
     @in_fourier_space
-    def _apply_constraints(self, delta_low_k, delta_high_k, verbose):
+    def _apply_constraints(self, delta_low_k, delta_high_k):
         # implementation works purely on low-res part; ignores window
         for al_low_k, d in zip(self.constraints, self.constraints_val):
             scale = d - complex_dot(al_low_k, delta_low_k)
-            if verbose:
-                print("scale=", scale)
-
             delta_low_k += self.C_low * al_low_k * scale
+
         return delta_low_k, delta_high_k
 
 

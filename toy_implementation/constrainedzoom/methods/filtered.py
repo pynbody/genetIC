@@ -206,7 +206,7 @@ class FilteredZoomConstrainedOriginal(FilteredZoomConstrained):
         return low, high
 
     @in_fourier_space
-    def _apply_constraints(self, noise_or_delta_low_k, noise_or_delta_high_k, verbose):
+    def _apply_constraints(self, noise_or_delta_low_k, noise_or_delta_high_k):
         """This is a slightly ugly re-intepretation of _apply_constraints from the base class, but is required
         to handle the delta_low_supplement part"""
         for (al_low_k, al_high_k), d in zip(self.constraints, self.constraints_val):

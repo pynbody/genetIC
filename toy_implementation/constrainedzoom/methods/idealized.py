@@ -69,7 +69,7 @@ class IdealizedZoomConstrained(ZoomConstrained):
         self.constraints.append(hr_covec) # Do this just so we remember we have a constraint - not actually used in implementation
         self._underlying.add_constraint(val, hr_covec_full_box, potential)
 
-    def _apply_constraints(self, delta_low_k, delta_high_k, verbose):
+    def _apply_constraints(self, delta_low_k, delta_high_k):
         return delta_low_k, delta_high_k # constraints are applied in underlying object
 
     def _modify_whitenoise(self, wn_lo, wn_hi):
