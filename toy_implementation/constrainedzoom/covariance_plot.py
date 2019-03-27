@@ -379,8 +379,8 @@ def zoom_demo(n1=256, n2=256, hires_window_scale=4, hires_window_offset=10,plaw=
         delta_P-=delta_Ps
         delta_W-=delta_Ws
         if not (isinstance(errors, str) and "abs" in errors):
-            delta_P/=delta_Ps.std()
-            delta_W/=delta_Ps.std()
+            delta_P/=abs(delta_Ws).max()
+            delta_W/=abs(delta_Ws).max()
 
 
     if constraint_val is not None and (not constrain_potential):
@@ -408,7 +408,12 @@ def zoom_demo(n1=256, n2=256, hires_window_scale=4, hires_window_offset=10,plaw=
 
     line, = p.plot(xW, delta_W, label=X.description,linewidth=linewidth)
 
-    p.plot(xP, delta_P, ":", color=line.get_color(),linewidth=linewidth)
+    left_of_window = slice(0,hires_window_offset+pad+1)
+    right_of_window = slice(hires_window_offset+n2//hires_window_scale-pad-1, None)
+
+    for sl in left_of_window, right_of_window:
+        p.plot(xP[sl], delta_P[sl], ":", color=line.get_color(),linewidth=linewidth)
+
 
     if show_covec:
         p.legend()
@@ -449,12 +454,19 @@ def compare_constraints(plaw=-1.0, velocity=False, errors=False, covector_width=
                      plaw=plaw, errors=False, linewidth=1,
                      constrain_potential=potential)
     p.legend()
+    ax = p.gca()
     p.xlim(0.08, 0.38)
     if errors:
         p.ylim(-0.05, 0.05)
         p.ylabel("Fractional error")
+        ax.yaxis.set_ticks([-0.04,-0.02,0.0,0.02,0.04])
+        ax.yaxis.set_ticklabels(["$-4$%","$-2$%","0","2%","4%"])
+
     else:
         p.ylabel("Solution")
+        ax.yaxis.set_ticks([0])
+        ax.yaxis.set_ticklabels(["0"])
+
     p.xlabel("Position")
 
 def compare_constraints_with_errors(*args, **kwargs):
@@ -475,6 +487,7 @@ def cov_zoom_demo(n1=256, n2=256,
                   show_hh=True,one_element=None,subplot=False,
                   plot_type='real',
                   with_constraint=False,
+                  inlay_plaws=[],
                   initialization_kwargs={}):
     """End-to-end construction and plotting function for understanding a zoom algorithm
     
@@ -496,6 +509,7 @@ def cov_zoom_demo(n1=256, n2=256,
     :param plot_type: one of 'real', 'combined' or 'pspec'. "Real" plots the real-space covariance matrix;
      "combined" plots both real-space and fourier-space covariance matrices. "pspec" plots the power spectrum.
     :param with_constraint: if True, apply a linear constraint/modification to the centre of the zoom window
+    :param inlay_plaws: list of plaw values to produce an inlayed mini-diagram for
     :param initialization_kwargs: kwargs to pass to the target class initialiser
     :return: the class instance used to construct the plot
     """
@@ -560,3 +574,50 @@ def cov_zoom_demo(n1=256, n2=256,
             plot_covariance_slice(X, cv_est, one_element)
 
     return X
+
+
+def compare_covariances(using_methods = [methods.ml.MLZoomConstrained,
+                                         methods.traditional.TraditionalZoomConstrained,
+                                         methods.filtered.FilteredZoomConstrained],
+                        plaws=[-1.5],
+                        **kwargs):
+    """Compare covariances for MLZoomConstrained, TraditionalZoomConstrained and FilteredZoomConstrained"""
+
+    p.clf()
+    fig, axes = p.subplots(1, len(using_methods) + 1, num=p.gcf().number, squeeze=True,
+                           gridspec_kw={'width_ratios': ([1.0] * len(using_methods)) + [0.1]})
+
+    vmin = kwargs.setdefault('vmin',-0.05)
+    vmax = kwargs.setdefault('vmax',0.05)
+    errors = kwargs.setdefault('errors', True)
+
+    kwargs['subplot'] = True
+    firstplot = True
+    for cl, ax in zip(using_methods, axes):
+        p.sca(ax)
+        kwargs['method']=cl
+        instance = cov_zoom_demo(**kwargs)
+        ax.yaxis.set_ticks([0.0,1.0])
+        if firstplot:
+            ax.yaxis.set_ticklabels(["0.0","1.0"])
+            ax.yaxis.set_label_text("Pixel 2 location")
+            firstplot = False
+        else:
+            ax.yaxis.set_label_text("")
+            ax.yaxis.set_ticklabels([])
+        ax.xaxis.set_label_text("Pixel 1 location")
+        ax.xaxis.set_ticks([0,1])
+        ax.xaxis.set_ticklabels(["0.0","1.0"])
+
+    cbar = p.colorbar(cax=axes[-1])
+
+    p.subplots_adjust(0.04, 0.14, 0.93, 0.95)
+
+    if errors:
+        cbar.set_label("Fractional error")
+        cbar.set_ticks([vmin, 0, vmax])
+        num_digits = str(int(-np.log10(vmax))-1)
+        format = "$%."+num_digits+"f$%%"
+        cbar.set_ticklabels([format % (vmin * 100),
+                             "0",
+                             format % (vmax * 100)])
