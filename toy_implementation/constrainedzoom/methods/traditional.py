@@ -2,10 +2,10 @@ import copy
 import numpy as np
 import numpy.testing
 from ..fft_wrapper import in_real_space, FFTArray, complex_dot
-from . import UnfilteredZoomConstrained
+from .geometric import ZoomConstrainedWithGeometricConstraints
 
 
-class TraditionalZoomConstrained(UnfilteredZoomConstrained):
+class TraditionalZoomConstrained(ZoomConstrainedWithGeometricConstraints):
     description = "Traditional"
     realspace_convolution = True
     constrain_noise_directly = True # i.e. constraints are applied directly to independent noise vectors
@@ -55,54 +55,20 @@ class TraditionalZoomConstrained(UnfilteredZoomConstrained):
     def _only_lr_pixel_info(self, hr_vector):
         return self.upsample_zeroorder(self.downsample(hr_vector))
 
-    def _separate_fields(self, delta_low: FFTArray, delta_high: FFTArray):
-        return delta_low, delta_high, None
-
     @in_real_space
-    def _recombine_fields(self, delta_low, delta_high, _):
+    def _recombine_fields(self, delta_low, delta_high):
         delta_high += self.upsample_cubic(delta_low)
         delta_low += self._apply_transfer_function(self._delta_low_residual.in_fourier_space()).in_real_space()
 
         return delta_low, delta_high
 
     @in_real_space
-    def _covector_to_vector(self, lr_covec, hr_covec):
+    def covector_to_vector(self, lr_covec, hr_covec):
         hr_vec = hr_covec #self._remove_lr_pixel_info(hr_covec)
         # remove bits outside W but inside the 'pad' region
         hr_vec[:self.n2//4]=0
         hr_vec[3*self.n2//4]=0
         return lr_covec/self.pixel_size_ratio,hr_vec
-
-    @in_real_space
-    def _covector_vector_inner_product(self, lr1, hr1, lr2, hr2):
-        return np.dot(lr1,lr2) + np.dot(hr1,hr2)
-
-    @in_real_space
-    def _covector_covector_inner_product(self, lr_covec1, hr_covec1, lr_covec2, hr_covec2):
-        return self._covector_vector_inner_product(lr_covec1, hr_covec1,
-                                                   *self._covector_to_vector(lr_covec2, hr_covec2))
-
-    def _covector_norm(self, lr_covec, hr_covec):
-        return self._covector_covector_inner_product(lr_covec, hr_covec, lr_covec, hr_covec)
-
-
-    def add_constraint(self, val=0.0, hr_covec=None, potential=False):
-        if len(self.constraints)>0:
-            raise RuntimeError("Multiple constraints not yet implemented for traditional decomposition")
-
-        lr_covec, hr_covec = self.zoom_covec_from_uniform_covec_in_window(hr_covec, potential)
-
-        if np.allclose(lr_covec, 0, atol=1e-7):
-            print("NOTE: pure HR covector")
-
-        norm = self._covector_norm(lr_covec, hr_covec)
-
-        lr_covec/=np.sqrt(norm)
-        hr_covec/=np.sqrt(norm)
-        val/=np.sqrt(norm)
-
-        self.constraints.append((lr_covec, hr_covec))
-        self.constraints_val.append(val)
 
     def zoom_covec_from_uniform_covec_in_window(self, hr_covec, potential):
         if potential:
@@ -139,21 +105,11 @@ class TraditionalZoomConstrained(UnfilteredZoomConstrained):
         hr_covec = self._remove_lr_pixel_info(hr_covec)
         hr_covec[:self.n2 // 4] = 0
         hr_covec[3 * self.n2 // 4] = 0
+
+        lr_covec.in_fourier_space()
+        hr_covec.in_fourier_space()
         return lr_covec, hr_covec
 
-    @in_real_space
-    def _apply_constraints(self, noise_P, noise_W, verbose):
-        for (P_covec, W_covec), val in zip(self.constraints, self.constraints_val):
-            scale = val - self._covector_vector_inner_product(P_covec, W_covec, noise_P, noise_W)
-            if verbose:
-                print("Inf un-constrained value --> ",self._covector_vector_inner_product(P_covec, W_covec, noise_P, noise_W))
-            P_vec, W_vec = self._covector_to_vector(P_covec, W_covec)
-            noise_P+=scale*P_vec
-            noise_W+=scale*W_vec
-            if verbose:
-                print("Inf constrained value --> ",self._covector_vector_inner_product(P_covec, W_covec, noise_P, noise_W))
-
-        return noise_P, noise_W
 
 
 class BertschingerZoomConstrained(TraditionalZoomConstrained):

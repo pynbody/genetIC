@@ -6,6 +6,7 @@ import scipy.fftpack
 import scipy.integrate
 import scipy.interpolate
 import numpy as np
+import copy
 
 from ..fft_wrapper import FFTArray, unitary_fft, unitary_inverse_fft, in_fourier_space, in_real_space, complex_dot
 from functools import lru_cache, partial
@@ -150,8 +151,6 @@ class ZoomConstrained(metaclass=abc.ABCMeta):
 
         # In trad approach, apply constraints directly to the noise; covariance lives in the constraint covectors
         if self.constrain_noise_directly and len(self.constraints)>0:
-            if verbose:
-                print("Constraint NOISE")
             self._apply_constraints(white_noise_lo, white_noise_hi, verbose)
 
         # Traditional approaches make the low-frequency and high-frequency white noise compatible
@@ -161,16 +160,14 @@ class ZoomConstrained(metaclass=abc.ABCMeta):
         delta_low, delta_high = self._apply_transfer_function(white_noise_lo,white_noise_hi)
 
         # Filtering approach now pulls only the high-frequency part from delta_high and low-f part from delta_low
-        delta_low, delta_high, self.delta_low_supplement = self._separate_fields(delta_low, delta_high)
+        delta_low, delta_high = self._separate_fields(delta_low, delta_high)
 
         # Now we can apply the constraints in the filter approach
         if (not self.constrain_noise_directly) and len(self.constraints)>0:
-            if verbose:
-                print("Constraint DELTA")
             delta_low, delta_high = self._apply_constraints(delta_low, delta_high, verbose)
 
         # Filtering approach now needs to recombine the low-frequency and high-frequency information for the final output
-        delta_low, delta_high = self._recombine_fields(delta_low, delta_high, self.delta_low_supplement)
+        delta_low, delta_high = self._recombine_fields(delta_low, delta_high)
 
         return delta_low.in_real_space(), delta_high.in_real_space()
 
@@ -211,31 +208,26 @@ class ZoomConstrained(metaclass=abc.ABCMeta):
         else:
             return result_lo
 
-    @abc.abstractmethod
     def _separate_fields(self, delta_low_k, delta_high_k):
-        """Give subclass an opportunity to apply low and high-pass filters to the specified fields
+        """Give subclass an opportunity to apply low and high-pass filters to the  fields
+        before constraints are applied. Default implementation does nothing.
         
         :param delta_low_k: the field in the pixelised basis, to be low-pass filtered
         :param delta_high_k: the field in the windowed region, to be high-pass filtered
-        :return: delta_low_k, delta_high_k, memos - the two fields plus any additional information 
-                 required for recombining the fields later
+        :return: delta_low_k, delta_high_k - the two fields post-separation
         """
-        pass
+        return delta_low_k, delta_high_k
 
-    @abc.abstractmethod
-    def _recombine_fields(self, delta_low: FFTArray, delta_high: FFTArray, memos):
-        """Give subclass an opportunity to combine information from the low-frequency into the high-frequency field
+    def _recombine_fields(self, delta_low: FFTArray, delta_high: FFTArray):
+        """Give subclass an opportunity to combine information from the low-frequency into the high-frequency field.
+
+        Default implementation does nothing.
         
         :param delta_low: the field in the pixelised basis, without any high-frequency information
         :param delta_high: the field in the window region, without any low-frequency information
-        :param memos: any memos returned from _separate_fields at an earlier stage
         :return: delta_low, delta_high: the final version of the fields
         """
-        pass
-
-    @abc.abstractmethod
-    def _apply_constraints(self, delta_low_k, delta_high_k, verbose):
-        """Apply the constraints to the low-frequency and high-frequency fields"""
+        return delta_low, delta_high
 
     def _get_ks(self):
         pixel_dx_low = 1. / self.n1
@@ -326,11 +318,6 @@ class ZoomConstrained(metaclass=abc.ABCMeta):
         yield FFTArray(test_field_lo).in_fourier_space(), FFTArray(test_field_hi).in_fourier_space()
 
 
-
-
-
-
-
     @in_real_space
     def extract_window(self, delta_highres_unwindowed):
         return delta_highres_unwindowed[self.offset * self.pixel_size_ratio:self.offset * self.pixel_size_ratio + self.n2]
@@ -384,6 +371,7 @@ class ZoomConstrained(metaclass=abc.ABCMeta):
         result = delta_highres[self.offset*self.pixel_size_ratio:self.offset*self.pixel_size_ratio+self.n2]
         return result.view(type=FFTArray)
 
+
     @in_real_space
     def upsample_cubic(self, delta_low) -> FFTArray:
         "Take a low-res vector and interpolate it into the high-res region - cubic interpolation"
@@ -398,34 +386,19 @@ class ZoomConstrained(metaclass=abc.ABCMeta):
         """Take a high-res region vector and downsample it onto the low-res grid"""
         vec_lr = np.zeros(self.n1).view(type=FFTArray)
         if input_unpadded:
-            vec_lr[self.offset:self.offset+self.n2//self.pixel_size_ratio] = \
-                  hires_vector.reshape((self.n2//self.pixel_size_ratio,self.pixel_size_ratio)).mean(axis=1)
+            vec_lr[self.offset:self.offset + self.n2 // self.pixel_size_ratio] = \
+                hires_vector.reshape((self.n2 // self.pixel_size_ratio, self.pixel_size_ratio)).mean(axis=1)
         else:
-            vec_lr = hires_vector.reshape((self.n1,self.pixel_size_ratio)).mean(axis=1)
+            vec_lr = hires_vector.reshape((self.n1, self.pixel_size_ratio)).mean(axis=1)
 
         if output_padded:
             return vec_lr
         else:
-            return vec_lr[self.offset:self.offset+self.n2//self.pixel_size_ratio]
-
-    @abc.abstractmethod
-    def add_constraint(self, val=0.0, hr_covec=None, potential=False):
-        """Add a constraint, specifying the constraint covector in the high-res region and the value it should take.
-
-        If hr_covec is None, use a default constraint covector consisting of a delta function in the centre of the window
-        """
-
-    def _default_constraint_hr_vec(self):
-        hr_vec = np.zeros(self.n2)
-        cval = self.n2 // 2
-        hr_vec[cval+2] = 1.0
-        print(hr_vec.sum())
-        #hr_vec[cval+1] = -1.0
-        return hr_vec
+            return vec_lr[self.offset:self.offset + self.n2 // self.pixel_size_ratio]
 
     @property
     @lru_cache()
-    def upsample_cubic_matrix(self):
+    def _upsample_cubic_matrix(self):
         matr = np.zeros((self.n2, self.n1))
         for i in range(self.n1):
             test = np.zeros(self.n1)
@@ -440,22 +413,49 @@ class ZoomConstrained(metaclass=abc.ABCMeta):
 
     @in_real_space
     def downsample_cubic(self, hr_vec, pad_around_window=True):
-        matr = self.upsample_cubic_matrix.T/self.pixel_size_ratio
+        matr = self._upsample_cubic_matrix.T/self.pixel_size_ratio
         lr_vec = np.dot(matr,hr_vec)
         if pad_around_window:
             return lr_vec.view(FFTArray)
         else:
             return lr_vec[self._B_window_slice].view(FFTArray)
 
+    def _default_constraint_hr_vec(self):
+        hr_vec = np.zeros(self.n2)
+        cval = self.n2 // 2
+        hr_vec[cval + 2] = 1.0
+        print(hr_vec.sum())
+        # hr_vec[cval+1] = -1.0
+        return hr_vec
+
+    @abc.abstractmethod
+    def add_constraint(self, val=0.0, hr_covec=None, potential=False):
+        """Add a constraint, specifying the constraint covector in the high-res region and the value it should take.
+
+        If hr_covec is None, use a default constraint covector consisting of a delta function in the centre of the window
+        """
+        pass
+
+    @abc.abstractmethod
+    def _apply_constraints(self, noise_or_delta_low_k, noise_or_delta_high_k, verbose):
+        """Apply the constraints either to the noise or delta zoom vectors.
+
+        Returns the modified vectors.
+
+        If constrain_noise_directly is True in the class, the noise vectors n_W and n_P are passed; otherwise
+        delta_W and delta_P"""
+        pass
+
+
 
 class UnfilteredZoomConstrained(ZoomConstrained):
     @in_real_space
     def _separate_fields(self, delta_low, delta_high):
         delta_high -= self.upsample_zeroorder(self.downsample(delta_high))
-        return delta_low, delta_high, None
+        return delta_low, delta_high
 
     @in_real_space
-    def _recombine_fields(self, delta_low, delta_high, _):
+    def _recombine_fields(self, delta_low, delta_high):
         delta_high += self.upsample_zeroorder(delta_low)
         return delta_low, delta_high
 

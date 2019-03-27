@@ -1,14 +1,13 @@
-from . import ZoomConstrained
+from .geometric import ZoomConstrainedWithGeometricConstraints
 from ..fft_wrapper import in_fourier_space, in_real_space, unitary_inverse_fft, unitary_fft, complex_dot, FFTArray
 import numpy as np
 import copy
-import math
 
-class FilteredZoomConstrained(ZoomConstrained):
+
+class FilteredZoomConstrained(ZoomConstrainedWithGeometricConstraints):
     """The reference implementation for fast-filter zooms, which should match exactly the description in the notes"""
     description = "Fast Filter"
     constrain_noise_directly = True
-    delta_low_supplement = None
 
     def __init__(self, *args, **kwargs):
         """In addition to the standard arguments presented by ZoomConstrained, this accepts
@@ -72,11 +71,8 @@ class FilteredZoomConstrained(ZoomConstrained):
         return low_from_low + low_from_high, \
                high_from_low + high_from_high
 
-    def _separate_fields(self, delta_low_k, delta_high_k):
-        return delta_low_k, delta_high_k, None
-
     @in_fourier_space
-    def _recombine_fields(self, delta_low_k, delta_high_k, _):
+    def _recombine_fields(self, delta_low_k, delta_high_k):
         low_k_for_window = delta_low_k*self.filter_low(self.k_low)
         low_k_in_window = self.upsample_cubic(low_k_for_window.in_real_space())
         low_k_in_window.in_fourier_space()
@@ -85,58 +81,6 @@ class FilteredZoomConstrained(ZoomConstrained):
 
         return delta_low_k, delta_high_k
 
-    @in_fourier_space
-    def covector_vector_inner_product(self, low1, high1, low2, high2, more_accurate=True):
-        return complex_dot(low1, low2) + complex_dot(high1, high2)
-
-    @in_fourier_space
-    def covector_norm(self, low, high):
-        return self.covector_covector_inner_product(low, high, low, high)
-
-    @in_fourier_space
-    def covector_covector_inner_product(self, low1, high1, low2, high2):
-        return self.covector_vector_inner_product(low1, high1, *self.covector_to_vector(low2, high2))
-
-    def add_constraint(self, val=0.0, hr_covec=None, potential=False):
-        """Add a constraint, specifying the constraint covector in the high-res region and the value it should take
-        """
-
-        if hr_covec is None:
-            hr_covec = self._default_constraint_hr_vec()
-
-        hr_covec: FFTArray = copy.copy(hr_covec).view(FFTArray)
-        self.constraints_real.append(hr_covec)  # stored only for information - not part of the algorithm
-
-        low, high = self.zoom_covec_from_uniform_covec_in_window(hr_covec, potential)
-
-        # perform Gram-Schmidt orthogonalization
-        for (la, ha), va in zip(self.constraints, self.constraints_val):
-            dotprod = self.covector_covector_inner_product(la, ha, low, high)
-            low -= dotprod * la
-            high -= dotprod * ha
-            val -= dotprod * va
-
-        norm = self.covector_norm(low, high)
-
-        low /= math.sqrt(norm)
-        high /= math.sqrt(norm)
-        val /= math.sqrt(norm)
-
-        self.constraints.append((low, high))
-        self.constraints_val.append(val)
-
-    @in_fourier_space
-    def _apply_constraints(self, noise_or_delta_low_k, noise_or_delta_high_k, verbose):
-        for (al_low_k, al_high_k), d in zip(self.constraints, self.constraints_val):
-            scale = d - self.covector_vector_inner_product(al_low_k, al_high_k, noise_or_delta_low_k, noise_or_delta_high_k)
-            vec_low_k, vec_high_k = self.covector_to_vector(al_low_k, al_high_k)
-            noise_or_delta_low_k += vec_low_k * scale
-            noise_or_delta_high_k += vec_high_k * scale
-            if self.delta_low_supplement is not None:
-                # This is a hang-over from the original implementation; in the new default implementation it is not used
-                self.delta_low_supplement += self.low_k_vector_from_high_k_vector(vec_high_k * scale)
-
-        return noise_or_delta_low_k, noise_or_delta_high_k
 
     def _modify_whitenoise(self, wn_lo, wn_hi):
         return wn_lo, wn_hi # filtering method regards initial white-noise fields as independent; no modification required
@@ -174,24 +118,14 @@ class FilteredZoomConstrainedInDeltaBasis(FilteredZoomConstrained):
         low_from_low = low * self.C_low * self.filter_low(self.k_low) ** 2 / self.pixel_size_ratio
         high_from_high = high * self.C_high * self.filter_high(self.k_high) ** 2
 
-        """
-        # DEBUG: for pix ratio = 1
-        assert self.pixel_size_ratio is 1
-        low_from_high = high * self.C_low * self.filter_low(self.k_low) * self.filter_high(self.k_low)
-        high_from_low = low * self.C_low * self.filter_low(self.k_low) * self.filter_high(self.k_low)
-        """
-
         low_from_high = high * self.filter_low(self.k_high) * self.filter_high(self.k_high) * self.C_high
         assert low_from_high.fourier
         low_from_high = self.downsample_cubic(low_from_high.in_real_space()).in_fourier_space()
-
 
         high_from_low = low * self.C_low  * self.filter_low(self.k_low) * self.filter_high(self.k_low) / self.pixel_size_ratio
         assert high_from_low.fourier
         high_from_low = self.upsample_cubic(high_from_low.in_real_space()).in_fourier_space()
         assert high_from_low.fourier
-
-
 
         return low_from_low + low_from_high, \
                high_from_low + high_from_high
@@ -212,15 +146,15 @@ class FilteredZoomConstrainedOriginal(FilteredZoomConstrained):
     def _separate_fields(self, delta_low_k, delta_high_k):
         k_high, k_low = self._get_ks()
         delta_high_k *= np.sqrt(1. - self.filter_low(k_high) ** 2)  # keep original power spectrum
-        delta_low_k_plus = delta_low_k * (1.-self.filter_low(
+        self.delta_low_supplement = delta_low_k * (1.-self.filter_low(
             k_low))  # store the filtered-out components of the low-res field
         delta_low_k *= self.filter_low(k_low)
-        return delta_low_k, delta_high_k, delta_low_k_plus
+        return delta_low_k, delta_high_k
 
     @in_real_space
-    def _recombine_fields(self, delta_low, delta_high, delta_low_k_plus):
+    def _recombine_fields(self, delta_low, delta_high):
         delta_high += self.upsample_cubic(delta_low)
-        delta_low += delta_low_k_plus.in_real_space()
+        delta_low += self.delta_low_supplement.in_real_space()
         return delta_low, delta_high
 
     @in_fourier_space
@@ -270,6 +204,21 @@ class FilteredZoomConstrainedOriginal(FilteredZoomConstrained):
             low *= (self.C_low_potential / self.C_low) ** 0.5
 
         return low, high
+
+    @in_fourier_space
+    def _apply_constraints(self, noise_or_delta_low_k, noise_or_delta_high_k, verbose):
+        """This is a slightly ugly re-intepretation of _apply_constraints from the base class, but is required
+        to handle the delta_low_supplement part"""
+        for (al_low_k, al_high_k), d in zip(self.constraints, self.constraints_val):
+            scale = d - self.covector_vector_inner_product(al_low_k, al_high_k, noise_or_delta_low_k,
+                                                           noise_or_delta_high_k)
+            vec_low_k, vec_high_k = self.covector_to_vector(al_low_k, al_high_k)
+            noise_or_delta_low_k += vec_low_k * scale
+            noise_or_delta_high_k += vec_high_k * scale
+
+            self.delta_low_supplement += self.low_k_vector_from_high_k_vector(vec_high_k * scale)
+
+        return noise_or_delta_low_k, noise_or_delta_high_k
 
 
 class HybridZoomConstrained(FilteredZoomConstrained):

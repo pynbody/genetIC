@@ -2,7 +2,7 @@ import copy
 import numpy as np
 
 from . import ZoomConstrained, UnfilteredZoomConstrained
-from ..fft_wrapper import FFTArray
+from ..fft_wrapper import FFTArray, in_real_space, in_fourier_space, complex_dot
 from ..power_spectrum import powerlaw_covariance
 
 class IdealizedZoomConstrained(ZoomConstrained):
@@ -74,13 +74,6 @@ class IdealizedZoomConstrained(ZoomConstrained):
 
     def _modify_whitenoise(self, wn_lo, wn_hi):
         return wn_lo, wn_hi
-
-    def _separate_fields(self, delta_low_k, delta_high_k):
-        return delta_low_k, delta_high_k, None
-
-    def _recombine_fields(self, delta_low, delta_high, memos):
-        return delta_low, delta_high
-
 
 
 
