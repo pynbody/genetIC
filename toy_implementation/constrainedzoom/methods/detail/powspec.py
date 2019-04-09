@@ -1,14 +1,27 @@
 import numpy as np
 from functools import partial
-import scipy.integrate
-from ...fft_wrapper import unitary_fft, unitary_inverse_fft
+import scipy.integrate, scipy.fftpack
+from ...fft_wrapper import unitary_fft, unitary_inverse_fft, FFTArray, in_fourier_space
 
-class VarianceCalculationTools:
-    def __init__(self, cov_fn, n1, n2, hires_window_scale, offset):
+class Powspec:
+    def __init__(self, cov_fn, nP, nW, hires_window_scale, offset):
         if cov_fn is None:
             from ... import powerlaw_covariance
             cov_fn = partial(powerlaw_covariance, plaw=-1.0)
         self.cov_fn = cov_fn
+
+        self.k_low = scipy.fftpack.rfftfreq(self.nP, d=self.delta_low)
+        self.k_high = scipy.fftpack.rfftfreq(self.nW, d=self.delta_high)
+        self.k_high_full_box = scipy.fftpack.rfftfreq(self.nP * self.pixel_size_ratio, d=self.delta_high)
+
+        self.C_low = self._get_variance_k(self.k_low) * self.nP
+        self.C_high = self._get_variance_k(self.k_high) * self.nP / self.window_size_ratio
+        self.C_high_full_box = self._get_variance_k(self.k_high_full_box) * self.nP * self.pixel_size_ratio
+
+        # covariance matrix for potential
+        with np.errstate(divide='ignore'):
+            self.C_low_potential = self._C_delta_to_potential(self.C_low, self.k_low)
+            self.C_high_potential = self._C_delta_to_potential(self.C_high, self.k_high)
 
     def _C_delta_to_potential(self, C, k):
         with np.errstate(divide='ignore'):
@@ -31,16 +44,16 @@ class VarianceCalculationTools:
         return Cv
 
     def set_Chigh_realspace(self):
-        self.C_high = self._calc_transfer_fn_realspace(self.n2)
-        self.C_high_potential = self._calc_transfer_fn_realspace(self.n2, potential=True)
+        self.C_high = self._calc_transfer_fn_realspace(self.nW)
+        self.C_high_potential = self._calc_transfer_fn_realspace(self.nW, potential=True)
 
     def _calc_transfer_fn_realspace(self, num_pixels, potential=False):
-        fullbox_n2 = self.n1 * self.pixel_size_ratio
-        k_high_full = scipy.fftpack.rfftfreq(fullbox_n2, d=1. / fullbox_n2)
+        fullbox_nW = self.nP * self.pixel_size_ratio
+        k_high_full = scipy.fftpack.rfftfreq(fullbox_nW, d=1. / fullbox_nW)
 
         # pretend high-res is across the full box temporarily; get the TF
 
-        C_high_full = self._get_variance_k(k_high_full) * self.n1
+        C_high_full = self._get_variance_k(k_high_full) * self.nP
         if potential:
             C_high_full = self._C_delta_to_potential(C_high_full, k_high_full)
         transfer = self._cov_to_transfer(C_high_full)
@@ -69,3 +82,20 @@ class VarianceCalculationTools:
             sqrt_C_high_apo_re[2::2] = sqrt_C_high_apo_re[1::2]
 
         return sqrt_C_high_apo_re ** 2
+
+    @in_fourier_space
+    def _apply_transfer_function(self, noiseP, noiseW=None):
+        """Apply the transfer function to the pixelized and windowed noise
+
+        :param noiseP: the pixelized whitenoise
+        :param noiseW: the windowed whitenoise
+        :return: deltaP, deltaW: the convolved fields
+        """
+        deltaP = FFTArray(noiseP * np.sqrt(self.C_low))
+        deltaP.fourier = True
+        if noiseW is not None:
+            deltaW = FFTArray(noiseW * np.sqrt(self.C_high))
+            deltaW.fourier = True
+            return deltaP, deltaW
+        else:
+            return deltaP

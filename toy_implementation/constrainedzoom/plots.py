@@ -13,11 +13,11 @@ from . import methods
 
 def plot_covariance_slice(G: ZoomConstrained, cov: np.ndarray, element_offset=0):
     """Plots the 1D slice of the covariance matrix specified by element_offset from the middle of the high-res region"""
-    hires_element = G.n2//2+element_offset+G.pixel_size_ratio//2
+    hires_element = G.nW//2+element_offset+G.pixel_size_ratio//2
     lores_element = G.offset+hires_element//G.pixel_size_ratio
-    C11 = cov[:G.n1, :G.n1]
-    C22 = cov[G.n1:, G.n1:]
-    C12 = cov[:G.n1, G.n1:]
+    C11 = cov[:G.nP, :G.nP]
+    C22 = cov[G.nP:, G.nP:]
+    C12 = cov[:G.nP, G.nP:]
 
     x1, x2 = G.xs()
 
@@ -31,7 +31,7 @@ def overplot_boundary_real_space(G: ZoomConstrained, cov: np.ndarray,
     """Overplots a zoomed representation of the covariance matrix at the edge of the zoom region
 
     :param G - the ZoomConstrained object that originally generated the covariance matrix
-    :param cov - the (n1+n2) x (n1+n2) representation of the covariance matrix
+    :param cov - the (nP+nW) x (nP+nW) representation of the covariance matrix
     :param zoomin_size - the number of (coarse) pixels on either side of the edge to show
     :param pad - the number of (coarse) pixels ommitted on the edges of the fine region
     :param plot_size - the size of the panel to be added
@@ -41,11 +41,11 @@ def overplot_boundary_real_space(G: ZoomConstrained, cov: np.ndarray,
     Typically you want to call this after having first called display_cov
     """
 
-    C11 = cov[:G.n1, :G.n1]
-    C22 = cov[G.n1:, G.n1:]
-    C12 = cov[:G.n1, G.n1:]
+    C11 = cov[:G.nP, :G.nP]
+    C22 = cov[G.nP:, G.nP:]
+    C12 = cov[:G.nP, G.nP:]
 
-    offset_end = G.offset + G.n1//G.window_size_ratio - pad
+    offset_end = G.offset + G.nP//G.window_size_ratio - pad
     slice_1 = slice(offset_end-zoomin_size,offset_end+zoomin_size)
     if pad>0:
         slice_2 = slice(-zoomin_size*G.pixel_size_ratio-pad*G.pixel_size_ratio,-pad*G.pixel_size_ratio)
@@ -84,17 +84,17 @@ def overplot_boundary_real_space(G: ZoomConstrained, cov: np.ndarray,
 
 
 def plot_power_spec(G: ZoomConstrained, cov:np.ndarray, pad=0, errors=False):
-    C11 = cov[:G.n1, :G.n1]
-    C12 = cov[:G.n1, G.n1:]
-    C22 = cov[G.n1:, G.n1:]
+    C11 = cov[:G.nP, :G.nP]
+    C12 = cov[:G.nP, G.nP:]
+    C22 = cov[G.nP:, G.nP:]
 
     if pad > 0:
         pad_highres = pad*G.pixel_size_ratio
         C22 = C22[pad_highres:-pad_highres, pad_highres:-pad_highres]
         C12 = C12[:, pad_highres:-pad_highres]
 
-    k_nyq_1 = G.n1/2  # N pi / L, but L=1
-    k_nyq_2 = G.n2 * G.window_size_ratio/2
+    k_nyq_1 = G.nP/2  # N pi / L, but L=1
+    k_nyq_2 = G.nW * G.window_size_ratio/2
 
     U1 = fft_wrapper.unitary_fft_matrix(len(C11))
     U2 = fft_wrapper.unitary_fft_matrix(len(C22))
@@ -112,8 +112,8 @@ def plot_power_spec(G: ZoomConstrained, cov:np.ndarray, pad=0, errors=False):
 
     actual_P1 = C11.diagonal()/k1[1]
     actual_P2 = C22.diagonal()/k2[1]
-    target_P1 = 2.*G._get_variance_k(k1)*G.n1
-    target_P2 = 2.*G._get_variance_k(k2)*G.n2/G.window_size_ratio
+    target_P1 = 2.*G._get_variance_k(k1)*G.nP
+    target_P2 = 2.*G._get_variance_k(k2)*G.nW/G.window_size_ratio
 
     if errors:
         p.plot(k1, actual_P1, "r")
@@ -143,17 +143,17 @@ def plot_fourier_space(G: ZoomConstrained, cov:np.ndarray, pad=0, vmin=None, vma
     :param hilo_axis: the axes to use for the fine x coarse covariance matrix, or None to create fresh ones
     :param hihi_axis: the axes to use for the fine x fine covariance matrix (if hilo_axis is not None)
     """
-    C11 = cov[:G.n1, :G.n1]
-    C12 = cov[:G.n1, G.n1:]
-    C22 = cov[G.n1:, G.n1:]
+    C11 = cov[:G.nP, :G.nP]
+    C12 = cov[:G.nP, G.nP:]
+    C22 = cov[G.nP:, G.nP:]
 
     if pad>0:
         pad2 = pad*G.pixel_size_ratio
         C22  = C22[pad2:-pad2,pad2:-pad2]
         C12 = C12[:,pad2:-pad2]
 
-    k_nyq_1 = G.n1 # N pi / L, but L=1
-    k_nyq_2 = G.n2*G.window_size_ratio
+    k_nyq_1 = G.nP # N pi / L, but L=1
+    k_nyq_2 = G.nW*G.window_size_ratio
 
     U1 = fft_wrapper.unitary_fft_matrix(len(C11))
     U2 = fft_wrapper.unitary_fft_matrix(len(C22))
@@ -227,16 +227,16 @@ def plot_real_space(G: ZoomConstrained, cov: np.ndarray,
     vmin = vmin if vmin is not None else np.min(cov)
     vmax = vmax if vmax is not None else np.max(cov)
 
-    C11 = cov[:G.n1,:G.n1]
-    C22 = cov[G.n1:,G.n1:]
-    C12 = cov[:G.n1,G.n1:]
+    C11 = cov[:G.nP,:G.nP]
+    C22 = cov[G.nP:,G.nP:]
+    C12 = cov[:G.nP,G.nP:]
 
-    zoom_width = G.n1//G.window_size_ratio
+    zoom_width = G.nP//G.window_size_ratio
     offset = G.offset
-    n1 = G.n1
+    nP = G.nP
 
     if pad>0:
-        pixel_scale = (G.n2*G.window_size_ratio)//G.n1
+        pixel_scale = (G.nW*G.window_size_ratio)//G.nP
         pad_fine = pad*pixel_scale
         C22 = C22[pad_fine:-pad_fine,pad_fine:-pad_fine]
         C12 = C12[:,pad_fine:-pad_fine]
@@ -245,7 +245,7 @@ def plot_real_space(G: ZoomConstrained, cov: np.ndarray,
 
     p.imshow(C11,extent=[0,1.0,1.0,0],vmin=vmin,vmax=vmax,interpolation='none')
     if downgrade:
-        zoom_fac = G.window_size_ratio*(G.n2//G.n1)
+        zoom_fac = G.window_size_ratio*(G.nW//G.nP)
         print("zoom_fac=",zoom_fac)
         C22new=0
         for i in range(zoom_fac):
@@ -258,8 +258,8 @@ def plot_real_space(G: ZoomConstrained, cov: np.ndarray,
             C12new+=C12[:,i::zoom_fac]
         C12 = C12new/zoom_fac
 
-    zoom_window_start_coordinate = offset/n1
-    zoom_window_end_coordinate = (offset+zoom_width)/n1
+    zoom_window_start_coordinate = offset/nP
+    zoom_window_end_coordinate = (offset+zoom_width)/nP
 
     p.imshow(C12.T,extent=[0,1.0,zoom_window_end_coordinate,zoom_window_start_coordinate],vmin=vmin,vmax=vmax,interpolation='none')
     if show_hh:
@@ -301,8 +301,8 @@ def combined_plots(G: ZoomConstrained, cov:np.ndarray, pad=0, vmin=None, vmax=No
     :param vmin: passed to pyplot's imshow
     :param vmax: passed to pyplot's imshow
     """
-    k_nyq_1 = G.n1  # N pi / L, but L=1
-    k_nyq_2 = G.n2 * G.window_size_ratio
+    k_nyq_1 = G.nP  # N pi / L, but L=1
+    k_nyq_2 = G.nW * G.window_size_ratio
 
     # ideal - but does not seem to work on mac os:
     p.gcf().set_size_inches(11.275, 4.925, forward=True)
@@ -339,8 +339,8 @@ def combined_plots(G: ZoomConstrained, cov:np.ndarray, pad=0, vmin=None, vmax=No
                           "0",
                           "$%.0f$%%" % (vmax * 100)])
 
-def overlay_grid(n1=256, n2=256, hires_window_scale=4, x_min=0.15, x_max=0.20):
-    X = FastIdealizedZoomConstrained(lambda x:1, n1, n2, hires_window_scale)
+def overlay_grid(nP=256, nW=256, hires_window_scale=4, x_min=0.15, x_max=0.20):
+    X = FastIdealizedZoomConstrained(lambda x:1, nP, nW, hires_window_scale)
     xP, xW = X.boundary_xs()
     xW = xW[(xW>x_min) & (xW<x_max)]
     xP = xP[(xP>x_min) & (xP<x_max)]
@@ -348,7 +348,7 @@ def overlay_grid(n1=256, n2=256, hires_window_scale=4, x_min=0.15, x_max=0.20):
     p.vlines(xW,yrange[0],yrange[1],color='#eeeeee')
     p.vlines(xP,yrange[0],yrange[1],color='#cccccc')
 
-def zoom_demo(n1=256, n2=256, hires_window_scale=4, hires_window_offset=10,plaw=-1.5,method=FilteredZoomConstrained,
+def zoom_demo(nP=256, nW=256, hires_window_scale=4, hires_window_offset=10,plaw=-1.5,method=FilteredZoomConstrained,
               constraint_val=None, constraint_covec=None,
               no_random=False,pad=None,
               show_covec=False,errors=False,linewidth=None,
@@ -359,12 +359,12 @@ def zoom_demo(n1=256, n2=256, hires_window_scale=4, hires_window_offset=10,plaw=
 
     cov_this = functools.partial(powerlaw_covariance, plaw=plaw)
 
-    X = method(cov_this, n1=n1, n2=n2, hires_window_scale=hires_window_scale, offset=hires_window_offset)
+    X = method(cov_this, nP=nP, nW=nW, hires_window_scale=hires_window_scale, offset=hires_window_offset)
     if constraint_val is not None:
         X.add_constraint(constraint_val, constraint_covec, constrain_potential)
 
     if errors:
-        Y = FastIdealizedZoomConstrained(cov_this, n1=n1, n2=n2, hires_window_scale=hires_window_scale, offset=hires_window_offset)
+        Y = FastIdealizedZoomConstrained(cov_this, nP=nP, nW=nW, hires_window_scale=hires_window_scale, offset=hires_window_offset)
         if constraint_val is not None:
             Y.add_constraint(constraint_val, constraint_covec, constrain_potential)
 
@@ -384,10 +384,10 @@ def zoom_demo(n1=256, n2=256, hires_window_scale=4, hires_window_offset=10,plaw=
 
 
     if constraint_val is not None and (not constrain_potential):
-        cov = FastIdealizedZoomConstrained(cov_this, n1, n2, hires_window_scale=hires_window_scale, offset=hires_window_offset).get_cov()[n1:,n1:]
+        cov = FastIdealizedZoomConstrained(cov_this, nP, nW, hires_window_scale=hires_window_scale, offset=hires_window_offset).get_cov()[nP:,nP:]
         if constraint_val==0.0:
             cv_var_uncon = np.dot(constraint_covec,np.dot(cov,constraint_covec))
-            cv_var_con = np.dot(constraint_covec, np.dot(X.get_cov()[n1:,n1:] , constraint_covec))+1e-10 #1e-10 noise level prevent NaN
+            cv_var_con = np.dot(constraint_covec, np.dot(X.get_cov()[nP:,nP:] , constraint_covec))+1e-10 #1e-10 noise level prevent NaN
             print("%s constraint value %.2f (target %.2f; rms %.2f; rms without constraint %.2f; suppression %.1f%%)"%(X.description,
                                                         np.dot(constraint_covec, delta_W),
                                                         constraint_val,
@@ -409,7 +409,7 @@ def zoom_demo(n1=256, n2=256, hires_window_scale=4, hires_window_offset=10,plaw=
     line, = p.plot(xW, delta_W, label=X.description,linewidth=linewidth)
 
     left_of_window = slice(0,hires_window_offset+pad+1)
-    right_of_window = slice(hires_window_offset+n2//hires_window_scale-pad-1, None)
+    right_of_window = slice(hires_window_offset+nW//hires_window_scale-pad-1, None)
 
     for sl in left_of_window, right_of_window:
         p.plot(xP[sl], delta_P[sl], ":", color=line.get_color(),linewidth=linewidth)
@@ -478,7 +478,7 @@ def compare_constraints_with_errors(*args, **kwargs):
     compare_constraints(*args, errors=True, **kwargs)
 
 
-def cov_zoom_demo(n1=256, n2=256,
+def cov_zoom_demo(nP=256, nW=256,
                   hires_window_scale=4,
                   hires_window_offset=10,
                   estimate=False, Ntrials=2000,
@@ -491,8 +491,8 @@ def cov_zoom_demo(n1=256, n2=256,
                   initialization_kwargs={}):
     """End-to-end construction and plotting function for understanding a zoom algorithm
     
-    :param n1: The number of low-res pixels
-    :param n2: The number of high-res pixels
+    :param nP: The number of low-res pixels
+    :param nW: The number of high-res pixels
     :param hires_window_scale: The size of the high-res window relative to the low-res box
     :param estimate: if True, use a covariance estimator instead of the exact algorithm (mainly useful for testing the exact algorithm is working)
     :param Ntrials: if estimate is True, the number of trials to use
@@ -517,7 +517,7 @@ def cov_zoom_demo(n1=256, n2=256,
         p.clf()
 
     cov_this = functools.partial(powerlaw_covariance, plaw=plaw)
-    X = method(cov_this, n1=n1, n2=n2, hires_window_scale=hires_window_scale, offset=hires_window_offset, **initialization_kwargs)
+    X = method(cov_this, nP=nP, nW=nW, hires_window_scale=hires_window_scale, offset=hires_window_offset, **initialization_kwargs)
 
     if pad is None:
         pad = X.get_default_plot_padding()
@@ -531,7 +531,7 @@ def cov_zoom_demo(n1=256, n2=256,
         cv_est = X.get_cov(one_element=one_element)
 
     if errors:
-        Y = FastIdealizedZoomConstrained(cov_this, n1=n1, n2=n2, hires_window_scale=hires_window_scale, offset=hires_window_offset)
+        Y = FastIdealizedZoomConstrained(cov_this, nP=nP, nW=nW, hires_window_scale=hires_window_scale, offset=hires_window_offset)
         if with_constraint:
             Y.add_constraint(0.0)
 
@@ -539,9 +539,9 @@ def cov_zoom_demo(n1=256, n2=256,
         cv_est-=true_cov
         cv_est/=true_cov.max() # variance in hi-res region
         if vmin is None:
-            vmin = -max(abs(cv_est[1, 1]), abs(cv_est[-n2 // 2, -n2 // 2]))
+            vmin = -max(abs(cv_est[1, 1]), abs(cv_est[-nW // 2, -nW // 2]))
         if vmax is None:
-            vmax = max(abs(cv_est[1, 1]), abs(cv_est[-n2 // 2, -n2 // 2]))
+            vmax = max(abs(cv_est[1, 1]), abs(cv_est[-nW // 2, -nW // 2]))
 
     else:
         cv_est/=cv_est.max()

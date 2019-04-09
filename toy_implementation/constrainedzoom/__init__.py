@@ -56,25 +56,25 @@ def cov2cor(matr):
     return matr/np.sqrt(np.outer(matr.diagonal(),matr.diagonal()))
 
 
-def demo(val=2.0,seed=1,plaw=-1.5, deriv=False, n1=1024, n2=256, k_cut=0.2, scale=4, smooth=10):
+def demo(val=2.0,seed=1,plaw=-1.5, deriv=False, nP=1024, nW=256, k_cut=0.2, scale=4, smooth=10):
     cv_gen = deriv_constraint_vector if deriv else constraint_vector
     cov_this = functools.partial(powerlaw_covariance, plaw=plaw)
 
     # set up zoom solution
     if seed is not None:
         np.random.seed(seed)
-    G = ZoomConstrained(cov_this, k_cut=k_cut, n2=n2, n1=n1, hires_window_scale=scale, offset=(n1 * (scale - 1)) // (2 * scale))
+    G = ZoomConstrained(cov_this, k_cut=k_cut, nW=nW, nP=nP, hires_window_scale=scale, offset=(nP * (scale - 1)) // (2 * scale))
 
-    G.add_constraint(val, cv_gen(smooth, n2))
+    G.add_constraint(val, cv_gen(smooth, nW))
 
     # set up ideal (uniform) solution
-    n1_eff = n2*scale
-    print("n1_eff=",n1_eff)
+    nP_eff = nW*scale
+    print("nP_eff=",nP_eff)
 
-    Gs = ZoomConstrained(cov_this, k_cut=10000, n2=n1_eff, n1=n1_eff, hires_window_scale=1, offset=0)
-    Gs.add_constraint(val, cv_gen(smooth, n1_eff))
+    Gs = ZoomConstrained(cov_this, k_cut=10000, nW=nP_eff, nP=nP_eff, hires_window_scale=1, offset=0)
+    Gs.add_constraint(val, cv_gen(smooth, nP_eff))
     _, r_ideal = Gs.realization(no_random=True)
-    x_ideal = (np.arange(n1_eff)+0.5)/(n1_eff/n1)
+    x_ideal = (np.arange(nP_eff)+0.5)/(nP_eff/nP)
 
     # make plots
     p.clf()
@@ -99,7 +99,7 @@ def demo(val=2.0,seed=1,plaw=-1.5, deriv=False, n1=1024, n2=256, k_cut=0.2, scal
 """
 def cov_constraint_demo(downgrade_view=False,plaw=-1.5):
     cov_this = functools.partial(globals()['cov'],plaw=plaw)
-    G = ZoomConstrained(cov_this,n2=256)
+    G = ZoomConstrained(cov_this,nW=256)
     #G.add_constraint(0.0,constraint_vector())
     #G.constraints_real.append(np.ones(768))
     cov, means, stds = G.estimate_cov(with_means=True)

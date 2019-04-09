@@ -18,7 +18,7 @@ class TraditionalZoomConstrained(ZoomConstrainedWithGeometricConstraints):
 
     def get_default_plot_padding(self):
         """The default plot padding (in coarse pixels) to hide from the high-res region"""
-        return self.n2 // (self.pixel_size_ratio) // 4
+        return self.nW // (self.pixel_size_ratio) // 4
 
 
 
@@ -52,18 +52,18 @@ class TraditionalZoomConstrained(ZoomConstrainedWithGeometricConstraints):
         return self.upsample_zeroorder(self.downsample(hr_vector))
 
     @in_real_space
-    def _recombine_fields(self, delta_low, delta_high):
-        delta_high += self.upsample_cubic(delta_low)
-        delta_low += self._apply_transfer_function(self._delta_low_residual.in_fourier_space()).in_real_space()
+    def _recombine_fields(self, deltaP, deltaW):
+        deltaW += self.upsample_cubic(deltaP)
+        deltaP += self._apply_transfer_function(self._delta_low_residual.in_fourier_space()).in_real_space()
 
-        return delta_low, delta_high
+        return deltaP, deltaW
 
     @in_real_space
     def covector_to_vector(self, lr_covec, hr_covec):
         hr_vec = hr_covec #self._remove_lr_pixel_info(hr_covec)
         # remove bits outside W but inside the 'pad' region
-        hr_vec[:self.n2//4]=0
-        hr_vec[3*self.n2//4]=0
+        hr_vec[:self.nW//4]=0
+        hr_vec[3*self.nW//4]=0
         return lr_covec/self.pixel_size_ratio,hr_vec
 
     def zoom_covec_from_uniform_covec_in_window(self, hr_covec, potential):
@@ -76,10 +76,10 @@ class TraditionalZoomConstrained(ZoomConstrainedWithGeometricConstraints):
         if hr_covec is None:
             hr_covec = self._default_constraint_hr_vec()
         # Unable to constrain in the 'pad' region
-        if not (np.allclose(hr_covec[:self.n2 // 4], 0, atol=hr_covec.max() * 1e-3)
-                and np.allclose(hr_covec[(self.n2 * 3) // 4:], 0, atol=hr_covec.max() * 1e-3)):
+        if not (np.allclose(hr_covec[:self.nW // 4], 0, atol=hr_covec.max() * 1e-3)
+                and np.allclose(hr_covec[(self.nW * 3) // 4:], 0, atol=hr_covec.max() * 1e-3)):
             raise ValueError(
-                "The constraint extends outside the valid part of the high resolution window (which is only half of n2 for traditional algorithms)")
+                "The constraint extends outside the valid part of the high resolution window (which is only half of nW for traditional algorithms)")
         # filter is ( (I-W^+ W) C_P^(1/2) W  \hat{P} m   + P m W^+ XC^{1/2}X^{+}  )
         lr_covec = FFTArray(self.downsample_cubic(hr_covec, pad_around_window=True))
         lr_covec.in_fourier_space()
@@ -90,8 +90,8 @@ class TraditionalZoomConstrained(ZoomConstrainedWithGeometricConstraints):
         lr_covec2.in_fourier_space()
         lr_covec2 *= C_high ** 0.5 * self.pixel_size_ratio
         lr_covec2.in_real_space()
-        lr_covec2[:self.n2 // 4] = 0
-        lr_covec2[3 * self.n2 // 4:] = 0
+        lr_covec2[:self.nW // 4] = 0
+        lr_covec2[3 * self.nW // 4:] = 0
         lr_covec += self.downsample(lr_covec2, input_unpadded=True)
         # filter is (I-WP^+PW^+) XC^{1/2}X+
         hr_covec = FFTArray(copy.copy(hr_covec))
@@ -99,8 +99,8 @@ class TraditionalZoomConstrained(ZoomConstrainedWithGeometricConstraints):
         hr_covec *= C_high ** 0.5
         hr_covec.in_real_space()
         hr_covec = self._remove_lr_pixel_info(hr_covec)
-        hr_covec[:self.n2 // 4] = 0
-        hr_covec[3 * self.n2 // 4] = 0
+        hr_covec[:self.nW // 4] = 0
+        hr_covec[3 * self.nW // 4] = 0
 
         lr_covec.in_fourier_space()
         hr_covec.in_fourier_space()
