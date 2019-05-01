@@ -32,15 +32,20 @@ namespace io {
       double redshift;
       int flag_sfr;
       int flag_feedback;
-      int nPartTotal[6];
-      /*!< npart[1] gives the total number of particles in the run. If this number exceeds 2^32, the nPartTotal[2] stores the result of a division of the particle number by 2^32, while nPartTotal[1] holds the remainder. */
+      unsigned int nPartTotal[6];
       int flag_cooling;
       int num_files;
       double BoxSize;
       double Omega0;
       double OmegaLambda;
       double HubbleParam;
-      char fill[256 - 6 * 4 - 6 * 8 - 2 * 8 - 2 * 4 - 6 * 4 - 2 * 4 - 4 * 8];  /* fills to 256 Bytes */
+      // Also looks like we need the following, but we don't actually need to set these:
+      int flag_stellarage;
+      int flag_metals;
+      // If more than 10^32 particles, this part stores the number of particles divided by 2^32 (rounding down) and nPartTotal contains the remainder.
+      unsigned int nPartTotalHighWord[6];
+      int flag_entropy_instead_u;
+      char fill[256 - 6 * 4 - 6 * 8 - 2 * 8 - 2 * 4 - 6 * 4 - 2 * 4 - 4 * 8 - 6*4 - 3*4];  /* fills to 256 Bytes */
     };
 
 
@@ -132,18 +137,30 @@ namespace io {
       header2.redshift = cosmology.redshift;
       header2.flag_sfr = 0;
       header2.flag_feedback = 0;
-      header2.nPartTotal[0] = npart[0];
-      header2.nPartTotal[1] = npart[1];
-      header2.nPartTotal[2] = npart[2];
-      header2.nPartTotal[3] = npart[3];
-      header2.nPartTotal[4] = npart[4];
-      header2.nPartTotal[5] = npart[5];
+      header2.nPartTotal[0] = (unsigned int) (npart[0]);
+      header2.nPartTotal[1] = (unsigned int) (npart[1]);
+      header2.nPartTotal[2] = (unsigned int) (npart[2]);
+      header2.nPartTotal[3] = (unsigned int) (npart[3]);
+      header2.nPartTotal[4] = (unsigned int) (npart[4]);
+      header2.nPartTotal[5] = (unsigned int) (npart[5]);
+      // Same basic thing should happen here as with gadget3:
+      header2.nPartTotalHighWord[0] = (unsigned int) (npart[0] >> 32);
+      header2.nPartTotalHighWord[1] = (unsigned int) (npart[1] >> 32);
+      header2.nPartTotalHighWord[2] = (unsigned int) (npart[2] >> 32);
+      header2.nPartTotalHighWord[3] = (unsigned int) (npart[3] >> 32);
+      header2.nPartTotalHighWord[4] = (unsigned int) (npart[4] >> 32);
+      header2.nPartTotalHighWord[5] = (unsigned int) (npart[5] >> 32);
       header2.flag_cooling = 0;
       header2.num_files = 1;
       header2.BoxSize = Boxlength;
       header2.Omega0 = cosmology.OmegaM0;
       header2.OmegaLambda = cosmology.OmegaLambda0;
       header2.HubbleParam = cosmology.hubble;
+
+      // I don't think we use any of the extra flags:
+      header2.flag_stellarage = 0;
+      header2.flag_metals = 0;
+      header2.flag_entropy_instead_u = 0;
 
       if (npart[0] > 0) { //options for baryons
         header2.flag_sfr = 1;
@@ -391,7 +408,8 @@ namespace io {
                return localIterator.getMass();
              });
          }
-       }
+
+	}
 
 
     };
