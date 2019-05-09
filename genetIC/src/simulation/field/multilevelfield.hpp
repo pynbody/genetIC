@@ -230,7 +230,7 @@ namespace fields {
     {
       for(size_t level=0; level<multiLevelContext->getNumLevels(); ++level) {
           auto &field = this->getFieldForLevel(level);
-          size_t N = field.getGrid().size3;
+          size_t N = field.getDataVector().size();
           auto &field_data = field.getDataVector();
           for (size_t i = 0; i < N; i++) {
             field_data[i] = -field_data[i];
