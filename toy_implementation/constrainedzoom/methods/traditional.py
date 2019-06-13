@@ -107,6 +107,26 @@ class TraditionalZoomConstrained(ZoomConstrainedWithGeometricConstraints):
         return lr_covec, hr_covec
 
 
+class TraditionalZoomSingleLevelConstraint(TraditionalZoomConstrained):
+    def zoom_covec_from_uniform_covec_in_window(self, hr_covec, potential):
+        if potential:
+            C_high = self.C_high_potential
+            C_low = self.C_low_potential
+        else:
+            C_high = self.C_high
+            C_low = self.C_low
+        if hr_covec is None:
+            hr_covec = self._default_constraint_hr_vec()
+
+        # C_P^(1/2) W  \hat{P} m
+        lr_covec = FFTArray(self.downsample_cubic(hr_covec))
+        lr_covec.in_fourier_space()
+        lr_covec *= C_low ** 0.5 * self.pixel_size_ratio
+
+        hr_covec = FFTArray(np.zeros_like(hr_covec))
+        hr_covec.in_fourier_space()
+
+        return lr_covec, hr_covec
 
 class BertschingerZoomConstrained(TraditionalZoomConstrained):
     description = "Naive Traditional"
