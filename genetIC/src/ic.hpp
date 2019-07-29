@@ -82,8 +82,11 @@ protected:
   //! Gadget type of flagged particles.
   unsigned int flaggedGadgetParticleType;
 
-  //! DM supersampling to perform on zoom grid
+  //! DM supersampling to perform on deepest zoom grid
   int supersample;
+
+  //! Gas supersampling to perform on deepest zoom grid
+  int supersampleGas;
 
   //! Subsampling on base grid
   int subsample;
@@ -192,6 +195,7 @@ public:
 
     // Default computational options:
     supersample = 1;
+    supersampleGas = 1;
     subsample = 1;
     exactPowerSpectrum = false;
     allowStrayParticles = false;
@@ -290,10 +294,22 @@ public:
    * \param factor Factor by which the resolution must be increased compared to the finest grid
    */
   void setSupersample(int factor) {
-    if (factor <= 0 ){
-      throw std::runtime_error("Supersampling factor must be greater then zero");
+    if (factor <= 1 ){
+      throw std::runtime_error("Supersampling factor must be greater then one");
     }
     supersample = factor;
+    updateParticleMapper();
+  }
+
+  //! Add a higher resolution grid to the stack by supersampling the finest grid.
+  /*! The power spectrum will not be taken into account in this grid
+   * \param factor Factor by which the resolution must be increased compared to the finest grid
+   */
+  void setSupersampleGas(int factor) {
+    if (factor <= 1 ){
+      throw std::runtime_error("Supersampling factor must be greater then one");
+    }
+    supersampleGas = factor;
     updateParticleMapper();
   }
 
@@ -1061,42 +1077,47 @@ public:
       // Add gas only to the deepest level. Pass the whole pGrid
       // vector if you want to add gas to every level.
 
-      typedef std::pair<std::shared_ptr<particle::mapper::ParticleMapper<GridDataType>>,
-                        std::shared_ptr<particle::mapper::ParticleMapper<GridDataType>>> gasMapperType;
+      decltype(pMapper) gasMapper, dmMapper;
 
-      gasMapperType gasMapper;
+
       if(this->baryonsOnAllLevels) {
         // If we want to output baryons on all levels:
-        gasMapper = pMapper->addGas(cosmology.OmegaBaryons0 / (cosmology.OmegaM0),
+        std::tie(gasMapper, dmMapper) = pMapper->splitMass(cosmology.OmegaBaryons0 / (cosmology.OmegaM0),
                                        multiLevelContext.getAllGrids());
       }
       else {
-        // Default
-        gasMapper = pMapper->addGas(cosmology.OmegaBaryons0 / cosmology.OmegaM0,
+        // Default - only add gas on the finest level
+        std::tie(gasMapper, dmMapper) = pMapper->splitMass(cosmology.OmegaBaryons0 / cosmology.OmegaM0,
                                        {multiLevelContext.getGridForLevel(nLevels - 1).shared_from_this()});
       }
 
 
+      if(supersampleGas>1)
+        gasMapper = gasMapper->superOrSubSample(supersampleGas,
+                                            {multiLevelContext.getGridForLevel(nLevels - 1).shared_from_this()},
+                                            true);
+
+
       bool gasFirst = outputFormat == io::OutputFormat::tipsy;
 
-      // graft the gas particles onto the start of the map
+      // graft the gas particles onto the start (or end) of the map
       if (gasFirst)
         pMapper = std::make_shared<particle::mapper::AddGasMapper<GridDataType>>(
-            gasMapper.first, gasMapper.second, true);
+            gasMapper, dmMapper, true);
       else
         pMapper = std::make_shared<particle::mapper::AddGasMapper<GridDataType>>(
-            gasMapper.second, gasMapper.first, false);
+            dmMapper, gasMapper, false);
 
     }
 
     // potentially resample the lowest-level DM grid. Again, this is theoretically
     // more flexible if you pass in other grid pointers.
     if (supersample > 1)
-      pMapper = pMapper->superOrSubSampleDM(supersample,
-                                            {multiLevelContext.getGridForLevel(nLevels - 1).shared_from_this()}, true);
+      pMapper = pMapper->superOrSubSample(supersample,
+                                          {multiLevelContext.getGridForLevel(nLevels - 1).shared_from_this()}, true);
 
     if (subsample > 1)
-      pMapper = pMapper->superOrSubSampleDM(subsample, {multiLevelContext.getGridForLevel(0).shared_from_this()},
+      pMapper = pMapper->superOrSubSample(subsample, {multiLevelContext.getGridForLevel(0).shared_from_this()},
                                             false);
 
   }

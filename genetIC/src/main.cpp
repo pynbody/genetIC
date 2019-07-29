@@ -58,6 +58,7 @@ void setup_parser(tools::ClassDispatch<ICf, void> &dispatch) {
   dispatch.add_class_route("exact_power_spectrum_enforcement", &ICf::setExactPowerSpectrumEnforcement);
   dispatch.add_class_route("strays_on", &ICf::setStraysOn);
   dispatch.add_class_route("supersample", &ICf::setSupersample);
+  dispatch.add_class_route("supersample_gas", &ICf::setSupersampleGas);
   dispatch.add_class_route("subsample", &ICf::setSubsample);
   dispatch.add_class_route("eps_norm",&ICf::setEpsNorm);
 

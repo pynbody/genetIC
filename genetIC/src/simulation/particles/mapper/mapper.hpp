@@ -303,14 +303,15 @@ namespace particle {
         return false;
       }
 
-      //! Adds a baryon mapper to this mapper
-      virtual std::pair<MapPtrType, MapPtrType> addGas(T /*massratio*/, const std::vector<GridPtrType> & /*&toGrids*/) {
+      //! Returns a pair of mappers, with the specified fraction of mass in the first and the remainder in the second.
+      //! Only the listed grids are targeted; particles based on other grids are only present in the second mapper returned.
+      virtual std::pair<MapPtrType, MapPtrType> splitMass(T /*massratio*/, const std::vector<GridPtrType> & /*&toGrids*/) {
         throw std::runtime_error("Don't know how to add gas in this context");
       }
 
       //! Sub/super samples the dark matter pointed to by the mapper.
       virtual MapPtrType
-      superOrSubSampleDM(int /*ratio*/, const std::vector<GridPtrType> & /*&toGrids*/, bool /*super = true*/) {
+      superOrSubSample(int /*ratio*/, const std::vector<GridPtrType> & /*&toGrids*/, bool /*super = true*/) {
         throw std::runtime_error("Don't know how to supersample in this context");
       }
 

@@ -148,7 +148,7 @@ namespace particle {
         \param massRatio - fraction of the mass in a given particle species
         \param toGrids - vector of grids - only create usable mappers if this grid is a proxy for one of these.
       */
-      std::pair<MapPtrType, MapPtrType> addGas(T massRatio, const std::vector<GridPtrType> &toGrids) override {
+      std::pair<MapPtrType, MapPtrType> splitMass(T massRatio, const std::vector<GridPtrType> &toGrids) override {
         if (pGrid->isProxyForAnyOf(toGrids)) {
           return std::make_pair(
               std::make_shared<OneLevelParticleMapper<GridDataType>>(
@@ -166,7 +166,7 @@ namespace particle {
         \param toGrids - sub/super-sample if at least one of these grids is a proxy for this one
         \param super - if true, super-samples the dark matter, otherwise the dark matter is sub-sampled.
       */
-      MapPtrType superOrSubSampleDM(int ratio, const std::vector<GridPtrType> &toGrids, bool super) override {
+      MapPtrType superOrSubSample(int ratio, const std::vector<GridPtrType> &toGrids, bool super) override {
         std::shared_ptr<OneLevelParticleMapper<GridDataType>> newMapper;
         if (pGrid->isProxyForAnyOf(toGrids)) {
           GridPtrType newGrid;
