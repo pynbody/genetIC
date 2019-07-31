@@ -61,7 +61,9 @@ void setup_parser(tools::ClassDispatch<ICf, void> &dispatch) {
 
   // Grafic options
   dispatch.add_class_route("pvar", &ICf::setpvarValue);
-  dispatch.add_class_route("center_grafic_output", &ICf::setCenteringOnRegion);
+  dispatch.add_class_route("center_grafic_output", &ICf::setCenteringOnRegion); // This should be deprecated -- now works for all output types
+
+  dispatch.add_class_route("center_output", &ICf::setCenteringOnRegion);
 
   // Gadget options
   dispatch.add_class_route("gadget_particle_type", &ICf::setGadgetParticleType);
@@ -140,7 +142,7 @@ void setup_parser(tools::ClassDispatch<ICf, void> &dispatch) {
   dispatch.add_class_route("zero_level_field", static_cast<void (ICf::*)(size_t,size_t)>(&ICf::zeroLevel));
 
   // Set an overall velocity offset for the entire box (useful for testing AMR sensitivity to flows)
-  dispatch.add_class_route("velocity_offset", &ICf::setVelocityOffset);
+  dispatch.add_class_route("velocity_offset", &ICf::setOffset);
 
 }
 

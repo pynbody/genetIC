@@ -26,7 +26,7 @@
 #include "src/simulation/particles/mapper/twolevelmapper.hpp"
 #include "src/simulation/particles/mapper/gasmapper.hpp"
 #include "src/simulation/particles/mapper/graficmapper.hpp"
-#include "src/simulation/particles/velocityoffsetgenerator.hpp"
+#include "src/simulation/particles/offsetgenerator.hpp"
 
 #include "src/cosmology/camb.hpp"
 #include "src/simulation/window.hpp"
@@ -259,7 +259,7 @@ public:
     this->baryonsOnAllLevels = true;
   }
   //! Sets a whole-box velocity offset in km/s -- e.g. for testing AMR sensitivity to movement relative to grid structure
-  void setVelocityOffset(T vx, T vy, T vz) {
+  void setOffset(T vx, T vy, T vz) {
     // convert to km a^1/2 s^-1 (gadget units internally in code)
     T conversion = pow(cosmology.scalefactor, -0.5);
     velOffset = {vx*conversion,vy*conversion,vz*conversion};
@@ -923,15 +923,25 @@ public:
     // methods of generating the particles from the fields
 
     using GridLevelGeneratorType = particle::ZeldovichParticleGenerator<GridDataType>;
-    using OffsetGeneratorType = particle::VelocityOffsetMultiLevelParticleGenerator<GridDataType>;
+    using OffsetGeneratorType = particle::OffsetMultiLevelParticleGenerator<GridDataType>;
 
     pParticleGenerator[species] = std::make_shared<
         particle::MultiLevelParticleGenerator<GridDataType, GridLevelGeneratorType>>( *(outputFields[nField]) , cosmology, epsNorm);
-    if(velOffset!=Coordinate<GridDataType>({0,0,0})) {
-      cerr << "Adding a velocity offset to the output" << endl;
-      pParticleGenerator[species] = std::make_shared<OffsetGeneratorType>(pParticleGenerator[species], velOffset);
+
+    Coordinate<GridDataType> posOffset;
+
+    if(this->centerOnTargetRegion) {
+      posOffset = {-x0, -y0, -z0};
+      posOffset+=getBoxCentre();
+      posOffset = getOutputGrid(0)->wrapPoint(posOffset);
     }
 
+    const Coordinate<GridDataType> zeroCoord;
+
+    if(posOffset!=zeroCoord || velOffset!=zeroCoord) {
+      cerr << "Adding offset to the output" << endl;
+      pParticleGenerator[species] = std::make_shared<OffsetGeneratorType>(pParticleGenerator[species], posOffset, velOffset);
+    }
   }
 
 
