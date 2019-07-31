@@ -85,7 +85,7 @@ public:
   void dumpMask() override {}
 
   //! Calls to this function will actually have no effect.
-  virtual void initialiseParticleGenerator(size_t) override {}
+  virtual void initialiseParticleGenerator() override {}
 
   //! Calls to this function will actually have no effect.
   void dumpID(string /*fname*/) override {}

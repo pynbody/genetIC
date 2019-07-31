@@ -6,6 +6,7 @@
 #include <vector>
 #include <algorithm>
 #include <string>
+#include "src/simulation/particles/species.hpp"
 
 namespace io {
   namespace grafic {
@@ -41,7 +42,7 @@ namespace io {
     protected:
       std::string outputFilename; //!< Filename used for the output files.
       multilevelcontext::MultiLevelContextInformation<DataType> context; //!< Multi-level context for grafic output.
-      std::vector<std::shared_ptr<particle::AbstractMultiLevelParticleGenerator<DataType>>> generators; //!< Vector of generators used to create particles of different species.
+      particle::SpeciesToGeneratorMap<DataType> generators; //!< Vector of generators used to create particles of different species.
       const cosmology::CosmologicalParameters<T> &cosmology; //!< Struct containing cosmological parameters.
       multilevelcontext::GraficMask<DataType,T>* mask; //!< Grafic mask to be used.
       std::vector<std::shared_ptr<fields::OutputField<DataType>>> outputFields; //!< Vector of output fields (needed for baryon overdensity).
@@ -59,7 +60,7 @@ namespace io {
 
         \param fname - filename used for output.
         \param levelContext - multi-level context object used internally.
-        \param particleGenerators - vector of particle generators for each particle species.
+        \param particleGenerators - particle generators for each particle species.
         \param cosmology - struct storing cosmological parameters.
         \param pvarValue - value of passive variable.
         \param center - location of center of the simulation.
@@ -70,7 +71,7 @@ namespace io {
     */
       GraficOutput(const std::string &fname,
                    multilevelcontext::MultiLevelContextInformation<DataType> &levelContext,
-                   std::vector<std::shared_ptr<particle::AbstractMultiLevelParticleGenerator<DataType>>> particleGenerators,
+                   const particle::SpeciesToGeneratorMap<DataType> & particleGenerators,
                    const cosmology::CosmologicalParameters<T> &cosmology,
                     const T pvarValue,
                    Coordinate<T> center,
@@ -114,11 +115,8 @@ namespace io {
     */
       void writeGrid(const grids::Grid<T> &targetGrid, size_t level) {
 
-        auto evaluator_dm = generators[0]->makeParticleEvaluatorForGrid(targetGrid);
-        auto overdensityFieldEvaluator = generators[0]->makeOverdensityEvaluatorForGrid(targetGrid);
-
-	if(generators.size()>1) // use baryon field
-	  overdensityFieldEvaluator = generators[1]->makeOverdensityEvaluatorForGrid(targetGrid);
+        auto evaluator_dm = generators[particle::dm]->makeParticleEvaluatorForGrid(targetGrid);
+        auto overdensityFieldEvaluator = generators[particle::baryon]->makeOverdensityEvaluatorForGrid(targetGrid);
 
         const grids::Grid<T> &baseGrid = context.getGridForLevel(0);
         size_t effective_size = tools::getRatioAndAssertPositiveInteger(baseGrid.cellSize * baseGrid.size,
@@ -272,7 +270,7 @@ namespace io {
     */
     template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
     void save(const std::string &filename,
-              std::vector<std::shared_ptr<particle::AbstractMultiLevelParticleGenerator<DataType>>> generators,
+              const particle::SpeciesToGeneratorMap<DataType> & generators,
               multilevelcontext::MultiLevelContextInformation<DataType> &context,
               const cosmology::CosmologicalParameters<T> &cosmology,
               const T pvarValue, Coordinate<T> center, size_t subsample, size_t supersample,

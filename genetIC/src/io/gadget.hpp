@@ -4,8 +4,8 @@
 #include "src/tools/memmap.hpp"
 #include "src/tools/data_types/float_types.hpp"
 #include "src/io.hpp"
+#include "src/simulation/particles/species.hpp"
 #include <vector>
-
 
 namespace io {
     /*!
@@ -224,7 +224,7 @@ namespace io {
       using InternalFloatType = tools::datatypes::strip_complex<GridDataType>;
 
       particle::mapper::ParticleMapper<GridDataType> &mapper; //!< Particle mapper, for relating particle positions to the grid.
-      std::vector<std::shared_ptr<particle::AbstractMultiLevelParticleGenerator<GridDataType>>> &generators; //!< Generators for each particle species.
+      particle::SpeciesToGeneratorMap<GridDataType> generators; //!< Generators for each particle species.
       const cosmology::CosmologicalParameters<InternalFloatType> &cosmology; //!< Struct containing cosmological parameters.
       tools::MemMapFileWriter writer; //!< Used to write in the gadget format.
       size_t nTotal; //!< Total number of particles to output.
@@ -235,10 +235,13 @@ namespace io {
       bool variableMass; //!< Stores whether we are using variable mass gadget particles
 
 
-      // Map for the generators. Assume that the non-gas elements (gadget type 2+)
-      // map to DM. Note that baryon generators is generators[1], DM is generators[0],
-      // which is the opposite order to gadget.
-      std::vector<size_t> gadgetTypeToFieldType {1,0,0,0,0,0};
+      // Mapping between gadget particle types (0->6) and our internal field type
+      std::vector<particle::species> gadgetTypeToFieldType {particle::species::baryon,
+                                                            particle::species::dm,
+                                                            particle::species::dm,
+                                                            particle::species::dm,
+                                                            particle::species::dm,
+                                                            particle::species::dm};
 
       //! \brief Save a block of gadget particles
       template<typename WriteType>
@@ -340,19 +343,11 @@ namespace io {
       */
       GadgetOutput(double boxLength,
                    particle::mapper::ParticleMapper<GridDataType> &mapper,
-                   std::vector<std::shared_ptr<particle::AbstractMultiLevelParticleGenerator<GridDataType>>> &generators_,
+                   const particle::SpeciesToGeneratorMap<GridDataType> &generators_,
                    const cosmology::CosmologicalParameters<tools::datatypes::strip_complex<GridDataType>> &cosmology,
                    int gadgetVersion) :
                    mapper(mapper), generators(generators_), cosmology(cosmology), boxLength(boxLength),
                    gadgetVersion(gadgetVersion) {
-
-                   // If not using gas, we should re-direct everything to DM:
-                  if(generators.size() < 2)
-                  {
-                    for(auto& i : gadgetTypeToFieldType) {
-                        i = 0;
-                    }
-                  }
        }
 
        //! \brief Operation to save gadget particles
@@ -409,8 +404,7 @@ namespace io {
     template<typename OutputFloatType, typename GridDataType>
     void save(const std::string &name, double Boxlength,
               particle::mapper::ParticleMapper<GridDataType> &mapper,
-              //particle::AbstractMultiLevelParticleGenerator<GridDataType> &generators,//CONFLICT_RESOLUTION
-              std::vector<std::shared_ptr<particle::AbstractMultiLevelParticleGenerator<GridDataType>>> &generators,//CONFLICT_RESOLUTION
+              particle::SpeciesToGeneratorMap<GridDataType> &generators,
               const cosmology::CosmologicalParameters<tools::datatypes::strip_complex<GridDataType>> &cosmology, int gadgetformat) {
 
       GadgetOutput<GridDataType, OutputFloatType> output(Boxlength, mapper, generators, cosmology, gadgetformat);

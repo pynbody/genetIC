@@ -30,6 +30,7 @@
 
 #include "src/cosmology/camb.hpp"
 #include "src/simulation/window.hpp"
+#include "src/simulation/particles/species.hpp"
 
 using namespace std;
 
@@ -62,10 +63,6 @@ protected:
   int nFields; //!< Number of output fields
   modifications::ModificationManager<GridDataType> modificationManager; //!< Handles applying modificaitons to the various fields.
   std::shared_ptr<fields::RandomFieldGenerator<GridDataType>> randomFieldGenerator; //!< Generate white noise for the output fields
-
-  //! Switch to re-direct calls to the baryon field to the DM field if we are not using it:
-  std::vector<size_t> transferSwitch;
-
 
 
   cosmology::CAMB<GridDataType> spectrum; //!< Transfer function data
@@ -156,7 +153,7 @@ protected:
   shared_ptr<multilevelcontext::MultiLevelContextInformation<GridDataType>> pInputMultiLevelContext;
 
   //! Particle generators for each particle species.
-  std::vector<shared_ptr<particle::AbstractMultiLevelParticleGenerator<GridDataType>>> pParticleGenerator;
+  particle::SpeciesToGeneratorMap<GridDataType> pParticleGenerator;
 
   using FieldType = fields::Field<GridDataType>;
 
@@ -177,7 +174,6 @@ public:
     // Link random field generator to the dark matter field
     randomFieldGenerator = std::make_shared<fields::RandomFieldGenerator<GridDataType>>(*outputFields[0]);
 
-    transferSwitch.push_back(0); // Enables use of dark matter transfer function
     velOffset = {0,0,0};
 
     // By default, no input mapper is used:
@@ -195,7 +191,7 @@ public:
     exactPowerSpectrum = false;
     allowStrayParticles = false;
     auto _pParticleGenerator = std::make_shared<particle::NullMultiLevelParticleGenerator<GridDataType>>();
-    pParticleGenerator.push_back(_pParticleGenerator);
+    pParticleGenerator[particle::dm] = _pParticleGenerator;
     flaggedParticlesHaveDifferentGadgetType = false;
     flaggedGadgetParticleType = 1;
     this->baryonsOnAllLevels = false; // Baryons only output on the finest level by default.
@@ -254,10 +250,6 @@ public:
         this->nFields = 2;
         // Add the baryon field:
         outputFields.push_back(std::make_shared<fields::OutputField<GridDataType>>(multiLevelContext,1));
-        transferSwitch.push_back(1);
-        // Add a particle generator for the baryon field:
-        auto _pParticleGenerator = std::make_shared<particle::NullMultiLevelParticleGenerator<GridDataType>>();
-        pParticleGenerator.push_back(_pParticleGenerator);
         this->spectrum.enableAllTransfers();
     }
   }
@@ -816,9 +808,9 @@ public:
   \param fname - file-name to use for data.
   \param nField - field to dump. 0 = dark matter, 1 = baryons.
   */
-  virtual void saveTipsyArray(string fname,size_t nField = 0) {
+  virtual void saveTipsyArray(string fname, size_t nField = 0) {
     checkFieldExists(nField);
-    io::tipsy::saveFieldTipsyArray(fname, *pMapper, *pParticleGenerator[nField], *(outputFields[nField]) );
+    io::tipsy::saveFieldTipsyArray(fname, *pMapper, *pParticleGenerator[particle::dm], *(outputFields[nField]) );
   }
 
   //! Dumps dark matter overdensity in tipsy format.
@@ -916,11 +908,15 @@ public:
   }
 
 
-  //! Initialises the particle generator for field nField
+  //! Initialises the particle generator for a given species, connecting it to one of the output fields
   /*!
-  * \param nField - field to initialise particle generator for. 0 = dark matter, 1 = baryons.
+  * We currently either connect all species to field 0, or connect baryons to field 1 when a different transfer
+  * function has been provided.
+  *
+  * \param species - species of particle
+  * \param nField - field to connect the particle generator to. 0 = dark matter, 1 = baryons.
   */
-  virtual void initialiseParticleGenerator(size_t nField = 0) {
+  virtual void initialiseParticleGenerator(particle::species species, size_t nField = 0) {
     checkFieldExists(nField);
 
     // in principle this could now be easily extended to slot in higher order PT or other
@@ -929,13 +925,26 @@ public:
     using GridLevelGeneratorType = particle::ZeldovichParticleGenerator<GridDataType>;
     using OffsetGeneratorType = particle::VelocityOffsetMultiLevelParticleGenerator<GridDataType>;
 
-    pParticleGenerator[nField] = std::make_shared<
+    pParticleGenerator[species] = std::make_shared<
         particle::MultiLevelParticleGenerator<GridDataType, GridLevelGeneratorType>>( *(outputFields[nField]) , cosmology, epsNorm);
     if(velOffset!=Coordinate<GridDataType>({0,0,0})) {
       cerr << "Adding a velocity offset to the output" << endl;
-      pParticleGenerator[nField] = std::make_shared<OffsetGeneratorType>(pParticleGenerator[nField], velOffset);
+      pParticleGenerator[species] = std::make_shared<OffsetGeneratorType>(pParticleGenerator[species], velOffset);
     }
 
+  }
+
+
+  //! Initialises the particle generators for all species
+  virtual void initialiseParticleGenerator() {
+    initialiseParticleGenerator(particle::dm, 0);
+
+    // If there is a second field available, we use it for baryon output. If not, the baryon particle generator
+    // will just point back to the DM field.
+    if(outputFields.size()>1)
+      initialiseParticleGenerator(particle::baryon, 1);
+    else
+      pParticleGenerator[particle::baryon] = pParticleGenerator[particle::dm];
   }
 
   //! Runs commands of a given parameter file to set up the input mapper
@@ -1112,10 +1121,7 @@ public:
     using namespace io;
 
     initialiseRandomComponentIfUninitialised();
-    for(size_t i = 0; i < outputFields.size(); i++) {
-        initialiseParticleGenerator(i);
-    }
-
+    initialiseParticleGenerator();
 
     cerr << "Write, ndm=" << pMapper->size_dm() << ", ngas=" << pMapper->size_gas() << endl;
     cerr << (*pMapper);
