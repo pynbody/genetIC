@@ -3,6 +3,7 @@
 
 #include <cassert>
 #include <vector>
+#include <complex>
 
 namespace tools {
   namespace numerics {

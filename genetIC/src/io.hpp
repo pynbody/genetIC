@@ -30,7 +30,7 @@ namespace cosmology {
 namespace io {
 
   enum class OutputFormat {
-    gadget2 = 2, gadget3, tipsy, grafic
+    unknown = 1, gadget2 = 2, gadget3 = 3, tipsy = 4, grafic = 5
   };
 
   /*! \namespace io::numpy

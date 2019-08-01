@@ -1,18 +1,11 @@
-#include <stdio.h>
 #include <stdlib.h>
 #include <sstream>
 #include <ctime>
-#include <fstream>
 #include <iostream>
 #include <iomanip>
-#include <complex>
 
-
-#include "tools/data_types/float_types.hpp"
-#include "tools/numerics/vectormath.hpp"
-#include "tools/numerics/fourier.hpp"
 #include "tools/parser.hpp"
-#include "io.hpp"
+#include "ic.hpp"
 #include "dummyic.hpp"
 
 
@@ -152,11 +145,22 @@ void header(ostream &outf) {
   char buf[80];
   tstruct = *localtime(&now);
   strftime(buf, sizeof(buf), "%Y-%m-%d.%X", &tstruct);
+  outf << "#\n"
+          "#   \\             ___,,,,---'''''''--.,,,,___            /\n"
+          "#    \\    ,,,---'   |    |    |    |    |    `---___    /\n"
+          "#     `\\ /     |    |    |    |    |    |    |      `...\n"
+          "#       .,     |    |    |    |    |    |    |      ..'\n"
+          "#     ./  '---,,,   |    |    |    |    |    ,,,---' ..\n"
+          "#    /           '---,,,,___  |   ___,,,,---'         `\\.\n"
+          "#   /                       ''''''                       \\\n"
+          "#\n"
+          "#               g    e    n    e    t    I    C   \n"
+          "#           Quality galactic engineering since 2014\n" << endl;
 
-  outf << "# GM ICs code, compiled " << __DATE__ << " " << __TIME__ << endl;
+  outf << "# genetIC, compiled " << __DATE__ << " " << __TIME__ << endl;
   outf << "# git HEAD:" << GIT_VERSION << endl;
   if (sizeof(GIT_MODIFIED) > 1) {
-    outf << "# However, the following files are modified:" << endl;
+    outf << "# At the time of compilation, the following files had been modified:" << endl;
     outf << "#  " << GIT_MODIFIED << endl;
   }
   outf << "# Runtime: " << buf << endl << endl;

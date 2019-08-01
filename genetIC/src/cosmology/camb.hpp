@@ -3,6 +3,7 @@
 
 #include "src/cosmology/parameters.hpp"
 #include "src/tools/numerics/interpolation.hpp"
+#include "src/io/input.hpp"
 
 /*!
     \namespace cosmology

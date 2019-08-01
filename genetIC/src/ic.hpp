@@ -11,26 +11,27 @@
 #include <iostream>
 #include <list>
 
+#include "tools/numerics/vectormath.hpp"
+#include "tools/numerics/fourier.hpp"
+#include "tools/filesystem.h"
 #include "io/numpy.hpp"
+#include "cosmology/parameters.hpp"
+#include "cosmology/camb.hpp"
+#include "simulation/window.hpp"
+#include "simulation/particles/species.hpp"
+#include "simulation/multilevelcontext/multilevelcontext.hpp"
+#include "simulation/field/randomfieldgenerator.hpp"
+#include "simulation/field/multilevelfield.hpp"
+#include "simulation/field/evaluator.hpp"
+#include "simulation/modifications/modificationmanager.hpp"
+#include "simulation/particles/multilevelgenerator.hpp"
+#include "simulation/particles/mapper/onelevelmapper.hpp"
+#include "simulation/particles/mapper/twolevelmapper.hpp"
+#include "simulation/particles/mapper/gasmapper.hpp"
+#include "simulation/particles/mapper/graficmapper.hpp"
+#include "simulation/particles/offsetgenerator.hpp"
 
-#include <src/simulation/modifications/modificationmanager.hpp>
 
-#include "src/tools/filesystem.h"
-
-#include "src/simulation/field/randomfieldgenerator.hpp"
-#include "src/simulation/field/multilevelfield.hpp"
-#include "src/simulation/field/evaluator.hpp"
-
-#include "src/simulation/particles/multilevelgenerator.hpp"
-#include "src/simulation/particles/mapper/onelevelmapper.hpp"
-#include "src/simulation/particles/mapper/twolevelmapper.hpp"
-#include "src/simulation/particles/mapper/gasmapper.hpp"
-#include "src/simulation/particles/mapper/graficmapper.hpp"
-#include "src/simulation/particles/offsetgenerator.hpp"
-
-#include "src/cosmology/camb.hpp"
-#include "src/simulation/window.hpp"
-#include "src/simulation/particles/species.hpp"
 
 using namespace std;
 
@@ -92,7 +93,7 @@ protected:
   T epsNorm = 0.01075; // Default value arbitrary to coincide with normal UW resolution
 
 
-  io::OutputFormat outputFormat; //!< Output format used by the code for particle data.
+  io::OutputFormat outputFormat = io::OutputFormat::unknown; //!< Output format used by the code for particle data.
   string outputFolder; //!< Name of folder for output files.
   string outputFilename; //!< Name of files for output.
 
@@ -109,15 +110,15 @@ protected:
    */
   bool allowStrayParticles;
 
-  //! If true, the box are recentered on the last centered point in the parameter file
-  // TODO This is currently a grafic only option and ought to be generic
+  /*! \brief If true, the box are recentered on the last centered point in the parameter file
+
+   Note the centre can be set either explicitly ('center' command) or implicitly (e.g. by loading a set of particles
+   with 'IDfile' command)
+  */
   bool centerOnTargetRegion = false ;
 
   //! If true, then the code will generate baryons on all levels, rather than just the deepest level.
   bool baryonsOnAllLevels;
-
-  //! Flags whether an output format has been specified or not, so that an error can be generated if not.
-  bool formatSpecified = false;
 
 
   //! Vector storing flagged particle ids.
@@ -650,7 +651,6 @@ public:
    */
   void setOutputFormat(int format) {
     outputFormat = static_cast<io::OutputFormat>(format);
-    this->formatSpecified = true;
     updateParticleMapper();
   }
 
@@ -1126,7 +1126,7 @@ public:
   }
 
 
-  //! Transforms the grid field in particles and outputs them in the predefined format
+  //! Outputs the ICs in the defined format, creating appropriate particle generators if required
   virtual void write() {
     using namespace io;
 
@@ -1137,6 +1137,7 @@ public:
     cerr << (*pMapper);
 
     T boxlen = multiLevelContext.getGridForLevel(0).periodicDomainSize;
+    Coordinate<T> centre;
 
     switch (outputFormat) {
       case OutputFormat::gadget2:
@@ -1150,17 +1151,17 @@ public:
                     pMapper, cosmology);
         break;
       case OutputFormat::grafic:
-        if(this->centerOnTargetRegion){
-          std::cerr << "Replacing coarse grids with centered grids on " << Coordinate<T>(x0,y0,z0) <<  std::endl;
-          grafic::save(getOutputPath() + ".grafic",
-                       pParticleGenerator, multiLevelContext, cosmology, pvarValue, Coordinate<T>(x0,y0,z0),
-                       subsample, supersample, zoomParticleArray,outputFields);
-        } else {
-          grafic::save(getOutputPath() + ".grafic",
-                       pParticleGenerator, multiLevelContext, cosmology, pvarValue, this->getBoxCentre(),
-                       subsample, supersample, zoomParticleArray,outputFields);
+        centre = this->getBoxCentre();
+
+        if(this->centerOnTargetRegion) {
+          // Unlike particle formats, for grafic we need to move the fields *on the grid* rather than just
+          // at the point of particle generation.
+          centre = Coordinate<T>(x0,y0,z0);
         }
 
+        grafic::save(getOutputPath() + ".grafic",
+                     pParticleGenerator, multiLevelContext, cosmology, pvarValue, centre,
+                     subsample, supersample, zoomParticleArray,outputFields);
         break;
       default:
         throw std::runtime_error("Unknown output format");
@@ -1252,9 +1253,7 @@ protected:
 
 
 public:
-
-
-//! Load from a file new flagged particles
+  //! Load from a file new flagged particles
   void loadID(string fname) {
     loadParticleIdFile(fname);
     getCentre();
@@ -1480,7 +1479,7 @@ public:
     //Should exit gracefully if no output format specified (will be checked later,
     //but since format variable is undefined if not specified, it might accidentally
     //produce something unpredictable):
-    if(!this->formatSpecified)
+    if(this->outputFormat==io::OutputFormat::unknown)
     {
         throw(std::runtime_error("No output format specified!"));
     }

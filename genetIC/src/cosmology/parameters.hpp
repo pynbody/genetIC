@@ -7,6 +7,9 @@
 
 namespace cosmology {
 
+  template<typename DataType>
+  class CAMB;
+
   /*! \struct CosmologicalParameters
       \brief Stores data about the cosmological model being assumed.
 

@@ -2,6 +2,7 @@
 #define _INTERPOLATION_HPP_INCLUDED
 
 #include <type_traits>
+#include <gsl/gsl_spline.h>
 
 namespace tools {
 /*!

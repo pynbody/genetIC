@@ -1,5 +1,4 @@
-# genetIC
-The GM initial conditions generator.
+![genetIC](./genetic.svg)
 
 [![Build Status](https://travis-ci.com/ucl-cosmoparticles/genetIC.svg?token=Ps3yU4QT9XRs2FGy3Bnr&branch=master)](https://travis-ci.com/ucl-cosmoparticles/genetIC)
 
