@@ -24,8 +24,7 @@ public:
   }
 
   //! Adds a level to this dummy context
-  void addLevelToContext(const cosmology::CAMB<GridDataType> & spectrum, T gridSize, size_t nside,
-                         const Coordinate<T> &offset = {0, 0, 0}) override {
+  void addLevelToContext(T gridSize, size_t nside, const Coordinate<T> &offset) override {
     size_t newLevel = this->multiLevelContext.getNumLevels(); // getNumLevels counts from 1 to N rather than 0 to N-1, which is why newLevel defined this way does not exist yet
     std::shared_ptr<grids::Grid<T>> underlyingGrid;
     std::vector<std::shared_ptr<const fields::Field<GridDataType, T>>> covarianceFieldPtr;
@@ -86,7 +85,7 @@ public:
   void dumpMask() override {}
 
   //! Calls to this function will actually have no effect.
-  virtual void initialiseParticleGenerator(size_t) override {}
+  virtual void initialiseParticleGenerator() override {}
 
   //! Calls to this function will actually have no effect.
   void dumpID(string /*fname*/) override {}

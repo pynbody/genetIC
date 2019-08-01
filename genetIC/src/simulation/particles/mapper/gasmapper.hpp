@@ -255,7 +255,7 @@ namespace particle {
         \param toGrids - vector of pointers to the grids to sub/super sample.
         \param super - if true, super-samples the dark matter. Otherwise, subsamples it.
       */
-      MapPtrType superOrSubSampleDM(int ratio, const std::vector<GridPtrType> &toGrids, bool super) override {
+      MapPtrType superOrSubSample(int ratio, const std::vector<GridPtrType> &toGrids, bool super) override {
         auto ssub1 = firstMap;
         auto ssub2 = secondMap;
 
@@ -263,9 +263,9 @@ namespace particle {
         bool applyTo1 = (!gasFirst) || (!super);
 
         if (applyTo2)
-          ssub2 = ssub2->superOrSubSampleDM(ratio, toGrids, super);
+          ssub2 = ssub2->superOrSubSample(ratio, toGrids, super);
         if (applyTo1)
-          ssub1 = ssub1->superOrSubSampleDM(ratio, toGrids, super);
+          ssub1 = ssub1->superOrSubSample(ratio, toGrids, super);
 
         return std::make_shared<AddGasMapper<GridDataType>>(
             ssub1, ssub2, gasFirst);

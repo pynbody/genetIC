@@ -11,60 +11,61 @@
 
 
 namespace particle {
-    /*! \class VelocityOffsetEvaluator
-        \brief Class to add velocity offsets to generated particles. Requires an underlying evaluator to actually work
+    /*! \class OffsetEvaluator
+        \brief Class to add velocity offsets to generated particles from an underlying evaluator.
     */
     template<typename GridDataType>
-    class VelocityOffsetEvaluator : public ParticleEvaluator<GridDataType> {
+    class OffsetEvaluator : public ParticleEvaluator<GridDataType> {
     protected:
         std::shared_ptr<ParticleEvaluator<GridDataType>> underlying; //!< Evaluator to be used in generating the particles in question
         Coordinate<GridDataType> velOffset; //!< Velocity offset to be added to all particles
+        Coordinate<GridDataType> posOffset; //!< Position offset to be added to all particles
 
     public:
         /*! \brief Constructor from the underlying evaluator and required velocity offset
             \param underlying - underlying particle evaluator
             \param velOffset - velocity offset to be added to all particles
         */
-        VelocityOffsetEvaluator(std::shared_ptr<ParticleEvaluator<GridDataType>> underlying,
-                Coordinate<GridDataType> velOffset) : ParticleEvaluator<GridDataType>(underlying->getGrid()),
-                        underlying(underlying), velOffset(velOffset) { }
+        OffsetEvaluator(std::shared_ptr<ParticleEvaluator<GridDataType>> underlying,
+                Coordinate<GridDataType> posOffset, Coordinate<GridDataType> velOffset) :
+        ParticleEvaluator<GridDataType>(underlying->getGrid()),
+                        underlying(underlying),
+                        velOffset(velOffset), posOffset(posOffset) { }
 
-        //! Gets the particle evaluated by the underlying evaluator, and adds a velocity offset to it, without wrapping
         Particle<GridDataType> getParticleNoWrap(size_t id) const override {
           auto output = underlying->getParticleNoWrap(id);
           output.vel+=velOffset;
+          output.pos+=posOffset;
           return output;
         }
 
-        //! Gets the particle evaluated by the underlying evaluator, and adds a velocity offset to it, without offsetting position
         Particle<GridDataType> getParticleNoOffset(size_t id) const override {
           auto output = underlying->getParticleNoOffset(id);
           output.vel+=velOffset;
           return output;
         }
 
-        //! Gets the mass of the particle
         GridDataType getMass() const override {
           return underlying->getMass();
         }
 
-        //! Gets the cell softening scale of the particle
         GridDataType getEps() const override {
           return underlying->getEps();
         }
     };
 
-    /*! \class VelocityOffsetMultiLevelParticleGenerator
+    /*! \class OffsetMultiLevelParticleGenerator
         \brief Generator that creates particles with a velocity offset added to the particle velocities
 
         Note that this requires an underlying generator to work - it just adds on the velocity at the end.
     */
     template<typename GridDataType>
-    class VelocityOffsetMultiLevelParticleGenerator : public AbstractMultiLevelParticleGenerator<GridDataType> {
+    class OffsetMultiLevelParticleGenerator : public AbstractMultiLevelParticleGenerator<GridDataType> {
     protected:
         std::shared_ptr<AbstractMultiLevelParticleGenerator<GridDataType>> underlying; //!< Underlying particle generator
         Coordinate<GridDataType> velOffset; //!< Velocity offset to be added to all particles
-        using EvaluatorType = VelocityOffsetEvaluator<GridDataType>;
+        Coordinate<GridDataType> posOffset; //!< Position offset to be added to all particles
+        using EvaluatorType = OffsetEvaluator<GridDataType>;
         using T = tools::datatypes::strip_complex<GridDataType>;
 
     public:
@@ -72,8 +73,9 @@ namespace particle {
             \param underlying - required particle generator
             \param velOffset - vector to offset velocities by
         */
-        VelocityOffsetMultiLevelParticleGenerator( std::shared_ptr<AbstractMultiLevelParticleGenerator<GridDataType>> underlying,
-                                                   Coordinate<GridDataType> velOffset) : underlying(underlying), velOffset(velOffset)
+        OffsetMultiLevelParticleGenerator( std::shared_ptr<AbstractMultiLevelParticleGenerator<GridDataType>> underlying,
+                                                   Coordinate<GridDataType> posOffset, Coordinate<GridDataType> velOffset)
+             : underlying(underlying), velOffset(velOffset), posOffset(posOffset)
         {
 
         }
@@ -86,7 +88,7 @@ namespace particle {
         //! Returns a velocity evaluator which actually performs the velocity offsetting.
         std::shared_ptr<ParticleEvaluator<GridDataType>>
         makeParticleEvaluatorForGrid(const grids::Grid<GridDataType> &grid) override {
-          return std::make_shared<EvaluatorType>(underlying->makeParticleEvaluatorForGrid(grid), velOffset);
+          return std::make_shared<EvaluatorType>(underlying->makeParticleEvaluatorForGrid(grid), posOffset, velOffset);
         }
 
         std::shared_ptr<fields::EvaluatorBase<GridDataType, T>>

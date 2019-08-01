@@ -47,23 +47,23 @@ void setup_parser(tools::ClassDispatch<ICf, void> &dispatch) {
   // Static casts here needed to differentiate between overloaded versions of setSeed,
   // now that we have both DM and baryon fields to seed.
   dispatch.add_class_route("seed", static_cast<void (ICf::*)(int)>(&ICf::setSeed));
-  dispatch.add_class_route("seed_field", static_cast<void (ICf::*)(int,size_t)>(&ICf::setSeed));
   dispatch.add_class_route("seedfourier", static_cast<void (ICf::*)(int)>(&ICf::setSeedFourier));
-  dispatch.add_class_route("seed_field_fourier",static_cast<void (ICf::*)(int,size_t)>(&ICf::setSeedFourier));
   dispatch.add_class_route("seedfourier_reverse",static_cast<void (ICf::*)(int)>(&ICf::setSeedFourierReverseOrder));
-  dispatch.add_class_route("seed_field_fourier_reverse", static_cast<void (ICf::*)(int,size_t)>(&ICf::setSeedFourierReverseOrder));
   dispatch.add_class_route("seedfourier_parallel", static_cast<void (ICf::*)(int)>(&ICf::setSeedFourierParallel));
 
   // Optional computational properties
   dispatch.add_class_route("exact_power_spectrum_enforcement", &ICf::setExactPowerSpectrumEnforcement);
   dispatch.add_class_route("strays_on", &ICf::setStraysOn);
   dispatch.add_class_route("supersample", &ICf::setSupersample);
+  dispatch.add_class_route("supersample_gas", &ICf::setSupersampleGas);
   dispatch.add_class_route("subsample", &ICf::setSubsample);
   dispatch.add_class_route("eps_norm",&ICf::setEpsNorm);
 
   // Grafic options
   dispatch.add_class_route("pvar", &ICf::setpvarValue);
-  dispatch.add_class_route("center_grafic_output", &ICf::setCenteringOnRegion);
+  dispatch.add_class_route("center_grafic_output", &ICf::setCenteringOnRegion); // This should be deprecated -- now works for all output types
+
+  dispatch.add_class_route("center_output", &ICf::setCenteringOnRegion);
 
   // Gadget options
   dispatch.add_class_route("gadget_particle_type", &ICf::setGadgetParticleType);
@@ -116,10 +116,6 @@ void setup_parser(tools::ClassDispatch<ICf, void> &dispatch) {
   dispatch.add_class_route("reverse_small_k", static_cast<void(ICf::*)(FloatType)>(&ICf::reverseSmallK));
   dispatch.add_class_route("reverse_small_k_field", static_cast<void(ICf::*)(FloatType,size_t)>(&ICf::reverseSmallK));
 
-  // Replacing them with these instead:
-  dispatch.add_class_route("reseed_high_k", static_cast<void(ICf::*)(FloatType,int)>(&ICf::reseedHighK));
-  dispatch.add_class_route("reseed_high_k_field", static_cast<void(ICf::*)(FloatType,int,size_t)>(&ICf::reseedHighK));
-
   // Write objects to files
   // dispatch.add_class_route("dump_grid", &ICf::dumpGrid);
   dispatch.add_class_route("dump_grid", static_cast<void (ICf::*)(size_t)>(&ICf::dumpGrid));
@@ -146,7 +142,7 @@ void setup_parser(tools::ClassDispatch<ICf, void> &dispatch) {
   dispatch.add_class_route("zero_level_field", static_cast<void (ICf::*)(size_t,size_t)>(&ICf::zeroLevel));
 
   // Set an overall velocity offset for the entire box (useful for testing AMR sensitivity to flows)
-  dispatch.add_class_route("velocity_offset", &ICf::setVelocityOffset);
+  dispatch.add_class_route("velocity_offset", &ICf::setOffset);
 
 }
 

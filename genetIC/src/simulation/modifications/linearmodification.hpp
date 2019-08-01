@@ -189,7 +189,7 @@ namespace modifications {
 
 
 
-      //! Converts the specified field from a multi-level constraint covector into a velocity modification
+      //! Converts (in-place) from a overdensity covector to a velocity covector
       void turnLocalisationCovectorIntoModificationCovector(fields::Field<DataType, T> &fieldOnLevel) const override {
         using compT = std::complex<T>;
         fieldOnLevel.toFourier(); // probably already in Fourier space, but best to be sure

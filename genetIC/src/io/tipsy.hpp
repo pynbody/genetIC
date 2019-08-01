@@ -4,6 +4,7 @@
 #include <src/tools/memmap.hpp>
 #include "src/io.hpp"
 #include "src/simulation/particles/mapper/mapper.hpp"
+#include "src/simulation/particles/species.hpp"
 
 namespace io {
 
@@ -91,7 +92,7 @@ namespace io {
     template<typename GridDataType, typename FloatType=tools::datatypes::strip_complex<GridDataType>>
     class TipsyOutput {
     protected:
-      std::vector<std::shared_ptr<particle::AbstractMultiLevelParticleGenerator<GridDataType>>> generators; //!< Vector of particle generators for each species.
+      particle::SpeciesToGeneratorMap<GridDataType> generators; //!< Particle generators for each species.
       tools::MemMapFileWriter writer; //!< Writer used to process output file using memory maps.
       std::ofstream photogenic_file; //!< Photogenic output file.
       size_t iord; //!< Cumulative index offset.
@@ -191,7 +192,7 @@ namespace io {
     public:
     //! \brief Constructor
       TipsyOutput(double boxLength,
-                  const std::vector<std::shared_ptr<particle::AbstractMultiLevelParticleGenerator<GridDataType>>> &_generators,
+                  const particle::SpeciesToGeneratorMap<GridDataType> &_generators,
                   std::shared_ptr<particle::mapper::ParticleMapper<GridDataType>> pMapper,
                   const cosmology::CosmologicalParameters<FloatType> &cosmology) : generators(_generators),
                                                                                    iord(0),
@@ -215,8 +216,8 @@ namespace io {
 
         FloatType mass, tot_mass = 0.0;
 
-        const auto end = pMapper->end(*generators[0]); // don't want to keep re-evaluating this
-        for (auto i = pMapper->begin(*generators[0]); i != end; ++i) {
+        const auto end = pMapper->end(*generators[particle::species::dm]); // don't want to keep re-evaluating this
+        for (auto i = pMapper->begin(*generators[particle::species::dm]); i != end; ++i) {
           mass = i.getMass(); // sometimes can be MUCH faster than getParticle
           if (min_mass > mass) min_mass = mass;
           if (max_mass < mass) max_mass = mass;
@@ -261,17 +262,10 @@ namespace io {
 
         writer.write<>(header);
 
-        // Switch off baryon transfer function if not enabled:
-        std::vector<size_t> redirectToDMifNoBaryonTransfer {0,1};
-        if(generators.size() < 2)
-        {
-            for(auto& i : redirectToDMifNoBaryonTransfer) {
-                i = 0;
-            }
-        }
-
-        saveTipsyParticles<TipsyParticle::gas>(pMapper->beginGas(*generators[redirectToDMifNoBaryonTransfer[1]]), pMapper->endGas(*generators[redirectToDMifNoBaryonTransfer[1]]));
-        saveTipsyParticles<TipsyParticle::dark>(pMapper->beginDm(*generators[redirectToDMifNoBaryonTransfer[0]]), pMapper->endDm(*generators[redirectToDMifNoBaryonTransfer[0]]));
+        saveTipsyParticles<TipsyParticle::gas>(pMapper->beginGas(*generators.at(particle::species::baryon)),
+                                               pMapper->endGas(*generators.at(particle::species::baryon)));
+        saveTipsyParticles<TipsyParticle::dark>(pMapper->beginDm(*generators.at(particle::species::dm)),
+                                                pMapper->endDm(*generators.at(particle::species::dm)));
 
       }
     };
@@ -286,7 +280,7 @@ namespace io {
     */
     template<typename GridDataType, typename T>
     void save(const std::string &filename, double boxLength,
-              const std::vector<std::shared_ptr<particle::AbstractMultiLevelParticleGenerator<GridDataType>>> &generators,
+              const particle::SpeciesToGeneratorMap<GridDataType> &generators,
               std::shared_ptr<particle::mapper::ParticleMapper<GridDataType>> pMapper,
               const cosmology::CosmologicalParameters<T> &cosmology) {
 

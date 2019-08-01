@@ -440,11 +440,11 @@ namespace particle {
           \param massRatio - fraction of total matter mass in the first mapper
           \param toGrids - only adds gas if the grids of the levels pointed to by this mapper correspond to the grids specified here
       */
-      std::pair<MapPtrType, MapPtrType> addGas(T massRatio, const std::vector<GridPtrType> &toGrids) override {
+      std::pair<MapPtrType, MapPtrType> splitMass(T massRatio, const std::vector<GridPtrType> &toGrids) override {
         bool newskip = skipLevel1;
 
-        auto newLevel1 = pLevel1->addGas(massRatio, toGrids);
-        auto newLevel2 = pLevel2->addGas(massRatio, toGrids);
+        auto newLevel1 = pLevel1->splitMass(massRatio, toGrids);
+        auto newLevel2 = pLevel2->splitMass(massRatio, toGrids);
 
         auto gasSubLevel1 = newLevel1.first;
         auto gasSubLevel2 = newLevel2.first;
@@ -480,10 +480,10 @@ namespace particle {
           \param toGrids - only perform the sub/super-sampling if the grids match this list
           \param super - super-sample if true, sub-sample if false
       */
-      MapPtrType superOrSubSampleDM(int ratio, const std::vector<GridPtrType> &toGrids, bool super) override {
+      MapPtrType superOrSubSample(int ratio, const std::vector<GridPtrType> &toGrids, bool super) override {
 
-        auto ssub1 = pLevel1->superOrSubSampleDM(ratio, toGrids, super);
-        auto ssub2 = pLevel2->superOrSubSampleDM(ratio, toGrids, super);
+        auto ssub1 = pLevel1->superOrSubSample(ratio, toGrids, super);
+        auto ssub2 = pLevel2->superOrSubSample(ratio, toGrids, super);
 
         // Work out the new list of particles to zoom on
         decltype(level1ParticlesToReplace) particlesToZoomOnNewFinestL1grid;

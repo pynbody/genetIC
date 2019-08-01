@@ -8,15 +8,16 @@ from .methods import ZoomConstrained
 from .methods.filtered import FilteredZoomConstrained
 from .methods.idealized import FastIdealizedZoomConstrained
 from . import fft_wrapper
+from . import methods
 
 
 def plot_covariance_slice(G: ZoomConstrained, cov: np.ndarray, element_offset=0):
     """Plots the 1D slice of the covariance matrix specified by element_offset from the middle of the high-res region"""
-    hires_element = G.n2//2+element_offset+G.pixel_size_ratio//2
+    hires_element = G.nW//2+element_offset+G.pixel_size_ratio//2
     lores_element = G.offset+hires_element//G.pixel_size_ratio
-    C11 = cov[:G.n1, :G.n1]
-    C22 = cov[G.n1:, G.n1:]
-    C12 = cov[:G.n1, G.n1:]
+    C11 = cov[:G.nP, :G.nP]
+    C22 = cov[G.nP:, G.nP:]
+    C12 = cov[:G.nP, G.nP:]
 
     x1, x2 = G.xs()
 
@@ -30,7 +31,7 @@ def overplot_boundary_real_space(G: ZoomConstrained, cov: np.ndarray,
     """Overplots a zoomed representation of the covariance matrix at the edge of the zoom region
 
     :param G - the ZoomConstrained object that originally generated the covariance matrix
-    :param cov - the (n1+n2) x (n1+n2) representation of the covariance matrix
+    :param cov - the (nP+nW) x (nP+nW) representation of the covariance matrix
     :param zoomin_size - the number of (coarse) pixels on either side of the edge to show
     :param pad - the number of (coarse) pixels ommitted on the edges of the fine region
     :param plot_size - the size of the panel to be added
@@ -40,11 +41,11 @@ def overplot_boundary_real_space(G: ZoomConstrained, cov: np.ndarray,
     Typically you want to call this after having first called display_cov
     """
 
-    C11 = cov[:G.n1, :G.n1]
-    C22 = cov[G.n1:, G.n1:]
-    C12 = cov[:G.n1, G.n1:]
+    C11 = cov[:G.nP, :G.nP]
+    C22 = cov[G.nP:, G.nP:]
+    C12 = cov[:G.nP, G.nP:]
 
-    offset_end = G.offset + G.n1//G.window_size_ratio - pad
+    offset_end = G.offset + G.nP//G.window_size_ratio - pad
     slice_1 = slice(offset_end-zoomin_size,offset_end+zoomin_size)
     if pad>0:
         slice_2 = slice(-zoomin_size*G.pixel_size_ratio-pad*G.pixel_size_ratio,-pad*G.pixel_size_ratio)
@@ -83,17 +84,17 @@ def overplot_boundary_real_space(G: ZoomConstrained, cov: np.ndarray,
 
 
 def plot_power_spec(G: ZoomConstrained, cov:np.ndarray, pad=0, errors=False):
-    C11 = cov[:G.n1, :G.n1]
-    C12 = cov[:G.n1, G.n1:]
-    C22 = cov[G.n1:, G.n1:]
+    C11 = cov[:G.nP, :G.nP]
+    C12 = cov[:G.nP, G.nP:]
+    C22 = cov[G.nP:, G.nP:]
 
     if pad > 0:
         pad_highres = pad*G.pixel_size_ratio
         C22 = C22[pad_highres:-pad_highres, pad_highres:-pad_highres]
         C12 = C12[:, pad_highres:-pad_highres]
 
-    k_nyq_1 = G.n1/2  # N pi / L, but L=1
-    k_nyq_2 = G.n2 * G.window_size_ratio/2
+    k_nyq_1 = G.nP/2  # N pi / L, but L=1
+    k_nyq_2 = G.nW * G.window_size_ratio/2
 
     U1 = fft_wrapper.unitary_fft_matrix(len(C11))
     U2 = fft_wrapper.unitary_fft_matrix(len(C22))
@@ -111,8 +112,8 @@ def plot_power_spec(G: ZoomConstrained, cov:np.ndarray, pad=0, errors=False):
 
     actual_P1 = C11.diagonal()/k1[1]
     actual_P2 = C22.diagonal()/k2[1]
-    target_P1 = 2.*G._get_variance_k(k1)*G.n1
-    target_P2 = 2.*G._get_variance_k(k2)*G.n2/G.window_size_ratio
+    target_P1 = 2.*G._get_variance_k(k1)*G.nP
+    target_P2 = 2.*G._get_variance_k(k2)*G.nW/G.window_size_ratio
 
     if errors:
         p.plot(k1, actual_P1, "r")
@@ -142,17 +143,17 @@ def plot_fourier_space(G: ZoomConstrained, cov:np.ndarray, pad=0, vmin=None, vma
     :param hilo_axis: the axes to use for the fine x coarse covariance matrix, or None to create fresh ones
     :param hihi_axis: the axes to use for the fine x fine covariance matrix (if hilo_axis is not None)
     """
-    C11 = cov[:G.n1, :G.n1]
-    C12 = cov[:G.n1, G.n1:]
-    C22 = cov[G.n1:, G.n1:]
+    C11 = cov[:G.nP, :G.nP]
+    C12 = cov[:G.nP, G.nP:]
+    C22 = cov[G.nP:, G.nP:]
 
     if pad>0:
         pad2 = pad*G.pixel_size_ratio
         C22  = C22[pad2:-pad2,pad2:-pad2]
         C12 = C12[:,pad2:-pad2]
 
-    k_nyq_1 = G.n1 # N pi / L, but L=1
-    k_nyq_2 = G.n2*G.window_size_ratio
+    k_nyq_1 = G.nP # N pi / L, but L=1
+    k_nyq_2 = G.nW*G.window_size_ratio
 
     U1 = fft_wrapper.unitary_fft_matrix(len(C11))
     U2 = fft_wrapper.unitary_fft_matrix(len(C22))
@@ -226,16 +227,16 @@ def plot_real_space(G: ZoomConstrained, cov: np.ndarray,
     vmin = vmin if vmin is not None else np.min(cov)
     vmax = vmax if vmax is not None else np.max(cov)
 
-    C11 = cov[:G.n1,:G.n1]
-    C22 = cov[G.n1:,G.n1:]
-    C12 = cov[:G.n1,G.n1:]
+    C11 = cov[:G.nP,:G.nP]
+    C22 = cov[G.nP:,G.nP:]
+    C12 = cov[:G.nP,G.nP:]
 
-    zoom_width = G.n1//G.window_size_ratio
+    zoom_width = G.nP//G.window_size_ratio
     offset = G.offset
-    n1 = G.n1
+    nP = G.nP
 
     if pad>0:
-        pixel_scale = (G.n2*G.window_size_ratio)//G.n1
+        pixel_scale = (G.nW*G.window_size_ratio)//G.nP
         pad_fine = pad*pixel_scale
         C22 = C22[pad_fine:-pad_fine,pad_fine:-pad_fine]
         C12 = C12[:,pad_fine:-pad_fine]
@@ -244,7 +245,7 @@ def plot_real_space(G: ZoomConstrained, cov: np.ndarray,
 
     p.imshow(C11,extent=[0,1.0,1.0,0],vmin=vmin,vmax=vmax,interpolation='none')
     if downgrade:
-        zoom_fac = G.window_size_ratio*(G.n2//G.n1)
+        zoom_fac = G.window_size_ratio*(G.nW//G.nP)
         print("zoom_fac=",zoom_fac)
         C22new=0
         for i in range(zoom_fac):
@@ -257,8 +258,8 @@ def plot_real_space(G: ZoomConstrained, cov: np.ndarray,
             C12new+=C12[:,i::zoom_fac]
         C12 = C12new/zoom_fac
 
-    zoom_window_start_coordinate = offset/n1
-    zoom_window_end_coordinate = (offset+zoom_width)/n1
+    zoom_window_start_coordinate = offset/nP
+    zoom_window_end_coordinate = (offset+zoom_width)/nP
 
     p.imshow(C12.T,extent=[0,1.0,zoom_window_end_coordinate,zoom_window_start_coordinate],vmin=vmin,vmax=vmax,interpolation='none')
     if show_hh:
@@ -300,8 +301,8 @@ def combined_plots(G: ZoomConstrained, cov:np.ndarray, pad=0, vmin=None, vmax=No
     :param vmin: passed to pyplot's imshow
     :param vmax: passed to pyplot's imshow
     """
-    k_nyq_1 = G.n1  # N pi / L, but L=1
-    k_nyq_2 = G.n2 * G.window_size_ratio
+    k_nyq_1 = G.nP  # N pi / L, but L=1
+    k_nyq_2 = G.nW * G.window_size_ratio
 
     # ideal - but does not seem to work on mac os:
     p.gcf().set_size_inches(11.275, 4.925, forward=True)
@@ -338,8 +339,146 @@ def combined_plots(G: ZoomConstrained, cov:np.ndarray, pad=0, vmin=None, vmax=No
                           "0",
                           "$%.0f$%%" % (vmax * 100)])
 
+def overlay_grid(nP=256, nW=256, hires_window_scale=4, x_min=0.15, x_max=0.20):
+    X = FastIdealizedZoomConstrained(lambda x:1, nP, nW, hires_window_scale)
+    xP, xW = X.boundary_xs()
+    xW = xW[(xW>x_min) & (xW<x_max)]
+    xP = xP[(xP>x_min) & (xP<x_max)]
+    yrange = p.ylim()
+    p.vlines(xW,yrange[0],yrange[1],color='#eeeeee')
+    p.vlines(xP,yrange[0],yrange[1],color='#cccccc')
 
-def cov_zoom_demo(n1=256, n2=256,
+def zoom_demo(nP=256, nW=256, hires_window_scale=4, hires_window_offset=10,plaw=-1.5,method=FilteredZoomConstrained,
+              constraint_val=None, constraint_covec=None,
+              no_random=False,pad=None,
+              show_covec=False,errors=False,linewidth=None,
+              constrain_potential=False):
+
+    if errors and not no_random:
+        raise ValueError("To display errors in the convolved constraint, you must disable the random component")
+
+    cov_this = functools.partial(powerlaw_covariance, plaw=plaw)
+
+    X = method(cov_this, nP=nP, nW=nW, hires_window_scale=hires_window_scale, offset=hires_window_offset)
+    if constraint_val is not None:
+        X.add_constraint(constraint_val, constraint_covec, constrain_potential)
+
+    if errors:
+        Y = FastIdealizedZoomConstrained(cov_this, nP=nP, nW=nW, hires_window_scale=hires_window_scale, offset=hires_window_offset)
+        if constraint_val is not None:
+            Y.add_constraint(constraint_val, constraint_covec, constrain_potential)
+
+    if pad is None:
+        pad = X.get_default_plot_padding()
+
+    delta_P, delta_W = X.realization(no_random=no_random)
+
+
+    if errors:
+        delta_Ps, delta_Ws = Y.realization(no_random=no_random)
+        delta_P-=delta_Ps
+        delta_W-=delta_Ws
+        if not (isinstance(errors, str) and "abs" in errors):
+            delta_P/=abs(delta_Ws).max()
+            delta_W/=abs(delta_Ws).max()
+
+
+    if constraint_val is not None and (not constrain_potential):
+        cov = FastIdealizedZoomConstrained(cov_this, nP, nW, hires_window_scale=hires_window_scale, offset=hires_window_offset).get_cov()[nP:,nP:]
+        if constraint_val==0.0:
+            cv_var_uncon = np.dot(constraint_covec,np.dot(cov,constraint_covec))
+            cv_var_con = np.dot(constraint_covec, np.dot(X.get_cov()[nP:,nP:] , constraint_covec))+1e-10 #1e-10 noise level prevent NaN
+            print("%s constraint value %.2f (target %.2f; rms %.2f; rms without constraint %.2f; suppression %.1f%%)"%(X.description,
+                                                        np.dot(constraint_covec, delta_W),
+                                                        constraint_val,
+                                                        np.sqrt(cv_var_con),
+                                                        np.sqrt(cv_var_uncon),
+                                                        100.*(1.-np.sqrt(cv_var_con/cv_var_uncon))))
+        else:
+            print("%s constraint value %.2f (target %.2f)"%(X.description,
+                                                        np.dot(constraint_covec, delta_W),
+                                                        constraint_val))
+
+    xP, xW = X.xs()
+
+    if pad>0:
+        hr_pad = pad*X.pixel_size_ratio
+        xW = xW[hr_pad:-hr_pad]
+        delta_W = delta_W[hr_pad:-hr_pad]
+
+    line, = p.plot(xW, delta_W, label=X.description,linewidth=linewidth)
+
+    left_of_window = slice(0,hires_window_offset+pad+1)
+    right_of_window = slice(hires_window_offset+nW//hires_window_scale-pad-1, None)
+
+    for sl in left_of_window, right_of_window:
+        p.plot(xP[sl], delta_P[sl], ":", color=line.get_color(),linewidth=linewidth)
+
+
+    if show_covec:
+        p.legend()
+        p.twinx()
+        p.plot(X.xs()[1], constraint_covec, color='#aaaaaa')
+
+    return X
+
+def compare_constraints(plaw=-1.0, velocity=False, errors=False, covector_width=50,
+                        using_methods=[methods.traditional.TraditionalZoomConstrained, methods.filtered.FilteredZoomConstrained]):
+    from . import constraint_vector, deriv_constraint_vector
+    if velocity:
+        covec = deriv_constraint_vector(covector_width, 256)
+        potential = True
+    else:
+        covec = constraint_vector(covector_width,256)
+        potential = False
+
+    if p.gca() is p.gcf().axes[0]:
+        if velocity:
+            p.title("Constrain velocity; $n=%.1f$"%plaw)
+        else:
+            p.title("Constrain density; $n=%.1f$"%plaw)
+
+    val = 1.0
+    random = False
+    np.random.seed(5)
+
+    for i,m in enumerate(using_methods):
+        zoom_demo(no_random=not random, constraint_val=val, constraint_covec=covec,
+                     method=m,
+                     plaw=plaw, errors=errors, linewidth=1+len(using_methods)-i, constrain_potential=potential)
+
+
+    if not errors:
+        zoom_demo(no_random=not random, constraint_val=val, constraint_covec=covec,
+                     method=methods.idealized.IdealizedZoomConstrained,
+                     plaw=plaw, errors=False, linewidth=1,
+                     constrain_potential=potential)
+    p.legend()
+    ax = p.gca()
+    p.xlim(0.08, 0.38)
+    if errors:
+        p.ylim(-0.05, 0.05)
+        p.ylabel("Fractional error")
+        ax.yaxis.set_ticks([-0.04,-0.02,0.0,0.02,0.04])
+        ax.yaxis.set_ticklabels(["$-4$%","$-2$%","0","2%","4%"])
+
+    else:
+        p.ylabel("Solution")
+        ax.yaxis.set_ticks([0])
+        ax.yaxis.set_ticklabels(["0"])
+
+    p.xlabel("Position")
+
+def compare_constraints_with_errors(*args, **kwargs):
+    p.clf()
+    f, (sub1, sub2) = p.subplots(2,1,sharex=True,squeeze=True,gridspec_kw={'hspace': 0},num=p.gcf().number)
+    p.sca(sub1)
+    compare_constraints(*args, errors=False, **kwargs)
+    p.sca(sub2)
+    compare_constraints(*args, errors=True, **kwargs)
+
+
+def cov_zoom_demo(nP=256, nW=256,
                   hires_window_scale=4,
                   hires_window_offset=10,
                   estimate=False, Ntrials=2000,
@@ -347,11 +486,13 @@ def cov_zoom_demo(n1=256, n2=256,
                   pad=None,vmin=None,vmax=None,errors=False,
                   show_hh=True,one_element=None,subplot=False,
                   plot_type='real',
+                  with_constraint=False,
+                  inlay_plaws=[],
                   initialization_kwargs={}):
     """End-to-end construction and plotting function for understanding a zoom algorithm
     
-    :param n1: The number of low-res pixels
-    :param n2: The number of high-res pixels
+    :param nP: The number of low-res pixels
+    :param nW: The number of high-res pixels
     :param hires_window_scale: The size of the high-res window relative to the low-res box
     :param estimate: if True, use a covariance estimator instead of the exact algorithm (mainly useful for testing the exact algorithm is working)
     :param Ntrials: if estimate is True, the number of trials to use
@@ -360,13 +501,15 @@ def cov_zoom_demo(n1=256, n2=256,
     :param pad: the real-space padding in low-resolution pixels to be used in the analysis, or None to use the method-recommended value
     :param vmin: passed to imshow routines
     :param vmax: passed to imshow routines
-    :param errors: if True, show the errors as a fraction of the real-space variance instead of the actual output
+    :param errors: if True, show the errors as a fraction of the real-space variance instead of the actual output.
     :param show_hh: if True (default) show the high x high covariance (otherwise shows only low x low and high x low)
     :param one_element: if not None, show a test of the basic convolution algorithm by using the specified pixel only
                         in the white-noise construction. See method ZoomConstrained._iter_one_cov_element
     :param subplot: if True, place the plot into existing axes
     :param plot_type: one of 'real', 'combined' or 'pspec'. "Real" plots the real-space covariance matrix;
      "combined" plots both real-space and fourier-space covariance matrices. "pspec" plots the power spectrum.
+    :param with_constraint: if True, apply a linear constraint/modification to the centre of the zoom window
+    :param inlay_plaws: list of plaw values to produce an inlayed mini-diagram for
     :param initialization_kwargs: kwargs to pass to the target class initialiser
     :return: the class instance used to construct the plot
     """
@@ -374,10 +517,13 @@ def cov_zoom_demo(n1=256, n2=256,
         p.clf()
 
     cov_this = functools.partial(powerlaw_covariance, plaw=plaw)
-    X = method(cov_this, n1=n1, n2=n2, hires_window_scale=hires_window_scale, offset=hires_window_offset, **initialization_kwargs)
+    X = method(cov_this, nP=nP, nW=nW, hires_window_scale=hires_window_scale, offset=hires_window_offset, **initialization_kwargs)
 
     if pad is None:
         pad = X.get_default_plot_padding()
+
+    if with_constraint:
+        X.add_constraint(0.0)
 
     if estimate:
         cv_est = X.estimate_cov(Ntrials)
@@ -385,14 +531,17 @@ def cov_zoom_demo(n1=256, n2=256,
         cv_est = X.get_cov(one_element=one_element)
 
     if errors:
-        Y = FastIdealizedZoomConstrained(cov_this, n1=n1, n2=n2, hires_window_scale=hires_window_scale, offset=hires_window_offset)
+        Y = FastIdealizedZoomConstrained(cov_this, nP=nP, nW=nW, hires_window_scale=hires_window_scale, offset=hires_window_offset)
+        if with_constraint:
+            Y.add_constraint(0.0)
+
         true_cov = Y.get_cov(one_element=one_element)
         cv_est-=true_cov
         cv_est/=true_cov.max() # variance in hi-res region
         if vmin is None:
-            vmin = -max(abs(cv_est[1, 1]), abs(cv_est[-n2 // 2, -n2 // 2]))
+            vmin = -max(abs(cv_est[1, 1]), abs(cv_est[-nW // 2, -nW // 2]))
         if vmax is None:
-            vmax = max(abs(cv_est[1, 1]), abs(cv_est[-n2 // 2, -n2 // 2]))
+            vmax = max(abs(cv_est[1, 1]), abs(cv_est[-nW // 2, -nW // 2]))
 
     else:
         cv_est/=cv_est.max()
@@ -420,8 +569,55 @@ def cov_zoom_demo(n1=256, n2=256,
             p.xlabel("Real-space pixel 1")
             p.ylabel("Real-space pixel 2")
             p.subplots_adjust(0.04, 0.14, 0.93, 0.95)
-            p.title(X.description)
+            p.title(X.description+"; $n=%.1f$"%plaw)
         else:
             plot_covariance_slice(X, cv_est, one_element)
 
     return X
+
+
+def compare_covariances(using_methods = [methods.ml.MLZoomConstrained,
+                                         methods.traditional.TraditionalZoomConstrained,
+                                         methods.filtered.FilteredZoomConstrained],
+                        plaws=[-1.5],
+                        **kwargs):
+    """Compare covariances for MLZoomConstrained, TraditionalZoomConstrained and FilteredZoomConstrained"""
+
+    p.clf()
+    fig, axes = p.subplots(1, len(using_methods) + 1, num=p.gcf().number, squeeze=True,
+                           gridspec_kw={'width_ratios': ([1.0] * len(using_methods)) + [0.1]})
+
+    vmin = kwargs.setdefault('vmin',-0.05)
+    vmax = kwargs.setdefault('vmax',0.05)
+    errors = kwargs.setdefault('errors', True)
+
+    kwargs['subplot'] = True
+    firstplot = True
+    for cl, ax in zip(using_methods, axes):
+        p.sca(ax)
+        kwargs['method']=cl
+        instance = cov_zoom_demo(**kwargs)
+        ax.yaxis.set_ticks([0.0,1.0])
+        if firstplot:
+            ax.yaxis.set_ticklabels(["0.0","1.0"])
+            ax.yaxis.set_label_text("Pixel 2 location")
+            firstplot = False
+        else:
+            ax.yaxis.set_label_text("")
+            ax.yaxis.set_ticklabels([])
+        ax.xaxis.set_label_text("Pixel 1 location")
+        ax.xaxis.set_ticks([0,1])
+        ax.xaxis.set_ticklabels(["0.0","1.0"])
+
+    cbar = p.colorbar(cax=axes[-1])
+
+    p.subplots_adjust(0.04, 0.14, 0.93, 0.95)
+
+    if errors:
+        cbar.set_label("Fractional error")
+        cbar.set_ticks([vmin, 0, vmax])
+        num_digits = str(int(-np.log10(vmax))-1)
+        format = "$%."+num_digits+"f$%%"
+        cbar.set_ticklabels([format % (vmin * 100),
+                             "0",
+                             format % (vmax * 100)])

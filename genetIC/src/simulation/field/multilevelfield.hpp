@@ -266,10 +266,9 @@ namespace fields {
     }
 
     //! \brief Copy across data from another field.
-    //! Note that this is different to operator=, which sets this object equal to the specified field
-    //! on a class level. Here, we simply set the field data equal to that of the specified field,
-    //! without acquiring any of its other properties (such as transferType, which would change which
-    //! transfer function the field uses).
+    //! Note that this is different to operator=, which copies all attributes of the object.
+    //! Here, we copy only the field data, without acquiring any of its other properties (such as
+    //! transferType, which would change the transfer function the field uses).
     void copyData(const MultiLevelField<DataType> &other)
     {
         assert (isCompatible(other));
