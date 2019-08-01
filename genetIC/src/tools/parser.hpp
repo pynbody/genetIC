@@ -21,6 +21,8 @@
 #include <utility>
 #include <functional>
 #include <cctype>
+#include <algorithm>
+#include <vector>
 
 namespace tools {
   /*! \class DispatchError
