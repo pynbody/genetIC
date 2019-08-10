@@ -16,7 +16,7 @@ seed	23051991
 # output:
 outname reversed_ics
 outdir	 ./
-outformat 2
+outformat gadget2
 
 # 100 Mpc/h, 64 cells
 basegrid 100.0 64

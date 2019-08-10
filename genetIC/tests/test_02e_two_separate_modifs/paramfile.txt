@@ -12,7 +12,7 @@ seed	8896131
 # output:
 outname test_2
 outdir	 ./
-outformat 4
+outformat tipsy
 
 # 64 Mpc/h, 32 cells
 basegrid 64.0 32

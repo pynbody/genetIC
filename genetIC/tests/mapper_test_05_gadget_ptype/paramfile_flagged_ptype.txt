@@ -14,7 +14,7 @@ basegrid 33.885 64
 outname     pioneer50.512.h75
 
 
-outformat 3
+outformat gadget3
 
 idfile reference.txt
 

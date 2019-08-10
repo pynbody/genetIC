@@ -646,11 +646,8 @@ public:
   }
 
   //! Set formats from handled formats in io namespace
-  /*!
-   * \param format  2 =  Gadget2, 3 = Gadget3, 4 = tipsy, 5 = grafic
-   */
-  void setOutputFormat(int format) {
-    outputFormat = static_cast<io::OutputFormat>(format);
+  void setOutputFormat(io::OutputFormat format) {
+    outputFormat = format;
     updateParticleMapper();
   }
 

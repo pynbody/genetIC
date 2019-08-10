@@ -89,9 +89,11 @@ namespace tools {
                       std::ostream *output_stream) {
     T1 arg1{};
     if(input_stream.eof()){
-      throw std::runtime_error("Insufficient argument.");
+      throw DispatchError("Insufficient arguments");
     } else{
       input_stream >> arg1;
+      if(input_stream.fail())
+        throw DispatchError("Error while parsing arguments");
     }
 
     if (output_stream != nullptr)

@@ -18,7 +18,7 @@ basegrid 33.885 64
 outname     pioneer50.512.h75
 
 
-outformat 3
+outformat gadget3
 
 mapper_relative_to paramfile_flagged_ptype.txt
 idfile id_flagged.txt
