@@ -1,0 +1,29 @@
+# Test inserting virtual intermediate levels for high ratio zooms
+
+# output parameters
+outdir	 ./
+outformat tipsy
+outname test_1
+
+# cosmology:
+Om  0.279
+Ol  0.721
+s8  0.817
+zin	99
+camb	../camb_transfer_kmax40_z0.dat
+
+# basegrid 50 Mpc/h, 32^3
+basegrid 50.0 32
+
+# fourier seeding
+seed	889613
+
+# zoom level 1:
+centre 25 25 25
+select_sphere 2
+zoomgrid 4 32
+
+
+
+
+done
