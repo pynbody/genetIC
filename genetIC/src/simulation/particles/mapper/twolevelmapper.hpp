@@ -226,7 +226,7 @@ namespace particle {
           pGrid1->getFlaggedCells(this->level1CellsToReplace);
           cerr << "GOT:" << endl;
           for(size_t i=0; i<this->level1CellsToReplace.size(); ++i) {
-            cerr << this->level1CellsToReplace[i] << endl;
+            cerr << this->level1CellsToReplace[i] << " (" << this->level1ParticlesToReplace[i] << ")" << endl;
           }
           assert(false);
         }
@@ -322,6 +322,10 @@ namespace particle {
             firstHrParticleInInput = i;
             break;
           }
+        }
+
+        if(firstHrParticleInInput == std::numeric_limits<size_t>::max()) {
+          firstHrParticleInInput = orderedParticleIndices.size(); // No HR particles in input
         }
 
 
@@ -545,14 +549,6 @@ namespace particle {
           decltype(level1ParticlesToReplace) supersampledLevel1CellsToReplace;
           superSampleVersionOfFinestLRGrid->getFlaggedCells(supersampledLevel1CellsToReplace);
 
-          // TEMPORARY:
-          superSampleVersionOfFinestLRGrid->unflagAllCells();
-          superSampleVersionOfFinestLRGrid->flagCells(supersampledLevel1CellsToReplace);
-          cerr << "num:" << superSampleVersionOfFinestLRGrid->numFlaggedCells();
-          assert(superSampleVersionOfFinestLRGrid->numFlaggedCells()==supersampledLevel1CellsToReplace.size());
-          // END TEMPORARY
-
-
           finestLRGrid->expandFlaggedRegion(padCells);
 
           // The simplest thing to do next would be:
@@ -601,7 +597,7 @@ namespace particle {
           // our resolution contrast is fine - generate a new TwoLevelParticleMapper pointing to the new mappers,
           // in case they changed
           return std::make_shared<TwoLevelParticleMapper<GridDataType>>(mapperLR, mapperHR,
-            level1ParticlesToReplace, skipLevel1);
+            level1CellsToReplace, skipLevel1);
 
         }
 

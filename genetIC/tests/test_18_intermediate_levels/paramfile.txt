@@ -13,15 +13,20 @@ zin	99
 camb	../camb_transfer_kmax40_z0.dat
 
 # basegrid 50 Mpc/h, 32^3
-basegrid 50.0 32
+basegrid 50.0 64
 
 # fourier seeding
 seed	889613
 
 # zoom level 1:
 centre 25 25 25
-select_sphere 2
-zoomgrid 4 32
+select_sphere 3
+zoomgrid 4 64
+
+# zoom level 2
+centre 25 25 25
+select_sphere 1.0
+zoomgrid 4 64
 
 
 
