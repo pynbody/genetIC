@@ -106,7 +106,9 @@ namespace grids {
 
     //! Returns the number of flagged cells in the underlying grid.
     size_t numFlaggedCells() const override {
-      return pUnderlying->numFlaggedCells();
+      std::vector<size_t> t;
+      getFlaggedCells(t);
+      return t.size();
     }
 
     //! Returns a constant pointer to the underlying grid.

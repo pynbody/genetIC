@@ -271,6 +271,18 @@ namespace particle {
             ssub1, ssub2, gasFirst);
       }
 
+      MapPtrType insertIntermediateResolutionPadding(size_t ratio, size_t padCells) override {
+        auto ssub1 = firstMap;
+        auto ssub2 = secondMap;
+
+        if (gasFirst)
+          ssub2 = ssub2->insertIntermediateResolutionPadding(ratio, padCells);
+        else
+          ssub1 = ssub1->insertIntermediateResolutionPadding(ratio, padCells);
+
+        return std::make_shared<AddGasMapper<GridDataType>>(
+          ssub1, ssub2, gasFirst);
+      }
     };
   }
 }

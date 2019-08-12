@@ -1034,8 +1034,10 @@ public:
 
       for (size_t level = 1; level < nLevels; level++) {
 
+        auto pOutputGridThisLevel = getOutputGrid(level);
+
         auto pFine = std::shared_ptr<particle::mapper::OneLevelParticleMapper<GridDataType>>(
-            new particle::mapper::OneLevelParticleMapper<GridDataType>(getOutputGrid(level)));
+          new particle::mapper::OneLevelParticleMapper<GridDataType>(pOutputGridThisLevel));
 
         pFine->setGadgetParticleType(this->gadgetTypesForLevels[level]);
 
@@ -1086,6 +1088,7 @@ public:
     } else {
       pMapper = superOrSubSample(pMapper, supersample, subsample);
     }
+    pMapper = pMapper->insertIntermediateResolutionPadding(2,2);
 
 
   }

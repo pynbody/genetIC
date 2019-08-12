@@ -136,10 +136,10 @@ namespace particle {
   template<typename GridDataType, typename T>
   std::shared_ptr<particle::ParticleEvaluator<GridDataType>> makeParticleEvaluatorBasedOnTemplate(
       MultiLevelParticleGenerator<GridDataType, ZeldovichParticleGenerator<GridDataType>, T> &generator,
-      const grids::Grid<T> &grid, T epsNorm = 0.01075) {
-    auto fieldEvaluators = generator.getOutputFieldEvaluatorsForGrid(grid);
-    return std::make_shared<ZeldovichParticleEvaluator<GridDataType>>(fieldEvaluators[0], fieldEvaluators[1],
-                                                                      fieldEvaluators[2],
+    const grids::Grid<T> &grid, T epsNorm = 0.01075) {
+      auto fieldEvaluators = generator.getOutputFieldEvaluatorsForGrid(grid);
+      return std::make_shared<ZeldovichParticleEvaluator<GridDataType>>(fieldEvaluators[0], fieldEvaluators[1],
+                                                                        fieldEvaluators[2],
                                                                       grid, generator.cosmoParams, epsNorm);
   };
 

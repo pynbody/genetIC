@@ -46,7 +46,7 @@ namespace particle {
 
     */
     template<typename GridDataType>
-    class ParticleMapper {
+    class ParticleMapper : public std::enable_shared_from_this<ParticleMapper<GridDataType>> {
     public:
       using T = tools::datatypes::strip_complex<GridDataType>;
       using MapType = ParticleMapper<GridDataType>;
@@ -313,6 +313,11 @@ namespace particle {
       virtual MapPtrType
       superOrSubSample(int /*ratio*/, const std::vector<GridPtrType> & /*&toGrids*/, bool /*super = true*/) {
         throw std::runtime_error("Don't know how to supersample in this context");
+      }
+
+      virtual MapPtrType
+      insertIntermediateResolutionPadding(size_t /* gridCellRatio */, size_t /* padCells */) {
+        throw std::runtime_error("Don't know how to insert intermediate resolution padding in this context");
       }
 
 

@@ -102,6 +102,7 @@ namespace particle {
       //! Copies the flagged cells to the specified vector
       void getFlaggedParticles(std::vector<size_t> &particleArray) const override {
         pGrid->getFlaggedCells(particleArray);
+        std::sort(particleArray.begin(), particleArray.end());
       }
 
       //! Returns the grid associated to this level (only one level, so by definition it is the coarsest)
@@ -180,6 +181,10 @@ namespace particle {
         }
         newMapper->setGadgetParticleType(this->gadgetParticleType);
         return newMapper;
+      }
+
+      MapPtrType insertIntermediateResolutionPadding(size_t , size_t ) override {
+        return this->shared_from_this();
       }
 
 
