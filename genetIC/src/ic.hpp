@@ -121,6 +121,14 @@ protected:
   bool baryonsOnAllLevels;
 
 
+  /*! \brief If >0, the code will generate 'padding' regions around deep zooms.
+   *
+   * E.g. if you zoom by a factor of 4, a thin layer of particles will be added around just outside the zoom region,
+   * which are zoomed by only a factor of 2. This helps mitigate against boundary effects. The value of autopad
+   * specifies the number of cells to pad out by (at the intermediate resolution).
+   */
+  size_t autopad = 0;
+
   //! Vector storing flagged particle ids.
   std::vector<size_t> flaggedParticles;
   //! Zoom masks for each level.
@@ -147,7 +155,7 @@ protected:
   T precision = 0.001; //!< Target precision required of quadratic modifications.
 
   //! Mapper that keep track of particles in the mulit-level context.
-  shared_ptr<particle::mapper::ParticleMapper<GridDataType>> pMapper;
+  shared_ptr<particle::mapper::ParticleMapper<GridDataType>> pMapper = nullptr;
   //! Input mapper, used to relate particles in a different simulation to particles in this one.
   shared_ptr<particle::mapper::ParticleMapper<GridDataType>> pInputMapper;
   //! Multi-level context of the input mapper.
@@ -166,7 +174,6 @@ public:
   //! Requires a single interpreter to initialise, from which it will receive input commands.
   ICGenerator(tools::ClassDispatch<ICGenerator<GridDataType>, void> &interpreter) :
       modificationManager(multiLevelContext, cosmology, outputFields),
-      pMapper(new particle::mapper::ParticleMapper<GridDataType>()),
       interpreter(interpreter) {
 
     // By default, we assume there is only one field - the DM field:
@@ -232,6 +239,7 @@ public:
 
   //! Enables the use of stray particles
   void setStraysOn() {
+    multiLevelContext.allowStrays = true;
     allowStrayParticles = true;
   }
 
@@ -253,6 +261,12 @@ public:
         outputFields.push_back(std::make_shared<fields::OutputField<GridDataType>>(multiLevelContext,1));
         this->spectrum.enableAllTransfers();
     }
+  }
+
+  //! Enable autopad (i.e. generation of thin layers of intermediate resolution particles around zoom regions)
+  void setAutopad(size_t nCells) {
+    this->autopad = nCells;
+    this->updateParticleMapper();
   }
 
   //! Enables outputting baryons on all levels, rather than only the deepest level.
@@ -377,8 +391,14 @@ public:
     if (multiLevelContext.getNumLevels() < 1)
       throw std::runtime_error("Cannot initialise a zoom grid before initialising the base grid");
 
-    grids::Grid<T> &gridAbove = multiLevelContext.getGridForLevel(multiLevelContext.getNumLevels() - 1);
-    int nAbove = (int) gridAbove.size;
+    grids::Grid<T> &actualGridAbove = multiLevelContext.getGridForLevel(multiLevelContext.getNumLevels() - 1);
+    grids::Grid<T> &outputGridAbove = multiLevelContext.getOutputGridForLevel(multiLevelContext.getNumLevels() - 1);
+
+    // Note everything that follows assumes the previous level's output grid (relative to which we must specify the
+    // cells to zoom) has the same resolution as the actual grid (relative to which we specify the new grid).
+    assert(actualGridAbove.cellSize==outputGridAbove.cellSize);
+
+    int nAbove = (int) actualGridAbove.size;
 
     storeCurrentCellFlagsAsZoomMask(multiLevelContext.getNumLevels());
     vector<size_t> &newLevelZoomParticleArray = zoomParticleArray.back();
@@ -387,11 +407,11 @@ public:
       throw std::runtime_error("Cannot initialise zoom without marking particles to be replaced");
 
     // find boundaries
-    Window<int> zoomWindow(gridAbove.getEffectiveSimulationSize(),
-                           gridAbove.getCoordinateFromIndex(newLevelZoomParticleArray[0]));
+    Window<int> zoomWindow(outputGridAbove.getEffectiveSimulationSize(),
+                           outputGridAbove.getCoordinateFromIndex(newLevelZoomParticleArray[0]));
 
     for (auto cell_id : newLevelZoomParticleArray) {
-      zoomWindow.expandToInclude(gridAbove.getCoordinateFromIndex(cell_id));
+      zoomWindow.expandToInclude(outputGridAbove.getCoordinateFromIndex(cell_id));
     }
 
     size_t n_required = zoomWindow.getMaximumDimension();
@@ -410,7 +430,7 @@ public:
     // Do not use them if you can
     int borderSafety = 3;
     for (auto cell_id : zoomParticleArray.back()){
-      if( ! zoomWindow.containsWithBorderSafety(gridAbove.getCoordinateFromIndex(cell_id), borderSafety)){
+      if( ! zoomWindow.containsWithBorderSafety(outputGridAbove.getCoordinateFromIndex(cell_id), borderSafety)){
         std::cerr << "WARNING: Opening a zoom where flagged particles are within " << borderSafety <<
             " pixels of the edge. This is prone to numerical errors." << std::endl;
         break;
@@ -420,6 +440,10 @@ public:
 
 
     auto lci = zoomWindow.getLowerCornerInclusive();
+
+    // The zoom grid is opened on top of the previous actual grid, not the output grid, so we now need to convert:
+
+    lci = actualGridAbove.getCoordinateFromPoint(outputGridAbove.getCentroidFromCoordinate(lci));
     initZoomGridWithLowLeftCornerAt(lci.x, lci.y, lci.z, zoomfac, n);
 
   }
@@ -433,7 +457,7 @@ public:
 
     assert(zoomParticleArray.size() >= level);
 
-    grids::Grid<T> &gridAbove = multiLevelContext.getGridForLevel(level - 1);
+    grids::Grid<T> &gridAbove = multiLevelContext.getOutputGridForLevel(level - 1);
 
     vector<size_t> &levelZoomParticleArray = zoomParticleArray[level - 1];
     levelZoomParticleArray.clear();
@@ -441,11 +465,15 @@ public:
   }
 
   /*! \brief Define a zoomed grid with user defined coordinates
-   * \param x0, y0, z0  Coordinates in pixel number of the lower left corner
+   * \param x0, y0, z0  Coordinates of the lower left corner in terms of the calculation grid from the level above
+   * \param zoomfac The factor by which the zoom window is smaller than the level above
+   * \param n The number of cells per side in the new zoom window
    */
   void initZoomGridWithLowLeftCornerAt(int x0, int y0, int z0, size_t zoomfac, size_t n) {
-    grids::Grid<T> &gridAbove = multiLevelContext.getGridForLevel(multiLevelContext.getNumLevels() - 1);
-    int nAbove = int(gridAbove.size);
+    grids::Grid<T> &calculationGridAbove = multiLevelContext.getGridForLevel(multiLevelContext.getNumLevels() - 1);
+    grids::Grid<T> &outputGridAbove = multiLevelContext.getOutputGridForLevel(multiLevelContext.getNumLevels() - 1);
+
+    int nAbove = int(calculationGridAbove.size);
 
     storeCurrentCellFlagsAsZoomMask(multiLevelContext.getNumLevels());
 
@@ -458,18 +486,23 @@ public:
     Coordinate<int> lowerCorner(x0, y0, z0);
     Coordinate<int> upperCornerExclusive = lowerCorner + nCoarseCellsOfZoomGrid;
 
-    if (gridAbove.coversFullSimulation())
-      upperCornerExclusive = gridAbove.wrapCoordinate(upperCornerExclusive);
+    if(x0<0 || y0<0 || z0<0)
+      throw std::runtime_error("The newly initialised zoom level is not fully contained within the previous level");
+
+    if (calculationGridAbove.coversFullSimulation())
+      upperCornerExclusive = calculationGridAbove.wrapCoordinate(upperCornerExclusive);
     else {
       if (upperCornerExclusive.x > nAbove || upperCornerExclusive.y > nAbove || upperCornerExclusive.z > nAbove)
-        throw std::runtime_error("Attempting to initialise a zoom grid that falls outside the parent grid");
+        throw std::runtime_error("The newly initialised zoom level is not fully contained within the previous level");
+      // Note even if "strays" are enabled, this is considered illegal since it doesn't make sense to be putting high resolution
+      // information on top of interpolated information from >1 level above.
     }
-
 
     size_t missed_particle = 0;
 
-    Window<int> zoomWindow = Window<int>(gridAbove.getEffectiveSimulationSize(),
-                                         lowerCorner, upperCornerExclusive);
+    Window<T> zoomWindow = Window<T>(calculationGridAbove.periodicDomainSize,
+                                         calculationGridAbove.getCentroidFromCoordinate(lowerCorner),
+                                         calculationGridAbove.getCentroidFromCoordinate(upperCornerExclusive));
 
 
     // Make list of the particles, excluding those that fall outside the new high-res box. Alternatively,
@@ -477,7 +510,7 @@ public:
     // in this category.
     for (size_t i = 0; i < untrimmedParticleArray.size(); i++) {
       bool include = true;
-      auto coord = gridAbove.getCoordinateFromIndex(untrimmedParticleArray[i]);
+      auto coord = outputGridAbove.getCentroidFromIndex(untrimmedParticleArray[i]);
       if (!zoomWindow.contains(coord)) {
         missed_particle += 1;
         include = false;
@@ -502,9 +535,9 @@ public:
     zoomParticleArray.pop_back();
     zoomParticleArray.emplace_back(std::move(trimmedParticleArray));
 
-    Coordinate<T> newOffsetLower = gridAbove.offsetLower + Coordinate<T>(x0, y0, z0) * gridAbove.cellSize;
+    Coordinate<T> newOffsetLower = calculationGridAbove.offsetLower + Coordinate<T>(x0, y0, z0) * calculationGridAbove.cellSize;
 
-    this->addLevelToContext(gridAbove.thisGridSize / zoomfac, n, newOffsetLower);
+    this->addLevelToContext(calculationGridAbove.thisGridSize / zoomfac, n, newOffsetLower);
 
 
     grids::Grid<T> &newGrid = multiLevelContext.getGridForLevel(multiLevelContext.getNumLevels() - 1);
@@ -523,10 +556,9 @@ public:
 
     cout << "  Total particles = " << pMapper->size() << endl;
 
-    // Update the cell flags. The goal is to flag
-    // Flag all cells on the fine grid which are included in the zoom
+    // Flag all cells on the fine grid which were included in the zoom
     vector<size_t> transferredCells;
-    gridAbove.makeProxyGridToMatch(newGrid)->getFlaggedCells(transferredCells);
+    calculationGridAbove.makeProxyGridToMatch(newGrid)->getFlaggedCells(transferredCells);
     newGrid.flagCells(transferredCells);
 
   }
@@ -986,13 +1018,7 @@ public:
    * there are differences in the resolution between the output and the literal fields.
    */
   std::shared_ptr<grids::Grid<T>> getOutputGrid(int level = 0) {
-    auto gridForOutput = multiLevelContext.getGridForLevel(level).shared_from_this();
-
-    if (allowStrayParticles && level > 0) {
-      gridForOutput = std::make_shared<grids::ResolutionMatchingGrid<T>>(gridForOutput,
-                                                                         getOutputGrid(level - 1));
-    }
-    return gridForOutput;
+    return multiLevelContext.getOutputGridForLevel(level).shared_from_this();
   }
 
   //!\brief Reconstructs the particle mapper after changes have been made.
@@ -1088,8 +1114,10 @@ public:
     } else {
       pMapper = superOrSubSample(pMapper, supersample, subsample);
     }
-    pMapper = pMapper->insertIntermediateResolutionPadding(2,2);
 
+    if(autopad>0) {
+      pMapper = pMapper->insertIntermediateResolutionPadding(2, autopad);
+    }
 
   }
 
@@ -1372,24 +1400,24 @@ public:
     assert(this->zoomParticleArray.size()==multiLevelContext.getNumLevels()-1);
     for(size_t level = multiLevelContext.getNumLevels()-2; level>0; --level) {
       auto &sourceArray = this->zoomParticleArray[level];
-      grids::Grid<T> &thisLevelGrid = multiLevelContext.getGridForLevel(level);
-      grids::Grid<T> &aboveLevelGrid = multiLevelContext.getGridForLevel(level-1);
+      auto thisLevelGrid = multiLevelContext.getOutputGridForLevel(level).withIndependentFlags();
+      auto aboveLevelGrid = multiLevelContext.getOutputGridForLevel(level-1).withIndependentFlags();
 
       // Create a minimal mask on the level above, consisting of all parent cells of the zoom cells on this level
-      thisLevelGrid.unflagAllCells();
-      thisLevelGrid.flagCells(sourceArray);
-      auto proxyGrid = thisLevelGrid.makeProxyGridToMatch(aboveLevelGrid);
+      thisLevelGrid->unflagAllCells();
+      thisLevelGrid->flagCells(sourceArray);
+      auto proxyGrid = thisLevelGrid->makeProxyGridToMatch(*aboveLevelGrid);
 
       std::vector<size_t> zoomParticleArrayLevelAbove;
       proxyGrid->getFlaggedCells(zoomParticleArrayLevelAbove);
 
       // zoomParticleArrayLevelAbove now has the minimal mask.
       // Expand the minimal mask by nPadCells in each direction
-      aboveLevelGrid.unflagAllCells();
-      aboveLevelGrid.flagCells(zoomParticleArrayLevelAbove);
-      aboveLevelGrid.expandFlaggedRegion(nPadCells);
+      aboveLevelGrid->unflagAllCells();
+      aboveLevelGrid->flagCells(zoomParticleArrayLevelAbove);
+      aboveLevelGrid->expandFlaggedRegion(nPadCells);
       zoomParticleArrayLevelAbove.clear();
-      aboveLevelGrid.getFlaggedCells(zoomParticleArrayLevelAbove);
+      aboveLevelGrid->getFlaggedCells(zoomParticleArrayLevelAbove);
       this->zoomParticleArray[level-1]=zoomParticleArrayLevelAbove;
     }
     updateParticleMapper();
@@ -1488,8 +1516,6 @@ public:
 
     if(modificationManager.hasModifications())
       applyModifications();
-
-    std::cout << "\nOperations applied to all fields. Writing to disk...";
 
     write();
   }

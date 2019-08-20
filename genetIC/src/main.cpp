@@ -91,6 +91,7 @@ void setup_parser(tools::ClassDispatch<ICf, void> &dispatch) {
   dispatch.add_class_route("select_nearest", &ICf::selectNearest);
   dispatch.add_class_route("expand_flagged_region", &ICf::expandFlaggedRegion);
   dispatch.add_class_route("adapt_mask", &ICf::adaptMask);
+  dispatch.add_class_route("autopad", &ICf::setAutopad);
 
   // Deal with modifications
   dispatch.add_class_route("calculate", static_cast<void(ICf::*)(std::string)>(&ICf::calculate));

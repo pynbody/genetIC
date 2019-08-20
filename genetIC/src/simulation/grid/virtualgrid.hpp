@@ -89,22 +89,22 @@ namespace grids {
       return this == pOther || pUnderlying.get() == pOther || pUnderlying->isProxyFor(pOther);
     }
 
-    //! Returns the list of flagged cells in the underlying grid.
+    virtual //! Returns the list of flagged cells in the underlying grid.
     void getFlaggedCells(std::vector<size_t> &targetArray) const override {
       pUnderlying->getFlaggedCells(targetArray);
     }
 
-    //! Flags the specified cells in the underlying grid.
+    virtual //! Flags the specified cells in the underlying grid.
     void flagCells(const std::vector<size_t> &sourceArray) override {
       pUnderlying->flagCells(sourceArray);
     }
 
-    //! Unflag all flagged cells in the underlying grid.
+    virtual //! Unflag all flagged cells in the underlying grid.
     void unflagAllCells() override {
       pUnderlying->unflagAllCells();
     }
 
-    //! Returns the number of flagged cells in the underlying grid.
+    virtual //! Returns the number of flagged cells in the underlying grid.
     size_t numFlaggedCells() const override {
       std::vector<size_t> t;
       getFlaggedCells(t);
@@ -177,6 +177,26 @@ namespace grids {
       this->pUnderlying->flagCells(targetArray);
     }
 
+    GridPtrType makeSubsampled(size_t ratio) const override {
+      // Special case: subsampling a supersampled grid can needlessly destroy accuracy, so avoid it!
+      if(ratio>factor) {
+        // relative to the underlying grid we will be subsampled
+        size_t ratioToUnderlying = tools::getRatioAndAssertInteger(static_cast<float>(ratio), static_cast<float>(factor));
+        return this->pUnderlying->makeSubsampled(ratioToUnderlying);
+      } else if(ratio==factor) {
+        // gives back the underlying grid
+        return std::const_pointer_cast<Grid<T>>(this->pUnderlying);
+      } else {
+        // relative to the underlying grid we will still be supersampled
+        size_t ratioToUnderlying = tools::getRatioAndAssertInteger(static_cast<float>(factor), static_cast<float>(ratio));
+        return this->pUnderlying->makeSupersampled(ratioToUnderlying);
+      }
+    }
+
+    GridPtrType makeSupersampled(size_t ratio) const override {
+      return this->pUnderlying->makeSupersampled(ratio*factor);
+    }
+
   };
 
   /*! \brief Virtual grid with two underlying grids - one high resolution, and one low resolution
@@ -192,6 +212,7 @@ namespace grids {
     using typename Grid<T>::ConstGridPtrType;
 
     GridPtrType pUnderlyingHiRes; //!< Pointer to the underlying high resolution grid.
+    GridPtrType pUnderlyingLoRes; //!< Pointer to the underling low resolution (but bigger) grid
     GridPtrType pUnderlyingLoResInterpolated; //!< Pointers to the low resolution grid, interpolated up to the same resolution as the high resolution grid.
     Coordinate<int> windowLowerCornerInclusive; //!< Lower front left corner of the high resolution window region
     Window<int> windowInCoordinates; //!< Window for the high resolution region (integer version)
@@ -212,15 +233,15 @@ namespace grids {
                        pUnderlyingLoRes->offsetLower.z,//!< z co-ord of lower front left hand corner matches that of low-res grid.
                        pUnderlyingHiRes->cellMassFrac, //!< Mass in each cell matches that of high res grid
                        pUnderlyingHiRes->cellSofteningScale), //!< Cell softening scale matches that of high res grid
-        pUnderlyingHiRes(pUnderlyingHiRes) {
+        pUnderlyingHiRes(pUnderlyingHiRes), pUnderlyingLoRes(pUnderlyingLoRes) {
 
       Coordinate<int> windowUpperCornerExclusive;
       Coordinate<T> windowLowerCornerInSpace;
       Coordinate<T> windowUpperCornerInSpace;
 
       // Create a super-sampled virtual grid from the low res grid, and set it to be the underlying grid:
-      pUnderlyingLoResInterpolated = std::make_shared<SuperSampleGrid<T>>(pUnderlyingLoRes,
-                                                                          this->size / pUnderlyingLoRes->size);
+      pUnderlyingLoResInterpolated =
+        pUnderlyingLoRes->makeSupersampled(this->size / pUnderlyingLoRes->size)->withIndependentFlags();
       this->pUnderlying = pUnderlyingLoResInterpolated;
 
       // Set the location of the high res windowed region to the lower front left corner of the high res grid, relative to the low-res grid:
@@ -272,6 +293,8 @@ namespace grids {
       debugName(s);
       s << " of side " << this->size << " address " << this << " referencing (for genuine hi-res part) ";
       pUnderlyingHiRes->debugInfo(s);
+      s << "; (for interpolated part) ";
+      pUnderlyingLoResInterpolated->debugInfo(s);
     }
 
     //! Stores the flagged cells in the targetArray vector as if they were defined on the super-sampled low resolution grid.
@@ -345,6 +368,15 @@ namespace grids {
       return pUnderlyingHiRes->getIndexFromCoordinate(this->wrapCoordinate(coordinate - windowLowerCornerInclusive));
     }
 
+    GridPtrType makeSubsampled(size_t ratio) const override {
+      return std::make_shared<ResolutionMatchingGrid<T>>(pUnderlyingHiRes->makeSubsampled(ratio),
+                                                         pUnderlyingLoRes->makeSubsampled(ratio));
+    }
+
+    GridPtrType makeSupersampled(size_t ratio) const override {
+      return std::make_shared<ResolutionMatchingGrid<T>>(pUnderlyingHiRes->makeSupersampled(ratio),
+                                                         pUnderlyingLoRes->makeSupersampled(ratio));
+    }
 
   };
 
@@ -486,6 +518,9 @@ namespace grids {
     int factor; //!< Resolution is factor times lower than underlying grid
     int factor3; //!< Virtual grid contains factor3 times fewer points than the underlying grid
 
+  protected:
+    using typename Grid<T>::GridPtrType;
+
   public:
     /*! \brief Constructor for a SubSampleGrid
 
@@ -555,6 +590,26 @@ namespace grids {
         }
       }
       return localFactor3;
+    }
+
+    GridPtrType makeSupersampled(size_t ratio) const override {
+      // Special case: supersampling a subsampled grid can needlessly destroy accuracy, so avoid it!
+      if(ratio>factor) {
+        // relative to the underlying grid we will be supersampled
+        size_t ratioToUnderlying = tools::getRatioAndAssertInteger(static_cast<float>(ratio), static_cast<float>(factor));
+        return this->pUnderlying->makeSupersampled(ratioToUnderlying);
+      } else if(ratio==factor) {
+        // gives back the underlying grid
+        return std::const_pointer_cast<Grid<T>>(this->pUnderlying);
+      } else {
+        // relative to the underlying grid we will still be subsampled (just not as much, presumably)
+        size_t ratioToUnderlying = tools::getRatioAndAssertInteger<float>(static_cast<float>(factor), static_cast<float>(ratio));
+        return this->pUnderlying->makeSubsampled(ratioToUnderlying);
+      }
+    }
+
+    GridPtrType makeSubsampled(size_t ratio) const override {
+      return this->pUnderlying->makeSubsampled(ratio*factor);
     }
 
 
@@ -744,6 +799,60 @@ namespace grids {
     //! Outputs debug information
     void debugName(std::ostream &s) const override {
       s << "OffsetGrid";
+    }
+  };
+
+  //! Wraps any VirtualGrid but allows it to have its own cell flags (independent of the original underlying grid)
+  //! At construction, the new grid inherits the flags of the underlying grid, but these can then be manipualated
+  //! fully independently.
+  template<typename T>
+  class IndependentFlaggingGrid : public VirtualGrid<T> {
+  protected:
+    using typename Grid<T>::GridPtrType;
+
+  public:
+    IndependentFlaggingGrid(const GridPtrType &pUnderlying) : VirtualGrid<T>(pUnderlying) {
+      std::vector<size_t> ar;
+      pUnderlying->getFlaggedCells(ar);
+      this->flagCells(ar);
+    }
+
+    void flagCells(const std::vector<size_t> &sourceArray) override {
+      Grid<T>::flagCells(sourceArray);
+    }
+
+    void unflagAllCells() override {
+      Grid<T>::unflagAllCells();
+    }
+
+    size_t numFlaggedCells() const override {
+      return Grid<T>::numFlaggedCells();
+    }
+
+    void getFlaggedCells(std::vector<size_t> &targetArray) const override {
+      Grid<T>::getFlaggedCells(targetArray);
+    }
+
+    void debugInfo(std::ostream &s) const override {
+      s << "[";
+      this->pUnderlying->debugInfo(s);
+      s << "]";
+    }
+
+    virtual GridPtrType withIndependentFlags() const override {
+      return const_cast<IndependentFlaggingGrid<T>*>(this)->shared_from_this();
+    }
+
+    virtual GridPtrType withCoupledFlags() const override  {
+      return this->pUnderlying->withCoupledFlags();
+    }
+
+    virtual GridPtrType makeSupersampled(size_t ratio) const override {
+      return std::make_shared<IndependentFlaggingGrid<T>>(this->pUnderlying->makeSupersampled(ratio));
+    }
+
+    virtual GridPtrType makeSubsampled(size_t ratio) const override {
+      return std::make_shared<IndependentFlaggingGrid<T>>(this->pUnderlying->makeSubsampled(ratio));
     }
   };
 

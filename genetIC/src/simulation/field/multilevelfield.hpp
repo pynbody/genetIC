@@ -31,7 +31,7 @@ namespace fields {
 
     std::vector<std::shared_ptr<Field<DataType, T>>> fieldsOnLevels; //!< Vector that stores all the fields on the different levels
 
-    //! Sets up a signalling connection the multi-level context, allowing the multi-level field to signal that the context needs to be updated.
+    //! Sets up a listener to signals from the multi-level context, allowing this field to update its state when the context changes
     void setupConnection() {
       connection = multiLevelContext->connect([this]() {
         this->updateMultiLevelContext();

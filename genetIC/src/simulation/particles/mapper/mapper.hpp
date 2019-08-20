@@ -320,6 +320,14 @@ namespace particle {
         throw std::runtime_error("Don't know how to insert intermediate resolution padding in this context");
       }
 
+      //! Decouple the flags on all levels, even if they point to the same logical grid.
+      //! This is useful
+      virtual MapPtrType withIndependentFlags() = 0;
+
+      //! Couple the flags on levels which are virtual copies of each other, which is the default behaviour.
+      virtual MapPtrType withCoupledFlags() = 0;
+
+
 
     };
   }

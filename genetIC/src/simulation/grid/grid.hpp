@@ -162,10 +162,10 @@ namespace grids {
       GridPtrType proxy = std::const_pointer_cast<Grid<T>>(this->shared_from_this());
       if (target.cellSize > cellSize) {
         size_t ratio = tools::getRatioAndAssertPositiveInteger(target.cellSize, cellSize);
-        proxy = std::make_shared<SubSampleGrid<T>>(proxy, ratio);
+        proxy = this->makeSubsampled(ratio);
       } else if (target.cellSize < cellSize) {
         size_t ratio = tools::getRatioAndAssertPositiveInteger(cellSize, target.cellSize);
-        proxy = std::make_shared<SuperSampleGrid<T>>(proxy, ratio);
+        proxy = this->makeSupersampled(ratio);
       }
 
       if (target.offsetLower != offsetLower || target.size != proxy->size) {
@@ -184,9 +184,33 @@ namespace grids {
       return proxy;
     }
 
+    //! Make a VirtualGrid pointing to this grid, but with a higher resolution by the specified factor
+    virtual GridPtrType makeSupersampled(size_t ratio) const {
+      GridPtrType proxy = std::const_pointer_cast<Grid<T>>(this->shared_from_this());
+      return std::make_shared<SuperSampleGrid<T>>(proxy, ratio);
+    }
+
+    //! Make a VirtualGrid pointing to this grid, but with a higher resolution by the specified factor
+    virtual GridPtrType makeSubsampled(size_t ratio) const {
+      GridPtrType proxy = std::const_pointer_cast<Grid<T>>(this->shared_from_this());
+      return std::make_shared<SubSampleGrid<T>>(proxy, ratio);
+    }
+
     //! Creates a virtual grid based on this one that has its total mass multiplied by massRatio
-    virtual std::shared_ptr<Grid<T>> makeScaledMassVersion(T massRatio) {
+    virtual GridPtrType makeScaledMassVersion(T massRatio) {
       return std::make_shared<MassScaledGrid<T>>(this->shared_from_this(), massRatio);
+    }
+
+    //! Creates a virtual grid that has the same properties as this one but independent flags from any other grids
+    virtual GridPtrType withIndependentFlags() const {
+      GridPtrType proxy = std::const_pointer_cast<Grid<T>>(this->shared_from_this());
+      return std::make_shared<IndependentFlaggingGrid<T>>(proxy);
+    }
+
+    //! Creates a virtual grid whose flags depend on any underlying grids
+    virtual GridPtrType withCoupledFlags() const {
+      GridPtrType proxy = std::const_pointer_cast<Grid<T>>(this->shared_from_this());
+      return proxy;
     }
 
     /*****************************
@@ -551,7 +575,7 @@ namespace grids {
       insertCubeIdsIntoVector(x0c, y0c, z0c, dxc, ids.begin() + offset);
     }
 
-    //! Returns all the grid IDs whose centres lie within the specified cube
+    //! Returns all the grid IDs whose centres lie within a cube of side dxc centred on x0c, y0c, z0c
     void insertCubeIdsIntoVector(T x0c, T y0c, T z0c, T dxc, vector<size_t>::iterator start) {
 
 

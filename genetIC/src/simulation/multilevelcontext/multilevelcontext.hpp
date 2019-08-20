@@ -48,12 +48,13 @@ namespace multilevelcontext {
   class MultiLevelContextInformationBase : public tools::Signaling {
   private:
     std::vector<std::shared_ptr<grids::Grid<T>>> pGrid; //!< Pointers to the grids for each level
+    std::vector<std::shared_ptr<grids::Grid<T>>> pOutputGrid; //!< Pointers to the output grids for each level -- may be different from the underlying grids if allowStrays is on
     std::vector<std::vector<std::shared_ptr<const fields::Field<DataType, T>>>> C0s; //!< Pointers to the transfer functions for each level
     std::vector<T> weights; //!< Fraction of the volume of the coarsest level's cells that the cells on each level occupy
 
   public:
     size_t nTransferFunctions; //!< Keeps track of the number of transfer functions currently being used by the code.
-
+    bool allowStrays = false; //!< If true, return output grids that cover the whole simulation box even in the zoom regions
 
   protected:
     std::vector<size_t> Ns; //!< Vector that stores the number of cells on each level
@@ -126,6 +127,15 @@ namespace multilevelcontext {
       Ns.push_back(pG->size3);
       cumu_Ns.push_back(Ntot);
       Ntot += pG->size3;
+
+      if(allowStrays && nLevels>0) {
+        // output grid covers entire simulation box, using interpolation from next level up to fill the gaps
+        auto gridForOutput = std::make_shared<grids::ResolutionMatchingGrid<T>>(pG, pOutputGrid[nLevels-1]);
+        pOutputGrid.push_back(gridForOutput);
+      } else {
+        // output grid is identical to grid on which data is actually stored
+        pOutputGrid.push_back(pG);
+      }
       nLevels += 1;
       this->changed();
     }
@@ -159,14 +169,24 @@ namespace multilevelcontext {
       return nLevels;
     }
 
-    //! Returns a reference to the grid for the specified level
+    //! Returns a reference to the calculation grid (on which data is manipulated) for the specified level
     grids::Grid<T> &getGridForLevel(size_t level) {
       return *pGrid[level];
     }
 
-    //! Returns a constant reference to the grid for the specified level
+    //! Returns a constant reference to the calculation grid (on which data is manipulated) for the specified level
     const grids::Grid<T> &getGridForLevel(size_t level) const {
       return *pGrid[level];
+    }
+
+    //! Returns a reference to the output grid (from which particles are output) for the specified level
+    grids::Grid<T> &getOutputGridForLevel(size_t level) {
+      return *pOutputGrid[level];
+    }
+
+    //! Returns a constant reference to the output grid (from which particles are output) for the specified level
+    const grids::Grid<T> &getOutputGridForLevel(size_t level) const {
+      return *pOutputGrid[level];
     }
 
     //! Return a vector of shared pointers to the grids. Needed to add gas to all levels, for example.

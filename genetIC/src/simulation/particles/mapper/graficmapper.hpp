@@ -148,6 +148,14 @@ namespace particle {
         throw std::runtime_error("Iterators are not supported by GraficMapper");
       }
 
+      MapPtrType withIndependentFlags() override {
+        throw std::runtime_error("GraficMapper cannot currently make flags independent");
+      }
+
+      MapPtrType withCoupledFlags() override {
+        throw std::runtime_error("GraficMapper cannot currently make flags coupled");
+      }
+
     protected:
 
       //! Make sure that flagged zoomed cells are also flagged on coarse levels

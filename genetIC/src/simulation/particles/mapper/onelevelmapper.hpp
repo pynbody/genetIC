@@ -172,9 +172,9 @@ namespace particle {
         if (pGrid->isProxyForAnyOf(toGrids)) {
           GridPtrType newGrid;
           if (super)
-            newGrid = std::make_shared<grids::SuperSampleGrid<T >>(this->pGrid, ratio);
+            newGrid = this->pGrid->makeSupersampled(ratio);
           else
-            newGrid = std::make_shared<grids::SubSampleGrid<T >>(this->pGrid, ratio);
+            newGrid = this->pGrid->makeSubsampled(ratio);
           newMapper = std::make_shared<OneLevelParticleMapper<GridDataType>>(newGrid);
         } else {
           newMapper = std::make_shared<OneLevelParticleMapper<GridDataType>>(this->pGrid);
@@ -185,6 +185,14 @@ namespace particle {
 
       MapPtrType insertIntermediateResolutionPadding(size_t , size_t ) override {
         return this->shared_from_this();
+      }
+
+      MapPtrType withIndependentFlags() override {
+        return std::make_shared<OneLevelParticleMapper<GridDataType>>(this->pGrid->withIndependentFlags());
+      }
+
+      MapPtrType withCoupledFlags() override {
+        return std::make_shared<OneLevelParticleMapper<GridDataType>>(this->pGrid->withCoupledFlags());
       }
 
 

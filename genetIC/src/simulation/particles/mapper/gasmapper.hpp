@@ -120,7 +120,7 @@ namespace particle {
         \param pSecond - pointer to the second mapper
         \param gasFirst - if true, pFirst is baryons, pSecond is dark matter, and vice versa if false
       */
-      AddGasMapper(MapPtrType &pFirst, MapPtrType &pSecond, bool gasFirst = true) :
+      AddGasMapper(MapPtrType pFirst, MapPtrType pSecond, bool gasFirst = true) :
           firstMap(pFirst), secondMap(pSecond), gasFirst(gasFirst), nFirst(pFirst->size()),
           nSecond(pSecond->size()) {
         assert(pFirst->size_gas() == 0);
@@ -283,6 +283,15 @@ namespace particle {
         return std::make_shared<AddGasMapper<GridDataType>>(
           ssub1, ssub2, gasFirst);
       }
+
+      MapPtrType withIndependentFlags() override {
+        return std::make_shared<AddGasMapper<T>>(firstMap->withIndependentFlags(), secondMap->withIndependentFlags(), gasFirst);
+      }
+
+      MapPtrType withCoupledFlags() override {
+        return std::make_shared<AddGasMapper<T>>(firstMap->withCoupledFlags(), secondMap->withCoupledFlags(), gasFirst);
+      }
+
     };
   }
 }

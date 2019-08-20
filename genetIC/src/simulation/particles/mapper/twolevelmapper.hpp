@@ -198,10 +198,12 @@ namespace particle {
         assert(pLevel1->size_gas() == 0);
         assert(pLevel2->size_gas() == 0);
 
+        auto pLevel1Indept = pLevel1->withIndependentFlags();
+
         std::sort(this->level1CellsToReplace.begin(), this->level1CellsToReplace.end());
-        pLevel1->unflagAllParticles();
-        pGrid1->flagCells(this->level1CellsToReplace);
-        pLevel1->getFlaggedParticles(level1ParticlesToReplace);
+        pLevel1Indept->unflagAllParticles();
+        pLevel1Indept->getFinestGrid()->flagCells(this->level1CellsToReplace);
+        pLevel1Indept->getFlaggedParticles(level1ParticlesToReplace);
 
         /* If the following assertion fails, something is inconsistent. There should be a 1-1 map between the
          * level1CellsToReplace and level1ParticlesToReplace. Possible sources of inconsistency are:
@@ -526,29 +528,55 @@ namespace particle {
         };
       }
 
+      MapPtrType withIndependentFlags() override {
+        return std::make_shared<TwoLevelParticleMapper<T>>(pLevel1->withIndependentFlags(), pLevel2->withIndependentFlags(),
+          level1CellsToReplace, skipLevel1);
+      }
+
+      MapPtrType withCoupledFlags() override {
+        return std::make_shared<TwoLevelParticleMapper<T>>(pLevel1->withCoupledFlags(), pLevel2->withCoupledFlags(),
+          level1CellsToReplace, skipLevel1);
+      }
+
       MapPtrType insertIntermediateResolutionPadding(size_t ratio, size_t padCells) override {
 
         auto mapperLR = pLevel1->insertIntermediateResolutionPadding(ratio, padCells);
         auto mapperHR = pLevel2->insertIntermediateResolutionPadding(ratio, padCells);
 
-        // Above operation can only insert intermediate sized cells, so the finest/coarsest cell size will not have
-        // changed. n_hr_per_lr is therefore still the relevant ratio
+        assert(mapperHR==pLevel2); // we're expecting level 2 to be a fixed high resolution grid => no changes made
 
-        if(n_hr_per_lr>ratio*ratio*ratio) {
+        // level 1 may have been supersampled. We need an updated list of zoom particles relative to the new
+        // finest level.
+        std::vector<size_t> newLevel1CellsToReplace;
+        pLevel1->unflagAllParticles();
+        pLevel1->flagParticles(level1ParticlesToReplace);
+        mapperLR->getFinestGrid()->getFlaggedCells(newLevel1CellsToReplace);
+
+        // Now, what is the new linear ratio between finest level 1 and level 2
+        size_t newCellLengthRatio = tools::getRatioAndAssertInteger(mapperLR->getFinestGrid()->cellSize,
+                                                    mapperHR->getCoarsestGrid()->cellSize);
+
+        if(newCellLengthRatio>ratio) {
           // there is too big a resolution ratio between our levels. Do something about it.
           // The strategy is to supersample the coarsest LR grid, and have a region around our zoom region
           // consisting of such supersampled particles.
+
+
           GridPtrType finestLRGrid = mapperLR->getFinestGrid();
-          GridPtrType superSampleVersionOfFinestLRGrid =
-            std::make_shared<grids::SuperSampleGrid<GridDataType>>(finestLRGrid, ratio);
+          GridPtrType superSampleVersionOfFinestLRGrid = finestLRGrid->makeSupersampled(ratio);
 
-          mapperLR->unflagAllParticles();
-          mapperLR->flagParticles(level1ParticlesToReplace);
+          std::vector<size_t> expandedLevel1CellsToReplace;
+          std::vector<size_t> supersampledLevel1CellsToReplace;
 
-          decltype(level1ParticlesToReplace) expandedLevel1CellsToReplace;
-          decltype(level1ParticlesToReplace) supersampledLevel1CellsToReplace;
+          // the cells were already flagged above, when we got newLevel1CellsToReplace
           superSampleVersionOfFinestLRGrid->getFlaggedCells(supersampledLevel1CellsToReplace);
 
+          // Next, we decouple flagging throughout the mapper. This means that flagging on supersampled grids
+          // doesn't just flag the whole supercell, which is important to figure out the precise nested virtual
+          // zoom levels.
+          mapperLR = mapperLR->withIndependentFlags();
+          finestLRGrid = mapperLR->getFinestGrid();
+          // actually we now want to expand the region -- so that there is space for a 'buffer' region
           finestLRGrid->expandFlaggedRegion(padCells);
 
           // The simplest thing to do next would be:
@@ -556,49 +584,67 @@ namespace particle {
           //   finestLRGrid->getFlaggedCells(expandedLevel1CellsToReplace);
           //
           // However this ignores the fact that some cells in the expanded region might not be accessible, i.e.
-          // they may be de-refined themselves. Thus, we need to remove any flags on cells that are inaccessible.
+          // they may be de-refined themselves. Thus, we need to remove any flags on cells that are inaccessible:
 
-          decltype(level1ParticlesToReplace) tempList;
-
+          std::vector<size_t> tempList;
           mapperLR->getFlaggedParticles(tempList);
           mapperLR->unflagAllParticles();
           mapperLR->flagParticles(tempList);
+
+          // Finally, we're ready to get our newly expanded region that has the buffer around the original region
           finestLRGrid->getFlaggedCells(expandedLevel1CellsToReplace);
+          auto expandedsize = finestLRGrid->getFlaggedCellsPhysicalSize();
 
           // check we now have a superset of the original flags
-         assert(std::includes(expandedLevel1CellsToReplace.begin(), expandedLevel1CellsToReplace.end(),
-           level1CellsToReplace.begin(), level1CellsToReplace.end()));
+          assert(std::includes(expandedLevel1CellsToReplace.begin(), expandedLevel1CellsToReplace.end(),
+           newLevel1CellsToReplace.begin(), newLevel1CellsToReplace.end()));
 
-          auto supersampledLRMapper = std::make_shared<OneLevelParticleMapper<GridDataType>>(superSampleVersionOfFinestLRGrid);
+          // Now we give our new grid independent flags, which is necessary for the recursion below where we may be
+          // trying to build a further padded layer around the one we already made. These independent flags will be
+          // reverted to coupled flags as a final step below.
 
+          superSampleVersionOfFinestLRGrid = superSampleVersionOfFinestLRGrid->withIndependentFlags();
 
-          auto supersampledMapperLR = std::make_shared<TwoLevelParticleMapper<GridDataType>>(mapperLR,
-                                                                                             supersampledLRMapper, expandedLevel1CellsToReplace, skipLevel1);
+          /*
+           * The following, to make use of the high resolution information where we have it, would be fabulous:
+          superSampleVersionOfFinestLRGrid = std::make_shared<grids::ResolutionMatchingGrid<T>>(
+            pLevel2->getCoarsestGrid()->makeSubsampled(newCellLengthRatio/ratio),
+            finestLRGrid)->withIndependentFlags();
 
-          // TEMPORARY:
+           * However BEWARE. If the simulation has gas, the level 2 grid might be a 'mass scaled grid' whereas the
+           * level 1 grid would not be. This can lead to loss of mass conservation, which is very bad indeed.
+           *
+           * For now, this possibility is disabled.
+          */
 
-          std::vector<size_t> temp;
-          supersampledMapperLR->unflagAllParticles();
-          std::sort(supersampledLevel1CellsToReplace.begin(), supersampledLevel1CellsToReplace.end());
-          superSampleVersionOfFinestLRGrid->flagCells(supersampledLevel1CellsToReplace);
-          supersampledMapperLR->getFlaggedParticles(temp);
-          assert(temp.size()==supersampledLevel1CellsToReplace.size());
+          // Now ready to assemble our new mapper:
+          auto mapperForPaddingRegion = std::make_shared<OneLevelParticleMapper<GridDataType>>(superSampleVersionOfFinestLRGrid);
+          auto mapperForLowResAndPaddingRegion = std::make_shared<TwoLevelParticleMapper<GridDataType>>(mapperLR,
+                                                                                                        mapperForPaddingRegion,
+                                                                                                        expandedLevel1CellsToReplace,
+                                                                                                        skipLevel1);
 
-          auto tentativeResult = std::make_shared<TwoLevelParticleMapper<GridDataType>>(supersampledMapperLR, mapperHR,
-                                                                                        supersampledLevel1CellsToReplace, skipLevel1);
+          auto mapperWithEverything = std::make_shared<TwoLevelParticleMapper<GridDataType>>(mapperForLowResAndPaddingRegion, mapperHR,
+                                                                                             supersampledLevel1CellsToReplace,
+                                                                                             skipLevel1);
+
+          cerr << "Added a padding region of effective resolution " <<
+             superSampleVersionOfFinestLRGrid->getEffectiveSimulationSize() << " of physical size ~" <<
+             expandedsize << "Mpc/h" << " (inner resolution "
+             << mapperHR->getFinestGrid()->getEffectiveSimulationSize() << ", size ~" <<
+             superSampleVersionOfFinestLRGrid->getFlaggedCellsPhysicalSize() << "Mpc/h)" << endl;
 
           // the above might be ready -- but in principle it's possible we need to insert ANOTHER level of padding,
-          // which is handled by recursion:
-          // return tentativeResult->insertIntermediateResolutionPadding(ratio, padCells);
-
-          return tentativeResult;
+          // which is handled by recursion.
+          //
+          // Furthermore, we now recouple all the flags as all other parts of the code will expect
+          return mapperWithEverything->insertIntermediateResolutionPadding(ratio, padCells)->withCoupledFlags();
 
         } else {
           // our resolution contrast is fine - generate a new TwoLevelParticleMapper pointing to the new mappers,
           // in case they changed
           return std::make_shared<TwoLevelParticleMapper<GridDataType>>(mapperLR, mapperHR,
-            level1CellsToReplace, skipLevel1);
-
+            newLevel1CellsToReplace, skipLevel1);
         }
 
 
