@@ -1,0 +1,50 @@
+# Test mapping of automatically inserted padding regions around zooms
+#
+# Note that this paramfile does NOT have autopad - it uses an input mapper (below)
+# that DOES have autopad and tests it maps onto sensible cells
+#
+# The tested cells (input.txt) correspond to one particle from each of the
+# different real levels and also one of teach of the padding masses. The
+# result should be that the real particles come back out, and the padding
+# particles map onto another sensible particle. The reference.txt reflects
+# this (although there is some residual question mark over exactly which
+# particles the padded particles map onto - TO CHECK.)
+
+# output parameters
+outdir	 ./
+outformat tipsy
+outname test_1
+
+# cosmology:
+Om  0.279
+Ol  0.721
+s8  0.817
+zin	99
+camb	../camb_transfer_kmax40_z0.dat
+
+# basegrid 50 Mpc/h, 16^3
+basegrid 50.0 32
+
+subsample 2
+#strays_on
+
+# fourier seeding
+seed	889613
+
+# zoom level 1, centre on the central pixel = 25-(50/32/2) = 24.219
+centre 24.219 24.219 24.219
+select_nearest
+zoomgrid 4 32
+
+# zoom level 2
+select_cube 0.8
+zoomgrid 4 32
+
+adapt_mask 1
+
+mapper_relative_to paramfile_with_intermediates.txt
+idfile  input.txt
+dump_idfile output.txt
+
+
+done
