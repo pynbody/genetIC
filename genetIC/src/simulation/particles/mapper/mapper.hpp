@@ -218,7 +218,7 @@ namespace particle {
 
       //! Returns true if the specified grid points to the one associated to this mapper
       virtual bool references(GridPtrType grid) const {
-        return getCoarsestGrid().get() == grid.get();
+        return getCoarsestGrid()->isProxyFor(grid.get());
       }
 
       //! Returns an iterator with the specified generator set to the end of the particle list

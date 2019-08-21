@@ -146,7 +146,6 @@ namespace particle {
     //! Calculates the offset fields, which will be used to actually compute the position and velocity offsets by the Zeldovich evaluator
     virtual void calculateOffsetFields() {
       size_t size = grid.size;
-      tools::progress::ProgressBar pb("zeldovich", size * 2);
 
       const T nyquist = tools::numerics::fourier::getNyquistModeThatMustBeReal(grid) * grid.getFourierKmin();
 

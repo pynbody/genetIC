@@ -25,7 +25,8 @@ public:
 
   //! Adds a level to this dummy context
   void addLevelToContext(T gridSize, size_t nside, const Coordinate<T> &offset) override {
-    size_t newLevel = this->multiLevelContext.getNumLevels(); // getNumLevels counts from 1 to N rather than 0 to N-1, which is why newLevel defined this way does not exist yet
+    size_t newLevel = this->multiLevelContext.getNumLevels();
+    // getNumLevels counts from 1 to N rather than 0 to N-1, which is why newLevel defined this way does not exist yet
     std::shared_ptr<grids::Grid<T>> underlyingGrid;
     std::vector<std::shared_ptr<const fields::Field<GridDataType, T>>> covarianceFieldPtr;
 
@@ -69,35 +70,38 @@ public:
   }
 
 
-  //! Calls to this function will actually have no effect.
+  //! Calls to this function has no effect in a dummy IC generator, since it is only working out the mapper structure
   void zeroLevel(size_t /*level*/,size_t) override {}
 
-  //! Calls to this function will actually have no effect.
+  //! Calls to this function has no effect in a dummy IC generator, since it is only working out the mapper structure
   void applyPowerSpec(size_t) override {}
 
-  //! Calls to this function will actually have no effect.
+  //! Calls to this function has no effect in a dummy IC generator, since it is only working out the mapper structure
   void dumpGrid(size_t /*level*/,size_t) override {}
 
-  //! Calls to this function will actually have no effect.
+  //! Calls to this function has no effect in a dummy IC generator, since it is only working out the mapper structure
   void dumpPS(size_t,size_t) override {}
 
-  //! Calls to this function will actually have no effect.
+  //! Calls to this function has no effect in a dummy IC generator, since it is only working out the mapper structure
   void dumpMask() override {}
 
-  //! Calls to this function will actually have no effect.
+  //! Calls to this function has no effect in a dummy IC generator, since it is only working out the mapper structure
   virtual void initialiseParticleGenerator() override {}
 
-  //! Calls to this function will actually have no effect.
+  //! Calls to this function has no effect in a dummy IC generator, since it is only working out the mapper structure
   void dumpID(string /*fname*/) override {}
 
-  //! Calls to this function will actually have no effect.
+  //! Calls to this function has no effect in a dummy IC generator, since it is only working out the mapper structure
   void write() override {}
 
-  //! Calls to this function will actually have no effect.
+  //! Calls to this function has no effect in a dummy IC generator, since it is only working out the mapper structure
   void modify(string /*name*/, string /*string*/, float /*value*/) override {}
 
-  //! Calls to this function will actually have no effect.
+  //! Calls to this function has no effect in a dummy IC generator, since it is only working out the mapper structure
   void done() override {}
+
+  //! Calls to this function has no effect in a dummy IC generator, since it is only working out the mapper structure
+  void saveTipsyArray(string fname, size_t nField) override { }
 };
 
 #endif
