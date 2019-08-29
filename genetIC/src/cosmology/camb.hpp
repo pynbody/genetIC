@@ -4,6 +4,7 @@
 #include "src/cosmology/parameters.hpp"
 #include "src/tools/numerics/interpolation.hpp"
 #include "src/io/input.hpp"
+#include "src/simulation/particles/particle.hpp"
 
 /*!
     \namespace cosmology
@@ -27,70 +28,54 @@ namespace cosmology {
     std::vector<CoordinateType> kcamb; //!< Wavenumbers read from CAMB file
     std::vector<std::vector<CoordinateType>> T; //!< Vector to store transfer functions:
     size_t cambCols[2] = {1,2}; //!< Columns of CAMB that we request:
-    std::vector<tools::numerics::Interpolator<CoordinateType>> interpolator; //!< Interpolation functions:
+    std::vector<tools::numerics::Interpolator<CoordinateType>> allInterpolators; //!< Interpolation functions:
     CoordinateType amplitude; //!< Amplitude of the initial power spectrum
     CoordinateType ns;        //!< tensor to scalar ratio of the initial power spectrum
     mutable CoordinateType kcamb_max_in_file; //!< Maximum CAMB wavenumber. If too small compared to grid resolution, Meszaros solution will be computed
 
   public:
-    /*! \brief Vector which maps inputs to the correct transfer function.
+    /*! \brief Map from the species (baryon/dm) to the correct transfer function.
 
-       Elements are all zero if dmOnly = true,
-       and just ascending if dmOnly = false. This prevents calls to operator() etc from going out of bounds if
-       we switch off the use of extra transfer functions, and avoids having to tell all the fields to request
-       a different transfer function in this case.*/
-    std::vector<size_t> transferSwitch;
+       Elements are all zero if dmOnly = true, and (dm->0, baryon->1) if dmOnly = false.
+       */
+    std::map<particle::species, size_t> speciesToTransferId;
+
     const size_t nTransfers = 2; //!< Total number of transfer functions stored:
-    bool dmOnly; //!< True if only using dark matter transfer function in the simulation
     bool dataRead; //!< True if we have read in data.
 
-    //! Constructor. Assumes that only dark matter is being used, unless we specify otherwise.
     CAMB(bool useOnlyDM = true)
     {
-        this->dmOnly = useOnlyDM;
         this->dataRead = false;
         // Initialise the interpolators and transfer functions vectors to be the
         // appropriate size, containing default constructed objects.
         if(useOnlyDM)
         {
-            this->interpolator.resize(1);
+            this->allInterpolators.resize(1);
             this->T.resize(1);
-            transferSwitch.assign(this->nTransfers,0);
+            speciesToTransferId[particle::species::dm] = 0;
+            speciesToTransferId[particle::species::baryon] = 0;
         }
         else
         {
-            this->interpolator.resize(this->nTransfers);
-            this->T.resize(this->nTransfers);
-            for(size_t i = 0;i < this->T.size();i++)
-            {
-                transferSwitch.push_back(i);
-            }
+          this->allInterpolators.resize(this->nTransfers);
+          this->T.resize(this->nTransfers);
+          speciesToTransferId[particle::species::dm] = 0;
+          speciesToTransferId[particle::species::baryon] = 1;
         }
-    }
-
-    //! Check that the supplied transfer function is valid (ie, that we don't request a transfer function which hasn't been imported)
-    void ensureValidTransferID(const size_t transferID) const {
-        if(transferSwitch[transferID] > this->T.size() - 1)
-      {
-        throw(std::runtime_error("Invalid transfer function requested."));
-      }
     }
 
     //! Enables the use of the baryon transfer function
     void enableAllTransfers()
     {
-        this->dmOnly = false;
         if(this->T.size() < 2)
         {
             this->kcamb.clear();
             this->T.clear();
         }
         this->T.resize(this->nTransfers);
-        this->interpolator.resize(this->nTransfers);
-        for(size_t i = 0;i < this->T.size();i++)
-        {
-            transferSwitch[i] = i;
-        }
+        this->allInterpolators.resize(this->nTransfers);
+        speciesToTransferId[particle::species::dm] = 0;
+        speciesToTransferId[particle::species::baryon] = 1;
     }
 
     //! Checks whether the CAMB object actually stores any data:
@@ -99,11 +84,11 @@ namespace cosmology {
     }
 
     //! Import data from CAMB file and initialise the interpolation functions used to compute the transfer functions:
-    void read(std::string incamb, const CosmologicalParameters <CoordinateType> &cosmology) {
-      readLinesFromCambOutput(incamb);
+    void read(const std::string& filename, const CosmologicalParameters <CoordinateType> &cosmology) {
+      readLinesFromCambOutput(filename);
       for(size_t i = 0;i < this->T.size();i++)
       {
-            this->interpolator[i].initialise(kcamb,this->T[i]);
+            this->allInterpolators[i].initialise(kcamb, this->T[i]);
       }
 
       // a bit awkward that we have to copy this value:
@@ -112,7 +97,6 @@ namespace cosmology {
       calculateOverallNormalization(cosmology);
 
       this->dataRead = true;
-
     }
 
   protected:
@@ -194,17 +178,16 @@ namespace cosmology {
   public:
 
     //! \brief Evaluate power spectrum nTransfer at wavenumber k (Mpc/h), including the normalisation
-    //! nTransfer = 0 -> DM
-    //! nTransfer = 1 -> baryons.
-    //! NB - for efficiency, we don't check that nTransfer is within bounds. This is handled by
+    //! transferType specifies whether to use the DM or baryon transfer function
+    //! NB - for efficiency, we don't check that transferType casts to an int within bounds. This is handled by
     //! getPowerSpectrumForGrid, which does a single check before applying a guaranteed safe
     //! value to all fourier cells.
-    CoordinateType operator()(CoordinateType k,int nTransfer = 0) const {
+    CoordinateType operator()(CoordinateType k, particle::species transferType) const {
       CoordinateType linearTransfer;
       if (k != 0)
-        linearTransfer = interpolator[transferSwitch[nTransfer]](k);
-        // transferSwitch ensures that if extra transfer functions are switched off, then we always
-        // call the dark matter interpolator, rather than falling out of bounds.
+        linearTransfer = allInterpolators[speciesToTransferId.at(transferType)](k);
+        // speciesToTransferId ensures that if extra transfer functions are switched off, then we always
+        // call the dark matter allInterpolators, rather than falling out of bounds.
       else
         linearTransfer = 0.0;
 
@@ -217,24 +200,19 @@ namespace cosmology {
 
     //! Calculate and associate the theoretical power spectrum to a given grid
     std::shared_ptr<fields::Field<DataType, CoordinateType>>
-    getPowerSpectrumForGrid(const grids::Grid<CoordinateType> &grid,size_t nTransfer = 0) const {
-      /* Get the variance for each Fourier cell of the specified grid  */
+    getPowerSpectrumForGrid(const grids::Grid<CoordinateType> &grid,
+      particle::species transferType = particle::species::dm) const {
       assert(kcamb.size() == T[0].size());
-      // Check that the requested transfer function is actually available, and if it isn't, use the DM transfer function instead.
-      // Do this here instead of inside operator() for efficiency.
-      ensureValidTransferID(nTransfer);
-      // transferSwitch ensures that if extra transfer functions are switched off, then we always
-      // call the dark matter interpolator, rather than falling out of bounds.
 
       CoordinateType norm = getPowerSpectrumNormalizationForGrid(grid);
 
       auto P = std::make_shared<fields::Field<DataType, CoordinateType>>(grid, true);
 
-      P->forEachFourierCell([norm, this,nTransfer]
+      P->forEachFourierCell([norm, this,transferType]
                                 (std::complex<CoordinateType>, CoordinateType kx, CoordinateType ky,
                                  CoordinateType kz) {
         CoordinateType k = sqrt(kx * kx + ky * ky + kz * kz);
-        auto spec = std::complex<CoordinateType>((*this)(k,this->transferSwitch[nTransfer]) * norm, 0);
+        auto spec = std::complex<CoordinateType>((*this)(k,transferType) * norm, 0);
         return spec;
       });
 
@@ -280,10 +258,9 @@ namespace cosmology {
 
 
     //! Compute the variance in a spherical top hat window
-    CoordinateType calculateLinearVarianceInSphere(CoordinateType radius,size_t nTrans = 0) const {
-      // Bounds check
-      ensureValidTransferID(nTrans);
-
+    CoordinateType calculateLinearVarianceInSphere(CoordinateType radius,
+      particle::species transferType = particle::species::dm) const {
+      
       CoordinateType s = 0., k, t;
 
       CoordinateType amp = 9. / 2. / M_PI / M_PI;
@@ -291,13 +268,11 @@ namespace cosmology {
       CoordinateType kmin = kcamb[0];
 
       CoordinateType dk = (kmax - kmin) / 50000.;
+      auto & interpolator = this->allInterpolators[speciesToTransferId.at(transferType)];
       for (k = kmin; k < kmax; k += dk) {
 
 
-      // Call the appropriate interpolation function for the requested transfer function
-      // transferSwitch ensures that if extra transfer functions are switched off, then we always
-      // call the dark matter interpolator, rather than falling out of bounds.
-        t = interpolator[transferSwitch[nTrans]](k);
+        t = interpolator(k);
 
         // Multiply power spectrum by the fourier transform of the spherical top hat, to give the fourier transform
         // of the averaged (convolved) power spectrum over the sphere.

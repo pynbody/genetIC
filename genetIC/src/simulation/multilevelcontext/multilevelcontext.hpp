@@ -10,7 +10,7 @@
 
 #include "src/simulation/grid/grid.hpp"
 #include "src/tools/signaling.hpp"
-
+#include "src/simulation/particles/species.hpp"
 
 namespace fields {
   template<typename T>
@@ -107,7 +107,7 @@ namespace multilevelcontext {
       std::vector<std::shared_ptr<const fields::Field<DataType, T>>> C0 (nTransferFunctions);
       for(size_t i = 0;i < nTransferFunctions;i++)
       {
-        C0[i] = spectrum.getPowerSpectrumForGrid(*grid,i);
+        C0[i] = spectrum.getPowerSpectrumForGrid(*grid,static_cast<particle::species>(i));
       }
       addLevel(C0, grid);
     }

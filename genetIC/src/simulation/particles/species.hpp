@@ -3,11 +3,14 @@
 
 #include <map>
 #include <memory>
-#include "multilevelgenerator.hpp"
+//#include "multilevelgenerator.hpp"
 
 namespace particle {
+  template<typename T>
+  class AbstractMultiLevelParticleGenerator;
+
   enum species {
-    dm, baryon
+    dm=0, baryon=1
   };
 
   template<typename GridDataType>
