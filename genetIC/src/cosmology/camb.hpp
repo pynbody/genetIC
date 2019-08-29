@@ -15,6 +15,19 @@
  */
 namespace cosmology {
 
+  template<typename F>
+  struct CacheKeyComparator {
+    bool operator()(const F & a, const F & b ) const {
+      bool ptr_less = std::owner_less<typename F::first_type>()(a.first,b.first);
+      return ptr_less || (!ptr_less && a.second<b.second); // equivalent to normal std::pair sorting
+    }
+  };
+
+  template<typename T>
+  inline constexpr bool operator<(const std::weak_ptr<T> &a, const std::weak_ptr<T> &b) {
+    return std::owner_less<std::weak_ptr<T>>()(a,b);
+  }
+
    /*! \class CAMB
    * \brief Load in and provide interpolation routines for the cosmological power spectrum.
    *
@@ -24,9 +37,25 @@ namespace cosmology {
   template<typename DataType>
   class CAMB {
   protected:
-    using CoordinateType=tools::datatypes::strip_complex<DataType>;
+    using CoordinateType = tools::datatypes::strip_complex<DataType>;
+    using FieldType = fields::Field<DataType, CoordinateType>;
     std::vector<CoordinateType> kcamb; //!< Wavenumbers read from CAMB file
-    std::vector<std::vector<CoordinateType>> T; //!< Vector to store transfer functions:
+    std::vector<std::vector<CoordinateType>> T; //!< Vector to store transfer functions
+
+    /*! \brief Map from the species (baryon/dm) to the correct transfer function.
+
+       Elements are all zero if dmOnly = true, and (dm->0, baryon->1) if dmOnly = false.
+       */
+    std::map<particle::species, size_t> speciesToTransferId;
+
+    using CacheKeyType = std::pair<std::weak_ptr<const grids::Grid<CoordinateType>>, size_t>;
+
+
+
+    //! A cache for previously calculated covariances. The key is a pair: (weak pointer to the grid, transfer fn)
+    mutable std::map<CacheKeyType, std::shared_ptr<FieldType>,
+                     CacheKeyComparator<CacheKeyType>> calculatedCovariancesCache;
+
     size_t cambCols[2] = {1,2}; //!< Columns of CAMB that we request:
     std::vector<tools::numerics::Interpolator<CoordinateType>> allInterpolators; //!< Interpolation functions:
     CoordinateType amplitude; //!< Amplitude of the initial power spectrum
@@ -34,11 +63,7 @@ namespace cosmology {
     mutable CoordinateType kcamb_max_in_file; //!< Maximum CAMB wavenumber. If too small compared to grid resolution, Meszaros solution will be computed
 
   public:
-    /*! \brief Map from the species (baryon/dm) to the correct transfer function.
 
-       Elements are all zero if dmOnly = true, and (dm->0, baryon->1) if dmOnly = false.
-       */
-    std::map<particle::species, size_t> speciesToTransferId;
 
     const size_t nTransfers = 2; //!< Total number of transfer functions stored:
     bool dataRead; //!< True if we have read in data.
@@ -198,19 +223,42 @@ namespace cosmology {
       return amplitude * powf(k, ns) * linearTransfer * linearTransfer;
     }
 
-    //! Calculate and associate the theoretical power spectrum to a given grid
+    //! Get the theoretical power spectrum appropriate for a given grid. This may be a cached copy if previously calculated.
     std::shared_ptr<fields::Field<DataType, CoordinateType>>
-    getPowerSpectrumForGrid(const grids::Grid<CoordinateType> &grid,
-      particle::species transferType = particle::species::dm) const {
+    getPowerSpectrumForGrid(const std::shared_ptr<const grids::Grid<CoordinateType>> & grid,
+                            particle::species transferType = particle::species::dm) const {
+      size_t transferId = speciesToTransferId.at(transferType);
+
+      auto cacheKey = std::make_pair(std::weak_ptr<const grids::Grid<CoordinateType>>(grid), transferId);
+
+      auto result = this->calculatedCovariancesCache[cacheKey];
+
+      if(result==nullptr)
+      {
+        result = getPowerSpectrumForGridUncached(grid, transferType);
+        this->calculatedCovariancesCache[cacheKey] = result;
+      }
+
+      return result;
+
+    }
+
+
+
+  protected:
+    //! Calculate the theoretical power spectrum for a given grid
+    std::shared_ptr<fields::Field<DataType, CoordinateType>>
+    getPowerSpectrumForGridUncached(std::shared_ptr<const grids::Grid<CoordinateType>> grid,
+                                    particle::species transferType = particle::species::dm) const {
       assert(kcamb.size() == T[0].size());
 
-      CoordinateType norm = getPowerSpectrumNormalizationForGrid(grid);
+      CoordinateType norm = getPowerSpectrumNormalizationForGrid(*grid);
 
-      auto P = std::make_shared<fields::Field<DataType, CoordinateType>>(grid, true);
+      auto P = std::make_shared<fields::Field<DataType, CoordinateType>>(*grid, true);
 
       P->forEachFourierCell([norm, this,transferType]
-                                (std::complex<CoordinateType>, CoordinateType kx, CoordinateType ky,
-                                 CoordinateType kz) {
+                              (std::complex<CoordinateType>, CoordinateType kx, CoordinateType ky,
+                               CoordinateType kz) {
         CoordinateType k = sqrt(kx * kx + ky * ky + kz * kz);
         auto spec = std::complex<CoordinateType>((*this)(k,transferType) * norm, 0);
         return spec;
@@ -225,8 +273,6 @@ namespace cosmology {
 
     }
 
-
-  protected:
     //! Return the cosmology-dependent part of the normalisation of the power spectrum.
     void calculateOverallNormalization(const CosmologicalParameters <CoordinateType> &cosmology) {
       CoordinateType ourGrowthFactor = growthFactor(cosmology);

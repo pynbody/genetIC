@@ -329,7 +329,7 @@ namespace io {
         num = 0;
 
         InternalFloatType mass;
-        mapper.iterateParticlesOfType(*generators[gadgetTypeToFieldType[particle_type]], particle_type, [&](const auto & i) {//CONFLICT_RESOLUTION
+        mapper.iterateParticlesOfType(*generators[gadgetTypeToFieldType[particle_type]], particle_type, [&](const auto & i) {
           mass = i.getMass(); // sometimes can be MUCH faster than getParticle
           if (min_mass > mass) min_mass = mass;
           if (max_mass < mass) max_mass = mass;

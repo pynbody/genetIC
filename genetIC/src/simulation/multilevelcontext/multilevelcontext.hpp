@@ -49,18 +49,18 @@ namespace multilevelcontext {
   private:
     std::vector<std::shared_ptr<grids::Grid<T>>> pGrid; //!< Pointers to the grids for each level
     std::vector<std::shared_ptr<grids::Grid<T>>> pOutputGrid; //!< Pointers to the output grids for each level -- may be different from the underlying grids if allowStrays is on
-    std::vector<std::vector<std::shared_ptr<const fields::Field<DataType, T>>>> C0s; //!< Pointers to the transfer functions for each level
     std::vector<T> weights; //!< Fraction of the volume of the coarsest level's cells that the cells on each level occupy
+    const cosmology::CAMB<DataType> * powerSpectrumGenerator = nullptr;
 
   public:
-    size_t nTransferFunctions; //!< Keeps track of the number of transfer functions currently being used by the code.
+    size_t nTransferFunctions = 1; //!< Keeps track of the number of transfer functions currently being used by the code.
     bool allowStrays = false; //!< If true, return output grids that cover the whole simulation box even in the zoom regions
 
   protected:
     std::vector<size_t> Ns; //!< Vector that stores the number of cells on each level
     std::vector<size_t> cumu_Ns; //!< Vector that stores the cumulative number of cells, ie, for each level, holds the number of cells on that level and all levels above it
-    size_t Ntot; //!< Total number of cells in the multi-level context
-    size_t nLevels; //!< Number of levels in the multi-level context.
+    size_t Ntot = 0; //!< Total number of cells in the multi-level context
+    size_t nLevels = 0; //!< Number of levels in the multi-level context.
     T simSize; //!< Comoving size of the simulation box
 
     //! Constructor defining a multi-level context with a single level with N cells
@@ -71,14 +71,15 @@ namespace multilevelcontext {
       nTransferFunctions = 1;
     }
 
+    MultiLevelContextInformationBase() {}
+
 
   public:
 
     //! Constructor defining a multi-level context with no levels specified.
-    MultiLevelContextInformationBase() {
-      nLevels = 0;
-      Ntot = 0;
-      nTransferFunctions = 1;
+    //! \param spectrum - object holding data about the transfer functions
+    MultiLevelContextInformationBase(const std::shared_ptr<cosmology::CAMB<DataType>> &spectrum) : powerSpectrumGenerator(spectrum)
+    {
     }
 
     //! Destructor
@@ -86,38 +87,34 @@ namespace multilevelcontext {
 
 
     /*! \brief Adds a level to the current multi-level context
-        \param spectrum - object holding data about the transfer functions
         \param size - co-moving size of the level to be added
         \param nside - number of cells on one side of the grid of the level being added
         \param offset - offset of the level being added from the lower front left hand corner of the coarsest grid. Defaults to (0,0,0)
     */
     void
-    addLevel(const cosmology::CAMB<DataType> &spectrum, T size, size_t nside, const Coordinate<T> &offset = {0, 0, 0}) {
-
-      if (!spectrum.isUsable())
-        throw std::runtime_error("Cannot add a grid level until the power spectrum has been specified");
+    addLevel(T size, size_t nside, const Coordinate<T> &offset = {0, 0, 0}) {
 
       if (nLevels == 0)
         simSize = size;
 
       auto grid = std::make_shared<grids::Grid<T>>(simSize, nside, size / nside, offset.x, offset.y, offset.z);
 
-      nTransferFunctions = spectrum.dmOnly ? 1 : spectrum.nTransfers;
+      nTransferFunctions = 2;
+      addLevel(grid);
+    }
 
-      std::vector<std::shared_ptr<const fields::Field<DataType, T>>> C0 (nTransferFunctions);
-      for(size_t i = 0;i < nTransferFunctions;i++)
-      {
-        C0[i] = spectrum.getPowerSpectrumForGrid(*grid,static_cast<particle::species>(i));
-      }
-      addLevel(C0, grid);
+    /*! Define the power spectrum generator to be used when power spectra are required.
+     *
+     * This must remain alive for the lifetime of the MultiLevelContextInformation class
+    */
+    void setPowerspectrumGenerator(const cosmology::CAMB<DataType> &generator) {
+      this->powerSpectrumGenerator = &generator;
     }
 
     /*! \brief Performs the process of actually adding the level with the appropriate grid and transfer functions
-        \param C0 - transfer functions for this level
         \param pG - pointer to the grid for this level
     */
-    void addLevel(const std::vector<std::shared_ptr<const fields::Field<DataType, T>>>& C0, std::shared_ptr<grids::Grid<T>> pG) {
-      C0s.push_back(C0);
+    void addLevel(std::shared_ptr<grids::Grid<T>> pG) {
       if (pGrid.size() == 0) {
         weights.push_back(1.0);
       } else {
@@ -140,16 +137,8 @@ namespace multilevelcontext {
       this->changed();
     }
 
-    //! Used to add levels when we want the same transfer function for all fields (especially for adding a vector of null-pointers if we don't want to specify the level yet
-    void addLevel(std::shared_ptr<const fields::Field<DataType, T>> C0,std::shared_ptr<grids::Grid<T>> pG)
-    {
-        std::vector<std::shared_ptr<const fields::Field<DataType, T>>> constArray (this->nTransferFunctions,C0);
-        this->addLevel(constArray,pG);
-    }
-
     //! Clears the multi-level context of all data
     void clear() {
-      C0s.clear();
       pGrid.clear();
       Ns.clear();
       cumu_Ns.clear();
@@ -202,21 +191,13 @@ namespace multilevelcontext {
 
     /*! \brief Returns a reference to the specified transfer function for the specified level
         \param level - level to get transfer function for
-        \param nTransfer - transfer function to retrieve. 0 for dark matter, 1 for baryons.
+        \param species - the type of particle, which will potentially determine which transfer function is used
     */
-    const fields::Field<DataType> &getCovariance(size_t level,size_t nTransfer = 0) const {
-      if (C0s.size() > level)
-      {
-          if(C0s[level].size() > nTransfer)
-          {
-              if(C0s[level][nTransfer] != nullptr)
-                {
-                    return *C0s[level][nTransfer];
-                }
-          }
-      }
-      // Throw if not returned anything:
-      throw std::out_of_range("No covariance yet specified for this level");
+    std::shared_ptr<fields::Field<DataType>> getCovariance(size_t level, particle::species species) const {
+      // Caching is now implemented in the power spectrum, so copies of the power spectrum on each level are no
+      // longer stored in this class.
+      assert(this->powerSpectrumGenerator);
+      return this->powerSpectrumGenerator->getPowerSpectrumForGrid(this->getGridForLevel(level).shared_from_this(), species);
     }
 
     //! Returns the index of the deepest level that has flagged cells
@@ -317,7 +298,7 @@ namespace multilevelcontext {
           while (pGrid[level]->cellSize * factor * 1.001 < pGrid[level - 1]->cellSize) {
             std::cerr << "Adding virtual grid with effective resolution " << neff / factor << std::endl;
             auto vGrid = std::make_shared<grids::SubSampleGrid<T>>(pGrid[level], factor);
-            newStack.addLevel(nullptr, vGrid);
+            newStack.addLevel(vGrid);
             factor *= base_factor;
           }
         } else {
@@ -325,13 +306,13 @@ namespace multilevelcontext {
           for (size_t i = 0; i < extra_lores; ++i) {
             std::cerr << "Adding virtual grid with effective resolution " << neff / factor << std::endl;
             auto vGrid = std::make_shared<grids::SubSampleGrid<T>>(pGrid[level], factor);
-            newStack.addLevel(nullptr, vGrid);
+            newStack.addLevel(vGrid);
             factor *= base_factor;
           }
         }
 
         std::cerr << "Adding real grid with resolution " << neff << std::endl;
-        newStack.addLevel(C0s[level], pGrid[level]);
+        newStack.addLevel(pGrid[level]);
       }
 
       size_t factor = base_factor;
@@ -340,7 +321,7 @@ namespace multilevelcontext {
         size_t neff = size_t(round(pGrid[0]->cellSize / pGrid[level]->cellSize)) * pGrid[0]->size;
         std::cerr << "Adding virtual grid with effective resolution " << neff * factor << std::endl;
         auto vGrid = std::make_shared<grids::SuperSampleGrid<T>>(pGrid[level], factor);
-        newStack.addLevel(nullptr, vGrid);
+        newStack.addLevel(vGrid);
         factor *= base_factor;
 
       }
@@ -361,14 +342,14 @@ namespace multilevelcontext {
 
       for (size_t level = 0; level <= deepest_coarse; ++level) {
         auto centeredCoarse = std::make_shared<grids::CenteredGrid<T>>(this->pGrid[level], pointToCenterOnto);
-        newStack.addLevel(C0s[level], centeredCoarse);
+        newStack.addLevel(centeredCoarse);
         offset = centeredCoarse->getPointOffset();
       }
 
 
       for (size_t level = deepest_coarse + 1; level < nLevels; ++level) {
         auto offsetFine = std::make_shared<grids::OffsetGrid<T>>(this->pGrid[level], offset.x, offset.y, offset.z);
-        newStack.addLevel(C0s[level], offsetFine);
+        newStack.addLevel(offsetFine);
       }
     }
 

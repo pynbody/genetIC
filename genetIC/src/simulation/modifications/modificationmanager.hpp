@@ -133,11 +133,8 @@ namespace modifications {
         std::cerr << "Propagating modification to field " << otherField.transferType << std::endl
                   << ". BEFORE modifications chi^2 = " << pre_modif_chi2_from_field << std::endl;
 
-        //First, copy across the modified field:
-        otherField.copyData( *(outputFields[transferType]) );
-
-        //Divide by modifiedField power spectrum and apply outputField's power spectrum:
-        otherField.applyTransferRatio(outputFields[transferType]->transferType);
+        // Copy across the modified field, but ensure it is updated for differences in the power spectrum
+        otherField.copyDataAndUpdateForTransferFunction( *(outputFields[transferType]) );
 
         T post_modif_chi2_from_field = otherField.getChi2();
         std::cerr << "AFTER  modifications chi^2 = " << post_modif_chi2_from_field << std::endl;

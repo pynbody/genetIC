@@ -178,7 +178,7 @@ public:
 
     // By default, we assume there is only one field - the DM field:
     nFields = 1;
-    outputFields.push_back(std::make_shared<fields::OutputField<GridDataType>>(multiLevelContext,0));
+    outputFields.push_back(std::make_shared<fields::OutputField<GridDataType>>(multiLevelContext,particle::species::dm));
     // Link random field generator to the dark matter field
     randomFieldGenerator = std::make_shared<fields::RandomFieldGenerator<GridDataType>>(*outputFields[0]);
 
@@ -203,6 +203,7 @@ public:
     flaggedParticlesHaveDifferentGadgetType = false;
     flaggedGadgetParticleType = 1;
     this->baryonsOnAllLevels = false; // Baryons only output on the finest level by default.
+    this->multiLevelContext.setPowerspectrumGenerator(spectrum);
   }
 
   //! Destructor
@@ -258,7 +259,7 @@ public:
         }
         this->nFields = 2;
         // Add the baryon field:
-        outputFields.push_back(std::make_shared<fields::OutputField<GridDataType>>(multiLevelContext,1));
+        outputFields.push_back(std::make_shared<fields::OutputField<GridDataType>>(multiLevelContext,particle::species::baryon));
         this->spectrum.enableAllTransfers();
     }
   }
@@ -573,7 +574,7 @@ public:
   addLevelToContext(T size, size_t nside, const Coordinate<T> &offset = {0,0,0}) {
     // This forwards to multiLevelContext but is required because it is overriden in DummyICGenerator,
     // which needs to ensure that grids are synchronised between two different contexts
-    multiLevelContext.addLevel(this->spectrum, size, nside, offset);
+    multiLevelContext.addLevel(size, nside, offset);
     this->gadgetTypesForLevels.push_back(1);
   }
 
@@ -884,11 +885,12 @@ public:
   //! Dumps power spectrum generated from the field and the theory at a given level in a .ps file
   /*!
   \param level - level of multi-level context to dump
-  \param nField - field to dump. 0 = dark matter, 1 = baryons.
+  \param species - the type of particle (in case of multiple transfer functions)
   */
-  virtual void dumpPS(size_t level,size_t nField) {
-    checkFieldExists(nField);
-    checkLevelExists(level,nField);
+  virtual void dumpPS(size_t level, particle::species species) {
+    int nField = static_cast<size_t>(species);
+    checkLevelExists(level, nField);
+
 
     auto &field = outputFields[nField]->getFieldForLevel(level);
     field.toFourier();
@@ -900,17 +902,17 @@ public:
         filename = (getOutputPath() + "_" + ((char) (level + '0')) + ".ps");
     }
     cosmology::dumpPowerSpectrum(field,
-                                 multiLevelContext.getCovariance(level,nField),
+                                 *multiLevelContext.getCovariance(level,species),
                                  filename.c_str());
   }
 
   //! For backwards compatibility. Dumps dark matter power spectrum on the requested level.
   virtual void dumpPS(size_t level) {
-    this->dumpPS(level,0);
+    this->dumpPS(level,particle::species::dm);
   }
   //! For backwards compatibility. Dumps dark matter power spectrum on level 0.
   virtual void dumpPS() {
-    this->dumpPS(0,0);
+    this->dumpPS(0,particle::species::dm);
   }
 
   //! Dumps mask information to numpy grid files

@@ -28,7 +28,6 @@ public:
     size_t newLevel = this->multiLevelContext.getNumLevels();
     // getNumLevels counts from 1 to N rather than 0 to N-1, which is why newLevel defined this way does not exist yet
     std::shared_ptr<grids::Grid<T>> underlyingGrid;
-    std::vector<std::shared_ptr<const fields::Field<GridDataType, T>>> covarianceFieldPtr;
 
 
     if (pUnderlying->multiLevelContext.getNumLevels() <= newLevel) {
@@ -43,17 +42,6 @@ public:
     } else {
       underlyingGrid = pUnderlying->multiLevelContext.getGridForLevel(newLevel).shared_from_this();
 
-      for(size_t i = 0; i < this->outputFields.size(); i++)
-      {
-          // TODO - this is very messy - is there a better way?
-        try {
-        auto resPointer = pUnderlying->multiLevelContext.getCovariance(newLevel,i).shared_from_this();
-        covarianceFieldPtr.push_back(resPointer);
-        } catch (const std::out_of_range &e) {
-              // leave covarianceFieldPtr as nullptr
-              covarianceFieldPtr.push_back(nullptr);
-        }
-      }
     }
 
     if (underlyingGrid->size != nside)
@@ -65,7 +53,7 @@ public:
     if (!underlyingGrid->offsetLower.almostEqual(offset))
       throw std::runtime_error("Trying to match particles between incompatible simulation setups (wrong grid origin)");
 
-    this->multiLevelContext.addLevel(covarianceFieldPtr, underlyingGrid);
+    this->multiLevelContext.addLevel(underlyingGrid);
     this->gadgetTypesForLevels.push_back(1);
   }
 
@@ -80,7 +68,7 @@ public:
   void dumpGrid(size_t /*level*/,size_t) override {}
 
   //! Calls to this function has no effect in a dummy IC generator, since it is only working out the mapper structure
-  void dumpPS(size_t,size_t) override {}
+  void dumpPS(size_t,particle::species) override {}
 
   //! Calls to this function has no effect in a dummy IC generator, since it is only working out the mapper structure
   void dumpMask() override {}

@@ -248,7 +248,7 @@ namespace fields {
                                                                          const grids::Grid<CoordinateType> &grid) {
 
     multilevelcontext::MultiLevelContextInformation<DataType> dummyContext;
-    dummyContext.addLevel(nullptr, const_cast<grids::Grid<CoordinateType> &>(field.getGrid()).shared_from_this());
+    dummyContext.addLevel(const_cast<grids::Grid<CoordinateType> &>(field.getGrid()).shared_from_this());
     MultiLevelField<DataType> dummyMultiField(dummyContext,
                                               {const_cast<Field<DataType, CoordinateType> &>(field).shared_from_this()});
     return makeEvaluator(dummyMultiField, grid);

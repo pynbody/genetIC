@@ -43,9 +43,7 @@ namespace fields {
 
     //! \brief Variable that stores which transfer function the field should request from the multi-level context.
 
-    /*! transferType = 0 -> Cold dark matter
-        transferType = 1 -> Baryons. */
-    size_t transferType;
+    particle::species transferType;
 
     //! Sets up filters for each level of the multi-level field.
     template<typename FilterType>
@@ -65,21 +63,21 @@ namespace fields {
     }
 
     //! Constructor with fields unspecified - only multi-level context.
-    MultiLevelField(multilevelcontext::MultiLevelContextInformation<DataType> &multiLevelContext,size_t transfer_type = 0) : multiLevelContext(
-        &multiLevelContext) {
-      transferType = transfer_type;
+    MultiLevelField(multilevelcontext::MultiLevelContextInformation<DataType> &multiLevelContext,
+                    particle::species transfer_type = particle::species::dm) :
+                    multiLevelContext(&multiLevelContext), transferType(transfer_type) {
       setupConnection();
       isCovector = false;
     }
 
     //! Constructor with fields and multi-level context. specified.
     MultiLevelField(multilevelcontext::MultiLevelContextInformation<DataType> &multiLevelContext,
-                    const std::vector<std::shared_ptr<Field<DataType, T>>> &fieldsOnGrids,size_t transfer_type = 0) :
+                    const std::vector<std::shared_ptr<Field<DataType, T>>> &fieldsOnGrids,
+                    particle::species transfer_type = particle::species::dm) :
         multiLevelContext(&multiLevelContext), fieldsOnLevels(fieldsOnGrids) {
       transferType = transfer_type;
       setupConnection();
       isCovector = false;
-
     }
 
     //! Copy constructor
@@ -294,6 +292,12 @@ namespace fields {
         }
     }
 
+    //! \brief Copy across data from another field, making any changes required because of differing particle species
+    void copyDataAndUpdateForTransferFunction(const MultiLevelField<DataType> &other) {
+      copyData(other);
+      applyTransferRatio(other.transferType);
+    }
+
     /*! \brief Takes the inner product between two fields.
 
      * The inner product is defined as the operation between a covector a and a vector b : a * b elementwise.
@@ -342,7 +346,7 @@ namespace fields {
       for (size_t level = 0; level < getNumLevels(); ++level) {
         weight = multiLevelContext->getWeightForLevel(level);
         pCurrentGrid = &(multiLevelContext->getGridForLevel(level));
-        pCov = &(multiLevelContext->getCovariance(level,this->transferType));
+        pCov = multiLevelContext->getCovariance(level,this->transferType).get();
         pFiltOther = &(other.getFilterForLevel(level));
         pFieldThis = &(this->getFieldForLevel(level));
         pFieldDataThis = &(this->getFieldForLevel(level).getDataVector());
@@ -386,7 +390,7 @@ namespace fields {
         auto &grid = multiLevelContext->getGridForLevel(i);
 
         divideByCovarianceOneGrid(getFieldForLevel(i),
-                                  multiLevelContext->getCovariance(i,this->transferType),
+                                  *multiLevelContext->getCovariance(i,this->transferType),
                                   grid,
                                   multiLevelContext->getWeightForLevel(i));
 
@@ -402,7 +406,7 @@ namespace fields {
         auto &grid = multiLevelContext->getGridForLevel(i);
 
         multiplyByCovarianceOneGrid(getFieldForLevel(i),
-                                    multiLevelContext->getCovariance(i,this->transferType),
+                                    *multiLevelContext->getCovariance(i,this->transferType),
                                     grid,
                                     multiLevelContext->getWeightForLevel(i));
 
@@ -417,7 +421,7 @@ namespace fields {
         auto &grid = multiLevelContext->getGridForLevel(i);
 
         applySpectrumOneGrid(getFieldForLevel(i),
-                             multiLevelContext->getCovariance(i,this->transferType),
+                             *multiLevelContext->getCovariance(i,this->transferType),
                              grid);
 
       }
@@ -435,12 +439,13 @@ namespace fields {
         auto &grid = multiLevelContext->getGridForLevel(i);
 
         enforceSpectrumOneGrid(getFieldForLevel(i),
-                               multiLevelContext->getCovariance(i,this->transferType),
+                               *multiLevelContext->getCovariance(i,this->transferType),
                                grid);
 
       }
     }
 
+    /*
     //! Divide by the power spectrum of another field.
     void applyInversePowerSpectrumOf(size_t nField)
     {
@@ -454,16 +459,21 @@ namespace fields {
 
       }
     }
+     */
 
-    //! Divide by one power spectrum and multiply by another for all levels:
-    void applyTransferRatio(size_t nField)
+  protected:
+    //! Divide by power spectrum from an "old" species and multiply by the transfer function for the species of this field
+    void applyTransferRatio(particle::species oldSpecies)
     {
+      if(oldSpecies==this->transferType)
+        return;
+
         toFourier();
         for (size_t i = 0; i < multiLevelContext->getNumLevels(); ++i) {
         auto &grid = multiLevelContext->getGridForLevel(i);
         applyTransferRatioOneGrid(getFieldForLevel(i),
-                                  multiLevelContext->getCovariance(i,nField),
-                                  multiLevelContext->getCovariance(i,this->transferType),
+                                  *multiLevelContext->getCovariance(i, oldSpecies),
+                                  *multiLevelContext->getCovariance(i,this->transferType),
                                   grid);
         }
     }
@@ -494,12 +504,16 @@ namespace fields {
         });
     }
 
+  public:
 
+
+    /*
     //! Invert the application of the power spectrum.
     void applyInversePowerSpectrum()
     {
         this->applyInversePowerSpectrumOf(this->transferType);
     }
+     */
 
     //! Returns the value of chi^2, with respect to the relevant covariance matrix.
     T getChi2() {
@@ -662,11 +676,11 @@ namespace fields {
   //!\param Constructor with a given multi-level context and transfer type.
     /*!
     \param multiLevelContext - multiLevel context to define the field on
-    \param transfer_type - 0 for dark matter field, 1 for baryonic field.
+    \param transfer_type - specifies the transfer function to use for this field
     */
-    OutputField(multilevelcontext::MultiLevelContextInformation<DataType> &multiLevelContext,size_t transfer_type)
-        : MultiLevelField<DataType>(
-        multiLevelContext,transfer_type) {
+    OutputField(multilevelcontext::MultiLevelContextInformation<DataType> &multiLevelContext,particle::species transfer_type)
+        : MultiLevelField<DataType>(multiLevelContext,transfer_type)
+          {
       outputState = PRE_SEPARATION;
       fieldsOnLevelsPopulated = false;
     }

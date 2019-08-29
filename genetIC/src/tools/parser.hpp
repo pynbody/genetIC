@@ -68,8 +68,9 @@ namespace tools {
   template<typename Rtype>
   Rtype call_function(const std::function<Rtype()> &f,
                       std::istream &input_stream,
-                      std::ostream * /* *output_stream*/) {
+                      std::ostream * output_stream) {
     consume_comments(input_stream);
+    if(output_stream) (*output_stream) << std::endl;
     return f();
   }
 
@@ -97,7 +98,7 @@ namespace tools {
     }
 
     if (output_stream != nullptr)
-      (*output_stream) << arg1 << " " << std::endl;
+      (*output_stream) << arg1 << " ";
 
     // Create function with one fewer arguments:
     std::function<Rtype(Args...)> bound_f = [&f, arg1](auto &&... args) { return f(arg1, args...); };

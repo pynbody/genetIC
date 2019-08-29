@@ -117,7 +117,7 @@ void setup_parser(tools::ClassDispatch<ICf, void> &dispatch) {
   dispatch.add_class_route("dump_grid_fourier", static_cast<void (ICf::*)(size_t)>(&ICf::dumpGridFourier));
   dispatch.add_class_route("dump_grid_fourier_for_field", static_cast<void (ICf::*)(size_t,size_t)>(&ICf::dumpGridFourier));
   dispatch.add_class_route("dump_ps", static_cast<void (ICf::*)(size_t)>(&ICf::dumpPS));
-  dispatch.add_class_route("dump_ps_field", static_cast<void (ICf::*)(size_t,size_t)>(&ICf::dumpPS));
+  dispatch.add_class_route("dump_ps_field", static_cast<void (ICf::*)(size_t,particle::species)>(&ICf::dumpPS));
   dispatch.add_class_route("dump_tipsy", static_cast<void(ICf::*)(std::string)>(&ICf::saveTipsyArray));
   dispatch.add_class_route("dump_tipsy_field", static_cast<void(ICf::*)(std::string,size_t)>(&ICf::saveTipsyArray));
   dispatch.add_class_route("dump_mask", &ICf::dumpMask);
