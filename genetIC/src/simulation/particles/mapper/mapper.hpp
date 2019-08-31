@@ -86,7 +86,7 @@ namespace particle {
 
       //! Get the particle type of the specified iterator. Implemented only by derived mapper classes
       virtual unsigned int
-      gadgetParticleTypeFromIterator(const iterator * /*pIterator*/) const  {
+      gadgetParticleTypeFromIterator(const iterator * /*pIterator*/) const {
         throw std::runtime_error("There is no gadget particle type known for this particle mapper");
       }
 
@@ -176,7 +176,7 @@ namespace particle {
          * is run.
          */
       virtual void extendParticleListToUnreferencedGrids(
-          multilevelcontext::MultiLevelContextInformation<GridDataType> &grids) {
+        multilevelcontext::MultiLevelContextInformation<GridDataType> &grids) {
 
         for (size_t i = 0; i < grids.getNumLevels(); i++) {
           auto pGrid = grids.getGridForLevel(i).shared_from_this();
@@ -242,7 +242,7 @@ namespace particle {
        *
        * Can be expensive; you're recommended to instead use iterateParticlesOfType */
       virtual iterator endParticleType(const AbstractMultiLevelParticleGenerator<GridDataType> & /*generator*/,
-                                         unsigned int /*particleType*/) const {
+                                       unsigned int /*particleType*/) const {
         throw std::runtime_error("There is no gadget particle type associated with this particle mapper");
 
       }
@@ -254,12 +254,12 @@ namespace particle {
           \param callback - function to be applied to each particle.
       */
       void iterateParticlesOfType(
-          const particle::AbstractMultiLevelParticleGenerator<GridDataType> &generator,
-          unsigned int particle_type,
-          const std::function<void(const iterator &)> &callback) const {
+        const particle::AbstractMultiLevelParticleGenerator<GridDataType> &generator,
+        unsigned int particle_type,
+        const std::function<void(const iterator &)> &callback) const {
         auto begin = beginParticleType(generator, particle_type);
         auto end = endParticleType(generator, particle_type);
-        for(auto i=begin; i!=end; ++i) {
+        for (auto i = begin; i != end; ++i) {
           callback(i);
         }
       }
@@ -268,11 +268,12 @@ namespace particle {
        *
           This may not be the same as the genetIC mapper order.
        * **/
-      void iterateParticlesOfAllTypes(const std::vector<std::shared_ptr<particle::AbstractMultiLevelParticleGenerator<GridDataType>>> &generator,
-                                      const std::function<void(const iterator &)> &callback,std::vector<size_t>& gadgetTypeToFieldType) const {
+      void iterateParticlesOfAllTypes(
+        const std::vector<std::shared_ptr<particle::AbstractMultiLevelParticleGenerator<GridDataType>>> &generator,
+        const std::function<void(const iterator &)> &callback, std::vector<size_t> &gadgetTypeToFieldType) const {
         // This function needs to know how to map generators to particle types - information that is held by redirect. This will be
         // different if, say, we switch baryon transfer functions off, as then everything uses the DM generator.
-        for(unsigned int particle_type=0; particle_type<6; particle_type++) {
+        for (unsigned int particle_type = 0; particle_type < 6; particle_type++) {
           iterateParticlesOfType(*generator[gadgetTypeToFieldType[particle_type]], particle_type, callback);
         }
       }
@@ -305,7 +306,8 @@ namespace particle {
 
       //! Returns a pair of mappers, with the specified fraction of mass in the first and the remainder in the second.
       //! Only the listed grids are targeted; particles based on other grids are only present in the second mapper returned.
-      virtual std::pair<MapPtrType, MapPtrType> splitMass(T /*massratio*/, const std::vector<GridPtrType> & /*&toGrids*/) {
+      virtual std::pair<MapPtrType, MapPtrType>
+      splitMass(T /*massratio*/, const std::vector<GridPtrType> & /*&toGrids*/) {
         throw std::runtime_error("Don't know how to add gas in this context");
       }
 
@@ -326,7 +328,6 @@ namespace particle {
 
       //! Couple the flags on levels which are virtual copies of each other, which is the default behaviour.
       virtual MapPtrType withCoupledFlags() = 0;
-
 
 
     };

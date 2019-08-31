@@ -62,7 +62,7 @@ protected:
 
 public:
   //! Construct an empty window, with zero wrap length
-  Window() : wrapLength(0) { }
+  Window() : wrapLength(0) {}
 
   /*! \brief Constructs a window with the given wrap length, and the smallest possible size around the specified initial position
       \param wrapLength - periodicity scale
@@ -80,7 +80,7 @@ public:
       \param highExclusive - upper bound of the range (excluded from range)
   */
   Window(T wrapLength, Coordinate<T> lowerCornerInclusive, Coordinate<T> upperCornerExclusive) :
-      wrapLength(wrapLength), upperCornerExclusive(upperCornerExclusive), lowerCornerInclusive(lowerCornerInclusive) {
+    wrapLength(wrapLength), upperCornerExclusive(upperCornerExclusive), lowerCornerInclusive(lowerCornerInclusive) {
 
   }
 
@@ -200,7 +200,7 @@ public:
   }
 
   //! Returns true if the window contains the test co-ordinate
-  bool contains(const Coordinate<T> &test) const  {
+  bool contains(const Coordinate<T> &test) const {
     bool inX, inY, inZ;
     inX = withinWrapped(lowerCornerInclusive.x, upperCornerExclusive.x, test.x);
     inY = withinWrapped(lowerCornerInclusive.y, upperCornerExclusive.y, test.y);

@@ -58,7 +58,7 @@ namespace cosmology {
   }
 
   //! Dump an estimated power spectrum for the field, alongside the specified theory power spectrum, to disk
-  template <typename FloatType>
+  template<typename FloatType>
   FloatType zeldovichVelocityToOffsetRatio(const CosmologicalParameters<FloatType> &cosmology) {
 
     // TODO: hardcoded value of f=1 is inaccurate - should be a function of omega
@@ -72,19 +72,13 @@ namespace cosmology {
     FloatType a = cosmology.scalefactor;
 
 
-
-
-    FloatType velocityToOffsetRatio = f * 100. * sqrt( Om/(a*a*a) + Ol)*sqrt(a);
+    FloatType velocityToOffsetRatio = f * 100. * sqrt(Om / (a * a * a) + Ol) * sqrt(a);
     // this should be f*H(t)*a, but gadget wants vel/sqrt(a), so we use H(t)*sqrt(a)
 
     // Could also include curvature term, ie, f * 100. * sqrt( Om/(a*a*a) + (1 - Om - Ol)/(a*a) + Ol)*sqrt(a);
     // Seems a bit inconsistent that this is used in growthFactor, implicitly, in the definition of Hsq
 
     return velocityToOffsetRatio;
-
-
-
-
 
 
   }
@@ -118,7 +112,7 @@ namespace cosmology {
     // and grid-scale:
     const FloatType boxLength = field.getGrid().thisGridSize;
     FloatType kmax = M_PI / boxLength * (FloatType) res, kmin = 2.0f * M_PI / boxLength, dklog =
-        log10(kmax / kmin) / nBins, kw = 2.0f * M_PI / boxLength;
+      log10(kmax / kmin) / nBins, kw = 2.0f * M_PI / boxLength;
 
     // Initialise storage for bins:
     int ix, iy, iz, idx;
@@ -135,7 +129,7 @@ namespace cosmology {
     for (ix = -res / 2; ix < res / 2 + 1; ix++)
       for (iy = -res / 2; iy < res / 2 + 1; iy++)
         for (iz = -res / 2; iz < res / 2 + 1; iz++) {
-        // Compute square of the Fourier mode:
+          // Compute square of the Fourier mode:
           auto fieldValue = field.getFourierCoefficient(ix, iy, iz);
           FloatType vabs = std::abs(fieldValue);
           vabs *= vabs;
@@ -162,7 +156,8 @@ namespace cosmology {
 
     // ... convert to comoving units ...
     std::ofstream ofs(filename);
-    FloatType psnorm = 1 / (CAMB<FloatType>::getPowerSpectrumNormalizationForGrid(field.getGrid()) * pow((2.0 * M_PI), 3.0));
+    FloatType psnorm =
+      1 / (CAMB<FloatType>::getPowerSpectrumNormalizationForGrid(field.getGrid()) * pow((2.0 * M_PI), 3.0));
 
     for (ix = 0; ix < nBins; ix++) {
 
@@ -171,8 +166,10 @@ namespace cosmology {
 
         ofs << std::setw(16) << pow(10., log10(kmin) + dklog * (ix + 0.5)) // Middle of the k-bin
             << std::setw(16) << kbin[ix] / inBin[ix] // Average value of k in this bin
-            << std::setw(16) << (FloatType) (Px[ix] / inBin[ix]) * psnorm // Average of exact power spectrum for k in this bin
-            << std::setw(16) << (FloatType) (Gx[ix] / inBin[ix]) * psnorm // Average of |delta_k|^2 in this bin, ie, estimated power spectrum.
+            << std::setw(16)
+            << (FloatType) (Px[ix] / inBin[ix]) * psnorm // Average of exact power spectrum for k in this bin
+            << std::setw(16) << (FloatType) (Gx[ix] / inBin[ix]) *
+                                psnorm // Average of |delta_k|^2 in this bin, ie, estimated power spectrum.
             << std::setw(16) << inBin[ix] // Number in this bin
             << std::endl;
 
@@ -197,8 +194,8 @@ namespace cosmology {
 
     long i;
     FloatType prefac =
-        3. / 2. * Om / a * 100. * 100. / (3. * 100000.) /
-        (3. * 100000.); // =3/2 Om0/a * (H0/h)^2 (h/Mpc)^2 / c^2 (km/s)
+      3. / 2. * Om / a * 100. * 100. / (3. * 100000.) /
+      (3. * 100000.); // =3/2 Om0/a * (H0/h)^2 (h/Mpc)^2 / c^2 (km/s)
     FloatType kw = 2.0f * M_PI / boxLength, k_inv;
 
     size_t k1, k2, k3, kk1, kk2, kk3;

@@ -84,7 +84,7 @@ namespace filters {
                   "Filters must use same floating point type");
   public:
 
-  //! Constructor - start with a single level of filters
+    //! Constructor - start with a single level of filters
     GenericMultiLevelFilterFamily() {
       this->filters.push_back(std::make_shared<Filter<T>>());
       this->lpFilters.push_back(std::make_shared<Filter<T>>());
@@ -121,11 +121,11 @@ namespace filters {
 
   template<typename T>
   using MultiLevelFilterFamily = GenericMultiLevelFilterFamily<filters::LowPassFermiFilter<T>,
-      filters::ComplementaryCovarianceFilterAdaptor<filters::LowPassFermiFilter<T>>>;
+    filters::ComplementaryCovarianceFilterAdaptor<filters::LowPassFermiFilter<T>>>;
 
   template<typename T>
   using MultiLevelDependentFilterFamily = GenericMultiLevelFilterFamily<filters::LowPassFermiFilter<T>,
-      filters::ComplementaryFilterAdaptor<filters::LowPassFermiFilter<T>>>;
+    filters::ComplementaryFilterAdaptor<filters::LowPassFermiFilter<T>>>;
 
   template<typename T>
   using MultiLevelRecombinedFilterFamily = GenericMultiLevelFilterFamily<filters::NullFilter<T>, filters::Filter<T>>;
@@ -159,7 +159,7 @@ namespace filters {
     return s;
   }
 
-    //! Output debug information about a family of filters to a stream
+  //! Output debug information about a family of filters to a stream
   template<typename T>
   std::ostream &operator<<(std::ostream &s, const FilterFamily<T> &f) {
     f.debugInfo(s);

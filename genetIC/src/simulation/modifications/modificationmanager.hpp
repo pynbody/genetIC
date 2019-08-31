@@ -31,9 +31,9 @@ namespace modifications {
     ModificationManager(multilevelcontext::MultiLevelContextInformation<DataType> &multiLevelContext_,
                         const cosmology::CosmologicalParameters<T> &cosmology_,
                         std::vector<std::shared_ptr<fields::OutputField<DataType>>> &outputFields_) :
-        outputFields(outputFields_), underlying(multiLevelContext_), cosmology(cosmology_) {
-            this->transferType = 0; // Always modifying dark matter, never baryons.
-        }
+      outputFields(outputFields_), underlying(multiLevelContext_), cosmology(cosmology_) {
+      this->transferType = 0; // Always modifying dark matter, never baryons.
+    }
 
     //! Calculate existing value of the quantity defined by name
     template<typename ... Args>
@@ -42,7 +42,7 @@ namespace modifications {
       std::shared_ptr<Modification<DataType, T>> modification = getModificationFromName(name_,
                                                                                         std::forward<Args>(args)...);
       outputFields[transferType]->toFourier();
-      T value = modification->calculateCurrentValue( *(outputFields[transferType]) );
+      T value = modification->calculateCurrentValue(*(outputFields[transferType]));
       return value;
     }
 
@@ -62,7 +62,7 @@ namespace modifications {
       T target = target_;
 
       if (relative) {
-        T value = modification->calculateCurrentValue( *(outputFields[transferType]) );
+        T value = modification->calculateCurrentValue(*(outputFields[transferType]));
         target *= value;
       }
 
@@ -72,14 +72,14 @@ namespace modifications {
         linearModificationList.push_back(std::dynamic_pointer_cast<LinearModification<DataType, T>>(modification));
       } else if (modification->getOrder() == 2) {
         quadraticModificationList.push_back(
-            std::dynamic_pointer_cast<QuadraticModification<DataType, T>>(modification));
+          std::dynamic_pointer_cast<QuadraticModification<DataType, T>>(modification));
       } else {
         throw std::runtime_error(" Could not add modification to list");
       }
     }
 
     //! Returns true if modifications have been added to the list
-    bool hasModifications(){
+    bool hasModifications() {
       return !this->linearModificationList.empty() || !this->quadraticModificationList.empty();
     }
 
@@ -88,8 +88,8 @@ namespace modifications {
 
       std::vector<std::shared_ptr<fields::ConstraintField<DataType>>> alphas;
       std::vector<T> linear_targets;
-      T pre_modif_chi2_from_field ;
-      T post_modif_chi2_from_field ;
+      T pre_modif_chi2_from_field;
+      T post_modif_chi2_from_field;
 
       pre_modif_chi2_from_field = outputFields[transferType]->getChi2();
       std::cerr << "BEFORE modifications chi^2 = " << pre_modif_chi2_from_field << std::endl;
@@ -103,8 +103,9 @@ namespace modifications {
 
       // Apply all linear modifications
       orthonormaliseModifications(alphas, linear_targets);
-      std::cerr << "Delta chi^2 from linear modifications = " << getDeltaChi2FromLinearModifs( *(outputFields[transferType]) , alphas, linear_targets) << std::endl;
-      applyLinearModif( *(outputFields[transferType]) , alphas, linear_targets);
+      std::cerr << "Delta chi^2 from linear modifications = "
+                << getDeltaChi2FromLinearModifs(*(outputFields[transferType]), alphas, linear_targets) << std::endl;
+      applyLinearModif(*(outputFields[transferType]), alphas, linear_targets);
 
 
       // Apply the joint linear and quadratic in an iterative procedure
@@ -113,32 +114,33 @@ namespace modifications {
 
       post_modif_chi2_from_field = outputFields[transferType]->getChi2();
       std::cerr << "AFTER  modifications chi^2 = " << post_modif_chi2_from_field << std::endl;
-      std::cerr << "         Total delta chi^2 = " << post_modif_chi2_from_field - pre_modif_chi2_from_field << std::endl;
+      std::cerr << "         Total delta chi^2 = " << post_modif_chi2_from_field - pre_modif_chi2_from_field
+                << std::endl;
 
       // Propagate them modification to the other fields if present:
-      for(size_t i = 1;i < this->outputFields.size();i++) {
+      for (size_t i = 1; i < this->outputFields.size(); i++) {
         propagateModifications(*(outputFields[i]));
       }
     }
 
 
     //!\brief Propagate modifications of this field to another field:
-    void propagateModifications(fields::OutputField<DataType>& otherField)
-    {
-        //Must be in Fourier space to do this:
-        outputFields[transferType]->toFourier();
-        otherField.toFourier();
+    void propagateModifications(fields::OutputField<DataType> &otherField) {
+      //Must be in Fourier space to do this:
+      outputFields[transferType]->toFourier();
+      otherField.toFourier();
 
-        T pre_modif_chi2_from_field = otherField.getChi2();
-        std::cerr << "Propagating modification to field " << otherField.transferType << std::endl
-                  << ". BEFORE modifications chi^2 = " << pre_modif_chi2_from_field << std::endl;
+      T pre_modif_chi2_from_field = otherField.getChi2();
+      std::cerr << "Propagating modification to field " << otherField.transferType << std::endl
+                << ". BEFORE modifications chi^2 = " << pre_modif_chi2_from_field << std::endl;
 
-        // Copy across the modified field, but ensure it is updated for differences in the power spectrum
-        otherField.copyDataAndUpdateForTransferFunction( *(outputFields[transferType]) );
+      // Copy across the modified field, but ensure it is updated for differences in the power spectrum
+      otherField.copyDataAndUpdateForTransferFunction(*(outputFields[transferType]));
 
-        T post_modif_chi2_from_field = otherField.getChi2();
-        std::cerr << "AFTER  modifications chi^2 = " << post_modif_chi2_from_field << std::endl;
-        std::cerr << "         Total delta chi^2 = " << post_modif_chi2_from_field - pre_modif_chi2_from_field << std::endl;
+      T post_modif_chi2_from_field = otherField.getChi2();
+      std::cerr << "AFTER  modifications chi^2 = " << post_modif_chi2_from_field << std::endl;
+      std::cerr << "         Total delta chi^2 = " << post_modif_chi2_from_field - pre_modif_chi2_from_field
+                << std::endl;
     }
 
     //! Clear all modifications from the list of modifications to be applied.
@@ -184,7 +186,7 @@ namespace modifications {
         return make_shared<VelocityModification<DataType, T>>(underlying, cosmology, 1);
       } else if ((strcasecmp(name_.c_str(), "vz") == 0)) {
         return make_shared<VelocityModification<DataType, T>>(underlying, cosmology, 2);
-      }else {
+      } else {
         throw UnknownModificationException(name_ + " " + "is an unknown modification name");
       }
     }
@@ -240,17 +242,17 @@ namespace modifications {
         int init_n_steps = modif_i->getInitNumberSteps();
 
         // Try the procedure on a test field and deduce the correct number of steps
-        auto test_field = fields::OutputField<DataType>( *(outputFields[transferType]) );
+        auto test_field = fields::OutputField<DataType>(*(outputFields[transferType]));
         performIterations(test_field, alphas, modif_i, init_n_steps);
         int n_steps = calculateCorrectNumberSteps(test_field, modif_i, init_n_steps);
 
         // Perform procedure on real output
         if (n_steps > init_n_steps) {
           std::cout << n_steps << " steps are required for the quadratic algorithm " << std::endl;
-          performIterations( *(outputFields[transferType]) , alphas, modif_i, n_steps);
+          performIterations(*(outputFields[transferType]), alphas, modif_i, n_steps);
         } else {
           std::cout << "No need to do more steps to achieve target precision" << std::endl;
-          performIterations( *(outputFields[transferType]) , alphas, modif_i, init_n_steps);
+          performIterations(*(outputFields[transferType]), alphas, modif_i, init_n_steps);
         }
 
 
@@ -355,8 +357,8 @@ namespace modifications {
 
     //! Calculates delta chi2 from orthonormalised linear modifications (Eq 12 Roth et al 2016)
     T getDeltaChi2FromLinearModifs(fields::OutputField<DataType> &field,
-                              std::vector<std::shared_ptr<fields::ConstraintField<DataType>>> alphas,
-                              std::vector<T> &targets){
+                                   std::vector<std::shared_ptr<fields::ConstraintField<DataType>>> alphas,
+                                   std::vector<T> &targets) {
 
       T target_norm = T(0.0);
       T initial_values_norm = T(0.0);
@@ -371,22 +373,22 @@ namespace modifications {
     }
 
     //! Check quadratic modifications are independent by calculating delta * Q1 * C0 * Q2 * delta
-    bool areQuadraticIndependent(){
+    bool areQuadraticIndependent() {
       //TODO Condition here is necessary but not sufficient to ensure independence.
       // Not sure if we ought to keep this anyway and leave independence as a user problem
 
       size_t n = quadraticModificationList.size();
       bool indep = true;
 
-      for (size_t i = 0; i < n; i++){
-        for (size_t j = 0; j < i; j++){
-          auto pushed_i = quadraticModificationList[i]->pushMultiLevelFieldThroughMatrix( *(outputFields[transferType]) );
-          auto pushed_j = quadraticModificationList[j]->pushMultiLevelFieldThroughMatrix( *(outputFields[transferType]) );
+      for (size_t i = 0; i < n; i++) {
+        for (size_t j = 0; j < i; j++) {
+          auto pushed_i = quadraticModificationList[i]->pushMultiLevelFieldThroughMatrix(*(outputFields[transferType]));
+          auto pushed_j = quadraticModificationList[j]->pushMultiLevelFieldThroughMatrix(*(outputFields[transferType]));
 
           auto ortho = pushed_i->innerProduct(*pushed_j).real();
 
-          if(ortho > 0.001){
-            indep = false ;
+          if (ortho > 0.001) {
+            indep = false;
           }
         }
       }

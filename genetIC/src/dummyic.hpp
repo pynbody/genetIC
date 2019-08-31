@@ -35,7 +35,7 @@ public:
       // flags deposited onto it will have to be manually copied over later.
 
       grids::Grid<T> &deepestUnderlyingGrid =
-          pUnderlying->multiLevelContext.getGridForLevel(pUnderlying->multiLevelContext.getNumLevels() - 1);
+        pUnderlying->multiLevelContext.getGridForLevel(pUnderlying->multiLevelContext.getNumLevels() - 1);
 
       underlyingGrid = std::make_shared<grids::Grid<T>>(deepestUnderlyingGrid.periodicDomainSize, nside,
                                                         gridSize / nside, offset.x, offset.y, offset.z);
@@ -59,16 +59,16 @@ public:
 
 
   //! Calls to this function has no effect in a dummy IC generator, since it is only working out the mapper structure
-  void zeroLevel(size_t /*level*/,size_t) override {}
+  void zeroLevel(size_t /*level*/, size_t) override {}
 
   //! Calls to this function has no effect in a dummy IC generator, since it is only working out the mapper structure
   void applyPowerSpec(size_t) override {}
 
   //! Calls to this function has no effect in a dummy IC generator, since it is only working out the mapper structure
-  void dumpGrid(size_t /*level*/,size_t) override {}
+  void dumpGrid(size_t /*level*/, size_t) override {}
 
   //! Calls to this function has no effect in a dummy IC generator, since it is only working out the mapper structure
-  void dumpPS(size_t,particle::species) override {}
+  void dumpPS(size_t, particle::species) override {}
 
   //! Calls to this function has no effect in a dummy IC generator, since it is only working out the mapper structure
   void dumpMask() override {}
@@ -89,7 +89,7 @@ public:
   void done() override {}
 
   //! Calls to this function has no effect in a dummy IC generator, since it is only working out the mapper structure
-  void saveTipsyArray(string fname, size_t nField) override { }
+  void saveTipsyArray(string fname, size_t nField) override {}
 };
 
 #endif

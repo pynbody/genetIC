@@ -180,7 +180,7 @@ namespace filters {
     T temperature; //!< 'Temperature' of the fermi dirac distribution
 
   public:
-  //! Constructor, with cutoff as argument
+    //! Constructor, with cutoff as argument
     LowPassFermiFilter(T kcut_in) : kcut(kcut_in) {
       // The following arbitrary choice for the temperature (i.e.
       // sharpness of the cut-off) has been made by numerical experiments
@@ -218,7 +218,7 @@ namespace filters {
     std::shared_ptr<Filter<T>> pUnderlying;
   public:
 
-  //! Constructor - arguments depend on the filter we are complementing
+    //! Constructor - arguments depend on the filter we are complementing
     template<typename... Args>
     ComplementaryCovarianceFilterAdaptor(Args &&... args) {
       pUnderlying = std::make_shared<UnderlyingType>(std::forward<Args>(args)...);
@@ -262,8 +262,8 @@ namespace filters {
     //! Pseudo-copy constructor
     ComplementaryFilterAdaptor(const Filter<T> &pOriginal) {
       assert(
-          typeid(pOriginal) !=
-          typeid(ComplementaryFilterAdaptor<UnderlyingType, T>)); // this is NOT a copy constructor!
+        typeid(pOriginal) !=
+        typeid(ComplementaryFilterAdaptor<UnderlyingType, T>)); // this is NOT a copy constructor!
       pUnderlying = pOriginal.clone();
     }
 

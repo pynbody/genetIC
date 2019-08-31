@@ -77,15 +77,15 @@ namespace particle {
       */
       MapperIterator(const ParticleMapper<GridDataType> *pMapper,
                      const AbstractMultiLevelParticleGenerator<GridDataType> &generator) :
-          i(0), pMapper(pMapper), generator(generator) {}
+        i(0), pMapper(pMapper), generator(generator) {}
 
 
     public:
 
       //! Constructor that copies another iterator
       MapperIterator(const MapperIterator<GridDataType> &source) :
-          i(source.i), extraData(source.extraData), pMapper(source.pMapper),
-          generator(source.generator), pLastGrid(nullptr) {
+        i(source.i), extraData(source.extraData), pMapper(source.pMapper),
+        generator(source.generator), pLastGrid(nullptr) {
         for (const auto &subIterator: source.subIterators) {
           if (subIterator == nullptr)
             subIterators.push_back(nullptr);
@@ -169,8 +169,8 @@ namespace particle {
       getEvaluatorForFieldAndGrid(const fields::MultiLevelField<GridDataType> &multiLevelField,
                                   ConstGridPtrType gridPtr) const {
         // TODO: this evaluator requries optimisation and neatining. In particular it will be extremely inefficient
-      // if more than one field is being evaluated at each iteration, because it will need to keep calling
-      // makeEvaluator.
+        // if more than one field is being evaluated at each iteration, because it will need to keep calling
+        // makeEvaluator.
         if (lastMLField != &multiLevelField || gridPtr != lastGridPtr) {
           lastEvaluator = fields::makeEvaluator(multiLevelField, *gridPtr);
           lastMLField = &multiLevelField;
@@ -199,17 +199,17 @@ namespace particle {
 
       //! Returns the number of particles remaining before the end of the particle list, from the current position
       size_t getNumRemainingParticles() const {
-        return pMapper->size()-getIndex();
+        return pMapper->size() - getIndex();
       }
 
       //! Iterates in parallel, applying the callback function
-      size_t parallelIterate(std::function<void(size_t, const MapperIterator &)> callback, size_t nMax)  {
-        if(pMapper==nullptr) return 0;
+      size_t parallelIterate(std::function<void(size_t, const MapperIterator &)> callback, size_t nMax) {
+        if (pMapper == nullptr) return 0;
 
         size_t n = std::min(pMapper->size() - i, nMax);
         size_t final_i = i + n;
 
-        if(n==0) return 0;
+        if (n == 0) return 0;
 
 #pragma omp parallel
         {

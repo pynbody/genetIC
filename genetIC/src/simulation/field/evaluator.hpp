@@ -18,14 +18,14 @@ namespace fields {
   template<typename DataType, typename CoordinateType = tools::datatypes::strip_complex<DataType>>
   class EvaluatorBase : public std::enable_shared_from_this<EvaluatorBase<DataType, CoordinateType>> {
   public:
-  //! \brief Returns the field evaluates at linear index i
-    virtual DataType operator[](size_t i) const =0;
+    //! \brief Returns the field evaluates at linear index i
+    virtual DataType operator[](size_t i) const = 0;
 
     //! \brief Evaluates the field at the position 'at', using interpolation if necessary.
     virtual DataType operator()(const Coordinate<CoordinateType> &at) const = 0;
 
     //!\brief Returns true if index i corresponds to a point in the field.
-    virtual bool contains(size_t i) const =0;
+    virtual bool contains(size_t i) const = 0;
 
     //! \brief Adds this field to the destination field.
     void addTo(Field <DataType, CoordinateType> &destination) {
@@ -89,8 +89,8 @@ namespace fields {
   public:
     SuperSampleEvaluator(const grids::VirtualGrid<CoordinateType> &grid,
                          std::shared_ptr<const EvaluatorBase<DataType, CoordinateType>> underlying) :
-        grid(std::dynamic_pointer_cast<MyGridType>(grid.shared_from_this())),
-        underlying(underlying) {
+      grid(std::dynamic_pointer_cast<MyGridType>(grid.shared_from_this())),
+      underlying(underlying) {
 
     }
 
@@ -127,8 +127,8 @@ namespace fields {
   public:
     SectionEvaluator(const grids::VirtualGrid<CoordinateType> &grid,
                      std::shared_ptr<const EvaluatorBase<DataType, CoordinateType>> underlying) :
-        grid(std::dynamic_pointer_cast<MyGridType>(grid.shared_from_this())),
-        underlying(underlying) {
+      grid(std::dynamic_pointer_cast<MyGridType>(grid.shared_from_this())),
+      underlying(underlying) {
 
     }
 
@@ -167,8 +167,8 @@ namespace fields {
   public:
     SubSampleEvaluator(const grids::VirtualGrid<CoordinateType> &grid,
                        std::shared_ptr<const EvaluatorBase<DataType, CoordinateType>> underlying) :
-        grid(std::dynamic_pointer_cast<MyGridType>(grid.shared_from_this())),
-        underlying(underlying) {
+      grid(std::dynamic_pointer_cast<MyGridType>(grid.shared_from_this())),
+      underlying(underlying) {
 
     }
 
@@ -212,8 +212,8 @@ namespace fields {
                                 std::shared_ptr<const EvaluatorBase<DataType, CoordinateType>> underlyingLoRes,
                                 std::shared_ptr<const EvaluatorBase<DataType, CoordinateType>> underlyingHiRes) :
 
-        grid(std::dynamic_pointer_cast<MyGridType>(grid.shared_from_this())),
-        underlyingLoRes(underlyingLoRes), underlyingHiRes(underlyingHiRes) {
+      grid(std::dynamic_pointer_cast<MyGridType>(grid.shared_from_this())),
+      underlyingLoRes(underlyingLoRes), underlyingHiRes(underlyingHiRes) {
 
     }
 
@@ -271,7 +271,7 @@ namespace fields {
       // Special case: ResolutionMatchingGrid points to TWO underlying grids
       if (runtimeType == typeid(grids::ResolutionMatchingGrid<CoordinateType>)) {
         const grids::ResolutionMatchingGrid<CoordinateType> &rmGrid =
-            dynamic_cast<const grids::ResolutionMatchingGrid<CoordinateType> &>(grid);
+          dynamic_cast<const grids::ResolutionMatchingGrid<CoordinateType> &>(grid);
 
         auto underlyingLoResGrid = rmGrid.getUnderlyingLoResInterpolated();
         auto underlyingHiResGrid = rmGrid.getUnderlyingHiRes();
@@ -280,7 +280,7 @@ namespace fields {
         auto underlyingHiResEvaluator = makeEvaluator(field, *underlyingHiResGrid);
 
         return std::make_shared<ResolutionMatchingEvaluator<DataType, CoordinateType>>
-            (rmGrid, underlyingLoResEvaluator, underlyingHiResEvaluator);
+          (rmGrid, underlyingLoResEvaluator, underlyingHiResEvaluator);
 
       }
 

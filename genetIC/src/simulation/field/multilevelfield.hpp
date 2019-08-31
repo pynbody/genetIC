@@ -65,7 +65,7 @@ namespace fields {
     //! Constructor with fields unspecified - only multi-level context.
     MultiLevelField(multilevelcontext::MultiLevelContextInformation<DataType> &multiLevelContext,
                     particle::species transfer_type = particle::species::dm) :
-                    multiLevelContext(&multiLevelContext), transferType(transfer_type) {
+      multiLevelContext(&multiLevelContext), transferType(transfer_type) {
       setupConnection();
       isCovector = false;
     }
@@ -74,7 +74,7 @@ namespace fields {
     MultiLevelField(multilevelcontext::MultiLevelContextInformation<DataType> &multiLevelContext,
                     const std::vector<std::shared_ptr<Field<DataType, T>>> &fieldsOnGrids,
                     particle::species transfer_type = particle::species::dm) :
-        multiLevelContext(&multiLevelContext), fieldsOnLevels(fieldsOnGrids) {
+      multiLevelContext(&multiLevelContext), fieldsOnLevels(fieldsOnGrids) {
       transferType = transfer_type;
       setupConnection();
       isCovector = false;
@@ -82,7 +82,7 @@ namespace fields {
 
     //! Copy constructor
     MultiLevelField(const MultiLevelField<DataType> &copy) :
-        std::enable_shared_from_this<MultiLevelField<DataType>>(), multiLevelContext(&(copy.getContext())) {
+      std::enable_shared_from_this<MultiLevelField<DataType>>(), multiLevelContext(&(copy.getContext())) {
 
       for (size_t level = 0; level < multiLevelContext->getNumLevels(); level++) {
         fieldsOnLevels.push_back(std::make_shared<Field<DataType, T>>(copy.getFieldForLevel(level)));
@@ -93,12 +93,9 @@ namespace fields {
       // NB - adding this if here, because the std::make_shared call here will lead to a segmentation fault if
       // copy.pFilters is null, which is required at construction because the filter depends on the level-structure, which isn't
       // specified until later:
-      if(copy.pFilters == nullptr)
-      {
+      if (copy.pFilters == nullptr) {
         pFilters = nullptr;
-      }
-      else
-      {
+      } else {
         pFilters = std::make_shared<filters::FilterFamily<T>>(*copy.pFilters);
       }
       isCovector = copy.isCovector;
@@ -224,15 +221,14 @@ namespace fields {
     }
 
     //! Flips the sign of the field.
-    void reverse()
-    {
-      for(size_t level=0; level<multiLevelContext->getNumLevels(); ++level) {
-          auto &field = this->getFieldForLevel(level);
-          size_t N = field.getDataVector().size();
-          auto &field_data = field.getDataVector();
-          for (size_t i = 0; i < N; i++) {
-            field_data[i] = -field_data[i];
-          }
+    void reverse() {
+      for (size_t level = 0; level < multiLevelContext->getNumLevels(); ++level) {
+        auto &field = this->getFieldForLevel(level);
+        size_t N = field.getDataVector().size();
+        auto &field_data = field.getDataVector();
+        for (size_t i = 0; i < N; i++) {
+          field_data[i] = -field_data[i];
+        }
       }
     }
 
@@ -253,7 +249,7 @@ namespace fields {
           auto &filtThis = getFilterForLevel(level);
           T kMin = fieldThis.getGrid().getFourierKmin();
           fieldThis.forEachFourierCellInt([&fieldOther, &filtOther, &filtThis, kMin, scale]
-                                              (ComplexType currentVal, int kx, int ky, int kz) {
+                                            (ComplexType currentVal, int kx, int ky, int kz) {
             T k_value = kMin * sqrt(T(kx * kx) + T(ky * ky) + T(kz * kz));
             T filt = filtOther(k_value) / filtThis(k_value);
             return currentVal + scale * filt * fieldOther.getFourierCoefficient(kx, ky, kz);
@@ -267,29 +263,26 @@ namespace fields {
     //! Note that this is different to operator=, which copies all attributes of the object.
     //! Here, we copy only the field data, without acquiring any of its other properties (such as
     //! transferType, which would change the transfer function the field uses).
-    void copyData(const MultiLevelField<DataType> &other)
-    {
-        assert (isCompatible(other));
-        assert(other.isFourierOnAllLevels());
-        toFourier();
-        for (size_t level = 0; level < getNumLevels(); level++)
-        {
-            if (hasFieldOnGrid(level) && other.hasFieldOnGrid(level))
-            {
-                Field<DataType> &fieldThis = getFieldForLevel(level);
-                const Field<DataType> &fieldOther = other.getFieldForLevel(level);
+    void copyData(const MultiLevelField<DataType> &other) {
+      assert (isCompatible(other));
+      assert(other.isFourierOnAllLevels());
+      toFourier();
+      for (size_t level = 0; level < getNumLevels(); level++) {
+        if (hasFieldOnGrid(level) && other.hasFieldOnGrid(level)) {
+          Field<DataType> &fieldThis = getFieldForLevel(level);
+          const Field<DataType> &fieldOther = other.getFieldForLevel(level);
 
-                if(fieldThis.getGrid() != fieldOther.getGrid()) {
-                    throw std::runtime_error("Attempting to copy data from incompatible grids");
-                }
+          if (fieldThis.getGrid() != fieldOther.getGrid()) {
+            throw std::runtime_error("Attempting to copy data from incompatible grids");
+          }
 
-                auto& dataThis = fieldThis .getDataVector();
-                const auto& dataOther = fieldOther.getDataVector();
+          auto &dataThis = fieldThis.getDataVector();
+          const auto &dataOther = fieldOther.getDataVector();
 
-                assert(dataOther.size() == dataThis.size());
-                std::copy(dataOther.begin(), dataOther.end(), dataThis.begin());
-            }
+          assert(dataOther.size() == dataThis.size());
+          std::copy(dataOther.begin(), dataOther.end(), dataThis.begin());
         }
+      }
     }
 
     //! \brief Copy across data from another field, making any changes required because of differing particle species
@@ -324,7 +317,7 @@ namespace fields {
       assert(isCompatible(other));
       if (!isCovector)
         throw (std::runtime_error(
-            "The inner product can only be taken if one of the fields is regarded as a covector"));
+          "The inner product can only be taken if one of the fields is regarded as a covector"));
 
       assert(isFourierOnAllLevels() && other.isFourierOnAllLevels());
       // To take inner product with correct filters, we must have the fields in fourier space
@@ -346,7 +339,7 @@ namespace fields {
       for (size_t level = 0; level < getNumLevels(); ++level) {
         weight = multiLevelContext->getWeightForLevel(level);
         pCurrentGrid = &(multiLevelContext->getGridForLevel(level));
-        pCov = multiLevelContext->getCovariance(level,this->transferType).get();
+        pCov = multiLevelContext->getCovariance(level, this->transferType).get();
         pFiltOther = &(other.getFilterForLevel(level));
         pFieldThis = &(this->getFieldForLevel(level));
         pFieldDataThis = &(this->getFieldForLevel(level).getDataVector());
@@ -354,14 +347,14 @@ namespace fields {
         T kMin = pCurrentGrid->getFourierKmin();
         if (pFieldOther != nullptr && pFieldDataThis->size() > 0) {
           result += pFieldThis->accumulateForEachFourierCell(
-              [&](tools::datatypes::ensure_complex<DataType> thisFieldVal,
-                  int kx, int ky, int kz) {
-                auto otherFieldVal = pFieldOther->getFourierCoefficient(kx, ky, kz);
-                T k_value = kMin * sqrt(T(kx) * T(kx) + T(ky) * T(ky) + T(kz) * T(kz));
-                T inner_weight = weight * (*pFiltOther)(k_value);
-                if (covariance_weighted) inner_weight *= (pCov->getFourierCoefficient(kx, ky, kz).real()) * weight;
-                return inner_weight * std::real(std::conj(thisFieldVal) * otherFieldVal);
-              });
+            [&](tools::datatypes::ensure_complex<DataType> thisFieldVal,
+                int kx, int ky, int kz) {
+              auto otherFieldVal = pFieldOther->getFourierCoefficient(kx, ky, kz);
+              T k_value = kMin * sqrt(T(kx) * T(kx) + T(ky) * T(ky) + T(kz) * T(kz));
+              T inner_weight = weight * (*pFiltOther)(k_value);
+              if (covariance_weighted) inner_weight *= (pCov->getFourierCoefficient(kx, ky, kz).real()) * weight;
+              return inner_weight * std::real(std::conj(thisFieldVal) * otherFieldVal);
+            });
         }
       }
       return result;
@@ -390,7 +383,7 @@ namespace fields {
         auto &grid = multiLevelContext->getGridForLevel(i);
 
         divideByCovarianceOneGrid(getFieldForLevel(i),
-                                  *multiLevelContext->getCovariance(i,this->transferType),
+                                  *multiLevelContext->getCovariance(i, this->transferType),
                                   grid,
                                   multiLevelContext->getWeightForLevel(i));
 
@@ -406,7 +399,7 @@ namespace fields {
         auto &grid = multiLevelContext->getGridForLevel(i);
 
         multiplyByCovarianceOneGrid(getFieldForLevel(i),
-                                    *multiLevelContext->getCovariance(i,this->transferType),
+                                    *multiLevelContext->getCovariance(i, this->transferType),
                                     grid,
                                     multiLevelContext->getWeightForLevel(i));
 
@@ -421,7 +414,7 @@ namespace fields {
         auto &grid = multiLevelContext->getGridForLevel(i);
 
         applySpectrumOneGrid(getFieldForLevel(i),
-                             *multiLevelContext->getCovariance(i,this->transferType),
+                             *multiLevelContext->getCovariance(i, this->transferType),
                              grid);
 
       }
@@ -439,7 +432,7 @@ namespace fields {
         auto &grid = multiLevelContext->getGridForLevel(i);
 
         enforceSpectrumOneGrid(getFieldForLevel(i),
-                               *multiLevelContext->getCovariance(i,this->transferType),
+                               *multiLevelContext->getCovariance(i, this->transferType),
                                grid);
 
       }
@@ -463,45 +456,40 @@ namespace fields {
 
   protected:
     //! Divide by power spectrum from an "old" species and multiply by the transfer function for the species of this field
-    void applyTransferRatio(particle::species oldSpecies)
-    {
-      if(oldSpecies==this->transferType)
+    void applyTransferRatio(particle::species oldSpecies) {
+      if (oldSpecies == this->transferType)
         return;
 
-        toFourier();
-        for (size_t i = 0; i < multiLevelContext->getNumLevels(); ++i) {
+      toFourier();
+      for (size_t i = 0; i < multiLevelContext->getNumLevels(); ++i) {
         auto &grid = multiLevelContext->getGridForLevel(i);
         applyTransferRatioOneGrid(getFieldForLevel(i),
                                   *multiLevelContext->getCovariance(i, oldSpecies),
-                                  *multiLevelContext->getCovariance(i,this->transferType),
+                                  *multiLevelContext->getCovariance(i, this->transferType),
                                   grid);
-        }
+      }
     }
 
     //! Divide by one power spectrum and multiply by another for a single level.
     void applyTransferRatioOneGrid(Field<DataType> &field,
-                              const Field<DataType> &spectrum1,
-                              const Field<DataType> &spectrum2,
-                              const grids::Grid<T> &grid)
-    {
-        field.forEachFourierCellInt([&grid, &field, &spectrum1,&spectrum2]
-                                      (complex<T> existingValue, int kx, int ky, int kz) {
+                                   const Field<DataType> &spectrum1,
+                                   const Field<DataType> &spectrum2,
+                                   const grids::Grid<T> &grid) {
+      field.forEachFourierCellInt([&grid, &field, &spectrum1, &spectrum2]
+                                    (complex<T> existingValue, int kx, int ky, int kz) {
         T sqrt_spec1 = sqrt(spectrum1.getFourierCoefficient(kx, ky, kz).real());
         T sqrt_spec2 = sqrt(spectrum2.getFourierCoefficient(kx, ky, kz).real());
         complex<T> new_val;
-        if(sqrt_spec1 == 0.0)
-        {
-            assert(sqrt_spec2 == 0.0);
-            //This can only happen if the power spectrum is zero, ie k = 0, in which case,
-            //it will be zero for baryons too, so just return 0:
-            new_val = 0.0;
-        }
-        else
-        {
-            new_val = existingValue * sqrt_spec2 / sqrt_spec1;
+        if (sqrt_spec1 == 0.0) {
+          assert(sqrt_spec2 == 0.0);
+          //This can only happen if the power spectrum is zero, ie k = 0, in which case,
+          //it will be zero for baryons too, so just return 0:
+          new_val = 0.0;
+        } else {
+          new_val = existingValue * sqrt_spec2 / sqrt_spec1;
         }
         return new_val;
-        });
+      });
     }
 
   public:
@@ -527,7 +515,6 @@ namespace fields {
     }
 
 
-
   private:
     //! \brief Applies the power spectrum to a single level of the multi level field.
     /*!
@@ -540,7 +527,7 @@ namespace fields {
                               const grids::Grid<T> &grid) {
 
       field.forEachFourierCellInt([&grid, &field, &spectrum]
-                                      (complex<T> existingValue, int kx, int ky, int kz) {
+                                    (complex<T> existingValue, int kx, int ky, int kz) {
         T sqrt_spec = sqrt(spectrum.getFourierCoefficient(kx, ky, kz).real());
         return existingValue * sqrt_spec;
       });
@@ -553,19 +540,16 @@ namespace fields {
     \param grid - grid on which field is defined.
     */
     void applyInverseSpectrumOneGrid(Field<DataType> &field,
-                              const Field<DataType> &spectrum,
-                              const grids::Grid<T> &grid) {
+                                     const Field<DataType> &spectrum,
+                                     const grids::Grid<T> &grid) {
 
       field.forEachFourierCellInt([&grid, &field, &spectrum]
-                                      (complex<T> existingValue, int kx, int ky, int kz) {
+                                    (complex<T> existingValue, int kx, int ky, int kz) {
         T sqrt_spec = sqrt(spectrum.getFourierCoefficient(kx, ky, kz).real());
-        if(sqrt_spec == 0.0)
-        {
-            return existingValue*0.0;
-        }
-        else
-        {
-            return existingValue / sqrt_spec;
+        if (sqrt_spec == 0.0) {
+          return existingValue * 0.0;
+        } else {
+          return existingValue / sqrt_spec;
         }
       });
     }
@@ -583,7 +567,7 @@ namespace fields {
                                      T weight) {
 
       field.forEachFourierCellInt([weight, &grid, &field, &spectrum]
-                                      (complex<T> existingValue, int kx, int ky, int kz) {
+                                    (complex<T> existingValue, int kx, int ky, int kz) {
         T spec = spectrum.getFourierCoefficient(kx, ky, kz).real() * weight;
         return existingValue * spec;
       });
@@ -602,7 +586,7 @@ namespace fields {
                                    T weight) {
 
       field.forEachFourierCellInt([weight, &grid, &field, &spectrum]
-                                      (complex<T> existingValue, int kx, int ky, int kz) {
+                                    (complex<T> existingValue, int kx, int ky, int kz) {
         T spec = spectrum.getFourierCoefficient(kx, ky, kz).real() * weight;
         if (spec == 0) {
           return complex<DataType>(0, 0);
@@ -624,7 +608,7 @@ namespace fields {
       T white_noise_norm = sqrt(T(grid.size3));
 
       field.forEachFourierCellInt([white_noise_norm, &grid, &field, &spectrum]
-                                   (complex<T> existingValue, int kx, int ky, int kz) {
+                                    (complex<T> existingValue, int kx, int ky, int kz) {
         T absExistingValue = abs(existingValue);
         T sqrt_spec = sqrt(spectrum.getFourierCoefficient(kx, ky, kz).real()) * white_noise_norm;
         T a = sqrt_spec * existingValue.real() / absExistingValue;
@@ -673,14 +657,14 @@ namespace fields {
     }
 
   public:
-  //!\param Constructor with a given multi-level context and transfer type.
+    //!\param Constructor with a given multi-level context and transfer type.
     /*!
     \param multiLevelContext - multiLevel context to define the field on
     \param transfer_type - specifies the transfer function to use for this field
     */
-    OutputField(multilevelcontext::MultiLevelContextInformation<DataType> &multiLevelContext,particle::species transfer_type)
-        : MultiLevelField<DataType>(multiLevelContext,transfer_type)
-          {
+    OutputField(multilevelcontext::MultiLevelContextInformation<DataType> &multiLevelContext,
+                particle::species transfer_type)
+      : MultiLevelField<DataType>(multiLevelContext, transfer_type) {
       outputState = PRE_SEPARATION;
       fieldsOnLevelsPopulated = false;
     }
@@ -729,15 +713,15 @@ namespace fields {
 
 
   public:
-  //! \brief Constructor
-  /*!
-  \param multiLevelContext - current multi-level context
-  \param fieldsOnGrids - fields that define the constraint field on each level
-  \param transfer_type - 0 for dark matter, 1 for baryons
-  */
+    //! \brief Constructor
+    /*!
+    \param multiLevelContext - current multi-level context
+    \param fieldsOnGrids - fields that define the constraint field on each level
+    \param transfer_type - 0 for dark matter, 1 for baryons
+    */
     ConstraintField(multilevelcontext::MultiLevelContextInformation<DataType> &multiLevelContext,
                     const std::vector<std::shared_ptr<Field<DataType, T>>> &fieldsOnGrids)
-        : MultiLevelField<DataType>(multiLevelContext, std::move(fieldsOnGrids)) {
+      : MultiLevelField<DataType>(multiLevelContext, std::move(fieldsOnGrids)) {
       this->isCovector = true;
       updateMultiLevelContext();
     }

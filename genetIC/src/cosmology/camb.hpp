@@ -17,23 +17,23 @@ namespace cosmology {
 
   template<typename F>
   struct CacheKeyComparator {
-    bool operator()(const F & a, const F & b ) const {
-      bool ptr_less = std::owner_less<typename F::first_type>()(a.first,b.first);
-      return ptr_less || (!ptr_less && a.second<b.second); // equivalent to normal std::pair sorting
+    bool operator()(const F &a, const F &b) const {
+      bool ptr_less = std::owner_less<typename F::first_type>()(a.first, b.first);
+      return ptr_less || (!ptr_less && a.second < b.second); // equivalent to normal std::pair sorting
     }
   };
 
   template<typename T>
   inline constexpr bool operator<(const std::weak_ptr<T> &a, const std::weak_ptr<T> &b) {
-    return std::owner_less<std::weak_ptr<T>>()(a,b);
+    return std::owner_less<std::weak_ptr<T>>()(a, b);
   }
 
-   /*! \class CAMB
-   * \brief Load in and provide interpolation routines for the cosmological power spectrum.
-   *
-   * Currently tied to the CAMB transfer function output format, though this could easily
-   * be relaxed in future by creating an abstract base class and deriving different
-   * classes for alternative approaches. */
+  /*! \class CAMB
+  * \brief Load in and provide interpolation routines for the cosmological power spectrum.
+  *
+  * Currently tied to the CAMB transfer function output format, though this could easily
+  * be relaxed in future by creating an abstract base class and deriving different
+  * classes for alternative approaches. */
   template<typename DataType>
   class CAMB {
   protected:
@@ -51,12 +51,11 @@ namespace cosmology {
     using CacheKeyType = std::pair<std::weak_ptr<const grids::Grid<CoordinateType>>, size_t>;
 
 
-
     //! A cache for previously calculated covariances. The key is a pair: (weak pointer to the grid, transfer fn)
     mutable std::map<CacheKeyType, std::shared_ptr<FieldType>,
-                     CacheKeyComparator<CacheKeyType>> calculatedCovariancesCache;
+      CacheKeyComparator<CacheKeyType>> calculatedCovariancesCache;
 
-    size_t cambCols[2] = {1,2}; //!< Columns of CAMB that we request:
+    size_t cambCols[2] = {1, 2}; //!< Columns of CAMB that we request:
     std::vector<tools::numerics::Interpolator<CoordinateType>> allInterpolators; //!< Interpolation functions:
     CoordinateType amplitude; //!< Amplitude of the initial power spectrum
     CoordinateType ns;        //!< tensor to scalar ratio of the initial power spectrum
@@ -68,39 +67,33 @@ namespace cosmology {
     const size_t nTransfers = 2; //!< Total number of transfer functions stored:
     bool dataRead; //!< True if we have read in data.
 
-    CAMB(bool useOnlyDM = true)
-    {
-        this->dataRead = false;
-        // Initialise the interpolators and transfer functions vectors to be the
-        // appropriate size, containing default constructed objects.
-        if(useOnlyDM)
-        {
-            this->allInterpolators.resize(1);
-            this->T.resize(1);
-            speciesToTransferId[particle::species::dm] = 0;
-            speciesToTransferId[particle::species::baryon] = 0;
-        }
-        else
-        {
-          this->allInterpolators.resize(this->nTransfers);
-          this->T.resize(this->nTransfers);
-          speciesToTransferId[particle::species::dm] = 0;
-          speciesToTransferId[particle::species::baryon] = 1;
-        }
+    CAMB(bool useOnlyDM = true) {
+      this->dataRead = false;
+      // Initialise the interpolators and transfer functions vectors to be the
+      // appropriate size, containing default constructed objects.
+      if (useOnlyDM) {
+        this->allInterpolators.resize(1);
+        this->T.resize(1);
+        speciesToTransferId[particle::species::dm] = 0;
+        speciesToTransferId[particle::species::baryon] = 0;
+      } else {
+        this->allInterpolators.resize(this->nTransfers);
+        this->T.resize(this->nTransfers);
+        speciesToTransferId[particle::species::dm] = 0;
+        speciesToTransferId[particle::species::baryon] = 1;
+      }
     }
 
     //! Enables the use of the baryon transfer function
-    void enableAllTransfers()
-    {
-        if(this->T.size() < 2)
-        {
-            this->kcamb.clear();
-            this->T.clear();
-        }
-        this->T.resize(this->nTransfers);
-        this->allInterpolators.resize(this->nTransfers);
-        speciesToTransferId[particle::species::dm] = 0;
-        speciesToTransferId[particle::species::baryon] = 1;
+    void enableAllTransfers() {
+      if (this->T.size() < 2) {
+        this->kcamb.clear();
+        this->T.clear();
+      }
+      this->T.resize(this->nTransfers);
+      this->allInterpolators.resize(this->nTransfers);
+      speciesToTransferId[particle::species::dm] = 0;
+      speciesToTransferId[particle::species::baryon] = 1;
     }
 
     //! Checks whether the CAMB object actually stores any data:
@@ -109,11 +102,10 @@ namespace cosmology {
     }
 
     //! Import data from CAMB file and initialise the interpolation functions used to compute the transfer functions:
-    void read(const std::string& filename, const CosmologicalParameters <CoordinateType> &cosmology) {
+    void read(const std::string &filename, const CosmologicalParameters<CoordinateType> &cosmology) {
       readLinesFromCambOutput(filename);
-      for(size_t i = 0;i < this->T.size();i++)
-      {
-            this->allInterpolators[i].initialise(kcamb, this->T[i]);
+      for (size_t i = 0; i < this->T.size(); i++) {
+        this->allInterpolators[i].initialise(kcamb, this->T[i]);
       }
 
       // a bit awkward that we have to copy this value:
@@ -125,12 +117,11 @@ namespace cosmology {
     }
 
   protected:
-  //! \brief This function imports data from a CAMB file, supplied as a file-name string argument (incamb).
-  //! Both pre-2015 and post-2015 formats can be used, and the function will detect which.
+    //! \brief This function imports data from a CAMB file, supplied as a file-name string argument (incamb).
+    //! Both pre-2015 and post-2015 formats can be used, and the function will detect which.
     void readLinesFromCambOutput(std::string incamb) {
       kcamb.clear();
-      for(size_t i  =0;i < this->T.size();i++)
-      {
+      for (size_t i = 0; i < this->T.size(); i++) {
         T[i].clear();
       }
 
@@ -150,16 +141,11 @@ namespace cosmology {
       // Check whether the input file is in the pre-2015 or post-2015 format (and throw an error if it is neither).
       numCols = io::getNumberOfColumns(incamb);
 
-      if(numCols == c_old_camb)
-      {
+      if (numCols == c_old_camb) {
         std::cerr << "Using pre 2015 CAMB transfer function" << std::endl;
-      }
-      else if(numCols == c_new_camb)
-      {
+      } else if (numCols == c_new_camb) {
         std::cerr << "Using post 2015 CAMB transfer function" << std::endl;
-      }
-      else
-      {
+      } else {
         throw std::runtime_error("CAMB transfer file doesn't have a sensible number of rows and columns");
       }
 
@@ -170,8 +156,7 @@ namespace cosmology {
         if (input[numCols * j] > 0) {
           // hard-coded to first two columns of CAMB file -
           kcamb.push_back(CoordinateType(input[numCols * j]));
-          for(size_t i = 0;i < this->T.size();i++)
-          {
+          for (size_t i = 0; i < this->T.size(); i++) {
             T[i].push_back(CoordinateType(input[numCols * j + this->cambCols[i]]) / transferNormalisation);
           }
         } else continue;
@@ -182,8 +167,7 @@ namespace cosmology {
       // at these high k's (see operator() below).
 
       std::vector<CoordinateType> T_f;
-      for(size_t i = 0;i < this->T.size();i++)
-      {
+      for (size_t i = 0; i < this->T.size(); i++) {
         T_f.push_back(T[i].back());
       }
       kcamb_max_in_file = kcamb.back();
@@ -191,9 +175,8 @@ namespace cosmology {
       while (kcamb.back() < 1e7) {
         kcamb.push_back(kcamb.back() + 1.0);
         CoordinateType kratio = kcamb.back() / kcamb_max_in_file;
-        for(size_t i = 0;i < this->T.size();i++)
-        {
-            T[i].push_back(T_f[i] * pow(kratio, -2.0) * log(kcamb.back() / keq) / log(kcamb_max_in_file / keq));
+        for (size_t i = 0; i < this->T.size(); i++) {
+          T[i].push_back(T_f[i] * pow(kratio, -2.0) * log(kcamb.back() / keq) / log(kcamb_max_in_file / keq));
         }
       }
 
@@ -225,7 +208,7 @@ namespace cosmology {
 
     //! Get the theoretical power spectrum appropriate for a given grid. This may be a cached copy if previously calculated.
     std::shared_ptr<fields::Field<DataType, CoordinateType>>
-    getPowerSpectrumForGrid(const std::shared_ptr<const grids::Grid<CoordinateType>> & grid,
+    getPowerSpectrumForGrid(const std::shared_ptr<const grids::Grid<CoordinateType>> &grid,
                             particle::species transferType = particle::species::dm) const {
       size_t transferId = speciesToTransferId.at(transferType);
 
@@ -233,8 +216,7 @@ namespace cosmology {
 
       auto result = this->calculatedCovariancesCache[cacheKey];
 
-      if(result==nullptr)
-      {
+      if (result == nullptr) {
         result = getPowerSpectrumForGridUncached(grid, transferType);
         this->calculatedCovariancesCache[cacheKey] = result;
       }
@@ -242,7 +224,6 @@ namespace cosmology {
       return result;
 
     }
-
 
 
   protected:
@@ -256,11 +237,11 @@ namespace cosmology {
 
       auto P = std::make_shared<fields::Field<DataType, CoordinateType>>(*grid, true);
 
-      P->forEachFourierCell([norm, this,transferType]
+      P->forEachFourierCell([norm, this, transferType]
                               (std::complex<CoordinateType>, CoordinateType kx, CoordinateType ky,
                                CoordinateType kz) {
         CoordinateType k = sqrt(kx * kx + ky * ky + kz * kz);
-        auto spec = std::complex<CoordinateType>((*this)(k,transferType) * norm, 0);
+        auto spec = std::complex<CoordinateType>((*this)(k, transferType) * norm, 0);
         return spec;
       });
 
@@ -274,7 +255,7 @@ namespace cosmology {
     }
 
     //! Return the cosmology-dependent part of the normalisation of the power spectrum.
-    void calculateOverallNormalization(const CosmologicalParameters <CoordinateType> &cosmology) {
+    void calculateOverallNormalization(const CosmologicalParameters<CoordinateType> &cosmology) {
       CoordinateType ourGrowthFactor = growthFactor(cosmology);
       CoordinateType growthFactorNormalized = ourGrowthFactor / growthFactor(cosmologyAtRedshift(cosmology, 0));
       CoordinateType sigma8PreNormalization = calculateLinearVarianceInSphere(8.);
@@ -305,8 +286,8 @@ namespace cosmology {
 
     //! Compute the variance in a spherical top hat window
     CoordinateType calculateLinearVarianceInSphere(CoordinateType radius,
-      particle::species transferType = particle::species::dm) const {
-      
+                                                   particle::species transferType = particle::species::dm) const {
+
       CoordinateType s = 0., k, t;
 
       CoordinateType amp = 9. / 2. / M_PI / M_PI;
@@ -314,7 +295,7 @@ namespace cosmology {
       CoordinateType kmin = kcamb[0];
 
       CoordinateType dk = (kmax - kmin) / 50000.;
-      auto & interpolator = this->allInterpolators[speciesToTransferId.at(transferType)];
+      auto &interpolator = this->allInterpolators[speciesToTransferId.at(transferType)];
       for (k = kmin; k < kmax; k += dk) {
 
 

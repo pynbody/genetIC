@@ -76,26 +76,26 @@ namespace grids {
     */
     Grid(T simsize, size_t n, T dx = 1.0, T x0 = 0.0, T y0 = 0.0, T z0 = 0.0,
          T massFrac = 0.0, T softScale = 1.0) :
-        periodicDomainSize(simsize), thisGridSize(dx * n),
-        cellSize(dx), offsetLower(x0, y0, z0),
-        size(n), size2(n * n), size3(n * n * n),
-        simEquivalentSize((unsigned) tools::getRatioAndAssertInteger(simsize, dx)),
-        cellMassFrac(massFrac == 0.0 ? pow(dx / simsize, 3.0) : massFrac),
-        cellSofteningScale(softScale) {
+      periodicDomainSize(simsize), thisGridSize(dx * n),
+      cellSize(dx), offsetLower(x0, y0, z0),
+      size(n), size2(n * n), size3(n * n * n),
+      simEquivalentSize((unsigned) tools::getRatioAndAssertInteger(simsize, dx)),
+      cellMassFrac(massFrac == 0.0 ? pow(dx / simsize, 3.0) : massFrac),
+      cellSofteningScale(softScale) {
       setKmin();
     }
 
     //! Basic constructor - everything but the size is assumed.
     explicit Grid(size_t n) : periodicDomainSize(0), thisGridSize(n),
-                     cellSize(1.0), offsetLower(0, 0, 0),
-                     size(n), size2(n * n), size3(n * n * n), simEquivalentSize(0), cellMassFrac(0.0),
-                     cellSofteningScale(1.0) {
+                              cellSize(1.0), offsetLower(0, 0, 0),
+                              size(n), size2(n * n), size3(n * n * n), simEquivalentSize(0), cellMassFrac(0.0),
+                              cellSofteningScale(1.0) {
       setKmin();
     }
 
 
   protected:
-  //! Set the fundamental mode for the box
+    //! Set the fundamental mode for the box
     void setKmin() {
       kMin = 2. * M_PI / thisGridSize;
     }
@@ -135,7 +135,7 @@ namespace grids {
     }
 
     //! Returns true if the grid is an upsampled or downsampled virtual grid (overridden)
-    virtual bool isUpsampledOrDownsampled(){
+    virtual bool isUpsampledOrDownsampled() {
       return false;
     }
 
@@ -147,13 +147,13 @@ namespace grids {
     }
 
     //! Check whether two grids are equal:
-    bool operator==(const Grid& gridOther) const {
-        return this->isProxyFor(&gridOther);
+    bool operator==(const Grid &gridOther) const {
+      return this->isProxyFor(&gridOther);
     }
 
     //! Check whether two girds are not equal:
-    bool operator!=(const Grid& gridOther) const {
-        return !(this->operator==(gridOther));
+    bool operator!=(const Grid &gridOther) const {
+      return !(this->operator==(gridOther));
     }
 
 
@@ -217,7 +217,7 @@ namespace grids {
      * Methods dealing with flagging cells on the grid
      ******************************/
 
-     //! Copies a list of the linear indices of the currently flagged cells into targetArray
+    //! Copies a list of the linear indices of the currently flagged cells into targetArray
     virtual void getFlaggedCells(std::vector<size_t> &targetArray) const {
       targetArray.insert(targetArray.end(), flags.begin(), flags.end());
     }
@@ -238,21 +238,21 @@ namespace grids {
      be flagged. Triples the number of flags, but removes any duplicates.*/
     virtual void expandFlaggedRegionInDirection(const Coordinate<int> &step) {
       size_t old_size = flags.size();
-      flags.resize(old_size*3);
-      for (size_t i=0; i<old_size; ++i) {
+      flags.resize(old_size * 3);
+      for (size_t i = 0; i < old_size; ++i) {
         size_t original_cell_id = flags[i];
-        flags[i+old_size] = this->getIndexFromIndexAndStep(original_cell_id, step);
-        flags[i+old_size*2] = this->getIndexFromIndexAndStep(original_cell_id, -step);
+        flags[i + old_size] = this->getIndexFromIndexAndStep(original_cell_id, step);
+        flags[i + old_size * 2] = this->getIndexFromIndexAndStep(original_cell_id, -step);
       }
       tools::sortAndEraseDuplicate(flags);
     }
 
     //! Expands the flagged region by ncells cells in each of the x,y,z directions.
-    virtual void expandFlaggedRegion(size_t ncells=1) {
-      for(size_t i=0; i<ncells; i++) {
-        expandFlaggedRegionInDirection({0,0,1});
-        expandFlaggedRegionInDirection({0,1,0});
-        expandFlaggedRegionInDirection({1,0,0});
+    virtual void expandFlaggedRegion(size_t ncells = 1) {
+      for (size_t i = 0; i < ncells; i++) {
+        expandFlaggedRegionInDirection({0, 0, 1});
+        expandFlaggedRegionInDirection({0, 1, 0});
+        expandFlaggedRegionInDirection({1, 0, 0});
       }
     }
 
@@ -267,28 +267,27 @@ namespace grids {
     }
 
     //! Gets the geometric centre of the currently flagged cells, guaranteed to be a vector pointing to within the box.
-    Coordinate<T> getFlaggedCellsCentre(){
+    Coordinate<T> getFlaggedCellsCentre() {
       return this->getCentreWrapped(this->flags);
     }
 
     //! Returns the number of cells on one side of the smallest box that could contain all the flagged cells.
-    int getFlaggedCellsSize(){
-      if (this->numFlaggedCells() > 0 ) {
-          Window<int> flaggedWindow(this->getEffectiveSimulationSize(),
-                                    this->getCoordinateFromIndex(this->flags[0]));
-          for (auto cell_id : this->flags) {
-              flaggedWindow.expandToInclude(this->getCoordinateFromIndex(cell_id));
-          }
-          return flaggedWindow.getMaximumDimension();
+    int getFlaggedCellsSize() {
+      if (this->numFlaggedCells() > 0) {
+        Window<int> flaggedWindow(this->getEffectiveSimulationSize(),
+                                  this->getCoordinateFromIndex(this->flags[0]));
+        for (auto cell_id : this->flags) {
+          flaggedWindow.expandToInclude(this->getCoordinateFromIndex(cell_id));
+        }
+        return flaggedWindow.getMaximumDimension();
+      } else {
+        return 0;
       }
-      else {
-          return 0;
-          }
     }
 
     //! Returns the physical size (in Mpc/h) of the smallest box that could contain all the flagged cells.
-    T getFlaggedCellsPhysicalSize(){
-        return T(this->getFlaggedCellsSize()) * this->cellSize;
+    T getFlaggedCellsPhysicalSize() {
+      return T(this->getFlaggedCellsSize()) * this->cellSize;
     };
 
   protected:
@@ -311,10 +310,10 @@ namespace grids {
       for (auto id: sourceArray) {
         auto coord = source->getCoordinateFromIndex(id);
         iterateOverCube<int>(
-            coord * factor, coord * factor + factor,
-            [&targetArray, &target](const Coordinate<int> &subCoord) {
-              targetArray.push_back(target->getIndexFromCoordinateNoWrap(subCoord));
-            }
+          coord * factor, coord * factor + factor,
+          [&targetArray, &target](const Coordinate<int> &subCoord) {
+            targetArray.push_back(target->getIndexFromCoordinateNoWrap(subCoord));
+          }
         );
       }
     }
@@ -357,7 +356,7 @@ namespace grids {
     ******************************/
 
   public:
-  //! Gets the displacement between x0 and x1, wrapped so that it lies within the periodic domain.
+    //! Gets the displacement between x0 and x1, wrapped so that it lies within the periodic domain.
     T getWrappedOffset(T x0, T x1) const {
       T result = x0 - x1;
       if (result > periodicDomainSize / 2) {
@@ -379,8 +378,8 @@ namespace grids {
         The underlying assumption of this method is that the centering is done on the coarse grid.
      *  Centering on zoom grids is not taken care off.
      */
-    Coordinate<T> const getCentreWrapped(const std::vector<size_t>& vector_ids){
-      if(vector_ids.empty()){
+    Coordinate<T> const getCentreWrapped(const std::vector<size_t> &vector_ids) {
+      if (vector_ids.empty()) {
         throw std::runtime_error("Cannot calculate the center of an empty region");
       }
 
@@ -391,7 +390,7 @@ namespace grids {
       auto p0_location = this->getCentroidFromIndex(vector_ids[0]);
 
       // Calculate the wrapped mean wrto to cell 0
-      for (size_t i = 1; i <vector_ids.size(); i++) {
+      for (size_t i = 1; i < vector_ids.size(); i++) {
         size_t id = vector_ids[i];
         auto pi_location = this->getCentroidFromIndex(id);
         runningx += this->getWrappedOffset(pi_location.x, p0_location.x);
@@ -418,8 +417,8 @@ namespace grids {
     /*!
      * @param safety Exclude "safety" number of pixels at the edge of the box
      */
-    virtual bool containsPointWithBorderSafety(const Coordinate<T> &coord, int safety ) const{
-      if(safety < 1){
+    virtual bool containsPointWithBorderSafety(const Coordinate<T> &coord, int safety) const {
+      if (safety < 1) {
         throw std::runtime_error("Safety number of pixels must be at least one");
       }
 
@@ -500,7 +499,7 @@ namespace grids {
     }
 
     //! Converts an integer co-ordinate to a linear index without wrapping.
-     virtual size_t getIndexFromCoordinateNoWrap(const Coordinate<int> &coordinate) const {
+    virtual size_t getIndexFromCoordinateNoWrap(const Coordinate<int> &coordinate) const {
       return getIndexFromCoordinateNoWrap(coordinate.x, coordinate.y, coordinate.z);
     }
 
@@ -546,7 +545,7 @@ namespace grids {
     //! Gets the index of the cell closest to a physical point.
     virtual size_t getIndexFromPoint(Coordinate<T> point) const {
 //      auto coords = floor(wrapPoint(point - offsetLower - cellSize / 2) / cellSize);
-       auto coords = floor(wrapPoint(point - offsetLower) / cellSize);
+      auto coords = floor(wrapPoint(point - offsetLower) / cellSize);
       assert(this->containsCellWithCoordinate(coords));
       return getIndexFromCoordinateNoWrap(coords);
     }
@@ -592,8 +591,8 @@ namespace grids {
       // Whether wrapping the cube partially around the box would be appropriate is context-dependent
       // So let's just disallow it altogether
 
-      if(xa<0 || ya<0 || za<0 || size_t(xb)>=size || size_t(yb)>=size || size_t(zb)>=size)
-        throw(std::out_of_range("Requested cube does not fit into this grid"));
+      if (xa < 0 || ya < 0 || za < 0 || size_t(xb) >= size || size_t(yb) >= size || size_t(zb) >= size)
+        throw (std::out_of_range("Requested cube does not fit into this grid"));
 
       iterateOverCube<int>(Coordinate<int>(xa, ya, za),
                            Coordinate<int>(xb, yb, zb) + 1,

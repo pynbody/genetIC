@@ -126,9 +126,9 @@ namespace particle {
       }
 
       //! Go to the begining of the particles of the specified gadget type.
-      virtual iterator beginParticleType(const AbstractMultiLevelParticleGenerator<GridDataType> &generator,
+      virtual iterator beginParticleType(const AbstractMultiLevelParticleGenerator <GridDataType> &generator,
                                          unsigned int particleType) const override {
-        if(gadgetParticleType==particleType) {
+        if (gadgetParticleType == particleType) {
           return this->begin(generator);
         } else {
           return iterator(nullptr, generator);
@@ -136,9 +136,9 @@ namespace particle {
       }
 
       //! Go to the end of the particles of the specified gadget type.
-      virtual iterator endParticleType(const AbstractMultiLevelParticleGenerator<GridDataType> &generator,
+      virtual iterator endParticleType(const AbstractMultiLevelParticleGenerator <GridDataType> &generator,
                                        unsigned int particleType) const override {
-        if(gadgetParticleType==particleType) {
+        if (gadgetParticleType == particleType) {
           return this->end(generator);
         } else {
           return iterator(nullptr, generator);
@@ -152,10 +152,10 @@ namespace particle {
       std::pair<MapPtrType, MapPtrType> splitMass(T massRatio, const std::vector<GridPtrType> &toGrids) override {
         if (pGrid->isProxyForAnyOf(toGrids)) {
           return std::make_pair(
-              std::make_shared<OneLevelParticleMapper<GridDataType>>(
-                  this->pGrid->makeScaledMassVersion(massRatio)),
-              std::make_shared<OneLevelParticleMapper<GridDataType>>(
-                  this->pGrid->makeScaledMassVersion(1.0 - massRatio)));
+            std::make_shared<OneLevelParticleMapper<GridDataType>>(
+              this->pGrid->makeScaledMassVersion(massRatio)),
+            std::make_shared<OneLevelParticleMapper<GridDataType>>(
+              this->pGrid->makeScaledMassVersion(1.0 - massRatio)));
         } else {
           return std::make_pair(std::shared_ptr<OneLevelParticleMapper<GridDataType>>(nullptr),
                                 std::make_shared<OneLevelParticleMapper<GridDataType>>(this->pGrid));
@@ -183,7 +183,7 @@ namespace particle {
         return newMapper;
       }
 
-      MapPtrType insertIntermediateResolutionPadding(size_t , size_t ) override {
+      MapPtrType insertIntermediateResolutionPadding(size_t, size_t) override {
         return this->shared_from_this();
       }
 

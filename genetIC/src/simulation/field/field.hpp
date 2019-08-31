@@ -60,7 +60,9 @@ namespace fields {
     using ComplexType = tools::datatypes::ensure_complex<DataType>;
 
     using FourierManager = tools::numerics::fourier::FieldFourierManager<DataType>;
-    enum {x, y, z} DirectionType;
+    enum {
+      x, y, z
+    } DirectionType;
 
 
   protected:
@@ -79,9 +81,9 @@ namespace fields {
 
     //! Copy constructor
     Field(const Field<DataType, CoordinateType> &copy)
-        : std::enable_shared_from_this<Field<DataType, CoordinateType>>(),
-          pGrid(copy.pGrid), data(copy.data),
-          fourier(copy.fourier) {
+      : std::enable_shared_from_this<Field<DataType, CoordinateType>>(),
+        pGrid(copy.pGrid), data(copy.data),
+        fourier(copy.fourier) {
       fourierManager = std::make_shared<FourierManager>(*this);
       assert(data.size() == fourierManager->getRequiredDataSize());
     }
@@ -113,7 +115,7 @@ namespace fields {
 
   public:
 
-  //! \brief Returns a reference to the underlying grid
+    //! \brief Returns a reference to the underlying grid
     TGrid &getGrid() const {
       return const_cast<TGrid &>(*pGrid);
     }
@@ -240,7 +242,7 @@ namespace fields {
      * FOURIER TRANSFORM SUPPORT
      */
 
-     //! Converts the field to the same co-ordinates (Fourier or Real space) as the specified field.
+    //! Converts the field to the same co-ordinates (Fourier or Real space) as the specified field.
     template<typename T>
     void matchFourier(const T &other) {
       if (other.isFourier())
@@ -442,19 +444,19 @@ namespace fields {
     void loadGridData(std::string filename) {
       int n = static_cast<int>(getGrid().size);
       int n0, n1, n2;
-      io::numpy::LoadArrayFromNumpy(filename, n0, n1, n2, data );
-      if(n0!=n || n1!=n || n2!=n) {
+      io::numpy::LoadArrayFromNumpy(filename, n0, n1, n2, data);
+      if (n0 != n || n1 != n || n2 != n) {
         throw std::runtime_error("Incorrect size for imported numpy array");
       }
-      assert(data.size()==getGrid().size3);
+      assert(data.size() == getGrid().size3);
       data.resize(fourierManager->getRequiredDataSize());
     }
 
 
   };
 
-  //TODO - this function is never actually used anywhere...
-  //! Mostly used for debugging. Convert a field from holding one data type to another, e.g. complex to real.
+  //! Converts field from one storage type to another, likely from complex -> real internal representation.
+  //! Note that convertField is only retained for future debugging.
   template<typename TargetDataType, typename SourceDataType, typename CoordinateType>
   std::shared_ptr<Field<TargetDataType, CoordinateType>>
   convertField(Field<SourceDataType, CoordinateType> &field) {
@@ -472,8 +474,8 @@ namespace fields {
     return newField;
   };
 
-  // TODO - it doesn't look like this function is really converting anything, so it's a bit of an odd name. Also, it's never actually used...
-  //! Returns a shared pointer to this field
+  //! Specialisation of convertField for the case where no conversion is necessary.
+  //! Note that convertField is only retained for future debugging.
   template<typename TargetDataType, typename CoordinateType>
   std::shared_ptr<Field<TargetDataType, CoordinateType>>
   convertField(Field<TargetDataType, CoordinateType> &field) {

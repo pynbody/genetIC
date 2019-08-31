@@ -68,9 +68,9 @@ namespace tools {
   template<typename Rtype>
   Rtype call_function(const std::function<Rtype()> &f,
                       std::istream &input_stream,
-                      std::ostream * output_stream) {
+                      std::ostream *output_stream) {
     consume_comments(input_stream);
-    if(output_stream) (*output_stream) << std::endl;
+    if (output_stream) (*output_stream) << std::endl;
     return f();
   }
 
@@ -89,11 +89,11 @@ namespace tools {
   Rtype call_function(const std::function<Rtype(T1, Args...)> &f, std::istream &input_stream,
                       std::ostream *output_stream) {
     T1 arg1{};
-    if(input_stream.eof()){
+    if (input_stream.eof()) {
       throw DispatchError("Insufficient arguments");
-    } else{
+    } else {
       input_stream >> arg1;
-      if(input_stream.fail())
+      if (input_stream.fail())
         throw DispatchError("Error while parsing arguments");
     }
 
@@ -132,10 +132,11 @@ namespace tools {
       std::function<R(Args...)> f;
     };
 
-    typedef std::function<Rtype(const Base *, std::istream &, std::ostream *)> callerfn; //!< Wraps around a Func object, carrying additional information about the input and output stream
+    typedef std::function<Rtype(const Base *, std::istream &,
+                                std::ostream *)> callerfn; //!< Wraps around a Func object, carrying additional information about the input and output stream
 
     std::map<std::string,
-        std::pair<std::shared_ptr<Base>, callerfn> > _map; //!< Dictionary, used to map strings in the parameter file to functions that can be called.
+      std::pair<std::shared_ptr<Base>, callerfn> > _map; //!< Dictionary, used to map strings in the parameter file to functions that can be called.
 
 
     //! Turn the function back into the correct type (with argument information), and call it using arguments on the input_stream
@@ -232,7 +233,7 @@ namespace tools {
 
       auto pfunc = std::make_shared<Func<Rtype, Args...>>();
       auto pcaller = std::function<Rtype(const Base *, std::istream &, std::ostream *)>(
-          &unpack_and_call_function<Args...>);
+        &unpack_and_call_function<Args...>);
       pfunc->f = function;
 
       std::string lname(name);
@@ -304,7 +305,8 @@ namespace tools {
   template<typename Ctype, typename Rtype>
   class ClassDispatch {
   private:
-    std::vector<std::function<void(InstanceDispatch<Ctype, Rtype> &)>> adderFunctions; //!< List of functions that need to be added for a given instance of the class
+    std::vector<std::function<void(
+      InstanceDispatch<Ctype, Rtype> &)>> adderFunctions; //!< List of functions that need to be added for a given instance of the class
   public:
     //! Default constructor
     ClassDispatch() {}
@@ -313,9 +315,9 @@ namespace tools {
     template<typename... Args>
     void add_class_route(const std::string &name, Rtype (Ctype::*f)(Args...)) {
       auto addcall = std::function<void(InstanceDispatch<Ctype, Rtype> &)>(
-          [name, f](InstanceDispatch<Ctype, Rtype> &pDispatchObj) {
-            pDispatchObj.add_class_route(name, f);
-          });
+        [name, f](InstanceDispatch<Ctype, Rtype> &pDispatchObj) {
+          pDispatchObj.add_class_route(name, f);
+        });
 
 
       // make a lambda that adds the route to a specific object
@@ -326,7 +328,8 @@ namespace tools {
     InstanceDispatch<Ctype, Rtype> specify_instance(Ctype &c) {
       auto id = InstanceDispatch<Ctype, Rtype>(c);
       for (auto fn : adderFunctions)
-        fn(id); // Calls the add_class_route member member function of InstanceDispatch, creating a (string,function) pair and adding it to the map
+        fn(
+          id); // Calls the add_class_route member member function of InstanceDispatch, creating a (string,function) pair and adding it to the map
       return id;
 
     }

@@ -21,7 +21,7 @@ namespace modifications {
     //! Constructor that leaves initNumberSteps and targetPrecision unspecified
     QuadraticModification(multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
                           const cosmology::CosmologicalParameters<T> &cosmology_) :
-        Modification<DataType, T>(underlying_, cosmology_) {
+      Modification<DataType, T>(underlying_, cosmology_) {
       this->order = 2;
     };
 
@@ -29,7 +29,7 @@ namespace modifications {
     QuadraticModification(multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
                           const cosmology::CosmologicalParameters<T> &cosmology_, int initNumberSteps_,
                           T targetPrecision_) :
-        Modification<DataType, T>(underlying_, cosmology_), initNumberSteps(initNumberSteps_) {
+      Modification<DataType, T>(underlying_, cosmology_), initNumberSteps(initNumberSteps_) {
       this->targetPrecision = targetPrecision_;
       this->order = 2;
     };
@@ -60,17 +60,18 @@ namespace modifications {
 
       std::vector<std::shared_ptr<fields::Field<DataType, T>>> pushedfields;
 
-      for (size_t level = 0; level < this->underlying.getNumLevels(); level ++){
+      for (size_t level = 0; level < this->underlying.getNumLevels(); level++) {
 
-        fields::Field<DataType, T> pushedField = this->pushOneLevelFieldThroughMatrix(field.getFieldForLevel(level), level);
+        fields::Field<DataType, T> pushedField = this->pushOneLevelFieldThroughMatrix(field.getFieldForLevel(level),
+                                                                                      level);
         using tools::numerics::operator/=;
         pushedField.getDataVector() /= this->underlying.getWeightForLevel(level);
         pushedfields.push_back(std::make_shared<fields::Field<DataType, T>>(pushedField));
       }
 
       return std::make_shared<fields::ConstraintField<DataType>>(
-          *dynamic_cast<multilevelcontext::MultiLevelContextInformation<DataType, T> *>(&(this->underlying)),
-          pushedfields);
+        *dynamic_cast<multilevelcontext::MultiLevelContextInformation<DataType, T> *>(&(this->underlying)),
+        pushedfields);
     }
 
   protected:
@@ -91,7 +92,7 @@ namespace modifications {
     //! Constructor to specify filter space
     FilteredVarianceModification(multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
                                  const cosmology::CosmologicalParameters<T> &cosmology_, T filterscale_) :
-        QuadraticModification<DataType, T>(underlying_, cosmology_), scale(filterscale_) {
+      QuadraticModification<DataType, T>(underlying_, cosmology_), scale(filterscale_) {
       checkFilterScale(filterscale_);
       this->scale = filterscale_;
     }
@@ -100,16 +101,16 @@ namespace modifications {
     FilteredVarianceModification(multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
                                  const cosmology::CosmologicalParameters<T> &cosmology_, int initNumberSteps_,
                                  T targetPrecision_, T filterscale_) :
-        QuadraticModification<DataType, T>(underlying_, cosmology_, initNumberSteps_, targetPrecision_){
+      QuadraticModification<DataType, T>(underlying_, cosmology_, initNumberSteps_, targetPrecision_) {
       checkFilterScale(filterscale_);
       this->scale = filterscale_;
     }
 
     //! Check to see if the user actually specified a filter scale, and if it is suitable if they did
     void checkFilterScale(T scale_) {
-      if(scale_ < 0.0){
+      if (scale_ < 0.0) {
         throw std::runtime_error("Trying to calculate filtered variance without initialising variance filtering scale."
-                                     " Use filtering_scale command to do this.");
+                                 " Use filtering_scale command to do this.");
       }
 
       size_t finest_level = this->underlying.getNumLevels() - 1;
@@ -123,7 +124,7 @@ namespace modifications {
       T window_size = finest_grid.getFlaggedCellsPhysicalSize();
       if (scale_ > window_size) {
         std::cerr << "WARNING: High-pass filtering scale: " << scale_ << " h**-1 Mpc is greater than the rough window "
-                  <<"size: " << window_size <<" h**-1 Mpc used for modifications." << std::endl;
+                  << "size: " << window_size << " h**-1 Mpc used for modifications." << std::endl;
         std::cerr << "This is prone to numerical errors when modifying the field."
                   << " Decrease filtering scale to avoid it." << std::endl;
       }
@@ -131,7 +132,8 @@ namespace modifications {
     }
 
     //! Apply the matrix operation to a single level that defines this quadratic modification
-    fields::Field<DataType, T> pushOneLevelFieldThroughMatrix(const fields::Field<DataType, T> &field, size_t level) override {
+    fields::Field<DataType, T>
+    pushOneLevelFieldThroughMatrix(const fields::Field<DataType, T> &field, size_t level) override {
 
       fields::Field<DataType, T> pushedField = fields::Field<DataType, T>(field);
 

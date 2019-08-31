@@ -18,7 +18,7 @@ namespace particle {
   */
   template<typename GridDataType>
   class AbstractMultiLevelParticleGenerator :
-      public std::enable_shared_from_this<AbstractMultiLevelParticleGenerator<GridDataType>> {
+    public std::enable_shared_from_this<AbstractMultiLevelParticleGenerator<GridDataType>> {
 
   public:
     using T = tools::datatypes::strip_complex<GridDataType>;
@@ -28,10 +28,10 @@ namespace particle {
 
     //! Creates a particle evaluator for the specified grid and returns a pointer to it
     virtual std::shared_ptr<particle::ParticleEvaluator<GridDataType>>
-    makeParticleEvaluatorForGrid(const grids::Grid<T> &grid) =0;
+    makeParticleEvaluatorForGrid(const grids::Grid<T> &grid) = 0;
 
     virtual std::shared_ptr<fields::EvaluatorBase<GridDataType, T>>
-    makeOverdensityEvaluatorForGrid(const grids::Grid<T> &grid)  =0;
+    makeOverdensityEvaluatorForGrid(const grids::Grid<T> &grid) = 0;
 
     //! Creates a particle evaluator for the specified grid and returns a constant pointer to it
     std::shared_ptr<const particle::ParticleEvaluator<GridDataType>>
@@ -64,7 +64,7 @@ namespace particle {
     }
 
     std::shared_ptr<fields::EvaluatorBase<GridDataType, T>>
-    makeOverdensityEvaluatorForGrid(const grids::Grid<T> &grid) override  {
+    makeOverdensityEvaluatorForGrid(const grids::Grid<T> &grid) override {
       throw std::runtime_error("Attempt to get overdensity before it has been calculated");
     }
 
@@ -77,7 +77,7 @@ namespace particle {
   //! Function to initialise Zeldovich particle generators. Separated from main class due to lack of c++ partial template specialisation
   template<typename GridDataType, typename T>
   void initialiseParticleGeneratorBasedOnTemplate(
-      MultiLevelParticleGenerator<GridDataType, ZeldovichParticleGenerator<GridDataType>, T> &generator) {
+    MultiLevelParticleGenerator<GridDataType, ZeldovichParticleGenerator<GridDataType>, T> &generator) {
     using ZPG=ZeldovichParticleGenerator<GridDataType>;
     size_t nlevels = generator.context.getNumLevels();
 
@@ -87,14 +87,14 @@ namespace particle {
       throw std::runtime_error("Trying to apply zeldovich approximation, but no grids have been created");
     } else if (nlevels == 1) {
       generator.pGenerators.emplace_back(
-          std::make_shared<ZPG>(generator.overdensityField.getFieldForLevel(0)));
+        std::make_shared<ZPG>(generator.overdensityField.getFieldForLevel(0)));
     } else if (nlevels >= 2) {
       cerr << "Zeldovich approximation on successive levels..." << endl;
 
 
       for (size_t level = 0; level < nlevels; ++level)
         generator.pGenerators.emplace_back(
-            std::make_shared<ZPG>(generator.overdensityField.getFieldForLevel(level)));
+          std::make_shared<ZPG>(generator.overdensityField.getFieldForLevel(level)));
 
       cerr << "Interpolating low-frequency information into zoom regions..." << endl;
 
@@ -102,13 +102,13 @@ namespace particle {
 
         // remove the low-frequency information from this level
         generator.overdensityField.getFieldForLevel(level).applyFilter(
-            generator.overdensityField.getHighPassFilterForLevel(level));
+          generator.overdensityField.getHighPassFilterForLevel(level));
 
         // replace with the low-frequency information from the level below
 
         generator.overdensityField.getFieldForLevel(level).addFieldFromDifferentGridWithFilter(
-            generator.overdensityField.getFieldForLevel(level - 1),
-            generator.overdensityField.getLowPassFilterForLevel(level - 1));
+          generator.overdensityField.getFieldForLevel(level - 1),
+          generator.overdensityField.getLowPassFilterForLevel(level - 1));
 
 
         generator.pGenerators[level]->applyFilter(generator.overdensityField.getHighPassFilterForLevel(level));
@@ -116,7 +116,7 @@ namespace particle {
 
         generator.pGenerators[level]->addFieldFromDifferentGridWithFilter(*generator.pGenerators[level - 1],
                                                                           generator.overdensityField.getLowPassFilterForLevel(
-                                                                              level - 1));
+                                                                            level - 1));
 
 
       }
@@ -135,11 +135,11 @@ namespace particle {
   //! Function to to make a Zeldovich particle evaluator. Separated from main class due to lack of c++ partial template specialisation
   template<typename GridDataType, typename T>
   std::shared_ptr<particle::ParticleEvaluator<GridDataType>> makeParticleEvaluatorBasedOnTemplate(
-      MultiLevelParticleGenerator<GridDataType, ZeldovichParticleGenerator<GridDataType>, T> &generator,
+    MultiLevelParticleGenerator<GridDataType, ZeldovichParticleGenerator<GridDataType>, T> &generator,
     const grids::Grid<T> &grid, T epsNorm = 0.01075) {
-      auto fieldEvaluators = generator.getOutputFieldEvaluatorsForGrid(grid);
-      return std::make_shared<ZeldovichParticleEvaluator<GridDataType>>(fieldEvaluators[0], fieldEvaluators[1],
-                                                                        fieldEvaluators[2],
+    auto fieldEvaluators = generator.getOutputFieldEvaluatorsForGrid(grid);
+    return std::make_shared<ZeldovichParticleEvaluator<GridDataType>>(fieldEvaluators[0], fieldEvaluators[1],
+                                                                      fieldEvaluators[2],
                                                                       grid, generator.cosmoParams, epsNorm);
   };
 
@@ -181,7 +181,7 @@ namespace particle {
           fieldsAcrossLevels.push_back(pGenerators[level]->getGeneratedFields()[field]);
         }
         outputFields.emplace_back(std::make_shared<fields::MultiLevelField<GridDataType>>(
-            const_cast<ContextType &>(context), fieldsAcrossLevels));
+          const_cast<ContextType &>(context), fieldsAcrossLevels));
       }
     }
 
@@ -199,11 +199,11 @@ namespace particle {
 
 
     friend void initialiseParticleGeneratorBasedOnTemplate<>(
-        MultiLevelParticleGenerator<GridDataType, TParticleGenerator, T> &generator);
+      MultiLevelParticleGenerator<GridDataType, TParticleGenerator, T> &generator);
 
     friend std::shared_ptr<particle::ParticleEvaluator<GridDataType>> makeParticleEvaluatorBasedOnTemplate<>(
-        MultiLevelParticleGenerator<GridDataType, TParticleGenerator, T> &generator,
-        const grids::Grid<T> &grid, T epsNorm
+      MultiLevelParticleGenerator<GridDataType, TParticleGenerator, T> &generator,
+      const grids::Grid<T> &grid, T epsNorm
     );
 
 
@@ -215,10 +215,10 @@ namespace particle {
         \param epsNorm_ - pre-factor for cell softening scale
     */
     MultiLevelParticleGenerator(fields::OutputField<GridDataType> &field,
-                                const cosmology::CosmologicalParameters<T> &params,T epsNorm_ = 0.01075) :
-        overdensityField(field),
-        context(field.getContext()),
-        cosmoParams(params) {
+                                const cosmology::CosmologicalParameters<T> &params, T epsNorm_ = 0.01075) :
+      overdensityField(field),
+      context(field.getContext()),
+      cosmoParams(params) {
       initialise();
       epsNorm = epsNorm_;
     }
@@ -231,7 +231,7 @@ namespace particle {
     //! Returns the relevant particle evaluator
     std::shared_ptr<particle::ParticleEvaluator<GridDataType>>
     makeParticleEvaluatorForGrid(const grids::Grid<T> &grid) override {
-      return makeParticleEvaluatorBasedOnTemplate(*this, grid,epsNorm);
+      return makeParticleEvaluatorBasedOnTemplate(*this, grid, epsNorm);
     }
 
     std::shared_ptr<fields::EvaluatorBase<GridDataType, T>>

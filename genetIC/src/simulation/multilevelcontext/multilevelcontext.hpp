@@ -33,11 +33,11 @@ namespace cosmology {
  */
 namespace multilevelcontext {
 
-    /*! \class MultiLevelContextInformation
-    \brief Object used to store information about the multi-level context
+  /*! \class MultiLevelContextInformation
+  \brief Object used to store information about the multi-level context
 
-    Inherits from the base class in order to specialise to real/complex grids.
-  */
+  Inherits from the base class in order to specialise to real/complex grids.
+*/
   template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
   class MultiLevelContextInformation;
 
@@ -50,7 +50,7 @@ namespace multilevelcontext {
     std::vector<std::shared_ptr<grids::Grid<T>>> pGrid; //!< Pointers to the grids for each level
     std::vector<std::shared_ptr<grids::Grid<T>>> pOutputGrid; //!< Pointers to the output grids for each level -- may be different from the underlying grids if allowStrays is on
     std::vector<T> weights; //!< Fraction of the volume of the coarsest level's cells that the cells on each level occupy
-    const cosmology::CAMB<DataType> * powerSpectrumGenerator = nullptr;
+    const cosmology::CAMB<DataType> *powerSpectrumGenerator = nullptr;
 
   public:
     size_t nTransferFunctions = 1; //!< Keeps track of the number of transfer functions currently being used by the code.
@@ -78,8 +78,8 @@ namespace multilevelcontext {
 
     //! Constructor defining a multi-level context with no levels specified.
     //! \param spectrum - object holding data about the transfer functions
-    MultiLevelContextInformationBase(const std::shared_ptr<cosmology::CAMB<DataType>> &spectrum) : powerSpectrumGenerator(spectrum)
-    {
+    MultiLevelContextInformationBase(const std::shared_ptr<cosmology::CAMB<DataType>> &spectrum)
+      : powerSpectrumGenerator(spectrum) {
     }
 
     //! Destructor
@@ -125,9 +125,9 @@ namespace multilevelcontext {
       cumu_Ns.push_back(Ntot);
       Ntot += pG->size3;
 
-      if(allowStrays && nLevels>0) {
+      if (allowStrays && nLevels > 0) {
         // output grid covers entire simulation box, using interpolation from next level up to fill the gaps
-        auto gridForOutput = std::make_shared<grids::ResolutionMatchingGrid<T>>(pG, pOutputGrid[nLevels-1]);
+        auto gridForOutput = std::make_shared<grids::ResolutionMatchingGrid<T>>(pG, pOutputGrid[nLevels - 1]);
         pOutputGrid.push_back(gridForOutput);
       } else {
         // output grid is identical to grid on which data is actually stored
@@ -179,9 +179,8 @@ namespace multilevelcontext {
     }
 
     //! Return a vector of shared pointers to the grids. Needed to add gas to all levels, for example.
-    std::vector<std::shared_ptr<grids::Grid<T>>> getAllGrids()
-    {
-        return pGrid;
+    std::vector<std::shared_ptr<grids::Grid<T>>> getAllGrids() {
+      return pGrid;
     }
 
     //! Returns the weight for the specified level
@@ -197,14 +196,15 @@ namespace multilevelcontext {
       // Caching is now implemented in the power spectrum, so copies of the power spectrum on each level are no
       // longer stored in this class.
       assert(this->powerSpectrumGenerator);
-      return this->powerSpectrumGenerator->getPowerSpectrumForGrid(this->getGridForLevel(level).shared_from_this(), species);
+      return this->powerSpectrumGenerator->getPowerSpectrumForGrid(this->getGridForLevel(level).shared_from_this(),
+                                                                   species);
     }
 
     //! Returns the index of the deepest level that has flagged cells
     size_t deepestLevelwithFlaggedCells() {
 
       for (int i = this->getNumLevels() - 1; i >= 0; --i) {
-        if (this->getGridForLevel(i).numFlaggedCells()>0)
+        if (this->getGridForLevel(i).numFlaggedCells() > 0)
           return size_t(i);
       }
 
@@ -249,8 +249,8 @@ namespace multilevelcontext {
       }
 
       return std::make_shared<fields::ConstraintField<DataType>>(
-          *dynamic_cast<MultiLevelContextInformation<DataType, T> *>(this),
-          dataOnLevels);
+        *dynamic_cast<MultiLevelContextInformation<DataType, T> *>(this),
+        dataOnLevels);
     }
 
     //! Applies the specified operation to the grids on each level of the multi-level context
@@ -371,8 +371,9 @@ namespace multilevelcontext {
       try {
         extralowres = tools::findPowerOf(base_factor, subsample);
         extrahighres = tools::findPowerOf(base_factor, supersample);
-      } catch (const std::runtime_error &e){
-        throw std::runtime_error("Subsample and supersample cannot be converted into an integer number of grids with this base factor");
+      } catch (const std::runtime_error &e) {
+        throw std::runtime_error(
+          "Subsample and supersample cannot be converted into an integer number of grids with this base factor");
       }
 
       auto extracontext = multilevelcontext::MultiLevelContextInformation<DataType>();
@@ -386,21 +387,21 @@ namespace multilevelcontext {
         \param otherLevel - level we want the index for corresponding to the input index
         \param cellIndex - index on the current level
     */
-    size_t getIndexOfCellOnOtherLevel(size_t currentLevel, size_t otherLevel, size_t cellIndex){
+    size_t getIndexOfCellOnOtherLevel(size_t currentLevel, size_t otherLevel, size_t cellIndex) {
       Coordinate<T> cell_coord(this->getGridForLevel(currentLevel).getCentroidFromIndex(cellIndex));
       return this->getGridForLevel(otherLevel).getIndexFromPoint(cell_coord);
     }
 
     //! Returns a vector of all the levels that are neither upsampled nor downsampled.
-    std::vector<size_t> getFullResolutionGrids(){
+    std::vector<size_t> getFullResolutionGrids() {
       std::vector<size_t> levelsOfRealGrids;
 
-      for (size_t i = 0; i<nLevels; i++){
-        if(! this->getGridForLevel(i).isUpsampledOrDownsampled()){
+      for (size_t i = 0; i < nLevels; i++) {
+        if (!this->getGridForLevel(i).isUpsampledOrDownsampled()) {
           levelsOfRealGrids.push_back(i);
         }
       }
-      assert(! levelsOfRealGrids.empty());
+      assert(!levelsOfRealGrids.empty());
       return levelsOfRealGrids;
     }
 
@@ -425,8 +426,8 @@ namespace multilevelcontext {
         \param getCellContribution - function to evaluate on each cell
     */
     DataType accumulateOverEachModeOfEachLevel(
-        std::function<bool(size_t)> newLevelCallback,
-        std::function<DataType(size_t, size_t, size_t)> getCellContribution) {
+      std::function<bool(size_t)> newLevelCallback,
+      std::function<DataType(size_t, size_t, size_t)> getCellContribution) {
 
       // real version only - see complex specialization below
 

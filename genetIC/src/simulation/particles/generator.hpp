@@ -26,16 +26,16 @@ namespace particle {
   public:
 
     //! Returns the particle at index id on the grid, without wrapping
-    virtual Particle <T> getParticleNoWrap(size_t id) const =0;
+    virtual Particle <T> getParticleNoWrap(size_t id) const = 0;
 
     //! Gets the mass of the grid for this evaluator
-    virtual T getMass() const =0;
+    virtual T getMass() const = 0;
 
     //! Gets the cell softening scale of the grid for this evaluator
-    virtual T getEps() const =0;
+    virtual T getEps() const = 0;
 
     //! Returns the particle at index id on the grid, without offset
-    virtual Particle <T> getParticleNoOffset(size_t id) const =0;
+    virtual Particle <T> getParticleNoOffset(size_t id) const = 0;
 
     //! Returns a reference to the grid for this evaluator
     const grids::Grid<T> &getGrid() const {
