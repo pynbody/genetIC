@@ -1,11 +1,15 @@
 from __future__ import print_function
 import numpy as np
+import scipy.ndimage
 import pylab as p
 import glob
+import os
 
+def plot1dslice(prefix="output/",ps="-",slice_z=None,slice_y=None,maxgrid=2,vmin=-0.15,vmax=0.15,thisgrid=0,
+                zoom_pad_cells=3,diff_prefix=None):
+    pad_cells = zoom_pad_cells if thisgrid>0 else 0
 
-def plot1dslice(prefix="output/",ps="-",slice_z=None,slice_y=None,maxgrid=2,vmin=-0.15,vmax=0.15,thisgrid=0):
-    a = np.load(prefix+"grid-%d.npy"%thisgrid)
+    a = _load_grid(prefix, diff_prefix, thisgrid)
 
     ax,ay,az,aL = [float(x) for x in open(prefix+"grid-info-%d.txt"%thisgrid).readline().split()]
 
@@ -18,28 +22,34 @@ def plot1dslice(prefix="output/",ps="-",slice_z=None,slice_y=None,maxgrid=2,vmin
     a_sl_z = int(len(a)*((slice_z-az)/aL))
     a_sl_y = int(len(a)*((slice_y-ay)/aL))
 
-    print("a_sl_z,a_sl_y=",a_sl_z,a_sl_y)
+    if a_sl_y<0 or a_sl_y>=len(a) or a_sl_z<0 or a_sl_z>=len(a):
+        print("Out of range for zoom grid",thisgrid)
+        return 0, 0
 
     dx = aL/len(a)
 
-    a_vals = np.linspace(ax+dx/2,ax+aL-dx/2,len(a))
+    a_vals = np.linspace(ax+dx/2+dx*pad_cells,ax+aL-dx/2-dx*pad_cells,len(a)-pad_cells*2)
 
+    if pad_cells>0:
+        x_sl = slice(pad_cells,-pad_cells)
+    else:
+        x_sl = slice(None)
 
+    plot_y_vals = a[x_sl,a_sl_y,a_sl_z].real
 
-    if thisgrid<maxgrid:
-        bx,by,bz,bL = [float(x) for x in open(prefix+"grid-info-%d.txt"%(thisgrid+1)).readline().split()]
-        b = np.load(prefix+"grid-%d.npy"%(thisgrid+1))
-        dx = bL/len(b)
-        b_vals = np.linspace(bx+dx/2,bx+bL-dx/2,len(b))
-        a[(a_vals>b_vals.min()) * (a_vals<b_vals.max())] = np.nan
-        p.plot(a_vals,a[:,a_sl_y,a_sl_z].real,ps)
+    kwargs = {}
 
-        plot1dslice(prefix,ps,slice_z,slice_y,maxgrid,vmin,vmax,thisgrid+1)
+    if thisgrid<maxgrid and os.path.exists(prefix+"grid-%d.npy"%(thisgrid+1)):
+        xmin, xmax = plot1dslice(prefix,ps,slice_z,slice_y,maxgrid,vmin,vmax,thisgrid+1,zoom_pad_cells,diff_prefix)
+        interior_mask = (a_vals>xmin) & (a_vals<xmax)
+        l = p.plot(a_vals[interior_mask],plot_y_vals[interior_mask],":",zorder=-10)
+        kwargs['color'] = l[0].get_color()
+        plot_y_vals[np.where(interior_mask)[0][1:-1]] = np.nan
 
-    else :
-        p.plot(a_vals,a[:,a_sl_y,a_sl_z].real,ps)
-
+    p.plot(a_vals,plot_y_vals,ps,**kwargs)
     p.xlim(0,aL)
+    if thisgrid>0:
+        return a_vals.min(), a_vals.max()
 
 
 def plotslice_onegrid_with_wrapping(*args, **kwargs):
@@ -52,14 +62,65 @@ def plotslice_onegrid_with_wrapping(*args, **kwargs):
     p.ylim(-wrap/2,wrap/2)
     return X
 
+def _check_and_return_integers(*vals):
+    rounded = np.round(vals)
+    np.testing.assert_allclose(rounded, vals, atol=1e-3)
+    return np.array(rounded,dtype=int)
+
+def _load_grid(prefix,diff_prefix, grid):
+    a = np.load(prefix+"grid-%d.npy"%grid)
+    ax,ay,az,aL = [float(x) for x in open(prefix+"grid-info-%d.txt"%grid).readline().split()]
+
+    if diff_prefix is not None:
+        # load best matching grid
+        for diff_grid in range(10,-1,-1): # prefer the highest resolution grid that can be made to match
+            bx = None
+            try:
+                bx,by,bz,bL = [float(x) for x in open(diff_prefix+"grid-info-%d.txt"%diff_grid).readline().split()]
+            except IOError:
+                continue
+
+            if bL>=aL:
+                print("Attempt to compare grid %d in %r to grid %d in %r"%(grid,prefix,diff_grid,diff_prefix))
+                break
+        if bx is None:
+            raise RuntimeError("On grid %d of %r, cannot find a suitable match in %r"%(grid,prefix,diff_prefix))
+
+        b = np.load(diff_prefix+"grid-%d.npy"%diff_grid)
+        b_cellsize = bL/len(b)
+
+        # Trim to match
+        offset_x = (ax-bx)/b_cellsize
+        offset_y = (ay-by)/b_cellsize
+        offset_z = (az-bz)/b_cellsize
+        b_trimsize = aL/b_cellsize
+
+        if offset_x<0 or offset_y<0 or offset_z<0:
+            raise RuntimeError("Comparison grid %d of %r doesn't contain original grid %d of %r"%(diff_grid, diff_prefix, grid, prefix))
+
+        try:
+            offset_x,offset_y,offset_z,b_trimsize = _check_and_return_integers(offset_x,offset_y,offset_z,b_trimsize)
+        except AssertionError:
+            print(offset_x, offset_y, offset_z, b_trimsize, b_cellsize)
+            raise RuntimeError("Comparison grid %d of %r can't be aligned to original grid %d of %r"%(diff_grid, diff_prefix, grid, prefix))
+
+        b = b[offset_x:offset_x+b_trimsize,
+              offset_y:offset_y+b_trimsize,
+              offset_z:offset_z+b_trimsize]
+
+        if len(a)>len(b):
+            b = scipy.ndimage.zoom(b,len(a)//len(b),order=1)
+        elif len(b)>len(a):
+            b = scipy.ndimage.zoom(b,len(a)/len(b),order=1)
+        a-=b
+
+    return a
+
 def plotslice_onegrid(prefix="output/",grid=0,slice=None,vmin=-0.15,vmax=0.15,padcells=0,offset=None,plot_offset=(0,0),
                       diff_prefix=None):
     new_plot = p.gcf().axes == []
-    a = np.load(prefix+"grid-%d.npy"%grid)
 
-    if diff_prefix is not None:
-        b = np.load(diff_prefix+"grid-%d.npy"%grid)
-        a-=b
+    a = _load_grid(prefix, diff_prefix, grid)
 
     ax,ay,az,aL = [float(x) for x in open(prefix+"grid-info-%d.txt"%grid).readline().split()]
 
