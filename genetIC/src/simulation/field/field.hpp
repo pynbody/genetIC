@@ -354,10 +354,12 @@ namespace fields {
       });
     }
 
-    //! Adds the supplied field to this one, even if it is defined using a different grid
+    //! Adds the supplied field to this one, even if it is defined using a different grid.
     /*!
-        This is done through evaluators, and will thus use interpolation is necessary.
-        It does not modify the grid that is being added to this one.
+     * Requires the source field to be in real (rather than Fourier) space.
+     *
+     *  The addition performs interpolation if necessary. It does not modify the grid
+     *  that is being added to this one.
     */
     void addFieldFromDifferentGrid(const Field<DataType, CoordinateType> &source) {
       assert(!source.isFourier());
@@ -378,21 +380,13 @@ namespace fields {
     void addFieldFromDifferentGridWithFilter(Field<DataType, CoordinateType> & source,
                                              const filters::Filter<CoordinateType> & filter) {
 
+      auto temporaryField = std::make_shared<Field<DataType, CoordinateType>>(source);
+      // counterintuitively requires a shared_ptr due to innards of addFieldFromDifferentGrid using shared_from_this
 
-      Field<DataType, CoordinateType> temporaryField(source);
-      temporaryField.applyFilter(filter);
-
-      auto & temporaryFieldData=temporaryField.data;
-
-      size_t size3 = getGrid().size3;
-
-      temporaryField.toReal();
+      temporaryField->applyFilter(filter);
+      temporaryField->toReal();
       this->toReal();
-
-#pragma omp parallel for schedule(static)
-      for (size_t ind_l = 0; ind_l < size3; ind_l++) {
-        data[ind_l] += temporaryField.evaluateInterpolated(pGrid->getPointFromId(ind_l));
-      }
+      this->addFieldFromDifferentGrid(*temporaryField);
 
     }
 
@@ -410,7 +404,7 @@ namespace fields {
 
       size_t size = pGrid->size3;
 
-#pragma omp parallel for schedule(static)
+#pragma omp parallel for schedule(static) default(none) shared(temporaryFieldData, source, pGrid, size)
       for (size_t i = 0; i < size; ++i) {
         temporaryFieldData[i] = source.evaluateInterpolated(pGrid->getCentroidFromIndex(i));
       }
@@ -419,7 +413,7 @@ namespace fields {
 
       this->matchFourier(temporaryField); // expect that the temporary field is now stored in Fourier space
 
-#pragma omp parallel for schedule(static)
+#pragma omp parallel for schedule(static) default(none)  shared(temporaryFieldData, data)
       for (size_t i = 0; i < temporaryFieldData.size(); ++i) {
         data[i] += temporaryFieldData[i];
       }
@@ -427,7 +421,7 @@ namespace fields {
 
 #endif
 
-    //! Overload of addFieldFromDifferentGrid, casting a non-constant reference to a constant reference.
+    //! addFieldFromDifferentGrid, casting a non-constant reference to a constant reference.
     void addFieldFromDifferentGrid(Field<DataType, CoordinateType> &source) {
       source.toReal();
       addFieldFromDifferentGrid(const_cast<const Field<DataType, CoordinateType> &>(source));
@@ -466,7 +460,7 @@ namespace fields {
     auto &originalData = field.getDataVector();
     size_t size = field.getGrid().size3;
 
-#pragma omp parallel for schedule(static)
+#pragma omp parallel for schedule(static) default(none) shared(newData, originalData)
     for (size_t i = 0; i < size; ++i) {
       newData[i] = tools::datatypes::real_part_if_complex(originalData[i]);
     }
