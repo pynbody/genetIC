@@ -404,7 +404,7 @@ namespace fields {
 
       size_t size = pGrid->size3;
 
-#pragma omp parallel for schedule(static) default(none) shared(temporaryFieldData, source, pGrid, size)
+#pragma omp parallel for schedule(static) default(none) shared(temporaryFieldData, source, size)
       for (size_t i = 0; i < size; ++i) {
         temporaryFieldData[i] = source.evaluateInterpolated(pGrid->getCentroidFromIndex(i));
       }
