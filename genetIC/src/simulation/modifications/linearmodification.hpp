@@ -74,7 +74,8 @@ namespace modifications {
         highResModif.getDataVector() /= this->underlying.getWeightForLevel(level);
       }
 
-      // Note - implicitly applies to dark matter only (baryon modifications not implemented):
+      // Note - the resulting covector will be applied to the dark matter field; baryon modifications follow
+      // those of the DM as per the field cross-correlation:
       auto multiLevelConstraint = this->underlying.generateMultilevelFromHighResField(std::move(highResModif));
       for (level = 0; level < this->underlying.getNumLevels(); ++level) {
         turnLocalisationCovectorIntoModificationCovector(multiLevelConstraint->getFieldForLevel(level));
