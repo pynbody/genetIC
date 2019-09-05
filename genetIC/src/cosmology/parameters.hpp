@@ -182,43 +182,21 @@ namespace cosmology {
 
   //! Convert the density field to a potential field, in-place.
   template<typename DataType, typename FloatType=tools::datatypes::strip_complex<DataType>>
-  void densityToPotential(fields::Field<DataType, FloatType> &field, const CosmologicalParameters<FloatType> &cosmo) {
-
-
+  void densityToPotential(fields::Field<DataType, FloatType> &field, const CosmologicalParameters<FloatType> &cosmo)
+  {
     field.toFourier();
 
-    const FloatType boxLength = field.getGrid().thisGridSize;
-    const FloatType a = cosmo.scalefactor;
-    const FloatType Om = cosmo.OmegaM0;
-    const size_t res = field.getGrid().size;
+    const FloatType prefac =
+      3. / 2. * cosmo.OmegaM0 / cosmo.scalefactor
+      * 100. * 100. / (299792.) /
+      (299792.); // =3/2 Om0/a * (H0/h)^2 (h/Mpc)^2 / c^2 (km/s)
 
-    long i;
-    FloatType prefac =
-      3. / 2. * Om / a * 100. * 100. / (3. * 100000.) /
-      (3. * 100000.); // =3/2 Om0/a * (H0/h)^2 (h/Mpc)^2 / c^2 (km/s)
-    FloatType kw = 2.0f * M_PI / boxLength, k_inv;
-
-    size_t k1, k2, k3, kk1, kk2, kk3;
-
-    for (k1 = 0; k1 < res; k1++) {
-      for (k2 = 0; k2 < res; k2++) {
-        for (k3 = 0; k3 < res; k3++) {
-          // TODO: refactor this to use the provided routine for getting k coordinates in Grid class
-          i = (k1 * res + k2) * (res) + k3;
-
-          if (k1 > res / 2) kk1 = k1 - res; else kk1 = k1;
-          if (k2 > res / 2) kk2 = k2 - res; else kk2 = k2;
-          if (k3 > res / 2) kk3 = k3 - res; else kk3 = k3;
-
-          k_inv = 1.0 / ((FloatType) (kk1 * kk1 + kk2 * kk2 + kk3 * kk3) * kw * kw);
-          if (i == 0)
-            k_inv = 0;
-
-          field[i] *= -prefac * k_inv;
-        }
-      }
-    }
-
+    field.forEachFourierCell([&prefac](complex<FloatType> val, FloatType k1, FloatType k2, FloatType k3) {
+      FloatType ksq = k1 * k1 + k2 * k2 + k3 * k3;
+      FloatType ksq_inv = 1.0 / ksq;
+      if(k2==0.0) ksq_inv = 0.0;
+      return -prefac * val * ksq_inv;
+    });
 
   }
 
