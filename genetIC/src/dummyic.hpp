@@ -74,7 +74,7 @@ public:
   void dumpMask() override {}
 
   //! Calls to this function has no effect in a dummy IC generator, since it is only working out the mapper structure
-  virtual void initialiseParticleGenerator() override {}
+  virtual void ensureParticleGeneratorInitialised() override {}
 
   //! Calls to this function has no effect in a dummy IC generator, since it is only working out the mapper structure
   void dumpID(string /*fname*/) override {}

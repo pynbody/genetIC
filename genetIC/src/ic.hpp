@@ -60,7 +60,7 @@ protected:
 
   //! Vector of output fields (defaults to just a single field)
   std::vector<std::shared_ptr<fields::OutputField<GridDataType>>> outputFields;
-  int nFields; //!< Number of output fields
+  bool useBaryonTransferFunction{false}; //!< True if gas particles should use a different transfer function
   modifications::ModificationManager<GridDataType> modificationManager; //!< Handles applying modificaitons to the various fields.
   std::shared_ptr<fields::RandomFieldGenerator<GridDataType>> randomFieldGenerator; //!< Generate white noise for the output fields
 
@@ -176,7 +176,6 @@ public:
     interpreter(interpreter) {
 
     // By default, we assume there is only one field - at first this will contain white noise:
-    nFields = 1;
     outputFields.push_back(
       std::make_shared<fields::OutputField<GridDataType>>(multiLevelContext, particle::species::whitenoise));
 
@@ -202,8 +201,6 @@ public:
     // Default computational options:
     exactPowerSpectrum = false;
     allowStrayParticles = false;
-    auto _pParticleGenerator = std::make_shared<particle::NullMultiLevelParticleGenerator<GridDataType>>();
-    pParticleGenerator[particle::dm] = _pParticleGenerator;
     flaggedParticlesHaveDifferentGadgetType = false;
     flaggedGadgetParticleType = 1;
     this->baryonsOnAllLevels = false; // Baryons only output on the finest level by default.
@@ -254,16 +251,12 @@ public:
   //! produces more accurate results for baryons than assuming they follow the same transfer function
   //! (which holds only at late times).
   void setUsingBaryons() {
-    if (this->nFields > 1) {
-      std::cerr << "Already using baryons!" << std::endl;
-    } else {
+    if (!this->useBaryonTransferFunction)
+    {
       if (this->spectrum.dataRead) {
         throw (std::runtime_error("Cannot switch on baryons after transfer function data already read."));
       }
-      this->nFields = 2;
-      // Add the baryon field:
-      outputFields.push_back(
-        std::make_shared<fields::OutputField<GridDataType>>(multiLevelContext, particle::species::baryon));
+      this->useBaryonTransferFunction = true;
       this->spectrum.enableAllTransfers();
     }
   }
@@ -770,8 +763,23 @@ public:
 
   //! Applies appropriate power spectrum to all fields.
   virtual void applyPowerSpec() {
+    // This only makes sense if our output field so far is white noise
+    assert(outputFields[0]->transferType == particle::species::whitenoise);
+    assert(outputFields.size()==1);
+
+    if(useBaryonTransferFunction) {
+      // make a copy of the white noise field:
+      outputFields.emplace_back(std::make_shared<fields::OutputField<GridDataType>>(*outputFields[0]));
+      outputFields[1]->applyPowerSpectrumFor(particle::species::baryon);
+    }
+
     outputFields[0]->applyPowerSpectrumFor(particle::species::dm);
-    // TODO - handle baryons!
+
+    // Check everything has worked as expected (e.g. no accidental pointer copying)
+    assert(outputFields[0]->transferType == particle::species::dm);
+    if(useBaryonTransferFunction)
+      assert(outputFields[1]->transferType == particle::species::baryon);
+
   }
 
   //! \brief Outputs data about a specified field to a file.
@@ -935,15 +943,27 @@ public:
 
   //! Initialises the particle generator for a given species, connecting it to one of the output fields
   /*!
-  * We currently either connect all species to field 0, or connect baryons to field 1 when a different transfer
-  * function has been provided.
-  *
   * \param species - species of particle
-  * \param nField - field to connect the particle generator to. 0 = dark matter, 1 = baryons.
   */
-  virtual void initialiseParticleGenerator(particle::species species, size_t nField = 0) {
-    checkFieldExists(nField);
+  virtual void initialiseParticleGenerator(particle::species species) {
+    auto & outputField = getOutputFieldForSpecies(species);
 
+    if(outputField.transferType!=species) {
+      // This species (probably baryons) actually just uses the output field for a different particle species
+      // (probably DM).
+      //
+      // We don't want multiple particle generators based on the same output field -- that would be very wasteful!
+      //      // So, just take a copy of the particle generator pointer.
+      ensureParticleGeneratorInitialised(outputField.transferType);
+      pParticleGenerator[species] = pParticleGenerator[outputField.transferType];
+    } else {
+
+      initialiseParticleGeneratorUsingField(species, outputField);
+
+    }
+  }
+
+  virtual void initialiseParticleGeneratorUsingField(particle::species species, fields::OutputField<GridDataType> & field) {
     // in principle this could now be easily extended to slot in higher order PT or other
     // methods of generating the particles from the fields
 
@@ -951,8 +971,7 @@ public:
     using OffsetGeneratorType = particle::OffsetMultiLevelParticleGenerator<GridDataType>;
 
     pParticleGenerator[species] = std::make_shared<
-      particle::MultiLevelParticleGenerator<GridDataType, GridLevelGeneratorType>>(*(outputFields[nField]), cosmology,
-                                                                                   epsNorm);
+      particle::MultiLevelParticleGenerator<GridDataType, GridLevelGeneratorType>>(field, cosmology, epsNorm);
 
     Coordinate<GridDataType> posOffset;
 
@@ -971,17 +990,36 @@ public:
     }
   }
 
+  virtual void ensureParticleGeneratorInitialised(particle::species species) {
+    if (pParticleGenerator.count(species)==0) {
+      initialiseParticleGenerator(species);
+    }
+  }
 
-  //! Initialises the particle generators for all species
-  virtual void initialiseParticleGenerator() {
-    initialiseParticleGenerator(particle::dm, 0);
+  fields::OutputField<GridDataType> & getOutputFieldForSpecies(particle::species species) {
+    if(species==particle::species::baryon && !useBaryonTransferFunction)
+      species = particle::species::dm;
 
-    // If there is a second field available, we use it for baryon output. If not, the baryon particle generator
-    // will just point back to the DM field.
-    if (outputFields.size() > 1)
-      initialiseParticleGenerator(particle::baryon, 1);
-    else
-      pParticleGenerator[particle::baryon] = pParticleGenerator[particle::dm];
+    for(auto outputField : this->outputFields) {
+      if(outputField->transferType==species)
+        return *outputField;
+    }
+    throw(std::out_of_range("Cannot find an output field for species"));
+  }
+
+
+  //! Initialises the particle generators for all species, if not already done
+  virtual void ensureParticleGeneratorInitialised() {
+    assert(outputFields.size()>0);
+    ensureParticleGeneratorInitialised(particle::dm);
+
+    // If there is an appropriate field available, we use it for baryon output. If not, the baryon particle generator
+    // will just point back to the DM particle generator.
+    ensureParticleGeneratorInitialised(particle::baryon);
+
+    if(!useBaryonTransferFunction)
+      assert(pParticleGenerator[particle::baryon]==pParticleGenerator[particle::dm]);
+
   }
 
   //! Runs commands of a given parameter file to set up the input mapper
@@ -1160,7 +1198,7 @@ public:
 
     initialiseRandomComponentIfUninitialised();
     applyPowerSpec();
-    initialiseParticleGenerator();
+    ensureParticleGeneratorInitialised();
 
     cerr << "Write, ndm=" << pMapper->size_dm() << ", ngas=" << pMapper->size_gas() << endl;
     cerr << (*pMapper);
@@ -1436,46 +1474,19 @@ public:
     return Coordinate<T>(boxsize / 2, boxsize / 2, boxsize / 2);
   }
 
-  //! Calculates and prints chi^2 for the specified field.
-  /*!
-  * \param nField - field to compute chi^2 for. 0 = dark matter, 1 = baryons.
-  */
-  virtual void getFieldChi2(size_t nField) {
-    checkFieldExists(nField);
-
-    initialiseRandomComponentIfUninitialised();
-
-    T val = this->outputFields[nField]->getChi2();
-    std::cerr << "Calculated chi^2 = " << val << std::endl;
-  }
-
-  //! Print chi2 for all fields:
+  //! Calculates and prints chi^2 for the underlying field
   virtual void getFieldChi2() {
-    for (size_t i = 0; i < this->outputFields.size(); i++) {
-      if (i == 1) {
-        std::cout << "Baryons: "; // To differentiate baryon output from dark matter.
-      }
-      this->getFieldChi2(i);
-    }
-  }
-
-  //! Calculate physical quantities of the field
-  /*!
-   * @param filterscale Filtering scale in Mpc if the quantity needs it
-   * @param nField - field to calculate for (0 = dark matter [default], 1 = baryons)
-   */
-  void calculate(string name, size_t nField = 0) {
-    checkFieldExists(nField);
     initialiseRandomComponentIfUninitialised();
-
-    GridDataType val = modificationManager.calculateCurrentValueByName(name, this->variance_filterscale);
-    cout << name << ": calculated value = " << val << endl;
+    T val = this->outputFields[0]->getChi2();
+    std::cerr << "Calculated chi^2 = " << val << std::endl;
   }
 
   //! Calculate unmodified property for the dark matter field:
   void calculate(std::string name) {
-    // Don't really need this for the baryon field, as we aren't modifying it:
-    this->calculate(name, 0);
+    initialiseRandomComponentIfUninitialised();
+
+    GridDataType val = modificationManager.calculateCurrentValueByName(name, this->variance_filterscale);
+    cout << name << ": calculated value = " << val << endl;
   }
 
   //! Define a modification to be applied to the field

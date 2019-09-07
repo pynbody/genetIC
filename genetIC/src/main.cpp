@@ -96,7 +96,7 @@ void setup_parser(tools::ClassDispatch<ICf, void> &dispatch) {
 
   // Deal with modifications
   dispatch.add_class_route("calculate", static_cast<void (ICf::*)(std::string)>(&ICf::calculate));
-  dispatch.add_class_route("calculate_field", static_cast<void (ICf::*)(std::string, size_t)>(&ICf::calculate));
+  // dispatch.add_class_route("calculate_field", static_cast<void (ICf::*)(std::string, size_t)>(&ICf::calculate));
   dispatch.add_class_route("filtering_scale", &ICf::setVarianceFilteringScale);
   dispatch.add_class_route("modify", static_cast< void (ICf::*)(std::string, std::string, float)>(&ICf::modify));
   dispatch.add_class_route("modify_field", static_cast< void (ICf::*)(std::string, std::string, float)>(&ICf::modify));
@@ -104,7 +104,6 @@ void setup_parser(tools::ClassDispatch<ICf, void> &dispatch) {
   dispatch.add_class_route("done", &ICf::done);
   dispatch.add_class_route("apply_modifications", static_cast<void (ICf::*)()>(&ICf::applyModifications));
   dispatch.add_class_route("chi2", static_cast<void (ICf::*)()>(&ICf::getFieldChi2));
-  dispatch.add_class_route("chi2_field", static_cast<void (ICf::*)(size_t)>(&ICf::getFieldChi2));
 
   dispatch.add_class_route("reverse", static_cast<void (ICf::*)()>(&ICf::reverse));
   dispatch.add_class_route("reverse_field", static_cast<void (ICf::*)(size_t)>(&ICf::reverse));
