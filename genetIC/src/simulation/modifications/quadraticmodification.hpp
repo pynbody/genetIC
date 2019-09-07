@@ -19,14 +19,14 @@ namespace modifications {
 
   public:
     //! Constructor that leaves initNumberSteps and targetPrecision unspecified
-    QuadraticModification(multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
+    QuadraticModification(const multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
                           const cosmology::CosmologicalParameters<T> &cosmology_) :
       Modification<DataType, T>(underlying_, cosmology_) {
       this->order = 2;
     };
 
     //! Constructor that specifies initNumberSteps and targetPrecision
-    QuadraticModification(multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
+    QuadraticModification(const multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
                           const cosmology::CosmologicalParameters<T> &cosmology_, int initNumberSteps_,
                           T targetPrecision_) :
       Modification<DataType, T>(underlying_, cosmology_), initNumberSteps(initNumberSteps_) {
@@ -70,7 +70,7 @@ namespace modifications {
       }
 
       return std::make_shared<fields::ConstraintField<DataType>>(
-        *dynamic_cast<multilevelcontext::MultiLevelContextInformation<DataType, T> *>(&(this->underlying)),
+        *dynamic_cast<const multilevelcontext::MultiLevelContextInformation<DataType, T> *>(&(this->underlying)),
         pushedfields);
     }
 
@@ -90,7 +90,7 @@ namespace modifications {
   public:
 
     //! Constructor to specify filter space
-    FilteredVarianceModification(multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
+    FilteredVarianceModification(const multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
                                  const cosmology::CosmologicalParameters<T> &cosmology_, T filterscale_) :
       QuadraticModification<DataType, T>(underlying_, cosmology_), scale(filterscale_) {
       checkFilterScale(filterscale_);
@@ -98,7 +98,7 @@ namespace modifications {
     }
 
     //! Constructor to specify filter space in addition to initial number of steps and target precision.
-    FilteredVarianceModification(multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
+    FilteredVarianceModification(const multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
                                  const cosmology::CosmologicalParameters<T> &cosmology_, int initNumberSteps_,
                                  T targetPrecision_, T filterscale_) :
       QuadraticModification<DataType, T>(underlying_, cosmology_, initNumberSteps_, targetPrecision_) {

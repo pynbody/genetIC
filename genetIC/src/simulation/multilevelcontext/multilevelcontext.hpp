@@ -184,7 +184,7 @@ namespace multilevelcontext {
     }
 
     //! Returns the weight for the specified level
-    T getWeightForLevel(size_t level) {
+    T getWeightForLevel(size_t level) const {
       return weights[level];
     }
 
@@ -225,7 +225,7 @@ namespace multilevelcontext {
         \param data - field data on the highest resolution level.
     */
     std::shared_ptr<fields::ConstraintField<DataType>>
-    generateMultilevelFromHighResField(fields::Field<DataType, T> &&data) {
+    generateMultilevelFromHighResField(fields::Field<DataType, T> &&data) const {
       assert(&data.getGrid() == pGrid.back().get());
 
       // Generate the fields on each level. Fill low-res levels with zeros to start with.
@@ -249,7 +249,7 @@ namespace multilevelcontext {
       }
 
       return std::make_shared<fields::ConstraintField<DataType>>(
-        *dynamic_cast<MultiLevelContextInformation<DataType, T> *>(this),
+        *dynamic_cast<const MultiLevelContextInformation<DataType, T> *>(this),
         dataOnLevels);
     }
 

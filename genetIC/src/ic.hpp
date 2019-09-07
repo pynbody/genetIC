@@ -172,14 +172,18 @@ public:
   //! \brief Main constructor for this class.
   //! Requires a single interpreter to initialise, from which it will receive input commands.
   ICGenerator(tools::ClassDispatch<ICGenerator<GridDataType>, void> &interpreter) :
-    modificationManager(multiLevelContext, cosmology, outputFields),
+    modificationManager(multiLevelContext, cosmology, nullptr),
     interpreter(interpreter) {
 
-    // By default, we assume there is only one field - the DM field:
+    // By default, we assume there is only one field - at first this will contain white noise:
     nFields = 1;
     outputFields.push_back(
-      std::make_shared<fields::OutputField<GridDataType>>(multiLevelContext, particle::species::dm));
-    // Link random field generator to the dark matter field
+      std::make_shared<fields::OutputField<GridDataType>>(multiLevelContext, particle::species::whitenoise));
+
+    // Link modifications to the white noise field
+    modificationManager.bindToField(outputFields[0]);
+
+    // Link random field generator to the white noise field
     randomFieldGenerator = std::make_shared<fields::RandomFieldGenerator<GridDataType>>(*outputFields[0]);
 
     velOffset = {0, 0, 0};
@@ -764,23 +768,10 @@ public:
     this->importLevel(level, filename, 0);
   }
 
-  //! \brief Apply the power spectrum to a specific field.
-  //! \param nField - field to apply power spectrum to. 0 = dark matter, 1 = baryons.
-  virtual void applyPowerSpec(size_t nField) {
-    checkFieldExists(nField);
-
-    if (this->exactPowerSpectrum) {
-      outputFields[nField]->enforceExactPowerSpectrum();
-    } else {
-      outputFields[nField]->applyPowerSpectrum();
-    }
-  }
-
   //! Applies appropriate power spectrum to all fields.
   virtual void applyPowerSpec() {
-    for (size_t i = 0; i < this->outputFields.size(); i++) {
-      this->applyPowerSpec(i);
-    }
+    outputFields[0]->applyPowerSpectrumFor(particle::species::dm);
+    // TODO - handle baryons!
   }
 
   //! \brief Outputs data about a specified field to a file.
@@ -1168,6 +1159,7 @@ public:
     using namespace io;
 
     initialiseRandomComponentIfUninitialised();
+    applyPowerSpec();
     initialiseParticleGenerator();
 
     cerr << "Write, ndm=" << pMapper->size_dm() << ", ngas=" << pMapper->size_gas() << endl;
@@ -1215,14 +1207,13 @@ public:
     // Draw the white noise field (writes to outputFields[0])
     randomFieldGenerator->draw();
 
+    // Enforce exact unit variance if requested
+    if(exactPowerSpectrum)
+      outputFields[0]->enforceExactPowerSpectrum();
+
     // Make copies of the field ready for additional transfer functions (such as baryons)
     for (size_t i = 1; i < outputFields.size(); i++) {
       outputFields[i]->copyData(*(outputFields[0]));
-    }
-
-    // Apply transfer function to all copies of the field
-    for (size_t i = 0; i < outputFields.size(); i++) {
-      applyPowerSpec(i);
     }
 
     haveInitialisedRandomComponent = true;
@@ -1495,6 +1486,7 @@ public:
    */
   virtual void modify(string name, string type, float target) {
     initialiseRandomComponentIfUninitialised();
+    // needed for relative modifications where a current value will be evaluated
 
     modificationManager.addModificationToList(name, type, target, this->initial_number_steps, this->precision,
                                               this->variance_filterscale);

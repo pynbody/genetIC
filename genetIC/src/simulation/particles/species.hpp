@@ -10,7 +10,7 @@ namespace particle {
   class AbstractMultiLevelParticleGenerator;
 
   enum species {
-    dm = 0, baryon = 1
+    dm = 0, baryon = 1, whitenoise = 2, unknown = 3
   };
 
   std::istream &operator>>(std::istream &inputStream, species &sp) {

@@ -12,11 +12,11 @@ namespace modifications {
     T target;    /*!< Target to be achieved by the modification */
 
   protected:
-    multilevelcontext::MultiLevelContextInformation<DataType> &underlying; //!< Underlying multi-level context object.
+    const multilevelcontext::MultiLevelContextInformation<DataType> &underlying; //!< Underlying multi-level context object.
     const cosmology::CosmologicalParameters<T> &cosmology; //!< Struct containing cosmological parameters.
     std::vector<std::vector<size_t>> flaggedCells; //!< Region targeted by the modification.
     unsigned int order; //!< Linear are first order, qudartic are second etc.
-
+    particle::species forSpecies; //!< What type of output field are we applying this modification to?
 
 
   public:
@@ -24,12 +24,13 @@ namespace modifications {
 
           \param underlying_ - underlying multi-level context object.
           \param cosmology_ - struct containing cosmological parameters.
+          \param forSpecies - specifies the nature of the field we will apply this modification to
       */
-    Modification(multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
+    Modification(const multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
                  const cosmology::CosmologicalParameters<T> &cosmology_) : underlying(underlying_),
-                                                                           cosmology(cosmology_),
-                                                                           flaggedCells(underlying_.getNumLevels()) {
-
+                                                 cosmology(cosmology_),
+                                                 flaggedCells(underlying_.getNumLevels()),
+                                                 forSpecies(particle::species::unknown)  {
       for (size_t level = 0; level < this->underlying.getNumLevels(); level++) {
         auto grid = this->underlying.getGridForLevel(level);
         grid.getFlaggedCells(flaggedCells[level]);

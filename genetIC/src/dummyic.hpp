@@ -62,7 +62,7 @@ public:
   void zeroLevel(size_t /*level*/, size_t) override {}
 
   //! Calls to this function has no effect in a dummy IC generator, since it is only working out the mapper structure
-  void applyPowerSpec(size_t) override {}
+  void applyPowerSpec() override {}
 
   //! Calls to this function has no effect in a dummy IC generator, since it is only working out the mapper structure
   void dumpGrid(size_t /*level*/, size_t) override {}

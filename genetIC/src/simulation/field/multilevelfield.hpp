@@ -22,7 +22,7 @@ namespace fields {
     using ComplexType = tools::datatypes::ensure_complex<DataType>;
   protected:
 
-    multilevelcontext::MultiLevelContextInformation<DataType> *multiLevelContext; //!< Pointer to the underlying multi-level context
+    const multilevelcontext::MultiLevelContextInformation<DataType> *multiLevelContext; //!< Pointer to the underlying multi-level context
     std::shared_ptr<filters::FilterFamily<T>> pFilters;   //!< filters to be applied when used as a vector
     tools::Signaling::connection_t connection; //!< Connection to the multi-level context. Used to signal when the context needs updating.
     bool isCovector; //!< True if the multi-level field is a covector, used to define a modification.
@@ -63,7 +63,7 @@ namespace fields {
     }
 
     //! Constructor with fields unspecified - only multi-level context.
-    MultiLevelField(multilevelcontext::MultiLevelContextInformation<DataType> &multiLevelContext,
+    MultiLevelField(const multilevelcontext::MultiLevelContextInformation<DataType> &multiLevelContext,
                     particle::species transfer_type = particle::species::dm) :
       multiLevelContext(&multiLevelContext), transferType(transfer_type) {
       setupConnection();
@@ -71,7 +71,7 @@ namespace fields {
     }
 
     //! Constructor with fields and multi-level context. specified.
-    MultiLevelField(multilevelcontext::MultiLevelContextInformation<DataType> &multiLevelContext,
+    MultiLevelField(const multilevelcontext::MultiLevelContextInformation<DataType> &multiLevelContext,
                     const std::vector<std::shared_ptr<Field<DataType, T>>> &fieldsOnGrids,
                     particle::species transfer_type = particle::species::dm) :
       multiLevelContext(&multiLevelContext), fieldsOnLevels(fieldsOnGrids) {
@@ -324,10 +324,13 @@ namespace fields {
 
       bool covariance_weighted = false;
 
-      if (other.isCovector)
-        covariance_weighted = true;
+      if(other.isCovector) {
+        // TODO: Potentially, optimise so that conversion is done 'on the fly'
+        MultiLevelField<DataType> otherAsVector(other);
+        otherAsVector.convertToVector();
+        return this->innerProduct(otherAsVector);
+      }
 
-      T weight;
       const filters::Filter<T> *pFiltOther;
       const grids::Grid<T> *pCurrentGrid;
       const Field<DataType> *pFieldThis, *pFieldOther;
@@ -337,23 +340,15 @@ namespace fields {
       ComplexType result(0, 0);
 
       for (size_t level = 0; level < getNumLevels(); ++level) {
-        weight = multiLevelContext->getWeightForLevel(level);
-        pCurrentGrid = &(multiLevelContext->getGridForLevel(level));
-        pCov = multiLevelContext->getCovariance(level, this->transferType).get();
-        pFiltOther = &(other.getFilterForLevel(level));
         pFieldThis = &(this->getFieldForLevel(level));
         pFieldDataThis = &(this->getFieldForLevel(level).getDataVector());
         pFieldOther = &(other.getFieldForLevel(level));
-        T kMin = pCurrentGrid->getFourierKmin();
         if (pFieldOther != nullptr && pFieldDataThis->size() > 0) {
           result += pFieldThis->accumulateForEachFourierCell(
             [&](tools::datatypes::ensure_complex<DataType> thisFieldVal,
                 int kx, int ky, int kz) {
               auto otherFieldVal = pFieldOther->getFourierCoefficient(kx, ky, kz);
-              T k_value = kMin * sqrt(T(kx) * T(kx) + T(ky) * T(ky) + T(kz) * T(kz));
-              T inner_weight = weight * (*pFiltOther)(k_value);
-              if (covariance_weighted) inner_weight *= (pCov->getFourierCoefficient(kx, ky, kz).real()) * weight;
-              return inner_weight * std::real(std::conj(thisFieldVal) * otherFieldVal);
+              return std::real(std::conj(thisFieldVal) * otherFieldVal);
             });
         }
       }
@@ -378,6 +373,10 @@ namespace fields {
     */
     void convertToCovector() {
       assert(!isCovector);
+
+      assert(false); // not implemented!
+
+      /*
       toFourier();
       for (size_t i = 0; i < multiLevelContext->getNumLevels(); ++i) {
         auto &grid = multiLevelContext->getGridForLevel(i);
@@ -388,6 +387,7 @@ namespace fields {
                                   multiLevelContext->getWeightForLevel(i));
 
       }
+       */
       isCovector = true;
     }
 
@@ -395,32 +395,21 @@ namespace fields {
     void convertToVector() {
       assert(isCovector);
       toFourier();
-      for (size_t i = 0; i < multiLevelContext->getNumLevels(); ++i) {
-        auto &grid = multiLevelContext->getGridForLevel(i);
+      // TODO optimize:
+      this->applyFilters();
+      this->applyFilters();
 
-        multiplyByCovarianceOneGrid(getFieldForLevel(i),
-                                    *multiLevelContext->getCovariance(i, this->transferType),
-                                    grid,
-                                    multiLevelContext->getWeightForLevel(i));
-
+      for(size_t i=0; i<multiLevelContext->getNumLevels(); ++i) {
+        // TODO weight levels
       }
+
+      // TODO add cross-talk terms
       isCovector = false;
     }
 
-    //! Multiplies the field by the relevant power spectrum in Fourier space.
-    void applyPowerSpectrum() {
-      toFourier();
-      for (size_t i = 0; i < multiLevelContext->getNumLevels(); ++i) {
-        auto &grid = multiLevelContext->getGridForLevel(i);
 
-        applySpectrumOneGrid(getFieldForLevel(i),
-                             *multiLevelContext->getCovariance(i, this->transferType),
-                             grid);
 
-      }
-    }
-
-    /*! \brief Applies an 'exact' power spectrum in Fourier space.
+    /*! \brief Forces 'exact' power spectrum by normalising the white noise field to unit variance.
 
     This means that effectively only the phase of the field at each Fourier mode is randomised,
     not the amplitude. This can be used to perform simulations that can quickly estimate ensemble parameters
@@ -428,45 +417,57 @@ namespace fields {
     */
     void enforceExactPowerSpectrum() {
       toFourier();
-      for (size_t i = 0; i < multiLevelContext->getNumLevels(); ++i) {
-        auto &grid = multiLevelContext->getGridForLevel(i);
 
-        enforceSpectrumOneGrid(getFieldForLevel(i),
-                               *multiLevelContext->getCovariance(i, this->transferType),
-                               grid);
+      // Currently, enforcing the power spectrum must be done while the field still contains white noise
+      // Generalising this would not be hard, but also not necessary.
+      assert(this->transferType == particle::species::whitenoise);
 
+      for(size_t i = 0; i < multiLevelContext->getNumLevels(); ++i) {
+        enforcePowerSpectrumOneGrid(getFieldForLevel(i));
       }
+
     }
 
-    /*
-    //! Divide by the power spectrum of another field.
-    void applyInversePowerSpectrumOf(size_t nField)
-    {
-        toFourier();
-        for (size_t i = 0; i < multiLevelContext->getNumLevels(); ++i) {
-        auto &grid = multiLevelContext->getGridForLevel(i);
-
-        applyInverseSpectrumOneGrid(getFieldForLevel(i),
-                             multiLevelContext->getCovariance(i,nField),
-                             grid);
-
-      }
+    /*! Makes this field suitable for outputting particles of the defined type, by applying a transfer function */
+    void applyPowerSpectrumFor(particle::species outputSpecies) {
+      applyTransferRatio(this->transferType, outputSpecies);
     }
-     */
+
 
   protected:
     //! Divide by power spectrum from an "old" species and multiply by the transfer function for the species of this field
-    void applyTransferRatio(particle::species oldSpecies) {
-      if (oldSpecies == this->transferType)
+    void applyTransferRatio(particle::species oldSpecies, particle::species newSpecies) {
+
+      if (oldSpecies == newSpecies)
         return;
+
+      if (oldSpecies == particle::species::whitenoise ) {
+        applyTransfer(newSpecies);
+        this->transferType = newSpecies;
+        return;
+      }
 
       toFourier();
       for (size_t i = 0; i < multiLevelContext->getNumLevels(); ++i) {
         auto &grid = multiLevelContext->getGridForLevel(i);
         applyTransferRatioOneGrid(getFieldForLevel(i),
                                   *multiLevelContext->getCovariance(i, oldSpecies),
-                                  *multiLevelContext->getCovariance(i, this->transferType),
+                                  *multiLevelContext->getCovariance(i, newSpecies),
                                   grid);
+      }
+      this->transferType = newSpecies;
+    }
+
+    //! Multiplies the field by the relevant power spectrum in Fourier space.
+    void applyTransfer(particle::species ofSpecies) {
+      toFourier();
+      for (size_t i = 0; i < multiLevelContext->getNumLevels(); ++i) {
+        auto &grid = multiLevelContext->getGridForLevel(i);
+
+        applySpectrumOneGrid(getFieldForLevel(i),
+                             *multiLevelContext->getCovariance(i, ofSpecies),
+                             grid);
+
       }
     }
 
@@ -495,22 +496,15 @@ namespace fields {
   public:
 
 
-    /*
-    //! Invert the application of the power spectrum.
-    void applyInversePowerSpectrum()
-    {
-        this->applyInversePowerSpectrumOf(this->transferType);
-    }
-     */
-
     //! Returns the value of chi^2, with respect to the relevant covariance matrix.
     T getChi2() {
 
       this->toFourier();
       auto self_copy = fields::MultiLevelField<DataType>(*this);
 
-      self_copy.convertToCovector();
-      T chi2 = self_copy.innerProduct(*this).real();
+      // TODO: Reinstate
+      // self_copy.convertToCovector();
+      T chi2 = 0; // self_copy.innerProduct(*this).real();
       return chi2;
     }
 
@@ -602,18 +596,14 @@ namespace fields {
     \param spectrum - covariance matrix to use
     \param grid - grid on which field is defined.
     */
-    void enforceSpectrumOneGrid(Field<DataType> &field,
-                                const Field<DataType> &spectrum,
-                                const grids::Grid<T> &grid) {
+    void enforcePowerSpectrumOneGrid(Field<DataType> &field) {
+      const grids::Grid<T> &grid = field.getGrid();
       T white_noise_norm = sqrt(T(grid.size3));
 
-      field.forEachFourierCellInt([white_noise_norm, &grid, &field, &spectrum]
+      field.forEachFourierCellInt([white_noise_norm, &grid, &field]
                                     (complex<T> existingValue, int kx, int ky, int kz) {
         T absExistingValue = abs(existingValue);
-        T sqrt_spec = sqrt(spectrum.getFourierCoefficient(kx, ky, kz).real()) * white_noise_norm;
-        T a = sqrt_spec * existingValue.real() / absExistingValue;
-        T b = sqrt_spec * existingValue.imag() / absExistingValue;
-        return complex<T>(a, b);
+        return existingValue/absExistingValue;
       });
     }
 
@@ -644,7 +634,7 @@ namespace fields {
 
     //! Populates the fields on each level with all zeros
     void populateFieldsOnLevels() {
-      this->multiLevelContext->forEachLevel([this](grids::Grid<T> &g) {
+      this->multiLevelContext->forEachLevel([this](const grids::Grid<T> &g) {
         this->fieldsOnLevels.emplace_back(std::make_shared<Field<DataType, T>>(g));
       });
       fieldsOnLevelsPopulated = true;
@@ -662,7 +652,7 @@ namespace fields {
     \param multiLevelContext - multiLevel context to define the field on
     \param transfer_type - specifies the transfer function to use for this field
     */
-    OutputField(multilevelcontext::MultiLevelContextInformation<DataType> &multiLevelContext,
+    OutputField(const multilevelcontext::MultiLevelContextInformation<DataType> &multiLevelContext,
                 particle::species transfer_type)
       : MultiLevelField<DataType>(multiLevelContext, transfer_type) {
       outputState = PRE_SEPARATION;
@@ -719,7 +709,7 @@ namespace fields {
     \param fieldsOnGrids - fields that define the constraint field on each level
     \param transfer_type - 0 for dark matter, 1 for baryons
     */
-    ConstraintField(multilevelcontext::MultiLevelContextInformation<DataType> &multiLevelContext,
+    ConstraintField(const multilevelcontext::MultiLevelContextInformation<DataType> &multiLevelContext,
                     const std::vector<std::shared_ptr<Field<DataType, T>>> &fieldsOnGrids)
       : MultiLevelField<DataType>(multiLevelContext, std::move(fieldsOnGrids)) {
       this->isCovector = true;
@@ -729,7 +719,8 @@ namespace fields {
 
     //! Update multi-level context, setting up the filters on each level.
     virtual void updateMultiLevelContext() override {
-      this->template setupFilters<filters::MultiLevelDependentFilterFamily<T>>();
+      this->template setupFilters<filters::MultiLevelFilterFamily<T>>();
+      // this->template setupFilters<filters::MultiLevelDependentFilterFamily<T>>();
     }
 
 
