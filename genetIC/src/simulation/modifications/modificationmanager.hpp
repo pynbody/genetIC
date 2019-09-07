@@ -89,8 +89,8 @@ namespace modifications {
     //! Construct the modified field with all modifications present in the modification list, then propagate it to the other fields.
     void applyModifications() {
 
-      std::vector<std::shared_ptr<fields::ConstraintField<DataType>>> alphas;
-      std::vector<T> linear_targets;
+      std::vector<std::shared_ptr<fields::ConstraintField<DataType>>> modificationCovectors;
+      std::vector<T> linearTargetValues;
       T pre_modif_chi2_from_field;
       T post_modif_chi2_from_field;
 
@@ -100,20 +100,21 @@ namespace modifications {
 
       // Extract A, b from modification list
       for (size_t i = 0; i < linearModificationList.size(); i++) {
-        alphas.push_back(linearModificationList[i]->getCovector(outputField->transferType));
-        linear_targets.push_back(linearModificationList[i]->getTarget());
+        modificationCovectors.push_back(linearModificationList[i]->getCovector(outputField->transferType));
+        linearTargetValues.push_back(linearModificationList[i]->getTarget());
       }
 
       // Apply all linear modifications
-      orthonormaliseModifications(alphas, linear_targets);
+      orthonormaliseModifications(modificationCovectors, linearTargetValues);
       std::cerr << "Delta chi^2 from linear modifications = "
-                << getDeltaChi2FromLinearModifs(*outputField, alphas, linear_targets) << std::endl;
-      applyLinearModif(*outputField, alphas, linear_targets);
+                << getDeltaChi2FromLinearModifs(*outputField, modificationCovectors, linearTargetValues)
+                << std::endl;
+      applyLinearModif( modificationCovectors, linearTargetValues);
 
 
       // Apply the joint linear and quadratic in an iterative procedure
       // TODO DeltaChi2 from quadratic could be calculated from the iterations and added here.
-      applyLinQuadModif(alphas);
+      applyLinQuadModif(modificationCovectors);
 
       post_modif_chi2_from_field = outputField->getChi2();
       std::cerr << "AFTER  modifications chi^2 = " << post_modif_chi2_from_field << std::endl;
@@ -188,29 +189,28 @@ namespace modifications {
      * Linear modifications are applied by orthonormalisation and adding the
      * correction term. See Roth et al 2016 for details
      */
-    void applyLinearModif(fields::OutputField<DataType> &field,
-                          std::vector<std::shared_ptr<fields::ConstraintField<DataType>>> alphas,
-                          std::vector<T> &targets) {
+    void applyLinearModif(std::vector<std::shared_ptr<fields::ConstraintField<DataType>>> orthonormalisedCovectors,
+                          std::vector<T> &orthonormalisedTargetValues) {
 
-      std::vector<T> existing_values;
-      for (size_t i = 0; i < linearModificationList.size(); i++) {
-        existing_values.push_back(linearModificationList[i]->calculateCurrentValue(field));
+      std::vector<T> existingValues;
+      for (size_t i = 0; i < orthonormalisedCovectors.size(); i++) {
+        existingValues.push_back(orthonormalisedCovectors[i]->innerProduct(outputField).real());
       }
 
-      for (size_t i = 0; i < alphas.size(); i++) {
-        auto &alpha_i = *(alphas[i]);
-        auto dval_i = targets[i] - existing_values[i];
+      for (size_t i = 0; i < orthonormalisedCovectors.size(); i++) {
+        auto &alpha_i = *(orthonormalisedCovectors[i]);
+        auto dval_i = orthonormalisedTargetValues[i] - existingValues[i];
 
-        // Constraints are essentially covectors. Convert to a vector, with correct weighting/filtering.
+        // Convert to a vector, with correct weighting/filtering, in preparation for adding to the output field
         alpha_i.convertToVector();
 
         alpha_i.toFourier(); // almost certainly already is in Fourier space, but just to be safe
-        field.addScaled(alpha_i, dval_i);
+        outputField.addScaled(alpha_i, dval_i);
       }
     }
 
-    //! Apply quadratic modifications with the specified covectors
-    void applyLinQuadModif(std::vector<std::shared_ptr<fields::ConstraintField<DataType>>> alphas) {
+    //! Apply quadratic modifications, while keeping values of the specified covectors fixed
+    void applyLinQuadModif(std::vector<std::shared_ptr<fields::ConstraintField<DataType>>> orthonormalisedCovectors) {
 
       // If quadratic are independent, we can apply them one by one in a loop.
       assert(areQuadraticIndependent());
@@ -222,16 +222,16 @@ namespace modifications {
 
         // Try the procedure on a test field and deduce the correct number of steps
         auto test_field = fields::OutputField<DataType>(*outputField);
-        performIterations(test_field, alphas, modif_i, init_n_steps);
+        performIterations(test_field, orthonormalisedCovectors, modif_i, init_n_steps);
         int n_steps = calculateCorrectNumberSteps(test_field, modif_i, init_n_steps);
 
         // Perform procedure on real output
         if (n_steps > init_n_steps) {
           std::cout << n_steps << " steps are required for the quadratic algorithm " << std::endl;
-          performIterations(*outputField, alphas, modif_i, n_steps);
+          performIterations(*outputField, orthonormalisedCovectors, modif_i, n_steps);
         } else {
           std::cout << "No need to do more steps to achieve target precision" << std::endl;
-          performIterations(*outputField, alphas, modif_i, init_n_steps);
+          performIterations(*outputField, orthonormalisedCovectors, modif_i, init_n_steps);
         }
 
 
