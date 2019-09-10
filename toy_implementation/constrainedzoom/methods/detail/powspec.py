@@ -12,16 +12,14 @@ class Powspec:
 
         self.k_low = scipy.fftpack.rfftfreq(self.nP, d=self.delta_low)
         self.k_high = scipy.fftpack.rfftfreq(self.nW, d=self.delta_high)
-        self.k_high_full_box = scipy.fftpack.rfftfreq(self.nP * self.pixel_size_ratio, d=self.delta_high)
 
-        self.C_low = self._get_variance_k(self.k_low) * self.nP
-        self.C_high = self._get_variance_k(self.k_high) * self.nP / self.window_size_ratio
-        self.C_high_full_box = self._get_variance_k(self.k_high_full_box) * self.nP * self.pixel_size_ratio
+        self.C_low = self._get_variance_k(self.k_low)
+        self.C_high = self._get_variance_k(self.k_high)
 
         # covariance matrix for potential
         with np.errstate(divide='ignore'):
             self.C_low_potential = self._C_delta_to_potential(self.C_low, self.k_low)
-            self.C_high_potential = self._C_delta_to_potential(self.C_high, self.k_high)
+            self.C_high_potential = self.pixel_size_ratio * self._C_delta_to_potential(self.C_high, self.k_high)
 
     def _C_delta_to_potential(self, C, k):
         with np.errstate(divide='ignore'):
@@ -30,6 +28,29 @@ class Powspec:
         return Cpot
 
     def _get_variance_k(self, k, k_filter=lambda x:1):
+        """This routine converts a continuous power spectrum [cov_fn] into a discrete version.
+
+        Note that this is only technically possible if the power is band-limited, i.e. there cannot be any
+        power on or below the scale of an individual cell. In practice, that requirement is routinely violated
+        but then there is no principled way to make the mapping.
+
+        To understand how the mapping is made in the case where the power is band-limited, consider the variance of
+        the field at a single point. From the continuous power spectrum (adopting unitary FT conventions), one gets
+
+        sigma^2 = (2 pi)^(-1) \int dk P(k).
+
+        From a discrete power spectrum, P_i, one extracts the diagonal part in real space by writing e.g.
+
+        sigma^2 = (N_cells)^(-1) Tr C
+
+        where C is the covariance matrix in real space. Again using unitary FFTs, this is just
+
+        sigma^2 = (N_cells)^(-1) Sum_i P_i
+
+        Thus (ignoring proportionalities which we don't care about here) we come to the mapping
+
+        P_i \propto N_cells \int_{k_i - delta_k/2}^{k_i + delta_k/2} P(k)
+        """
         integrand = lambda k1: self.cov_fn(k1)*k_filter(k1)
         delta_k = k[1]-k[0]
         Cv = np.zeros_like(k)
@@ -41,7 +62,7 @@ class Powspec:
             upper_k = ki + delta_k / 2
             Cv[i] = scipy.integrate.quad(integrand, lower_k, upper_k)[0]
 
-        return Cv
+        return Cv * len(k)
 
     def set_Chigh_realspace(self):
         self.C_high = self._calc_transfer_fn_realspace(self.nW)
@@ -53,7 +74,7 @@ class Powspec:
 
         # pretend high-res is across the full box temporarily; get the TF
 
-        C_high_full = self._get_variance_k(k_high_full) * self.nP
+        C_high_full = self._get_variance_k(k_high_full)
         if potential:
             C_high_full = self._C_delta_to_potential(C_high_full, k_high_full)
         transfer = self._cov_to_transfer(C_high_full)

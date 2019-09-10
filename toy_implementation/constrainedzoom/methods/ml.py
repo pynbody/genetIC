@@ -15,10 +15,7 @@ class MLZoomConstrained(UnfilteredZoomConstrained):
         super().__init__(*args, **kwargs)
         self.n_underlying = self.nW * self.window_size_ratio
         self.k_underlying = scipy.fftpack.rfftfreq(self.n_underlying, d=self.delta_high)
-        self.C_underlying = self._get_variance_k(self.k_underlying) * float(self.nW)
-
-        self.k_high2 = scipy.fftpack.rfftfreq(self.nW*2, d=self.delta_high)
-        self.C_high2 = self._calc_transfer_fn_realspace(self.nW*2)/4
+        self.C_underlying = self._get_variance_k(self.k_underlying)
 
     def get_default_plot_padding(self):
         return 0
@@ -38,7 +35,7 @@ class MLZoomConstrained(UnfilteredZoomConstrained):
 
         delta_high -= self.upsample_zeroorder(self.downsample(delta_high))
 
-        lo_modes_for_hi_window = self.upsample_zeroorder(delta_low)
+        lo_modes_for_hi_window = self.upsample_zeroorder(delta_low) / np.sqrt(self.pixel_size_ratio)
 
         delta_high += lo_modes_for_hi_window
 
@@ -80,6 +77,7 @@ class MLZoomConstrained(UnfilteredZoomConstrained):
             term_ii = self.upsample_zeroorder(noiseP, in_window=False).in_fourier_space()
             term_ii*=C**0.5
             term_ii = self.downsample(term_ii, input_unpadded=False)
+            term_ii/=self.pixel_size_ratio**0.5
 
         if approx_iii:
             term_iii = copy.copy(noiseP)
@@ -94,6 +92,7 @@ class MLZoomConstrained(UnfilteredZoomConstrained):
             term_iii = self.upsample_zeroorder(term_iii, in_window=False).in_fourier_space()
             term_iii *= C ** 0.5
             term_iii = self.extract_window(term_iii.in_real_space())
+            term_iii /= self.pixel_size_ratio ** 0.5
 
 
         if approx_iv:

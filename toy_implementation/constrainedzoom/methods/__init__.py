@@ -83,7 +83,7 @@ class ZoomConstrained(GeometryAndPixelization, Powspec, CovarianceCalculation,
         """
 
         if noiseP is None:
-            noiseP, noiseW = np.random.normal(0.0, 1.0, size=self.nP), np.random.normal(0.0, self.pixel_size_ratio ** 0.5, size=self.nW)
+            noiseP, noiseW = np.random.normal(0.0, 1.0, size=self.nP), np.random.normal(0.0, 1.0, size=self.nW)
             # only one nyquist mode is included in DFT but two are physically present
             if len(noiseP) % 2 == 0:
                 noiseP[-1] *= np.sqrt(2)

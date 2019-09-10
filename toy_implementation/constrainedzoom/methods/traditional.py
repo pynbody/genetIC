@@ -39,7 +39,7 @@ class TraditionalZoomConstrained(ZoomConstrainedWithGeometricConstraints):
         self._delta_low_residual = (delta_low-delta_low_zeroed).view(FFTArray)
         self._delta_low_residual.fourier = False
 
-        lo_modes_for_hi_window = self.upsample_zeroorder(self._delta_low_residual)
+        lo_modes_for_hi_window = self.upsample_zeroorder(self._delta_low_residual) / np.sqrt(self.pixel_size_ratio)
 
         delta_high += lo_modes_for_hi_window
 
@@ -64,7 +64,7 @@ class TraditionalZoomConstrained(ZoomConstrainedWithGeometricConstraints):
         # remove bits outside W but inside the 'pad' region
         hr_vec[:self.nW//4]=0
         hr_vec[3*self.nW//4]=0
-        return lr_covec/self.pixel_size_ratio,hr_vec
+        return lr_covec,hr_vec
 
     def zoom_covec_from_uniform_covec_in_window(self, hr_covec, potential):
         if potential:
@@ -88,7 +88,7 @@ class TraditionalZoomConstrained(ZoomConstrainedWithGeometricConstraints):
         lr_covec[self._B_window_slice] = 0
         lr_covec2 = FFTArray(copy.copy(hr_covec))
         lr_covec2.in_fourier_space()
-        lr_covec2 *= C_high ** 0.5 * self.pixel_size_ratio
+        lr_covec2 *= C_high ** 0.5 * self.pixel_size_ratio ** 0.5
         lr_covec2.in_real_space()
         lr_covec2[:self.nW // 4] = 0
         lr_covec2[3 * self.nW // 4:] = 0

@@ -84,7 +84,7 @@ class CovarianceCalculation(metaclass=abc.ABCMeta):
             test_field_lo[i] = 0.0
 
         for i in range(self.nW):
-            test_field_hi[i] = self.pixel_size_ratio ** (0.5)
+            test_field_hi[i] = 1.0
             yield test_field_lo, test_field_hi
             test_field_hi[i] = 0.0
 
