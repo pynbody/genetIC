@@ -70,13 +70,13 @@ namespace modifications {
       using tools::numerics::operator/=;
       auto highResModif = calculateLocalisationCovector(this->underlying.getGridForLevel(level));
 
-      auto multiLevelCovector = this->underlying.generateMultilevelFromHighResField(std::move(highResModif));
+      auto multiLevelCovector = this->underlying.generateMultilevelCovectorFromHiresCovector(std::move(highResModif));
 
       // Note - the resulting covector will be applied most likely to a white noise field, but it could be
       // a field such as the DM field if we end up calculating a constraint value after the fact. We need
       // to keep track of what species we are calculating a covector for.
       multiLevelCovector->transferType = forSpecies;
-      multiLevelCovector->applyFilters();
+
       turnLocalisationCovectorIntoModificationCovector(*multiLevelCovector);
       return multiLevelCovector;
     }
@@ -156,7 +156,7 @@ namespace modifications {
   \brief Constrains the average of the Newtonian potential over the flagged points to be equal to the target
   */
   template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
-  class PotentialModification : public LinearModification<DataType, T> {
+  class PotentialModification : public OverdensityModification<DataType, T> {
   public:
     /*! \brief Constructor from underlying multi-level context and cosmological data.
 
@@ -164,15 +164,19 @@ namespace modifications {
         \param cosmology_ - struct containing cosmological parameters.
     */
     PotentialModification(const multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
-                          const cosmology::CosmologicalParameters<T> &cosmology_) : LinearModification<DataType, T>(
+                          const cosmology::CosmologicalParameters<T> &cosmology_) : OverdensityModification<DataType, T>(
       underlying_, cosmology_) {
 
     };
 
     //! Converts the density into a potential, but otherwise will just average over the flagged cells
     void turnLocalisationCovectorIntoModificationCovector(fields::MultiLevelField<DataType> & field) const override {
-      // TODO
-      // cosmology::densityToPotential(fieldOnLevel, this->cosmology);
+      // TODO: combine these operations to make more efficient
+      OverdensityModification<DataType,T>::turnLocalisationCovectorIntoModificationCovector(field);
+      for(size_t level=0; level<field.getNumLevels(); ++level) {
+        auto &fieldOnLevel = field.getFieldForLevel(level);
+        cosmology::densityToPotential(fieldOnLevel, this->cosmology);
+      }
     }
 
   };
@@ -199,40 +203,45 @@ namespace modifications {
 
     //! Converts (in-place) from a overdensity covector to a velocity covector
     void turnLocalisationCovectorIntoModificationCovector(fields::MultiLevelField<DataType> & field) const override {
-      // TODO
-      /*
-      using compT = std::complex<T>;
-      fieldOnLevel.toFourier(); // probably already in Fourier space, but best to be sure
-      const grids::Grid<T> &grid(fieldOnLevel.getGrid());
-      complex<T> I(0, 1);
-      T scale = zeldovichVelocityToOffsetRatio(this->cosmology);
-      const T nyquist = tools::numerics::fourier::getNyquistModeThatMustBeReal(grid) * grid.getFourierKmin();
+      OverdensityModification<DataType,T>::turnLocalisationCovectorIntoModificationCovector(field);
+      for(size_t level=0; level<field.getNumLevels(); ++level) {
+        auto &fieldOnLevel = field.getFieldForLevel(level);
+        using compT = std::complex<T>;
+        fieldOnLevel.toFourier(); // probably already in Fourier space, but best to be sure
+        const grids::Grid<T> &grid(fieldOnLevel.getGrid());
+        complex<T> I(0, 1);
+        T scale = zeldovichVelocityToOffsetRatio(this->cosmology);
+        const T nyquist = tools::numerics::fourier::getNyquistModeThatMustBeReal(grid) * grid.getFourierKmin();
 
-      auto calcCell =
-        [I, scale, nyquist](complex<T> overdensityFieldValue, T kx, T ky, T kz, T k_chosen_direction) -> complex<T> {
+        auto calcCell =
+          [I, scale, nyquist](complex<T> overdensityFieldValue, T kx, T ky, T kz, T k_chosen_direction) -> complex<T> {
 
-          // This lambda evaluates the derivative for the given Fourier-space cell. kx,ky,kz are the
-          // input k-space coordinates, and k_chosen_direction must be set to whichever of these specifies
-          // the derivative direction
+            // This lambda evaluates the derivative for the given Fourier-space cell. kx,ky,kz are the
+            // input k-space coordinates, and k_chosen_direction must be set to whichever of these specifies
+            // the derivative direction
 
-          T k2 = kx * kx + ky * ky + kz * kz;
+            T k2 = kx * kx + ky * ky + kz * kz;
 
-          if (k_chosen_direction == nyquist || k2 == 0)
-            return complex<T>(0);
-          else
-            return -scale * overdensityFieldValue * I * k_chosen_direction / k2;
-        };
+            if (k_chosen_direction == nyquist || k2 == 0)
+              return complex<T>(0);
+            else
+              return -scale * overdensityFieldValue * I * k_chosen_direction / k2;
+          };
 
 
-      if (direction == 0)
-        fieldOnLevel.forEachFourierCell([calcCell](compT v, T kx, T ky, T kz) { return calcCell(v, kx, ky, kz, kx); });
-      else if (direction == 1)
-        fieldOnLevel.forEachFourierCell([calcCell](compT v, T kx, T ky, T kz) { return calcCell(v, kx, ky, kz, ky); });
-      else if (direction == 2)
-        fieldOnLevel.forEachFourierCell([calcCell](compT v, T kx, T ky, T kz) { return calcCell(v, kx, ky, kz, kz); });
-      else
-        throw std::runtime_error("Unknown velocity direction");
-        */
+        if (direction == 0)
+          fieldOnLevel.forEachFourierCell(
+            [calcCell](compT v, T kx, T ky, T kz) { return calcCell(v, kx, ky, kz, kx); });
+        else if (direction == 1)
+          fieldOnLevel.forEachFourierCell(
+            [calcCell](compT v, T kx, T ky, T kz) { return calcCell(v, kx, ky, kz, ky); });
+        else if (direction == 2)
+          fieldOnLevel.forEachFourierCell(
+            [calcCell](compT v, T kx, T ky, T kz) { return calcCell(v, kx, ky, kz, kz); });
+        else
+          throw std::runtime_error("Unknown velocity direction");
+
+      }
     }
   };
 

@@ -23,20 +23,10 @@ namespace fields {
   protected:
 
     const multilevelcontext::MultiLevelContextInformation<DataType> *multiLevelContext; //!< Pointer to the underlying multi-level context
-    std::shared_ptr<filters::FilterFamily<T>> pFilters;   //!< filters to be applied when used as a vector
-    tools::Signaling::connection_t connection; //!< Connection to the multi-level context. Used to signal when the context needs updating.
     bool isCovector; //!< True if the multi-level field is a covector, used to define a modification.
-
-
 
     std::vector<std::shared_ptr<Field<DataType, T>>> fieldsOnLevels; //!< Vector that stores all the fields on the different levels
 
-    //! Sets up a listener to signals from the multi-level context, allowing this field to update its state when the context changes
-    void setupConnection() {
-      connection = multiLevelContext->connect([this]() {
-        this->updateMultiLevelContext();
-      });
-    }
 
 
   public:
@@ -45,28 +35,12 @@ namespace fields {
 
     particle::species transferType;
 
-    //! Sets up filters for each level of the multi-level field.
-    template<typename FilterType>
-    void setupFilters() {
-      const T FRACTIONAL_K_SPLIT = 0.3;
 
-      size_t nLevels = this->multiLevelContext->getNumLevels();
-      this->pFilters = make_shared<FilterType>();
-      for (size_t level = 0; level < nLevels - 1; ++level) {
-        const grids::Grid<T> &grid0(this->multiLevelContext->getGridForLevel(level));
-
-        T k_pixel = ((T) grid0.size) * grid0.getFourierKmin();
-        T k_cut = FRACTIONAL_K_SPLIT * k_pixel;
-        this->pFilters->addLevel(k_cut);
-      }
-
-    }
 
     //! Constructor with fields unspecified - only multi-level context.
     MultiLevelField(const multilevelcontext::MultiLevelContextInformation<DataType> &multiLevelContext,
                     particle::species transfer_type = particle::species::dm) :
       multiLevelContext(&multiLevelContext), transferType(transfer_type) {
-      setupConnection();
       isCovector = false;
     }
 
@@ -76,7 +50,6 @@ namespace fields {
                     particle::species transfer_type = particle::species::dm) :
       multiLevelContext(&multiLevelContext), fieldsOnLevels(fieldsOnGrids) {
       transferType = transfer_type;
-      setupConnection();
       isCovector = false;
     }
 
@@ -88,34 +61,16 @@ namespace fields {
         fieldsOnLevels.push_back(std::make_shared<Field<DataType, T>>(copy.getFieldForLevel(level)));
       }
       transferType = copy.transferType;
-      setupConnection();
 
-      // NB - adding this if here, because the std::make_shared call here will lead to a segmentation fault if
-      // copy.pFilters is null, which is required at construction because the filter depends on the level-structure, which isn't
-      // specified until later:
-      if (copy.pFilters == nullptr) {
-        pFilters = nullptr;
-      } else {
-        pFilters = std::make_shared<filters::FilterFamily<T>>(*copy.pFilters);
-      }
       isCovector = copy.isCovector;
     }
 
     //! Destructor
     virtual ~MultiLevelField() {}
 
-    //! Updates the multi-level-fields's multi-level context, particularly with regards filters on each level
-    virtual void updateMultiLevelContext() {
-    }
-
     //! Returns a reference to the multi-level context associated to this multi-level field.
     virtual multilevelcontext::MultiLevelContextInformation<DataType> &getContext() const {
       return const_cast<multilevelcontext::MultiLevelContextInformation<DataType> &>(*multiLevelContext);
-    }
-
-    //! Returns a reference to the filters associated to each level of the multi-level field.
-    const filters::FilterFamily<T> &getFilters() const {
-      return *pFilters;
     }
 
 
@@ -157,21 +112,6 @@ namespace fields {
       return this->getFieldForLevel(i).getDataVector().size() > 0;
     }
 
-    //! Returns a reference to the filter on the specified level
-    virtual const filters::Filter<T> &getFilterForLevel(size_t i) const {
-      return pFilters->getFilterOnLevel(i);
-    }
-
-    //! Returns a reference to the high pass filter on the specified level.
-    virtual const filters::Filter<T> &getHighPassFilterForLevel(size_t i) const {
-      return pFilters->getHighPassFilterOnLevel(i);
-    }
-
-    //! Returns a reference to the low pass filter on the specified level.
-    virtual const filters::Filter<T> &getLowPassFilterForLevel(size_t i) const {
-      return pFilters->getLowPassFilterOnLevel(i);
-    }
-
     //! Converts the fields on each level to real space, if they are not already.
     void toReal() {
       for (size_t i = 0; i < multiLevelContext->getNumLevels(); ++i)
@@ -203,6 +143,10 @@ namespace fields {
       return true;
     }
 
+    //! Returns suitable filters for combining information on different grid levels
+    filters::FilterFamily<T> getFilters() const {
+      return filters::FilterFamily<T>(*multiLevelContext);
+    }
 
     //! Adds the specified multi-level field to this one.
     void operator+=(const MultiLevelField<DataType> &other) {
@@ -233,10 +177,6 @@ namespace fields {
     }
 
     //! Add a scaled multilevel field to the current one
-    /*!
-        The two fields can have different filters on each level,
-        hence the need to compensate filter normalization.
-     */
     void addScaled(const MultiLevelField &other, DataType scale) {
       assert(other.isFourierOnAllLevels());
       toFourier();
@@ -245,14 +185,11 @@ namespace fields {
         if (hasFieldOnGrid(level) && other.hasFieldOnGrid(level)) {
           Field<DataType> &fieldThis = getFieldForLevel(level);
           const Field<DataType> &fieldOther = other.getFieldForLevel(level);
-          auto &filtOther = (other.getFilterForLevel(level));
-          auto &filtThis = getFilterForLevel(level);
           T kMin = fieldThis.getGrid().getFourierKmin();
-          fieldThis.forEachFourierCellInt([&fieldOther, &filtOther, &filtThis, kMin, scale]
+          fieldThis.forEachFourierCellInt([&fieldOther, kMin, scale]
                                             (ComplexType currentVal, int kx, int ky, int kz) {
             T k_value = kMin * sqrt(T(kx * kx) + T(ky * ky) + T(kz * kz));
-            T filt = filtOther(k_value) / filtThis(k_value);
-            return currentVal + scale * filt * fieldOther.getFourierCoefficient(kx, ky, kz);
+            return currentVal + scale * fieldOther.getFourierCoefficient(kx, ky, kz);
           });
         }
       }
@@ -355,15 +292,17 @@ namespace fields {
       return result;
     }
 
-    //! Applies the filters on all levels.
-    void applyFilters() {
+    //! Applies filters on all levels.
+    void applyFilters(const filters::FilterFamilyBase<T> & filters) {
       for (size_t level = 0; level < getNumLevels(); ++level) {
         if (hasFieldOnGrid(level)) {
-          getFieldForLevel(level).applyFilter(getFilterForLevel(level));
+          getFieldForLevel(level).applyFilter(filters.getFilterForLevel(level));
         }
       }
+    }
 
-      pFilters = make_shared<filters::FilterFamily<T>>(multiLevelContext->getNumLevels());
+    void applyFilters() {
+      applyFilters(this->getFilters());
     }
 
     /*! \brief Converts the field into a covector, using the covariance matrix associated to the field.
@@ -393,15 +332,48 @@ namespace fields {
 
     //! Converts the field back to a vector if it has been converted to or defined as a covector field.
     void convertToVector() {
+      using tools::numerics::operator*=;
       assert(isCovector);
       toFourier();
-      // TODO optimize:
-      this->applyFilters();
-      this->applyFilters();
 
-      for(size_t i=0; i<multiLevelContext->getNumLevels(); ++i) {
-        // TODO weight levels
+
+      auto filters = this->getFilters();
+
+      decltype(this->fieldsOnLevels) newFields;
+
+      // Add cross-talk terms
+      for(size_t level=0; level<getNumLevels(); ++level) {
+        std::shared_ptr<fields::Field<DataType,T>> result = getFieldForLevel(level).copy();
+        newFields.push_back(result);
+
+        auto & f = filters.getFilterForLevel(level);
+        result->applyFilter(f*f);
+
+        for(size_t source_level=0; source_level < getNumLevels(); ++source_level) {
+          auto & source_field = this->getFieldForLevel(source_level);
+          T pixel_volume_ratio = multiLevelContext->getWeightForLevel(level)/
+                                 multiLevelContext->getWeightForLevel(source_level);
+
+          if(source_level == level) {
+            break; // handled above
+          } else if(source_level < level) {
+            // high_from_low term
+            auto & hpf = filters.getFilterForLevel(level);
+            auto & lpf = filters.getFilterForLevel(source_level);
+            result->addFieldFromDifferentGridWithFilter(source_field, hpf*lpf*sqrt(pixel_volume_ratio));
+
+          } else if(source_level > level) {
+            // low_from_high term
+            auto & hpf = filters.getFilterForLevel(source_level);
+            auto & lpf = filters.getFilterForLevel(level);
+            result->addFieldFromDifferentGridWithFilter(source_field, hpf*lpf*sqrt(pixel_volume_ratio));
+          }
+        }
+
       }
+
+      this->fieldsOnLevels = newFields;
+
 
       // TODO add cross-talk terms
       isCovector = false;
@@ -665,18 +637,11 @@ namespace fields {
       fieldsOnLevelsPopulated = copy.fieldsOnLevelsPopulated;
     }
 
-    //! Update the filters and clear all fields.
-    void updateMultiLevelContext() override {
-      assert(outputState == PRE_SEPARATION);
-      this->template setupFilters<filters::MultiLevelFilterFamily<T>>();
-      this->fieldsOnLevels.clear();
-      fieldsOnLevelsPopulated = false;
-    }
 
-    //! Sets the internal state to RECOMBINED and sets up the filters
+    //! Sets the internal state to RECOMBINED
     void setStateRecombined() {
+      // TODO - this can probably be removed
       outputState = RECOMBINED;
-      this->template setupFilters<filters::MultiLevelRecombinedFilterFamily<T>>();
     }
 
     //! Returns the field on the specified level, populating it if not yet populated.
@@ -713,15 +678,8 @@ namespace fields {
                     const std::vector<std::shared_ptr<Field<DataType, T>>> &fieldsOnGrids)
       : MultiLevelField<DataType>(multiLevelContext, std::move(fieldsOnGrids)) {
       this->isCovector = true;
-      updateMultiLevelContext();
     }
 
-
-    //! Update multi-level context, setting up the filters on each level.
-    virtual void updateMultiLevelContext() override {
-      this->template setupFilters<filters::MultiLevelFilterFamily<T>>();
-      // this->template setupFilters<filters::MultiLevelDependentFilterFamily<T>>();
-    }
 
 
   };

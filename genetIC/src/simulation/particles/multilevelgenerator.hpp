@@ -98,25 +98,24 @@ namespace particle {
 
       cerr << "Interpolating low-frequency information into zoom regions..." << endl;
 
+      auto filters = generator.overdensityField.getFilters();
+
       for (size_t level = 1; level < nlevels; ++level) {
 
         // remove the low-frequency information from this level
         generator.overdensityField.getFieldForLevel(level).applyFilter(
-          generator.overdensityField.getHighPassFilterForLevel(level));
+          filters.getHighPassFilterForLevel(level));
 
         // replace with the low-frequency information from the level below
 
         generator.overdensityField.getFieldForLevel(level).addFieldFromDifferentGridWithFilter(
           generator.overdensityField.getFieldForLevel(level - 1),
-          generator.overdensityField.getLowPassFilterForLevel(level - 1));
+          filters.getLowPassFilterForLevel(level - 1));
 
-
-        generator.pGenerators[level]->applyFilter(generator.overdensityField.getHighPassFilterForLevel(level));
-
+        generator.pGenerators[level]->applyFilter(filters.getHighPassFilterForLevel(level));
 
         generator.pGenerators[level]->addFieldFromDifferentGridWithFilter(*generator.pGenerators[level - 1],
-                                                                          generator.overdensityField.getLowPassFilterForLevel(
-                                                                            level - 1));
+                                                                          filters.getLowPassFilterForLevel(level - 1));
 
 
       }

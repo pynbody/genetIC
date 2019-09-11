@@ -10,6 +10,9 @@
 namespace filters {
 
   template<typename T>
+  class ValueAsFilter;
+
+  template<typename T>
   class DivisionFilter;
 
   template<typename T>
@@ -31,11 +34,6 @@ namespace filters {
     //! Default constructor
     Filter() {}
 
-    //! Constructor with a specified value of k at which to define the 'cutoff'
-    Filter(T /*k_cut*/) {
-      // provided for compatibility with filters that do take a wavenumber cut
-    }
-
     //! \brief Returns the filter at the specified k
     /*!
     \param - k - value of k at which to evaluate the filter
@@ -54,9 +52,19 @@ namespace filters {
       return DivisionFilter<T>(*this, other);
     }
 
+    //! Returns a division with this filter as a numerator and a constant value on the denominator
+    DivisionFilter<T> operator/(T value) const {
+      return DivisionFilter<T>(*this, ValueAsFilter<T>(value));
+    }
+
     //! Returns a product filter with this filter as one of the product members
     ProductFilter<T> operator*(const Filter<T> &other) const {
       return ProductFilter<T>(*this, other);
+    }
+
+    //! Returns a product between this filter and a constant value
+    ProductFilter<T> operator*(T value) const {
+      return ProductFilter<T>(*this, ValueAsFilter<T>(value));
     }
 
     //! Output debug information (debug use only)
@@ -75,9 +83,6 @@ namespace filters {
     NullFilter() {
     }
 
-    //! Provided for compatibility with filters that do take a wavenumber cut
-    NullFilter(T /*k_cut*/) {
-    }
 
     //! Returns 0. Everything is filtered out by the null filter.
     T operator()(T /*x*/) const override {
@@ -92,6 +97,33 @@ namespace filters {
     //! Output debug information to the specified stream.
     virtual void debugInfo(std::ostream &s) const override {
       s << "NullFilter";
+    }
+
+  };
+
+  //! \class ValueAsFilter
+  //! \brief Returns a single number regardless of the k value
+  template<typename T>
+  class ValueAsFilter : public Filter<T> {
+  protected:
+    T value;
+  public:
+    explicit ValueAsFilter(T value) : value(value) {
+    }
+
+    //! Returns the constant value
+    T operator()(T /*x*/) const override {
+      return value;
+    }
+
+    //! Returns a copy of this filter.
+    std::shared_ptr<Filter<T>> clone() const override {
+      return std::make_shared<ValueAsFilter<T>>(value);
+    }
+
+    //! Output debug information to the specified stream.
+    virtual void debugInfo(std::ostream &s) const override {
+      s << value;
     }
 
   };

@@ -194,7 +194,7 @@ namespace modifications {
 
       std::vector<T> existingValues;
       for (size_t i = 0; i < orthonormalisedCovectors.size(); i++) {
-        existingValues.push_back(orthonormalisedCovectors[i]->innerProduct(outputField).real());
+        existingValues.push_back(orthonormalisedCovectors[i]->innerProduct(*outputField).real());
       }
 
       for (size_t i = 0; i < orthonormalisedCovectors.size(); i++) {
@@ -205,7 +205,7 @@ namespace modifications {
         alpha_i.convertToVector();
 
         alpha_i.toFourier(); // almost certainly already is in Fourier space, but just to be safe
-        outputField.addScaled(alpha_i, dval_i);
+        outputField->addScaled(alpha_i, dval_i);
       }
     }
 

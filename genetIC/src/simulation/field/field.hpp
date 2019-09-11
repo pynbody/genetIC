@@ -392,28 +392,22 @@ namespace fields {
 
 #else
 
-    //! Add a field defined on a different grid to this one, first applying a filter field to be added.
+    //! Add a field defined on a different grid to this one, applying the specified filter while adding
     void addFieldFromDifferentGridWithFilter(Field<DataType, CoordinateType> &source,
                                              const filters::Filter<CoordinateType> &filter) {
 
       source.toReal();
-      Field<DataType, CoordinateType> temporaryField(getGrid(), false);
-      auto &temporaryFieldData = temporaryField.getDataVector();
 
-      assert(data.size() == temporaryFieldData.size());
+      auto temporaryField = std::make_shared<Field<DataType, CoordinateType>>(getGrid(), false);
 
-      size_t size = pGrid->size3;
+      temporaryField->addFieldFromDifferentGrid(source);
+      temporaryField->applyFilter(filter);
 
-#pragma omp parallel for schedule(static) default(none) shared(temporaryFieldData, source, size)
-      for (size_t i = 0; i < size; ++i) {
-        temporaryFieldData[i] = source.evaluateInterpolated(pGrid->getCentroidFromIndex(i));
-      }
+      this->matchFourier(*temporaryField); // expect that the temporary field is now stored in Fourier space
 
-      temporaryField.applyFilter(filter);
+      const auto & temporaryFieldData = temporaryField->getDataVector();
 
-      this->matchFourier(temporaryField); // expect that the temporary field is now stored in Fourier space
-
-#pragma omp parallel for schedule(static) default(none)  shared(temporaryFieldData, data)
+#pragma omp parallel for schedule(static) default(none)  shared(data)
       for (size_t i = 0; i < temporaryFieldData.size(); ++i) {
         data[i] += temporaryFieldData[i];
       }
@@ -444,6 +438,10 @@ namespace fields {
       }
       assert(data.size() == getGrid().size3);
       data.resize(fourierManager->getRequiredDataSize());
+    }
+
+    auto copy() const {
+      return std::make_shared<Field<DataType,CoordinateType>>(*this);
     }
 
 

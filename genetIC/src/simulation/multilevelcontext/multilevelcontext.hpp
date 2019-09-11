@@ -22,6 +22,11 @@ namespace cosmology {
   class CAMB;
 }
 
+namespace filters {
+  template<typename T>
+  class FilterFamily;
+}
+
 /*!
     \namespace multilevelcontext
     \brief Keep track of the different grids and their level of refinement. Intermediate between grids and multi level fields.
@@ -47,7 +52,7 @@ namespace multilevelcontext {
   template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
   class MultiLevelContextInformationBase : public tools::Signaling {
   private:
-    std::vector<std::shared_ptr<grids::Grid<T>>> pGrid; //!< Pointers to the grids for each level
+    std::vector<std::shared_ptr<grids::Grid<T>>> pGrids; //!< Pointers to the grids for each level
     std::vector<std::shared_ptr<grids::Grid<T>>> pOutputGrid; //!< Pointers to the output grids for each level -- may be different from the underlying grids if allowStrays is on
     std::vector<T> weights; //!< Fraction of the volume of the coarsest level's cells that the cells on each level occupy
     const cosmology::CAMB<DataType> *powerSpectrumGenerator = nullptr;
@@ -115,12 +120,12 @@ namespace multilevelcontext {
         \param pG - pointer to the grid for this level
     */
     void addLevel(std::shared_ptr<grids::Grid<T>> pG) {
-      if (pGrid.size() == 0) {
+      if (pGrids.size() == 0) {
         weights.push_back(1.0);
       } else {
-        weights.push_back(pow(pG->cellSize / pGrid[0]->cellSize, 3.0));
+        weights.push_back(pow(pG->cellSize / pGrids[0]->cellSize, 3.0));
       }
-      pGrid.push_back(pG);
+      pGrids.push_back(pG);
       Ns.push_back(pG->size3);
       cumu_Ns.push_back(Ntot);
       Ntot += pG->size3;
@@ -139,7 +144,7 @@ namespace multilevelcontext {
 
     //! Clears the multi-level context of all data
     void clear() {
-      pGrid.clear();
+      pGrids.clear();
       Ns.clear();
       cumu_Ns.clear();
       Ntot = 0;
@@ -160,12 +165,12 @@ namespace multilevelcontext {
 
     //! Returns a reference to the calculation grid (on which data is manipulated) for the specified level
     grids::Grid<T> &getGridForLevel(size_t level) {
-      return *pGrid[level];
+      return *pGrids[level];
     }
 
     //! Returns a constant reference to the calculation grid (on which data is manipulated) for the specified level
     const grids::Grid<T> &getGridForLevel(size_t level) const {
-      return *pGrid[level];
+      return *pGrids[level];
     }
 
     //! Returns a reference to the output grid (from which particles are output) for the specified level
@@ -180,10 +185,10 @@ namespace multilevelcontext {
 
     //! Return a vector of shared pointers to the grids. Needed to add gas to all levels, for example.
     std::vector<std::shared_ptr<grids::Grid<T>>> getAllGrids() {
-      return pGrid;
+      return pGrids;
     }
 
-    //! Returns the weight for the specified level
+    //! Returns the fractional volume of a level-0 pixel that is occupied by a pixel on this level
     T getWeightForLevel(size_t level) const {
       return weights[level];
     }
@@ -225,16 +230,17 @@ namespace multilevelcontext {
         \param data - field data on the highest resolution level.
     */
     std::shared_ptr<fields::ConstraintField<DataType>>
-    generateMultilevelFromHighResField(fields::Field<DataType, T> &&data) const {
-      assert(&data.getGrid() == pGrid.back().get());
+    generateMultilevelCovectorFromHiresCovector(fields::Field<DataType, T> &&data) const {
+      using tools::numerics::operator*=;
+      assert(&data.getGrid() == pGrids.back().get());
 
       // Generate the fields on each level. Fill low-res levels with zeros to start with.
       vector<std::shared_ptr<fields::Field<DataType, T>>> dataOnLevels;
-      for (size_t level = 0; level < pGrid.size(); level++) {
-        if (level == pGrid.size() - 1) {
+      for (size_t level = 0; level < pGrids.size(); level++) {
+        if (level == pGrids.size() - 1) {
           dataOnLevels.emplace_back(std::make_shared<fields::Field<DataType, T>>(std::move(data)));
         } else {
-          dataOnLevels.emplace_back(std::make_shared<fields::Field<DataType, T>>(*pGrid[level], false));
+          dataOnLevels.emplace_back(std::make_shared<fields::Field<DataType, T>>(*pGrids[level], false));
         }
       }
 
@@ -248,22 +254,30 @@ namespace multilevelcontext {
         }
       }
 
-      return std::make_shared<fields::ConstraintField<DataType>>(
+      for(size_t level=0; level < pGrids.size(); ++level) {
+        dataOnLevels[level]->getDataVector()*=getWeightForLevel(level)/getWeightForLevel(pGrids.size() - 1);
+      }
+
+      auto retVal = std::make_shared<fields::ConstraintField<DataType>>(
         *dynamic_cast<const MultiLevelContextInformation<DataType, T> *>(this),
         dataOnLevels);
+
+      retVal->applyFilters(filters::FilterFamily<DataType>(*this));
+      retVal->toReal();
+      return retVal;
     }
 
     //! Applies the specified operation to the grids on each level of the multi-level context
     void forEachLevel(std::function<void(grids::Grid<T> &)> newLevelCallback) {
       for (size_t level = 0; level < nLevels; level++) {
-        newLevelCallback(*pGrid[level]);
+        newLevelCallback(*pGrids[level]);
       }
     }
 
     //! Applies the specified operation (that cannot change anything) to the grids for each level.
     void forEachLevel(std::function<void(const grids::Grid<T> &)> newLevelCallback) const {
       for (size_t level = 0; level < nLevels; level++) {
-        newLevelCallback(*pGrid[level]);
+        newLevelCallback(*pGrids[level]);
       }
     }
 
@@ -292,12 +306,12 @@ namespace multilevelcontext {
       // Second Low res subsample stuffed from the base level
       // Third High res supersampled stuff from the finest level
       for (size_t level = 0; level < nLevels; ++level) {
-        size_t neff = size_t(round(pGrid[0]->cellSize / pGrid[level]->cellSize)) * pGrid[0]->size;
+        size_t neff = size_t(round(pGrids[0]->cellSize / pGrids[level]->cellSize)) * pGrids[0]->size;
         if (level > 0) {
           size_t factor = base_factor;
-          while (pGrid[level]->cellSize * factor * 1.001 < pGrid[level - 1]->cellSize) {
+          while (pGrids[level]->cellSize * factor * 1.001 < pGrids[level - 1]->cellSize) {
             std::cerr << "Adding virtual grid with effective resolution " << neff / factor << std::endl;
-            auto vGrid = std::make_shared<grids::SubSampleGrid<T>>(pGrid[level], factor);
+            auto vGrid = std::make_shared<grids::SubSampleGrid<T>>(pGrids[level], factor);
             newStack.addLevel(vGrid);
             factor *= base_factor;
           }
@@ -305,22 +319,22 @@ namespace multilevelcontext {
           size_t factor = base_factor;
           for (size_t i = 0; i < extra_lores; ++i) {
             std::cerr << "Adding virtual grid with effective resolution " << neff / factor << std::endl;
-            auto vGrid = std::make_shared<grids::SubSampleGrid<T>>(pGrid[level], factor);
+            auto vGrid = std::make_shared<grids::SubSampleGrid<T>>(pGrids[level], factor);
             newStack.addLevel(vGrid);
             factor *= base_factor;
           }
         }
 
         std::cerr << "Adding real grid with resolution " << neff << std::endl;
-        newStack.addLevel(pGrid[level]);
+        newStack.addLevel(pGrids[level]);
       }
 
       size_t factor = base_factor;
       for (size_t i = 0; i < extra_highres; ++i) {
         size_t level = nLevels - 1;
-        size_t neff = size_t(round(pGrid[0]->cellSize / pGrid[level]->cellSize)) * pGrid[0]->size;
+        size_t neff = size_t(round(pGrids[0]->cellSize / pGrids[level]->cellSize)) * pGrids[0]->size;
         std::cerr << "Adding virtual grid with effective resolution " << neff * factor << std::endl;
-        auto vGrid = std::make_shared<grids::SuperSampleGrid<T>>(pGrid[level], factor);
+        auto vGrid = std::make_shared<grids::SuperSampleGrid<T>>(pGrids[level], factor);
         newStack.addLevel(vGrid);
         factor *= base_factor;
 
@@ -341,14 +355,14 @@ namespace multilevelcontext {
       Coordinate<T> offset;
 
       for (size_t level = 0; level <= deepest_coarse; ++level) {
-        auto centeredCoarse = std::make_shared<grids::CenteredGrid<T>>(this->pGrid[level], pointToCenterOnto);
+        auto centeredCoarse = std::make_shared<grids::CenteredGrid<T>>(this->pGrids[level], pointToCenterOnto);
         newStack.addLevel(centeredCoarse);
         offset = centeredCoarse->getPointOffset();
       }
 
 
       for (size_t level = deepest_coarse + 1; level < nLevels; ++level) {
-        auto offsetFine = std::make_shared<grids::OffsetGrid<T>>(this->pGrid[level], offset.x, offset.y, offset.z);
+        auto offsetFine = std::make_shared<grids::OffsetGrid<T>>(this->pGrids[level], offset.x, offset.y, offset.z);
         newStack.addLevel(offsetFine);
       }
     }
