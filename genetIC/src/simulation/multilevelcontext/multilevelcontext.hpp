@@ -19,7 +19,7 @@ namespace fields {
 
 namespace cosmology {
   template<typename T>
-  class CAMB;
+  class PowerSpectrum;
 }
 
 namespace filters {
@@ -55,7 +55,7 @@ namespace multilevelcontext {
     std::vector<std::shared_ptr<grids::Grid<T>>> pGrids; //!< Pointers to the grids for each level
     std::vector<std::shared_ptr<grids::Grid<T>>> pOutputGrid; //!< Pointers to the output grids for each level -- may be different from the underlying grids if allowStrays is on
     std::vector<T> weights; //!< Fraction of the volume of the coarsest level's cells that the cells on each level occupy
-    const cosmology::CAMB<DataType> *powerSpectrumGenerator = nullptr;
+    const cosmology::PowerSpectrum<DataType> *powerSpectrumGenerator = nullptr;
 
   public:
     size_t nTransferFunctions = 1; //!< Keeps track of the number of transfer functions currently being used by the code.
@@ -68,26 +68,13 @@ namespace multilevelcontext {
     size_t nLevels = 0; //!< Number of levels in the multi-level context.
     T simSize; //!< Comoving size of the simulation box
 
-    //! Constructor defining a multi-level context with a single level with N cells
-    MultiLevelContextInformationBase(size_t N) {
-      nLevels = 1;
-      Ns.push_back(N);
-      Ntot = N;
-      nTransferFunctions = 1;
-    }
 
     MultiLevelContextInformationBase() {}
 
 
   public:
 
-    //! Constructor defining a multi-level context with no levels specified.
-    //! \param spectrum - object holding data about the transfer functions
-    MultiLevelContextInformationBase(const std::shared_ptr<cosmology::CAMB<DataType>> &spectrum)
-      : powerSpectrumGenerator(spectrum) {
-    }
 
-    //! Destructor
     virtual ~MultiLevelContextInformationBase() {}
 
 
@@ -112,7 +99,7 @@ namespace multilevelcontext {
      *
      * This must remain alive for the lifetime of the MultiLevelContextInformation class
     */
-    void setPowerspectrumGenerator(const cosmology::CAMB<DataType> &generator) {
+    void setPowerspectrumGenerator(const cosmology::PowerSpectrum<DataType> &generator) {
       this->powerSpectrumGenerator = &generator;
     }
 

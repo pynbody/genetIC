@@ -62,10 +62,8 @@ protected:
   std::vector<std::shared_ptr<fields::OutputField<GridDataType>>> outputFields;
   bool useBaryonTransferFunction{false}; //!< True if gas particles should use a different transfer function
   modifications::ModificationManager<GridDataType> modificationManager; //!< Handles applying modificaitons to the various fields.
-  std::shared_ptr<fields::RandomFieldGenerator<GridDataType>> randomFieldGenerator; //!< Generate white noise for the output fields
-
-
-  cosmology::CAMB<GridDataType> spectrum; //!< Transfer function data
+  std::unique_ptr<fields::RandomFieldGenerator<GridDataType>> randomFieldGenerator; //!< Generate white noise for the output fields
+  std::unique_ptr<cosmology::PowerSpectrum<GridDataType>> spectrum; //!< Transfer function data
 
   //! Velocity offset to be added uniformly to output (default 0,0,0)
   Coordinate<GridDataType> velOffset;
@@ -183,7 +181,7 @@ public:
     modificationManager.bindToField(outputFields[0]);
 
     // Link random field generator to the white noise field
-    randomFieldGenerator = std::make_shared<fields::RandomFieldGenerator<GridDataType>>(*outputFields[0]);
+    randomFieldGenerator = std::make_unique<fields::RandomFieldGenerator<GridDataType>>(*outputFields[0]);
 
     velOffset = {0, 0, 0};
 
@@ -204,7 +202,7 @@ public:
     flaggedParticlesHaveDifferentGadgetType = false;
     flaggedGadgetParticleType = 1;
     this->baryonsOnAllLevels = false; // Baryons only output on the finest level by default.
-    this->multiLevelContext.setPowerspectrumGenerator(spectrum);
+
   }
 
   //! Destructor
@@ -251,14 +249,7 @@ public:
   //! produces more accurate results for baryons than assuming they follow the same transfer function
   //! (which holds only at late times).
   void setUsingBaryons() {
-    if (!this->useBaryonTransferFunction)
-    {
-      if (this->spectrum.dataRead) {
-        throw (std::runtime_error("Cannot switch on baryons after transfer function data already read."));
-      }
-      this->useBaryonTransferFunction = true;
-      this->spectrum.enableAllTransfers();
-    }
+    this->useBaryonTransferFunction = true;
   }
 
   //! Enable autopad (i.e. generation of thin layers of intermediate resolution particles around zoom regions)
@@ -666,7 +657,8 @@ public:
   * \param cambFieldPath - string of path to CAMB file
   */
   void setCambDat(std::string cambFilePath) {
-    spectrum.read(cambFilePath, cosmology);
+    spectrum = std::make_unique<cosmology::CAMB<GridDataType>>(this->cosmology, cambFilePath);
+    this->multiLevelContext.setPowerspectrumGenerator(*spectrum);
   }
 
   //! Set the ouput directory to the supplied string
