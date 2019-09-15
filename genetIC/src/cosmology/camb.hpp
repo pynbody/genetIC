@@ -81,7 +81,23 @@ namespace cosmology {
     //! Calculate the theoretical power spectrum for a given grid
     virtual std::shared_ptr<fields::Field<DataType, CoordinateType>>
     getPowerSpectrumForGridUncached(std::shared_ptr<const grids::Grid<CoordinateType>> grid,
-                                    particle::species transferType = particle::species::dm) const = 0;
+                                    particle::species transferType = particle::species::dm) const {
+
+      CoordinateType norm = this->getPowerSpectrumNormalizationForGrid(*grid);
+
+      auto P = std::make_shared<fields::Field<DataType, CoordinateType>>(*grid, true);
+
+      P->forEachFourierCell([norm, this, transferType]
+                              (std::complex<CoordinateType>, CoordinateType kx, CoordinateType ky,
+                               CoordinateType kz) {
+        CoordinateType k = sqrt(kx * kx + ky * ky + kz * kz);
+        auto spec = std::complex<CoordinateType>((*this)(k, transferType) * norm, 0);
+        return spec;
+      });
+
+      return P;
+
+    }
 
 
 
@@ -107,12 +123,34 @@ namespace cosmology {
 
   };
 
+  /*! \class PowerLawPowerSpectrum
+   * \brief Pure power law power spectrum, for testing purposes only.
+   *
+   * ns is interpreted as the power law index, and sigma8 is ignored
+   */
+  template<typename DataType>
+  class PowerLawPowerSpectrum : public PowerSpectrum<DataType> {
+  protected:
+    using typename PowerSpectrum<DataType>::CoordinateType;
+    CoordinateType ns;
+    CoordinateType amplitude;
+
+  public:
+    PowerLawPowerSpectrum(const CosmologicalParameters<CoordinateType> &cosmology, CoordinateType amplitude)
+    : ns(cosmology.ns), amplitude(amplitude) { }
+
+    CoordinateType operator()(CoordinateType k, particle::species transferType) const override {
+      if(k==0)
+        return 0;
+      else
+        return amplitude * powf(k, ns);
+    }
+
+  };
+
   /*! \class CAMB
-  * \brief Load in and provide interpolation routines for the cosmological power spectrum.
-  *
-  * Currently tied to the CAMB transfer function output format, though this could easily
-  * be relaxed in future by creating an abstract base class and deriving different
-  * classes for alternative approaches. */
+  * \brief Provides power spectra by using transfer functions from CAMB output
+  */
   template<typename DataType>
   class CAMB : public PowerSpectrum<DataType> {
     using typename PowerSpectrum<DataType>::CoordinateType;
@@ -126,7 +164,7 @@ namespace cosmology {
        {particle::species::baryon, 2}}; 
       //!< Columns of CAMB that we request for DM and baryons respectively
       
-    std::map<particle::species, tools::numerics::Interpolator<CoordinateType>> speciesToTransferFunction; //!< Interpolation functions:
+    std::map<particle::species, tools::numerics::LogInterpolator<CoordinateType>> speciesToTransferFunction; //!< Interpolation functions:
     CoordinateType amplitude; //!< Amplitude of the initial power spectrum
     CoordinateType ns;        //!< tensor to scalar ratio of the initial power spectrum
     mutable CoordinateType kcamb_max_in_file; //!< Maximum CAMB wavenumber. If too small compared to grid resolution, Meszaros solution will be computed
@@ -192,9 +230,6 @@ namespace cosmology {
 
         CoordinateType transferNormalisation = input[1]; // to normalise CAMB transfer function so T(0)= 1, doesn't matter if we normalise here in terms of accuracy, but feels more natural
         // Copy file into vectors. Normalise both so that the DM tranfer function starts at 1.
-        for (auto i = speciesToCambColumn.begin(); i != speciesToCambColumn.end(); ++i) {
-          std::cerr << i->first << " reading column : " << i->second << std::endl;
-        }
         for (j = 0; j < input.size() / numCols; j++) {
           if (input[numCols * j] > 0) {
             // hard-coded to first two columns of CAMB file -
@@ -213,16 +248,13 @@ namespace cosmology {
         kcamb_max_in_file = kInterpolationPoints.back();
         CoordinateType keq = 0.01;
         while (kInterpolationPoints.back() < 1e7) {
-          kInterpolationPoints.push_back(kInterpolationPoints.back() + 1.0);
+          kInterpolationPoints.push_back(kInterpolationPoints.back() * 1.1);
           CoordinateType kratio = kInterpolationPoints.back() / kcamb_max_in_file;
           for (auto i = speciesToInterpolationPoints.begin(); i != speciesToInterpolationPoints.end(); ++i) {
             i->second.push_back(i->second.back() * pow(kratio, -2.0) * log(kInterpolationPoints.back() / keq) / log(kcamb_max_in_file / keq));
           }
         }
 
-        for (auto i = speciesToInterpolationPoints.begin(); i != speciesToInterpolationPoints.end(); ++i) {
-          std::cerr << i->first << " " << kInterpolationPoints[50] << " " << i->second[50] << std::endl;
-        }
 
 
       }
@@ -232,17 +264,7 @@ namespace cosmology {
     getPowerSpectrumForGridUncached(std::shared_ptr<const grids::Grid<CoordinateType>> grid,
                                     particle::species transferType = particle::species::dm) const override {
 
-      CoordinateType norm = this->getPowerSpectrumNormalizationForGrid(*grid);
-
-      auto P = std::make_shared<fields::Field<DataType, CoordinateType>>(*grid, true);
-
-      P->forEachFourierCell([norm, this, transferType]
-                                    (std::complex<CoordinateType>, CoordinateType kx, CoordinateType ky,
-                                     CoordinateType kz) {
-          CoordinateType k = sqrt(kx * kx + ky * ky + kz * kz);
-          auto spec = std::complex<CoordinateType>((*this)(k, transferType) * norm, 0);
-          return spec;
-      });
+      auto P = PowerSpectrum<DataType>::getPowerSpectrumForGridUncached(grid, transferType);
 
       if (kcamb_max_in_file == std::numeric_limits<CoordinateType>().max()) {
         std::cerr << "WARNING: maximum k in CAMB input file is insufficient" << std::endl;
@@ -271,8 +293,8 @@ namespace cosmology {
         CoordinateType s = 0., k, t;
 
         CoordinateType amp = 9. / 2. / M_PI / M_PI;
-        CoordinateType kmax = std::min(kInterpolationPoints.back(), 200.0 / radius);
-        CoordinateType kmin = kInterpolationPoints[0];
+        CoordinateType kmax = std::min(kInterpolationPoints.back(), 200.0 / radius)*0.999999;
+        CoordinateType kmin = kInterpolationPoints[0]*1.000001;
 
         CoordinateType dk = (kmax - kmin) / 50000.;
         auto &interpolator = this->speciesToTransferFunction.at(transferType);

@@ -55,15 +55,15 @@ class FilteredZoomConstrained(ZoomConstrainedWithGeometricConstraints):
 
     @in_fourier_space
     def covector_to_vector(self, low, high):
-        low_from_low = low * self.filter_low(self.k_low) ** 2 / self.pixel_size_ratio
+        low_from_low = low * self.filter_low(self.k_low) ** 2
         high_from_high = high * self.filter_high(self.k_high) ** 2
 
         low_from_high = high * self.filter_low(self.k_high) * self.filter_high(self.k_high)
         assert low_from_high.fourier
-        low_from_high = self.downsample_cubic(low_from_high.in_real_space()).in_fourier_space()
+        low_from_high = self.downsample_cubic(low_from_high.in_real_space()).in_fourier_space() * self.pixel_size_ratio**0.5
 
         high_from_low = low * self.filter_low(self.k_low) * self.filter_high(
-            self.k_low) / self.pixel_size_ratio
+            self.k_low) / self.pixel_size_ratio**0.5
         assert high_from_low.fourier
         high_from_low = self.upsample_cubic(high_from_low.in_real_space()).in_fourier_space()
         assert high_from_low.fourier

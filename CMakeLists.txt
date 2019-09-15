@@ -59,7 +59,7 @@ set(SOURCE_FILES
         genetIC/src/simulation/modifications/modificationmanager.hpp
         genetIC/src/simulation/modifications/linearmodification.hpp
         genetIC/src/simulation/modifications/quadraticmodification.hpp
-        genetIC/src/simulation/multilevelcontext/mask.hpp genetIC/src/tools/memmap.hpp )
+        genetIC/src/simulation/multilevelcontext/mask.hpp genetIC/src/tools/memmap.hpp genetIC/src/tools/numerics/tricubic.hpp)
 
 include_directories( /opt/local/include )
 link_directories(/opt/local/lib )
@@ -81,7 +81,10 @@ exec_program(
         OUTPUT_VARIABLE GIT_MODIFIED
 )
 
-add_definitions(-DFFTW3 -DFFTW_THREADS -DOPENMP -DGIT_VERSION="${GIT_VERSION}" -DGIT_MODIFIED="${GIT_MODIFIED}" -DDOUBLEPRECISION -DOUTPUT_IN_DOUBLEPRECISION)
+# Other possible flags: -DVELOCITY_MODIFICATION_GRADIENT_FOURIER_SPACE -DFILTER_ON_COARSE_GRID
+# Note VELOCITY_MODIFICATION_GRADIENT_FOURIER_SPACE is probably essential if you switch off CUBIC_INTERPOLATION
+# (and you are using velocity modifications in a zoom simulation)
+add_definitions(-DCUBIC_INTERPOLATION -DFFTW3 -DFFTW_THREADS -DOPENMP -DGIT_VERSION="${GIT_VERSION}" -DGIT_MODIFIED="${GIT_MODIFIED}" -DDOUBLEPRECISION -DOUTPUT_IN_DOUBLEPRECISION)
 add_compile_options(-Wextra)
 add_executable(IC ${SOURCE_FILES})
 

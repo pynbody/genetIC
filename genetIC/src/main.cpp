@@ -66,6 +66,7 @@ void setup_parser(tools::ClassDispatch<ICf, void> &dispatch) {
   // Define input files
   dispatch.add_class_route("mapper_relative_to", &ICf::setInputMapper);
   dispatch.add_class_route("camb", &ICf::setCambDat);
+  dispatch.add_class_route("powerlaw_amplitude", &ICf::setPowerLawAmplitude);
 
   // Set output paths and format
   dispatch.add_class_route("outdir", &ICf::setOutDir);

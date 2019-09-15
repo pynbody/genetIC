@@ -14,10 +14,10 @@ def plot1dslice(prefix="output/",ps="-",slice_z=None,slice_y=None,maxgrid=2,vmin
     ax,ay,az,aL = [float(x) for x in open(prefix+"grid-info-%d.txt"%thisgrid).readline().split()]
 
     if slice_z is None:
-        slice_z = aL/2
+        slice_z = aL/2 + (aL/len(a))/2
 
     if slice_y is None:
-        slice_y = aL/2
+        slice_y = aL/2 + (aL/len(a))/2
 
     a_sl_z = int(len(a)*((slice_z-az)/aL))
     a_sl_y = int(len(a)*((slice_y-ay)/aL))
@@ -130,7 +130,7 @@ def plotslice_onegrid(prefix="output/",grid=0,slice=None,vmin=-0.15,vmax=0.15,pa
     ay+=offset[1]+plot_offset[1]
 
     if slice is None:
-        slice = az+aL/2
+        slice = az+aL/2 + (aL/len(a))/2
 
     a_sl = int(len(a)*((slice-az)/aL))
 

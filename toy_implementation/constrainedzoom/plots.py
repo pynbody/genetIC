@@ -348,7 +348,7 @@ def overlay_grid(nP=256, nW=256, hires_window_scale=4, x_min=0.15, x_max=0.20):
     p.vlines(xW,yrange[0],yrange[1],color='#eeeeee')
     p.vlines(xP,yrange[0],yrange[1],color='#cccccc')
 
-def zoom_demo(nP=256, nW=256, hires_window_scale=4, hires_window_offset=10,plaw=-1.5,method=FilteredZoomConstrained,
+def zoom_demo(nP=256, nW=256, hires_window_scale=4, hires_window_offset=8,plaw=-1.5,method=FilteredZoomConstrained,
               constraint_val=None, constraint_covec=None,
               no_random=False,pad=None,
               show_covec=False,errors=False,linewidth=None,
@@ -409,7 +409,8 @@ def zoom_demo(nP=256, nW=256, hires_window_scale=4, hires_window_offset=10,plaw=
     line, = p.plot(xW, delta_W, label=X.description,linewidth=linewidth)
 
     left_of_window = slice(0,hires_window_offset+pad+1)
-    right_of_window = slice(hires_window_offset+nW//hires_window_scale-pad-1, None)
+    right_of_window = slice(hires_window_offset+nP//hires_window_scale-pad-1, None)
+
 
     for sl in left_of_window, right_of_window:
         p.plot(xP[sl], delta_P[sl], ":", color=line.get_color(),linewidth=linewidth)
@@ -423,13 +424,14 @@ def zoom_demo(nP=256, nW=256, hires_window_scale=4, hires_window_offset=10,plaw=
     return X
 
 def compare_constraints(plaw=-1.0, velocity=False, errors=False, covector_width=50,
+                        nP=256, nW=256, hires_window_offset=8, pad=None,
                         using_methods=[methods.traditional.TraditionalZoomConstrained, methods.filtered.FilteredZoomConstrained]):
     from . import constraint_vector, deriv_constraint_vector
     if velocity:
-        covec = deriv_constraint_vector(covector_width, 256)
+        covec = deriv_constraint_vector(covector_width, 256, 127)
         potential = True
     else:
-        covec = constraint_vector(covector_width,256)
+        covec = constraint_vector(covector_width,256,127)
         potential = False
 
     if p.gca() is p.gcf().axes[0]:
@@ -445,14 +447,16 @@ def compare_constraints(plaw=-1.0, velocity=False, errors=False, covector_width=
     for i,m in enumerate(using_methods):
         zoom_demo(no_random=not random, constraint_val=val, constraint_covec=covec,
                      method=m,
-                     plaw=plaw, errors=errors, linewidth=1+len(using_methods)-i, constrain_potential=potential)
+                     plaw=plaw, errors=errors, linewidth=1+len(using_methods)-i, constrain_potential=potential,
+                     nP=nP, nW=nW, hires_window_offset=hires_window_offset,pad=pad)
 
 
     if not errors:
         zoom_demo(no_random=not random, constraint_val=val, constraint_covec=covec,
                      method=methods.idealized.IdealizedZoomConstrained,
                      plaw=plaw, errors=False, linewidth=1,
-                     constrain_potential=potential)
+                     constrain_potential=potential,
+                     nP=nP, nW=nW, hires_window_offset=hires_window_offset,pad=pad)
     p.legend()
     ax = p.gca()
     p.xlim(0.08, 0.38)

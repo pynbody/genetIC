@@ -661,6 +661,12 @@ public:
     this->multiLevelContext.setPowerspectrumGenerator(*spectrum);
   }
 
+  //! \brief Use a power law spectrum with specified amplitude
+  void setPowerLawAmplitude(T amplitude) {
+    spectrum = std::make_unique<cosmology::PowerLawPowerSpectrum<GridDataType>>(this->cosmology, amplitude);
+    this->multiLevelContext.setPowerspectrumGenerator(*spectrum);
+  }
+
   //! Set the ouput directory to the supplied string
   void setOutDir(std::string outputPath) {
     outputFolder = outputPath;
