@@ -222,32 +222,49 @@ namespace multilevelcontext {
       assert(&data.getGrid() == pGrids.back().get());
 
       // Generate the fields on each level. Fill low-res levels with zeros to start with.
-      vector<std::shared_ptr<fields::Field<DataType, T>>> dataOnLevels;
+      vector<std::shared_ptr<fields::Field<DataType, T>>> fieldsOnLevels;
       for (size_t level = 0; level < pGrids.size(); level++) {
         if (level == pGrids.size() - 1) {
-          dataOnLevels.emplace_back(std::make_shared<fields::Field<DataType, T>>(std::move(data)));
+          fieldsOnLevels.emplace_back(std::make_shared<fields::Field<DataType, T>>(std::move(data)));
         } else {
-          dataOnLevels.emplace_back(std::make_shared<fields::Field<DataType, T>>(*pGrids[level], false));
+          fieldsOnLevels.emplace_back(std::make_shared<fields::Field<DataType, T>>(*pGrids[level], false));
         }
       }
 
       // Now interpolate the high-res level down into lower-res levels
-      size_t levelmax = dataOnLevels.size() - 1;
+      size_t levelmax = fieldsOnLevels.size() - 1;
       if (levelmax > 0) {
-        assert(dataOnLevels.back()->isFourier());
-        dataOnLevels.back()->toReal();
+        assert(fieldsOnLevels.back()->isFourier());
+        fieldsOnLevels.back()->toReal();
+
         for (int level = levelmax - 1; level >= 0; --level) {
-          dataOnLevels[level]->addFieldFromDifferentGrid(*(dataOnLevels[level + 1]));
+
+#ifdef CUBIC_INTERPOLATION
+          fields::Field<DataType, T> & hires = *fieldsOnLevels[level + 1];
+          fields::Field<DataType, T> & lores = *fieldsOnLevels[level];
+
+          int pixel_volume_ratio = pow(tools::getRatioAndAssertInteger(fieldsOnLevels[level]->getGrid().cellSize,
+                                                                    fieldsOnLevels[level+1]->getGrid().cellSize),3);
+
+          size_t hiresFieldSize = hires.getGrid().size3;
+          for(size_t i=0; i<hiresFieldSize; i++) {
+            auto location = hires.getGrid().getCentroidFromIndex(i);
+            lores.deInterpolate(location, hires[i]/pixel_volume_ratio);
+          }
+#else
+          fieldsOnLevels[level]->addFieldFromDifferentGrid(*(fieldsOnLevels[level + 1]));
+#endif
+
         }
       }
 
       for(size_t level=0; level < pGrids.size(); ++level) {
-        dataOnLevels[level]->getDataVector()*=getWeightForLevel(level)/getWeightForLevel(pGrids.size() - 1);
+        fieldsOnLevels[level]->getDataVector()*= getWeightForLevel(level) / getWeightForLevel(pGrids.size() - 1);
       }
 
       auto retVal = std::make_shared<fields::ConstraintField<DataType>>(
         *dynamic_cast<const MultiLevelContextInformation<DataType, T> *>(this),
-        dataOnLevels);
+        fieldsOnLevels);
 
       retVal->applyFilters(filters::FilterFamily<DataType>(*this));
       retVal->toReal();

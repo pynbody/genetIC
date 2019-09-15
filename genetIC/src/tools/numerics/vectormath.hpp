@@ -4,6 +4,7 @@
 #include <cassert>
 #include <vector>
 #include <complex>
+#include <cmath>
 
 namespace tools {
   namespace numerics {
@@ -128,6 +129,16 @@ namespace tools {
 #pragma omp parallel for
       for (size_t i = 0; i < a.size(); ++i) {
         output[i] = a[i] / b[i];
+      }
+      return output;
+    }
+
+    template<typename T>
+    std::vector<T> log(const std::vector<T> &x) {
+      std::vector<T> output;
+      for(auto i = x.begin(); i!=x.end(); i++) {
+        output.push_back(std::log(*i));
+        std::cerr << output.back() << " " << std::endl;
       }
       return output;
     }

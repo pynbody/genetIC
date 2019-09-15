@@ -27,6 +27,9 @@ namespace tools {
       gsl_interp_accel *acc; //!< Accelerator which allows rapid searching to find the right polynomial to use
       gsl_spline *spline; //!< Spline object that performs the evaluation
 
+    protected:
+      T minx, maxx; //!< Minimum and maximum permitted values of function argument
+
     public:
       //! Default constructor - no spline or acc specified
       Interpolator() {
@@ -40,16 +43,18 @@ namespace tools {
       }
 
       //! Initialise the gsl spline required for these data
-      void initialise(std::vector<T> &x, std::vector<T> &y) {
+      virtual void initialise(std::vector<T> &x, std::vector<T> &y) {
         assert(x.size() == y.size());
         deinitialise();
         acc = gsl_interp_accel_alloc();
         spline = gsl_spline_alloc(gsl_interp_cspline, y.size());
         gsl_spline_init(spline, x.data(), y.data(), x.size());
+        minx = x[0];
+        maxx = x.back();
       }
 
       //! De-initialise the gsl spline:
-      void deinitialise() {
+      virtual void deinitialise() {
         if (spline != nullptr)
           gsl_spline_free(spline);
         if (acc != nullptr)
@@ -64,12 +69,42 @@ namespace tools {
       }
 
       //! Evaluates the spline-function at the specified value of x
-      T operator()(T x) const {
+      virtual T operator()(T x) const {
+        if(x<minx || x>maxx) return T(0);
         return gsl_spline_eval(spline, x,
                                nullptr); // not able to pass accelerator as final argument because it is not thread-safe
       }
 
 
+    };
+
+    template<typename T>
+    class LogInterpolator : Interpolator<T> {
+    protected:
+      std::vector<T> logx;
+      std::vector<T> logy;
+
+    public:
+      void initialise(std::vector<T> &x, std::vector<T> &y) override {
+        const T inf = std::numeric_limits<T>::infinity();
+        assert(x.size()==y.size());
+        for(size_t i = 0; i<x.size(); ++i) {
+          T logx_i = std::log(x[i]);
+          T logy_i = std::log(y[i]);
+          if(logx_i!=inf && logx_i!=-inf && !std::isnan(logx_i)
+            && logy_i!=inf && logy_i!=-inf && !std::isnan(logy_i)) {
+            logx.push_back(logx_i);
+            logy.push_back(logy_i);
+          }
+        }
+        Interpolator<T>::initialise(logx, logy);
+      }
+
+      T operator()(T x) const override {
+        T logx = std::log(x);
+        if(logx<this->minx || logx>this->maxx) return T(0);
+        return std::exp(Interpolator<T>::operator()(logx));
+      }
     };
   }
 }

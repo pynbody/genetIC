@@ -27,20 +27,11 @@ namespace particle {
         \param underlying - underlying particle evaluator
         \param velOffset - velocity offset to be added to all particles
     */
-    OffsetEvaluator(std::shared_ptr<ParticleEvaluator < GridDataType>>
-
-    underlying,
-    Coordinate<GridDataType> posOffset, Coordinate<GridDataType>
-    velOffset) :
-    ParticleEvaluator<GridDataType>(underlying
-    ->
-
-    getGrid()
-
-    ),
-
-    underlying (underlying),
-    velOffset(velOffset), posOffset(posOffset) {}
+    OffsetEvaluator(std::shared_ptr<ParticleEvaluator<GridDataType>> underlying,
+                    Coordinate<GridDataType> posOffset, Coordinate<GridDataType> velOffset) :
+                      ParticleEvaluator<GridDataType>(underlying->getGrid()),
+                      underlying (underlying),
+                      velOffset(velOffset), posOffset(posOffset) {}
 
     Particle <GridDataType> getParticleNoWrap(size_t id) const override {
       auto output = underlying->getParticleNoWrap(id);

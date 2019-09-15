@@ -14,7 +14,7 @@
 
 
 #include "src/simulation/grid/grid.hpp"
-
+#include "src/tools/numerics/tricubic.hpp"
 
 // implementation in fourier.hpp
 namespace tools {
@@ -154,20 +154,81 @@ namespace fields {
       return (*this)[pGrid->getIndexFromCoordinate(Coordinate<int>(x_p_0, y_p_0, z_p_0))];
     }
 
+    //! Add the specified value to the field and the given location, using conjugate deinterpolation
+    void deInterpolate(Coordinate<CoordinateType> location, DataType value) {
+      int x_p_0, y_p_0, z_p_0;
+      CoordinateType dx, dy, dz;
+
+      location -= pGrid->offsetLower;
+      location = pGrid->wrapPoint(location);
+
+
+      // zero-order interp would be just:
+      // std::tie(x_p_0, y_p_0, z_p_0) = floor(location / pGrid->cellSize);
+      // (*this)[pGrid->getIndexFromCoordinate({x_p_0, y_p_0, z_p_0})] += value;
+      // return;
+
+      // grid coordinates of parent cell whose *centroid* (not corner) is to the bottom-left of our current point
+      std::tie(x_p_0, y_p_0, z_p_0) = floor(location / pGrid->cellSize - 0.5);
+
+      DataType valsForInterpolation[4][4][4];
+      std::tie(dx,dy,dz) = (location / pGrid->cellSize - 0.5);
+      dx-=x_p_0;
+      dy-=y_p_0;
+      dz-=z_p_0;
+
+      // Caching would hugely speed this up, since we anticipate repeated calls with the same dx,dy,dz (to numerical accuracy)
+      numerics::LocalUnitTricubicApproximation<DataType>::getTransposeElementsForPosition(dx,dy,dz,valsForInterpolation);
+
+      for(int i=-1; i<3; ++i) {
+        for(int j=-1; j<3; ++j) {
+          for(int k=-1; k<3; ++k) {
+            (*this)[pGrid->getIndexFromCoordinate({x_p_0+i, y_p_0+j, z_p_0+k})] += value * valsForInterpolation[i+1][j+1][k+1];
+          }
+        }
+      }
+
+    }
 
     //! Evaluates the field at the specified co-ordinate using interpolation.
     DataType evaluateInterpolated(Coordinate<CoordinateType> location) const {
-      auto offsetLower = pGrid->offsetLower;
-      int x_p_0, y_p_0, z_p_0, x_p_1, y_p_1, z_p_1;
+      int x_p_0, y_p_0, z_p_0;
 
-      bool allowWrap = pGrid->coversFullSimulation();
-
-      location -= offsetLower;
+      location -= pGrid->offsetLower;
       location = pGrid->wrapPoint(location);
 
-      // grid coordinates of parent cell starting to bottom-left
-      // of our current point
+      // grid coordinates of parent cell whose *centroid* (not corner) is to the bottom-left of our current point
       std::tie(x_p_0, y_p_0, z_p_0) = floor(location / pGrid->cellSize - 0.5);
+
+#ifdef CUBIC_INTERPOLATION
+      // The following cubic interpolation constructor is potentially expensive. If it turns out to be a major
+      // part of the overall runtime, a caching scheme could be implemented to reduce the overall cost of
+      // interpolation, especially when interpolating an entire grid.
+      DataType valsForInterpolation[4][4][4];
+      for(int i=-1; i<3; ++i) {
+        for(int j=-1; j<3; ++j) {
+          for(int k=-1; k<3; ++k) {
+            valsForInterpolation[i+1][j+1][k+1] = (*this)[pGrid->getIndexFromCoordinate({x_p_0+i, y_p_0+j, z_p_0+k})];
+          }
+        }
+      }
+      numerics::LocalUnitTricubicApproximation<DataType> interpolator(valsForInterpolation);
+      CoordinateType dx,dy,dz;
+
+      // Work out the fractional displacement of our target point between the centroid of the cell identified above
+      // and the next one along. dx, dy, dz will be between zero and one unless something goes badly wrong!
+      std::tie(dx,dy,dz) = (location / pGrid->cellSize - 0.5);
+      dx-=x_p_0;
+      dy-=y_p_0;
+      dz-=z_p_0;
+
+      return interpolator(dx,dy,dz);
+#else
+
+      int x_p_1, y_p_1, z_p_1;
+
+      bool allowWrap = pGrid->coversFullSimulation();
+      auto offsetLower = pGrid->offsetLower;
 
       // grid coordinates of top-right
       x_p_1 = x_p_0 + 1;
@@ -226,6 +287,9 @@ namespace fields {
              xw1 * yw0 * zw0 * (*this)[pGrid->getIndexFromCoordinateNoWrap(x_p_1, y_p_0, z_p_0)] +
              xw0 * yw1 * zw0 * (*this)[pGrid->getIndexFromCoordinateNoWrap(x_p_0, y_p_1, z_p_0)] +
              xw1 * yw1 * zw0 * (*this)[pGrid->getIndexFromCoordinateNoWrap(x_p_1, y_p_1, z_p_0)];
+
+#endif
+
     }
 
     //! Returns a constant reference to the value of the field at linear index i (cannot be edited)
@@ -370,7 +434,6 @@ namespace fields {
       evaluator->addTo(*this);
 
     }
-
 
 #ifdef FILTER_ON_COARSE_GRID
     // Version for compatibility with pre-Dec 2016 output

@@ -126,6 +126,17 @@ public:
     z *= factor;
   }
 
+  T & operator[](size_t i) {
+    if(i==0)
+      return x;
+    else if(i==1)
+      return y;
+    else if(i==2)
+      return z;
+    else
+      throw std::out_of_range("Coordinates always have three dimensions");
+  }
+
   //! Returns true if all components of the other co-ordinate match this one
   bool operator==(const Coordinate<T> &other) const {
     return x == other.x && y == other.y && z == other.z;

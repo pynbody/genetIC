@@ -82,17 +82,11 @@ namespace modifications {
     }
 
     //! Returns a covector for the specified grid defined such that a.f returns the average of field f over the flagged points on the grid.
-    fields::Field<DataType, T> calculateLocalisationCovector(const grids::Grid<T> &grid) {
-
+    virtual fields::Field<DataType, T> calculateLocalisationCovector(const grids::Grid<T> &grid) {
       fields::Field<DataType, T> outputField = fields::Field<DataType, T>(grid, false);
       std::vector<DataType> &outputData = outputField.getDataVector();
 
-
       T w = 1.0 / this->flaggedCellsFinestGrid.size();
-
-      for (size_t i = 0; i < grid.size3; ++i) {
-        outputData[i] = 0;
-      }
 
       for (size_t i = 0; i < this->flaggedCellsFinestGrid.size(); i++) {
         outputData[this->flaggedCellsFinestGrid[i]] += w;
@@ -200,6 +194,50 @@ namespace modifications {
                          const cosmology::CosmologicalParameters<T> &cosmology_, int direction_) :
       OverdensityModification<DataType, T>(underlying_, cosmology_), direction(direction_) {};
 
+  protected:
+
+    fields::Field<DataType, T> calculateLocalisationCovector(const grids::Grid<T> &grid) override {
+#ifdef VELOCITY_MODIFICATION_GRADIENT_FOURIER_SPACE
+      return OverdensityModification<DataType,T>::calculateLocalisationCovector(grid);
+#else
+      // Uses a finite difference 4th order stencil to create just a derivative covector
+      Coordinate<int> directionVector;
+      Coordinate<int> negDirectionVector;
+
+      directionVector[direction] = 1;
+      negDirectionVector[direction] = -1;
+
+      fields::Field<DataType, T> outputField = fields::Field<DataType, T>(grid, false);
+      std::vector<DataType> &outputData = outputField.getDataVector();
+
+      T w = 1.0 / this->flaggedCellsFinestGrid.size();
+
+      size_t ind_p1, ind_m1, ind_p2, ind_m2;
+
+      // Coeffs for the finite difference.  The signs here so that result is - Nabla Phi
+      T a = -w / 12. / grid.cellSize, b = w * 2. / 3. / grid.cellSize;
+
+      for (size_t i = 0; i < this->flaggedCellsFinestGrid.size(); i++) {
+        size_t index = this->flaggedCellsFinestGrid[i];
+        ind_m1 = grid.getIndexFromIndexAndStep(index, negDirectionVector);
+        ind_p1 = grid.getIndexFromIndexAndStep(index, directionVector);
+        ind_m2 = grid.getIndexFromIndexAndStep(ind_m1, negDirectionVector);
+        ind_p2 = grid.getIndexFromIndexAndStep(ind_p1, directionVector);
+        outputData[ind_m2] += a;
+        outputData[ind_m1] += b;
+        outputData[ind_p1] -= b;
+        outputData[ind_p2] -= a;
+      }
+
+      outputField.toFourier();
+      return outputField;
+
+#endif
+
+    }
+
+  public:
+
 
     //! Converts (in-place) from a overdensity covector to a velocity covector
     void turnLocalisationCovectorIntoModificationCovector(fields::MultiLevelField<DataType> & field) const override {
@@ -214,7 +252,7 @@ namespace modifications {
         const T nyquist = tools::numerics::fourier::getNyquistModeThatMustBeReal(grid) * grid.getFourierKmin();
 
         auto calcCell =
-          [I, scale, nyquist](complex<T> overdensityFieldValue, T kx, T ky, T kz, T k_chosen_direction) -> complex<T> {
+          [I, scale, nyquist, this](complex<T> overdensityFieldValue, T kx, T ky, T kz, T k_chosen_direction) -> complex<T> {
 
             // This lambda evaluates the derivative for the given Fourier-space cell. kx,ky,kz are the
             // input k-space coordinates, and k_chosen_direction must be set to whichever of these specifies
@@ -222,12 +260,17 @@ namespace modifications {
 
             T k2 = kx * kx + ky * ky + kz * kz;
 
-            if (k_chosen_direction == nyquist || k2 == 0)
+            if ( k2 == 0)
               return complex<T>(0);
-            else
+            else {
+#ifdef VELOCITY_MODIFICATION_GRADIENT_FOURIER_SPACE
+              if(k_chosen_direction == nyquist) return complex<T>(0);
               return -scale * overdensityFieldValue * I * k_chosen_direction / k2;
+#else
+              return -scale * overdensityFieldValue / k2;
+#endif
+              }
           };
-
 
         if (direction == 0)
           fieldOnLevel.forEachFourierCell(
