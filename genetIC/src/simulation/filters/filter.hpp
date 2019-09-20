@@ -277,7 +277,7 @@ namespace filters {
   /*! \class ComplementaryFilterAdaptor
       \brief Naive complementary filter
 
-       This filter is constructed from another filter, and returns 1 - f(k) for filter f.
+       This filter is constructed from another filter f, and returns 1 - f(k).
   */
   template<typename UnderlyingType, typename T=typename UnderlyingType::ReturnType>
   class ComplementaryFilterAdaptor : public Filter<T> {
@@ -291,7 +291,7 @@ namespace filters {
       pUnderlying = std::make_shared<UnderlyingType>(std::forward<Args>(args)...);
     };
 
-    //! Pseudo-copy constructor
+    //! Construct the complement to an existing filter (i.e. 1-exiting_filter)
     ComplementaryFilterAdaptor(const Filter<T> &pOriginal) {
       assert(
         typeid(pOriginal) !=
