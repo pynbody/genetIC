@@ -1,5 +1,6 @@
 # Reasonably sensible defaults
-CFLAGS	= -Wall -g -lpthread -Og -fopenmp -std=c++14   -fdiagnostics-color=auto -I`pwd` -DOPENMP  -DDOUBLEPRECISION -DOUTPUT_IN_DOUBLEPRECISION
+CFLAGS	= -Wall -g -lpthread -Og -fopenmp -std=c++14   -fdiagnostics-color=auto -I`pwd`
+CODEOPTIONS  = -DOPENMP  -DDOUBLEPRECISION -DOUTPUT_IN_DOUBLEPRECISION -DCUBIC_INTERPOLATION
 CPATH 	= /opt/local/include/
 LPATH   = /opt/local/lib
 
@@ -101,7 +102,7 @@ endif
 
 all: IC
 
-%.o: %.cpp ; $(CXX) $(CFLAGS) $(GIT_VARIABLES) -I$(CPATH) $(FFTW) -c $< -o $@
+%.o: %.cpp ; $(CXX) $(CFLAGS) $(CODEOPTIONS) $(GIT_VARIABLES) -I$(CPATH) $(FFTW) -c $< -o $@
 
 IC: src/main.o src/tools/filesystem.o src/tools/progress/progress.o
 		$(CXX) $(CFLAGS) -o IC $(GIT_VARIABLES) -I$(CPATH) $(FFTW) src/main.o src/tools/filesystem.o src/tools/progress/progress.o -L$(LPATH) $(GSLFLAGS) -lm $(FFTWLIB)

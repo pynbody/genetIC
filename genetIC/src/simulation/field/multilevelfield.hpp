@@ -355,7 +355,7 @@ namespace fields {
                                  multiLevelContext->getWeightForLevel(source_level);
 
           if(source_level == level) {
-            break; // handled above
+            continue; // handled above
           } else if(source_level < level) {
             // high_from_low term
             auto & hpf = filters.getFilterForLevel(level);
