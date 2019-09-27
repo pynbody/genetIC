@@ -6,12 +6,15 @@ import glob
 import os
 
 def plot1dslice(prefix="output/",ps="-",slice_z=None,slice_y=None,maxgrid=2,vmin=-0.15,vmax=0.15,thisgrid=0,
-                zoom_pad_cells=3,diff_prefix=None):
+                zoom_pad_cells=3,diff_prefix=None,offset=None):
     pad_cells = zoom_pad_cells if thisgrid>0 else 0
 
     a = _load_grid(prefix, diff_prefix, thisgrid)
 
     ax,ay,az,aL = [float(x) for x in open(prefix+"grid-info-%d.txt"%thisgrid).readline().split()]
+
+    if offset is None:
+        offset = aL/2
 
     if slice_z is None:
         slice_z = aL/2 + (aL/len(a))/2
@@ -40,13 +43,13 @@ def plot1dslice(prefix="output/",ps="-",slice_z=None,slice_y=None,maxgrid=2,vmin
     kwargs = {}
 
     if thisgrid<maxgrid and os.path.exists(prefix+"grid-%d.npy"%(thisgrid+1)):
-        xmin, xmax = plot1dslice(prefix,ps,slice_z,slice_y,maxgrid,vmin,vmax,thisgrid+1,zoom_pad_cells,diff_prefix)
+        xmin, xmax = plot1dslice(prefix,ps,slice_z,slice_y,maxgrid,vmin,vmax,thisgrid+1,zoom_pad_cells,diff_prefix,offset)
         interior_mask = (a_vals>xmin) & (a_vals<xmax)
-        l = p.plot(a_vals[interior_mask],plot_y_vals[interior_mask],":",zorder=-10)
+        l = p.plot(a_vals[interior_mask]-offset,plot_y_vals[interior_mask],":",zorder=-10)
         kwargs['color'] = l[0].get_color()
         plot_y_vals[np.where(interior_mask)[0][1:-1]] = np.nan
 
-    p.plot(a_vals,plot_y_vals,ps,**kwargs)
+    p.plot(a_vals-offset,plot_y_vals,ps,**kwargs)
     p.xlim(0,aL)
     if thisgrid>0:
         return a_vals.min(), a_vals.max()

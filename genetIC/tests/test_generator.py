@@ -2,13 +2,14 @@ import os
 import subprocess
 import plotslice as ps
 import pylab as p
+import numpy as np
 
 class TestGenerator():
     size_Mpc = 100.0
     powerlaw = None
     base_ncells = 32
-    zoom_factor = 4
-    zoom_ncells = 32
+    zoom_factor = [4]
+    zoom_ncells = [32]
     modification_name = 'overdensity'
     modification_value = 1.0
     modification_pos = [size_Mpc/2]*3
@@ -39,7 +40,7 @@ class TestGenerator():
 
     @property
     def equiv_ncells(self):
-        return self.zoom_ncells * self.zoom_factor
+        return self.zoom_ncells[-1] * np.prod(self.zoom_factor)
 
     @property
     def equiv_grid_block(self):
@@ -48,15 +49,19 @@ class TestGenerator():
 
     @property
     def zoom_grid_block(self):
-        return """basegrid %.2f %d
-        centre %.2f %.2f %.2f
-        select_nearest
-        zoomgrid %d %d
-        
-        zerolevel 0
-        zerolevel 1"""%(self.size_Mpc, self.base_ncells,
-                           self.size_Mpc/2, self.size_Mpc/2, self.size_Mpc/2,
-                           self.zoom_factor, self.zoom_ncells)
+        s = "basegrid %.2f %d\n"%(self.size_Mpc, self.base_ncells)
+
+        for fac, ncell in zip(self.zoom_factor, self.zoom_ncells):
+            s+="""
+                centre %.2f %.2f %.2f
+                select_nearest
+                zoomgrid %d %d
+                """%(self.size_Mpc/2, self.size_Mpc/2, self.size_Mpc/2,
+                     fac, ncell)
+
+        for i in range(len(self.zoom_ncells)+1):
+            s += "zerolevel %d\n" % i
+        return s
 
     @property
     def modification_block(self):
@@ -72,13 +77,15 @@ class TestGenerator():
     @property
     def equiv_finalise_block(self):
         return """done
-        dump_grid 0"""
+        dump_grid 0
+        """
 
     @property
     def zoom_finalise_block(self):
-        return """done
-        dump_grid 0
-        dump_grid 1"""
+        s = self.equiv_finalise_block
+        for i in range(1,len(self.zoom_ncells)+1):
+            s += "dump_grid %d\n" % i
+        return s
 
     def dir_name(self, for_zoom):
         if for_zoom:
@@ -122,16 +129,17 @@ class TestGenerator():
             self.run(zoom)
 
     def make_plots(self):
-        p.subplot(221)
+        p.set_cmap('RdBu')
+        ax = p.subplot(221)
         for zoom in True, False:
             ps.plot1dslice(self.dir_name(zoom)+"/", slice_y=self.modification_pos[1], slice_z=self.modification_pos[2])
-        p.subplot(222)
+        p.subplot(222, sharex=ax)
         ps.plot1dslice(self.dir_name(True)+"/", slice_y=self.modification_pos[1], slice_z=self.modification_pos[2],
                        diff_prefix=self.dir_name(False)+"/")
         p.ylim(-0.05,0.05)
-        p.subplot(223)
+        ax = p.subplot(223)
         ps.plotslice(self.dir_name(True)+"/", slice=self.modification_pos[2])
-        p.subplot(224)
+        p.subplot(224, sharex=ax, sharey=ax)
         ps.plotslice(self.dir_name(True)+"/", diff_prefix=self.dir_name(False)+"/", slice=self.modification_pos[2])
 
     def go(self):
