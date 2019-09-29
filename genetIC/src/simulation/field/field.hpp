@@ -7,16 +7,17 @@
 #include <src/simulation/filters/filter.hpp>
 #include <src/tools/numerics/fourier.hpp>
 #include "src/io/numpy.hpp"
-/*!
-    \namespace fields
-    \brief Define random fields on multiple grid levels
- */
-
-
 #include "src/simulation/grid/grid.hpp"
 #include "src/tools/numerics/tricubic.hpp"
 
-// implementation in fourier.hpp
+
+/*!
+    \namespace fields
+    \brief Store and manipulate fields of various types, both on individual grids and on multiple grid levels
+ */
+
+
+
 namespace tools {
   namespace numerics {
     namespace fourier {
@@ -25,6 +26,8 @@ namespace tools {
       */
       template<typename T>
       class FieldFourierManager;
+      // implementation in fourier.hpp
+      
     }
   }
 }
@@ -41,6 +44,8 @@ namespace fields {
   template<typename D>
   class MultiLevelField;
 
+  // Implementation in evaluator.hpp:
+  
   template<typename DataType, typename CoordinateType = tools::datatypes::strip_complex<DataType>>
   std::shared_ptr<EvaluatorBase<DataType, CoordinateType>> makeEvaluator(const Field<DataType, CoordinateType> &field,
                                                                          const grids::Grid<CoordinateType> &grid);
@@ -72,7 +77,7 @@ namespace fields {
     bool fourier; //!< If true, then the field is regarded as being in Fourier space. Switched by Fourier transforms.
 
   public:
-    //! Construct a field on the specified grid by moving the given field
+    //! Move constructor
     Field(Field<DataType, CoordinateType> &&move) : pGrid(move.pGrid), data(std::move(move.data)),
                                                     fourier(move.fourier) {
       fourierManager = std::make_shared<FourierManager>(*this);
@@ -130,17 +135,17 @@ namespace fields {
       return data;
     }
 
-    //! Operator(), which returns a reference to the data vector storing the field.
+    //! Returns a reference to the data vector storing the field.
     operator std::vector<DataType> &() {
       return getDataVector();
     }
 
-    //! Operator(), which returns a constant reference to the data vector storing the field.
+    //! Returns a constant reference to the data vector storing the field.
     operator const std::vector<DataType> &() const {
       return getDataVector();
     }
 
-    //! Evaluates the field at the crid point nearest to the supplied co-ordinate.
+    //! Evaluates the field at the grid point nearest to the supplied coordinate.
     DataType evaluateNearest(const Coordinate<CoordinateType> &location) const {
       auto offsetLower = pGrid->offsetLower;
       int x_p_0, y_p_0, z_p_0;
@@ -155,6 +160,9 @@ namespace fields {
     }
 
     //! Add the specified value to the field and the given location, using conjugate deinterpolation
+    /*! For an explanation of what is meant by 'conjugate deinterpolation' see the
+     * documentation for numerics::LocalUnitTricubicApproximation::getTransposeElementsForPosition
+     */
     void deInterpolate(Coordinate<CoordinateType> location, DataType value) {
       int x_p_0, y_p_0, z_p_0;
       CoordinateType dx, dy, dz;
@@ -162,12 +170,7 @@ namespace fields {
       location -= pGrid->offsetLower;
       location = pGrid->wrapPoint(location);
 
-
-      // zero-order interp would be just:
-      // std::tie(x_p_0, y_p_0, z_p_0) = floor(location / pGrid->cellSize);
-      // (*this)[pGrid->getIndexFromCoordinate({x_p_0, y_p_0, z_p_0})] += value;
-      // return;
-
+#ifdef CUBIC_INTERPOLATION
       // grid coordinates of parent cell whose *centroid* (not corner) is to the bottom-left of our current point
       std::tie(x_p_0, y_p_0, z_p_0) = floor(location / pGrid->cellSize - 0.5);
 
@@ -178,7 +181,7 @@ namespace fields {
       dz-=z_p_0;
 
       // Caching would hugely speed this up, since we anticipate repeated calls with the same dx,dy,dz (to numerical accuracy)
-      numerics::LocalUnitTricubicApproximation<DataType>::getTransposeElementsForPosition(dx,dy,dz,valsForInterpolation);
+    numerics::LocalUnitTricubicApproximation<DataType>::getTransposeElementsForPosition(dx,dy,dz,valsForInterpolation);
 
       for(int i=-1; i<3; ++i) {
         for(int j=-1; j<3; ++j) {
@@ -187,7 +190,15 @@ namespace fields {
           }
         }
       }
-
+#else 
+    // TODO: The below is not conjugate deinterpolation for the linear interpolation
+    // implemented when CUBIC_INTERPOLATION is off. However, switching off 
+    // CUBIC_INTERPOLATION is not recommended, so fixing this inconsistency is low
+    // priority. In reality, the deinterpolation here is conjugate to zero-order
+    // (nearest neighbour) interpolation.
+    std::tie(x_p_0, y_p_0, z_p_0) = floor(location / pGrid->cellSize);
+    (*this)[pGrid->getIndexFromCoordinate({x_p_0, y_p_0, z_p_0})] += value;    
+#endif
     }
 
     //! Evaluates the field at the specified co-ordinate using interpolation.
@@ -292,12 +303,12 @@ namespace fields {
 
     }
 
-    //! Returns a constant reference to the value of the field at linear index i (cannot be edited)
+    //! Returns a constant reference to the value of the field at grid index i
     const DataType &operator[](size_t i) const {
       return data[i];
     }
 
-    //! Returns a reference to the value of the field at linear index i (can be edited)
+    //! Returns a reference to the value of the field at grid index i
     DataType &operator[](size_t i) {
       return data[i];
     }
@@ -320,7 +331,7 @@ namespace fields {
       return fourier;
     }
 
-    //! Flags the field as being in Fourier space, without actually applying any transform
+    //! Asserts whether the field is in Fourier space, without actually applying any transform
     void setFourier(bool fourier) {
       this->fourier = fourier;
     }
@@ -346,6 +357,7 @@ namespace fields {
     }
 
     //! Returns the value of the field in Fourier space at the specified Fourier mode
+    //! For efficiency, does not check whether the field is actually stored in Fourier space first.
     ComplexType getFourierCoefficient(int kx, int ky, int kz) const {
       return fourierManager->getFourierCoefficient(kx, ky, kz);
     }
@@ -435,13 +447,15 @@ namespace fields {
 
     }
 
-#ifdef FILTER_ON_COARSE_GRID
-    // Version for compatibility with pre-Dec 2016 output
-    // Applies filter BEFORE interpolating onto the fine grid, which results in more pixel window function
-    // artefacts but (presumably?) fewer artefacts from the grid-level window function
 
-    void addFieldFromDifferentGridWithFilter(Field<DataType, CoordinateType> & source,
+    //! Add a field defined on a different grid to this one, applying the specified filter while adding
+    void addFieldFromDifferentGridWithFilter(const Field<DataType, CoordinateType> & source,
                                              const filters::Filter<CoordinateType> & filter) {
+
+#ifdef FILTER_ON_COARSE_GRID
+      // Version for compatibility with pre-Dec 2016 output
+      // Applies filter BEFORE interpolating onto the fine grid, which results in more pixel window function
+      // artefacts but (presumably?) fewer artefacts from the grid-level window function
 
       auto temporaryField = std::make_shared<Field<DataType, CoordinateType>>(source);
       // counterintuitively requires a shared_ptr due to innards of addFieldFromDifferentGrid using shared_from_this
@@ -451,15 +465,8 @@ namespace fields {
       this->toReal();
       this->addFieldFromDifferentGrid(*temporaryField);
 
-    }
-
 #else
-
-    //! Add a field defined on a different grid to this one, applying the specified filter while adding
-    void addFieldFromDifferentGridWithFilter(Field<DataType, CoordinateType> &source,
-                                             const filters::Filter<CoordinateType> &filter) {
-
-      source.toReal();
+      assert(!source.isFourier());
 
       auto temporaryField = std::make_shared<Field<DataType, CoordinateType>>(getGrid(), false);
 
@@ -474,13 +481,14 @@ namespace fields {
       for (size_t i = 0; i < temporaryFieldData.size(); ++i) {
         data[i] += temporaryFieldData[i];
       }
-    }
-
 #endif
+    } 
 
-    //! addFieldFromDifferentGrid, casting a non-constant reference to a constant reference.
+    //! addFieldFromDifferentGrid, automatically converting the source field from Fourier space if required
     void addFieldFromDifferentGrid(Field<DataType, CoordinateType> &source) {
+#ifndef FILTER_ON_COARSE_GRID
       source.toReal();
+#endif
       addFieldFromDifferentGrid(const_cast<const Field<DataType, CoordinateType> &>(source));
     }
 

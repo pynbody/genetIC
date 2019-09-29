@@ -50,10 +50,10 @@ namespace io {
 
       T pvarValue; //!< Passive variable.
 
-      T lengthFactorHeader; //!< Inverse of Hubble rate.
-      T lengthFactorDisplacements; //!< Multiplicative factor in position displacements (defaults to 1.0).
-      T velFactor; //!< Factor required to convert gadget output velocities (used internally) to grafic output velocities.
-      size_t iordOffset; //!< Offset for converting grid indices on each level into particle list indices. Accumulates as levels are processed.
+      T lengthFactorHeader; //!< Multiplicative factor from internal units to GRAFIC/RAMSES header units
+      T lengthFactorDisplacements; //!< Multiplicative factor from internal position units to GRAFIC/RAMSES displacement units
+      T velFactor; //!< Multiplicative factor from internal velocity units to GRAFIC output velocities.
+      size_t iordOffset; //!< Offset for converting grid indices on each level into global grid cell indices. Accumulates as levels are sequentially processed.
 
     public:
       /*! \brief Constructor
@@ -92,7 +92,7 @@ namespace io {
         mask->calculateMask();
 
         lengthFactorHeader = 1. / cosmology.hubble; // Gadget Mpc a h^-1 -> GrafIC file Mpc a
-        lengthFactorDisplacements = 1.;
+        lengthFactorDisplacements = 1.; // Mpc a h^-1 expected. Strange inconsistency with header, but this seems to be correct (see note on RAMSES above).
         velFactor = std::pow(cosmology.scalefactor, 0.5f); // Gadget km s^-1 a^1/2 -> GrafIC km s^-1
       }
 
@@ -206,9 +206,9 @@ namespace io {
         iordOffset += targetGrid.size3;
       }
 
-      //! \brief Output specified blocks of data to specified files.
+      //! \brief Output the length in bytes of the fields, as header and footer to each data block, FORTRAN-style
       /*!
-      \param block_lengths - lengths of blocks of data to output, for each file.
+      \param block_lengths - lengths of blocks of data, for each file.
       \param files - files to output to.
       */
       void writeBlockHeaderFooter(const vector<size_t> &block_lengths, vector<tools::MemMapFileWriter> &files) const {
@@ -220,8 +220,10 @@ namespace io {
 
       //! \brief Output the header for a given level of the simulation.
       /*!
+      Every file gets the same header.
+      
       \param file - file to output the header to
-      \param targetGrid - pointer to the grid to output header for
+      \param targetGrid - grid to output header for
       */
       void writeHeaderForGrid(tools::MemMapFileWriter &file, const grids::Grid<T> &targetGrid) {
         io_header_grafic header = getHeaderForGrid(targetGrid);
@@ -231,9 +233,9 @@ namespace io {
         file.write<int>(header_length);
       }
 
-      //! \brief Returns the grafic header for the specified level of the simulation
+      //! \brief Returns a grafic header appropriate for the specified grid
       /*!
-      \param targetGrid - pointer to the grid to retrieve the header for
+      \param targetGrid - grid to retrieve the header for
       */
       io_header_grafic getHeaderForGrid(const grids::Grid<T> &targetGrid) const {
         io_header_grafic header;
@@ -251,7 +253,7 @@ namespace io {
 
     };
 
-    //! \brief Save particles in grafic format.
+    //! \brief Save all grids in the given multi-level context, in grafic format.
     /*!
     \param filename - name of output file
     \param generators - vector of particles generators for each type of particle (dark matter, baryons)
