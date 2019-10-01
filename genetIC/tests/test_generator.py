@@ -3,6 +3,7 @@ import subprocess
 import plotslice as ps
 import pylab as p
 import numpy as np
+import shutil
 
 class TestGenerator():
     size_Mpc = 100.0
@@ -120,8 +121,16 @@ class TestGenerator():
             pass
         self.write_paramfile(for_zoom)
 
+    def cleanup(self):
+        for zoom in True, False:
+            try:
+                shutil.rmtree(self.dir_name(zoom))
+            except FileNotFoundError:
+                pass
+
+
     def run(self, for_zoom):
-        subprocess.run([self.path_to_IC, self.paramfile_name(for_zoom)])
+        subprocess.run([self.path_to_IC, self.paramfile_name(for_zoom)]).check_returncode()
 
     def run_all(self):
         for zoom in True, False:
@@ -143,6 +152,7 @@ class TestGenerator():
         ps.plotslice(self.dir_name(True)+"/", diff_prefix=self.dir_name(False)+"/", slice=self.modification_pos[2])
 
     def go(self):
+        self.cleanup()
         self.run_all()
         self.make_plots()
 
