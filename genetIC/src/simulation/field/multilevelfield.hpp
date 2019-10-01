@@ -265,6 +265,7 @@ namespace fields {
         // TODO: Potentially, optimise so that conversion is done 'on the fly'
         MultiLevelField<DataType> otherAsVector(other);
         otherAsVector.convertToVector();
+        otherAsVector.toFourier();
         return this->innerProduct(otherAsVector);
       }
 
