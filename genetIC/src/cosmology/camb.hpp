@@ -20,6 +20,10 @@
  */
 namespace cosmology {
 
+  /* \class CacheKeyComparator
+   * Comparison class for pair<weak_ptr<...>,...>, using owner_less comparison on the weak_ptr
+   * This enables maps with weak pointers as keys, as used by caching in the PowerSpectrum class.
+   */
   template<typename F>
   struct CacheKeyComparator {
     bool operator()(const F &a, const F &b) const {
@@ -53,10 +57,7 @@ namespace cosmology {
     virtual ~PowerSpectrum() {}
 
     //! \brief Evaluate power spectrum for a given species at wavenumber k (Mpc/h), including the normalisation
-    //! transferType specifies whether to use the DM or baryon transfer function
-    //! NB - for efficiency, we don't check that transferType casts to an int within bounds. This is handled by
-    //! getPowerSpectrumForGrid, which does a single check before applying a guaranteed safe
-    //! value to all fourier cells.
+    //! transferType specifies the transfer function to use (currently dm or baryon)
     virtual CoordinateType operator()(CoordinateType k, particle::species transferType) const = 0;
 
     //! Get the theoretical power spectrum appropriate for a given grid. This may be a cached copy if previously calculated.
@@ -198,9 +199,9 @@ namespace cosmology {
 
   protected:
 
-      //! \brief This function imports data from a CAMB file, supplied as a file-name string argument (incamb).
+      //! \brief This function imports data from a CAMB file, supplied as a file-name string argument (filename).
       //! Both pre-2015 and post-2015 formats can be used, and the function will detect which.
-      void readLinesFromCambOutput(std::string incamb) {
+      void readLinesFromCambOutput(std::string filename) {
         kInterpolationPoints.clear();
         speciesToInterpolationPoints.clear();
 
@@ -212,12 +213,10 @@ namespace cosmology {
 
         // Import data from CAMB file:
         std::vector<double> input;
-
-        // Have to do this while stripping out any column headers that might be present in the file:
-        io::getBufferIgnoringColumnHeaders(input, incamb);
+        io::getBufferIgnoringColumnHeaders(input, filename);
 
         // Check whether the input file is in the pre-2015 or post-2015 format (and throw an error if it is neither).
-        numCols = io::getNumberOfColumns(incamb);
+        numCols = io::getNumberOfColumns(filename);
 
         if (numCols == c_old_camb) {
           std::cerr << "Using pre 2015 CAMB transfer function" << std::endl;
@@ -243,8 +242,6 @@ namespace cosmology {
         // Extend high-k range using Meszaros solution
         // This is a very naive approximation and a big warning will be issued if the power is actually evaluated
         // at these high k's (see operator() below).
-
-
         kcamb_max_in_file = kInterpolationPoints.back();
         CoordinateType keq = 0.01;
         while (kInterpolationPoints.back() < 1e7) {

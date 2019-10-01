@@ -194,6 +194,9 @@ public:
     cosmology.OmegaBaryons0 = 0.0;
     cosmology.ns = 0.96;      // old default
     cosmology.TCMB = 2.725;
+    cosmology.scalefactorAtDecoupling = 1./1100.; 
+    // only an approximate value is needed to initialise a gas temperature
+    
     haveInitialisedRandomComponent = false;
 
     // Default computational options:

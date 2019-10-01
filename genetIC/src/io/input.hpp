@@ -6,11 +6,11 @@
 
 namespace io {
 
-/*! \brief Extracts data from a specified stream
+/*! \brief Reads data from a specified stream into a vector, until the end of file is reached
 
     \param store - vector in which to store the data.
     \param f - stream from which to extract data.
-    \param filename - file that data is being extracted from.
+    \param filename - name of file that data is being extracted from, used as information in case of error
 */
   template<typename T>
   void getFromExistingStream(std::vector<T> &store, std::istream &f, std::string filename) {

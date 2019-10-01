@@ -24,12 +24,13 @@ namespace cosmology {
     FloatType hubble; //!< Hubble rate in units of 100kms^{-1}Mpc^{-1}
     FloatType redshift; //!< Redshift at which we are generating the initial conditions.
     FloatType scalefactor; //!< Scale factor at this redshift, relative to the scale factor at z = 0
+    FloatType scalefactorAtDecoupling; //!< Scale factor at baryon-photon decoupling (z~1100)
     FloatType sigma8; //!< Sigma8 parameter
     FloatType ns; //!< Scalar spectral index
     FloatType TCMB; //!< CMB temperature today, in K
   };
 
-  //! Computes an estimate of the structure growth factor.
+  //! Computes an estimate of the linear growth factor.
   template<typename FloatType>
   FloatType growthFactor(const CosmologicalParameters<FloatType> &cosmology) {
     const FloatType a = cosmology.scalefactor;
@@ -57,7 +58,7 @@ namespace cosmology {
     return retVal;
   }
 
-  //! Dump an estimated power spectrum for the field, alongside the specified theory power spectrum, to disk
+  //! Calculate the ratio between the velocity and the position offset in internal units
   template<typename FloatType>
   FloatType zeldovichVelocityToOffsetRatio(const CosmologicalParameters<FloatType> &cosmology) {
 
@@ -180,7 +181,7 @@ namespace cosmology {
 
   }
 
-  //! Convert the density field to a potential field, in-place.
+  //! Convert a density field to a potential field, in-place.
   template<typename DataType, typename FloatType=tools::datatypes::strip_complex<DataType>>
   void densityToPotential(fields::Field<DataType, FloatType> &field, const CosmologicalParameters<FloatType> &cosmo)
   {

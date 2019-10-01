@@ -235,10 +235,10 @@ namespace io {
     protected:
       using InternalFloatType = tools::datatypes::strip_complex<GridDataType>;
 
-      particle::mapper::ParticleMapper<GridDataType> &mapper; //!< Particle mapper, for relating particle positions to the grid.
-      particle::SpeciesToGeneratorMap<GridDataType> generators; //!< Generators for each particle species.
+      particle::mapper::ParticleMapper<GridDataType> &mapper; //!< Particle mapper, for relating offsets in the file to GenetIC grid cells.
+      particle::SpeciesToGeneratorMap<GridDataType> generators; //!< Particle generators for each particle species.
       const cosmology::CosmologicalParameters<InternalFloatType> &cosmology; //!< Struct containing cosmological parameters.
-      tools::MemMapFileWriter writer; //!< Used to write in the gadget format.
+      tools::MemMapFileWriter writer; //!< Low-level file operations are handled by this object.
       size_t nTotal; //!< Total number of particles to output.
       double boxLength; //!< Size of simulation box.
       int gadgetVersion; //!< Which version of the gadget file to output. Allowed values 2 or 3.
@@ -247,8 +247,9 @@ namespace io {
       bool variableMass; //!< Stores whether we are using variable mass gadget particles
 
 
-      // Mapping between gadget particle types (0->6) and our internal field type
-      std::vector<particle::species> gadgetTypeToFieldType{particle::species::baryon,
+      // Mapping between gadget particle types (0->6) and our internal field type. This selects the appropriate
+      // transfer function, if multiple are being used.
+      std::vector<particle::species> gadgetTypeToSpecies{particle::species::baryon,
                                                            particle::species::dm,
                                                            particle::species::dm,
                                                            particle::species::dm,
@@ -266,8 +267,8 @@ namespace io {
         auto currentWriteBlockC = writer.getMemMapFortran<WriteType>(nTotal);
 
         for (unsigned int particle_type = 0; particle_type < 6; particle_type++) {
-          auto begin = mapper.beginParticleType(*generators[gadgetTypeToFieldType[particle_type]], particle_type);
-          auto end = mapper.endParticleType(*generators[gadgetTypeToFieldType[particle_type]], particle_type);
+          auto begin = mapper.beginParticleType(*generators[gadgetTypeToSpecies[particle_type]], particle_type);
+          auto end = mapper.endParticleType(*generators[gadgetTypeToSpecies[particle_type]], particle_type);
           size_t nMax = end.getIndex() - begin.getIndex();
 
           current_n += begin.parallelIterate(
@@ -327,7 +328,7 @@ namespace io {
         num = 0;
 
         InternalFloatType mass;
-        mapper.iterateParticlesOfType(*generators[gadgetTypeToFieldType[particle_type]], particle_type,
+        mapper.iterateParticlesOfType(*generators[gadgetTypeToSpecies[particle_type]], particle_type,
                                       [&](const auto &i) {
                                         mass = i.getMass(); // sometimes can be MUCH faster than getParticle
                                         if (min_mass > mass) min_mass = mass;

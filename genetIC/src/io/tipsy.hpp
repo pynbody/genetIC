@@ -11,7 +11,7 @@ namespace io {
   namespace tipsy {
     /*! \namespace io::tipsy
       \brief Functions related to outputting particles in tipsy format.
-  */
+    */
 
 
     //! \struct io_header_tipsy
@@ -79,7 +79,7 @@ namespace io {
       //! \brief Initialise baryonic particles:
       template<typename T>
       void initialise(gas &p, const cosmology::CosmologicalParameters<T> &cosmo) {
-        p.temp = cosmo.TCMB / cosmo.scalefactor;
+        p.temp = cosmo.TCMB * cosmo.scalefactor_at_decoupling / (cosmo.scalefactor * cosmo.scalefactor); 
         p.metals = 0.0;
         p.rho = 0.0;
       }
