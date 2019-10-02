@@ -50,7 +50,7 @@ def plot1dslice(prefix="output/",ps="-",slice_z=None,slice_y=None,maxgrid=2,vmin
         plot_y_vals[np.where(interior_mask)[0][1:-1]] = np.nan
 
     p.plot(a_vals-offset,plot_y_vals,ps,**kwargs)
-    p.xlim(0,aL)
+    p.xlim(0-offset,aL-offset)
     if thisgrid>0:
         return a_vals.min(), a_vals.max()
 
