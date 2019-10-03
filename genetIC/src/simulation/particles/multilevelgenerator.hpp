@@ -105,15 +105,12 @@ namespace particle {
         // remove the low-frequency information from this level
         generator.overdensityField.getFieldForLevel(level).applyFilter(
           filters.getHighPassFilterForLevel(level));
+        generator.pGenerators[level]->applyFilter(filters.getHighPassFilterForLevel(level));
 
         // replace with the low-frequency information from the level below
-
         generator.overdensityField.getFieldForLevel(level).addFieldFromDifferentGridWithFilter(
           generator.overdensityField.getFieldForLevel(level - 1),
           filters.getLowPassFilterForLevel(level - 1));
-
-        generator.pGenerators[level]->applyFilter(filters.getHighPassFilterForLevel(level));
-
         generator.pGenerators[level]->addFieldFromDifferentGridWithFilter(*generator.pGenerators[level - 1],
                                                                           filters.getLowPassFilterForLevel(level - 1));
 
