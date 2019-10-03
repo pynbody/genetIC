@@ -119,11 +119,24 @@ def _load_grid(prefix,diff_prefix, grid):
         if len(a)>len(b):
             b = scipy.ndimage.zoom(b,len(a)//len(b),order=1)
         elif len(b)>len(a):
-            b = scipy.ndimage.zoom(b,len(a)/len(b),order=1)
+            ratio = len(b)//len(a)
+            b = _downsample(b, ratio)
+
         a-=b
         a/=_get_peak_value(diff_prefix)
 
     return a
+
+
+def _downsample(hr_b, ratio):
+    b = np.zeros_like(hr_b[::ratio,::ratio,::ratio])
+    for off_x in range(ratio):
+        for off_y in range(ratio):
+            for off_z in range(ratio):
+                b += hr_b[off_x::ratio, off_y::ratio, off_z::ratio] / ratio ** 3
+
+    return b
+
 
 def plotslice_onegrid(prefix="output/",grid=0,slice=None,vmin=-0.15,vmax=0.15,padcells=0,offset=None,plot_offset=(0,0),
                       diff_prefix=None):

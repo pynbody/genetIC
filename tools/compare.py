@@ -1,5 +1,15 @@
 #!/usr/bin/env python
 
+"""
+Script to compare the output from two genetIC runs
+
+Usage: compare.py path_to_output/
+ * compares the particle output (path_to_output/*.gadget or path_to_output/*.tipsy) with path_to_output/reference_output
+ * compares the grid output (path_to_output/grid-?.npy) with path_to_output/reference_grid
+ * compares the power spectrum output (path_to_output/*.ps) with path_to_output/reference_ps/*.ps
+"""
+
+
 from __future__ import print_function
 import numpy as np
 import numpy.testing as npt
