@@ -492,6 +492,15 @@ namespace fields {
       addFieldFromDifferentGrid(const_cast<const Field<DataType, CoordinateType> &>(source));
     }
 
+      //! addFieldFromDifferentGridWithFilter, automatically converting the source field from Fourier space if required
+      void addFieldFromDifferentGridWithFilter(Field<DataType, CoordinateType> &source,
+                                               const filters::Filter<CoordinateType> & filter) {
+#ifndef FILTER_ON_COARSE_GRID
+        source.toReal();
+#endif
+        addFieldFromDifferentGridWithFilter(const_cast<const Field<DataType, CoordinateType> &>(source), filter);
+      }
+
     //! Outputs the field as a numpy array to the specified filename.
     void dumpGridData(std::string filename) const {
       int n = static_cast<int>(getGrid().size);

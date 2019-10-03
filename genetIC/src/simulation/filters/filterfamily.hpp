@@ -85,8 +85,6 @@ namespace filters {
 
     template<typename S>
     explicit FilterFamily(const multilevelcontext::MultiLevelContextInformationBase<T, S> &fromContext) {
-      const T FRACTIONAL_K_SPLIT = 0.3;
-
       this->filters.push_back(std::make_shared<Filter<T>>());
       this->lpFilters.push_back(std::make_shared<Filter<T>>());
       this->hpFilters.push_back(std::make_shared<Filter<T>>());

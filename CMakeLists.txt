@@ -81,10 +81,23 @@ exec_program(
         OUTPUT_VARIABLE GIT_MODIFIED
 )
 
-# Other possible flags: -DVELOCITY_MODIFICATION_GRADIENT_FOURIER_SPACE -DFILTER_ON_COARSE_GRID
-# Note VELOCITY_MODIFICATION_GRADIENT_FOURIER_SPACE is probably essential if you switch off CUBIC_INTERPOLATION
-# (and you are using velocity modifications in a zoom simulation)
-add_definitions(-DCUBIC_INTERPOLATION -DFFTW3 -DFFTW_THREADS -DOPENMP -DGIT_VERSION="${GIT_VERSION}" -DGIT_MODIFIED="${GIT_MODIFIED}" -DDOUBLEPRECISION -DOUTPUT_IN_DOUBLEPRECISION)
+# Here are possible code options. Probably don't fiddle with these unless you know what you're doing.
+#
+# -DCUBIC_INTERPOLATION: Use cubic interpolation when moving information from a coarse to a fine grid. Slower but
+#    much better.
+# -DVELOCITY_MODIFICATION_GRADIENT_FOURIER_SPACE: As the name suggests, use "ik" as the gradient operator; otherwise
+#    uses a fourth order stencil in real space. Enabling this is essential if you disable CUBIC_INTERPOLATION.
+# -DFRACTIONAL_K_SPLIT: This defines the characteristic k0 of the filter used to split information between zoom levels,
+#    defined by k0 = k_nyquist * FRACTIONAL_K_SPLIT, where k_nyquist is the Nyquist frequency of the lower-resolution grid.
+#    Higher values correlate the zoom grids more precisely with the unzoomed base grids, but at the cost of errors
+#    on small scales. The default value is an empirically-determined trade-off which works well.
+# -DFRACTIONAL_FILTER_TEMPERATURE: This defines the characteristic temperature of the Fermi filter used to split
+#    information between levels, as k0 * FRACTIONAL_FILTER_TEMPERATURE. Smaller values give sharper transitions in the
+#    filtering, which leads to better accuracy in Fourier space but worse accuracy in real space. The default value is
+#    an empirically-determined trade-off which works well.
+add_definitions(-DCUBIC_INTERPOLATION  -DFILTER_ON_COARSE_GRID -DFRACTIONAL_K_SPLIT=0.3 -DFRACTIONAL_FILTER_TEMPERATURE=0.1
+        -DFFTW3 -DFFTW_THREADS -DOPENMP
+        -DGIT_VERSION="${GIT_VERSION}" -DGIT_MODIFIED="${GIT_MODIFIED}" -DDOUBLEPRECISION -DOUTPUT_IN_DOUBLEPRECISION)
 add_compile_options(-Wextra)
 add_executable(IC ${SOURCE_FILES})
 

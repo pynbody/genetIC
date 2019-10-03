@@ -1,6 +1,22 @@
 # Reasonably sensible defaults
 CFLAGS	= -Wall -g -lpthread -Og -fopenmp -std=c++14   -fdiagnostics-color=auto -I`pwd`
-CODEOPTIONS  = -DOPENMP  -DDOUBLEPRECISION -DOUTPUT_IN_DOUBLEPRECISION -DCUBIC_INTERPOLATION
+
+# Here are code options. Probably don't fiddle with these unless you know what you're doing.
+#
+# -DCUBIC_INTERPOLATION: Use cubic interpolation when moving information from a coarse to a fine grid. Slower but
+#    much better.
+# -DVELOCITY_MODIFICATION_GRADIENT_FOURIER_SPACE: As the name suggests, use "ik" as the gradient operator; otherwise
+#    uses a fourth order stencil in real space. Enabling this is essential if you disable CUBIC_INTERPOLATION.
+# -DFRACTIONAL_K_SPLIT: This defines the characteristic k0 of the filter used to split information between zoom levels,
+#    defined by k0 = k_nyquist * FRACTIONAL_K_SPLIT, where k_nyquist is the Nyquist frequency of the lower-resolution grid.
+#    Higher values correlate the zoom grids more precisely with the unzoomed base grids, but at the cost of errors
+#    on small scales. The default value is an empirically-determined trade-off which works well.
+# -DFRACTIONAL_FILTER_TEMPERATURE: This defines the characteristic temperature of the Fermi filter used to split
+#    information between levels, as k0 * FRACTIONAL_FILTER_TEMPERATURE. Smaller values give sharper transitions in the
+#    filtering, which leads to better accuracy in Fourier space but worse accuracy in real space. The default value is
+#    an empirically-determined trade-off which works well.
+
+CODEOPTIONS  = -DOPENMP  -DDOUBLEPRECISION -DOUTPUT_IN_DOUBLEPRECISION -DCUBIC_INTERPOLATION -DFRACTIONAL_K_SPLIT=0.3 -DFRACTIONAL_FILTER_TEMPERATURE=0.1
 CPATH 	= /opt/local/include/
 LPATH   = /opt/local/lib
 

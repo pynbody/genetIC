@@ -218,7 +218,7 @@ namespace filters {
       // sharpness of the cut-off) has been made by numerical experiments
       // trading off the various pros and cons of a sharp cut discussed
       // in the notes.
-      temperature = kcut / 10;
+      temperature = kcut * FRACTIONAL_FILTER_TEMPERATURE;
     };
 
 
