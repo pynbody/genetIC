@@ -16,7 +16,7 @@ function runtest {
   fi
   cd ..
   echo "Testing output"
-  python ../tools/compare.py $1/
+  python ../../tools/compare.py $1/
   if [ $? -ne 0 ]
   then
       echo
