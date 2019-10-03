@@ -70,6 +70,11 @@ def _check_and_return_integers(*vals):
     np.testing.assert_allclose(rounded, vals, atol=1e-3)
     return np.array(rounded,dtype=int)
 
+def _get_peak_value(prefix):
+    all_grids = sorted(glob.glob(prefix+"/grid-?.npy"))
+    x = np.load(all_grids[-1])
+    return abs(x).max()
+
 def _load_grid(prefix,diff_prefix, grid):
     a = np.load(prefix+"grid-%d.npy"%grid)
     ax,ay,az,aL = [float(x) for x in open(prefix+"grid-info-%d.txt"%grid).readline().split()]
@@ -116,6 +121,7 @@ def _load_grid(prefix,diff_prefix, grid):
         elif len(b)>len(a):
             b = scipy.ndimage.zoom(b,len(a)/len(b),order=1)
         a-=b
+        a/=_get_peak_value(diff_prefix)
 
     return a
 

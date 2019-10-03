@@ -11,10 +11,10 @@ class TestGenerator():
     base_ncells = 32
     zoom_factor = [4]
     zoom_ncells = [32]
-    modification_name = 'overdensity'
-    modification_value = 1.0
-    modification_pos = [size_Mpc/2]*3
-    modification_size = None
+    modification_name = ['overdensity']
+    modification_value = [0.15]
+    modification_pos = [[size_Mpc/2]*3]
+    modification_size = [None]
     path_to_IC = os.path.join(os.path.dirname(os.path.dirname(__file__)), "IC")
 
     setup_block = """
@@ -66,14 +66,19 @@ class TestGenerator():
 
     @property
     def modification_block(self):
-        if self.modification_size:
-            select_line = "select_sphere %.2f"%(self.modification_size)
-        else:
-            select_line = "select_nearest"
-        return """centre %.2f %.2f %.2f
-        %s
-        modify %s absolute %f"""%(self.modification_pos[0], self.modification_pos[1], self.modification_pos[2], select_line,
-                                 self.modification_name, self.modification_value)
+        block=""
+        for size, pos, name, val in zip(self.modification_size, self.modification_pos,
+                                        self.modification_name, self.modification_value):
+            if size:
+                select_line = "select_sphere %.2f"%(size)
+            else:
+                select_line = "select_nearest"
+            block+= """centre %.2f %.2f %.2f
+            %s
+            modify %s absolute %f
+            """%(pos[0], pos[1], pos[2], select_line,
+                                     name, val)
+        return block
 
     @property
     def equiv_finalise_block(self):
@@ -138,18 +143,31 @@ class TestGenerator():
             self.run(zoom)
 
     def make_plots(self):
-        p.set_cmap('RdBu')
+        p.set_cmap('RdBu_r')
         ax = p.subplot(221)
+        p.title("Modification")
         for zoom in True, False:
-            ps.plot1dslice(self.dir_name(zoom)+"/", slice_y=self.modification_pos[1], slice_z=self.modification_pos[2])
-        p.subplot(222, sharex=ax)
-        ps.plot1dslice(self.dir_name(True)+"/", slice_y=self.modification_pos[1], slice_z=self.modification_pos[2],
-                       diff_prefix=self.dir_name(False)+"/")
+            ps.plot1dslice(self.dir_name(zoom)+"/", slice_y=self.modification_pos[0][1], slice_z=self.modification_pos[0][2])
+        new_ax = p.subplot(222, sharex=ax)
+        ps.plot1dslice(self.dir_name(True)+"/", slice_y=self.modification_pos[0][1], slice_z=self.modification_pos[0][2],
+                       diff_prefix=self.dir_name(False)+"/",vmin=-0.15,vmax=0.15)
+
+        p.title("Relative error")
         p.ylim(-0.05,0.05)
+        new_ax.yaxis.set_label_position('right')
+        new_ax.yaxis.tick_right()
+
         ax = p.subplot(223)
-        ps.plotslice(self.dir_name(True)+"/", slice=self.modification_pos[2])
-        p.subplot(224, sharex=ax, sharey=ax)
-        ps.plotslice(self.dir_name(True)+"/", diff_prefix=self.dir_name(False)+"/", slice=self.modification_pos[2])
+
+        ps.plotslice(self.dir_name(True)+"/", slice=self.modification_pos[0][2])
+        ax.text(0.05, 0.05, r"Colour scale: overdensity $\pm 0.15$",transform=ax.transAxes)
+        new_ax = p.subplot(224, sharex=ax, sharey=ax)
+        new_ax.yaxis.set_label_position('right')
+        new_ax.yaxis.tick_right()
+        ps.plotslice(self.dir_name(True)+"/", diff_prefix=self.dir_name(False)+"/", slice=self.modification_pos[0][2],
+                     vmin=-0.05,vmax=0.05)
+        new_ax.text(1.05, 0.05, r"$\pm 5\%$ of peak",transform=ax.transAxes)
+
 
     def go(self):
         self.cleanup()
@@ -158,4 +176,4 @@ class TestGenerator():
 
 class VelTestGenerator(TestGenerator):
     modification_name = 'vx'
-    modification_value = 100*100
+    modification_value = 5000
