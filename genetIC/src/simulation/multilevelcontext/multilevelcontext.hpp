@@ -254,7 +254,6 @@ namespace multilevelcontext {
 
         for (int level = levelmax - 1; level >= 0; --level) {
 
-#ifdef CUBIC_INTERPOLATION
           fields::Field<DataType, T> & hires = *fieldsOnLevels[level + 1];
           fields::Field<DataType, T> & lores = *fieldsOnLevels[level];
 
@@ -266,9 +265,6 @@ namespace multilevelcontext {
             auto location = hires.getGrid().getCentroidFromIndex(i);
             lores.deInterpolate(location, hires[i]/pixel_volume_ratio);
           }
-#else
-          fieldsOnLevels[level]->addFieldFromDifferentGrid(*(fieldsOnLevels[level + 1]));
-#endif
 
         }
       }

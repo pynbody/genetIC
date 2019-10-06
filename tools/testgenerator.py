@@ -42,7 +42,7 @@ class TestGenerator():
     Om  0.279
     Ol  0.721
     s8  0.817
-    zin	99  
+    zin	99
     seedfourier_parallel	8896131
     """
 
@@ -105,6 +105,7 @@ class TestGenerator():
     def equiv_finalise_block(self):
         return """done
         dump_grid 0
+        dump_vx 0
         """
 
     @property
@@ -112,6 +113,7 @@ class TestGenerator():
         s = self.equiv_finalise_block
         for i in range(1,len(self.zoom_ncells)+1):
             s += "dump_grid %d\n" % i
+            s += "dump_vx %d\n" % i
         return s
 
     def dir_name(self, for_zoom):
@@ -168,18 +170,28 @@ class TestGenerator():
             self.setup(zoom)
             self.run(zoom)
 
-    def make_plots(self, save_filename=None):
+    def make_plots(self, save_filename=None, vx=False):
         """Make a four-panel plot with 1d and 2d results and differences to the ideal case"""
+        if vx:
+            vmin = -1.0
+            vmax = 1.0
+            name = 'vx'
+        else:
+            vmin = -0.15
+            vmax = 0.15
+            name = 'grid'
+
         if save_filename:
             p.figure(figsize=(9,9))
         p.set_cmap('RdBu_r')
         ax = p.subplot(221)
         p.title("Modification")
         for zoom in True, False:
-            ps.plot1dslice(self.dir_name(zoom)+"/", slice_y=self.modification_pos[0][1], slice_z=self.modification_pos[0][2])
+            ps.plot1dslice(self.dir_name(zoom)+"/", slice_y=self.modification_pos[0][1], slice_z=self.modification_pos[0][2],
+                           name=name)
         new_ax = p.subplot(222, sharex=ax)
         ps.plot1dslice(self.dir_name(True)+"/", slice_y=self.modification_pos[0][1], slice_z=self.modification_pos[0][2],
-                       diff_prefix=self.dir_name(False)+"/",vmin=-0.15,vmax=0.15)
+                       diff_prefix=self.dir_name(False)+"/",name=name)
 
         p.title("Relative error")
         p.ylim(-0.05,0.05)
@@ -188,13 +200,16 @@ class TestGenerator():
 
         ax = p.subplot(223, sharex=ax)
 
-        ps.plotslice(self.dir_name(True)+"/", slice=self.modification_pos[0][2])
-        ax.text(0.05, 0.05, r"Colour scale: overdensity $\pm 0.15$",transform=ax.transAxes)
+        ps.plotslice(self.dir_name(True)+"/", slice=self.modification_pos[0][2],name=name,vmin=vmin,vmax=vmax)
+        if vx:
+            ax.text(0.05, 0.05, r"Colour scale: vx $\pm 1.0$",transform=ax.transAxes)
+        else:
+            ax.text(0.05, 0.05, r"Colour scale: overdensity $\pm 0.15$",transform=ax.transAxes)
         new_ax = p.subplot(224, sharex=ax, sharey=ax)
         new_ax.yaxis.set_label_position('right')
         new_ax.yaxis.tick_right()
         ps.plotslice(self.dir_name(True)+"/", diff_prefix=self.dir_name(False)+"/", slice=self.modification_pos[0][2],
-                     vmin=-0.05,vmax=0.05)
+                     vmin=-0.05,vmax=0.05,name=name)
         new_ax.text(1.05, 0.05, r"$\pm 5\%$ of peak",transform=ax.transAxes)
 
         if save_filename:
@@ -211,6 +226,7 @@ class TestGenerator():
 
     def go_no_interaction(self):
         self.go("figures/"+self.test_name+".pdf")
+        self.make_plots("figures/"+self.test_name+"-vx.pdf",True)
 
 class VelTestGenerator(TestGenerator):
     test_name = 'velocity'

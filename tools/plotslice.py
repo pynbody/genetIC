@@ -5,13 +5,13 @@ import pylab as p
 import glob
 import os
 
-def plot1dslice(prefix="output/",ps="-",slice_z=None,slice_y=None,maxgrid=2,vmin=-0.15,vmax=0.15,thisgrid=0,
+def plot1dslice(prefix="output/",name="grid",ps="-",slice_z=None,slice_y=None,maxgrid=2,vmin=-0.15,vmax=0.15,thisgrid=0,
                 zoom_pad_cells=3,diff_prefix=None,offset=None):
     pad_cells = zoom_pad_cells if thisgrid>0 else 0
 
-    a = _load_grid(prefix, diff_prefix, thisgrid)
+    a = _load_grid(prefix, diff_prefix, thisgrid, name)
 
-    ax,ay,az,aL = [float(x) for x in open(prefix+"grid-info-%d.txt"%thisgrid).readline().split()]
+    ax,ay,az,aL = [float(x) for x in open(prefix+name+"-info-%d.txt"%thisgrid).readline().split()]
 
     if offset is None:
         offset = aL/2
@@ -42,8 +42,8 @@ def plot1dslice(prefix="output/",ps="-",slice_z=None,slice_y=None,maxgrid=2,vmin
 
     kwargs = {}
 
-    if thisgrid<maxgrid and os.path.exists(prefix+"grid-%d.npy"%(thisgrid+1)):
-        xmin, xmax = plot1dslice(prefix,ps,slice_z,slice_y,maxgrid,vmin,vmax,thisgrid+1,zoom_pad_cells,diff_prefix,offset)
+    if thisgrid<maxgrid and os.path.exists(prefix+name+"-%d.npy"%(thisgrid+1)):
+        xmin, xmax = plot1dslice(prefix,name,ps,slice_z,slice_y,maxgrid,vmin,vmax,thisgrid+1,zoom_pad_cells,diff_prefix,offset)
         interior_mask = (a_vals>xmin) & (a_vals<xmax)
         l = p.plot(a_vals[interior_mask]-offset,plot_y_vals[interior_mask],":",zorder=-10)
         kwargs['color'] = l[0].get_color()
@@ -70,21 +70,21 @@ def _check_and_return_integers(*vals):
     np.testing.assert_allclose(rounded, vals, atol=1e-3)
     return np.array(rounded,dtype=int)
 
-def _get_peak_value(prefix):
-    all_grids = sorted(glob.glob(prefix+"/grid-?.npy"))
+def _get_peak_value(prefix, name):
+    all_grids = sorted(glob.glob(prefix+"/"+name+"-?.npy"))
     x = np.load(all_grids[-1])
     return abs(x).max()
 
-def _load_grid(prefix,diff_prefix, grid):
-    a = np.load(prefix+"grid-%d.npy"%grid)
-    ax,ay,az,aL = [float(x) for x in open(prefix+"grid-info-%d.txt"%grid).readline().split()]
+def _load_grid(prefix,diff_prefix, grid, name="grid"):
+    a = np.load(prefix+name+"-%d.npy"%grid).real
+    ax,ay,az,aL = [float(x) for x in open(prefix+name+"-info-%d.txt"%grid).readline().split()]
 
     if diff_prefix is not None:
         # load best matching grid
         for diff_grid in range(10,-1,-1): # prefer the highest resolution grid that can be made to match
             bx = None
             try:
-                bx,by,bz,bL = [float(x) for x in open(diff_prefix+"grid-info-%d.txt"%diff_grid).readline().split()]
+                bx,by,bz,bL = [float(x) for x in open(diff_prefix+name+"-info-%d.txt"%diff_grid).readline().split()]
             except IOError:
                 continue
 
@@ -94,7 +94,7 @@ def _load_grid(prefix,diff_prefix, grid):
         if bx is None:
             raise RuntimeError("On grid %d of %r, cannot find a suitable match in %r"%(grid,prefix,diff_prefix))
 
-        b = np.load(diff_prefix+"grid-%d.npy"%diff_grid)
+        b = np.load(diff_prefix+name+"-%d.npy"%diff_grid).real
         b_cellsize = bL/len(b)
 
         # Trim to match
@@ -123,7 +123,7 @@ def _load_grid(prefix,diff_prefix, grid):
             b = _downsample(b, ratio)
 
         a-=b
-        a/=_get_peak_value(diff_prefix)
+        a/=_get_peak_value(diff_prefix, name)
 
     return a
 
@@ -139,12 +139,12 @@ def _downsample(hr_b, ratio):
 
 
 def plotslice_onegrid(prefix="output/",grid=0,slice=None,vmin=-0.15,vmax=0.15,padcells=0,offset=None,plot_offset=(0,0),
-                      diff_prefix=None):
+                      diff_prefix=None,name='grid'):
     new_plot = p.gcf().axes == []
 
-    a = _load_grid(prefix, diff_prefix, grid)
+    a = _load_grid(prefix, diff_prefix, grid, name)
 
-    ax,ay,az,aL = [float(x) for x in open(prefix+"grid-info-%d.txt"%grid).readline().split()]
+    ax,ay,az,aL = [float(x) for x in open(prefix+name+"-info-%d.txt"%grid).readline().split()]
 
     if offset is None:
         offset=(-aL/2,-aL/2)
@@ -186,8 +186,8 @@ def plotslice_onegrid(prefix="output/",grid=0,slice=None,vmin=-0.15,vmax=0.15,pa
 
 
 def plotslice(prefix="output/",maxgrid=10,slice=None,onelevel=False,vmin=-0.15,vmax=0.15,padcells=4, offset=None,
-              diff_prefix=None):
-    maxgrid_on_disk = len(glob.glob(prefix+"grid-?.npy"))
+              diff_prefix=None,name='grid'):
+    maxgrid_on_disk = len(glob.glob(prefix+name+"-?.npy"))
     print(maxgrid_on_disk)
     if maxgrid_on_disk<maxgrid:
         maxgrid = maxgrid_on_disk
@@ -199,7 +199,7 @@ def plotslice(prefix="output/",maxgrid=10,slice=None,onelevel=False,vmin=-0.15,v
     for level in levels:
         slice, vmin, vmax, offset = plotslice_onegrid_with_wrapping(prefix,level,slice,vmin,vmax,
                                                       padcells=0 if level==0 else padcells, offset=offset,
-                                                                    diff_prefix=diff_prefix)
+                                                                    diff_prefix=diff_prefix,name=name)
 
 
 

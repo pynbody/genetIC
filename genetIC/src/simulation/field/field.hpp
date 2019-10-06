@@ -164,13 +164,19 @@ namespace fields {
      * documentation for numerics::LocalUnitTricubicApproximation::getTransposeElementsForPosition
      */
     void deInterpolate(Coordinate<CoordinateType> location, DataType value) {
+
+      // TODO: The below is not conjugate deinterpolation for the linear interpolation
+      // implemented when CUBIC_INTERPOLATION is off. However, switching off
+      // CUBIC_INTERPOLATION is not recommended, so fixing this inconsistency is low
+      // priority.
+
       int x_p_0, y_p_0, z_p_0;
       CoordinateType dx, dy, dz;
 
       location -= pGrid->offsetLower;
       location = pGrid->wrapPoint(location);
 
-#ifdef CUBIC_INTERPOLATION
+
       // grid coordinates of parent cell whose *centroid* (not corner) is to the bottom-left of our current point
       std::tie(x_p_0, y_p_0, z_p_0) = floor(location / pGrid->cellSize - 0.5);
 
@@ -181,7 +187,7 @@ namespace fields {
       dz-=z_p_0;
 
       // Caching would hugely speed this up, since we anticipate repeated calls with the same dx,dy,dz (to numerical accuracy)
-    numerics::LocalUnitTricubicApproximation<DataType>::getTransposeElementsForPosition(dx,dy,dz,valsForInterpolation);
+      numerics::LocalUnitTricubicApproximation<DataType>::getTransposeElementsForPosition(dx,dy,dz,valsForInterpolation);
 
       for(int i=-1; i<3; ++i) {
         for(int j=-1; j<3; ++j) {
@@ -190,15 +196,7 @@ namespace fields {
           }
         }
       }
-#else 
-    // TODO: The below is not conjugate deinterpolation for the linear interpolation
-    // implemented when CUBIC_INTERPOLATION is off. However, switching off 
-    // CUBIC_INTERPOLATION is not recommended, so fixing this inconsistency is low
-    // priority. In reality, the deinterpolation here is conjugate to zero-order
-    // (nearest neighbour) interpolation.
-    std::tie(x_p_0, y_p_0, z_p_0) = floor(location / pGrid->cellSize);
-    (*this)[pGrid->getIndexFromCoordinate({x_p_0, y_p_0, z_p_0})] += value;    
-#endif
+
     }
 
     //! Evaluates the field at the specified co-ordinate using interpolation.
