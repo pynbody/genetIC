@@ -15,6 +15,8 @@ CFLAGS	= -Wall -g -lpthread -Og -fopenmp -std=c++14   -fdiagnostics-color=auto -
 #    information between levels, as k0 * FRACTIONAL_FILTER_TEMPERATURE. Smaller values give sharper transitions in the
 #    filtering, which leads to better accuracy in Fourier space but worse accuracy in real space. The default value is
 #    an empirically-determined trade-off which works well.
+# -DFILTER_ON_COARSE_GRID: When moving long wavelength information onto a zoom grid, filters on the base grid
+#    and then interpolates into the zoom, rather than the default which is to interpolate and then filter.
 
 CODEOPTIONS  = -DOPENMP  -DDOUBLEPRECISION -DOUTPUT_IN_DOUBLEPRECISION -DCUBIC_INTERPOLATION -DFRACTIONAL_K_SPLIT=0.3 -DFRACTIONAL_FILTER_TEMPERATURE=0.1
 CPATH 	= /opt/local/include/

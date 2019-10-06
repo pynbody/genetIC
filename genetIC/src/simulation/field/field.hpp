@@ -516,7 +516,7 @@ namespace fields {
 
       const auto & temporaryFieldData = temporaryField->getDataVector();
 
-#pragma omp parallel for schedule(static) default(none)  shared(data)
+#pragma omp parallel for schedule(static) default(none)  shared(data, temporaryFieldData)
       for (size_t i = 0; i < temporaryFieldData.size(); ++i) {
         data[i] += temporaryFieldData[i];
       }
