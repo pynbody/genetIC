@@ -86,7 +86,8 @@ exec_program(
 # -DCUBIC_INTERPOLATION: Use cubic interpolation when moving information from a coarse to a fine grid. Slower but
 #    much better.
 # -DVELOCITY_MODIFICATION_GRADIENT_FOURIER_SPACE: As the name suggests, use "ik" as the gradient operator; otherwise
-#    uses a fourth order stencil in real space. Enabling this is essential if you disable CUBIC_INTERPOLATION.
+#    uses a fourth order stencil in real space. Enabling this is essential if you disable CUBIC_INTERPOLATION and/or
+#    FILTER_ON_COARSE_GRID.
 # -DFRACTIONAL_K_SPLIT: This defines the characteristic k0 of the filter used to split information between zoom levels,
 #    defined by k0 = k_nyquist * FRACTIONAL_K_SPLIT, where k_nyquist is the Nyquist frequency of the lower-resolution grid.
 #    Higher values correlate the zoom grids more precisely with the unzoomed base grids, but at the cost of errors
@@ -97,7 +98,7 @@ exec_program(
 #    an empirically-determined trade-off which works well.
 # -DFILTER_ON_COARSE_GRID: When moving long wavelength information onto a zoom grid, filters on the base grid
 #    and then interpolates into the zoom, rather than the default which is to interpolate and then filter.
-add_definitions(-DCUBIC_INTERPOLATION  -DFRACTIONAL_K_SPLIT=0.3 -DFRACTIONAL_FILTER_TEMPERATURE=0.1
+add_definitions(-DCUBIC_INTERPOLATION  -DFRACTIONAL_K_SPLIT=0.3 -DFRACTIONAL_FILTER_TEMPERATURE=0.1 -DFILTER_ON_COARSE_GRID
         -DFFTW3 -DFFTW_THREADS -DOPENMP
         -DGIT_VERSION="${GIT_VERSION}" -DGIT_MODIFIED="${GIT_MODIFIED}" -DDOUBLEPRECISION -DOUTPUT_IN_DOUBLEPRECISION)
 
