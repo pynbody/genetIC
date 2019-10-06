@@ -180,6 +180,9 @@ namespace modifications {
   */
   template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
   class VelocityModification : public OverdensityModification<DataType, T> {
+  private:
+    const bool derivInRealSpace = true;
+
   protected:
     int direction; //!< Component of velocity to modify, (0,1,2) <-> (x,y,x).
 

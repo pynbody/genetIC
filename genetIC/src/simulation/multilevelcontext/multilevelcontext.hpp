@@ -145,6 +145,21 @@ namespace multilevelcontext {
       return Ntot;
     }
 
+    //! Returns the number of degrees of freedom -- i.e. the number of cells, counting only the finest in any location
+    size_t getNumDof() const {
+      size_t dof = 0;
+      for(size_t i=0; i<getNumLevels(); ++i) {
+        dof+=getGridForLevel(i).size3;
+        if(i>0) {
+          // subtract the number of cells this corresponds to on the level above
+          size_t factor = tools::getRatioAndAssertInteger(getGridForLevel(i-1).cellSize,getGridForLevel(i).cellSize);
+          factor*=factor*factor;
+          dof-=getGridForLevel(i).size3/factor;
+        }
+      }
+      return dof;
+    }
+
     //! Returns the number of levels in the multi-level context
     size_t getNumLevels() const {
       return nLevels;

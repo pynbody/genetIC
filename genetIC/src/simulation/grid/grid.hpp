@@ -410,7 +410,12 @@ namespace grids {
 
     //! True if point in physical coordinates is on this grid
     virtual bool containsPoint(const Coordinate<T> &coord) const {
-      return Window<T>(periodicDomainSize, offsetLower, offsetLower + thisGridSize).contains(coord);
+      return getWindow().contains(coord);
+    }
+
+    //! Get the window in physical coordinates that this grid spans
+    Window<T> getWindow() const {
+      return Window<T>(periodicDomainSize, offsetLower, offsetLower + thisGridSize);
     }
 
     //! True if point in physical coordinates is on this grid and not too close to the border
@@ -422,8 +427,7 @@ namespace grids {
         throw std::runtime_error("Safety number of pixels must be at least one");
       }
 
-      return Window<T>(periodicDomainSize, offsetLower,
-                       offsetLower + thisGridSize).containsWithBorderSafety(coord, safety * cellSize);
+      return getWindow().containsWithBorderSafety(coord, safety * cellSize);
     }
 
     //! Wraps a point so that it lies within the periodic domain.

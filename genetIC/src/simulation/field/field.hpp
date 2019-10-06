@@ -430,6 +430,45 @@ namespace fields {
       });
     }
 
+    /*! \brief Apply a Fourier space filter only in the specified window
+     *
+     * If windowFirst is true, the filter is applied AFTER the masking takes place; otherwise the order is reversed.
+     */
+    void applyFilterInWindow(const filters::Filter<CoordinateType> &filter, const Window<CoordinateType> & window,
+                             bool windowFirst) {
+      using tools::numerics::operator+=;
+
+      auto inWindow = this->copy();
+
+      if(windowFirst) {
+        inWindow->setZeroOutsideWindow(window);
+        inWindow->applyFilter(filter);
+      } else {
+        inWindow->applyFilter(filter);
+        inWindow->setZeroOutsideWindow(window);
+      }
+
+      this->setZeroInsideWindow(window);
+      this->data += inWindow->data;
+
+    }
+
+    void setZeroInsideWindow(const Window<CoordinateType> & window) {
+      toReal();
+      for(size_t i=0; i<this->pGrid->size3; ++i) {
+        if(window.contains(this->pGrid->getCentroidFromIndex(i)))
+          (*this)[i]=0;
+      }
+    }
+
+    void setZeroOutsideWindow(const Window<CoordinateType> & window) {
+      toReal();
+      for(size_t i=0; i<this->pGrid->size3; ++i) {
+        if(!window.contains(this->pGrid->getCentroidFromIndex(i)))
+          (*this)[i]=0;
+      }
+    }
+
     //! Adds the supplied field to this one, even if it is defined using a different grid.
     /*!
      * Requires the source field to be in real (rather than Fourier) space.

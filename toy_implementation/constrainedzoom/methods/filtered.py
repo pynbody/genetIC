@@ -53,23 +53,81 @@ class FilteredZoomConstrained(ZoomConstrainedWithGeometricConstraints):
 
         return low, high
 
+    def _filter_in_window(self, lr: FFTArray, window_first) -> FFTArray:
+        """This implements low-pass filtering only in the windowed region.
+
+        This becomes important when converting vectors back to covectors (basically for getting chi^2). See notes.
+
+        Depending on whether the filter appears as a Hermitian conjugate (or not), the windowing either occurs
+        after the filtering (or before)."""
+        lr.in_fourier_space()
+        lr_filtered = lr.copy()
+
+        if window_first:
+            lr_filtered*=self.filter_low(self.k_low)
+        lr_filtered.in_real_space()
+
+        lr_no_window = self.zero_window(lr)
+        lr.in_fourier_space()
+        lr_filtered_in_window = lr_filtered - self.zero_window(lr_filtered)
+
+        lr_filtered_in_window.in_fourier_space()
+        if not window_first:
+            lr_filtered_in_window*=self.filter_low(self.k_low)
+
+        lr_no_window.in_fourier_space()
+
+        return lr_filtered_in_window + lr_no_window
+
     @in_fourier_space
-    def covector_to_vector(self, low, high):
-        low_from_low = low * self.filter_low(self.k_low) ** 2
+    def _apply_metric(self, low, high, use_windowing = False):
+        """Applies the metric. In its simplified form the inverse metric is identical to the metric itself.
+
+        Strictly, when applying the low-pass filter, it should only apply inside the high resolution window, since the
+        low-res field does have some high-frequency information which is used outside that window.
+
+        However when converting covectors to vectors one gets away with this because they are forced to be localised
+        inside the high-res window and therefore there will not be any high frequency information outside that region.
+
+        The approximation becomes very poor if one tries to convert the overdensity field to a covector (in order to
+        calculate a chi^2), and so there is an option to include the correct windowing (set use_windowing=True) for
+        this case. Note that the windowing order would be different if one wanted to include it for the
+        covector -> vector case.
+        """
+        if use_windowing:
+            # The following is only the correct form for vector->covector transforms
+            # Otherwise the window ordering needs to be reversed
+            low_from_low = self._filter_in_window(self._filter_in_window(low, window_first=True), window_first=False)
+        else:
+            low_from_low = low * self.filter_low(self.k_low) ** 2
+
         high_from_high = high * self.filter_high(self.k_high) ** 2
 
         low_from_high = high * self.filter_low(self.k_high) * self.filter_high(self.k_high)
         assert low_from_high.fourier
-        low_from_high = self.downsample_cubic(low_from_high.in_real_space()).in_fourier_space() * self.pixel_size_ratio**0.5
+        low_from_high = self.downsample_cubic(
+            low_from_high.in_real_space()).in_fourier_space() * self.pixel_size_ratio ** 0.5
 
         high_from_low = low * self.filter_low(self.k_low) * self.filter_high(
-            self.k_low) / self.pixel_size_ratio**0.5
+            self.k_low) / self.pixel_size_ratio ** 0.5
         assert high_from_low.fourier
         high_from_low = self.upsample_cubic(high_from_low.in_real_space()).in_fourier_space()
         assert high_from_low.fourier
 
         return low_from_low + low_from_high, \
                high_from_low + high_from_high
+
+    def covector_to_vector(self, low, high):
+        return self._apply_metric(low, high)
+
+    def vector_to_covector(self, low, high):
+        return self._apply_metric(low, high, use_windowing=True)
+
+    @in_fourier_space
+    def estimate_chi2_from_whitenoise(self, low, high):
+        """A test to check we can get a sensible chi^2 for the fields we generate"""
+        lowv, highv = self.vector_to_covector(low, high)
+        return self.covector_vector_inner_product(low, high, lowv, highv)/2 # white noise norm: sigma^2 = 2
 
     @in_fourier_space
     def _recombine_fields(self, delta_low_k, delta_high_k):

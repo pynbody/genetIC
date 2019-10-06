@@ -1479,7 +1479,8 @@ public:
   virtual void getFieldChi2() {
     initialiseRandomComponentIfUninitialised();
     T val = this->outputFields[0]->getChi2();
-    std::cerr << "Calculated chi^2 = " << val << std::endl;
+    size_t dof = this->multiLevelContext.getNumDof();
+    std::cerr << "Calculated chi^2 = " << std::setprecision(10) << val << " (dof = " << dof << ")" << std::endl;
   }
 
   //! Calculate unmodified property for the dark matter field:
