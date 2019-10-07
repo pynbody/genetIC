@@ -173,13 +173,14 @@ class TestGenerator():
     def make_plots(self, save_filename=None, vx=False):
         """Make a four-panel plot with 1d and 2d results and differences to the ideal case"""
         if vx:
-            vmin = -1.0
-            vmax = 1.0
+
             name = 'vx'
         else:
-            vmin = -0.15
-            vmax = 0.15
+
             name = 'grid'
+
+        vmax = np.round(ps.get_peak_value(self.dir_name(False), name),2)
+        vmin = -vmax
 
         if save_filename:
             p.figure(figsize=(9,9))
@@ -201,10 +202,7 @@ class TestGenerator():
         ax = p.subplot(223, sharex=ax)
 
         ps.plotslice(self.dir_name(True)+"/", slice=self.modification_pos[0][2],name=name,vmin=vmin,vmax=vmax)
-        if vx:
-            ax.text(0.05, 0.05, r"Colour scale: vx $\pm 1.0$",transform=ax.transAxes)
-        else:
-            ax.text(0.05, 0.05, r"Colour scale: overdensity $\pm 0.15$",transform=ax.transAxes)
+        ax.text(0.05, 0.05, r"Colour scale: %s $\pm %.2f$"%(name,vmax),transform=ax.transAxes)
         new_ax = p.subplot(224, sharex=ax, sharey=ax)
         new_ax.yaxis.set_label_position('right')
         new_ax.yaxis.tick_right()

@@ -70,7 +70,7 @@ def _check_and_return_integers(*vals):
     np.testing.assert_allclose(rounded, vals, atol=1e-3)
     return np.array(rounded,dtype=int)
 
-def _get_peak_value(prefix, name):
+def get_peak_value(prefix, name):
     all_grids = sorted(glob.glob(prefix+"/"+name+"-?.npy"))
     x = np.load(all_grids[-1])
     return abs(x).max()
@@ -123,7 +123,7 @@ def _load_grid(prefix,diff_prefix, grid, name="grid"):
             b = _downsample(b, ratio)
 
         a-=b
-        a/=_get_peak_value(diff_prefix, name)
+        a/=get_peak_value(diff_prefix, name)
 
     return a
 
