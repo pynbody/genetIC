@@ -729,7 +729,7 @@ namespace particle {
           \param level2iterator - iterator for level 2 that needs to be moved
       */
       void adjustLevel2IteratorForSpecifiedZoomParticle(const size_t &next_zoom, iterator &level2iterator) const {
-        assert (&level2iterator != nullptr);
+
         if (next_zoom >= zoomParticleArrayHiresUnsorted.size()) {
           // beyond end. This is OK because we need to be able to go one beyond the end in an iterator loop
           assert(next_zoom == zoomParticleArrayHiresUnsorted.size());
