@@ -540,7 +540,7 @@ namespace grids {
       VirtualGrid<T>(pUnderlying,
                      pUnderlying->periodicDomainSize, pUnderlying->size / factor,
                      pUnderlying->cellSize * factor, pUnderlying->offsetLower.x, pUnderlying->offsetLower.y,
-                     pUnderlying->offsetLower.z, pUnderlying->cellMassFrac * powf(factor, 3.0),
+                     pUnderlying->offsetLower.z, pUnderlying->cellMassFrac * pow(factor, 3.0),
                      pUnderlying->cellSofteningScale),
       factor(factor) {
       factor3 = factor * factor * factor;

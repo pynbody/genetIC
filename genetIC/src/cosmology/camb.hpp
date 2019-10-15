@@ -35,7 +35,7 @@ namespace cosmology {
   /*! \class PowerSpectrum
   * \brief Abstract base class for power spectrum calculations.
   *
-  * For practical runs, the CAMB child class performs the key work. For testing runs, a 
+  * For practical runs, the CAMB child class performs the key work. For testing runs, a
   * PowerLawPowerSpectrum implementation is also provided.
   */
   template<typename DataType>
@@ -109,7 +109,7 @@ namespace cosmology {
     static CoordinateType getPowerSpectrumNormalizationForGrid(const grids::Grid<CoordinateType> &grid) {
 
       CoordinateType kw = 2. * M_PI / grid.thisGridSize;
-      CoordinateType norm = kw * kw * kw / powf(2.f * M_PI, 3.f); //since kw=2pi/L, this is just 1/V_box
+      CoordinateType norm = kw * kw * kw / pow(2.f * M_PI, 3.f); //since kw=2pi/L, this is just 1/V_box
 
       // This factor Ncells was first needed when FFT normalisation changed from 1/N to 1/sqrt(N). This knowledge was previously
       // incorporated as a normalisation of the random draw rather than to the power spectrum. It makes more sense to have
@@ -144,7 +144,7 @@ namespace cosmology {
       if(k==0)
         return 0;
       else
-        return amplitude * powf(k, ns);
+        return amplitude * pow(k, ns);
     }
 
   };
@@ -159,12 +159,12 @@ namespace cosmology {
   protected:
     std::vector<CoordinateType> kInterpolationPoints; //!< Wavenumbers read from CAMB file
     std::map<particle::species, std::vector<CoordinateType>> speciesToInterpolationPoints; //!< Vector to store transfer functions
-    
+
     const std::map<particle::species, size_t> speciesToCambColumn
-      {{particle::species::dm, 1}, 
-       {particle::species::baryon, 2}}; 
+      {{particle::species::dm, 1},
+       {particle::species::baryon, 2}};
       //!< Columns of CAMB that we request for DM and baryons respectively
-      
+
     std::map<particle::species, tools::numerics::LogInterpolator<CoordinateType>> speciesToTransferFunction; //!< Interpolation functions:
     CoordinateType amplitude; //!< Amplitude of the initial power spectrum
     CoordinateType ns;        //!< tensor to scalar ratio of the initial power spectrum
@@ -192,7 +192,7 @@ namespace cosmology {
         kcamb_max_in_file = std::numeric_limits<CoordinateType>().max();
       }
 
-      return amplitude * powf(k, ns) * linearTransfer * linearTransfer;
+      return amplitude * pow(k, ns) * linearTransfer * linearTransfer;
     }
 
 
@@ -302,7 +302,7 @@ namespace cosmology {
 
           // Multiply power spectrum by the fourier transform of the spherical top hat, to give the fourier transform
           // of the averaged (convolved) power spectrum over the sphere.
-          s += powf(k, ns + 2.) *
+          s += pow(k, ns + 2.) *
                ((sin(k * radius) - k * radius * cos(k * radius)) / ((k * radius) * (k * radius) * (k * radius))) *
                ((sin(k * radius) - k * radius * cos(k * radius)) / ((k * radius) * (k * radius) * (k * radius))) * t * t;
 
