@@ -1,0 +1,37 @@
+# This is an auxiliary paramfile to define the structure _with_ the intermediate padding levels
+
+# output parameters
+outdir	 ./
+outformat tipsy
+outname test_1
+
+# cosmology:
+Om  0.279
+Ol  0.721
+s8  0.817
+zin	99
+camb	../camb_transfer_kmax40_z0.dat
+
+# basegrid 50 Mpc/h, 16^3
+basegrid 50.0 32
+
+subsample 2
+#strays_on
+
+# fourier seeding
+seed	889613
+
+# zoom level 1, centre on the central pixel = 25-(50/32/2) = 24.219
+centre 24.219 24.219 24.219
+select_nearest
+zoomgrid 4 32
+
+# zoom level 2
+select_cube 0.8
+zoomgrid 4 32
+
+adapt_mask 1
+
+autopad 1
+
+done

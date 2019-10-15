@@ -6,15 +6,14 @@
 
 namespace io {
 
-/*! \brief Extracts data from a specified stream
+/*! \brief Reads data from a specified stream into a vector, until the end of file is reached
 
     \param store - vector in which to store the data.
     \param f - stream from which to extract data.
-    \param filename - file that data is being extracted from.
+    \param filename - name of file that data is being extracted from, used as information in case of error
 */
   template<typename T>
-  void getFromExistingStream(std::vector<T> &store,std::istream& f,std::string filename)
-  {
+  void getFromExistingStream(std::vector<T> &store, std::istream &f, std::string filename) {
     while (!f.eof()) {
       T temp;
       if (f >> temp)
@@ -36,7 +35,7 @@ namespace io {
     if (!f.is_open())
       throw std::runtime_error("File " + filename + " not found");
 
-    getFromExistingStream(store,f,filename);
+    getFromExistingStream(store, f, filename);
   }
 
   /*! \brief Process the data file, removing any potential column headers.
@@ -46,7 +45,7 @@ namespace io {
 
   */
   template<typename T>
-  void getBufferIgnoringColumnHeaders(std::vector<T>& store, std::string filename) {
+  void getBufferIgnoringColumnHeaders(std::vector<T> &store, std::string filename) {
     std::ifstream f(filename);
     std::stringstream ss;
     if (!f.is_open())
@@ -54,47 +53,43 @@ namespace io {
 
     std::string line;
     // Check the first line, to see if it contains valid numbers:
-    std::getline(f,line);
+    std::getline(f, line);
     ss << line;
     T temp;
     if (ss >> temp) {
-        // Can interpret first line as numbers, so continue as normal.
-        // Finish the rest of this line first, then do the rest:
-        store.push_back(temp);
-        getFromExistingStream(store,ss,filename + " on first line.");
+      // Can interpret first line as numbers, so continue as normal.
+      // Finish the rest of this line first, then do the rest:
+      store.push_back(temp);
+      getFromExistingStream(store, ss, filename + " on first line.");
     }
     // Either way, we carry on with the rest of the file. From now on, errors should
     // be interpreted as corrupt data:
-    getFromExistingStream(store,f,filename);
+    getFromExistingStream(store, f, filename);
   }
 
   //! \brief Returns the number of columns in the supplied data file.
-    //! This is used to distinguish between old and new CAMB formats.
-  size_t getNumberOfColumns(std::string filename)
-  {
+  //! This is used to distinguish between old and new CAMB formats.
+  size_t getNumberOfColumns(std::string filename) {
     std::ifstream f(filename);
     std::stringstream ss;
-    if(!f.is_open())
-    {
-        throw std::runtime_error("File " + filename + " not found");
+    if (!f.is_open()) {
+      throw std::runtime_error("File " + filename + " not found");
     }
-    // Extract the second line, and count the number of entries:
+    // Extract the second line, and count the number of entries...
+    // If there is no second line, then the CAMB file can't be used for interpolation anyway
     std::string line;
-    std::getline(f,line); // Ignore the first line - it might be column labels.
-    std::getline(f,line); // Check the second line instead (if there is no second line, then the CAMB file can't be used for interpolation anyway)
+    std::getline(f, line);
+    std::getline(f, line);
+
     ss << line;
     size_t nCols = 0;
-    while(!ss.eof())
-    {
-        double temp;
-        if(ss >> temp)
-        {
-            nCols++;
-        }
-        else
-        {
-            throw std::runtime_error("Error reading file " + filename + ". Could not determine number of columns.");
-        }
+    while (!ss.eof()) {
+      double temp;
+      if (ss >> temp) {
+        nCols++;
+      } else {
+        throw std::runtime_error("Error reading file " + filename + ". Could not determine number of columns.");
+      }
     }
     return nCols;
   }

@@ -11,7 +11,7 @@ seedfourier	8896131
 
 outname test_4
 outdir	 ./
-outformat 4
+outformat tipsy
 
 
 basegrid 50.0 64

@@ -3,7 +3,7 @@
 
 # output parameters
 outdir	 ./
-outformat 4
+outformat tipsy
 outname test_1
 
 # cosmology:

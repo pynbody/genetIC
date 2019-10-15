@@ -11,7 +11,7 @@ camb	../camb_transfer_kmax40_z0.dat
 
 outname test_1
 outdir	 ./
-outformat 3
+outformat gadget3
 
 # switching strays_on should have no effect, since we are miles from any edges
 # BUT there were bugs which made this flag have side-effects:

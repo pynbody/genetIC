@@ -6,13 +6,14 @@
 #include <vector>
 #include <algorithm>
 #include <string>
+#include "src/simulation/particles/species.hpp"
 
 namespace io {
   namespace grafic {
 
-  /*! \namespace io::grafic
-      \brief Classes to handle output of particles in the grafic format.
-  */
+    /*! \namespace io::grafic
+        \brief Classes to handle output of particles in the grafic format.
+    */
 
     using std::ofstream;
 
@@ -41,58 +42,57 @@ namespace io {
     protected:
       std::string outputFilename; //!< Filename used for the output files.
       multilevelcontext::MultiLevelContextInformation<DataType> context; //!< Multi-level context for grafic output.
-      std::vector<std::shared_ptr<particle::AbstractMultiLevelParticleGenerator<DataType>>> generators; //!< Vector of generators used to create particles of different species.
+      particle::SpeciesToGeneratorMap<DataType> generators; //!< Vector of generators used to create particles of different species.
       const cosmology::CosmologicalParameters<T> &cosmology; //!< Struct containing cosmological parameters.
-      multilevelcontext::GraficMask<DataType,T>* mask; //!< Grafic mask to be used.
+      multilevelcontext::GraficMask<DataType, T> *mask; //!< Grafic mask to be used.
       std::vector<std::shared_ptr<fields::OutputField<DataType>>> outputFields; //!< Vector of output fields (needed for baryon overdensity).
 
 
       T pvarValue; //!< Passive variable.
 
-      T lengthFactorHeader; //!< Inverse of Hubble rate.
-      T lengthFactorDisplacements; //!< Multiplicative factor in position displacements (defaults to 1.0).
-      T velFactor; //!< Factor required to convert gadget output velocities (used internally) to grafic output velocities.
-      size_t iordOffset; //!< Offset for converting grid indices on each level into particle list indices. Accumulates as levels are processed.
+      T lengthFactorHeader; //!< Multiplicative factor from internal units to GRAFIC/RAMSES header units
+      T lengthFactorDisplacements; //!< Multiplicative factor from internal position units to GRAFIC/RAMSES displacement units
+      T velFactor; //!< Multiplicative factor from internal velocity units to GRAFIC output velocities.
+      size_t iordOffset; //!< Offset for converting grid indices on each level into global grid cell indices. Accumulates as levels are sequentially processed.
 
     public:
-    /*! \brief Constructor
+      /*! \brief Constructor
 
-        \param fname - filename used for output.
-        \param levelContext - multi-level context object used internally.
-        \param particleGenerators - vector of particle generators for each particle species.
-        \param cosmology - struct storing cosmological parameters.
-        \param pvarValue - value of passive variable.
-        \param center - location of center of the simulation.
-        \param subsample - factor to subsample dark matter by.
-        \param supersample - factor to supersample dark matter by.
-        \param input_mask - masks used on each level.
-        \param outFields - vector of output overdensity fields (needed for baryon output).
-    */
+          \param fname - filename used for output.
+          \param levelContext - multi-level context object used internally.
+          \param particleGenerators - particle generators for each particle species.
+          \param cosmology - struct storing cosmological parameters.
+          \param pvarValue - value of passive variable.
+          \param center - location of center of the simulation.
+          \param subsample - factor to subsample dark matter by.
+          \param supersample - factor to supersample dark matter by.
+          \param input_mask - masks used on each level.
+          \param outFields - vector of output overdensity fields (needed for baryon output).
+      */
       GraficOutput(const std::string &fname,
                    multilevelcontext::MultiLevelContextInformation<DataType> &levelContext,
-                   std::vector<std::shared_ptr<particle::AbstractMultiLevelParticleGenerator<DataType>>> particleGenerators,
+                   const particle::SpeciesToGeneratorMap<DataType> &particleGenerators,
                    const cosmology::CosmologicalParameters<T> &cosmology,
-                    const T pvarValue,
+                   const T pvarValue,
                    Coordinate<T> center,
                    size_t subsample,
                    size_t supersample,
-                   std::vector<std::vector<size_t>>& input_mask,
+                   std::vector<std::vector<size_t>> &input_mask,
                    std::vector<std::shared_ptr<fields::OutputField<DataType>>> outFields) :
-          outputFilename(fname),
-          cosmology(cosmology),
-          pvarValue(pvarValue)
-          {
+        outputFilename(fname),
+        cosmology(cosmology),
+        pvarValue(pvarValue) {
 
         this->generators = particleGenerators;
         this->outputFields = outFields;
 
         levelContext.copyContextWithCenteredIntermediate(context, center, 2, subsample, supersample);
 
-        mask = new multilevelcontext::GraficMask<DataType,T>(&context, input_mask);
+        mask = new multilevelcontext::GraficMask<DataType, T>(&context, input_mask);
         mask->calculateMask();
 
         lengthFactorHeader = 1. / cosmology.hubble; // Gadget Mpc a h^-1 -> GrafIC file Mpc a
-        lengthFactorDisplacements = 1.;
+        lengthFactorDisplacements = 1.; // Mpc a h^-1 expected. Strange inconsistency with header, but this seems to be correct (see note on RAMSES above).
         velFactor = std::pow(cosmology.scalefactor, 0.5f); // Gadget km s^-1 a^1/2 -> GrafIC km s^-1
       }
 
@@ -101,24 +101,21 @@ namespace io {
         iordOffset = 0;
 
         for (size_t level = 0; level < this->context.getNumLevels(); ++level) {
-            writeGrid(this->context.getGridForLevel(level), level);
+          writeGrid(this->context.getGridForLevel(level), level);
         }
       }
 
     protected:
 
-    //! \brief Output particles on a specified level
-    /*!
-    \param targetGrid - pointer to grid for specified level
-    \param level - level to output.
-    */
+      //! \brief Output particles on a specified level
+      /*!
+      \param targetGrid - pointer to grid for specified level
+      \param level - level to output.
+      */
       void writeGrid(const grids::Grid<T> &targetGrid, size_t level) {
 
-        auto evaluator_dm = generators[0]->makeParticleEvaluatorForGrid(targetGrid);
-        auto overdensityFieldEvaluator = generators[0]->makeOverdensityEvaluatorForGrid(targetGrid);
-
-	if(generators.size()>1) // use baryon field
-	  overdensityFieldEvaluator = generators[1]->makeOverdensityEvaluatorForGrid(targetGrid);
+        auto evaluator_dm = generators[particle::dm]->makeParticleEvaluatorForGrid(targetGrid);
+        auto overdensityFieldEvaluator = generators[particle::baryon]->makeOverdensityEvaluatorForGrid(targetGrid);
 
         const grids::Grid<T> &baseGrid = context.getGridForLevel(0);
         size_t effective_size = tools::getRatioAndAssertPositiveInteger(baseGrid.cellSize * baseGrid.size,
@@ -131,7 +128,7 @@ namespace io {
 
 
         std::vector<std::string> filenames = {"ic_velcx", "ic_velcy", "ic_velcz", "ic_poscx", "ic_poscy",
-                                              "ic_poscz",  "ic_deltab", "ic_refmap", "ic_pvar_00001", "ic_particle_ids"};
+                                              "ic_poscz", "ic_deltab", "ic_refmap", "ic_pvar_00001", "ic_particle_ids"};
 
         std::vector<size_t> block_lengths = {sizeof(float) * targetGrid.size2,
                                              sizeof(float) * targetGrid.size2,
@@ -147,22 +144,19 @@ namespace io {
         std::vector<tools::MemMapFileWriter> files;
 
 
-
-        for (size_t i=0; i<filenames.size(); ++i) {
+        for (size_t i = 0; i < filenames.size(); ++i) {
           auto filename_i = filenames[i];
           files.emplace_back(thisGridFilename + "/" + filename_i);
           writeHeaderForGrid(files.back(), targetGrid);
         }
 
         std::shared_ptr<fields::Field<DataType, T>> baryonFieldOnLevelPtr = nullptr;
-        if(this->outputFields.size() > 1)
-        {
-            for(size_t i = 0; i < outputFields.size(); i++)
-            {
-                this->outputFields[i]->toReal(); // Field should be output in real space
-            }
+        if (this->outputFields.size() > 1) {
+          for (size_t i = 0; i < outputFields.size(); i++) {
+            this->outputFields[i]->toReal(); // Field should be output in real space
+          }
 
-            baryonFieldOnLevelPtr = outputFields[1]->getFieldForLevel(level).shared_from_this();
+          baryonFieldOnLevelPtr = outputFields[1]->getFieldForLevel(level).shared_from_this();
         }
 
         for (size_t i_z = 0; i_z < targetGrid.size; ++i_z) {
@@ -170,7 +164,7 @@ namespace io {
           writeBlockHeaderFooter(block_lengths, files);
 
           std::vector<tools::MemMapRegion<float>> varMaps;
-          for(int m=0; m<9; ++m)
+          for (int m = 0; m < 9; ++m)
             varMaps.push_back(files[m].getMemMap<float>(targetGrid.size2));
 
           tools::MemMapRegion<size_t> idMap = files[9].getMemMap<size_t>(targetGrid.size2);
@@ -191,7 +185,7 @@ namespace io {
               // Detect whether we are using baryons:
               float mask = this->mask->isInMask(level, i);
               float pvar = pvarValue * mask;
-              size_t file_index = i_y*targetGrid.size+i_x;
+              size_t file_index = i_y * targetGrid.size + i_x;
 
 
               varMaps[0][file_index] = velScaled.x;
@@ -212,9 +206,9 @@ namespace io {
         iordOffset += targetGrid.size3;
       }
 
-      //! \brief Output specified blocks of data to specified files.
+      //! \brief Output the length in bytes of the fields, as header and footer to each data block, FORTRAN-style
       /*!
-      \param block_lengths - lengths of blocks of data to output, for each file.
+      \param block_lengths - lengths of blocks of data, for each file.
       \param files - files to output to.
       */
       void writeBlockHeaderFooter(const vector<size_t> &block_lengths, vector<tools::MemMapFileWriter> &files) const {
@@ -226,10 +220,12 @@ namespace io {
 
       //! \brief Output the header for a given level of the simulation.
       /*!
+      Every file gets the same header.
+      
       \param file - file to output the header to
-      \param targetGrid - pointer to the grid to output header for
+      \param targetGrid - grid to output header for
       */
-      void writeHeaderForGrid(tools::MemMapFileWriter & file, const grids::Grid<T> &targetGrid) {
+      void writeHeaderForGrid(tools::MemMapFileWriter &file, const grids::Grid<T> &targetGrid) {
         io_header_grafic header = getHeaderForGrid(targetGrid);
         int header_length = static_cast<int>(sizeof(io_header_grafic));
         file.write<int>(header_length);
@@ -237,9 +233,9 @@ namespace io {
         file.write<int>(header_length);
       }
 
-      //! \brief Returns the grafic header for the specified level of the simulation
+      //! \brief Returns a grafic header appropriate for the specified grid
       /*!
-      \param targetGrid - pointer to the grid to retrieve the header for
+      \param targetGrid - grid to retrieve the header for
       */
       io_header_grafic getHeaderForGrid(const grids::Grid<T> &targetGrid) const {
         io_header_grafic header;
@@ -257,7 +253,7 @@ namespace io {
 
     };
 
-    //! \brief Save particles in grafic format.
+    //! \brief Save all grids in the given multi-level context, in grafic format.
     /*!
     \param filename - name of output file
     \param generators - vector of particles generators for each type of particle (dark matter, baryons)
@@ -272,14 +268,14 @@ namespace io {
     */
     template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
     void save(const std::string &filename,
-              std::vector<std::shared_ptr<particle::AbstractMultiLevelParticleGenerator<DataType>>> generators,
+              const particle::SpeciesToGeneratorMap<DataType> &generators,
               multilevelcontext::MultiLevelContextInformation<DataType> &context,
               const cosmology::CosmologicalParameters<T> &cosmology,
               const T pvarValue, Coordinate<T> center, size_t subsample, size_t supersample,
-              std::vector<std::vector<size_t>>& input_mask,
-              std::vector<std::shared_ptr<fields::OutputField<DataType>>>& outputFields) {
+              std::vector<std::vector<size_t>> &input_mask,
+              std::vector<std::shared_ptr<fields::OutputField<DataType>>> &outputFields) {
       GraficOutput<DataType> output(filename, context, generators,
-                                    cosmology, pvarValue, center, subsample, supersample, input_mask,outputFields);
+                                    cosmology, pvarValue, center, subsample, supersample, input_mask, outputFields);
       output.write();
     }
 

@@ -115,12 +115,12 @@ namespace tools {
     //! Disallow copy constructors
     MemMapFileWriter(const MemMapFileWriter & copy) = delete;
 
-    //! Moves the MemMapFileWriter's data into this one.
+    //! Move constructor
     MemMapFileWriter(MemMapFileWriter && move) {
       (*this)=std::move(move);
     }
 
-    //! Sets this MemMapFileWriter equal to another, and sets the file descriptor state of the other to -1, so that it can't be used.
+    //! Move semantics: copies the state into this writer, and disables the original writer
     MemMapFileWriter & operator=(MemMapFileWriter &&move) {
       fd = move.fd;
       offset = move.offset;
@@ -128,9 +128,7 @@ namespace tools {
       return (*this);
     }
 
-
-
-    //! Construct a MemMapFileWriter from a given filename string, and default to 0 offset
+    //! Construct a MemMapFileWriter for a file with given name
     MemMapFileWriter(std::string filename)  {
       // Open file in read/write mode, creating it if it doesn't already exist
       fd = ::open(filename.c_str(), O_RDWR | O_CREAT, (mode_t)0666);
@@ -140,7 +138,7 @@ namespace tools {
       offset = 0;
     }
 
-    //! Destructor. Close the file if in a usable state
+    //! Destructor. Closes the file (if open)
     ~MemMapFileWriter() {
 
       if(fd!=-1)

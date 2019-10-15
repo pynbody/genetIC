@@ -4,23 +4,16 @@
 # literal zoom grid, but the particles will be interpolated from the
 # low-res grid.
 #
-# The generated sphere of particles has some strange properties.
-# In the genuine high-res regions, it should behave identically to
-# the normal mode. In the mock-high-res regions, high res particles
-# are generated but in "blocks" of 4x4x4 corresponding to the
-# underlying low-res grid. This is defined as expected behaviour and
-# can be seen in the output. Also, even in the low-res region, the
-# particles extend out beyond the defined sphere. This is because the
-# high-res flagging now covers the whole simulation domain and then
-# gets down-sampled onto the low-res grid. This downsampling procedure
-# means high-res cells with centroids that are IN the region map onto low-res cells
-# with centroids that may be out. Again, this is defined as accepted
-# behaviour and forms part of the test. 
+# The generated sphere of particles used to have some strange properties,
+# but recent changes to the code mean that we now demand it behaves as though
+# the zoom grid did extend across the full region required. The comparison
+# output is generated using a factor 2 zoomgrid, to guarantee the same
+# behaviour in this test.
 
 
 # output parameters
 outdir	 ./
-outformat 4
+outformat tipsy
 outname test_11
 
 strays_on
@@ -43,7 +36,7 @@ seed	8896131
 centre 25 25 25
 select_sphere 9.0
 zoomgrid_with_origin_at 23 23 23 4 64 # zoom grid intentionally too small
-
+# zoomgrid 2 128  # -- if you replace the above with this line, you should get identical results
 
 
 centre 17.969 17.969 25 # on corner of true high-res region in x-y plane, roughly in middle of z plane

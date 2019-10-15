@@ -19,7 +19,7 @@ seed	8896131
 # output:
 outname test_12c
 outdir	 ./
-outformat 3
+outformat gadget3
 
 # 64 Mpc/h, 64 cells
 basegrid 64.0 64

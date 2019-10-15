@@ -17,7 +17,7 @@ namespace tools {
     typedef boost::signals2::scoped_connection connection_t;
 
     //! Sets up a connection with the specified function to be called when signalling
-    connection_t connect(const std::function<void()> &subscriber) {
+    connection_t connect(const std::function<void()> &subscriber) const {
       return connection_t(signal.connect(subscriber));
     }
 
@@ -38,7 +38,7 @@ namespace tools {
     }
 
   private:
-    signal_t signal; //!< Signal to send when called.
+    mutable signal_t signal; //!< Signal to send when called.
 
 
   };

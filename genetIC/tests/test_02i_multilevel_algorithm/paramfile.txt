@@ -11,7 +11,7 @@ camb	../camb_transfer_kmax40_z0.dat
 
 outname test_2
 outdir	 ./
-outformat 4
+outformat tipsy
 
 
 basegrid 64 64

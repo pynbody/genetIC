@@ -4,7 +4,7 @@
 
 # output parameters
 outdir	 ./
-outformat 4
+outformat tipsy
 outname test_9
 
 

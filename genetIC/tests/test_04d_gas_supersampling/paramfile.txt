@@ -1,0 +1,30 @@
+# TEST for supersampling
+# and for zoom based on geometry
+
+Om  0.279
+Ol  0.721
+Ob  0.00001
+s8  0.817
+zin	99
+camb	../camb_transfer_kmax40_z0.dat
+
+basegrid 50.0 16
+
+seedfourier	8896131
+
+centre 25 25 25
+select_sphere 5
+
+zoomgrid 2 16
+
+
+outname test_4
+outdir	 ./
+outformat tipsy
+
+supersample_gas 2
+supersample 3
+
+
+
+done

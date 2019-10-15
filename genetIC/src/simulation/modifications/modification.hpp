@@ -12,25 +12,26 @@ namespace modifications {
     T target;    /*!< Target to be achieved by the modification */
 
   protected:
-    multilevelcontext::MultiLevelContextInformation<DataType> &underlying; //!< Underlying multi-level context object.
+    const multilevelcontext::MultiLevelContextInformation<DataType> &underlying; //!< Underlying multi-level context object.
     const cosmology::CosmologicalParameters<T> &cosmology; //!< Struct containing cosmological parameters.
     std::vector<std::vector<size_t>> flaggedCells; //!< Region targeted by the modification.
     unsigned int order; //!< Linear are first order, qudartic are second etc.
-
+    particle::species forSpecies; //!< What type of output field are we applying this modification to?
 
 
   public:
-  /*! \brief Constructor from underlying multi-level context and cosmological data.
+    /*! \brief Constructor from underlying multi-level context and cosmological data.
 
-        \param underlying_ - underlying multi-level context object.
-        \param cosmology_ - struct containing cosmological parameters.
-    */
-    Modification(multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
+          \param underlying_ - underlying multi-level context object.
+          \param cosmology_ - struct containing cosmological parameters.
+          \param forSpecies - specifies the nature of the field we will apply this modification to
+      */
+    Modification(const multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
                  const cosmology::CosmologicalParameters<T> &cosmology_) : underlying(underlying_),
-                                                                           cosmology(cosmology_),
-                                                                           flaggedCells(underlying_.getNumLevels()) {
-
-      for (size_t level=0; level < this->underlying.getNumLevels(); level++) {
+                                                 cosmology(cosmology_),
+                                                 flaggedCells(underlying_.getNumLevels()),
+                                                 forSpecies(particle::species::unknown)  {
+      for (size_t level = 0; level < this->underlying.getNumLevels(); level++) {
         auto grid = this->underlying.getGridForLevel(level);
         grid.getFlaggedCells(flaggedCells[level]);
 
@@ -38,8 +39,9 @@ namespace modifications {
         if (this->flaggedCells[level].size() == grid.size3 && level != 0) {
           std::cerr << "WARNING: Region selected for modification is the entire zoom grid. This is likely "
                     << "because the cell selection extends beyond the zoom boundaries." << std::endl;
-          std::cerr << "By design, modifications are meant to be defined inside a zoom region. Increase the size of your "
-                    << "zoom grid or decrease your selection to avoid nasty surprises." << std::endl;
+          std::cerr
+            << "By design, modifications are meant to be defined inside a zoom region. Increase the size of your "
+            << "zoom grid or decrease your selection to avoid nasty surprises." << std::endl;
         }
       }
     };

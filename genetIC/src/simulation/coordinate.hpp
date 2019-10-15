@@ -26,11 +26,11 @@ public:
   Coordinate(T value) : x(value), y(value), z(value) {}
 
   //! Creates a co-ordinate with zero in all components
-  Coordinate() : x(0), y(0), z(0) { }
+  Coordinate() : x(0), y(0), z(0) {}
 
   //! Creates a co-ordinate with array initialisation
   template<size_t N>
-  Coordinate(const T(& vals)[N]) {
+  Coordinate(const T(&vals)[N]) {
     static_assert(N == 3, "Coordinate can only be initialized with three elements");
     x = vals[0];
     y = vals[1];
@@ -124,6 +124,17 @@ public:
     x *= factor;
     y *= factor;
     z *= factor;
+  }
+
+  T & operator[](size_t i) {
+    if(i==0)
+      return x;
+    else if(i==1)
+      return y;
+    else if(i==2)
+      return z;
+    else
+      throw std::out_of_range("Coordinates always have three dimensions");
   }
 
   //! Returns true if all components of the other co-ordinate match this one

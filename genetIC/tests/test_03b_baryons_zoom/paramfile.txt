@@ -17,7 +17,7 @@ basegrid 50.0 64
 
 outname test_3
 outdir ./
-outformat 4
+outformat tipsy
 
 
 mapper_relative_to ../test_01a_basic_grid/paramfile.txt

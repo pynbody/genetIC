@@ -66,7 +66,6 @@ namespace particle {
     public:
 
 
-
       //! Returns true if either the first or second mapper points to the specified grid
       bool references(GridPtrType grid) const override {
         return firstMap->references(grid) || secondMap->references(grid);
@@ -120,17 +119,17 @@ namespace particle {
         \param pSecond - pointer to the second mapper
         \param gasFirst - if true, pFirst is baryons, pSecond is dark matter, and vice versa if false
       */
-      AddGasMapper(MapPtrType &pFirst, MapPtrType &pSecond, bool gasFirst = true) :
-          firstMap(pFirst), secondMap(pSecond), gasFirst(gasFirst), nFirst(pFirst->size()),
-          nSecond(pSecond->size()) {
+      AddGasMapper(MapPtrType pFirst, MapPtrType pSecond, bool gasFirst = true) :
+        firstMap(pFirst), secondMap(pSecond), gasFirst(gasFirst), nFirst(pFirst->size()),
+        nSecond(pSecond->size()) {
         assert(pFirst->size_gas() == 0);
         assert(pSecond->size_gas() == 0);
-        for(unsigned int particleType=0; particleType<6; ++particleType) {
+        for (unsigned int particleType = 0; particleType < 6; ++particleType) {
           // All particle types must be the default (1), as we will now override them for our own purposes
-          if(particleType!=1) {
+          if (particleType != 1) {
             NullMultiLevelParticleGenerator<GridDataType> g;
-            if(pFirst->beginParticleType(g,particleType)!=pFirst->endParticleType(g,particleType) ||
-              pSecond->beginParticleType(g,particleType)!=pSecond->endParticleType(g,particleType)) {
+            if (pFirst->beginParticleType(g, particleType) != pFirst->endParticleType(g, particleType) ||
+                pSecond->beginParticleType(g, particleType) != pSecond->endParticleType(g, particleType)) {
               throw std::runtime_error("Cannot currently combine custom gadget particle type numbers with gas");
             }
           }
@@ -196,9 +195,9 @@ namespace particle {
       */
       virtual iterator beginParticleType(const AbstractMultiLevelParticleGenerator <GridDataType> &generator,
                                          unsigned int particleType) const override {
-        if(particleType==0)
+        if (particleType == 0)
           return beginGas(generator);
-        else if(particleType==1)
+        else if (particleType == 1)
           return beginDm(generator);
         else
           return endDm(generator);
@@ -211,9 +210,9 @@ namespace particle {
       */
       virtual iterator endParticleType(const AbstractMultiLevelParticleGenerator <GridDataType> &generator,
                                        unsigned int particleType) const override {
-        if(particleType==0)
+        if (particleType == 0)
           return endGas(generator);
-        else if(particleType==1)
+        else if (particleType == 1)
           return endDm(generator);
         else
           return endDm(generator);
@@ -255,7 +254,7 @@ namespace particle {
         \param toGrids - vector of pointers to the grids to sub/super sample.
         \param super - if true, super-samples the dark matter. Otherwise, subsamples it.
       */
-      MapPtrType superOrSubSampleDM(int ratio, const std::vector<GridPtrType> &toGrids, bool super) override {
+      MapPtrType superOrSubSample(int ratio, const std::vector<GridPtrType> &toGrids, bool super) override {
         auto ssub1 = firstMap;
         auto ssub2 = secondMap;
 
@@ -263,12 +262,34 @@ namespace particle {
         bool applyTo1 = (!gasFirst) || (!super);
 
         if (applyTo2)
-          ssub2 = ssub2->superOrSubSampleDM(ratio, toGrids, super);
+          ssub2 = ssub2->superOrSubSample(ratio, toGrids, super);
         if (applyTo1)
-          ssub1 = ssub1->superOrSubSampleDM(ratio, toGrids, super);
+          ssub1 = ssub1->superOrSubSample(ratio, toGrids, super);
 
         return std::make_shared<AddGasMapper<GridDataType>>(
-            ssub1, ssub2, gasFirst);
+          ssub1, ssub2, gasFirst);
+      }
+
+      MapPtrType insertIntermediateResolutionPadding(size_t ratio, size_t padCells) override {
+        auto ssub1 = firstMap;
+        auto ssub2 = secondMap;
+
+        if (gasFirst)
+          ssub2 = ssub2->insertIntermediateResolutionPadding(ratio, padCells);
+        else
+          ssub1 = ssub1->insertIntermediateResolutionPadding(ratio, padCells);
+
+        return std::make_shared<AddGasMapper<GridDataType>>(
+          ssub1, ssub2, gasFirst);
+      }
+
+      MapPtrType withIndependentFlags() override {
+        return std::make_shared<AddGasMapper<T>>(firstMap->withIndependentFlags(), secondMap->withIndependentFlags(),
+                                                 gasFirst);
+      }
+
+      MapPtrType withCoupledFlags() override {
+        return std::make_shared<AddGasMapper<T>>(firstMap->withCoupledFlags(), secondMap->withCoupledFlags(), gasFirst);
       }
 
     };

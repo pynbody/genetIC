@@ -36,11 +36,11 @@ namespace grids {
   public:
     //! Construct a virtual grid with identical properties to the underlying grid.
     explicit VirtualGrid(GridPtrType pUnderlying) :
-        Grid<T>(
-            pUnderlying->periodicDomainSize, pUnderlying->size,
-            pUnderlying->cellSize, pUnderlying->offsetLower.x, pUnderlying->offsetLower.y,
-            pUnderlying->offsetLower.z, pUnderlying->cellMassFrac, pUnderlying->cellSofteningScale),
-        pUnderlying(pUnderlying) {
+      Grid<T>(
+        pUnderlying->periodicDomainSize, pUnderlying->size,
+        pUnderlying->cellSize, pUnderlying->offsetLower.x, pUnderlying->offsetLower.y,
+        pUnderlying->offsetLower.z, pUnderlying->cellMassFrac, pUnderlying->cellSofteningScale),
+      pUnderlying(pUnderlying) {
 
     }
 
@@ -58,14 +58,14 @@ namespace grids {
     */
     VirtualGrid(GridPtrType pUnderlying, T simsize, T gridsize,
                 T dx, T x0, T y0, T z0, T massfrac = 0.0, T softScale = 1.0) :
-        Grid<T>(simsize, gridsize, dx, x0, y0, z0, massfrac, softScale),
-        pUnderlying(pUnderlying) {
+      Grid<T>(simsize, gridsize, dx, x0, y0, z0, massfrac, softScale),
+      pUnderlying(pUnderlying) {
 
     }
 
     //! If the virtual grid has a different cell-size as the underlying grid, returns true, otherwise, return whether the underlying grid was up/down-sampled.
     virtual bool isUpsampledOrDownsampled() override {
-      if (this->pUnderlying->cellSize != this->cellSize){
+      if (this->pUnderlying->cellSize != this->cellSize) {
         return true;
       } else {
         return this->pUnderlying->isUpsampledOrDownsampled();
@@ -89,24 +89,26 @@ namespace grids {
       return this == pOther || pUnderlying.get() == pOther || pUnderlying->isProxyFor(pOther);
     }
 
-    //! Returns the list of flagged cells in the underlying grid.
+    virtual //! Returns the list of flagged cells in the underlying grid.
     void getFlaggedCells(std::vector<size_t> &targetArray) const override {
       pUnderlying->getFlaggedCells(targetArray);
     }
 
-    //! Flags the specified cells in the underlying grid.
+    virtual //! Flags the specified cells in the underlying grid.
     void flagCells(const std::vector<size_t> &sourceArray) override {
       pUnderlying->flagCells(sourceArray);
     }
 
-    //! Unflag all flagged cells in the underlying grid.
+    virtual //! Unflag all flagged cells in the underlying grid.
     void unflagAllCells() override {
       pUnderlying->unflagAllCells();
     }
 
-    //! Returns the number of flagged cells in the underlying grid.
+    virtual //! Returns the number of flagged cells in the underlying grid.
     size_t numFlaggedCells() const override {
-      return pUnderlying->numFlaggedCells();
+      std::vector<size_t> t;
+      getFlaggedCells(t);
+      return t.size();
     }
 
     //! Returns a constant pointer to the underlying grid.
@@ -138,14 +140,14 @@ namespace grids {
         \param factor - how many times higher resolution than the underlying grid that the SuperSampleGrid should have.
     */
     SuperSampleGrid(GridPtrType pUnderlying, int factor) :
-        VirtualGrid<T>(pUnderlying,
-                       pUnderlying->periodicDomainSize, pUnderlying->size * factor,
-                       pUnderlying->cellSize / factor, pUnderlying->offsetLower.x,
-                       pUnderlying->offsetLower.y,
-                       pUnderlying->offsetLower.z,
-                       pUnderlying->cellMassFrac / (factor * factor * factor),
-                       factor),
-        factor(factor) {
+      VirtualGrid<T>(pUnderlying,
+                     pUnderlying->periodicDomainSize, pUnderlying->size * factor,
+                     pUnderlying->cellSize / factor, pUnderlying->offsetLower.x,
+                     pUnderlying->offsetLower.y,
+                     pUnderlying->offsetLower.z,
+                     pUnderlying->cellMassFrac / (factor * factor * factor),
+                     factor),
+      factor(factor) {
 
       factor3 = factor * factor * factor;
     }
@@ -175,6 +177,28 @@ namespace grids {
       this->pUnderlying->flagCells(targetArray);
     }
 
+    GridPtrType makeSubsampled(size_t ratio) const override {
+      // Special case: subsampling a supersampled grid can needlessly destroy accuracy, so avoid it!
+      if (ratio > factor) {
+        // relative to the underlying grid we will be subsampled
+        size_t ratioToUnderlying = tools::getRatioAndAssertInteger(static_cast<float>(ratio),
+                                                                   static_cast<float>(factor));
+        return this->pUnderlying->makeSubsampled(ratioToUnderlying);
+      } else if (ratio == factor) {
+        // gives back the underlying grid
+        return std::const_pointer_cast<Grid<T>>(this->pUnderlying);
+      } else {
+        // relative to the underlying grid we will still be supersampled
+        size_t ratioToUnderlying = tools::getRatioAndAssertInteger(static_cast<float>(factor),
+                                                                   static_cast<float>(ratio));
+        return this->pUnderlying->makeSupersampled(ratioToUnderlying);
+      }
+    }
+
+    GridPtrType makeSupersampled(size_t ratio) const override {
+      return this->pUnderlying->makeSupersampled(ratio * factor);
+    }
+
   };
 
   /*! \brief Virtual grid with two underlying grids - one high resolution, and one low resolution
@@ -190,6 +214,7 @@ namespace grids {
     using typename Grid<T>::ConstGridPtrType;
 
     GridPtrType pUnderlyingHiRes; //!< Pointer to the underlying high resolution grid.
+    GridPtrType pUnderlyingLoRes; //!< Pointer to the underling low resolution (but bigger) grid
     GridPtrType pUnderlyingLoResInterpolated; //!< Pointers to the low resolution grid, interpolated up to the same resolution as the high resolution grid.
     Coordinate<int> windowLowerCornerInclusive; //!< Lower front left corner of the high resolution window region
     Window<int> windowInCoordinates; //!< Window for the high resolution region (integer version)
@@ -200,25 +225,27 @@ namespace grids {
   public:
 
     ResolutionMatchingGrid(GridPtrType pUnderlyingHiRes, GridPtrType pUnderlyingLoRes) :
-        VirtualGrid<T>(pUnderlyingHiRes, //!< Underlying high-res grid is initially the underlying grid, but ultimately will be an super-sampled version of the low res grid.
-                       pUnderlyingLoRes->periodicDomainSize, //!< Uses the low resolution grid to set the simulation size
-                       pUnderlyingLoRes->size *
-                       tools::getRatioAndAssertInteger(pUnderlyingLoRes->cellSize, pUnderlyingHiRes->cellSize), //!< Number of cells that would be on one side if the whole simulation were are the resolution of the high-res grid
-                       pUnderlyingHiRes->cellSize,//!< Size of a single cell matches that of the high res grid
-                       pUnderlyingLoRes->offsetLower.x,//!< x co-ord of lower front left hand corner matches that of low-res grid.
-                       pUnderlyingLoRes->offsetLower.y,//!< y co-ord of lower front left hand corner matches that of low-res grid.
-                       pUnderlyingLoRes->offsetLower.z,//!< z co-ord of lower front left hand corner matches that of low-res grid.
-                       pUnderlyingHiRes->cellMassFrac, //!< Mass in each cell matches that of high res grid
-                       pUnderlyingHiRes->cellSofteningScale), //!< Cell softening scale matches that of high res grid
-        pUnderlyingHiRes(pUnderlyingHiRes) {
+      VirtualGrid<T>(
+        pUnderlyingHiRes, //!< Underlying high-res grid is initially the underlying grid, but ultimately will be an super-sampled version of the low res grid.
+        pUnderlyingLoRes->periodicDomainSize, //!< Uses the low resolution grid to set the simulation size
+        pUnderlyingLoRes->size *
+        tools::getRatioAndAssertInteger(pUnderlyingLoRes->cellSize,
+                                        pUnderlyingHiRes->cellSize), //!< Number of cells that would be on one side if the whole simulation were are the resolution of the high-res grid
+        pUnderlyingHiRes->cellSize,//!< Size of a single cell matches that of the high res grid
+        pUnderlyingLoRes->offsetLower.x,//!< x co-ord of lower front left hand corner matches that of low-res grid.
+        pUnderlyingLoRes->offsetLower.y,//!< y co-ord of lower front left hand corner matches that of low-res grid.
+        pUnderlyingLoRes->offsetLower.z,//!< z co-ord of lower front left hand corner matches that of low-res grid.
+        pUnderlyingHiRes->cellMassFrac, //!< Mass in each cell matches that of high res grid
+        pUnderlyingHiRes->cellSofteningScale), //!< Cell softening scale matches that of high res grid
+      pUnderlyingHiRes(pUnderlyingHiRes), pUnderlyingLoRes(pUnderlyingLoRes) {
 
       Coordinate<int> windowUpperCornerExclusive;
       Coordinate<T> windowLowerCornerInSpace;
       Coordinate<T> windowUpperCornerInSpace;
 
       // Create a super-sampled virtual grid from the low res grid, and set it to be the underlying grid:
-      pUnderlyingLoResInterpolated = std::make_shared<SuperSampleGrid<T>>(pUnderlyingLoRes,
-                                                                          this->size / pUnderlyingLoRes->size);
+      pUnderlyingLoResInterpolated =
+        pUnderlyingLoRes->makeSupersampled(this->size / pUnderlyingLoRes->size)->withIndependentFlags();
       this->pUnderlying = pUnderlyingLoResInterpolated;
 
       // Set the location of the high res windowed region to the lower front left corner of the high res grid, relative to the low-res grid:
@@ -229,14 +256,15 @@ namespace grids {
       // Check that the grids line up correctly:
       auto offsetLowerRelativeCheck = Coordinate<T>(windowLowerCornerInclusive) * this->cellSize;
       assert(
-          offsetLowerRelativeCheck.almostEqual(offsetLowerRelative)); // if this doesn't match, the grids don't line up
+        offsetLowerRelativeCheck.almostEqual(offsetLowerRelative)); // if this doesn't match, the grids don't line up
 
       // Get the location of the upper-back right corner of the high res window:
       windowUpperCornerExclusive = this->wrapCoordinate(windowLowerCornerInclusive + pUnderlyingHiRes->size);
       windowUpperCornerInSpace = this->getCentroidFromCoordinate(windowUpperCornerExclusive) - this->cellSize / 2;
 
       // Create the high resolution window in co-ordinate and co-moving space:
-      windowInCoordinates = Window<int>(this->simEquivalentSize, windowLowerCornerInclusive, windowUpperCornerExclusive);
+      windowInCoordinates = Window<int>(this->simEquivalentSize, windowLowerCornerInclusive,
+                                        windowUpperCornerExclusive);
       windowInSpace = Window<T>(this->periodicDomainSize, windowLowerCornerInSpace, windowUpperCornerInSpace);
 
 
@@ -270,6 +298,8 @@ namespace grids {
       debugName(s);
       s << " of side " << this->size << " address " << this << " referencing (for genuine hi-res part) ";
       pUnderlyingHiRes->debugInfo(s);
+      s << "; (for interpolated part) ";
+      pUnderlyingLoResInterpolated->debugInfo(s);
     }
 
     //! Stores the flagged cells in the targetArray vector as if they were defined on the super-sampled low resolution grid.
@@ -282,7 +312,7 @@ namespace grids {
       // and store the relevant indices:
       for (size_t i = 0; i < targetArray.size(); ++i) {
         auto coordinate =
-            this->pUnderlyingHiRes->getCoordinateFromIndex(targetArray[i]) + this->windowLowerCornerInclusive;
+          this->pUnderlyingHiRes->getCoordinateFromIndex(targetArray[i]) + this->windowLowerCornerInclusive;
         // The coordinate will be wrapped (if necessary) within getIndexFromCoordinate
         targetArray[i] = this->pUnderlyingLoResInterpolated->getIndexFromCoordinate(coordinate);
       }
@@ -343,6 +373,15 @@ namespace grids {
       return pUnderlyingHiRes->getIndexFromCoordinate(this->wrapCoordinate(coordinate - windowLowerCornerInclusive));
     }
 
+    GridPtrType makeSubsampled(size_t ratio) const override {
+      return std::make_shared<ResolutionMatchingGrid<T>>(pUnderlyingHiRes->makeSubsampled(ratio),
+                                                         pUnderlyingLoRes->makeSubsampled(ratio));
+    }
+
+    GridPtrType makeSupersampled(size_t ratio) const override {
+      return std::make_shared<ResolutionMatchingGrid<T>>(pUnderlyingHiRes->makeSupersampled(ratio),
+                                                         pUnderlyingLoRes->makeSupersampled(ratio));
+    }
 
   };
 
@@ -378,7 +417,8 @@ namespace grids {
 
     //! Converts an index of a cell in the underlying grid to an index in the virtual grid (subsection)
     size_t mapIndexFromUnderlying(size_t underlying_id) const {
-      Coordinate<int> coord = this->pUnderlying->getCoordinateFromIndex(underlying_id); // co-ordinate relative to underlying
+      Coordinate<int> coord = this->pUnderlying->getCoordinateFromIndex(
+        underlying_id); // co-ordinate relative to underlying
       coord -= cellOffset; // co-ordinate relative to virtual grid
       coord = this->wrapCoordinate(coord);
 
@@ -397,20 +437,23 @@ namespace grids {
 
     */
     SectionOfGrid(GridPtrType pUnderlying, int deltax, int deltay, int deltaz, size_t size) :
-        VirtualGrid<T>(pUnderlying,
-                       pUnderlying->periodicDomainSize, size, // virtual grid may have a different size to the underlying grid
-                       pUnderlying->cellSize,
-                       pUnderlying->offsetLower.x + deltax * pUnderlying->cellSize, // delta points from the underlying grid to the virtual grid
-                       pUnderlying->offsetLower.y + deltay * pUnderlying->cellSize,
-                       pUnderlying->offsetLower.z + deltaz * pUnderlying->cellSize,
-                       pUnderlying->cellMassFrac, pUnderlying->cellSofteningScale),
-        cellOffset(deltax, deltay, deltaz), // points from underlying to virtual grid
-        upperCell(cellOffset + pUnderlying->size), // I can't actually think of any interpretation where this definition makes sense.
-            // cellOffset points from the underlying grid to the virtual grid, so adding the size of the underlying grid points to
-            // a position that either lies outside of both grids (if the virtual grid is larger) or to where the upper-back-right hand
-            // corner of the underlying grid would be if cellOffset were zero (which isn't generally the case). Neither interpretation
-            // makes any sense, and actually, upperCell is never used anywhere...
-        posOffset(deltax * this->cellSize, deltay * this->cellSize, deltaz * this->cellSize) {
+      VirtualGrid<T>(pUnderlying,
+                     pUnderlying->periodicDomainSize,
+                     size, // virtual grid may have a different size to the underlying grid
+                     pUnderlying->cellSize,
+                     pUnderlying->offsetLower.x +
+                     deltax * pUnderlying->cellSize, // delta points from the underlying grid to the virtual grid
+                     pUnderlying->offsetLower.y + deltay * pUnderlying->cellSize,
+                     pUnderlying->offsetLower.z + deltaz * pUnderlying->cellSize,
+                     pUnderlying->cellMassFrac, pUnderlying->cellSofteningScale),
+      cellOffset(deltax, deltay, deltaz), // points from underlying to virtual grid
+      upperCell(cellOffset +
+                pUnderlying->size), // I can't actually think of any interpretation where this definition makes sense.
+      // cellOffset points from the underlying grid to the virtual grid, so adding the size of the underlying grid points to
+      // a position that either lies outside of both grids (if the virtual grid is larger) or to where the upper-back-right hand
+      // corner of the underlying grid would be if cellOffset were zero (which isn't generally the case). Neither interpretation
+      // makes any sense, and actually, upperCell is never used anywhere...
+      posOffset(deltax * this->cellSize, deltay * this->cellSize, deltaz * this->cellSize) {
 
     }
 
@@ -450,7 +493,7 @@ namespace grids {
           continue;
         }
       }
-     tools::sortAndEraseDuplicate(targetArray);
+      tools::sortAndEraseDuplicate(targetArray);
     }
 
     //! Flags the specified cells (interpreted as indices in the virtual grid) in the underlying grid if they lie inside it.
@@ -484,6 +527,9 @@ namespace grids {
     int factor; //!< Resolution is factor times lower than underlying grid
     int factor3; //!< Virtual grid contains factor3 times fewer points than the underlying grid
 
+  protected:
+    using typename Grid<T>::GridPtrType;
+
   public:
     /*! \brief Constructor for a SubSampleGrid
 
@@ -491,17 +537,17 @@ namespace grids {
         \param factor - integer factor by which to reduce the resolution relative to the underlying grid.
     */
     SubSampleGrid(std::shared_ptr<Grid<T>> pUnderlying, int factor) :
-        VirtualGrid<T>(pUnderlying,
-                       pUnderlying->periodicDomainSize, pUnderlying->size / factor,
-                       pUnderlying->cellSize * factor, pUnderlying->offsetLower.x, pUnderlying->offsetLower.y,
-                       pUnderlying->offsetLower.z, pUnderlying->cellMassFrac * powf(factor, 3.0),
-                       pUnderlying->cellSofteningScale),
-        factor(factor) {
+      VirtualGrid<T>(pUnderlying,
+                     pUnderlying->periodicDomainSize, pUnderlying->size / factor,
+                     pUnderlying->cellSize * factor, pUnderlying->offsetLower.x, pUnderlying->offsetLower.y,
+                     pUnderlying->offsetLower.z, pUnderlying->cellMassFrac * powf(factor, 3.0),
+                     pUnderlying->cellSofteningScale),
+      factor(factor) {
       factor3 = factor * factor * factor;
     }
 
     //! Outputs debug information
-   void debugName(std::ostream &s) const override {
+    void debugName(std::ostream &s) const override {
       s << "SubSampleGrid";
     }
 
@@ -555,6 +601,28 @@ namespace grids {
       return localFactor3;
     }
 
+    GridPtrType makeSupersampled(size_t ratio) const override {
+      // Special case: supersampling a subsampled grid can needlessly destroy accuracy, so avoid it!
+      if (ratio > factor) {
+        // relative to the underlying grid we will be supersampled
+        size_t ratioToUnderlying = tools::getRatioAndAssertInteger(static_cast<float>(ratio),
+                                                                   static_cast<float>(factor));
+        return this->pUnderlying->makeSupersampled(ratioToUnderlying);
+      } else if (ratio == factor) {
+        // gives back the underlying grid
+        return std::const_pointer_cast<Grid<T>>(this->pUnderlying);
+      } else {
+        // relative to the underlying grid we will still be subsampled (just not as much, presumably)
+        size_t ratioToUnderlying = tools::getRatioAndAssertInteger<float>(static_cast<float>(factor),
+                                                                          static_cast<float>(ratio));
+        return this->pUnderlying->makeSubsampled(ratioToUnderlying);
+      }
+    }
+
+    GridPtrType makeSubsampled(size_t ratio) const override {
+      return this->pUnderlying->makeSubsampled(ratio * factor);
+    }
+
 
   };
 
@@ -578,11 +646,11 @@ namespace grids {
         \param massScale - fraction to multiply the mass by
     */
     MassScaledGrid(GridPtrType pUnderlying, T massScale) :
-        VirtualGrid<T>(pUnderlying,
-                       pUnderlying->periodicDomainSize, pUnderlying->size,
-                       pUnderlying->cellSize, pUnderlying->offsetLower.x, pUnderlying->offsetLower.y,
-                       pUnderlying->offsetLower.z, massScale * pUnderlying->cellMassFrac,
-                       pUnderlying->cellSofteningScale) {}
+      VirtualGrid<T>(pUnderlying,
+                     pUnderlying->periodicDomainSize, pUnderlying->size,
+                     pUnderlying->cellSize, pUnderlying->offsetLower.x, pUnderlying->offsetLower.y,
+                     pUnderlying->offsetLower.z, massScale * pUnderlying->cellMassFrac,
+                     pUnderlying->cellSofteningScale) {}
 
     //! Outputs debug information
     void debugName(std::ostream &s) const override {
@@ -610,15 +678,15 @@ namespace grids {
         \param center - point in co-moving co-ordinates corresponding to the centre
     */
     CenteredGrid(GridPtrType pUnderlying, Coordinate<T> center) :
-        VirtualGrid<T>(pUnderlying,
-                       pUnderlying->periodicDomainSize, pUnderlying->size,
-                       pUnderlying->cellSize,
-                       pUnderlying->offsetLower.x,
-                       pUnderlying->offsetLower.y,
-                       pUnderlying->offsetLower.z,
-                       pUnderlying->cellMassFrac,
-                       pUnderlying->cellSofteningScale),
-        offset((Coordinate<T>(0.5 * this->pUnderlying->thisGridSize) - center) / this->pUnderlying->cellSize ){}
+      VirtualGrid<T>(pUnderlying,
+                     pUnderlying->periodicDomainSize, pUnderlying->size,
+                     pUnderlying->cellSize,
+                     pUnderlying->offsetLower.x,
+                     pUnderlying->offsetLower.y,
+                     pUnderlying->offsetLower.z,
+                     pUnderlying->cellMassFrac,
+                     pUnderlying->cellSofteningScale),
+      offset((Coordinate<T>(0.5 * this->pUnderlying->thisGridSize) - center) / this->pUnderlying->cellSize) {}
 
     //! Outputs debug information
     void debugName(std::ostream &s) const override {
@@ -644,7 +712,7 @@ namespace grids {
     integer units
     */
     Coordinate<int> getInverseOffset() const {
-      return Coordinate<int>(- this->offset.x, - this->offset.y, - this->offset.z);
+      return Coordinate<int>(-this->offset.x, -this->offset.y, -this->offset.z);
     }
 
     //! \brief Inverse offset, in Mpc/h
@@ -655,25 +723,25 @@ namespace grids {
   protected:
 
     //! \brief Returns index in underlying grid from co-ordinate relative to centred grid (unsigned int version)
-    size_t getIndexFromCoordinateNoWrap(size_t x, size_t y, size_t z) const override{
+    size_t getIndexFromCoordinateNoWrap(size_t x, size_t y, size_t z) const override {
       return this->pUnderlying->getIndexFromIndexAndStep(
-          this->pUnderlying->getIndexFromCoordinateNoWrap(x,y,z), this->getInverseOffset());
+        this->pUnderlying->getIndexFromCoordinateNoWrap(x, y, z), this->getInverseOffset());
     }
 
     //! \brief Returns index in underlying grid from co-ordinate relative to centred grid (int version)
     size_t getIndexFromCoordinateNoWrap(int x, int y, int z) const override {
       return this->pUnderlying->getIndexFromIndexAndStep(
-          this->pUnderlying->getIndexFromCoordinateNoWrap(x,y,z), this->getInverseOffset());
+        this->pUnderlying->getIndexFromCoordinateNoWrap(x, y, z), this->getInverseOffset());
     }
 
     //! \brief Returns index in underlying grid from co-ordinate relative to centred grid (coordinate version)
     size_t getIndexFromCoordinateNoWrap(const Coordinate<int> &coordinate) const override {
       return this->pUnderlying->getIndexFromIndexAndStep(
-          this->pUnderlying->getIndexFromCoordinateNoWrap(coordinate), this->getInverseOffset());
+        this->pUnderlying->getIndexFromCoordinateNoWrap(coordinate), this->getInverseOffset());
     }
 
     //! \brief Returns index in underlying grid from co-ordinate relative to centred grid (without wrapping)
-    size_t getIndexFromCoordinate(Coordinate<int> coord) const override{
+    size_t getIndexFromCoordinate(Coordinate<int> coord) const override {
       coord = this->pUnderlying->wrapCoordinate(coord);
       return this->getIndexFromCoordinateNoWrap(coord);
     }
@@ -686,21 +754,21 @@ namespace grids {
     //! \brief converts coordinates with respect to the underlying grid to co-ordinates with respect to the centred grid.
     Coordinate<T> getCentroidFromCoordinate(const Coordinate<int> &coord) const override {
       return this->pUnderlying->getCentroidFromCoordinate(
-          this->pUnderlying->wrapCoordinate(this->offset + coord));
+        this->pUnderlying->wrapCoordinate(this->offset + coord));
     }
 
     //! \brief Co-ordinate of centre of cell, with respect to centred grid
-    Coordinate<T> getCentroidFromIndex(size_t id) const override{
+    Coordinate<T> getCentroidFromIndex(size_t id) const override {
       return this->wrapPoint(this->pUnderlying->getCentroidFromIndex(id) + this->getPointOffset());
     }
 
     //! \brief Returns index in underlying grid from co-ordinate relative to centred grid
-    size_t getIndexFromPoint(Coordinate<T> point) const override{
+    size_t getIndexFromPoint(Coordinate<T> point) const override {
       return this->pUnderlying->getIndexFromPoint(point + this->getInversePointOffset());
     }
 
     //! \brief Returns co-ordinate in underlying grid from co-ordinate relative to centred grid
-    Coordinate<int> getCoordinateFromPoint(Coordinate<T> point) const override{
+    Coordinate<int> getCoordinateFromPoint(Coordinate<T> point) const override {
       return this->pUnderlying->getCoordinateFromPoint(point);
     }
 
@@ -730,13 +798,13 @@ namespace grids {
         \param dz - z component of offset
     */
     OffsetGrid(GridPtrType pUnderlying, T dx, T dy, T dz) :
-        VirtualGrid<T>(pUnderlying, pUnderlying->periodicDomainSize, pUnderlying->size,
-                       pUnderlying->cellSize,
-                       pUnderlying->offsetLower.x + dx,
-                       pUnderlying->offsetLower.y + dy,
-                       pUnderlying->offsetLower.z + dz,
-                       pUnderlying->cellMassFrac,
-                       pUnderlying->cellSofteningScale) {}
+      VirtualGrid<T>(pUnderlying, pUnderlying->periodicDomainSize, pUnderlying->size,
+                     pUnderlying->cellSize,
+                     pUnderlying->offsetLower.x + dx,
+                     pUnderlying->offsetLower.y + dy,
+                     pUnderlying->offsetLower.z + dz,
+                     pUnderlying->cellMassFrac,
+                     pUnderlying->cellSofteningScale) {}
 
 
     //! Outputs debug information
@@ -745,7 +813,59 @@ namespace grids {
     }
   };
 
+  //! Wraps any VirtualGrid but allows it to have its own cell flags (independent of the original underlying grid)
+  //! At construction, the new grid inherits the flags of the underlying grid, but these can then be manipualated
+  //! fully independently.
+  template<typename T>
+  class IndependentFlaggingGrid : public VirtualGrid<T> {
+  protected:
+    using typename Grid<T>::GridPtrType;
 
+  public:
+    IndependentFlaggingGrid(const GridPtrType &pUnderlying) : VirtualGrid<T>(pUnderlying) {
+      std::vector<size_t> ar;
+      pUnderlying->getFlaggedCells(ar);
+      this->flagCells(ar);
+    }
+
+    void flagCells(const std::vector<size_t> &sourceArray) override {
+      Grid<T>::flagCells(sourceArray);
+    }
+
+    void unflagAllCells() override {
+      Grid<T>::unflagAllCells();
+    }
+
+    size_t numFlaggedCells() const override {
+      return Grid<T>::numFlaggedCells();
+    }
+
+    void getFlaggedCells(std::vector<size_t> &targetArray) const override {
+      Grid<T>::getFlaggedCells(targetArray);
+    }
+
+    void debugInfo(std::ostream &s) const override {
+      s << "[";
+      this->pUnderlying->debugInfo(s);
+      s << "]";
+    }
+
+    virtual GridPtrType withIndependentFlags() const override {
+      return const_cast<IndependentFlaggingGrid<T> *>(this)->shared_from_this();
+    }
+
+    virtual GridPtrType withCoupledFlags() const override {
+      return this->pUnderlying->withCoupledFlags();
+    }
+
+    virtual GridPtrType makeSupersampled(size_t ratio) const override {
+      return std::make_shared<IndependentFlaggingGrid<T>>(this->pUnderlying->makeSupersampled(ratio));
+    }
+
+    virtual GridPtrType makeSubsampled(size_t ratio) const override {
+      return std::make_shared<IndependentFlaggingGrid<T>>(this->pUnderlying->makeSubsampled(ratio));
+    }
+  };
 
 
 }
