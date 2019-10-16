@@ -235,17 +235,7 @@ namespace modifications {
 
     }
 
-  public:
-
-
-    //! Converts (in-place) from a overdensity covector to a velocity covector
-    void turnLocalisationCovectorIntoModificationCovector(fields::MultiLevelField<DataType> & field) const override {
-      if(this->underlying.getLevelsAreCombined())
-        throw std::runtime_error("Cannot create velocity covector for recombined fields (i.e. after output generation is complete)");
-      // Note on the above exception: the problem is that we need to use the Fourier filters to calculate the
-      // multi-level Poisson solution. Once Fourier modes are combined on zoom grids, there is no simple way to get the potential.
-
-      OverdensityModification<DataType,T>::turnLocalisationCovectorIntoModificationCovector(field);
+    void computeVelocity(fields::MultiLevelField<DataType> & field, int direction) const {
       for(size_t level=0; level<field.getNumLevels(); ++level) {
         auto &fieldOnLevel = field.getFieldForLevel(level);
         using compT = std::complex<T>;
@@ -285,10 +275,24 @@ namespace modifications {
         else if (direction == 2)
           fieldOnLevel.forEachFourierCell(
             [calcCell, this](compT v, T kx, T ky, T kz) { return calcCell(v, kx, ky, kz, kz, this->derivInRealSpace); });
-        else
-          throw std::runtime_error("Unknown velocity direction");
+        else {
+          printf("%d", direction);
+          throw std::runtime_error("Unknown direction");
+        }
 
       }
+    }
+
+  public:
+
+    //! Converts (in-place) from a overdensity covector to a velocity covector
+    void turnLocalisationCovectorIntoModificationCovector(fields::MultiLevelField<DataType> & field) const override {
+      if(this->underlying.getLevelsAreCombined())
+        throw std::runtime_error("Cannot create velocity covector for recombined fields (i.e. after output generation is complete)");
+      // Note on the above exception: the problem is that we need to use the Fourier filters to calculate the
+      // multi-level Poisson solution. Once Fourier modes are combined on zoom grids, there is no simple way to get the potential.
+      OverdensityModification<DataType,T>::turnLocalisationCovectorIntoModificationCovector(field);
+      this->computeVelocity(field, this->direction);
     }
   };
 
@@ -311,74 +315,54 @@ namespace modifications {
         this->derivInRealSpace = false;
 
         auto nextDir = (direction_ + 1) % 3,
-             prevDir = (direction_ - 1) % 3;
+             prevDir = (direction_ + 2) % 3; // Note: use +2 instead of -1 to prevent prevDir from being negative
 
         this->nextDir = nextDir;
         this->prevDir = prevDir;
-
-        // this->velocityNextDir = VelocityModification<DataType, T>(underlying_, cosmology_, nextDir);
-        // this->velocityPrevDir = VelocityModification<DataType, T>(underlying_, cosmology_, prevDir);
-
-        // this->velocityNextDir->derivInRealSpace = false;
-        // this->velocityPrevDir->derivInRealSpace = false;
       };
-
-    //! Computes the velocity field
-    void computeVelocity(fields::MultiLevelField<DataType> & field, int direction) {
-      for(size_t level=0; level<field.getNumLevels(); ++level) {
-        auto &fieldOnLevel = field.getFieldForLevel(level);
-        using compT = std::complex<T>;
-        fieldOnLevel.toFourier(); // probably already in Fourier space, but best to be sure
-        const grids::Grid<T> &grid(fieldOnLevel.getGrid());
-        complex<T> I(0, 1);
-        T scale = zeldovichVelocityToOffsetRatio(this->cosmology);
-        const T nyquist = tools::numerics::fourier::getNyquistModeThatMustBeReal(grid) * grid.getFourierKmin();
-
-        auto calcCell =
-          [I, scale, nyquist, this](complex<T> overdensityFieldValue, T kx, T ky, T kz, T k_chosen_direction) -> complex<T> {
-
-            // This lambda evaluates the derivative for the given Fourier-space cell. kx,ky,kz are the
-            // input k-space coordinates, and k_chosen_direction must be set to whichever of these specifies
-            // the derivative direction
-
-            T k2 = kx * kx + ky * ky + kz * kz;
-
-            if (k2 == 0)
-              return complex<T>(0);
-            else {
-              if(k_chosen_direction == nyquist) return complex<T>(0);
-              return -scale * overdensityFieldValue * I * k_chosen_direction / k2;
-              }
-          };
-
-        if (direction == 0)
-          fieldOnLevel.forEachFourierCell(
-            [calcCell](compT v, T kx, T ky, T kz) { return calcCell(v, kx, ky, kz, kx); });
-        else if (direction == 1)
-          fieldOnLevel.forEachFourierCell(
-            [calcCell](compT v, T kx, T ky, T kz) { return calcCell(v, kx, ky, kz, ky); });
-        else if (direction == 2)
-          fieldOnLevel.forEachFourierCell(
-            [calcCell](compT v, T kx, T ky, T kz) { return calcCell(v, kx, ky, kz, kz); });
-        else
-          throw std::runtime_error("Unknown velocity direction");
-      }
-    };
 
     //! Converts (in-place) from a overdensity covector to an angular momentum covector
     void turnLocalisationCovectorIntoModificationCovector(fields::MultiLevelField<DataType> & field) const override {
-      auto fieldNext = field, fieldPrev = field;
       OverdensityModification<DataType,T>::turnLocalisationCovectorIntoModificationCovector(field);
+
+      // Here "field" is a localized covector containing the flagged cells only (since derivInRealSpace is false)
+      auto fieldNext = field, fieldPrev = field;
       // Start by computing the velocity fields in the two requested direction
-      this->velocityNextDir.turnLocalisationCovectorIntoModificationCovector(fieldNext);
-      computeVelocity(fieldNext, this->nextDir);
-      this->velocityPrevDir.turnLocalisationCovectorIntoModificationCovector(fieldPrev);
-      computeVelocity(fieldPrev, this->prevDir);
+      this->computeVelocity(fieldNext, this->nextDir);
+      this->computeVelocity(fieldPrev, this->prevDir);
 
       // Now compute the r x v term in real space
       fieldNext.toReal();
       fieldPrev.toReal();
 
+      for(size_t level=0; level<field.getNumLevels(); ++level) {
+        auto &fieldOnLevel = field.getFieldForLevel(level),
+             &velocityNextForLevel = fieldNext.getFieldForLevel(level),
+             &velocityPrevForLevel = fieldPrev.getFieldForLevel(level);
+
+        velocityNextForLevel.toReal();
+        velocityPrevForLevel.toReal();
+        fieldOnLevel.toReal();
+
+        const grids::Grid<T> &grid(fieldOnLevel.getGrid());
+        std::vector<DataType> &outputData = fieldOnLevel.getDataVector(),
+                              &vNextData = velocityNextForLevel.getDataVector(),
+                              &vPrevData = velocityPrevForLevel.getDataVector();
+
+        const Coordinate<T> centre = this->getCentre(grid);
+
+        // Loop over cells in the grid
+        for (size_t i = 0; i < this->flaggedCellsFinestGrid.size(); i++) {
+          size_t index = this->flaggedCellsFinestGrid[i];
+          Coordinate<int> ix = grid.getCoordinateFromIndex(index);
+          Coordinate<T> x(ix);
+          x *= grid.cellSize;
+          x += grid.offsetLower;
+          x += grid.cellSize / 2;
+          Coordinate<T> dx = grid.getWrappedOffset(x, centre);
+          outputData[index] = vNextData[index] * dx[this->prevDir] - vPrevData[index] * dx[this->nextDir];
+        }
+      }
     }
   };
 
