@@ -292,6 +292,60 @@ namespace modifications {
     }
   };
 
+ template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
+  class AngularMomentumModification : public VelocityModification<DataType, T> {
+    private:
+      bool derivInRealSpace;
+      int nextDir, prevDir;
+
+    public:
+    /*! \brief Construct an angular-momentum modification from a specified multi-level context, cosmology, and direction
+
+        \param underlying_ - underlying multi-level context object.
+        \param cosmology_ - struct containing cosmological data
+        \param direction - component of t velocity to modify, (0,1,2) <-> (x,y,x).
+    */
+    AngularMomentumModification(const multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
+                                const cosmology::CosmologicalParameters<T> &cosmology_, int direction_) :
+      VelocityModification<DataType, T>(underlying_, cosmology_, direction_) {
+        this->derivInRealSpace = false;
+
+        auto nextDir = (direction_ + 1) % 3,
+             prevDir = (direction_ - 1) % 3;
+
+        this->nextDir = nextDir;
+        this->prevDir = prevDir;
+
+        // this->velocityNextDir = VelocityModification<DataType, T>(underlying_, cosmology_, nextDir);
+        // this->velocityPrevDir = VelocityModification<DataType, T>(underlying_, cosmology_, prevDir);
+
+        // this->velocityNextDir->derivInRealSpace = false;
+        // this->velocityPrevDir->derivInRealSpace = false;
+      };
+
+    //! Computes the velocity field
+    void computeVelocity(fields::MultiLevelField<DataType> & field, int direction) {
+      for(size_t level=0; level<field.getNumLevels(); ++level) {
+        auto &fieldOnLevel = field.getFieldForLevel(level);
+        using compT = std::complex<T>;
+        fieldOnLevel.toFourier(); // probably already in Fourier space, but best to be sure
+        const grids::Grid<T> &grid(fieldOnLevel.getGrid());
+        complex<T> I(0, 1);
+        T scale = zeldovichVelocityToOffsetRatio(this->cosmology);
+        const T nyquist = tools::numerics::fourier::getNyquistModeThatMustBeReal(grid) * grid.getFourierKmin();
+
+        auto calcCell =
+          [I, scale, nyquist, this](complex<T> overdensityFieldValue, T kx, T ky, T kz, T k_chosen_direction) -> complex<T> {
+
+            // This lambda evaluates the derivative for the given Fourier-space cell. kx,ky,kz are the
+            // input k-space coordinates, and k_chosen_direction must be set to whichever of these specifies
+            // the derivative direction
+
+            T k2 = kx * kx + ky * ky + kz * kz;
+
+            if (k2 == 0)
+              return complex<T>(0);
+            else {
               if(k_chosen_direction == nyquist) return complex<T>(0);
               return -scale * overdensityFieldValue * I * k_chosen_direction / k2;
               }
@@ -308,8 +362,23 @@ namespace modifications {
             [calcCell](compT v, T kx, T ky, T kz) { return calcCell(v, kx, ky, kz, kz); });
         else
           throw std::runtime_error("Unknown velocity direction");
-
       }
+    };
+
+    //! Converts (in-place) from a overdensity covector to an angular momentum covector
+    void turnLocalisationCovectorIntoModificationCovector(fields::MultiLevelField<DataType> & field) const override {
+      auto fieldNext = field, fieldPrev = field;
+      OverdensityModification<DataType,T>::turnLocalisationCovectorIntoModificationCovector(field);
+      // Start by computing the velocity fields in the two requested direction
+      this->velocityNextDir.turnLocalisationCovectorIntoModificationCovector(fieldNext);
+      computeVelocity(fieldNext, this->nextDir);
+      this->velocityPrevDir.turnLocalisationCovectorIntoModificationCovector(fieldPrev);
+      computeVelocity(fieldPrev, this->prevDir);
+
+      // Now compute the r x v term in real space
+      fieldNext.toReal();
+      fieldPrev.toReal();
+
     }
   };
 
