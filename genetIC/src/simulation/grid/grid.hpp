@@ -460,7 +460,7 @@ namespace grids {
         The underlying assumption of this method is that the centering is done on the coarse grid.
      *  Centering on zoom grids is not taken care off.
      */
-    Coordinate<T> const getCentreWrapped(const std::vector<size_t> &vector_ids) {
+    Coordinate<T> const getCentreWrapped(const std::vector<size_t> &vector_ids) const {
       if (vector_ids.empty()) {
         throw std::runtime_error("Cannot calculate the center of an empty region");
       }

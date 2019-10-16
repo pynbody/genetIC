@@ -98,7 +98,7 @@ namespace modifications {
     /*!
      * Mostly useful for angular momentum modifications. Has not been tested for two years.
      */
-    Coordinate<T> getCentre(grids::Grid<T> &grid) {
+    Coordinate<T> getCentre(const grids::Grid<T> &grid) const {
       return grid.getCentreWrapped(this->flaggedCellsFinestGrid);
     }
 
@@ -178,10 +178,9 @@ namespace modifications {
   template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
   class VelocityModification : public OverdensityModification<DataType, T> {
   private:
-    const bool derivInRealSpace = true;
-
+    bool derivInRealSpace = true; //!< If true, make the derivation in real space. Otherwise, make the derivation in Fourier space.
   protected:
-    int direction; //!< Component of velocity to modify, (0,1,2) <-> (x,y,x).
+    int direction; //!< Component of velocity to modify, (0,1,2) <-> (x,y,z).
 
   public:
     /*! \brief Construct a velocity modification from a specified multi-level context, cosmology, and velocity component
@@ -197,42 +196,42 @@ namespace modifications {
   protected:
 
     fields::Field<DataType, T> calculateLocalisationCovector(const grids::Grid<T> &grid) override {
-#ifdef VELOCITY_MODIFICATION_GRADIENT_FOURIER_SPACE
-      return OverdensityModification<DataType,T>::calculateLocalisationCovector(grid);
-#else
-      // Uses a finite difference 4th order stencil to create just a derivative covector
-      Coordinate<int> directionVector;
-      Coordinate<int> negDirectionVector;
+      if (!this->derivInRealSpace) {
+        return OverdensityModification<DataType,T>::calculateLocalisationCovector(grid);
+      } else {
+        // Uses a finite difference 4th order stencil to create just a derivative covector
+        Coordinate<int> directionVector;
+        Coordinate<int> negDirectionVector;
 
-      directionVector[direction] = 1;
-      negDirectionVector[direction] = -1;
+        directionVector[direction] = 1;
+        negDirectionVector[direction] = -1;
 
-      fields::Field<DataType, T> outputField = fields::Field<DataType, T>(grid, false);
-      std::vector<DataType> &outputData = outputField.getDataVector();
+        fields::Field<DataType, T> outputField = fields::Field<DataType, T>(grid, false);
+        std::vector<DataType> &outputData = outputField.getDataVector();
 
-      T w = 1.0 / this->flaggedCellsFinestGrid.size();
+        T w = 1.0 / this->flaggedCellsFinestGrid.size();
 
-      size_t ind_p1, ind_m1, ind_p2, ind_m2;
+        size_t ind_p1, ind_m1, ind_p2, ind_m2;
 
-      // Coeffs for the finite difference.  The signs here so that result is - Nabla Phi
-      T a = -w / 12. / grid.cellSize, b = w * 2. / 3. / grid.cellSize;
+        // Coeffs for the finite difference.  The signs here so that result is - Nabla Phi
+        T a = -w / 12. / grid.cellSize, b = w * 2. / 3. / grid.cellSize;
 
-      for (size_t i = 0; i < this->flaggedCellsFinestGrid.size(); i++) {
-        size_t index = this->flaggedCellsFinestGrid[i];
-        ind_m1 = grid.getIndexFromIndexAndStep(index, negDirectionVector);
-        ind_p1 = grid.getIndexFromIndexAndStep(index, directionVector);
-        ind_m2 = grid.getIndexFromIndexAndStep(ind_m1, negDirectionVector);
-        ind_p2 = grid.getIndexFromIndexAndStep(ind_p1, directionVector);
-        outputData[ind_m2] += a;
-        outputData[ind_m1] += b;
-        outputData[ind_p1] -= b;
-        outputData[ind_p2] -= a;
+        for (size_t i = 0; i < this->flaggedCellsFinestGrid.size(); i++) {
+          size_t index = this->flaggedCellsFinestGrid[i];
+          ind_m1 = grid.getIndexFromIndexAndStep(index, negDirectionVector);
+          ind_p1 = grid.getIndexFromIndexAndStep(index, directionVector);
+          ind_m2 = grid.getIndexFromIndexAndStep(ind_m1, negDirectionVector);
+          ind_p2 = grid.getIndexFromIndexAndStep(ind_p1, directionVector);
+          outputData[ind_m2] += a;
+          outputData[ind_m1] += b;
+          outputData[ind_p1] -= b;
+          outputData[ind_p2] -= a;
+        }
+
+        outputField.toFourier();
+        return outputField;
+
       }
-
-      outputField.toFourier();
-      return outputField;
-
-#endif
 
     }
 
@@ -257,7 +256,7 @@ namespace modifications {
         const T nyquist = tools::numerics::fourier::getNyquistModeThatMustBeReal(grid) * grid.getFourierKmin();
 
         auto calcCell =
-          [I, scale, nyquist, this](complex<T> overdensityFieldValue, T kx, T ky, T kz, T k_chosen_direction) -> complex<T> {
+          [I, scale, nyquist](complex<T> overdensityFieldValue, T kx, T ky, T kz, T k_chosen_direction, bool derivInRealSpace) -> complex<T> {
 
             // This lambda evaluates the derivative for the given Fourier-space cell. kx,ky,kz are the
             // input k-space coordinates, and k_chosen_direction must be set to whichever of these specifies
@@ -268,12 +267,33 @@ namespace modifications {
             if ( k2 == 0)
               return complex<T>(0);
             else {
-#ifdef VELOCITY_MODIFICATION_GRADIENT_FOURIER_SPACE
+              if (!derivInRealSpace) {
+                if(k_chosen_direction == nyquist) return complex<T>(0);
+                return -scale * overdensityFieldValue * I * k_chosen_direction / k2;
+              } else {
+                return -scale * overdensityFieldValue / k2;
+              }
+            }
+          };
+
+        if (direction == 0)
+          fieldOnLevel.forEachFourierCell(
+            [calcCell, this](compT v, T kx, T ky, T kz) { return calcCell(v, kx, ky, kz, kx, this->derivInRealSpace); });
+        else if (direction == 1)
+          fieldOnLevel.forEachFourierCell(
+            [calcCell, this](compT v, T kx, T ky, T kz) { return calcCell(v, kx, ky, kz, ky, this->derivInRealSpace); });
+        else if (direction == 2)
+          fieldOnLevel.forEachFourierCell(
+            [calcCell, this](compT v, T kx, T ky, T kz) { return calcCell(v, kx, ky, kz, kz, this->derivInRealSpace); });
+        else
+          throw std::runtime_error("Unknown velocity direction");
+
+      }
+    }
+  };
+
               if(k_chosen_direction == nyquist) return complex<T>(0);
               return -scale * overdensityFieldValue * I * k_chosen_direction / k2;
-#else
-              return -scale * overdensityFieldValue / k2;
-#endif
               }
           };
 
