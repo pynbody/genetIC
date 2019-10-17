@@ -295,14 +295,14 @@ namespace modifications {
 
   //! WARNING : Unfinished and not working implementation TODO
   template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
-  class AngMomentumModification : public LinearModification<DataType, T> {
+  class AngMomentumModification : public OverdensityModification<DataType, T> {
   protected:
     int direction;
 
   public:
     AngMomentumModification(const multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
                             const cosmology::CosmologicalParameters<T> &cosmology_, int direction_) :
-        LinearModification<DataType, T>(underlying_, cosmology_), direction(direction_) {
+        OverdensityModification<DataType, T>(underlying_, cosmology_), direction(direction_) {
       if (direction_ < 0 || direction_ > 2)
         throw std::runtime_error("Angular momentum direction must be 0 (x), 1 (y) or 2 (z)");
 
@@ -314,8 +314,10 @@ namespace modifications {
     fields::Field<DataType, T> calculateLocalisationCovector(const grids::Grid<T> &grid) override {
 
       Coordinate<T> x0(25, 25, 25);
-      T w = 1.0 / this->flaggedCellsFinestGrid.size();
-      T a = -w / 12. / grid.cellSize, b = w * 2. / 3. / grid.cellSize;  //the signs here so that L ~ - Nabla Phi
+      T a = -1. / 12. / grid.cellSize, b = 2. / 3. / grid.cellSize;  //the signs here so that L ~ - Nabla Phi
+
+      int dirp1 = (direction + 1) % 3,
+          dirp2 = (direction + 2) % 3;
 
       fields::Field<DataType, T> outputField = fields::Field<DataType, T>(grid, false);
       std::vector<DataType> &outputData = outputField.getDataVector();
@@ -324,48 +326,32 @@ namespace modifications {
         size_t index = this->flaggedCellsFinestGrid[i];
         Coordinate<T> xp = grid.getCentroidFromIndex(index);
         Coordinate<T> dx = grid.getWrappedOffset(xp, x0);
+        Coordinate<T> rCrossCoeff;
+        // Coefficient to compute cross product (this is the "r \cross" part of r \cross v)
+        rCrossCoeff[direction] = 0;
+        rCrossCoeff[dirp2] =  dx[dirp1];  // lx = ry * vz
+        rCrossCoeff[dirp1] = -dx[dirp2];  //              - rz * vy
 
-        T c[3];
-        if (this->direction == 0) {
-          c[2] = dx.y;
-          c[1] = -dx.z;
-        } else if (this->direction == 1) {
-          c[0] = dx.z;
-          c[2] = -dx.x;
-        } else if (this->direction == 2) {
-          c[1] = dx.x;
-          c[0] = -dx.y;
-        } else if (this->direction == 3) {
-          T rp = std::sqrt((dx.x * dx.x) + (dx.y * dx.y) + (dx.z * dx.z));
-          if (rp != 0) {
-            c[0] = dx.x / rp;
-            c[1] = dx.y / rp;
-            c[2] = dx.z / rp;
+        // Create gradient + cross product covector by combining gradient operator with cross product
+        // to yield -r \cross \nabla · operator (using 4-th order finite-difference)
+        for (int dir = 0; dir < 3; dir++) {
+          if (dir != direction) { // Not necessary, but saves computation time
+            size_t ind_p1, ind_m1, ind_p2, ind_m2;
+            Coordinate<int> directionVector;
+            Coordinate<int> negDirectionVector;
+
+            directionVector[dir] = 1;
+            negDirectionVector[dir] = -1;
+
+            ind_m1 = grid.getIndexFromIndexAndStep(index, negDirectionVector);
+            ind_p1 = grid.getIndexFromIndexAndStep(index, directionVector);
+            ind_m2 = grid.getIndexFromIndexAndStep(ind_m1, negDirectionVector);
+            ind_p2 = grid.getIndexFromIndexAndStep(ind_p1, directionVector);
+            outputData[ind_m2] += rCrossCoeff[dir] * a;
+            outputData[ind_m1] += rCrossCoeff[dir] * b;
+            outputData[ind_p1] -= rCrossCoeff[dir] * b;
+            outputData[ind_p2] -= rCrossCoeff[dir] * a;
           }
-        } // radial velocity
-
-        else {
-          throw std::runtime_error("Wrong value for parameter 'direc' in function 'cen_deriv4_alpha'");
-        }
-
-        for (int di = 0; di < 3; di++) {
-          size_t ind_p1, ind_m1, ind_p2, ind_m2;
-          // Uses a finite difference 4th order stencil to create just a derivative covector
-          Coordinate<int> directionVector;
-          Coordinate<int> negDirectionVector;
-
-          directionVector[direction] = 1;
-          negDirectionVector[direction] = -1;
-
-
-          ind_m1 = grid.getIndexFromIndexAndStep(index, negDirectionVector);
-          ind_p1 = grid.getIndexFromIndexAndStep(index, directionVector);
-          ind_m2 = grid.getIndexFromIndexAndStep(ind_m1, negDirectionVector);
-          ind_p2 = grid.getIndexFromIndexAndStep(ind_p1, directionVector);
-          outputData[ind_m2] += (c[di] * a);
-          outputData[ind_m1] += (c[di] * b);
-          outputData[ind_p1] += (-c[di] * b);
-          outputData[ind_p2] += (-c[di] * a);
         }
       }
 
@@ -378,20 +364,15 @@ namespace modifications {
     void turnLocalisationCovectorIntoModificationCovector (fields::MultiLevelField<DataType> & field) const override {
       OverdensityModification<DataType,T>::turnLocalisationCovectorIntoModificationCovector(field);
 
+      field.toFourier();
       for(size_t level=0; level<field.getNumLevels(); ++level) {
         auto &fieldOnLevel = field.getFieldForLevel(level);
-        using compT = std::complex<T>;
-        fieldOnLevel.toFourier();
 
         complex<T> I(0, 1);
         T scale = zeldovichVelocityToOffsetRatio(this->cosmology);
 
         auto calcCell =
-          [I, scale](complex<T> overdensityFieldValue, T kx, T ky, T kz, T k_chosen_direction) -> complex<T> {
-
-            // This lambda evaluates the derivative for the given Fourier-space cell. kx,ky,kz are the
-            // input k-space coordinates, and k_chosen_direction must be set to whichever of these specifies
-            // the derivative direction
+          [I, scale](complex<T> overdensityFieldValue, T kx, T ky, T kz) -> complex<T> {
 
             T k2 = kx * kx + ky * ky + kz * kz;
 
@@ -401,17 +382,9 @@ namespace modifications {
               return -scale * overdensityFieldValue / k2;
         };
 
-        if (direction == 0)
-          fieldOnLevel.forEachFourierCell(
-            [calcCell, this](compT v, T kx, T ky, T kz) { return calcCell(v, kx, ky, kz, kx); });
-        else if (direction == 1)
-          fieldOnLevel.forEachFourierCell(
-            [calcCell, this](compT v, T kx, T ky, T kz) { return calcCell(v, kx, ky, kz, ky); });
-        else if (direction == 2)
-          fieldOnLevel.forEachFourierCell(
-            [calcCell, this](compT v, T kx, T ky, T kz) { return calcCell(v, kx, ky, kz, kz); });
-        else
-          throw std::runtime_error("Unknown direction");
+        // Missing k^2 factor (density->potential) and scale (potential->velocity)
+        fieldOnLevel.forEachFourierCell(calcCell);
+
       }
     }
   };
