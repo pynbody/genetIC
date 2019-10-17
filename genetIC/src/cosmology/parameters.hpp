@@ -41,8 +41,8 @@ namespace cosmology {
     // NB - this uses the curvature term, which isn't (currently) used elsewhere in the code.
     FloatType Hsq = cosmology.OmegaM0 / powf(a, 3.0) + (1. - Om - Ol) / a / a + Ol;
     // Structure growth factor, analytic approximation (exact requires solding an ode):
-    FloatType d = 2.5 * a * Om / powf(a, 3.0) / Hsq / (powf(Om / Hsq / a / a / a, 4.f / 7.f) - Ol / Hsq +
-                                                       (1. + 0.5 * Om / powf(a, 3.0) / Hsq) *
+    FloatType d = 2.5 * a * Om / pow(a, 3.0) / Hsq / (pow(Om / Hsq / a / a / a, 4.f / 7.f) - Ol / Hsq +
+                                                       (1. + 0.5 * Om / pow(a, 3.0) / Hsq) *
                                                        (1. + 1. / 70. * Ol / Hsq));
 
     return d;
@@ -65,7 +65,7 @@ namespace cosmology {
     // TODO: hardcoded value of f=1 is inaccurate - should be a function of omega
     FloatType f = 1.0;
     // According to Carrol and Press (1992) should use:
-    // f = powf(( Om/(a*a*a) )/( Om/(a*a*a) + (1.0 - Om - Ol)/(a*a) + Ol ),4.0/7.0);
+    // f = pow(( Om/(a*a*a) )/( Om/(a*a*a) + (1.0 - Om - Ol)/(a*a) + Ol ),4.0/7.0);
 
     // For ease of reading the expression below:
     FloatType Om = cosmology.OmegaM0;
