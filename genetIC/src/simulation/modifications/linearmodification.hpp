@@ -254,7 +254,7 @@ namespace modifications {
 
             T k2 = kx * kx + ky * ky + kz * kz;
 
-            if ( k2 == 0)
+            if (k2 == 0)
               return complex<T>(0);
             else {
               if (!derivInRealSpace) {
@@ -275,11 +275,8 @@ namespace modifications {
         else if (direction == 2)
           fieldOnLevel.forEachFourierCell(
             [calcCell, this](compT v, T kx, T ky, T kz) { return calcCell(v, kx, ky, kz, kz, this->derivInRealSpace); });
-        else {
-          printf("%d", direction);
+        else
           throw std::runtime_error("Unknown direction");
-        }
-
       }
     }
 
@@ -296,72 +293,125 @@ namespace modifications {
     }
   };
 
- template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
-  class AngularMomentumModification : public VelocityModification<DataType, T> {
-    private:
-      bool derivInRealSpace;
-      int nextDir, prevDir;
+  //! WARNING : Unfinished and not working implementation TODO
+  template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
+  class AngMomentumModification : public LinearModification<DataType, T> {
+  protected:
+    int direction;
 
-    public:
-    /*! \brief Construct an angular-momentum modification from a specified multi-level context, cosmology, and direction
+  public:
+    AngMomentumModification(const multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
+                            const cosmology::CosmologicalParameters<T> &cosmology_, int direction_) :
+        LinearModification<DataType, T>(underlying_, cosmology_), direction(direction_) {
+      if (direction_ < 0 || direction_ > 2)
+        throw std::runtime_error("Angular momentum direction must be 0 (x), 1 (y) or 2 (z)");
 
-        \param underlying_ - underlying multi-level context object.
-        \param cosmology_ - struct containing cosmological data
-        \param direction - component of t velocity to modify, (0,1,2) <-> (x,y,x).
-    */
-    AngularMomentumModification(const multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
-                                const cosmology::CosmologicalParameters<T> &cosmology_, int direction_) :
-      VelocityModification<DataType, T>(underlying_, cosmology_, direction_) {
-        this->derivInRealSpace = false;
+      direction = direction_;
 
-        auto nextDir = (direction_ + 1) % 3,
-             prevDir = (direction_ + 2) % 3; // Note: use +2 instead of -1 to prevent prevDir from being negative
+    };
 
-        this->nextDir = nextDir;
-        this->prevDir = prevDir;
-      };
+  protected:
+    fields::Field<DataType, T> calculateLocalisationCovector(const grids::Grid<T> &grid) override {
 
-    //! Converts (in-place) from a overdensity covector to an angular momentum covector
-    void turnLocalisationCovectorIntoModificationCovector(fields::MultiLevelField<DataType> & field) const override {
+      Coordinate<T> x0(25, 25, 25);
+      T w = 1.0 / this->flaggedCellsFinestGrid.size();
+      T a = -w / 12. / grid.cellSize, b = w * 2. / 3. / grid.cellSize;  //the signs here so that L ~ - Nabla Phi
+
+      fields::Field<DataType, T> outputField = fields::Field<DataType, T>(grid, false);
+      std::vector<DataType> &outputData = outputField.getDataVector();
+
+      for (size_t i = 0; i < this->flaggedCellsFinestGrid.size(); i++) {
+        size_t index = this->flaggedCellsFinestGrid[i];
+        Coordinate<T> xp = grid.getCentroidFromIndex(index);
+        Coordinate<T> dx = grid.getWrappedOffset(xp, x0);
+
+        T c[3];
+        if (this->direction == 0) {
+          c[2] = dx.y;
+          c[1] = -dx.z;
+        } else if (this->direction == 1) {
+          c[0] = dx.z;
+          c[2] = -dx.x;
+        } else if (this->direction == 2) {
+          c[1] = dx.x;
+          c[0] = -dx.y;
+        } else if (this->direction == 3) {
+          T rp = std::sqrt((dx.x * dx.x) + (dx.y * dx.y) + (dx.z * dx.z));
+          if (rp != 0) {
+            c[0] = dx.x / rp;
+            c[1] = dx.y / rp;
+            c[2] = dx.z / rp;
+          }
+        } // radial velocity
+
+        else {
+          throw std::runtime_error("Wrong value for parameter 'direc' in function 'cen_deriv4_alpha'");
+        }
+
+        for (int di = 0; di < 3; di++) {
+          size_t ind_p1, ind_m1, ind_p2, ind_m2;
+          // Uses a finite difference 4th order stencil to create just a derivative covector
+          Coordinate<int> directionVector;
+          Coordinate<int> negDirectionVector;
+
+          directionVector[direction] = 1;
+          negDirectionVector[direction] = -1;
+
+
+          ind_m1 = grid.getIndexFromIndexAndStep(index, negDirectionVector);
+          ind_p1 = grid.getIndexFromIndexAndStep(index, directionVector);
+          ind_m2 = grid.getIndexFromIndexAndStep(ind_m1, negDirectionVector);
+          ind_p2 = grid.getIndexFromIndexAndStep(ind_p1, directionVector);
+          outputData[ind_m2] += (c[di] * a);
+          outputData[ind_m1] += (c[di] * b);
+          outputData[ind_p1] += (-c[di] * b);
+          outputData[ind_p2] += (-c[di] * a);
+        }
+      }
+
+      outputField.toFourier();
+
+      return outputField;
+    }
+
+  public:
+    void turnLocalisationCovectorIntoModificationCovector (fields::MultiLevelField<DataType> & field) const override {
       OverdensityModification<DataType,T>::turnLocalisationCovectorIntoModificationCovector(field);
 
-      // Here "field" is a localized covector containing the flagged cells only (since derivInRealSpace is false)
-      auto fieldNext = field, fieldPrev = field;
-      // Start by computing the velocity fields in the two requested direction
-      this->computeVelocity(fieldNext, this->nextDir);
-      this->computeVelocity(fieldPrev, this->prevDir);
-
-      // Now compute the r x v term in real space
-      fieldNext.toReal();
-      fieldPrev.toReal();
-
       for(size_t level=0; level<field.getNumLevels(); ++level) {
-        auto &fieldOnLevel = field.getFieldForLevel(level),
-             &velocityNextForLevel = fieldNext.getFieldForLevel(level),
-             &velocityPrevForLevel = fieldPrev.getFieldForLevel(level);
+        auto &fieldOnLevel = field.getFieldForLevel(level);
+        using compT = std::complex<T>;
+        fieldOnLevel.toFourier();
 
-        velocityNextForLevel.toReal();
-        velocityPrevForLevel.toReal();
-        fieldOnLevel.toReal();
+        complex<T> I(0, 1);
+        T scale = zeldovichVelocityToOffsetRatio(this->cosmology);
 
-        const grids::Grid<T> &grid(fieldOnLevel.getGrid());
-        std::vector<DataType> &outputData = fieldOnLevel.getDataVector(),
-                              &vNextData = velocityNextForLevel.getDataVector(),
-                              &vPrevData = velocityPrevForLevel.getDataVector();
+        auto calcCell =
+          [I, scale](complex<T> overdensityFieldValue, T kx, T ky, T kz, T k_chosen_direction) -> complex<T> {
 
-        const Coordinate<T> centre = this->getCentre(grid);
+            // This lambda evaluates the derivative for the given Fourier-space cell. kx,ky,kz are the
+            // input k-space coordinates, and k_chosen_direction must be set to whichever of these specifies
+            // the derivative direction
 
-        // Loop over cells in the grid
-        for (size_t i = 0; i < this->flaggedCellsFinestGrid.size(); i++) {
-          size_t index = this->flaggedCellsFinestGrid[i];
-          Coordinate<int> ix = grid.getCoordinateFromIndex(index);
-          Coordinate<T> x(ix);
-          x *= grid.cellSize;
-          x += grid.offsetLower;
-          x += grid.cellSize / 2;
-          Coordinate<T> dx = grid.getWrappedOffset(x, centre);
-          outputData[index] = vNextData[index] * dx[this->prevDir] - vPrevData[index] * dx[this->nextDir];
-        }
+            T k2 = kx * kx + ky * ky + kz * kz;
+
+            if (k2 == 0)
+              return complex<T>(0);
+            else
+              return -scale * overdensityFieldValue / k2;
+        };
+
+        if (direction == 0)
+          fieldOnLevel.forEachFourierCell(
+            [calcCell, this](compT v, T kx, T ky, T kz) { return calcCell(v, kx, ky, kz, kx); });
+        else if (direction == 1)
+          fieldOnLevel.forEachFourierCell(
+            [calcCell, this](compT v, T kx, T ky, T kz) { return calcCell(v, kx, ky, kz, ky); });
+        else if (direction == 2)
+          fieldOnLevel.forEachFourierCell(
+            [calcCell, this](compT v, T kx, T ky, T kz) { return calcCell(v, kx, ky, kz, kz); });
+        else
+          throw std::runtime_error("Unknown direction");
       }
     }
   };
