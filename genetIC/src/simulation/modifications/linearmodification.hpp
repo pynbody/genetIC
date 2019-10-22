@@ -45,7 +45,7 @@ namespace modifications {
 
     //! Calculates the current value of a.field for the modification defined by covector a on the field.
     T calculateCurrentValue(const fields::MultiLevelField<DataType> &field) override {
-      T val = this->getCovector(field.transferType)->innerProduct(field).real();
+      T val = this->getCovector(field.getTransferType())->innerProduct(field).real();
       return val;
     }
 
@@ -70,12 +70,7 @@ namespace modifications {
       using tools::numerics::operator/=;
       auto highResModif = calculateLocalisationCovector(this->underlying.getGridForLevel(level));
 
-      auto multiLevelCovector = this->underlying.generateMultilevelCovectorFromHiresCovector(std::move(highResModif));
-
-      // Note - the resulting covector will be applied most likely to a white noise field, but it could be
-      // a field such as the DM field if we end up calculating a constraint value after the fact. We need
-      // to keep track of what species we are calculating a covector for.
-      multiLevelCovector->transferType = forSpecies;
+      auto multiLevelCovector = this->underlying.generateMultilevelCovectorFromHiresCovector(std::move(highResModif), forSpecies);
 
       turnLocalisationCovectorIntoModificationCovector(*multiLevelCovector);
       return multiLevelCovector;

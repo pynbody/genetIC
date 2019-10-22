@@ -765,7 +765,7 @@ public:
   //! Applies appropriate power spectrum to all fields.
   virtual void applyPowerSpec() {
     // This only makes sense if our output field so far is white noise
-    assert(outputFields[0]->transferType == particle::species::whitenoise);
+    assert(outputFields[0]->getTransferType() == particle::species::whitenoise);
     assert(outputFields.size()==1);
 
     if(useBaryonTransferFunction) {

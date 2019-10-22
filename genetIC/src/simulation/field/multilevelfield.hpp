@@ -11,8 +11,8 @@ namespace fields {
   /*!   \class MultiLevelField
         \brief Class to store a field defined across multiple grids.
 
-        The multi-level field is to fields what the multi-level context is to grids. It defines a collection
-        of fields on different grids, so describing different parts of the field at different resolutions.
+        The multi-level field relies on a multi-level context to describe the grids on which the fields are 
+        defined. This context is not allowed to change after the field object has been initialised. 
   */
   template<typename DataType>
   class MultiLevelField : public std::enable_shared_from_this<MultiLevelField<DataType>> {
@@ -20,30 +20,40 @@ namespace fields {
   public:
     using T = tools::datatypes::strip_complex<DataType>;
     using ComplexType = tools::datatypes::ensure_complex<DataType>;
+
   protected:
     const multilevelcontext::MultiLevelContextInformation<DataType> *multiLevelContext; //!< Pointer to the underlying multi-level context
     bool isCovector; //!< True if the multi-level field is a covector, used to define a modification.
 
     std::vector<std::shared_ptr<Field<DataType, T>>> fieldsOnLevels; //!< Vector that stores all the fields on the different levels
 
-
-  public:
     //! \brief Which transfer function the field currently has applied
     particle::species transferType;
+ 
+    //!< Check the multi-level context has not been updated since the field was created
+    void assertContextConsistent() const {
+      assert(multiLevelContext->getNumLevels() == fieldsOnLevels.size());
+    }
 
-
-    //! Constructor with fields unspecified - only multi-level context which defines the grids
+    /*! \brief Constructor with fields unspecified - only multi-level context which defines the grids.
+     * 
+     * This means there are no fields defined on the grid levels, which is an inconsistent state
+     * for the object; therefore this should only be called by constructors of child classes.
+    */ 
     MultiLevelField(const multilevelcontext::MultiLevelContextInformation<DataType> &multiLevelContext,
                     particle::species transfer_type = particle::species::dm) :
       multiLevelContext(&multiLevelContext), transferType(transfer_type) {
       isCovector = false;
     }
+    
+  public:
 
-    //! Constructor with fields and multi-level context specified
+    //! Constructor from fields for each level of a specified multi-level context
     MultiLevelField(const multilevelcontext::MultiLevelContextInformation<DataType> &multiLevelContext,
-                    const std::vector<std::shared_ptr<Field<DataType, T>>> &fieldsOnGrids,
+                    const std::vector<std::shared_ptr<Field<DataType, T>>> &fieldsOnLevels,
                     particle::species transfer_type = particle::species::dm) :
-      multiLevelContext(&multiLevelContext), fieldsOnLevels(fieldsOnGrids) {
+      multiLevelContext(&multiLevelContext), fieldsOnLevels(fieldsOnLevels) {
+      assertContextConsistent();
       transferType = transfer_type;
       isCovector = false;
     }
@@ -61,6 +71,11 @@ namespace fields {
     }
 
     virtual ~MultiLevelField() {}
+    
+    //! Return the transfer function type currently applied to this field
+    particle::species getTransferType() {
+      return transferType;
+    }
 
     //! Returns a reference to the multi-level context associated to this multi-level field.
     virtual multilevelcontext::MultiLevelContextInformation<DataType> &getContext() const {
@@ -69,17 +84,20 @@ namespace fields {
 
     //! Returns a constant reference to the field on level i of the multi-level context.
     virtual const Field<DataType, T> &getFieldForLevel(size_t i) const {
+      assertContextConsistent();
       assert(i < fieldsOnLevels.size());
       return *(fieldsOnLevels[i]);
     }
 
     //! Returns a constant reference to the field on the specified grid.
     virtual const Field<DataType, T> &getFieldForGrid(const grids::Grid<T> &grid) const {
+      assertContextConsistent();
       return (const_cast<MultiLevelField<DataType> *>(this))->getFieldForGrid(grid);
     };
 
     //! Returns a reference to the field on the specified grid.
     virtual Field<DataType, T> &getFieldForGrid(const grids::Grid<T> &grid) {
+      assertContextConsistent();
       for (size_t i = 0; i < multiLevelContext->getNumLevels(); ++i) {
         if (grid.isProxyFor(&multiLevelContext->getGridForLevel(i)))
           return getFieldForLevel(i);
@@ -89,27 +107,32 @@ namespace fields {
 
     //! Returns a reference to the field on level i of the multi-level context (can edit field)
     virtual Field<DataType, T> &getFieldForLevel(size_t i) {
+      assertContextConsistent();
       return *(fieldsOnLevels[i]);
     }
 
     //! Returns the number of levels in this field
     size_t getNumLevels() const {
+      assertContextConsistent();
       return multiLevelContext->getNumLevels();
     }
 
     //! Checks whether a field is defined on the specified level.
-    bool hasFieldOnGrid(size_t i) const {
+    bool hasFieldForLevel(size_t i) const {
+      assertContextConsistent();
       return this->getFieldForLevel(i).getDataVector().size() > 0;
     }
 
     //! Converts the fields on each level to real space, if they are not already.
     void toReal() {
+      assertContextConsistent();
       for (size_t i = 0; i < multiLevelContext->getNumLevels(); ++i)
         getFieldForLevel(i).toReal();
     }
 
     //! Converts the fields on each level to Fourier space, if they are not already.
     void toFourier() {
+      assertContextConsistent();
       for (size_t i = 0; i < multiLevelContext->getNumLevels(); ++i)
         getFieldForLevel(i).toFourier();
     }
@@ -121,6 +144,7 @@ namespace fields {
 
     //! Returns true if the field is defined in real space on all levels.
     bool isRealOnAllLevels() const {
+      assertContextConsistent();
       for (size_t i = 0; i < multiLevelContext->getNumLevels(); ++i)
         if (getFieldForLevel(i).isFourier()) return false;
       return true;
@@ -128,6 +152,7 @@ namespace fields {
 
     //! Returns true if the field is defined in Fourier space on all levels.
     bool isFourierOnAllLevels() const {
+      assertContextConsistent();
       for (size_t i = 0; i < multiLevelContext->getNumLevels(); ++i)
         if (!getFieldForLevel(i).isFourier()) return false;
       return true;
@@ -135,6 +160,7 @@ namespace fields {
 
     //! Returns suitable filters for combining information on different grid levels
     filters::FilterFamily<T> getFilters() const {
+      assertContextConsistent();
       return filters::FilterFamily<T>(*multiLevelContext);
     }
 
@@ -155,7 +181,7 @@ namespace fields {
 
     //! Flips the sign of the field.
     void reverse() {
-      for (size_t level = 0; level < multiLevelContext->getNumLevels(); ++level) {
+      for (size_t level = 0; level < getNumLevels(); ++level) {
         auto &field = this->getFieldForLevel(level);
         size_t N = field.getDataVector().size();
         auto &field_data = field.getDataVector();
@@ -167,12 +193,13 @@ namespace fields {
 
     //! Add a scaled multilevel field to the current one
     void addScaled(const MultiLevelField &other, DataType scale) {
+      assertContextConsistent();
       assert(other.isFourierOnAllLevels());
       assert (isCompatible(other));
       toFourier();
 
       for (size_t level = 0; level < getNumLevels(); level++) {
-        if (hasFieldOnGrid(level) && other.hasFieldOnGrid(level)) {
+        if (hasFieldForLevel(level) && other.hasFieldForLevel(level)) {
           Field<DataType> &fieldThis = getFieldForLevel(level);
           const Field<DataType> &fieldOther = other.getFieldForLevel(level);
           T kMin = fieldThis.getGrid().getFourierKmin();
@@ -191,11 +218,12 @@ namespace fields {
     //! Here, we copy only the field data, without acquiring any of its other properties (such as
     //! transferType, which would change the transfer function the field uses).
     void copyData(const MultiLevelField<DataType> &other) {
+      assertContextConsistent();
       assert (isCompatible(other));
       assert(other.isFourierOnAllLevels());
       toFourier();
       for (size_t level = 0; level < getNumLevels(); level++) {
-        if (hasFieldOnGrid(level) && other.hasFieldOnGrid(level)) {
+        if (hasFieldForLevel(level) && other.hasFieldForLevel(level)) {
           Field<DataType> &fieldThis = getFieldForLevel(level);
           const Field<DataType> &fieldOther = other.getFieldForLevel(level);
 
@@ -215,8 +243,9 @@ namespace fields {
     //! \brief Copy across data from another field, making any changes required because of differing particle species
     void copyDataAndUpdateForTransferFunction(const MultiLevelField<DataType> &other) {
       copyData(other);
-      applyTransferRatio(other.transferType);
+      applyTransferRatio(other.getTransferType());
     }
+    
     //! \brief Takes the inner product between two fields.
     ComplexType innerProduct(const MultiLevelField<DataType> &other) const {
 
@@ -227,7 +256,7 @@ namespace fields {
        * low and high resolution parts are all absorbed into the definition of a covector.
        *
        */
-
+      assertContextConsistent();
       assert(isCompatible(other));
       if (!isCovector)
         throw (std::runtime_error(
@@ -272,8 +301,9 @@ namespace fields {
 
     //! Applies the specified filters to this field
     void applyFilters(const filters::FilterFamilyBase<T> & filters) {
+      assertContextConsistent();
       for (size_t level = 0; level < getNumLevels(); ++level) {
-        if (hasFieldOnGrid(level)) {
+        if (hasFieldForLevel(level)) {
           getFieldForLevel(level).applyFilter(filters.getFilterForLevel(level));
         }
       }
@@ -292,6 +322,7 @@ namespace fields {
 
     */
     void convertToCovector() {
+      assertContextConsistent();
       assert(!isCovector);
       applyMetric(true);
       isCovector = true;
@@ -299,8 +330,9 @@ namespace fields {
 
     //! Converts the field back to a vector if it has been converted to or defined as a covector field.
     void convertToVector() {
+      assertContextConsistent();
       assert(isCovector);
-      applyMetric();
+      applyMetric(false);
       isCovector = false;
     }
 
@@ -367,13 +399,14 @@ namespace fields {
     (see Angulo and Pontzen 2016).
     */
     void enforceExactPowerSpectrum() {
+      assertContextConsistent();
       toFourier();
 
       // Currently, enforcing the power spectrum must be done while the field still contains white noise
       // Generalising this would not be hard, but also not necessary.
       assert(this->transferType == particle::species::whitenoise);
 
-      for(size_t i = 0; i < multiLevelContext->getNumLevels(); ++i) {
+      for(size_t i = 0; i < getNumLevels(); ++i) {
         enforcePowerSpectrumOneGrid(getFieldForLevel(i));
       }
 
@@ -388,6 +421,7 @@ namespace fields {
   protected:
     //! Divide by power spectrum from an "old" species and multiply by the transfer function for the species of this field
     void applyTransferRatio(particle::species oldSpecies, particle::species newSpecies) {
+      assertContextConsistent();
 
       if (oldSpecies == newSpecies)
         return;
@@ -399,7 +433,7 @@ namespace fields {
       }
 
       toFourier();
-      for (size_t i = 0; i < multiLevelContext->getNumLevels(); ++i) {
+      for (size_t i = 0; i < getNumLevels(); ++i) {
         auto &grid = multiLevelContext->getGridForLevel(i);
         applyTransferRatioOneGrid(getFieldForLevel(i),
                                   *multiLevelContext->getCovariance(i, oldSpecies),
@@ -411,6 +445,7 @@ namespace fields {
 
     //! Multiplies the field by the relevant power spectrum in Fourier space.
     void applyTransfer(particle::species ofSpecies) {
+      assertContextConsistent();
       toFourier();
       for (size_t i = 0; i < multiLevelContext->getNumLevels(); ++i) {
         auto &grid = multiLevelContext->getGridForLevel(i);
@@ -448,7 +483,8 @@ namespace fields {
 
 
     //! Returns the value of chi^2, with respect to the relevant covariance matrix.
-    T getChi2() {
+    T getChi2() const {
+      assertContextConsistent();
 
       this->toFourier();
       auto self_copy = fields::MultiLevelField<DataType>(*this);
@@ -653,12 +689,14 @@ namespace fields {
     /*!
     \param multiLevelContext - current multi-level context
     \param fieldsOnGrids - fields that define the constraint field on each level
-    \param transfer_type - 0 for dark matter, 1 for baryons
+    \param transferType - transfer function that has been applied to fields on which this covector will act
     */
     ConstraintField(const multilevelcontext::MultiLevelContextInformation<DataType> &multiLevelContext,
-                    const std::vector<std::shared_ptr<Field<DataType, T>>> &fieldsOnGrids)
+                    const std::vector<std::shared_ptr<Field<DataType, T>>> &fieldsOnGrids,
+                    particle::species transferType)
       : MultiLevelField<DataType>(multiLevelContext, std::move(fieldsOnGrids)) {
       this->isCovector = true;
+      this->transferType = transferType;
     }
 
 

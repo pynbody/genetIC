@@ -100,7 +100,7 @@ namespace modifications {
 
       // Extract A, b from modification list
       for (size_t i = 0; i < linearModificationList.size(); i++) {
-        modificationCovectors.push_back(linearModificationList[i]->getCovector(outputField->transferType));
+        modificationCovectors.push_back(linearModificationList[i]->getCovector(outputField->getTransferType()));
         linearTargetValues.push_back(linearModificationList[i]->getTarget());
       }
 

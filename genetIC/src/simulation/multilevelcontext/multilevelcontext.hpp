@@ -232,7 +232,7 @@ namespace multilevelcontext {
         \param data - field data on the highest resolution level.
     */
     std::shared_ptr<fields::ConstraintField<DataType>>
-    generateMultilevelCovectorFromHiresCovector(fields::Field<DataType, T> &&data) const {
+    generateMultilevelCovectorFromHiresCovector(fields::Field<DataType, T> &&data, particle::species transferType) const {
       using tools::numerics::operator*=;
       assert(&data.getGrid() == pGrids.back().get());
 
@@ -275,7 +275,7 @@ namespace multilevelcontext {
 
       auto retVal = std::make_shared<fields::ConstraintField<DataType>>(
         *dynamic_cast<const MultiLevelContextInformation<DataType, T> *>(this),
-        fieldsOnLevels);
+        fieldsOnLevels, transferType);
 
       retVal->applyFilters(filters::FilterFamily<DataType>(*this));
       retVal->toReal();
