@@ -17,9 +17,6 @@ using std::vector;
 using std::make_shared;
 
 namespace grids {
-  template<typename T>
-  class Grid;
-
 
   /*! \brief Class that defines a 'virtual' grid that sits on top of another one, and may have different properties.
     For example - virtual grids may describe the same grid with a higher resolution (super sampled grid), or with
@@ -197,6 +194,15 @@ namespace grids {
 
     GridPtrType makeSupersampled(size_t ratio) const override {
       return this->pUnderlying->makeSupersampled(ratio * factor);
+    }
+
+    bool containsCellWithCoordinate(const Coordinate<int> &coord) const override {
+      return this->pUnderlying->containsCellWithCoordinate(coord/this->factor);
+    }
+
+    bool containsCell(size_t i) const override {
+      auto coord = this->getCoordinateFromIndex(i);
+      return this->containsCellWithCoordinate(coord);
     }
 
   };
@@ -383,6 +389,14 @@ namespace grids {
                                                          pUnderlyingLoRes->makeSupersampled(ratio));
     }
 
+    bool containsCellWithCoordinate(const Coordinate<int> &coord) const override {
+      return this->pUnderlyingLoResInterpolated->containsCellWithCoordinate(coord);
+    }
+
+    bool containsCell(size_t i) const override {
+      return this->pUnderlyingLoResInterpolated->containsCell(i);
+    }
+
   };
 
 
@@ -397,7 +411,6 @@ namespace grids {
   class SectionOfGrid : public VirtualGrid<T> {
   private:
     Coordinate<int> cellOffset; //!< Co-ordinates of the lower left front corner of the sub-section (virtual grid) in the underlying grid.
-    Coordinate<int> upperCell; //!< Co-ordinate of the upper back right corner of the sub-section in the underlying grid.
     Coordinate<T> posOffset; //!< Position offset in co-moving co-ordinates of the lower front left corner of the sub-section.
 
   protected:
@@ -447,12 +460,6 @@ namespace grids {
                      pUnderlying->offsetLower.z + deltaz * pUnderlying->cellSize,
                      pUnderlying->cellMassFrac, pUnderlying->cellSofteningScale),
       cellOffset(deltax, deltay, deltaz), // points from underlying to virtual grid
-      upperCell(cellOffset +
-                pUnderlying->size), // I can't actually think of any interpretation where this definition makes sense.
-      // cellOffset points from the underlying grid to the virtual grid, so adding the size of the underlying grid points to
-      // a position that either lies outside of both grids (if the virtual grid is larger) or to where the upper-back-right hand
-      // corner of the underlying grid would be if cellOffset were zero (which isn't generally the case). Neither interpretation
-      // makes any sense, and actually, upperCell is never used anywhere...
       posOffset(deltax * this->cellSize, deltay * this->cellSize, deltaz * this->cellSize) {
 
     }
@@ -463,14 +470,12 @@ namespace grids {
       return VirtualGrid<T>::containsPoint(coord) && this->pUnderlying->containsPoint(coord);
     }
 
-    //! Returns true if the specified co-ordinate (defined relative to the virtual grid) lies in both grids
-    virtual bool containsCellWithCoordinate(const Coordinate<int> &coord) const {
+    bool containsCellWithCoordinate(const Coordinate<int> &coord) const override {
       return VirtualGrid<T>::containsCellWithCoordinate(coord) &&
              this->pUnderlying->containsCellWithCoordinate(this->wrapCoordinate(coord + cellOffset));
     }
 
-    //! Returns true if the specified index (defined relative to the virtual grid) lies in both grids
-    virtual bool containsCell(size_t i) const override {
+    bool containsCell(size_t i) const override {
       auto coord = this->getCoordinateFromIndex(i);
       return containsCellWithCoordinate(coord);
     }
@@ -588,16 +593,22 @@ namespace grids {
       if (coord1.y > underlyingSize) coord1.y = underlyingSize;
       if (coord1.z > underlyingSize) coord1.z = underlyingSize;
 
-      int localFactor3 = (coord1.x - coord0.x) * (coord1.y - coord0.y) * (coord1.z - coord0.z);
+      int localFactor3 = 0;
 
       for (auto xi = coord0.x; xi < coord1.x; ++xi) {
         for (auto yi = coord0.y; yi < coord1.y; ++yi) {
           for (auto zi = coord0.z; zi < coord1.z; ++zi) {
-            callback(this->pUnderlying->getIndexFromCoordinateNoWrap(xi, yi, zi));
+            if(this->pUnderlying->containsCellWithCoordinate(Coordinate<int>(xi, yi, zi))) {
+              callback(this->pUnderlying->getIndexFromCoordinateNoWrap(xi, yi, zi));
+              localFactor3++;
+            }
           }
 
         }
       }
+
+      // At least one cell must be included, otherwise we are out of range:
+      assert(localFactor3!=0);
       return localFactor3;
     }
 
@@ -621,6 +632,19 @@ namespace grids {
 
     GridPtrType makeSubsampled(size_t ratio) const override {
       return this->pUnderlying->makeSubsampled(ratio * factor);
+    }
+
+    virtual bool containsCellWithCoordinate(const Coordinate<int> &coord) const override {
+      Coordinate<int> underlyingLowLeft = coord*factor;
+
+      // Consider the cell to be included if at least one of the higher resolution cells is available:
+      return this->pUnderlying->containsCellWithCoordinate(underlyingLowLeft) ||
+             this->pUnderlying->containsCellWithCoordinate(underlyingLowLeft + (factor - 1));
+    }
+
+    bool containsCell(size_t i) const override {
+      auto coord = this->getCoordinateFromIndex(i);
+      return this->containsCellWithCoordinate(coord);
     }
 
 

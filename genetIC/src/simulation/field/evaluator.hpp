@@ -32,9 +32,9 @@ namespace fields {
 
       size_t size3 = destination.getGrid().size3;
 
-#pragma omp parallel for schedule(static)
+#pragma omp parallel for schedule(static) default(none) shared(size3, destination)
       for (size_t ind_l = 0; ind_l < size3; ind_l++) {
-        if (contains(ind_l))
+        if(contains(ind_l))
           destination[ind_l] += (*this)[ind_l];
       }
     }
@@ -104,7 +104,7 @@ namespace fields {
     }
 
     bool contains(size_t i) const override {
-      return i < grid->size3;
+      return grid->containsCell(i);
     }
   };
 
@@ -184,7 +184,7 @@ namespace fields {
     }
 
     bool contains(size_t i) const override {
-      return i < grid->size3;
+      return grid->containsCell(i);
     }
   };
 
@@ -234,7 +234,7 @@ namespace fields {
     }
 
     bool contains(size_t i) const override {
-      return i < grid->size3;
+      return grid->containsCell(i);
     }
   };
 
