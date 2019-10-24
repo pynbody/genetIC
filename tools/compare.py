@@ -70,6 +70,8 @@ def _try_opening(filename):
     """Try opening the specified file in a gui"""
     if "Darwin" in platform.platform():
         os.system("open %s"%filename)
+    elif "Linux" in platform.platform():
+        os.system("xdg-open %s"%filename)
 
 def compare_grids(ref, test):
     list_of_grids = [os.path.basename(x) for x in glob.glob(ref+"grid-?.npy")]
