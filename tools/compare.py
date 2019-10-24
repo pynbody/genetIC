@@ -13,12 +13,14 @@ Usage: compare.py path_to_output/
 from __future__ import print_function
 import numpy as np
 import numpy.testing as npt
+import os
 import pynbody
 import sys
 import glob
 import os.path
 import warnings
 import re
+import platform
 
 def infer_compare_decimal(sim):
     if sim['vel'].dtype==np.float64:
@@ -33,7 +35,11 @@ def compare(f1,f2) :
 
     compare_decimal = infer_compare_decimal(f1)
 
-    npt.assert_almost_equal(f1['vel'],f2['vel'],decimal=compare_decimal)
+    try:
+        npt.assert_almost_equal(f1['vel'],f2['vel'],decimal=compare_decimal)
+    except:
+        post_compare_diagnostic_plot(f1, f2)
+        raise
     npt.assert_almost_equal(f1['pos'],f2['pos'],decimal=compare_decimal)
     if 'iord' in f1.loadable_keys():
         assert (f1['iord']==f2['iord']).all()
@@ -42,6 +48,29 @@ def compare(f1,f2) :
         npt.assert_almost_equal(f1['overdensity'],f2['overdensity'],decimal=5)
         print("Overdensity array output matches")
 
+def post_compare_diagnostic_plot(f1,f2):
+    import pylab as p
+    p.figure(figsize=(12,7))
+
+    p.subplot(211)
+    p.plot(f1['vx'], f2['vx']-f1['vx'], 'k,')
+    p.xlabel("$v_x$")
+    p.ylabel("$\Delta v_x$")
+
+    p.subplot(212)
+    p.plot(f1['x'], f2['x']-f1['x'], 'k,')
+    p.xlabel("$x$")
+    p.ylabel("$\Delta x$")
+
+    p.savefig("diagnostic.png", bbox_inches='tight')
+    p.close()
+    _try_opening('diagnostic.png')
+
+def _try_opening(filename):
+    """Try opening the specified file in a gui"""
+    if "Darwin" in platform.platform():
+        os.system("open %s"%filename)
+
 def compare_grids(ref, test):
     list_of_grids = [os.path.basename(x) for x in glob.glob(ref+"grid-?.npy")]
     list_of_grids.sort()
@@ -49,8 +78,30 @@ def compare_grids(ref, test):
     for grid in list_of_grids:
         grid_ref = np.load(ref+grid)
         grid_test = np.load(test+grid)
-        npt.assert_almost_equal(grid_ref, grid_test, decimal=4)
+        try:
+            npt.assert_almost_equal(grid_ref, grid_test, decimal=4)
+        except:
+            post_compare_grid_diagnostic_plot(ref, test)
+            raise
     print("Grid output matches")
+
+def post_compare_grid_diagnostic_plot(ref, test):
+    import plotslice as ps
+    import pylab as p
+    p.figure(figsize=(12,7))
+    p.set_cmap("RdBu_r")
+    p.subplot(131)
+    ps.plotslice(ref)
+    p.title("Reference")
+    p.subplot(132)
+    ps.plotslice(test)
+    p.title("Test result")
+    p.subplot(133)
+    p.title("Diff")
+    ps.plotslice(test, diff_prefix=ref)
+    p.savefig("diagnostic_grids.pdf", bbox_inches='tight')
+    p.close()
+    _try_opening('diagnostic_grids.pdf')
 
 def compare_masks(ref, test):
     list_of_masks = [os.path.basename(x) for x in glob.glob(ref+"mask-?.npy")]
