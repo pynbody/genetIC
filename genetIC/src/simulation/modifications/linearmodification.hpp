@@ -293,7 +293,6 @@ namespace modifications {
     }
   };
 
-  //! WARNING : Unfinished and not working implementation TODO
   template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
   class AngMomentumModification : public OverdensityModification<DataType, T> {
   protected:
@@ -313,8 +312,8 @@ namespace modifications {
   protected:
     fields::Field<DataType, T> calculateLocalisationCovector(const grids::Grid<T> &grid) override {
 
-      Coordinate<T> x0(25, 25, 25);
-      T a = -1. / 12. / grid.cellSize, b = 2. / 3. / grid.cellSize;  //the signs here so that L ~ - Nabla Phi
+      auto x0 = this->getCentre(grid);
+      T a = -1. / 12. / grid.cellSize, b = 2. / 3. / grid.cellSize;  // signs here so that L ~ - Nabla Phi
 
       int dirp1 = (direction + 1) % 3,
           dirp2 = (direction + 2) % 3;
@@ -322,7 +321,7 @@ namespace modifications {
       fields::Field<DataType, T> outputField = fields::Field<DataType, T>(grid, false);
       std::vector<DataType> &outputData = outputField.getDataVector();
 
-      for (size_t i = 0; i < this->flaggedCellsFinestGrid.size(); i++) {
+      for (size_t i = 0; i < this->flaggedCellsFinestGrid.size(); ++i) {
         size_t index = this->flaggedCellsFinestGrid[i];
         Coordinate<T> xp = grid.getCentroidFromIndex(index);
         Coordinate<T> dx = grid.getWrappedOffset(xp, x0);
@@ -334,8 +333,8 @@ namespace modifications {
 
         // Create gradient + cross product covector by combining gradient operator with cross product
         // to yield -r \cross \nabla · operator (using 4-th order finite-difference)
-        for (int dir = 0; dir < 3; dir++) {
-          if (dir != direction) { // Not necessary, but saves computation time
+        for (int dir = 0; dir < 3; ++dir) {
+          if (dir != direction) { // Not necessary, but saves one iteration
             size_t ind_p1, ind_m1, ind_p2, ind_m2;
             Coordinate<int> directionVector;
             Coordinate<int> negDirectionVector;
@@ -344,8 +343,8 @@ namespace modifications {
             negDirectionVector[dir] = -1;
 
             ind_m1 = grid.getIndexFromIndexAndStep(index, negDirectionVector);
-            ind_p1 = grid.getIndexFromIndexAndStep(index, directionVector);
             ind_m2 = grid.getIndexFromIndexAndStep(ind_m1, negDirectionVector);
+            ind_p1 = grid.getIndexFromIndexAndStep(index, directionVector);
             ind_p2 = grid.getIndexFromIndexAndStep(ind_p1, directionVector);
             outputData[ind_m2] += rCrossCoeff[dir] * a;
             outputData[ind_m1] += rCrossCoeff[dir] * b;
