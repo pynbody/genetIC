@@ -210,7 +210,7 @@ def default_comparisons():
         compare_ps(ps,ps_test)
 
     output_file = particle_files_in_dir(sys.argv[1])
-    if len(output_file)>0:
+    if len(output_file)>0 and os.path.exists(sys.argv[1]+"/reference_output"):
         compare(pynbody.load(output_file[0]),pynbody.load(sys.argv[1]+"/reference_output"))
 
 if __name__=="__main__":
