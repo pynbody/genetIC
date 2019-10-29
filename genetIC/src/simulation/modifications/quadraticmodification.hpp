@@ -61,23 +61,40 @@ namespace modifications {
       std::vector<std::shared_ptr<fields::Field<DataType, T>>> pushedfields;
 
       for (size_t level = 0; level < this->underlying.getNumLevels(); level++) {
-
-        fields::Field<DataType, T> pushedField = this->pushOneLevelFieldThroughMatrix(field.getFieldForLevel(level),
-                                                                                      level);
-        using tools::numerics::operator/=;
-        pushedField.getDataVector() /= this->underlying.getWeightForLevel(level);
-        pushedfields.push_back(std::make_shared<fields::Field<DataType, T>>(pushedField));
+        pushedfields.push_back(std::make_shared<fields::Field<DataType, T>>(field.getFieldForLevel(level)));
       }
 
-      return std::make_shared<fields::ConstraintField<DataType>>(
+      auto result = std::make_shared<fields::ConstraintField<DataType>>(
         *dynamic_cast<const multilevelcontext::MultiLevelContextInformation<DataType, T> *>(&(this->underlying)),
-        pushedfields);
+        pushedfields, field.transferType,
+        false /* the fields still represent a vector, not a covector */ );
+
+      result->applyTransferRatio(field.transferType, particle::species::dm);
+      // always want the variance of the dm overdensity field
+      // The above applies C_DM^(1/2) if field.transferType is whitenoise. If field.transferType is already dm,
+      // it's a null-op.
+
+      for (size_t level = 0; level < this->underlying.getNumLevels(); level++) {
+        this->pushOneLevelFieldThroughMatrix(result->getFieldForLevel(level), level);
+      }
+
+      // at this point we have Q | delta > (where matrices follow notation of Rey & Pontzen 2018, eq 28).
+      // We now want to turn this into < delta | Q (and can assume Q to be Hermitian).
+      result->convertToCovector();
+
+
+      result->applyTransferRatio(field.transferType, particle::species::dm);
+      // the transfer ratio for the incoming vector; i.e. this is applied here because we will be forming
+      // <result | field> to calculate the value of the quadratic functional
+
+      return result;
     }
 
   protected:
     //! Applies matrix operation that defines the quadratic modification to the specified level of the multi-level field.
-    virtual fields::Field<DataType, T>
-    pushOneLevelFieldThroughMatrix(const fields::Field<DataType, T> &/* field */, size_t /* level */) = 0;
+    virtual void
+    pushOneLevelFieldThroughMatrix(fields::Field<DataType, T> &/* field */, size_t /* level */) = 0;
+
   };
 
   /*! \class FilteredVarianceModification
@@ -131,28 +148,22 @@ namespace modifications {
 
     }
 
-    //! Apply the matrix operation to a single level that defines this quadratic modification
-    fields::Field<DataType, T>
-    pushOneLevelFieldThroughMatrix(const fields::Field<DataType, T> &field, size_t level) override {
+    void pushOneLevelFieldThroughMatrix(fields::Field<DataType, T> &field, size_t level) override {
 
-      fields::Field<DataType, T> pushedField = fields::Field<DataType, T>(field);
+      field.toReal();
+      windowOperator(field, level);
 
-      pushedField.toReal();
-      windowOperator(pushedField, level);
+      field.toFourier();
+      filterOperator(field);
 
-      pushedField.toFourier();
-      filterOperator(pushedField);
+      field.toReal();
+      varianceOperator(field, level);
 
-      pushedField.toReal();
-      varianceOperator(pushedField, level);
+      field.toFourier();
+      filterOperator(field);
 
-      pushedField.toFourier();
-      filterOperator(pushedField);
-
-      pushedField.toReal();
-      windowOperator(pushedField, level);
-
-      return pushedField;
+      field.toReal();
+      windowOperator(field, level);
     }
 
   private:
@@ -165,7 +176,7 @@ namespace modifications {
 
       std::vector<DataType> &fieldData = field.getDataVector();
 
-#pragma omp parallel for schedule(static)
+#pragma omp parallel for schedule(static) default(none) shared(fieldData, level)
       for (size_t i = 0; i < fieldData.size(); ++i) {
         // If cell is not a flagged cell, zero it
         if (!(std::binary_search(this->flaggedCells[level].begin(), this->flaggedCells[level].end(), i))) {
@@ -174,7 +185,7 @@ namespace modifications {
       }
     }
 
-    //! Defines the high pass fermi filter, with the filter-scale as the cutoff paramter.
+    //! Applies a high pass fermi filter to the given field
     void filterOperator(fields::Field<DataType, T> &field) {
 
       assert(field.isFourier());  //Filtering must be done in Fourier space
@@ -186,7 +197,7 @@ namespace modifications {
       field.applyFilter(highPassFermi);
     }
 
-    //! Compute mean variance in the flagged region
+    //! Apply the variance operator to the field, such that field.varianceOperator(field) = variance(field)
     void varianceOperator(fields::Field<DataType, T> &field, size_t level) {
 
       assert(!field.isFourier()); // Variance is calculated in real space

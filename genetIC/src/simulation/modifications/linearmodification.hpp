@@ -186,7 +186,7 @@ namespace modifications {
 
         \param underlying_ - underlying multi-level context object.
         \param cosmology_ - struct containing cosmological data
-        \param direction - component of t velocity to modify, (0,1,2) <-> (x,y,x).
+         \param direction - component of t velocity to modify, (0,1,2) <-> (x,y,z).
     */
     VelocityModification(const multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
                          const cosmology::CosmologicalParameters<T> &cosmology_, int direction_) :

@@ -27,19 +27,10 @@ zoomgrid 4 32
 select_sphere 1.0
 zoomgrid 4 32
 
-
-select_sphere 0.4
-modify overdensity absolute 0.25
-
 done
-
-calculate overdensity
-
-clear_modifications
 
 dump_tipsy test_1.tipsy.overdensity
 
 dump_grid 0
 dump_grid 1
 dump_grid 2
-

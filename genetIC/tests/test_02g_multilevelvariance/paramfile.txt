@@ -23,15 +23,16 @@ centre 8 8 8
 select_cube 16
 dump_IDfile tagged_cells.txt
 
-filtering_scale 64
+filtering_scale 10000
 calculate overdensity
 calculate variance
 
-dump_grid 0
-dump_grid 1
+
 
 done
 
 calculate overdensity
 calculate variance
 
+dump_grid 0
+dump_grid 1

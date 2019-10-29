@@ -57,6 +57,8 @@ namespace multilevelcontext {
     std::vector<T> weights; //!< Fraction of the volume of the coarsest level's cells that the cells on each level occupy
     const cosmology::PowerSpectrum<DataType> *powerSpectrumGenerator = nullptr;
 
+    bool levelsAreCombined = false; //!< Set to true after low-frequency information is propagated into high-resolution fields
+
   public:
     size_t nTransferFunctions = 1; //!< Keeps track of the number of transfer functions currently being used by the code.
     bool allowStrays = false; //!< If true, return output grids that cover the whole simulation box even in the zoom regions
@@ -76,6 +78,14 @@ namespace multilevelcontext {
 
 
     virtual ~MultiLevelContextInformationBase() {}
+
+    void setLevelsAreCombined() {
+      levelsAreCombined = true;
+    }
+
+    bool getLevelsAreCombined() const {
+      return levelsAreCombined;
+    }
 
 
     /*! \brief Adds a level to the current multi-level context
@@ -136,6 +146,7 @@ namespace multilevelcontext {
       cumu_Ns.clear();
       Ntot = 0;
       nLevels = 0;
+      levelsAreCombined = false;
       this->changed();
     }
 
@@ -275,7 +286,7 @@ namespace multilevelcontext {
 
       auto retVal = std::make_shared<fields::ConstraintField<DataType>>(
         *dynamic_cast<const MultiLevelContextInformation<DataType, T> *>(this),
-        fieldsOnLevels, transferType);
+        fieldsOnLevels, transferType, true);
 
       retVal->applyFilters(filters::FilterFamily<DataType>(*this));
       retVal->toReal();

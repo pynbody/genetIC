@@ -12,7 +12,7 @@
 #include "src/tools/progress/progress.hpp"
 #include "src/tools/util_functions.hpp"
 #include "src/tools/data_types/complex.hpp"
-#include "src/simulation/grid/virtualgrid.hpp"
+#include "src/simulation/window.hpp"
 
 using std::complex;
 using std::vector;
@@ -33,6 +33,34 @@ using std::make_shared;
  */
 
 namespace grids {
+
+  template<typename T>
+  class VirtualGrid;
+
+  template<typename T>
+  class SectionOfGrid;
+
+  template<typename T>
+  class SubSampleGrid;
+
+  template<typename T>
+  class SuperSampleGrid;
+
+  template<typename T>
+  class MassScaledGrid;
+
+  template<typename T>
+  class IndependentFlaggingGrid;
+
+  template<typename T>
+  class ResolutionMatchingGrid;
+
+  template<typename T>
+  class CenteredGrid;
+
+  template<typename T>
+  class OffsetGrid;
+
 
   /*! \class Grid
       \brief Base grid object, defining the properties of a grid on a single level
@@ -159,17 +187,24 @@ namespace grids {
 
     //! Make a VirtualGrid pointing to this grid, but with a resolution and range matching target.
     GridPtrType makeProxyGridToMatch(const Grid<T> &target) const {
+
       GridPtrType proxy = std::const_pointer_cast<Grid<T>>(this->shared_from_this());
-      if (target.cellSize > cellSize) {
-        size_t ratio = tools::getRatioAndAssertPositiveInteger(target.cellSize, cellSize);
-        proxy = this->makeSubsampled(ratio);
-      } else if (target.cellSize < cellSize) {
+
+      // If we have to supersample, do it first so that the origin offsets (which are represented by integer number
+      // of cells) are expressed relative to the finest possible level. (See getRatioAndAssertInteger calls below.)
+      if (target.cellSize < cellSize) {
         size_t ratio = tools::getRatioAndAssertPositiveInteger(cellSize, target.cellSize);
-        proxy = this->makeSupersampled(ratio);
+        proxy = proxy->makeSupersampled(ratio);
       }
 
-      if (target.offsetLower != offsetLower || target.size != proxy->size) {
+      // If we have to subsample, do it last (same reason as doing supersampling first, see above). But we need to
+      // *know* that the subsampling is going to happen, so that we can account for it in the number of
+      // cells to include in the SectionOfGrid.
+      size_t subsample_ratio = tools::getRatioAndAssertPositiveInteger(target.cellSize, proxy->cellSize);
+
+      if (target.offsetLower != offsetLower || target.size*subsample_ratio != proxy->size) {
         auto relativeOffset = target.offsetLower - offsetLower;
+        size_t pre_subsampling_size = target.size*subsample_ratio;
         proxy = std::make_shared<SectionOfGrid<T>>(proxy,
                                                    tools::getRatioAndAssertInteger(relativeOffset.x,
                                                                                    proxy->cellSize),
@@ -177,9 +212,11 @@ namespace grids {
                                                                                    proxy->cellSize),
                                                    tools::getRatioAndAssertInteger(relativeOffset.z,
                                                                                    proxy->cellSize),
-                                                   target.size);
+                                                   pre_subsampling_size);
       }
 
+      if(subsample_ratio>1)
+        proxy = proxy->makeSubsampled(subsample_ratio);
 
       return proxy;
     }
@@ -312,7 +349,8 @@ namespace grids {
         iterateOverCube<int>(
           coord * factor, coord * factor + factor,
           [&targetArray, &target](const Coordinate<int> &subCoord) {
-            targetArray.push_back(target->getIndexFromCoordinateNoWrap(subCoord));
+            if(target->containsCellWithCoordinate(subCoord))
+              targetArray.push_back(target->getIndexFromCoordinateNoWrap(subCoord));
           }
         );
       }
@@ -445,7 +483,7 @@ namespace grids {
 
         Does not take into account offset or physical coordinates
      */
-    virtual bool containsCellWithCoordinate(Coordinate<int> coord) const {
+    virtual bool containsCellWithCoordinate(const Coordinate<int> &coord) const {
       return coord.x >= 0 && coord.y >= 0 && coord.z >= 0 &&
              (unsigned) coord.x < size && (unsigned) coord.y < size && (unsigned) coord.z < size;
     }
@@ -523,7 +561,6 @@ namespace grids {
       id -= y * size;
 
       auto coord = Coordinate<int>(int(x), int(y), int(id));
-      assert(this->containsCellWithCoordinate(coord));
       return coord;
     }
 

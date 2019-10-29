@@ -265,8 +265,6 @@ namespace fields {
       assert(isFourierOnAllLevels() && other.isFourierOnAllLevels());
       // To take inner product with correct filters, we must have the fields in fourier space
 
-      bool covariance_weighted = false;
-
       if(other.isCovector) {
         // TODO: Potentially, optimise so that conversion is done 'on the fly'
         MultiLevelField<DataType> otherAsVector(other);
@@ -415,10 +413,9 @@ namespace fields {
     /*! Makes this field suitable for outputting particles of the defined type, by applying a transfer function */
     void applyPowerSpectrumFor(particle::species outputSpecies) {
       applyTransferRatio(this->transferType, outputSpecies);
+      this->transferType = outputSpecies;
     }
 
-
-  protected:
     //! Divide by power spectrum from an "old" species and multiply by the transfer function for the species of this field
     void applyTransferRatio(particle::species oldSpecies, particle::species newSpecies) {
       assertContextConsistent();
@@ -428,7 +425,6 @@ namespace fields {
 
       if (oldSpecies == particle::species::whitenoise ) {
         applyTransfer(newSpecies);
-        this->transferType = newSpecies;
         return;
       }
 
@@ -440,8 +436,10 @@ namespace fields {
                                   *multiLevelContext->getCovariance(i, newSpecies),
                                   grid);
       }
-      this->transferType = newSpecies;
+
     }
+
+  protected:
 
     //! Multiplies the field by the relevant power spectrum in Fourier space.
     void applyTransfer(particle::species ofSpecies) {
@@ -611,13 +609,7 @@ namespace fields {
 
   protected:
     using T = typename MultiLevelField<DataType>::T;
-    typedef enum {
-      PRE_SEPARATION,
-      SEPARATED,
-      RECOMBINED
-    } t_output_state;
 
-    t_output_state outputState; //!< Current output state of the OutputField
     bool fieldsOnLevelsPopulated; //!< True if already populated the fields on all levels.
 
 
@@ -644,22 +636,16 @@ namespace fields {
     OutputField(const multilevelcontext::MultiLevelContextInformation<DataType> &multiLevelContext,
                 particle::species transfer_type)
       : MultiLevelField<DataType>(multiLevelContext, transfer_type) {
-      outputState = PRE_SEPARATION;
+
       fieldsOnLevelsPopulated = false;
     }
 
     //! Copy constructor
     OutputField(const OutputField<DataType> &copy) : MultiLevelField<DataType>(copy) {
-      outputState = copy.outputState;
       fieldsOnLevelsPopulated = copy.fieldsOnLevelsPopulated;
     }
 
 
-    //! Sets the internal state to RECOMBINED
-    void setStateRecombined() {
-      // TODO - this can probably be removed
-      outputState = RECOMBINED;
-    }
 
     //! Returns the field on the specified level, populating it if not yet populated.
     Field<DataType, T> &getFieldForLevel(size_t i) override {
@@ -693,9 +679,10 @@ namespace fields {
     */
     ConstraintField(const multilevelcontext::MultiLevelContextInformation<DataType> &multiLevelContext,
                     const std::vector<std::shared_ptr<Field<DataType, T>>> &fieldsOnGrids,
-                    particle::species transferType)
+                    particle::species transferType,
+                    bool isCovector)
       : MultiLevelField<DataType>(multiLevelContext, std::move(fieldsOnGrids)) {
-      this->isCovector = true;
+      this->isCovector = isCovector;
       this->transferType = transferType;
     }
 
