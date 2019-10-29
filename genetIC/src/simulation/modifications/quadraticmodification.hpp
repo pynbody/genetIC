@@ -66,10 +66,10 @@ namespace modifications {
 
       auto result = std::make_shared<fields::ConstraintField<DataType>>(
         *dynamic_cast<const multilevelcontext::MultiLevelContextInformation<DataType, T> *>(&(this->underlying)),
-        pushedfields, field.transferType,
+        pushedfields, field.getTransferType(),
         false /* the fields still represent a vector, not a covector */ );
 
-      result->applyTransferRatio(field.transferType, particle::species::dm);
+      result->applyTransferRatio(field.getTransferType(), particle::species::dm);
       // always want the variance of the dm overdensity field
       // The above applies C_DM^(1/2) if field.transferType is whitenoise. If field.transferType is already dm,
       // it's a null-op.
@@ -83,7 +83,7 @@ namespace modifications {
       result->convertToCovector();
 
 
-      result->applyTransferRatio(field.transferType, particle::species::dm);
+      result->applyTransferRatio(field.getTransferType(), particle::species::dm);
       // the transfer ratio for the incoming vector; i.e. this is applied here because we will be forming
       // <result | field> to calculate the value of the quadratic functional
 

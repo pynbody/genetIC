@@ -73,7 +73,7 @@ namespace fields {
     virtual ~MultiLevelField() {}
     
     //! Return the transfer function type currently applied to this field
-    particle::species getTransferType() {
+    particle::species getTransferType() const {
       return transferType;
     }
 
@@ -113,7 +113,6 @@ namespace fields {
 
     //! Returns the number of levels in this field
     size_t getNumLevels() const {
-      assertContextConsistent();
       return multiLevelContext->getNumLevels();
     }
 
@@ -484,11 +483,22 @@ namespace fields {
     T getChi2() const {
       assertContextConsistent();
 
-      this->toFourier();
-      auto self_copy = fields::MultiLevelField<DataType>(*this);
+      bool returnToReal = false;
+      if(!this->isFourierOnAllLevels()) {
+        // technically converting to fourier violates const correctness, but we'll put it right below
+        const_cast<MultiLevelField<DataType>*>(this)->toFourier();
+        returnToReal = true;
+      }
 
+      auto self_copy = fields::MultiLevelField<DataType>(*this);
       self_copy.convertToCovector();
       T chi2 = self_copy.innerProduct(*this).real();
+
+      if(returnToReal) {
+        // Fix the const violation above
+        const_cast<MultiLevelField<DataType>*>(this)->toReal();
+      }
+
       return chi2;
     }
 

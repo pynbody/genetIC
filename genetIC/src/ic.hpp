@@ -777,9 +777,9 @@ public:
     outputFields[0]->applyPowerSpectrumFor(particle::species::dm);
 
     // Check everything has worked as expected (e.g. no accidental pointer copying)
-    assert(outputFields[0]->transferType == particle::species::dm);
+    assert(outputFields[0]->getTransferType() == particle::species::dm);
     if(useBaryonTransferFunction)
-      assert(outputFields[1]->transferType == particle::species::baryon);
+      assert(outputFields[1]->getTransferType() == particle::species::baryon);
 
   }
 
@@ -941,14 +941,14 @@ public:
   virtual void initialiseParticleGenerator(particle::species species) {
     auto & outputField = getOutputFieldForSpecies(species);
 
-    if(outputField.transferType!=species) {
+    if(outputField.getTransferType()!=species) {
       // This species (probably baryons) actually just uses the output field for a different particle species
       // (probably DM).
       //
       // We don't want multiple particle generators based on the same output field -- that would be very wasteful!
       //      // So, just take a copy of the particle generator pointer.
-      ensureParticleGeneratorInitialised(outputField.transferType);
-      pParticleGenerator[species] = pParticleGenerator[outputField.transferType];
+      ensureParticleGeneratorInitialised(outputField.getTransferType());
+      pParticleGenerator[species] = pParticleGenerator[outputField.getTransferType()];
     } else {
 
       initialiseParticleGeneratorUsingField(species, outputField);
@@ -994,7 +994,7 @@ public:
       species = particle::species::dm;
 
     for(auto outputField : this->outputFields) {
-      if(outputField->transferType==species)
+      if(outputField->getTransferType()==species)
         return *outputField;
     }
     throw(std::out_of_range("Cannot find an output field for species"));
