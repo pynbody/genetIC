@@ -482,7 +482,7 @@ public:
       throw std::runtime_error("The newly initialised zoom level is not fully contained within the previous level");
 
     if (calculationGridAbove.coversFullSimulation())
-      upperCornerExclusive = calculationGridAbove.wrapCoordinate(upperCornerExclusive);
+      upperCornerExclusive = calculationGridAbove.wrapCoordinate(upperCornerExclusive-1)+1; // wrap the last included cell
     else {
       if (upperCornerExclusive.x > nAbove || upperCornerExclusive.y > nAbove || upperCornerExclusive.z > nAbove)
         throw std::runtime_error("The newly initialised zoom level is not fully contained within the previous level");
@@ -492,9 +492,11 @@ public:
 
     size_t missed_particle = 0;
 
+    T EPSILON = calculationGridAbove.cellSize*1e-6;
+
     Window<T> zoomWindow = Window<T>(calculationGridAbove.periodicDomainSize,
-                                     calculationGridAbove.getCentroidFromCoordinate(lowerCorner),
-                                     calculationGridAbove.getCentroidFromCoordinate(upperCornerExclusive));
+                                     calculationGridAbove.getCentroidFromCoordinate(lowerCorner) - EPSILON,
+                                     calculationGridAbove.getCentroidFromCoordinate(upperCornerExclusive-1) + EPSILON);
 
 
     // Make list of the particles, excluding those that fall outside the new high-res box. Alternatively,

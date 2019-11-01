@@ -174,9 +174,11 @@ public:
 
     lowerCornerInclusive = wrap(centre - newSize / 2);
     if (newSize % 2 == 0)
-      upperCornerExclusive = wrap(centre + newSize / 2);
+      upperCornerExclusive = wrap(centre + newSize / 2 - 1) + 1;
     else
-      upperCornerExclusive = wrap(centre + (newSize / 2 + 1));
+      upperCornerExclusive = wrap(centre + newSize / 2 ) + 1;
+
+    // Note in the above, because the corner is *exclusive*, the +1 happens after the wrapping
 
     // There is an edge case where T is int, newSize is odd, and also getSize()==newSize, where the new
     // window might be aligned too far up to capture the old lower corner. Fix this:
@@ -195,7 +197,8 @@ public:
 
     assert(this->contains(oldLCI));
     assert(this->contains(oldUCE - 1));
-    assert(getSizes() == newSize);
+
+    assert(getSizes() == wrap(newSize));
 
   }
 
