@@ -51,11 +51,9 @@ namespace modifications {
 
     //! Returns the covector that defines this modification.
     std::shared_ptr<fields::ConstraintField<DataType>> getCovector(particle::species forSpecies) {
-      if (this->covector == nullptr || this->forSpecies!=forSpecies) {
-        this->covector = this->calculateCovectorOnAllLevels(forSpecies);
-        this->covector->toFourier();
-      }
-      return this->covector;
+      auto r = this->calculateCovectorOnAllLevels(forSpecies);
+      r->toFourier();
+      return r;
     }
 
   protected:
@@ -135,7 +133,11 @@ namespace modifications {
      */
     void turnLocalisationCovectorIntoModificationCovector(fields::MultiLevelField<DataType> & field) const override
     {
-      field.applyPowerSpectrumFor(particle::species::dm);
+      field.applyTransferRatio(field.getTransferType(), particle::species::dm);
+      // Note that this does NOT update the field's own transferType to dm, which is the correct behaviour
+      // e.g. it may be a covector that acts on whitenoise vectors, in which case we pick up a factor of the
+      // DM transfer function here (so that the output is a DM overdensity). The transferType of the covector
+      // refers to which type of vector it will act on.
     }
   };
 

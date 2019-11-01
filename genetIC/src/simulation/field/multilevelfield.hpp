@@ -257,6 +257,7 @@ namespace fields {
        */
       assertContextConsistent();
       assert(isCompatible(other));
+      assert(other.getTransferType()==this->transferType);
       if (!isCovector)
         throw (std::runtime_error(
           "The inner product can only be taken if one of the fields is a covector"));
@@ -482,6 +483,12 @@ namespace fields {
     //! Returns the value of chi^2, with respect to the relevant covariance matrix.
     T getChi2() const {
       assertContextConsistent();
+
+      if(this->getTransferType()!=particle::species::whitenoise)
+        throw std::runtime_error("Cannot calculate the chi^2 after the output field has been generated");
+      // Would easily be possible to calculate chi^2 on a single level for an arbitrary transfer function, but for
+      // multi-level fields it would presumably require a lot of work (because of the need to implement
+      // convertToCovector in this arbitrary case).
 
       bool returnToReal = false;
       if(!this->isFourierOnAllLevels()) {

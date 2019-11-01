@@ -440,13 +440,19 @@ namespace fields {
 
       if(windowFirst) {
         inWindow->setZeroOutsideWindow(window);
+        inWindow->toFourier();
         inWindow->applyFilter(filter);
       } else {
+        inWindow->toFourier();
         inWindow->applyFilter(filter);
         inWindow->setZeroOutsideWindow(window);
       }
 
       this->setZeroInsideWindow(window);
+      if(inWindow->isFourier())
+        this->toFourier();
+      else
+        this->toReal();
       this->data += inWindow->data;
 
     }

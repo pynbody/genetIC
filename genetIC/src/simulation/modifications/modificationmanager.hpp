@@ -106,7 +106,7 @@ namespace modifications {
 
       // Apply all linear modifications
       orthonormaliseModifications(modificationCovectors, linearTargetValues);
-      std::cerr << "Delta chi^2 from linear modifications = "
+      std::cerr << "ESTIMATED delta chi^2 from linear modifications = "
                 << getDeltaChi2FromLinearModifs(*outputField, modificationCovectors, linearTargetValues)
                 << std::endl;
       applyLinearModif( modificationCovectors, linearTargetValues);
