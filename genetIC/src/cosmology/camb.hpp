@@ -65,6 +65,9 @@ namespace cosmology {
     getPowerSpectrumForGrid(const std::shared_ptr<const grids::Grid<CoordinateType>> &grid,
                             particle::species transferType = particle::species::dm) const {
 
+      if(transferType == particle::species::whitenoise)
+        return nullptr;
+
       auto cacheKey = std::make_pair(std::weak_ptr<const grids::Grid<CoordinateType>>(grid), transferType);
 
       auto result = this->calculatedCovariancesCache[cacheKey];

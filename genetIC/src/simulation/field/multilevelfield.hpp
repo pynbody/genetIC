@@ -430,13 +430,17 @@ namespace fields {
 
       toFourier();
       for (size_t i = 0; i < getNumLevels(); ++i) {
-        auto &grid = multiLevelContext->getGridForLevel(i);
-        applyTransferRatioOneGrid(getFieldForLevel(i),
-                                  *multiLevelContext->getCovariance(i, oldSpecies),
-                                  *multiLevelContext->getCovariance(i, newSpecies),
-                                  grid);
+        applyTransferRatioOneLevel(oldSpecies, newSpecies, i);
       }
 
+    }
+
+    void applyTransferRatioOneLevel(particle::species oldSpecies, particle::species newSpecies, size_t i) {
+      auto &grid = multiLevelContext->getGridForLevel(i);
+      applyTransferRatioOneGrid(getFieldForLevel(i),
+                                multiLevelContext->getCovariance(i, oldSpecies).get(),
+                                multiLevelContext->getCovariance(i, newSpecies).get(),
+                                grid);
     }
 
   protected:
@@ -457,18 +461,26 @@ namespace fields {
 
     //! Divide by one power spectrum and multiply by another for a single level.
     void applyTransferRatioOneGrid(Field<DataType> &field,
-                                   const Field<DataType> &spectrum1,
-                                   const Field<DataType> &spectrum2,
+                                   const Field<DataType> *spectrum1,
+                                   const Field<DataType> *spectrum2,
                                    const grids::Grid<T> &grid) {
       field.forEachFourierCellInt([&grid, &field, &spectrum1, &spectrum2]
                                     (complex<T> existingValue, int kx, int ky, int kz) {
-        T sqrt_spec1 = sqrt(spectrum1.getFourierCoefficient(kx, ky, kz).real());
-        T sqrt_spec2 = sqrt(spectrum2.getFourierCoefficient(kx, ky, kz).real());
+        T sqrt_spec1, sqrt_spec2;
+
+        if(spectrum1)
+          sqrt_spec1 = sqrt(spectrum1->getFourierCoefficient(kx, ky, kz).real());
+        else
+          sqrt_spec1 = 1.0;
+        if(spectrum2)
+          sqrt_spec2 = sqrt(spectrum2->getFourierCoefficient(kx, ky, kz).real());
+        else
+          sqrt_spec2 = 1.0;
+
         complex<T> new_val;
         if (sqrt_spec1 == 0.0) {
-          assert(sqrt_spec2 == 0.0);
-          //This can only happen if the power spectrum is zero, ie k = 0, in which case,
-          //it will be zero for baryons too, so just return 0:
+          // Existing power spectrum is zero, so can't be divided out; basically we are applying a pseudo-inverse
+          // rather than a true inverse of spectrum 1.
           new_val = 0.0;
         } else {
           new_val = existingValue * sqrt_spec2 / sqrt_spec1;

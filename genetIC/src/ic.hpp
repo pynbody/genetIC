@@ -756,6 +756,8 @@ public:
     auto &levelField = outputFields[nField]->getFieldForLevel(level);
     levelField.loadGridData(filename);
     levelField.setFourier(false);
+    levelField.toFourier();
+    outputFields[nField]->applyTransferRatioOneLevel(particle::species::dm, particle::species::whitenoise, level); // transform back to whitenoise
     cerr << "... success!" << endl;
   }
 
