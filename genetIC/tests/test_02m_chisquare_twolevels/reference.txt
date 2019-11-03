@@ -1,1 +1,1 @@
-Calculated chi^2 = 293555
+Calculated chi^2 = 492005.8359 (dof = 491520)

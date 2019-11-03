@@ -58,7 +58,7 @@ namespace particle {
       // Gadget units are used internally, so express as Msol h
       // To be precise, this pre-factor is the critical density in units of (10^10*Msol//)/(Mpc/h)^3, where
       // Msol is the mass of the sun ('solar mass'). Needed because volumes are expected in units of Mpc/h
-      boxMass = 27.744948 * cosmology.OmegaM0 * powf(onGrid->periodicDomainSize, 3.0);
+      boxMass = 27.744948 * cosmology.OmegaM0 * pow(onGrid->periodicDomainSize, 3.0);
     }
 
   public:

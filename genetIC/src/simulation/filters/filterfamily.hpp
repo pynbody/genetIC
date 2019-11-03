@@ -85,16 +85,35 @@ namespace filters {
 
     template<typename S>
     explicit FilterFamily(const multilevelcontext::MultiLevelContextInformationBase<T, S> &fromContext) {
-      this->filters.push_back(std::make_shared<Filter<T>>());
-      this->lpFilters.push_back(std::make_shared<Filter<T>>());
-      this->hpFilters.push_back(std::make_shared<Filter<T>>());
+      if(fromContext.getLevelsAreCombined()) {
+        // Output fields have been generated already...
+        // Regard levels as independent. Strictly the filters should now be spatial, i.e. each grid
+        // is used in its own domain of validity, but we assume we are only interested in the highest
+        // resolution area (since in practice the only place the filters will now be used is in
+        // checking modification values).
+        auto nullfilter = std::make_shared<NullFilter<T>>();
+        auto identityfilter = std::make_shared<Filter<T>>();
+        for(size_t level=0; level < fromContext.getNumLevels() - 1; ++level) {
+          this->filters.push_back(nullfilter);
+          this->lpFilters.push_back(nullfilter);
+          this->hpFilters.push_back(nullfilter);
+        }
+        this->filters.push_back(identityfilter);
+        this->lpFilters.push_back(identityfilter);
+        this->hpFilters.push_back(identityfilter);
 
-      for (size_t level = 0; level < fromContext.getNumLevels() - 1; ++level) {
-        const grids::Grid<T> &grid0(fromContext.getGridForLevel(level));
+      } else {
+        this->filters.push_back(std::make_shared<Filter<T>>());
+        this->lpFilters.push_back(std::make_shared<Filter<T>>());
+        this->hpFilters.push_back(std::make_shared<Filter<T>>());
 
-        T k_pixel = ((T) grid0.size) * grid0.getFourierKmin();
-        T k_cut = FRACTIONAL_K_SPLIT * k_pixel;
-        this->addLevel(k_cut);
+        for (size_t level = 0; level < fromContext.getNumLevels() - 1; ++level) {
+          const grids::Grid<T> &grid0(fromContext.getGridForLevel(level));
+
+          T k_pixel = ((T) grid0.size) * grid0.getFourierKmin();
+          T k_cut = FRACTIONAL_K_SPLIT * k_pixel;
+          this->addLevel(k_cut);
+        }
       }
     }
 

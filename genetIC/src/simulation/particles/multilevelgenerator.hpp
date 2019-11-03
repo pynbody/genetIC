@@ -117,7 +117,7 @@ namespace particle {
 
       }
 
-      generator.overdensityField.setStateRecombined();
+      generator.overdensityField.getContext().setLevelsAreCombined();
 
       for (size_t i = 0; i < nlevels; ++i)
         generator.pGenerators[i]->toReal();

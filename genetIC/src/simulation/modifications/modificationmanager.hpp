@@ -100,13 +100,13 @@ namespace modifications {
 
       // Extract A, b from modification list
       for (size_t i = 0; i < linearModificationList.size(); i++) {
-        modificationCovectors.push_back(linearModificationList[i]->getCovector(outputField->transferType));
+        modificationCovectors.push_back(linearModificationList[i]->getCovector(outputField->getTransferType()));
         linearTargetValues.push_back(linearModificationList[i]->getTarget());
       }
 
       // Apply all linear modifications
       orthonormaliseModifications(modificationCovectors, linearTargetValues);
-      std::cerr << "Delta chi^2 from linear modifications = "
+      std::cerr << "ESTIMATED delta chi^2 from linear modifications = "
                 << getDeltaChi2FromLinearModifs(*outputField, modificationCovectors, linearTargetValues)
                 << std::endl;
       applyLinearModif( modificationCovectors, linearTargetValues);

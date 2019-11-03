@@ -57,6 +57,8 @@ namespace multilevelcontext {
     std::vector<T> weights; //!< Fraction of the volume of the coarsest level's cells that the cells on each level occupy
     const cosmology::PowerSpectrum<DataType> *powerSpectrumGenerator = nullptr;
 
+    bool levelsAreCombined = false; //!< Set to true after low-frequency information is propagated into high-resolution fields
+
   public:
     size_t nTransferFunctions = 1; //!< Keeps track of the number of transfer functions currently being used by the code.
     bool allowStrays = false; //!< If true, return output grids that cover the whole simulation box even in the zoom regions
@@ -76,6 +78,14 @@ namespace multilevelcontext {
 
 
     virtual ~MultiLevelContextInformationBase() {}
+
+    void setLevelsAreCombined() {
+      levelsAreCombined = true;
+    }
+
+    bool getLevelsAreCombined() const {
+      return levelsAreCombined;
+    }
 
 
     /*! \brief Adds a level to the current multi-level context
@@ -136,6 +146,7 @@ namespace multilevelcontext {
       cumu_Ns.clear();
       Ntot = 0;
       nLevels = 0;
+      levelsAreCombined = false;
       this->changed();
     }
 
@@ -143,6 +154,21 @@ namespace multilevelcontext {
     //! Returns the total number of cells in the multi-level context
     size_t getNumCells() const {
       return Ntot;
+    }
+
+    //! Returns the number of degrees of freedom -- i.e. the number of cells, counting only the finest in any location
+    size_t getNumDof() const {
+      size_t dof = 0;
+      for(size_t i=0; i<getNumLevels(); ++i) {
+        dof+=getGridForLevel(i).size3;
+        if(i>0) {
+          // subtract the number of cells this corresponds to on the level above
+          size_t factor = tools::getRatioAndAssertInteger(getGridForLevel(i-1).cellSize,getGridForLevel(i).cellSize);
+          factor*=factor*factor;
+          dof-=getGridForLevel(i).size3/factor;
+        }
+      }
+      return dof;
     }
 
     //! Returns the number of levels in the multi-level context
@@ -217,7 +243,7 @@ namespace multilevelcontext {
         \param data - field data on the highest resolution level.
     */
     std::shared_ptr<fields::ConstraintField<DataType>>
-    generateMultilevelCovectorFromHiresCovector(fields::Field<DataType, T> &&data) const {
+    generateMultilevelCovectorFromHiresCovector(fields::Field<DataType, T> &&data, particle::species transferType) const {
       using tools::numerics::operator*=;
       assert(&data.getGrid() == pGrids.back().get());
 
@@ -239,7 +265,6 @@ namespace multilevelcontext {
 
         for (int level = levelmax - 1; level >= 0; --level) {
 
-#ifdef CUBIC_INTERPOLATION
           fields::Field<DataType, T> & hires = *fieldsOnLevels[level + 1];
           fields::Field<DataType, T> & lores = *fieldsOnLevels[level];
 
@@ -251,9 +276,6 @@ namespace multilevelcontext {
             auto location = hires.getGrid().getCentroidFromIndex(i);
             lores.deInterpolate(location, hires[i]/pixel_volume_ratio);
           }
-#else
-          fieldsOnLevels[level]->addFieldFromDifferentGrid(*(fieldsOnLevels[level + 1]));
-#endif
 
         }
       }
@@ -264,7 +286,7 @@ namespace multilevelcontext {
 
       auto retVal = std::make_shared<fields::ConstraintField<DataType>>(
         *dynamic_cast<const MultiLevelContextInformation<DataType, T> *>(this),
-        fieldsOnLevels);
+        fieldsOnLevels, transferType, true);
 
       retVal->applyFilters(filters::FilterFamily<DataType>(*this));
       retVal->toReal();

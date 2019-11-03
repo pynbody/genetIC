@@ -45,17 +45,15 @@ namespace modifications {
 
     //! Calculates the current value of a.field for the modification defined by covector a on the field.
     T calculateCurrentValue(const fields::MultiLevelField<DataType> &field) override {
-      T val = this->getCovector(field.transferType)->innerProduct(field).real();
+      T val = this->getCovector(field.getTransferType())->innerProduct(field).real();
       return val;
     }
 
     //! Returns the covector that defines this modification.
     std::shared_ptr<fields::ConstraintField<DataType>> getCovector(particle::species forSpecies) {
-      if (this->covector == nullptr || this->forSpecies!=forSpecies) {
-        this->covector = this->calculateCovectorOnAllLevels(forSpecies);
-        this->covector->toFourier();
-      }
-      return this->covector;
+      auto r = this->calculateCovectorOnAllLevels(forSpecies);
+      r->toFourier();
+      return r;
     }
 
   protected:
@@ -70,12 +68,7 @@ namespace modifications {
       using tools::numerics::operator/=;
       auto highResModif = calculateLocalisationCovector(this->underlying.getGridForLevel(level));
 
-      auto multiLevelCovector = this->underlying.generateMultilevelCovectorFromHiresCovector(std::move(highResModif));
-
-      // Note - the resulting covector will be applied most likely to a white noise field, but it could be
-      // a field such as the DM field if we end up calculating a constraint value after the fact. We need
-      // to keep track of what species we are calculating a covector for.
-      multiLevelCovector->transferType = forSpecies;
+      auto multiLevelCovector = this->underlying.generateMultilevelCovectorFromHiresCovector(std::move(highResModif), forSpecies);
 
       turnLocalisationCovectorIntoModificationCovector(*multiLevelCovector);
       return multiLevelCovector;
@@ -140,7 +133,11 @@ namespace modifications {
      */
     void turnLocalisationCovectorIntoModificationCovector(fields::MultiLevelField<DataType> & field) const override
     {
-      field.applyPowerSpectrumFor(particle::species::dm);
+      field.applyTransferRatio(field.getTransferType(), particle::species::dm);
+      // Note that this does NOT update the field's own transferType to dm, which is the correct behaviour
+      // e.g. it may be a covector that acts on whitenoise vectors, in which case we pick up a factor of the
+      // DM transfer function here (so that the output is a DM overdensity). The transferType of the covector
+      // refers to which type of vector it will act on.
     }
   };
 
@@ -180,6 +177,9 @@ namespace modifications {
   */
   template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
   class VelocityModification : public OverdensityModification<DataType, T> {
+  private:
+    const bool derivInRealSpace = true;
+
   protected:
     int direction; //!< Component of velocity to modify, (0,1,2) <-> (x,y,x).
 
@@ -188,7 +188,7 @@ namespace modifications {
 
         \param underlying_ - underlying multi-level context object.
         \param cosmology_ - struct containing cosmological data
-        \param direction - component of t velocity to modify, (0,1,2) <-> (x,y,x).
+         \param direction - component of t velocity to modify, (0,1,2) <-> (x,y,z).
     */
     VelocityModification(const multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
                          const cosmology::CosmologicalParameters<T> &cosmology_, int direction_) :

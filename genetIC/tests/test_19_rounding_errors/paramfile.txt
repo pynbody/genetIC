@@ -1,0 +1,27 @@
+# Test for floating point rounding errors
+
+# cosmology:
+Ob		 0.0
+Om		 0.3156
+Ol	         0.6844
+s8	         0.831
+ns	         0.9645
+hubble	     0.6727
+zin	         500
+
+camb	../camb_transfer_kmax40_z500.dat
+seed	8896131
+
+
+# output:
+outname test_19
+outdir	 ./
+outformat 3
+
+# 64 Mpc/h, 64 cells
+basegrid 64.0 64
+
+done
+
+dump_grid 0
+

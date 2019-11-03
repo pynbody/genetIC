@@ -482,7 +482,7 @@ public:
       throw std::runtime_error("The newly initialised zoom level is not fully contained within the previous level");
 
     if (calculationGridAbove.coversFullSimulation())
-      upperCornerExclusive = calculationGridAbove.wrapCoordinate(upperCornerExclusive);
+      upperCornerExclusive = calculationGridAbove.wrapCoordinate(upperCornerExclusive-1)+1; // wrap the last included cell
     else {
       if (upperCornerExclusive.x > nAbove || upperCornerExclusive.y > nAbove || upperCornerExclusive.z > nAbove)
         throw std::runtime_error("The newly initialised zoom level is not fully contained within the previous level");
@@ -492,9 +492,11 @@ public:
 
     size_t missed_particle = 0;
 
+    T EPSILON = calculationGridAbove.cellSize*1e-6;
+
     Window<T> zoomWindow = Window<T>(calculationGridAbove.periodicDomainSize,
-                                     calculationGridAbove.getCentroidFromCoordinate(lowerCorner),
-                                     calculationGridAbove.getCentroidFromCoordinate(upperCornerExclusive));
+                                     calculationGridAbove.getCentroidFromCoordinate(lowerCorner) - EPSILON,
+                                     calculationGridAbove.getCentroidFromCoordinate(upperCornerExclusive-1) + EPSILON);
 
 
     // Make list of the particles, excluding those that fall outside the new high-res box. Alternatively,
@@ -765,7 +767,7 @@ public:
   //! Applies appropriate power spectrum to all fields.
   virtual void applyPowerSpec() {
     // This only makes sense if our output field so far is white noise
-    assert(outputFields[0]->transferType == particle::species::whitenoise);
+    assert(outputFields[0]->getTransferType() == particle::species::whitenoise);
     assert(outputFields.size()==1);
 
     if(useBaryonTransferFunction) {
@@ -777,9 +779,9 @@ public:
     outputFields[0]->applyPowerSpectrumFor(particle::species::dm);
 
     // Check everything has worked as expected (e.g. no accidental pointer copying)
-    assert(outputFields[0]->transferType == particle::species::dm);
+    assert(outputFields[0]->getTransferType() == particle::species::dm);
     if(useBaryonTransferFunction)
-      assert(outputFields[1]->transferType == particle::species::baryon);
+      assert(outputFields[1]->getTransferType() == particle::species::baryon);
 
   }
 
@@ -790,7 +792,7 @@ public:
   * \param prefix - prefix to define filename of output files.
   */
   template<typename TField>
-  void dumpGridData(size_t level, const TField &data, size_t nField, std::string prefix = "grid") {
+  void dumpGridData(size_t level, const TField &data, std::string prefix = "grid") {
 
     initialiseRandomComponentIfUninitialised();
 
@@ -799,9 +801,6 @@ public:
     // Output grid data:
     ostringstream filename;
     filename << outputFolder << "/" << prefix << "-" << level;
-    if (nField > 0) {
-      filename << "-field-" << nField;
-    }
     filename << ".npy";
 
     data.dumpGridData(filename.str());
@@ -811,9 +810,6 @@ public:
     filename.str("");
     // filename << outputFolder << "/" << prefix << "-" << level << ".txt";
     filename << outputFolder << "/" << prefix << "-info-" << level;
-    if (nField > 0) {
-      filename << "-field-" << nField;
-    }
     if (data.isFourier()) {
       filename << "-fourier";
     }
@@ -828,12 +824,6 @@ public:
     ifile << "The line above contains information about grid level " << level << endl;
     ifile << "It gives the x-offset, y-offset and z-offset of the low-left corner and also the box length" << endl;
     ifile.close();
-  }
-
-  //! Overload that the dark matter only (for backwards compatibility):
-  template<typename TField>
-  void dumpGridData(size_t level, const TField &data) {
-    this->dumpGridData(level, data, 0);
   }
 
 
@@ -852,37 +842,41 @@ public:
     this->saveTipsyArray(fname, 0);
   }
 
-  //! Dumps field at a given level in a file named grid-level
+  //! Dumps overdensity field for a given species at a given level to file
   /*!
-  * \param level - level of multi-level context to dump
-  * \param nField - field to dump. 0 = dark matter, 1 = baryons.
+  * \param level - level in the grid hierarchy to dump
+  * \param species - the field to dump
   */
-  virtual void dumpGrid(size_t level, size_t nField) {
-    checkFieldExists(nField);
-    checkLevelExists(level, nField);
-    outputFields[nField]->toReal();
-    dumpGridData(level, outputFields[nField]->getFieldForLevel(level), nField);
-    outputFields[nField]->toFourier();
+  virtual void dumpGrid(size_t level, particle::species species ) {
+    auto & field = this->getOutputFieldForSpecies(species);
+    field.toReal();
+    dumpGridData(level, field.getFieldForLevel(level));
   }
 
-  //! For backwards compatibility. Dumpts baryons to field at requested level to file named grid-level.
+  //! Dumps dark matter overdensity field at a given level to file
+  /*!
+  * \param level - level in the grid hierarchy to dump
+  */
   virtual void dumpGrid(size_t level) {
-    this->dumpGrid(level, 0);
+    dumpGrid(level, particle::species::dm);
+  }
+
+  virtual void dumpVelocityX(size_t level) {
+    dumpGridData(level, *(this->pParticleGenerator[particle::species::dm]->getGeneratorForLevel(
+      level).getGeneratedFields()[0]), "vx");
   }
 
   //! For backwards compatibility. Dumpts baryons to field at requested level to file named grid-level.
   virtual void dumpGridFourier(size_t level = 0) {
-    this->dumpGridFourier(level, 0);
+    this->dumpGridFourier(level, particle::species::dm);
   }
 
   //! Output the grid in Fourier space.
-  virtual void dumpGridFourier(size_t level = 0, size_t nField = 0) {
-    checkFieldExists(nField);
-    checkLevelExists(level, nField);
-
-    fields::Field<complex<T>, T> fieldToWrite = tools::numerics::fourier::getComplexFourierField(
-      outputFields[nField]->getFieldForLevel(level));
-    dumpGridData(level, fieldToWrite, nField);
+  virtual void dumpGridFourier(size_t level, particle::species species) {
+    auto & field = this->getOutputFieldForSpecies(species);
+    field.toFourier();
+    fields::Field<complex<T>, T> fieldToWrite = tools::numerics::fourier::getComplexFourierField(field.getFieldForLevel(level));
+    dumpGridData(level, fieldToWrite);
   }
 
   //! Dumps power spectrum generated from the field and the theory at a given level in a .ps file
@@ -937,7 +931,7 @@ public:
 
     auto maskfield = dumpingMask.convertToField();
     for (size_t level = 0; level < newcontext.getNumLevels(); level++) {
-      dumpGridData(level, maskfield->getFieldForLevel(level), 0, std::string("mask"));
+      dumpGridData(level, maskfield->getFieldForLevel(level), "mask");
     }
   }
 
@@ -949,14 +943,14 @@ public:
   virtual void initialiseParticleGenerator(particle::species species) {
     auto & outputField = getOutputFieldForSpecies(species);
 
-    if(outputField.transferType!=species) {
+    if(outputField.getTransferType()!=species) {
       // This species (probably baryons) actually just uses the output field for a different particle species
       // (probably DM).
       //
       // We don't want multiple particle generators based on the same output field -- that would be very wasteful!
       //      // So, just take a copy of the particle generator pointer.
-      ensureParticleGeneratorInitialised(outputField.transferType);
-      pParticleGenerator[species] = pParticleGenerator[outputField.transferType];
+      ensureParticleGeneratorInitialised(outputField.getTransferType());
+      pParticleGenerator[species] = pParticleGenerator[outputField.getTransferType()];
     } else {
 
       initialiseParticleGeneratorUsingField(species, outputField);
@@ -1002,7 +996,7 @@ public:
       species = particle::species::dm;
 
     for(auto outputField : this->outputFields) {
-      if(outputField->transferType==species)
+      if(outputField->getTransferType()==species)
         return *outputField;
     }
     throw(std::out_of_range("Cannot find an output field for species"));
@@ -1479,7 +1473,8 @@ public:
   virtual void getFieldChi2() {
     initialiseRandomComponentIfUninitialised();
     T val = this->outputFields[0]->getChi2();
-    std::cerr << "Calculated chi^2 = " << val << std::endl;
+    size_t dof = this->multiLevelContext.getNumDof();
+    std::cerr << "Calculated chi^2 = " << std::setprecision(10) << val << " (dof = " << dof << ")" << std::endl;
   }
 
   //! Calculate unmodified property for the dark matter field:

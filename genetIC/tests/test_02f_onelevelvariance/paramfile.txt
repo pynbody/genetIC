@@ -20,7 +20,14 @@ centre 8 8 8
 select_cube 20
 dump_IDfile tagged_cells.txt
 
-filtering_scale 100
+# intentionally put the filtering scale so large that we get the unfiltered variance
+# this can be tested against the actual variance on the output grid, using something like:
+#
+# x = np.load("grid-0.npy")
+# c = x.ravel()[tagged]
+# np.var(c)
+
+filtering_scale 10000
 calculate variance
 
 done

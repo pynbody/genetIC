@@ -8,7 +8,7 @@
 
 namespace tools {
   namespace numerics {
-    //! Multiplyies vector a by constant b
+    //! Multiplies vector a by constant b
     template<typename T, typename S>
     void operator*=(std::vector<T> &a, S b) {
 #pragma omp parallel for
@@ -33,6 +33,16 @@ namespace tools {
 #pragma omp parallel for
       for (size_t i = 0; i < a.size(); ++i) {
         a[i] *= b[i];
+      }
+    }
+
+    //! Adds b to a, element-wise
+    template<typename T>
+    void operator+=(std::vector<T> &a, const std::vector<T> &b) {
+      assert(a.size() == b.size());
+#pragma omp parallel for
+      for (size_t i = 0; i < a.size(); ++i) {
+        a[i] += b[i];
       }
     }
 
