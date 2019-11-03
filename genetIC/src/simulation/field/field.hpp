@@ -217,7 +217,15 @@ namespace fields {
       for(int i=-1; i<3; ++i) {
         for(int j=-1; j<3; ++j) {
           for(int k=-1; k<3; ++k) {
-            valsForInterpolation[i+1][j+1][k+1] = (*this)[pGrid->getIndexFromCoordinate({x_p_0+i, y_p_0+j, z_p_0+k})];
+            Coordinate<int> coord {x_p_0+i, y_p_0+j, z_p_0+k};
+            if(pGrid->size==pGrid->simEquivalentSize) {
+              coord = pGrid->wrapCoordinate(coord);
+            } else {
+              // Repeat values at the boundary. Note this leads to artefacts in the interpolation. Warnings
+              // about using results within a few cells of the boundary are issued to the user elsewhere.
+              coord = pGrid->clampCoordinate(coord);
+            }
+            valsForInterpolation[i+1][j+1][k+1] = (*this)[pGrid->getIndexFromCoordinateNoWrap(coord)];
           }
         }
       }

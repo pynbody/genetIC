@@ -501,7 +501,7 @@ namespace grids {
     }
 
 
-    /*! \brief Wrap the coordinate such that it lies within [0,size) of the base grid if this is possible.
+    /*! \brief Wrap the coordinate such that it lies within [0,simEquivalentSize) (i.e. equivalent size of base grid).
      *
      * Note that for efficiency this routine only "corrects" coordinates within one boxsize of the fundamental domain.
      */
@@ -514,6 +514,19 @@ namespace grids {
       if (coord.z < 0) coord.z += simEquivalentSize;
       return coord;
     }
+
+
+    /*! \brief Clamp the coordinate such that it lies within [0,size). */
+    Coordinate<int> clampCoordinate(Coordinate<int> coord) const {
+      if (coord.x > (signed) size - 1) coord.x = size - 1;
+      if (coord.y > (signed) size - 1) coord.y = size - 1;
+      if (coord.z > (signed) size - 1) coord.z = size - 1;
+      if (coord.x < 0) coord.x = 0;
+      if (coord.y < 0) coord.y = 0;
+      if (coord.z < 0) coord.z = 0;
+      return coord;
+    }
+
 
     //! Converts integer co-ordinates to linear indices, wrapping if necessary so that they point to somewhere in the box.
     virtual size_t getIndexFromCoordinate(Coordinate<int> coord) const {
