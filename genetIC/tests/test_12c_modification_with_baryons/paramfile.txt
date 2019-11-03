@@ -22,20 +22,11 @@ outdir	 ./
 outformat gadget3
 
 # 64 Mpc/h, 64 cells
-basegrid 64.0 64
-
-# open a zoom region, 1/3rd scale, 64^3
-#centre 32.5 32.5 32.5
-#select_sphere 9.0
-#zoomgrid 3 64
-
-#centre 32.5 32.5 32.5
-#select_sphere 2.5
-#zoomgrid 3 64
+basegrid 64.0 8
 
 %Select a cube and modify the overdensity there:
 centre 32.5 32.5 32.5
-select_cube 0.25
+select_cube 10
 
 calculate overdensity
 modify overdensity absolute 1.0

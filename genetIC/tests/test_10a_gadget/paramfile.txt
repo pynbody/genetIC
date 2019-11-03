@@ -14,7 +14,7 @@ outdir	 ./
 outformat gadget3
 
 
-basegrid 50.0 64
+basegrid 50.0 8
 
 
 
