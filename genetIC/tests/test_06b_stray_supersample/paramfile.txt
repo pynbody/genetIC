@@ -1,8 +1,9 @@
-# Test stray particle system
+# Test stray particle system with supersampling
 #
 # With strays on, we are allowed to "zoom" beyond the edge of the
 # literal zoom grid, but the particles will be interpolated from the
-# low-res grid. 
+# low-res grid. Here we also perform supersampling of the high-res particles
+# (which should include the strays).
 
 
 # output parameters
@@ -36,4 +37,3 @@ supersample 2
 
 done
 dump_tipsy test_6.tipsy.overdensity
-
