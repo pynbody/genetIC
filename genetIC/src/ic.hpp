@@ -1530,28 +1530,22 @@ public:
     write();
   }
 
-  //! Reverses the sign of the specified field.
-  void reverse(size_t nField = 0) {
-    checkFieldExists(nField);
-    outputFields[nField]->reverse();
-  }
 
-  //! For backwards compatibility
+  //! Reverses the sign of the field.
   void reverse() {
-    for (size_t i = 0; i < outputFields.size(); i++) {
-      this->reverse(i);
-    }
+    initialiseRandomComponentIfUninitialised();
+    outputFields[0]->reverse();
   }
 
   //! Reverses the sign of the low-k modes.
-  void reverseSmallK(T kmax, size_t nField = 0) {
+  void reverseSmallK(T kmax) {
 
-    checkFieldExists(nField);
+    initialiseRandomComponentIfUninitialised();
 
     T k2max = kmax * kmax;
 
     for (size_t level = 0; level < multiLevelContext.getNumLevels(); ++level) {
-      auto &field = outputFields[nField]->getFieldForLevel(level);
+      auto &field = outputFields[0]->getFieldForLevel(level);
       field.toFourier();
 
       field.forEachFourierCell([k2max](std::complex<T> val, T kx, T ky, T kz) {
@@ -1564,12 +1558,6 @@ public:
     }
   }
 
-  //! Reverse small k for all fields
-  void reverseSmallK(T kmax) {
-    for (size_t i = 0; i < outputFields.size(); i++) {
-      this->reverseSmallK(kmax, i);
-    }
-  }
 };
 
 #endif

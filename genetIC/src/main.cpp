@@ -107,9 +107,7 @@ void setup_parser(tools::ClassDispatch<ICf, void> &dispatch) {
   dispatch.add_class_route("chi2", static_cast<void (ICf::*)()>(&ICf::getFieldChi2));
 
   dispatch.add_class_route("reverse", static_cast<void (ICf::*)()>(&ICf::reverse));
-  dispatch.add_class_route("reverse_field", static_cast<void (ICf::*)(size_t)>(&ICf::reverse));
   dispatch.add_class_route("reverse_small_k", static_cast<void (ICf::*)(FloatType)>(&ICf::reverseSmallK));
-  dispatch.add_class_route("reverse_small_k_field", static_cast<void (ICf::*)(FloatType, size_t)>(&ICf::reverseSmallK));
 
   // Write objects to files
   // dispatch.add_class_route("dump_grid", &ICf::dumpGrid);

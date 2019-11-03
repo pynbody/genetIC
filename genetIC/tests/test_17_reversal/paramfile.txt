@@ -18,14 +18,13 @@ outname reversed_ics
 outdir	 ./
 outformat gadget2
 
-# 100 Mpc/h, 64 cells
-basegrid 100.0 64
+# 100 Mpc/h, 8^3 cells
+basegrid 100.0 8
 
-done
 
 # Reverse initial conditions:
 reverse
-dump_grid_fourier 0
 
 done
 
+dump_grid_fourier 0
