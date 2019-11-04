@@ -103,7 +103,7 @@ add_definitions(-DCUBIC_INTERPOLATION  -DFRACTIONAL_K_SPLIT=0.3 -DFRACTIONAL_FIL
         -DGIT_VERSION="${GIT_VERSION}" -DGIT_MODIFIED="${GIT_MODIFIED}" -DDOUBLEPRECISION -DOUTPUT_IN_DOUBLEPRECISION)
 
 add_compile_options(-Wextra)
-add_executable(IC ${SOURCE_FILES})
+add_executable(IC ${SOURCE_FILES} genetIC/src/tools/lru_cache.hpp)
 
 add_executable(IC_CFFT ${SOURCE_FILES} )
 

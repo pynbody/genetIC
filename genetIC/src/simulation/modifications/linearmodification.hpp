@@ -241,6 +241,11 @@ namespace modifications {
 
     //! Converts (in-place) from a overdensity covector to a velocity covector
     void turnLocalisationCovectorIntoModificationCovector(fields::MultiLevelField<DataType> & field) const override {
+      if(this->underlying.getLevelsAreCombined())
+        throw std::runtime_error("Cannot create velocity covector for recombined fields (i.e. after output generation is complete)");
+      // Note on the above exception: the problem is that we need to use the Fourier filters to calculate the
+      // multi-level Poisson solution. Once Fourier modes are combined on zoom grids, there is no simple way to get the potential.
+
       OverdensityModification<DataType,T>::turnLocalisationCovectorIntoModificationCovector(field);
       for(size_t level=0; level<field.getNumLevels(); ++level) {
         auto &fieldOnLevel = field.getFieldForLevel(level);

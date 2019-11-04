@@ -268,14 +268,41 @@ namespace multilevelcontext {
           fields::Field<DataType, T> & hires = *fieldsOnLevels[level + 1];
           fields::Field<DataType, T> & lores = *fieldsOnLevels[level];
 
-          int pixel_volume_ratio = pow(tools::getRatioAndAssertInteger(fieldsOnLevels[level]->getGrid().cellSize,
-                                                                    fieldsOnLevels[level+1]->getGrid().cellSize),3);
+          int pixel_size_ratio = tools::getRatioAndAssertInteger(fieldsOnLevels[level]->getGrid().cellSize,
+                                                                 fieldsOnLevels[level+1]->getGrid().cellSize);
+          int pixel_volume_ratio = pow(pixel_size_ratio,3);
 
+
+
+          /* Naive loop that can't be parallelized:
           size_t hiresFieldSize = hires.getGrid().size3;
           for(size_t i=0; i<hiresFieldSize; i++) {
             auto location = hires.getGrid().getCentroidFromIndex(i);
             lores.deInterpolate(location, hires[i]/pixel_volume_ratio);
           }
+          */
+
+          // deinterpolation affects a grid of 4^3 cells (on the lores grid), so to parallelise we need to ensure
+          // that threads are always working on regions at least 4 lores cells apart...
+          size_t hiresGridSize = hires.getGrid().size;
+          size_t hiresParallelisationSeparation = 4 * pixel_size_ratio;
+          for(int xoffset=0; xoffset < hiresParallelisationSeparation; xoffset++) {
+#pragma omp parallel for default(none) shared(hires, lores, pixel_volume_ratio, xoffset, hiresGridSize, hiresParallelisationSeparation)
+            for(int x=xoffset; x<hiresGridSize; x+=hiresParallelisationSeparation) {
+              for(int y=0; y<hiresGridSize; y++) {
+                for(int z=0; z<hiresGridSize; z++) {
+                  Coordinate<int> coord {x,y,z};
+                  auto index = hires.getGrid().getIndexFromCoordinateNoWrap(coord);
+                  auto location = hires.getGrid().getCentroidFromCoordinate(coord);
+                  lores.deInterpolate(location, hires[index]/pixel_volume_ratio);
+                }
+              }
+            }
+          }
+
+
+
+
 
         }
       }

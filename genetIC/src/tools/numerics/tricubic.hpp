@@ -6,6 +6,26 @@
 #define IC_TRICUBIC_HPP
 
 namespace numerics {
+  /* \brief Fast calculation of a^n for positive integer n
+   * 
+   * NB this routine is *much* faster than calling std::pow, but ONLY if the compiler optimizes using the
+   * constexpr nature of the routine. This seems to happen on recent versions of Clang and GCC at -O2 or above.
+   */
+  template<typename T>
+  constexpr inline T fastpow(T a, unsigned int n) {
+    T result = 1.0;
+    for(unsigned int i=0; i<n; i++) {
+      result*=a;
+    }
+    return result;
+  }
+
+  // If complex interpolation is attempted, we need to be able to multiply complex<T> by an integer
+  template<typename T>
+  std::complex<T> operator*(int a, std::complex<T> b) {
+    return std::complex<T>(b.real()*a, b.imag()*a);
+  }
+
   /* \brief A class to perform local function estimation by tricubic interpolation on the domain [0,1]^3
    *
    * That is, the function is approximated by \sum_ijk=0^3 a_{ijk} x^i y^j z^k
@@ -41,17 +61,17 @@ namespace numerics {
       // If speed-ups are necessary here, the values of x,y,z for which this is called are likely to be highly
       // predictable and results globally cachable. Caching the a... coefficients could also
       // be undertaken (but not here, obviously).
-      return a000 + a100*x + a200*pow(x,2) + a300*pow(x,3) + a010*y + a110*x*y + a210*pow(x,2)*y + a310*pow(x,3)*y + a020*pow(y,2) + a120*x*pow(y,2) +
-             a220*pow(x,2)*pow(y,2) + a320*pow(x,3)*pow(y,2) + a030*pow(y,3) + a130*x*pow(y,3) + a230*pow(x,2)*pow(y,3) + a330*pow(x,3)*pow(y,3) + a001*z +
-             a101*x*z + a201*pow(x,2)*z + a301*pow(x,3)*z + a011*y*z + a111*x*y*z + a211*pow(x,2)*y*z + a311*pow(x,3)*y*z + a021*pow(y,2)*z + a121*x*pow(y,2)*z +
-             a221*pow(x,2)*pow(y,2)*z + a321*pow(x,3)*pow(y,2)*z + a031*pow(y,3)*z + a131*x*pow(y,3)*z + a231*pow(x,2)*pow(y,3)*z + a331*pow(x,3)*pow(y,3)*z +
-             a002*pow(z,2) + a102*x*pow(z,2) + a202*pow(x,2)*pow(z,2) + a302*pow(x,3)*pow(z,2) + a012*y*pow(z,2) + a112*x*y*pow(z,2) +
-             a212*pow(x,2)*y*pow(z,2) + a312*pow(x,3)*y*pow(z,2) + a022*pow(y,2)*pow(z,2) + a122*x*pow(y,2)*pow(z,2) + a222*pow(x,2)*pow(y,2)*pow(z,2) +
-             a322*pow(x,3)*pow(y,2)*pow(z,2) + a032*pow(y,3)*pow(z,2) + a132*x*pow(y,3)*pow(z,2) + a232*pow(x,2)*pow(y,3)*pow(z,2) +
-             a332*pow(x,3)*pow(y,3)*pow(z,2) + a003*pow(z,3) + a103*x*pow(z,3) + a203*pow(x,2)*pow(z,3) + a303*pow(x,3)*pow(z,3) + a013*y*pow(z,3) +
-             a113*x*y*pow(z,3) + a213*pow(x,2)*y*pow(z,3) + a313*pow(x,3)*y*pow(z,3) + a023*pow(y,2)*pow(z,3) + a123*x*pow(y,2)*pow(z,3) +
-             a223*pow(x,2)*pow(y,2)*pow(z,3) + a323*pow(x,3)*pow(y,2)*pow(z,3) + a033*pow(y,3)*pow(z,3) + a133*x*pow(y,3)*pow(z,3) +
-             a233*pow(x,2)*pow(y,3)*pow(z,3) + a333*pow(x,3)*pow(y,3)*pow(z,3);
+      return a000 + a100*x + a200*fastpow(x,2) + a300*fastpow(x,3) + a010*y + a110*x*y + a210*fastpow(x,2)*y + a310*fastpow(x,3)*y + a020*fastpow(y,2) + a120*x*fastpow(y,2) +
+             a220*fastpow(x,2)*fastpow(y,2) + a320*fastpow(x,3)*fastpow(y,2) + a030*fastpow(y,3) + a130*x*fastpow(y,3) + a230*fastpow(x,2)*fastpow(y,3) + a330*fastpow(x,3)*fastpow(y,3) + a001*z +
+             a101*x*z + a201*fastpow(x,2)*z + a301*fastpow(x,3)*z + a011*y*z + a111*x*y*z + a211*fastpow(x,2)*y*z + a311*fastpow(x,3)*y*z + a021*fastpow(y,2)*z + a121*x*fastpow(y,2)*z +
+             a221*fastpow(x,2)*fastpow(y,2)*z + a321*fastpow(x,3)*fastpow(y,2)*z + a031*fastpow(y,3)*z + a131*x*fastpow(y,3)*z + a231*fastpow(x,2)*fastpow(y,3)*z + a331*fastpow(x,3)*fastpow(y,3)*z +
+             a002*fastpow(z,2) + a102*x*fastpow(z,2) + a202*fastpow(x,2)*fastpow(z,2) + a302*fastpow(x,3)*fastpow(z,2) + a012*y*fastpow(z,2) + a112*x*y*fastpow(z,2) +
+             a212*fastpow(x,2)*y*fastpow(z,2) + a312*fastpow(x,3)*y*fastpow(z,2) + a022*fastpow(y,2)*fastpow(z,2) + a122*x*fastpow(y,2)*fastpow(z,2) + a222*fastpow(x,2)*fastpow(y,2)*fastpow(z,2) +
+             a322*fastpow(x,3)*fastpow(y,2)*fastpow(z,2) + a032*fastpow(y,3)*fastpow(z,2) + a132*x*fastpow(y,3)*fastpow(z,2) + a232*fastpow(x,2)*fastpow(y,3)*fastpow(z,2) +
+             a332*fastpow(x,3)*fastpow(y,3)*fastpow(z,2) + a003*fastpow(z,3) + a103*x*fastpow(z,3) + a203*fastpow(x,2)*fastpow(z,3) + a303*fastpow(x,3)*fastpow(z,3) + a013*y*fastpow(z,3) +
+             a113*x*y*fastpow(z,3) + a213*fastpow(x,2)*y*fastpow(z,3) + a313*fastpow(x,3)*y*fastpow(z,3) + a023*fastpow(y,2)*fastpow(z,3) + a123*x*fastpow(y,2)*fastpow(z,3) +
+             a223*fastpow(x,2)*fastpow(y,2)*fastpow(z,3) + a323*fastpow(x,3)*fastpow(y,2)*fastpow(z,3) + a033*fastpow(y,3)*fastpow(z,3) + a133*x*fastpow(y,3)*fastpow(z,3) +
+             a233*fastpow(x,2)*fastpow(y,3)*fastpow(z,3) + a333*fastpow(x,3)*fastpow(y,3)*fastpow(z,3);
     }
 
   protected:
@@ -427,103 +447,103 @@ namespace numerics {
      */
     static void getTransposeElementsForPosition(T x, T y, T z,  T fval[4][4][4])  {
       assert(x >= 0 && x < 1 && y >= 0 && y < 1 && z >= 0 && z < 1);
-      fval[0][0][0] = -(pow(-1 + x, 2) * x * pow(-1 + y, 2) * y * pow(-1 + z, 2) * z) / 8.;
-      fval[0][0][1] = (pow(-1 + x, 2) * x * pow(-1 + y, 2) * y * (2 - 5 * pow(z, 2) + 3 * pow(z, 3))) / 8.;
-      fval[0][0][2] = -(pow(-1 + x, 2) * x * pow(-1 + y, 2) * y * z * (-1 - 4 * z + 3 * pow(z, 2))) / 8.;
-      fval[0][0][3] = (pow(-1 + x, 2) * x * pow(-1 + y, 2) * y * (-1 + z) * pow(z, 2)) / 8.;
-      fval[0][1][0] = (pow(-1 + x, 2) * x * (2 - 5 * pow(y, 2) + 3 * pow(y, 3)) * pow(-1 + z, 2) * z) / 8.;
+      fval[0][0][0] = -(fastpow(-1 + x, 2) * x * fastpow(-1 + y, 2) * y * fastpow(-1 + z, 2) * z) / 8.;
+      fval[0][0][1] = (fastpow(-1 + x, 2) * x * fastpow(-1 + y, 2) * y * (2 - 5 * fastpow(z, 2) + 3 * fastpow(z, 3))) / 8.;
+      fval[0][0][2] = -(fastpow(-1 + x, 2) * x * fastpow(-1 + y, 2) * y * z * (-1 - 4 * z + 3 * fastpow(z, 2))) / 8.;
+      fval[0][0][3] = (fastpow(-1 + x, 2) * x * fastpow(-1 + y, 2) * y * (-1 + z) * fastpow(z, 2)) / 8.;
+      fval[0][1][0] = (fastpow(-1 + x, 2) * x * (2 - 5 * fastpow(y, 2) + 3 * fastpow(y, 3)) * fastpow(-1 + z, 2) * z) / 8.;
       fval[0][1][1] =
-        -(pow(-1 + x, 2) * x * (2 - 5 * pow(y, 2) + 3 * pow(y, 3)) * (2 - 5 * pow(z, 2) + 3 * pow(z, 3))) / 8.;
+        -(fastpow(-1 + x, 2) * x * (2 - 5 * fastpow(y, 2) + 3 * fastpow(y, 3)) * (2 - 5 * fastpow(z, 2) + 3 * fastpow(z, 3))) / 8.;
       fval[0][1][2] =
-        (pow(-1 + x, 2) * x * (2 - 5 * pow(y, 2) + 3 * pow(y, 3)) * z * (-1 - 4 * z + 3 * pow(z, 2))) / 8.;
-      fval[0][1][3] = -(pow(-1 + x, 2) * x * (2 - 5 * pow(y, 2) + 3 * pow(y, 3)) * (-1 + z) * pow(z, 2)) / 8.;
-      fval[0][2][0] = -(pow(-1 + x, 2) * x * y * (-1 - 4 * y + 3 * pow(y, 2)) * pow(-1 + z, 2) * z) / 8.;
+        (fastpow(-1 + x, 2) * x * (2 - 5 * fastpow(y, 2) + 3 * fastpow(y, 3)) * z * (-1 - 4 * z + 3 * fastpow(z, 2))) / 8.;
+      fval[0][1][3] = -(fastpow(-1 + x, 2) * x * (2 - 5 * fastpow(y, 2) + 3 * fastpow(y, 3)) * (-1 + z) * fastpow(z, 2)) / 8.;
+      fval[0][2][0] = -(fastpow(-1 + x, 2) * x * y * (-1 - 4 * y + 3 * fastpow(y, 2)) * fastpow(-1 + z, 2) * z) / 8.;
       fval[0][2][1] =
-        (pow(-1 + x, 2) * x * y * (-1 - 4 * y + 3 * pow(y, 2)) * (2 - 5 * pow(z, 2) + 3 * pow(z, 3))) / 8.;
-      fval[0][2][2] = -(pow(-1 + x, 2) * x * y * (-1 - 4 * y + 3 * pow(y, 2)) * z * (-1 - 4 * z + 3 * pow(z, 2))) / 8.;
-      fval[0][2][3] = (pow(-1 + x, 2) * x * y * (-1 - 4 * y + 3 * pow(y, 2)) * (-1 + z) * pow(z, 2)) / 8.;
-      fval[0][3][0] = (pow(-1 + x, 2) * x * (-1 + y) * pow(y, 2) * pow(-1 + z, 2) * z) / 8.;
-      fval[0][3][1] = -(pow(-1 + x, 2) * x * (-1 + y) * pow(y, 2) * (2 - 5 * pow(z, 2) + 3 * pow(z, 3))) / 8.;
-      fval[0][3][2] = (pow(-1 + x, 2) * x * (-1 + y) * pow(y, 2) * z * (-1 - 4 * z + 3 * pow(z, 2))) / 8.;
-      fval[0][3][3] = -(pow(-1 + x, 2) * x * (-1 + y) * pow(y, 2) * (-1 + z) * pow(z, 2)) / 8.;
-      fval[1][0][0] = ((2 - 5 * pow(x, 2) + 3 * pow(x, 3)) * pow(-1 + y, 2) * y * pow(-1 + z, 2) * z) / 8.;
+        (fastpow(-1 + x, 2) * x * y * (-1 - 4 * y + 3 * fastpow(y, 2)) * (2 - 5 * fastpow(z, 2) + 3 * fastpow(z, 3))) / 8.;
+      fval[0][2][2] = -(fastpow(-1 + x, 2) * x * y * (-1 - 4 * y + 3 * fastpow(y, 2)) * z * (-1 - 4 * z + 3 * fastpow(z, 2))) / 8.;
+      fval[0][2][3] = (fastpow(-1 + x, 2) * x * y * (-1 - 4 * y + 3 * fastpow(y, 2)) * (-1 + z) * fastpow(z, 2)) / 8.;
+      fval[0][3][0] = (fastpow(-1 + x, 2) * x * (-1 + y) * fastpow(y, 2) * fastpow(-1 + z, 2) * z) / 8.;
+      fval[0][3][1] = -(fastpow(-1 + x, 2) * x * (-1 + y) * fastpow(y, 2) * (2 - 5 * fastpow(z, 2) + 3 * fastpow(z, 3))) / 8.;
+      fval[0][3][2] = (fastpow(-1 + x, 2) * x * (-1 + y) * fastpow(y, 2) * z * (-1 - 4 * z + 3 * fastpow(z, 2))) / 8.;
+      fval[0][3][3] = -(fastpow(-1 + x, 2) * x * (-1 + y) * fastpow(y, 2) * (-1 + z) * fastpow(z, 2)) / 8.;
+      fval[1][0][0] = ((2 - 5 * fastpow(x, 2) + 3 * fastpow(x, 3)) * fastpow(-1 + y, 2) * y * fastpow(-1 + z, 2) * z) / 8.;
       fval[1][0][1] =
-        -((2 - 5 * pow(x, 2) + 3 * pow(x, 3)) * pow(-1 + y, 2) * y * (2 - 5 * pow(z, 2) + 3 * pow(z, 3))) / 8.;
+        -((2 - 5 * fastpow(x, 2) + 3 * fastpow(x, 3)) * fastpow(-1 + y, 2) * y * (2 - 5 * fastpow(z, 2) + 3 * fastpow(z, 3))) / 8.;
       fval[1][0][2] =
-        ((2 - 5 * pow(x, 2) + 3 * pow(x, 3)) * pow(-1 + y, 2) * y * z * (-1 - 4 * z + 3 * pow(z, 2))) / 8.;
-      fval[1][0][3] = -((2 - 5 * pow(x, 2) + 3 * pow(x, 3)) * pow(-1 + y, 2) * y * (-1 + z) * pow(z, 2)) / 8.;
+        ((2 - 5 * fastpow(x, 2) + 3 * fastpow(x, 3)) * fastpow(-1 + y, 2) * y * z * (-1 - 4 * z + 3 * fastpow(z, 2))) / 8.;
+      fval[1][0][3] = -((2 - 5 * fastpow(x, 2) + 3 * fastpow(x, 3)) * fastpow(-1 + y, 2) * y * (-1 + z) * fastpow(z, 2)) / 8.;
       fval[1][1][0] =
-        -((2 - 5 * pow(x, 2) + 3 * pow(x, 3)) * (2 - 5 * pow(y, 2) + 3 * pow(y, 3)) * pow(-1 + z, 2) * z) / 8.;
-      fval[1][1][1] = ((2 - 5 * pow(x, 2) + 3 * pow(x, 3)) * (2 - 5 * pow(y, 2) + 3 * pow(y, 3)) *
-                       (2 - 5 * pow(z, 2) + 3 * pow(z, 3))) / 8.;
-      fval[1][1][2] = -((2 - 5 * pow(x, 2) + 3 * pow(x, 3)) * (2 - 5 * pow(y, 2) + 3 * pow(y, 3)) * z *
-                        (-1 - 4 * z + 3 * pow(z, 2))) / 8.;
+        -((2 - 5 * fastpow(x, 2) + 3 * fastpow(x, 3)) * (2 - 5 * fastpow(y, 2) + 3 * fastpow(y, 3)) * fastpow(-1 + z, 2) * z) / 8.;
+      fval[1][1][1] = ((2 - 5 * fastpow(x, 2) + 3 * fastpow(x, 3)) * (2 - 5 * fastpow(y, 2) + 3 * fastpow(y, 3)) *
+                       (2 - 5 * fastpow(z, 2) + 3 * fastpow(z, 3))) / 8.;
+      fval[1][1][2] = -((2 - 5 * fastpow(x, 2) + 3 * fastpow(x, 3)) * (2 - 5 * fastpow(y, 2) + 3 * fastpow(y, 3)) * z *
+                        (-1 - 4 * z + 3 * fastpow(z, 2))) / 8.;
       fval[1][1][3] =
-        ((2 - 5 * pow(x, 2) + 3 * pow(x, 3)) * (2 - 5 * pow(y, 2) + 3 * pow(y, 3)) * (-1 + z) * pow(z, 2)) / 8.;
+        ((2 - 5 * fastpow(x, 2) + 3 * fastpow(x, 3)) * (2 - 5 * fastpow(y, 2) + 3 * fastpow(y, 3)) * (-1 + z) * fastpow(z, 2)) / 8.;
       fval[1][2][0] =
-        ((2 - 5 * pow(x, 2) + 3 * pow(x, 3)) * y * (-1 - 4 * y + 3 * pow(y, 2)) * pow(-1 + z, 2) * z) / 8.;
-      fval[1][2][1] = -((2 - 5 * pow(x, 2) + 3 * pow(x, 3)) * y * (-1 - 4 * y + 3 * pow(y, 2)) *
-                        (2 - 5 * pow(z, 2) + 3 * pow(z, 3))) / 8.;
+        ((2 - 5 * fastpow(x, 2) + 3 * fastpow(x, 3)) * y * (-1 - 4 * y + 3 * fastpow(y, 2)) * fastpow(-1 + z, 2) * z) / 8.;
+      fval[1][2][1] = -((2 - 5 * fastpow(x, 2) + 3 * fastpow(x, 3)) * y * (-1 - 4 * y + 3 * fastpow(y, 2)) *
+                        (2 - 5 * fastpow(z, 2) + 3 * fastpow(z, 3))) / 8.;
       fval[1][2][2] =
-        ((2 - 5 * pow(x, 2) + 3 * pow(x, 3)) * y * (-1 - 4 * y + 3 * pow(y, 2)) * z * (-1 - 4 * z + 3 * pow(z, 2))) /
+        ((2 - 5 * fastpow(x, 2) + 3 * fastpow(x, 3)) * y * (-1 - 4 * y + 3 * fastpow(y, 2)) * z * (-1 - 4 * z + 3 * fastpow(z, 2))) /
         8.;
       fval[1][2][3] =
-        -((2 - 5 * pow(x, 2) + 3 * pow(x, 3)) * y * (-1 - 4 * y + 3 * pow(y, 2)) * (-1 + z) * pow(z, 2)) / 8.;
-      fval[1][3][0] = -((2 - 5 * pow(x, 2) + 3 * pow(x, 3)) * (-1 + y) * pow(y, 2) * pow(-1 + z, 2) * z) / 8.;
+        -((2 - 5 * fastpow(x, 2) + 3 * fastpow(x, 3)) * y * (-1 - 4 * y + 3 * fastpow(y, 2)) * (-1 + z) * fastpow(z, 2)) / 8.;
+      fval[1][3][0] = -((2 - 5 * fastpow(x, 2) + 3 * fastpow(x, 3)) * (-1 + y) * fastpow(y, 2) * fastpow(-1 + z, 2) * z) / 8.;
       fval[1][3][1] =
-        ((2 - 5 * pow(x, 2) + 3 * pow(x, 3)) * (-1 + y) * pow(y, 2) * (2 - 5 * pow(z, 2) + 3 * pow(z, 3))) / 8.;
+        ((2 - 5 * fastpow(x, 2) + 3 * fastpow(x, 3)) * (-1 + y) * fastpow(y, 2) * (2 - 5 * fastpow(z, 2) + 3 * fastpow(z, 3))) / 8.;
       fval[1][3][2] =
-        -((2 - 5 * pow(x, 2) + 3 * pow(x, 3)) * (-1 + y) * pow(y, 2) * z * (-1 - 4 * z + 3 * pow(z, 2))) / 8.;
-      fval[1][3][3] = ((2 - 5 * pow(x, 2) + 3 * pow(x, 3)) * (-1 + y) * pow(y, 2) * (-1 + z) * pow(z, 2)) / 8.;
-      fval[2][0][0] = -(x * (-1 - 4 * x + 3 * pow(x, 2)) * pow(-1 + y, 2) * y * pow(-1 + z, 2) * z) / 8.;
+        -((2 - 5 * fastpow(x, 2) + 3 * fastpow(x, 3)) * (-1 + y) * fastpow(y, 2) * z * (-1 - 4 * z + 3 * fastpow(z, 2))) / 8.;
+      fval[1][3][3] = ((2 - 5 * fastpow(x, 2) + 3 * fastpow(x, 3)) * (-1 + y) * fastpow(y, 2) * (-1 + z) * fastpow(z, 2)) / 8.;
+      fval[2][0][0] = -(x * (-1 - 4 * x + 3 * fastpow(x, 2)) * fastpow(-1 + y, 2) * y * fastpow(-1 + z, 2) * z) / 8.;
       fval[2][0][1] = (x * (-1 - 4 * x +
-                            3 * pow(x, 2)) * pow(-1 + y, 2) * y * (2 - 5 * pow(z, 2) + 3 * pow(z, 3))) / 8.;
+                            3 * fastpow(x, 2)) * fastpow(-1 + y, 2) * y * (2 - 5 * fastpow(z, 2) + 3 * fastpow(z, 3))) / 8.;
       fval[2][0][2] = -(x *
-                        (-1 - 4 * x + 3 * pow(x, 2)) * pow(-1 + y, 2) * y * z * (-1 - 4 * z + 3 * pow(z, 2))) / 8.;
-      fval[2][0][3] = (x * (-1 - 4 * x + 3 * pow(x, 2)) * pow(-1 + y, 2) * y * (-1 + z) * pow(z, 2)) / 8.;
+                        (-1 - 4 * x + 3 * fastpow(x, 2)) * fastpow(-1 + y, 2) * y * z * (-1 - 4 * z + 3 * fastpow(z, 2))) / 8.;
+      fval[2][0][3] = (x * (-1 - 4 * x + 3 * fastpow(x, 2)) * fastpow(-1 + y, 2) * y * (-1 + z) * fastpow(z, 2)) / 8.;
       fval[2][1][0] = (x * (-1 - 4 * x +
-                            3 * pow(x, 2)) * (2 - 5 * pow(y, 2) + 3 * pow(y, 3)) * pow(-1 + z, 2) * z) / 8.;
-      fval[2][1][1] = -(x * (-1 - 4 * x + 3 * pow(x, 2)) * (2 - 5 * pow(y, 2) + 3 * pow(y, 3)) *
-                        (2 - 5 * pow(z, 2) + 3 * pow(z, 3))) / 8.;
+                            3 * fastpow(x, 2)) * (2 - 5 * fastpow(y, 2) + 3 * fastpow(y, 3)) * fastpow(-1 + z, 2) * z) / 8.;
+      fval[2][1][1] = -(x * (-1 - 4 * x + 3 * fastpow(x, 2)) * (2 - 5 * fastpow(y, 2) + 3 * fastpow(y, 3)) *
+                        (2 - 5 * fastpow(z, 2) + 3 * fastpow(z, 3))) / 8.;
       fval[2][1][2] =
-        (x * (-1 - 4 * x + 3 * pow(x, 2)) * (2 - 5 * pow(y, 2) + 3 * pow(y, 3)) * z * (-1 - 4 * z + 3 * pow(z, 2))) /
+        (x * (-1 - 4 * x + 3 * fastpow(x, 2)) * (2 - 5 * fastpow(y, 2) + 3 * fastpow(y, 3)) * z * (-1 - 4 * z + 3 * fastpow(z, 2))) /
         8.;
       fval[2][1][3] = -(x * (-1 - 4 * x +
-                             3 * pow(x, 2)) * (2 - 5 * pow(y, 2) + 3 * pow(y, 3)) * (-1 + z) * pow(z, 2)) / 8.;
+                             3 * fastpow(x, 2)) * (2 - 5 * fastpow(y, 2) + 3 * fastpow(y, 3)) * (-1 + z) * fastpow(z, 2)) / 8.;
       fval[2][2][0] = -(x *
-                        (-1 - 4 * x + 3 * pow(x, 2)) * y * (-1 - 4 * y + 3 * pow(y, 2)) * pow(-1 + z, 2) * z) / 8.;
-      fval[2][2][1] = (x * (-1 - 4 * x + 3 * pow(x, 2)) * y *
-                       (-1 - 4 * y + 3 * pow(y, 2)) * (2 - 5 * pow(z, 2) + 3 * pow(z, 3))) / 8.;
-      fval[2][2][2] = -(x * (-1 - 4 * x + 3 * pow(x, 2)) * y *
-                        (-1 - 4 * y + 3 * pow(y, 2)) * z * (-1 - 4 * z + 3 * pow(z, 2))) / 8.;
+                        (-1 - 4 * x + 3 * fastpow(x, 2)) * y * (-1 - 4 * y + 3 * fastpow(y, 2)) * fastpow(-1 + z, 2) * z) / 8.;
+      fval[2][2][1] = (x * (-1 - 4 * x + 3 * fastpow(x, 2)) * y *
+                       (-1 - 4 * y + 3 * fastpow(y, 2)) * (2 - 5 * fastpow(z, 2) + 3 * fastpow(z, 3))) / 8.;
+      fval[2][2][2] = -(x * (-1 - 4 * x + 3 * fastpow(x, 2)) * y *
+                        (-1 - 4 * y + 3 * fastpow(y, 2)) * z * (-1 - 4 * z + 3 * fastpow(z, 2))) / 8.;
       fval[2][2][3] = (x *
-                       (-1 - 4 * x + 3 * pow(x, 2)) * y * (-1 - 4 * y + 3 * pow(y, 2)) * (-1 + z) * pow(z, 2)) / 8.;
-      fval[2][3][0] = (x * (-1 - 4 * x + 3 * pow(x, 2)) * (-1 + y) * pow(y, 2) * pow(-1 + z, 2) * z) / 8.;
+                       (-1 - 4 * x + 3 * fastpow(x, 2)) * y * (-1 - 4 * y + 3 * fastpow(y, 2)) * (-1 + z) * fastpow(z, 2)) / 8.;
+      fval[2][3][0] = (x * (-1 - 4 * x + 3 * fastpow(x, 2)) * (-1 + y) * fastpow(y, 2) * fastpow(-1 + z, 2) * z) / 8.;
       fval[2][3][1] = -(x * (-1 - 4 * x +
-                             3 * pow(x, 2)) * (-1 + y) * pow(y, 2) * (2 - 5 * pow(z, 2) + 3 * pow(z, 3))) / 8.;
+                             3 * fastpow(x, 2)) * (-1 + y) * fastpow(y, 2) * (2 - 5 * fastpow(z, 2) + 3 * fastpow(z, 3))) / 8.;
       fval[2][3][2] = (x *
-                       (-1 - 4 * x + 3 * pow(x, 2)) * (-1 + y) * pow(y, 2) * z * (-1 - 4 * z + 3 * pow(z, 2))) / 8.;
-      fval[2][3][3] = -(x * (-1 - 4 * x + 3 * pow(x, 2)) * (-1 + y) * pow(y, 2) * (-1 + z) * pow(z, 2)) / 8.;
-      fval[3][0][0] = ((-1 + x) * pow(x, 2) * pow(-1 + y, 2) * y * pow(-1 + z, 2) * z) / 8.;
-      fval[3][0][1] = -((-1 + x) * pow(x, 2) * pow(-1 + y, 2) * y * (2 - 5 * pow(z, 2) + 3 * pow(z, 3))) / 8.;
-      fval[3][0][2] = ((-1 + x) * pow(x, 2) * pow(-1 + y, 2) * y * z * (-1 - 4 * z + 3 * pow(z, 2))) / 8.;
-      fval[3][0][3] = -((-1 + x) * pow(x, 2) * pow(-1 + y, 2) * y * (-1 + z) * pow(z, 2)) / 8.;
-      fval[3][1][0] = -((-1 + x) * pow(x, 2) * (2 - 5 * pow(y, 2) + 3 * pow(y, 3)) * pow(-1 + z, 2) * z) / 8.;
+                       (-1 - 4 * x + 3 * fastpow(x, 2)) * (-1 + y) * fastpow(y, 2) * z * (-1 - 4 * z + 3 * fastpow(z, 2))) / 8.;
+      fval[2][3][3] = -(x * (-1 - 4 * x + 3 * fastpow(x, 2)) * (-1 + y) * fastpow(y, 2) * (-1 + z) * fastpow(z, 2)) / 8.;
+      fval[3][0][0] = ((-1 + x) * fastpow(x, 2) * fastpow(-1 + y, 2) * y * fastpow(-1 + z, 2) * z) / 8.;
+      fval[3][0][1] = -((-1 + x) * fastpow(x, 2) * fastpow(-1 + y, 2) * y * (2 - 5 * fastpow(z, 2) + 3 * fastpow(z, 3))) / 8.;
+      fval[3][0][2] = ((-1 + x) * fastpow(x, 2) * fastpow(-1 + y, 2) * y * z * (-1 - 4 * z + 3 * fastpow(z, 2))) / 8.;
+      fval[3][0][3] = -((-1 + x) * fastpow(x, 2) * fastpow(-1 + y, 2) * y * (-1 + z) * fastpow(z, 2)) / 8.;
+      fval[3][1][0] = -((-1 + x) * fastpow(x, 2) * (2 - 5 * fastpow(y, 2) + 3 * fastpow(y, 3)) * fastpow(-1 + z, 2) * z) / 8.;
       fval[3][1][1] = ((-1 + x) *
-                       pow(x, 2) * (2 - 5 * pow(y, 2) + 3 * pow(y, 3)) * (2 - 5 * pow(z, 2) + 3 * pow(z, 3))) / 8.;
+                       fastpow(x, 2) * (2 - 5 * fastpow(y, 2) + 3 * fastpow(y, 3)) * (2 - 5 * fastpow(z, 2) + 3 * fastpow(z, 3))) / 8.;
       fval[3][1][2] = -((-1 + x) *
-                        pow(x, 2) * (2 - 5 * pow(y, 2) + 3 * pow(y, 3)) * z * (-1 - 4 * z + 3 * pow(z, 2))) / 8.;
-      fval[3][1][3] = ((-1 + x) * pow(x, 2) * (2 - 5 * pow(y, 2) + 3 * pow(y, 3)) * (-1 + z) * pow(z, 2)) / 8.;
-      fval[3][2][0] = ((-1 + x) * pow(x, 2) * y * (-1 - 4 * y + 3 * pow(y, 2)) * pow(-1 + z, 2) * z) / 8.;
+                        fastpow(x, 2) * (2 - 5 * fastpow(y, 2) + 3 * fastpow(y, 3)) * z * (-1 - 4 * z + 3 * fastpow(z, 2))) / 8.;
+      fval[3][1][3] = ((-1 + x) * fastpow(x, 2) * (2 - 5 * fastpow(y, 2) + 3 * fastpow(y, 3)) * (-1 + z) * fastpow(z, 2)) / 8.;
+      fval[3][2][0] = ((-1 + x) * fastpow(x, 2) * y * (-1 - 4 * y + 3 * fastpow(y, 2)) * fastpow(-1 + z, 2) * z) / 8.;
       fval[3][2][1] = -((-1 + x) *
-                        pow(x, 2) * y * (-1 - 4 * y + 3 * pow(y, 2)) * (2 - 5 * pow(z, 2) + 3 * pow(z, 3))) / 8.;
+                        fastpow(x, 2) * y * (-1 - 4 * y + 3 * fastpow(y, 2)) * (2 - 5 * fastpow(z, 2) + 3 * fastpow(z, 3))) / 8.;
       fval[3][2][2] = ((-1 + x) *
-                       pow(x, 2) * y * (-1 - 4 * y + 3 * pow(y, 2)) * z * (-1 - 4 * z + 3 * pow(z, 2))) / 8.;
-      fval[3][2][3] = -((-1 + x) * pow(x, 2) * y * (-1 - 4 * y + 3 * pow(y, 2)) * (-1 + z) * pow(z, 2)) / 8.;
-      fval[3][3][0] = -((-1 + x) * pow(x, 2) * (-1 + y) * pow(y, 2) * pow(-1 + z, 2) * z) / 8.;
-      fval[3][3][1] = ((-1 + x) * pow(x, 2) * (-1 + y) * pow(y, 2) * (2 - 5 * pow(z, 2) + 3 * pow(z, 3))) / 8.;
-      fval[3][3][2] = -((-1 + x) * pow(x, 2) * (-1 + y) * pow(y, 2) * z * (-1 - 4 * z + 3 * pow(z, 2))) / 8.;
-      fval[3][3][3] = ((-1 + x) * pow(x, 2) * (-1 + y) * pow(y, 2) * (-1 + z) * pow(z, 2)) / 8.;
+                       fastpow(x, 2) * y * (-1 - 4 * y + 3 * fastpow(y, 2)) * z * (-1 - 4 * z + 3 * fastpow(z, 2))) / 8.;
+      fval[3][2][3] = -((-1 + x) * fastpow(x, 2) * y * (-1 - 4 * y + 3 * fastpow(y, 2)) * (-1 + z) * fastpow(z, 2)) / 8.;
+      fval[3][3][0] = -((-1 + x) * fastpow(x, 2) * (-1 + y) * fastpow(y, 2) * fastpow(-1 + z, 2) * z) / 8.;
+      fval[3][3][1] = ((-1 + x) * fastpow(x, 2) * (-1 + y) * fastpow(y, 2) * (2 - 5 * fastpow(z, 2) + 3 * fastpow(z, 3))) / 8.;
+      fval[3][3][2] = -((-1 + x) * fastpow(x, 2) * (-1 + y) * fastpow(y, 2) * z * (-1 - 4 * z + 3 * fastpow(z, 2))) / 8.;
+      fval[3][3][3] = ((-1 + x) * fastpow(x, 2) * (-1 + y) * fastpow(y, 2) * (-1 + z) * fastpow(z, 2)) / 8.;
     }
 
   };

@@ -9,6 +9,7 @@
 #include "src/io/numpy.hpp"
 #include "src/simulation/grid/grid.hpp"
 #include "src/tools/numerics/tricubic.hpp"
+#include "src/tools/lru_cache.hpp"
 
 
 /*!
@@ -186,13 +187,39 @@ namespace fields {
       dy-=y_p_0;
       dz-=z_p_0;
 
-      // Caching would hugely speed this up, since we anticipate repeated calls with the same dx,dy,dz (to numerical accuracy)
+      // Caching would speed this up, since we anticipate repeated calls with the same dx,dy,dz (to numerical accuracy)
       numerics::LocalUnitTricubicApproximation<DataType>::getTransposeElementsForPosition(dx,dy,dz,valsForInterpolation);
 
-      for(int i=-1; i<3; ++i) {
-        for(int j=-1; j<3; ++j) {
-          for(int k=-1; k<3; ++k) {
-            (*this)[pGrid->getIndexFromCoordinate({x_p_0+i, y_p_0+j, z_p_0+k})] += value * valsForInterpolation[i+1][j+1][k+1];
+
+
+      // Figure out logistics of wrapping etc for indexing - more efficient than 4^3 calls to getIndexFromCoordinate
+      int index_x[4], index_y[4], index_z[4];
+      size_t gridSize = pGrid->size;
+      size_t gridSize2 = gridSize*gridSize;
+      auto getWrappedCoords = [gridSize](int coords[4], int key_cell_coord) {
+        for(int i=0; i<4; ++i) {
+          coords[i] = key_cell_coord + i - 1;
+          if(coords[i]<0) coords[i]+=gridSize;
+          if(coords[i]>gridSize) coords[i]-=gridSize;
+        }
+      };
+
+      getWrappedCoords(index_x, x_p_0);
+      getWrappedCoords(index_y, y_p_0);
+      getWrappedCoords(index_z, z_p_0);
+
+      size_t key_cell_index = pGrid->getIndexFromCoordinate({index_x[0], index_y[0], index_z[0]});
+
+      auto & data = this->getDataVector();
+      for(int i=0; i<4; ++i) {
+        for(int j=0; j<4; ++j) {
+          for(int k=0; k<4; ++k) {
+            size_t this_index = key_cell_index +
+                    (index_x[i] - index_x[0])*gridSize2 +
+                    (index_y[j] - index_y[0])*gridSize +
+                    (index_z[k] - index_z[0]);
+            // above is an optimization of this_index = pGrid->getIndexFromCoordinate({x_p_0 - 1 + i, ...} )
+            data[this_index] += value * valsForInterpolation[i][j][k];
           }
         }
       }
@@ -467,6 +494,8 @@ namespace fields {
 
     void setZeroInsideWindow(const Window<CoordinateType> & window) {
       toReal();
+
+#pragma omp parallel for default(none) shared(window)
       for(size_t i=0; i<this->pGrid->size3; ++i) {
         if(window.contains(this->pGrid->getCentroidFromIndex(i)))
           (*this)[i]=0;
@@ -475,6 +504,8 @@ namespace fields {
 
     void setZeroOutsideWindow(const Window<CoordinateType> & window) {
       toReal();
+
+#pragma omp parallel for default(none) shared(window)
       for(size_t i=0; i<this->pGrid->size3; ++i) {
         if(!window.contains(this->pGrid->getCentroidFromIndex(i)))
           (*this)[i]=0;
