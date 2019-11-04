@@ -1,0 +1,45 @@
+# Test velocity modification on zoom grid
+
+# cosmology:
+Om  0.279
+Ol  0.721
+s8  0.817
+zin	99
+camb	../camb_transfer_kmax40_z0.dat
+seed	8896131
+
+
+# output:
+outname test_20
+outdir	 ./
+outformat tipsy
+
+
+# 64 Mpc/h, 64 cells
+basegrid 64.0 32
+
+
+centre 32.5 32.5 32.5
+select_sphere 5
+zoomgrid 4 32
+
+centre 32.5 32.5 32.5
+select_sphere 2
+
+zerolevel 0
+zerolevel 1
+
+calculate vx
+modify vx absolute 2000
+apply_modifications
+clear_modifications
+calculate vx
+
+done
+
+clear_modifications
+
+dump_grid 0
+dump_grid 1
+dump_ps 0
+dump_ps 1
