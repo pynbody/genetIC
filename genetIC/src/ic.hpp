@@ -548,7 +548,6 @@ public:
     cout << "  Low-left corner in parent grid = " << lowerCorner << endl;
     cout << "  Low-left corner (h**-1 Mpc)    = " << newGrid.offsetLower.x << ", " << newGrid.offsetLower.y << ", "
          << newGrid.offsetLower.z << endl;
-
     updateParticleMapper();
 
     cout << "  Total particles = " << pMapper->size() << endl;
@@ -1038,7 +1037,9 @@ public:
     tools::ChangeCwdWhileInScope temporary(tools::getDirectoryName(fname));
 
     dispatch.run_loop(inf);
+#ifdef DEBUG_INFO
     cerr << *(pseudoICs.pMapper) << endl;
+#endif
     cerr << "******** Finished with " << fname << " ***********" << endl;
     pInputMapper = pseudoICs.pMapper;
     pInputMultiLevelContext = std::make_shared<multilevelcontext::MultiLevelContextInformation<GridDataType>>
@@ -1198,7 +1199,9 @@ public:
     ensureParticleGeneratorInitialised();
 
     cerr << "Write, ndm=" << pMapper->size_dm() << ", ngas=" << pMapper->size_gas() << endl;
+#ifdef DEBUG_INFO
     cerr << (*pMapper);
+#endif
 
     T boxlen = multiLevelContext.getGridForLevel(0).periodicDomainSize;
     Coordinate<T> centre;
@@ -1330,8 +1333,10 @@ public:
   //! Output to a file the currently flagged particles
   virtual void dumpID(string fname) {
     std::vector<size_t> results;
-    cerr << "dumpID using current mapper:" << endl;
+    cerr << "dumpID using current mapper" << endl;
+#ifdef DEBUG_INFO
     cerr << (*pMapper);
+#endif
     pMapper->getFlaggedParticles(results);
     io::dumpBuffer(results, fname);
   }

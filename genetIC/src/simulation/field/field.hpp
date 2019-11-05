@@ -56,7 +56,8 @@ namespace fields {
     }
 
     void disableInterpolationCaches() {
-#pragma omp parallel default(none)
+      enabled = false;
+#pragma omp parallel default(none) shared(accumHits, accumMisses)
       {
 #pragma omp critical
         {
@@ -77,7 +78,6 @@ namespace fields {
                       << std::defaultfloat << std::endl;
           }
 #endif
-          enabled = false;
         }
       }
     }

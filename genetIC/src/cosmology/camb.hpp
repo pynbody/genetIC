@@ -222,11 +222,15 @@ namespace cosmology {
         numCols = io::getNumberOfColumns(filename);
 
         if (numCols == c_old_camb) {
+#ifdef DEBUG_INFO
           std::cerr << "Using pre 2015 CAMB transfer function" << std::endl;
+#endif
         } else if (numCols == c_new_camb) {
+#ifdef DEBUG_INFO
           std::cerr << "Using post 2015 CAMB transfer function" << std::endl;
+#endif
         } else {
-          throw std::runtime_error("CAMB transfer file doesn't have a sensible number of rows and columns");
+          throw std::runtime_error("CAMB transfer file doesn't have a sensible number of columns");
         }
 
 
