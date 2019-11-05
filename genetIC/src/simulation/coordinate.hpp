@@ -165,7 +165,7 @@ public:
 
 };
 
-/*! \brief Iterates over all points in the window defined by the two co-ordinates, applying a function to each point.
+/*! \brief Iterates over all points in the window defined by the two co-ordinates, calling a function at each point.
     \param lowerCornerInclusive - lower left front corner of the window, including that point
     \param upperCornerExclusive - upper right back corner of the window, excluding that point
     \param callback - function to apply to each point in the window

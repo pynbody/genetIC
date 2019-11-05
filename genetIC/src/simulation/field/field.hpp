@@ -9,6 +9,7 @@
 #include "src/io/numpy.hpp"
 #include "src/simulation/grid/grid.hpp"
 #include "src/tools/numerics/tricubic.hpp"
+#include "boost/compute/detail/lru_cache.hpp"
 
 /*!
     \namespace fields
@@ -33,6 +34,54 @@ namespace tools {
 
 
 namespace fields {
+  namespace cache {
+    // A cache to prevent the tricubic interpolation coefficients being needlessly recalculated
+    // Ideally following should be a static class member for Fields, but thread_local doesn't seem to work
+    // on static class members with Clang...?
+    thread_local boost::compute::detail::lru_cache<std::tuple<int,int,int,void*>,
+      numerics::LocalUnitTricubicApproximation<double>> cachedInterpolators(1024);
+
+    thread_local size_t cacheHits, cacheMisses;
+    bool enabled;
+    size_t accumHits, accumMisses;
+
+    void enableInterpolationCaches() {
+      enabled = true;
+#pragma omp parallel default(none)
+      {
+        cachedInterpolators.clear();
+        cacheHits = 0;
+        cacheMisses = 0;
+      }
+    }
+
+    void disableInterpolationCaches() {
+#pragma omp parallel default(none)
+      {
+#pragma omp critical
+        {
+          // pool all hits/misses across threads
+          accumHits += cacheHits;
+          accumMisses += cacheMisses;
+        }
+
+#pragma omp master
+        {
+#ifdef DEBUG_INFO
+          if(accumHits>0 || accumMisses>0) {
+            double fracHits = 100 * double(accumHits) / double(accumHits + accumMisses);
+            double fracMisses = 100 * double(accumMisses) / double(accumHits + accumMisses);
+            std::cerr << std::setprecision(2);
+            std::cerr << "Interpolation cache performance report. Hits: " << accumHits
+                      << " (" << fracHits << "%); misses: " << accumMisses << " (" << fracMisses << "%)"
+                      << std::defaultfloat << std::endl;
+          }
+#endif
+          enabled = false;
+        }
+      }
+    }
+  }
 
   template<typename D, typename C>
   class EvaluatorBase;
@@ -238,23 +287,7 @@ namespace fields {
       // The following cubic interpolation constructor is potentially expensive. If it turns out to be a major
       // part of the overall runtime, a caching scheme could be implemented to reduce the overall cost of
       // interpolation, especially when interpolating an entire grid.
-      DataType valsForInterpolation[4][4][4];
-      for(int i=-1; i<3; ++i) {
-        for(int j=-1; j<3; ++j) {
-          for(int k=-1; k<3; ++k) {
-            Coordinate<int> coord {x_p_0+i, y_p_0+j, z_p_0+k};
-            if(pGrid->size==pGrid->simEquivalentSize) {
-              coord = pGrid->wrapCoordinate(coord);
-            } else {
-              // Repeat values at the boundary. Note this leads to artefacts in the interpolation. Warnings
-              // about using results within a few cells of the boundary are issued to the user elsewhere.
-              coord = pGrid->clampCoordinate(coord);
-            }
-            valsForInterpolation[i+1][j+1][k+1] = (*this)[pGrid->getIndexFromCoordinateNoWrap(coord)];
-          }
-        }
-      }
-      numerics::LocalUnitTricubicApproximation<DataType> interpolator(valsForInterpolation);
+      const numerics::LocalUnitTricubicApproximation<DataType> & interpolator = getTricubicInterpolator(x_p_0, y_p_0, z_p_0);
       CoordinateType dx,dy,dz;
 
       // Work out the fractional displacement of our target point between the centroid of the cell identified above
@@ -333,6 +366,50 @@ namespace fields {
 #endif
 
     }
+
+
+
+  protected:
+
+
+    const numerics::LocalUnitTricubicApproximation<DataType> & getTricubicInterpolator(int x_p_0, int y_p_0, int z_p_0) const {
+      if(cache::enabled) {
+        auto key = std::make_tuple(x_p_0, y_p_0, z_p_0, const_cast<void *>(static_cast<const void *>(this)));
+        auto result = cache::cachedInterpolators.get(key);
+        if (result == boost::none) {
+          cache::cacheMisses += 1;
+          cache::cachedInterpolators.insert(key, makeTricubicInterpolator(x_p_0, y_p_0, z_p_0));
+          return cache::cachedInterpolators.get(key).get();
+        } else {
+          cache::cacheHits += 1;
+          return result.get();
+        }
+      } else {
+        return makeTricubicInterpolator(x_p_0, y_p_0, z_p_0);
+      }
+    }
+
+    numerics::LocalUnitTricubicApproximation<DataType> makeTricubicInterpolator(int x_p_0, int y_p_0, int z_p_0) const {
+      DataType valsForInterpolation[4][4][4];
+      for(int i=-1; i<3; ++i) {
+        for(int j=-1; j<3; ++j) {
+          for(int k=-1; k<3; ++k) {
+            Coordinate<int> coord {x_p_0+i, y_p_0+j, z_p_0+k};
+            if(pGrid->size == pGrid->simEquivalentSize) {
+              coord = pGrid->wrapCoordinate(coord);
+            } else {
+              // Repeat values at the boundary. Note this leads to artefacts in the interpolation. Warnings
+              // about using results within a few cells of the boundary are issued to the user elsewhere.
+              coord = pGrid->clampCoordinate(coord);
+            }
+            valsForInterpolation[i+1][j+1][k+1] = (*this)[pGrid->getIndexFromCoordinateNoWrap(coord)];
+          }
+        }
+      }
+      return numerics::LocalUnitTricubicApproximation<DataType>(valsForInterpolation);
+    }
+
+  public:
 
     //! Returns a constant reference to the value of the field at grid index i
     const DataType &operator[](size_t i) const {

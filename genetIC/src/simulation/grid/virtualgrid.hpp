@@ -428,17 +428,16 @@ namespace grids {
       return this->pUnderlying->getIndexFromCoordinate(coord);
     }
 
-    //! Converts an index of a cell in the underlying grid to an index in the virtual grid (subsection)
-    size_t mapIndexFromUnderlying(size_t underlying_id) const {
+    //! Converts an index of a cell in the *underlying* grid to a coordinate relative to *this* grid
+    Coordinate<int> coordinateFromUnderlyingId(size_t underlying_id) const {
       Coordinate<int> coord = this->pUnderlying->getCoordinateFromIndex(
         underlying_id); // co-ordinate relative to underlying
       coord -= cellOffset; // co-ordinate relative to virtual grid
       coord = this->wrapCoordinate(coord);
 
-      if (!this->containsCellWithCoordinate(coord))
-        throw std::out_of_range("Out of range in SectionOfGrid::mapIndexFromUnderlying");
+      return coord;
 
-      return this->getIndexFromCoordinate(coord);
+
     }
 
     /*! \brief Constructs a SectionOfGrid with the specified underlying grid, offset, and size
@@ -491,12 +490,9 @@ namespace grids {
       std::vector<size_t> underlyingArray;
       this->pUnderlying->getFlaggedCells(underlyingArray);
       for (size_t ptcl: underlyingArray) {
-        try {
-          targetArray.push_back(this->mapIndexFromUnderlying(ptcl));
-          assert(targetArray.back() < this->size3);
-        } catch (std::out_of_range &e) {
-          continue;
-        }
+        auto coord = this->coordinateFromUnderlyingId(ptcl);
+        if (this->containsCellWithCoordinate(coord))
+          targetArray.push_back(this->getIndexFromCoordinate(coord));
       }
       tools::sortAndEraseDuplicate(targetArray);
     }

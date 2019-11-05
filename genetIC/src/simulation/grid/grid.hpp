@@ -13,6 +13,7 @@
 #include "src/tools/util_functions.hpp"
 #include "src/tools/data_types/complex.hpp"
 #include "src/simulation/window.hpp"
+#include "boost/config.hpp"
 
 using std::complex;
 using std::vector;
@@ -325,7 +326,45 @@ namespace grids {
     //! Returns the physical size (in Mpc/h) of the smallest box that could contain all the flagged cells.
     T getFlaggedCellsPhysicalSize() {
       return T(this->getFlaggedCellsSize()) * this->cellSize;
-    };
+    }
+
+    /*! \brief Iterate in parallel over all cells in the grid, in a way that is spatially clustered
+     *
+     * Used to speed up supersampling of fields in parallel, so that individual processors focus on particular regions
+     * and therefore get good caching.
+     *
+     * chunk_size determines the number of cells in the subcubes into which the grid is divided. Smaller values result
+     * in poorer overall caching because multiple threads will end up working on the same cell. On the other hand,
+     * larger values result in poorer parallelisation performance in general especially on small grids. They might also
+     * result in things you'd expect to be cached falling out of the LRU cache used by the interpolation. No formal
+     * optimization of chunk_size has been attempted, because the speed-up from the rough guess of 16 on trial
+     * problems seemed to be sufficient for practical purposes. (If a grid is not much bigger than 16^3, the
+     * parallelisation will be very poor -- but on the other hand, it's such a small grid that performance is
+     * unlikely to be an issue.)
+     */
+    void parallelIterateOverCellsSpatiallyClustered(std::function<void(size_t)> callback, int chunk_size=16) const {
+      size_t nChunksPerSide = size_t(std::ceil(size/double(chunk_size)));
+      size_t nChunks = std::pow(nChunksPerSide,3);
+      Grid<T> gridOfChunks(periodicDomainSize, nChunksPerSide, cellSize*chunk_size);
+
+      // Explicit typing of this lambda seems required to prevent Clang linking error (which only shows up
+      // when used in parallel, as below).
+      std::function<void(const Coordinate<int> &)> adaptedCallback = [callback, this](const Coordinate<int> & coord) {
+        callback(this->getIndexFromCoordinate(coord));
+      };
+
+#pragma omp parallel for schedule(dynamic) default(none) shared(nChunks, gridOfChunks, chunk_size, adaptedCallback)
+      for(size_t chunk=0; chunk<nChunks; chunk++) {
+        auto lci_coordinate = gridOfChunks.getCoordinateFromIndex(chunk) * chunk_size;
+        auto uce_coordinate = lci_coordinate+chunk_size;
+        if(BOOST_UNLIKELY(uce_coordinate.x>size)) uce_coordinate.x = size;
+        if(BOOST_UNLIKELY(uce_coordinate.y>size)) uce_coordinate.y = size;
+        if(BOOST_UNLIKELY(uce_coordinate.z>size)) uce_coordinate.z = size;
+        iterateOverCube<int>(lci_coordinate, uce_coordinate, adaptedCallback);
+      }
+
+
+    }
 
   protected:
 

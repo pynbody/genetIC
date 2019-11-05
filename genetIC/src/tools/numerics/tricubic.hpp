@@ -55,8 +55,10 @@ namespace numerics {
       initCoeffsFromCellValues(cellValues);
     }
 
+    LocalUnitTricubicApproximation() {}
+
     // Evaluate the interpolated function within the unit cube [0,1]^3
-    T operator()(T x, T y, T z) {
+    T operator()(T x, T y, T z) const {
       assert(x>=0 && x<1 && y>=0 && y<1 && z>=0 && z<1);
       // If speed-ups are necessary here, the values of x,y,z for which this is called are likely to be highly
       // predictable and results globally cachable. Caching the a... coefficients could also

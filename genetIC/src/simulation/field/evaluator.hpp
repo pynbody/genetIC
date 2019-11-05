@@ -28,15 +28,34 @@ namespace fields {
     virtual bool contains(size_t i) const = 0;
 
     //! \brief Adds this field to the destination field.
-    void addTo(Field <DataType, CoordinateType> &destination) {
+    virtual void addTo(Field <DataType, CoordinateType> &destination) const {
 
       size_t size3 = destination.getGrid().size3;
 
-#pragma omp parallel for schedule(static) default(none) shared(size3, destination)
+      fields::cache::enableInterpolationCaches();
+
+      // A note on the scheduling here: the most costly operations operations are encountered when there is
+      // interpolation involved, at which point an thread-local LRU cache tries to reduce some of the workload. The hit
+      // rate in the cache will be greatest if processors work on spatially localised areas. At present, such
+      // strict localization is not implemented.
+
+      /*
+#pragma omp parallel for schedule(dynamic, destination.getGrid().size2)
       for (size_t ind_l = 0; ind_l < size3; ind_l++) {
-        if(contains(ind_l))
+        if (contains(ind_l))
           destination[ind_l] += (*this)[ind_l];
       }
+       */
+
+      destination.getGrid().parallelIterateOverCellsSpatiallyClustered([this, &destination](size_t ind_l) {
+        if (contains(ind_l))
+          destination[ind_l] += (*this)[ind_l];
+      });
+
+
+      fields::cache::disableInterpolationCaches();
+
+
     }
   };
 
