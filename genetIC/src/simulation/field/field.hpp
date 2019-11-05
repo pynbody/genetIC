@@ -9,8 +9,6 @@
 #include "src/io/numpy.hpp"
 #include "src/simulation/grid/grid.hpp"
 #include "src/tools/numerics/tricubic.hpp"
-#include "src/tools/lru_cache.hpp"
-
 
 /*!
     \namespace fields
