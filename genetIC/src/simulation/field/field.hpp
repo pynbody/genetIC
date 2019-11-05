@@ -38,7 +38,7 @@ namespace fields {
     // A cache to prevent the tricubic interpolation coefficients being needlessly recalculated
     // Ideally following should be a static class member for Fields, but thread_local doesn't seem to work
     // on static class members with Clang...?
-    thread_local boost::compute::detail::lru_cache<std::tuple<int,int,int,void*>,
+    thread_local boost::compute::detail::lru_cache<std::tuple<int,int,int,const void*>,
       numerics::LocalUnitTricubicApproximation<double>> cachedInterpolators(1024);
 
     thread_local size_t cacheHits, cacheMisses;
@@ -57,6 +57,7 @@ namespace fields {
 
     void disableInterpolationCaches() {
       enabled = false;
+      cachedInterpolators.clear();
 #pragma omp parallel default(none) shared(accumHits, accumMisses)
       {
 #pragma omp critical
@@ -284,10 +285,6 @@ namespace fields {
       std::tie(x_p_0, y_p_0, z_p_0) = floor(location / pGrid->cellSize - 0.5);
 
 #ifdef CUBIC_INTERPOLATION
-      // The following cubic interpolation constructor is potentially expensive. If it turns out to be a major
-      // part of the overall runtime, a caching scheme could be implemented to reduce the overall cost of
-      // interpolation, especially when interpolating an entire grid.
-      const numerics::LocalUnitTricubicApproximation<DataType> & interpolator = getTricubicInterpolator(x_p_0, y_p_0, z_p_0);
       CoordinateType dx,dy,dz;
 
       // Work out the fractional displacement of our target point between the centroid of the cell identified above
@@ -297,7 +294,14 @@ namespace fields {
       dy-=y_p_0;
       dz-=z_p_0;
 
-      return interpolator(dx,dy,dz);
+      if(cache::enabled) {
+        auto interp = getTricubicInterpolatorCached(x_p_0, y_p_0, z_p_0);
+        return interp(dx, dy, dz);
+      } else {
+        auto interp = makeTricubicInterpolator(x_p_0, y_p_0, z_p_0);
+        return interp(dx, dy, dz);
+      }
+
 #else
 
       int x_p_1, y_p_1, z_p_1;
@@ -372,20 +376,17 @@ namespace fields {
   protected:
 
 
-    const numerics::LocalUnitTricubicApproximation<DataType> & getTricubicInterpolator(int x_p_0, int y_p_0, int z_p_0) const {
-      if(cache::enabled) {
-        auto key = std::make_tuple(x_p_0, y_p_0, z_p_0, const_cast<void *>(static_cast<const void *>(this)));
-        auto result = cache::cachedInterpolators.get(key);
-        if (result == boost::none) {
-          cache::cacheMisses += 1;
-          cache::cachedInterpolators.insert(key, makeTricubicInterpolator(x_p_0, y_p_0, z_p_0));
-          return cache::cachedInterpolators.get(key).get();
-        } else {
-          cache::cacheHits += 1;
-          return result.get();
-        }
+    const numerics::LocalUnitTricubicApproximation<DataType> & getTricubicInterpolatorCached(int x_p_0, int y_p_0, int z_p_0) const {
+      assert(cache::enabled);
+      auto key = std::make_tuple(x_p_0, y_p_0, z_p_0, static_cast<const void *>(this));
+      auto result = cache::cachedInterpolators.get(key);
+      if (result == boost::none) {
+        cache::cacheMisses += 1;
+        cache::cachedInterpolators.insert(key, makeTricubicInterpolator(x_p_0, y_p_0, z_p_0));
+        return cache::cachedInterpolators.get(key).get();
       } else {
-        return makeTricubicInterpolator(x_p_0, y_p_0, z_p_0);
+        cache::cacheHits += 1;
+        return result.get();
       }
     }
 
