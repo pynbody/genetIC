@@ -25,7 +25,7 @@ zoomgrid 3 64
 
 
 outdir	 ./
-outformat 4
+outformat tipsy
 
 
 IDfile reference.txt

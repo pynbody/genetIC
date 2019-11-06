@@ -10,7 +10,7 @@ camb	../camb_transfer_kmax40_z0.dat
 
 outdir	 ./
 outname mappertest
-outformat 5
+outformat grafic
 subsample 2
 
 basegrid 50.0 8

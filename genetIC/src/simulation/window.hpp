@@ -62,7 +62,7 @@ protected:
 
 public:
   //! Construct an empty window, with zero wrap length
-  Window() : wrapLength(0) { }
+  Window() : wrapLength(0) {}
 
   /*! \brief Constructs a window with the given wrap length, and the smallest possible size around the specified initial position
       \param wrapLength - periodicity scale
@@ -80,7 +80,7 @@ public:
       \param highExclusive - upper bound of the range (excluded from range)
   */
   Window(T wrapLength, Coordinate<T> lowerCornerInclusive, Coordinate<T> upperCornerExclusive) :
-      wrapLength(wrapLength), upperCornerExclusive(upperCornerExclusive), lowerCornerInclusive(lowerCornerInclusive) {
+    wrapLength(wrapLength), upperCornerExclusive(upperCornerExclusive), lowerCornerInclusive(lowerCornerInclusive) {
 
   }
 
@@ -174,9 +174,11 @@ public:
 
     lowerCornerInclusive = wrap(centre - newSize / 2);
     if (newSize % 2 == 0)
-      upperCornerExclusive = wrap(centre + newSize / 2);
+      upperCornerExclusive = wrap(centre + newSize / 2 - 1) + 1;
     else
-      upperCornerExclusive = wrap(centre + (newSize / 2 + 1));
+      upperCornerExclusive = wrap(centre + newSize / 2 ) + 1;
+
+    // Note in the above, because the corner is *exclusive*, the +1 happens after the wrapping
 
     // There is an edge case where T is int, newSize is odd, and also getSize()==newSize, where the new
     // window might be aligned too far up to capture the old lower corner. Fix this:
@@ -195,12 +197,13 @@ public:
 
     assert(this->contains(oldLCI));
     assert(this->contains(oldUCE - 1));
-    assert(getSizes() == newSize);
+
+    assert(getSizes() == wrap(newSize));
 
   }
 
   //! Returns true if the window contains the test co-ordinate
-  bool contains(const Coordinate<T> &test) const  {
+  bool contains(const Coordinate<T> &test) const {
     bool inX, inY, inZ;
     inX = withinWrapped(lowerCornerInclusive.x, upperCornerExclusive.x, test.x);
     inY = withinWrapped(lowerCornerInclusive.y, upperCornerExclusive.y, test.y);

@@ -3,7 +3,7 @@
 
 # output parameters
 outdir	 ./
-outformat 3
+outformat gadget3
 outname test_1
 
 # cosmology:

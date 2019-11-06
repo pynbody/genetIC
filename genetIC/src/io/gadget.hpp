@@ -8,12 +8,11 @@
 #include <vector>
 
 namespace io {
-    /*!
-    \namespace io::gadget
-    \brief Classes related to outputting particle data in the gadget 2 and gadget 3 formats.
- */
+  /*!
+  \namespace io::gadget
+  \brief Classes related to outputting particle data in the gadget 2 and gadget 3 formats.
+*/
   namespace gadget {
-
 
 
     using std::cerr;
@@ -22,7 +21,7 @@ namespace io {
 
 
     /*! \struct io_header_2
-        \brief Contains data for the header of gadget2 format files
+        \brief The data structure for the header of gadget2 format files
     */
     struct io_header_2 // header for gadget2
     {
@@ -45,12 +44,12 @@ namespace io {
       // If more than 10^32 particles, this part stores the number of particles divided by 2^32 (rounding down) and nPartTotal contains the remainder.
       unsigned int nPartTotalHighWord[6];
       int flag_entropy_instead_u;
-      char fill[256 - 6 * 4 - 6 * 8 - 2 * 8 - 2 * 4 - 6 * 4 - 2 * 4 - 4 * 8 - 6*4 - 3*4];  /* fills to 256 Bytes */
+      char fill[256 - 6 * 4 - 6 * 8 - 2 * 8 - 2 * 4 - 6 * 4 - 2 * 4 - 4 * 8 - 6 * 4 - 3 * 4];  /* fills to 256 Bytes */
     };
 
 
     /*! \struct io_header_3
-        \brief Contains data for the header of gadget3 format files
+        \brief The data staructure for the header of gadget3 format files
     */
     struct io_header_3 //header for gadget3
     {
@@ -112,9 +111,6 @@ namespace io {
       char fill[48];    /*!< fills to 256 Bytes */
 
     };
-
-/*!< holds header for snapshot files */
-
 
 
     template<typename OutputFloatType, typename InternalFloatType>
@@ -231,7 +227,6 @@ namespace io {
     }
 
 
-
     /*! \class GadgetOutput
     \brief Class to handle output to gadget files.
     */
@@ -240,10 +235,10 @@ namespace io {
     protected:
       using InternalFloatType = tools::datatypes::strip_complex<GridDataType>;
 
-      particle::mapper::ParticleMapper<GridDataType> &mapper; //!< Particle mapper, for relating particle positions to the grid.
-      particle::SpeciesToGeneratorMap<GridDataType> generators; //!< Generators for each particle species.
+      particle::mapper::ParticleMapper<GridDataType> &mapper; //!< Particle mapper, for relating offsets in the file to GenetIC grid cells.
+      particle::SpeciesToGeneratorMap<GridDataType> generators; //!< Particle generators for each particle species.
       const cosmology::CosmologicalParameters<InternalFloatType> &cosmology; //!< Struct containing cosmological parameters.
-      tools::MemMapFileWriter writer; //!< Used to write in the gadget format.
+      tools::MemMapFileWriter writer; //!< Low-level file operations are handled by this object.
       size_t nTotal; //!< Total number of particles to output.
       double boxLength; //!< Size of simulation box.
       int gadgetVersion; //!< Which version of the gadget file to output. Allowed values 2 or 3.
@@ -252,35 +247,39 @@ namespace io {
       bool variableMass; //!< Stores whether we are using variable mass gadget particles
 
 
-      // Mapping between gadget particle types (0->6) and our internal field type
-      std::vector<particle::species> gadgetTypeToFieldType {particle::species::baryon,
-                                                            particle::species::dm,
-                                                            particle::species::dm,
-                                                            particle::species::dm,
-                                                            particle::species::dm,
-                                                            particle::species::dm};
+      // Mapping between gadget particle types (0->6) and our internal field type. This selects the appropriate
+      // transfer function, if multiple are being used.
+      std::vector<particle::species> gadgetTypeToSpecies{particle::species::baryon,
+                                                           particle::species::dm,
+                                                           particle::species::dm,
+                                                           particle::species::dm,
+                                                           particle::species::dm,
+                                                           particle::species::dm};
 
-      //! \brief Save a block of gadget particles
+      //! \brief Save a gadget block such as the mass or position arrays.
+      //! Takes a lambda (or other function) which, given a mapper iterator, returns the data to be written for that
+      //! particle. The writing proceeds in parallel using a memmap.
       template<typename WriteType>
       void saveGadgetBlock(std::function<WriteType(const particle::mapper::MapperIterator<GridDataType> &)> getData) {
 
-        size_t current_n=0;
+        size_t current_n = 0;
 
         auto currentWriteBlockC = writer.getMemMapFortran<WriteType>(nTotal);
 
-        for(unsigned int particle_type=0; particle_type<6; particle_type++) {
-          auto begin = mapper.beginParticleType(*generators[gadgetTypeToFieldType[particle_type]], particle_type);
-          auto end = mapper.endParticleType(*generators[gadgetTypeToFieldType[particle_type]], particle_type);
-          size_t nMax = end.getIndex()-begin.getIndex();
+        for (unsigned int particle_type = 0; particle_type < 6; particle_type++) {
+          auto begin = mapper.beginParticleType(*generators[gadgetTypeToSpecies[particle_type]], particle_type);
+          auto end = mapper.endParticleType(*generators[gadgetTypeToSpecies[particle_type]], particle_type);
+          size_t nMax = end.getIndex() - begin.getIndex();
 
-          current_n+=begin.parallelIterate([&](size_t n_offset, const particle::mapper::MapperIterator<GridDataType> &localIterator) {
-            size_t addr = n_offset+current_n;
-            currentWriteBlockC[addr] = getData(localIterator);
-          }, nMax);
+          current_n += begin.parallelIterate(
+            [&](size_t n_offset, const particle::mapper::MapperIterator<GridDataType> &localIterator) {
+              size_t addr = n_offset + current_n;
+              currentWriteBlockC[addr] = getData(localIterator);
+            }, nMax);
 
         }
 
-        assert(current_n==nTotal);
+        assert(current_n == nTotal);
 
       }
 
@@ -320,7 +319,7 @@ namespace io {
         }
       }
 
-        //! \brief Extract the minimum mass, maximum mass, and number of a particle species
+      //! \brief Extract the minimum mass, maximum mass, and number of a particle species
       void getParticleInfo(InternalFloatType &min_mass, InternalFloatType &max_mass,
                            size_t &num, unsigned int particle_type) {
 
@@ -329,12 +328,13 @@ namespace io {
         num = 0;
 
         InternalFloatType mass;
-        mapper.iterateParticlesOfType(*generators[gadgetTypeToFieldType[particle_type]], particle_type, [&](const auto & i) {//CONFLICT_RESOLUTION
-          mass = i.getMass(); // sometimes can be MUCH faster than getParticle
-          if (min_mass > mass) min_mass = mass;
-          if (max_mass < mass) max_mass = mass;
-          num++;
-        });
+        mapper.iterateParticlesOfType(*generators[gadgetTypeToSpecies[particle_type]], particle_type,
+                                      [&](const auto &i) {
+                                        mass = i.getMass(); // sometimes can be MUCH faster than getParticle
+                                        if (min_mass > mass) min_mass = mass;
+                                        if (max_mass < mass) max_mass = mass;
+                                        num++;
+                                      });
 
       }
 
@@ -363,48 +363,48 @@ namespace io {
                    const particle::SpeciesToGeneratorMap<GridDataType> &generators_,
                    const cosmology::CosmologicalParameters<tools::datatypes::strip_complex<GridDataType>> &cosmology,
                    int gadgetVersion) :
-                   mapper(mapper), generators(generators_), cosmology(cosmology), boxLength(boxLength),
-                   gadgetVersion(gadgetVersion) {
-       }
+        mapper(mapper), generators(generators_), cosmology(cosmology), boxLength(boxLength),
+        gadgetVersion(gadgetVersion) {
+      }
 
-       //! \brief Operation to save gadget particles
-       void operator()(const std::string &name) {
+      //! \brief Operation to save gadget particles
+      void operator()(const std::string &name) {
 
-         preScanForMassesAndParticleNumbers();
+        preScanForMassesAndParticleNumbers();
 
-         writer = tools::MemMapFileWriter(name + std::to_string(gadgetVersion));
+        writer = tools::MemMapFileWriter(name + std::to_string(gadgetVersion));
 
-         writeHeader();
+        writeHeader();
 
-         // positions
-         saveGadgetBlock<Coordinate<OutputFloatType>>(
-           [](auto &localIterator) {
-             auto particle = localIterator.getParticle();
-             return Coordinate<OutputFloatType>(particle.pos);
-           });
+        // positions
+        saveGadgetBlock<Coordinate<OutputFloatType>>(
+          [](auto &localIterator) {
+            auto particle = localIterator.getParticle();
+            return Coordinate<OutputFloatType>(particle.pos);
+          });
 
-         // velocities
-         saveGadgetBlock<Coordinate<OutputFloatType>>(
-           [](auto &localIterator) {
-             auto particle = localIterator.getParticle();
-             return Coordinate<OutputFloatType>(particle.vel);
-           });
+        // velocities
+        saveGadgetBlock<Coordinate<OutputFloatType>>(
+          [](auto &localIterator) {
+            auto particle = localIterator.getParticle();
+            return Coordinate<OutputFloatType>(particle.vel);
+          });
 
-         // IDs
-         saveGadgetBlock<long>(
-           [](auto &localIterator) {
-             return localIterator.getIndex();
-           });
+        // IDs
+        saveGadgetBlock<long>(
+          [](auto &localIterator) {
+            return localIterator.getIndex();
+          });
 
 
-         if (variableMass) {
-           saveGadgetBlock<OutputFloatType>(
-             [](auto &localIterator) {
-               return localIterator.getMass();
-             });
-         }
+        if (variableMass) {
+          saveGadgetBlock<OutputFloatType>(
+            [](auto &localIterator) {
+              return localIterator.getMass();
+            });
+        }
 
-	}
+      }
 
 
     };
@@ -423,7 +423,8 @@ namespace io {
     void save(const std::string &name, double Boxlength,
               particle::mapper::ParticleMapper<GridDataType> &mapper,
               particle::SpeciesToGeneratorMap<GridDataType> &generators,
-              const cosmology::CosmologicalParameters<tools::datatypes::strip_complex<GridDataType>> &cosmology, int gadgetformat) {
+              const cosmology::CosmologicalParameters<tools::datatypes::strip_complex<GridDataType>> &cosmology,
+              int gadgetformat) {
 
       GadgetOutput<GridDataType, OutputFloatType> output(Boxlength, mapper, generators, cosmology, gadgetformat);
       output(name);

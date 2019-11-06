@@ -102,6 +102,7 @@ namespace particle {
       //! Copies the flagged cells to the specified vector
       void getFlaggedParticles(std::vector<size_t> &particleArray) const override {
         pGrid->getFlaggedCells(particleArray);
+        std::sort(particleArray.begin(), particleArray.end());
       }
 
       //! Returns the grid associated to this level (only one level, so by definition it is the coarsest)
@@ -125,9 +126,9 @@ namespace particle {
       }
 
       //! Go to the begining of the particles of the specified gadget type.
-      virtual iterator beginParticleType(const AbstractMultiLevelParticleGenerator<GridDataType> &generator,
+      virtual iterator beginParticleType(const AbstractMultiLevelParticleGenerator <GridDataType> &generator,
                                          unsigned int particleType) const override {
-        if(gadgetParticleType==particleType) {
+        if (gadgetParticleType == particleType) {
           return this->begin(generator);
         } else {
           return iterator(nullptr, generator);
@@ -135,9 +136,9 @@ namespace particle {
       }
 
       //! Go to the end of the particles of the specified gadget type.
-      virtual iterator endParticleType(const AbstractMultiLevelParticleGenerator<GridDataType> &generator,
+      virtual iterator endParticleType(const AbstractMultiLevelParticleGenerator <GridDataType> &generator,
                                        unsigned int particleType) const override {
-        if(gadgetParticleType==particleType) {
+        if (gadgetParticleType == particleType) {
           return this->end(generator);
         } else {
           return iterator(nullptr, generator);
@@ -151,10 +152,10 @@ namespace particle {
       std::pair<MapPtrType, MapPtrType> splitMass(T massRatio, const std::vector<GridPtrType> &toGrids) override {
         if (pGrid->isProxyForAnyOf(toGrids)) {
           return std::make_pair(
-              std::make_shared<OneLevelParticleMapper<GridDataType>>(
-                  this->pGrid->makeScaledMassVersion(massRatio)),
-              std::make_shared<OneLevelParticleMapper<GridDataType>>(
-                  this->pGrid->makeScaledMassVersion(1.0 - massRatio)));
+            std::make_shared<OneLevelParticleMapper<GridDataType>>(
+              this->pGrid->makeScaledMassVersion(massRatio)),
+            std::make_shared<OneLevelParticleMapper<GridDataType>>(
+              this->pGrid->makeScaledMassVersion(1.0 - massRatio)));
         } else {
           return std::make_pair(std::shared_ptr<OneLevelParticleMapper<GridDataType>>(nullptr),
                                 std::make_shared<OneLevelParticleMapper<GridDataType>>(this->pGrid));
@@ -171,15 +172,27 @@ namespace particle {
         if (pGrid->isProxyForAnyOf(toGrids)) {
           GridPtrType newGrid;
           if (super)
-            newGrid = std::make_shared<grids::SuperSampleGrid<T >>(this->pGrid, ratio);
+            newGrid = this->pGrid->makeSupersampled(ratio);
           else
-            newGrid = std::make_shared<grids::SubSampleGrid<T >>(this->pGrid, ratio);
+            newGrid = this->pGrid->makeSubsampled(ratio);
           newMapper = std::make_shared<OneLevelParticleMapper<GridDataType>>(newGrid);
         } else {
           newMapper = std::make_shared<OneLevelParticleMapper<GridDataType>>(this->pGrid);
         }
         newMapper->setGadgetParticleType(this->gadgetParticleType);
         return newMapper;
+      }
+
+      MapPtrType insertIntermediateResolutionPadding(size_t, size_t) override {
+        return this->shared_from_this();
+      }
+
+      MapPtrType withIndependentFlags() override {
+        return std::make_shared<OneLevelParticleMapper<GridDataType>>(this->pGrid->withIndependentFlags());
+      }
+
+      MapPtrType withCoupledFlags() override {
+        return std::make_shared<OneLevelParticleMapper<GridDataType>>(this->pGrid->withCoupledFlags());
       }
 
 

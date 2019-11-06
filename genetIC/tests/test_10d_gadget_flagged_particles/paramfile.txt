@@ -11,7 +11,7 @@ camb	../camb_transfer_kmax40_z0.dat
 
 outname test_10d_gadget_flagged_particles
 outdir	 ./
-outformat 3
+outformat gadget3
 
 
 basegrid 50.0 64

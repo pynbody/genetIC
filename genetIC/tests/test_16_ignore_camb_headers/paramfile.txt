@@ -18,7 +18,7 @@ seedfourier 8896131
 outname test_16
 outdir ./
 # Pick gadget3 output format:
-outformat 3
+outformat gadget3
 # Open a basic level grid, 64 Mpc/h, 64 cells on a side:
 basegrid 64.0 64
 #Initialise the random component,

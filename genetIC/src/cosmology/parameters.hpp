@@ -7,6 +7,9 @@
 
 namespace cosmology {
 
+  template<typename DataType>
+  class CAMB;
+
   /*! \struct CosmologicalParameters
       \brief Stores data about the cosmological model being assumed.
 
@@ -21,12 +24,13 @@ namespace cosmology {
     FloatType hubble; //!< Hubble rate in units of 100kms^{-1}Mpc^{-1}
     FloatType redshift; //!< Redshift at which we are generating the initial conditions.
     FloatType scalefactor; //!< Scale factor at this redshift, relative to the scale factor at z = 0
+    FloatType scalefactorAtDecoupling; //!< Scale factor at baryon-photon decoupling (z~1100)
     FloatType sigma8; //!< Sigma8 parameter
     FloatType ns; //!< Scalar spectral index
     FloatType TCMB; //!< CMB temperature today, in K
   };
 
-  //! Computes an estimate of the structure growth factor.
+  //! Computes an estimate of the linear growth factor.
   template<typename FloatType>
   FloatType growthFactor(const CosmologicalParameters<FloatType> &cosmology) {
     const FloatType a = cosmology.scalefactor;
@@ -37,8 +41,8 @@ namespace cosmology {
     // NB - this uses the curvature term, which isn't (currently) used elsewhere in the code.
     FloatType Hsq = cosmology.OmegaM0 / powf(a, 3.0) + (1. - Om - Ol) / a / a + Ol;
     // Structure growth factor, analytic approximation (exact requires solding an ode):
-    FloatType d = 2.5 * a * Om / powf(a, 3.0) / Hsq / (powf(Om / Hsq / a / a / a, 4.f / 7.f) - Ol / Hsq +
-                                                       (1. + 0.5 * Om / powf(a, 3.0) / Hsq) *
+    FloatType d = 2.5 * a * Om / pow(a, 3.0) / Hsq / (pow(Om / Hsq / a / a / a, 4.f / 7.f) - Ol / Hsq +
+                                                       (1. + 0.5 * Om / pow(a, 3.0) / Hsq) *
                                                        (1. + 1. / 70. * Ol / Hsq));
 
     return d;
@@ -54,14 +58,14 @@ namespace cosmology {
     return retVal;
   }
 
-  //! Dump an estimated power spectrum for the field, alongside the specified theory power spectrum, to disk
-  template <typename FloatType>
+  //! Calculate the ratio between the velocity and the position offset in internal units
+  template<typename FloatType>
   FloatType zeldovichVelocityToOffsetRatio(const CosmologicalParameters<FloatType> &cosmology) {
 
     // TODO: hardcoded value of f=1 is inaccurate - should be a function of omega
     FloatType f = 1.0;
     // According to Carrol and Press (1992) should use:
-    // f = powf(( Om/(a*a*a) )/( Om/(a*a*a) + (1.0 - Om - Ol)/(a*a) + Ol ),4.0/7.0);
+    // f = pow(( Om/(a*a*a) )/( Om/(a*a*a) + (1.0 - Om - Ol)/(a*a) + Ol ),4.0/7.0);
 
     // For ease of reading the expression below:
     FloatType Om = cosmology.OmegaM0;
@@ -69,19 +73,13 @@ namespace cosmology {
     FloatType a = cosmology.scalefactor;
 
 
-
-
-    FloatType velocityToOffsetRatio = f * 100. * sqrt( Om/(a*a*a) + Ol)*sqrt(a);
+    FloatType velocityToOffsetRatio = f * 100. * sqrt(Om / (a * a * a) + Ol) * sqrt(a);
     // this should be f*H(t)*a, but gadget wants vel/sqrt(a), so we use H(t)*sqrt(a)
 
     // Could also include curvature term, ie, f * 100. * sqrt( Om/(a*a*a) + (1 - Om - Ol)/(a*a) + Ol)*sqrt(a);
     // Seems a bit inconsistent that this is used in growthFactor, implicitly, in the definition of Hsq
 
     return velocityToOffsetRatio;
-
-
-
-
 
 
   }
@@ -115,7 +113,7 @@ namespace cosmology {
     // and grid-scale:
     const FloatType boxLength = field.getGrid().thisGridSize;
     FloatType kmax = M_PI / boxLength * (FloatType) res, kmin = 2.0f * M_PI / boxLength, dklog =
-        log10(kmax / kmin) / nBins, kw = 2.0f * M_PI / boxLength;
+      log10(kmax / kmin) / nBins, kw = 2.0f * M_PI / boxLength;
 
     // Initialise storage for bins:
     int ix, iy, iz, idx;
@@ -132,7 +130,7 @@ namespace cosmology {
     for (ix = -res / 2; ix < res / 2 + 1; ix++)
       for (iy = -res / 2; iy < res / 2 + 1; iy++)
         for (iz = -res / 2; iz < res / 2 + 1; iz++) {
-        // Compute square of the Fourier mode:
+          // Compute square of the Fourier mode:
           auto fieldValue = field.getFourierCoefficient(ix, iy, iz);
           FloatType vabs = std::abs(fieldValue);
           vabs *= vabs;
@@ -159,7 +157,8 @@ namespace cosmology {
 
     // ... convert to comoving units ...
     std::ofstream ofs(filename);
-    FloatType psnorm = 1 / (CAMB<FloatType>::getPowerSpectrumNormalizationForGrid(field.getGrid()) * pow((2.0 * M_PI), 3.0));
+    FloatType psnorm =
+      1 / (CAMB<FloatType>::getPowerSpectrumNormalizationForGrid(field.getGrid()) * pow((2.0 * M_PI), 3.0));
 
     for (ix = 0; ix < nBins; ix++) {
 
@@ -168,8 +167,10 @@ namespace cosmology {
 
         ofs << std::setw(16) << pow(10., log10(kmin) + dklog * (ix + 0.5)) // Middle of the k-bin
             << std::setw(16) << kbin[ix] / inBin[ix] // Average value of k in this bin
-            << std::setw(16) << (FloatType) (Px[ix] / inBin[ix]) * psnorm // Average of exact power spectrum for k in this bin
-            << std::setw(16) << (FloatType) (Gx[ix] / inBin[ix]) * psnorm // Average of |delta_k|^2 in this bin, ie, estimated power spectrum.
+            << std::setw(16)
+            << (FloatType) (Px[ix] / inBin[ix]) * psnorm // Average of exact power spectrum for k in this bin
+            << std::setw(16) << (FloatType) (Gx[ix] / inBin[ix]) *
+                                psnorm // Average of |delta_k|^2 in this bin, ie, estimated power spectrum.
             << std::setw(16) << inBin[ix] // Number in this bin
             << std::endl;
 
@@ -180,45 +181,23 @@ namespace cosmology {
 
   }
 
-  //! Convert the density field to a potential field, in-place.
+  //! Convert a density field to a potential field, in-place.
   template<typename DataType, typename FloatType=tools::datatypes::strip_complex<DataType>>
-  void densityToPotential(fields::Field<DataType, FloatType> &field, const CosmologicalParameters<FloatType> &cosmo) {
-
-
+  void densityToPotential(fields::Field<DataType, FloatType> &field, const CosmologicalParameters<FloatType> &cosmo)
+  {
     field.toFourier();
 
-    const FloatType boxLength = field.getGrid().thisGridSize;
-    const FloatType a = cosmo.scalefactor;
-    const FloatType Om = cosmo.OmegaM0;
-    const size_t res = field.getGrid().size;
+    const FloatType prefac =
+      3. / 2. * cosmo.OmegaM0 / cosmo.scalefactor
+      * 100. * 100. / (299792.) /
+      (299792.); // =3/2 Om0/a * (H0/h)^2 (h/Mpc)^2 / c^2 (km/s)
 
-    long i;
-    FloatType prefac =
-        3. / 2. * Om / a * 100. * 100. / (3. * 100000.) /
-        (3. * 100000.); // =3/2 Om0/a * (H0/h)^2 (h/Mpc)^2 / c^2 (km/s)
-    FloatType kw = 2.0f * M_PI / boxLength, k_inv;
-
-    size_t k1, k2, k3, kk1, kk2, kk3;
-
-    for (k1 = 0; k1 < res; k1++) {
-      for (k2 = 0; k2 < res; k2++) {
-        for (k3 = 0; k3 < res; k3++) {
-          // TODO: refactor this to use the provided routine for getting k coordinates in Grid class
-          i = (k1 * res + k2) * (res) + k3;
-
-          if (k1 > res / 2) kk1 = k1 - res; else kk1 = k1;
-          if (k2 > res / 2) kk2 = k2 - res; else kk2 = k2;
-          if (k3 > res / 2) kk3 = k3 - res; else kk3 = k3;
-
-          k_inv = 1.0 / ((FloatType) (kk1 * kk1 + kk2 * kk2 + kk3 * kk3) * kw * kw);
-          if (i == 0)
-            k_inv = 0;
-
-          field[i] *= -prefac * k_inv;
-        }
-      }
-    }
-
+    field.forEachFourierCell([&prefac](complex<FloatType> val, FloatType k1, FloatType k2, FloatType k3) {
+      FloatType ksq = k1 * k1 + k2 * k2 + k3 * k3;
+      FloatType ksq_inv = 1.0 / ksq;
+      if(k2==0.0) ksq_inv = 0.0;
+      return -prefac * val * ksq_inv;
+    });
 
   }
 

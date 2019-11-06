@@ -1,0 +1,39 @@
+# Test stray particle system with supersampling
+#
+# With strays on, we are allowed to "zoom" beyond the edge of the
+# literal zoom grid, but the particles will be interpolated from the
+# low-res grid. Here we also perform supersampling of the high-res particles
+# (which should include the strays).
+
+
+# output parameters
+outdir	 ./
+outformat tipsy
+outname test_6
+
+strays_on
+
+# cosmology:
+Om  0.279
+Ol  0.721
+s8  0.817
+zin	99
+camb	../camb_transfer_kmax40_z0.dat
+
+# basegrid 50 Mpc/h, 64^3
+basegrid 50.0 32
+
+# fourier seeding
+seed	8896131
+
+
+
+centre 25 25 25
+select_sphere 3.0
+zoomgrid_with_origin_at 15 15 12 4 32
+# zoom grid intentionally only partially overlaps zoom region
+
+supersample 2
+
+done
+dump_tipsy test_6.tipsy.overdensity

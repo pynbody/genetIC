@@ -1,0 +1,51 @@
+# Test the simplest possible modification: single grid, single density change
+
+# cosmology:
+Om  0.279
+Ol  0.721
+s8  0.817
+zin	99
+
+
+Ob	 	 0.0
+Om	         0.315568
+Ol	         0.684432
+s8	         0.830
+ns	         0.9652
+hubble	     0.6726
+zin	         99
+
+camb	../camb_transfer_kmax40_z0.dat
+seed	8896131
+
+
+# output:
+outname test_2
+outdir	 ./
+outformat tipsy
+
+# 64 Mpc/h, 16 cells
+basegrid 64.0 16
+
+# remove random components:
+zerolevel 0
+
+
+# select region to apply the modif to
+centre 32.5 32.5 32.5
+select_sphere 6.0
+
+# calculate the existing overdensity (should be 0), set it to 1.0
+calculate overdensity
+modify overdensity absolute 1.0
+
+# apply the modifs
+done
+
+# check overdensity was correctly modified
+calculate overdensity
+
+# dump diagnostic output
+dump_grid 0
+dump_ps 0
+dump_tipsy test_2.tipsy.overdensity

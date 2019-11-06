@@ -4,7 +4,7 @@ function runtest {
   rm $1/*.tipsy 2>/dev/null
   echo -n "Running test on $1   "
   head -1 $1/paramfile.txt
-  cd $1
+  cd $1 || exit
   IC=${IC:-../../IC}
   command="$IC paramfile.txt > IC_output.txt 2>&1"
   eval "$command"
@@ -16,8 +16,7 @@ function runtest {
   fi
   cd ..
   echo "Testing output"
-  # cp $1/*.tipsy $1/reference_output
-  python compare.py $1/
+  python ../../tools/compare.py $1/
   if [ $? -ne 0 ]
   then
       echo

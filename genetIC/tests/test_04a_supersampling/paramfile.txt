@@ -20,7 +20,7 @@ zoomgrid 2 32
 
 outname test_4
 outdir	 ./
-outformat 4
+outformat tipsy
 
 supersample 2
 

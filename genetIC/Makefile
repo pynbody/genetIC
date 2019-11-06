@@ -1,5 +1,24 @@
 # Reasonably sensible defaults
-CFLAGS	= -Wall -g -lpthread -Og -fopenmp -std=c++14   -fdiagnostics-color=auto -I`pwd` -DOPENMP  -DDOUBLEPRECISION -DOUTPUT_IN_DOUBLEPRECISION
+CFLAGS	= -Wall -g -lpthread -Og -fopenmp -std=c++14   -fdiagnostics-color=auto -I`pwd`
+
+# Here are code options. Probably don't fiddle with these unless you know what you're doing.
+#
+# -DCUBIC_INTERPOLATION: Use cubic interpolation when moving information from a coarse to a fine grid. Slower but
+#    much better.
+# -DVELOCITY_MODIFICATION_GRADIENT_FOURIER_SPACE: As the name suggests, use "ik" as the gradient operator; otherwise
+#    uses a fourth order stencil in real space. Enabling this is essential if you disable CUBIC_INTERPOLATION.
+# -DFRACTIONAL_K_SPLIT: This defines the characteristic k0 of the filter used to split information between zoom levels,
+#    defined by k0 = k_nyquist * FRACTIONAL_K_SPLIT, where k_nyquist is the Nyquist frequency of the lower-resolution grid.
+#    Higher values correlate the zoom grids more precisely with the unzoomed base grids, but at the cost of errors
+#    on small scales. The default value is an empirically-determined trade-off which works well.
+# -DFRACTIONAL_FILTER_TEMPERATURE: This defines the characteristic temperature of the Fermi filter used to split
+#    information between levels, as k0 * FRACTIONAL_FILTER_TEMPERATURE. Smaller values give sharper transitions in the
+#    filtering, which leads to better accuracy in Fourier space but worse accuracy in real space. The default value is
+#    an empirically-determined trade-off which works well.
+# -DFILTER_ON_COARSE_GRID: When moving long wavelength information onto a zoom grid, filters on the base grid
+#    and then interpolates into the zoom, rather than the default which is to interpolate and then filter.
+
+CODEOPTIONS  = -DOPENMP  -DDOUBLEPRECISION -DOUTPUT_IN_DOUBLEPRECISION -DCUBIC_INTERPOLATION -DFRACTIONAL_K_SPLIT=0.3 -DFRACTIONAL_FILTER_TEMPERATURE=0.1 -DFILTER_ON_COARSE_GRID
 CPATH 	= /opt/local/include/
 LPATH   = /opt/local/lib
 
@@ -56,8 +75,8 @@ ifeq ($(HOST), clema)
  endif
 
 ifeq ($(HOST), jasmi)
-	CXX = /opt/local/bin/g++-mp-8 -L/opt/local/lib/
-	CFLAGS = -O2 -fopenmp -std=c++14 -I`pwd` -DOPENMP -DDOUBLEPRECISION
+	CXX = /opt/local/bin/clang++-mp-9.0   -L/opt/local/lib/
+	CFLAGS = -O2 -g -fopenmp -std=c++14 -I`pwd` -DOPENMP -DDOUBLEPRECISION
 endif
 
 ifeq ($(HOST), Rhodo)
@@ -101,7 +120,7 @@ endif
 
 all: IC
 
-%.o: %.cpp ; $(CXX) $(CFLAGS) $(GIT_VARIABLES) -I$(CPATH) $(FFTW) -c $< -o $@
+%.o: %.cpp ; $(CXX) $(CFLAGS) $(CODEOPTIONS) $(GIT_VARIABLES) -I$(CPATH) $(FFTW) -c $< -o $@
 
 IC: src/main.o src/tools/filesystem.o src/tools/progress/progress.o
 		$(CXX) $(CFLAGS) -o IC $(GIT_VARIABLES) -I$(CPATH) $(FFTW) src/main.o src/tools/filesystem.o src/tools/progress/progress.o -L$(LPATH) $(GSLFLAGS) -lm $(FFTWLIB)

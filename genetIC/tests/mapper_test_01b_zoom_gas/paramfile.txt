@@ -11,7 +11,7 @@ seed	8896131
 
 outname mappertest
 outdir	 ./
-outformat 3
+outformat gadget3
 
 basegrid 50.0 64
 

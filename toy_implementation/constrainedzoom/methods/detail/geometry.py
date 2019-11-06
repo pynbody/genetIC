@@ -2,6 +2,7 @@ from ...fft_wrapper import FFTArray, unitary_fft, unitary_inverse_fft, in_fourie
 from functools import lru_cache, partial
 import numpy as np
 import scipy.fftpack
+import copy
 
 class GeometryAndPixelization:
     def __init__(self, cov_fn, nP, nW, hires_window_scale, offset):
@@ -25,6 +26,12 @@ class GeometryAndPixelization:
         """Return the real-space coordinates of the pixel boundaries for the outputs"""
         centre1, centre2 = self.xs()
         return centre1 - 0.5 / self.nP, centre2 - 0.5 / (self.nP * self.pixel_size_ratio)
+
+    @in_real_space
+    def zero_window(self, delta_lowres: FFTArray) -> FFTArray:
+        rval = copy.copy(delta_lowres)
+        rval[self.offset:self.offset+self.nW//self.pixel_size_ratio] = 0
+        return rval
 
     @in_real_space
     def extract_window(self, delta_highres_unwindowed):

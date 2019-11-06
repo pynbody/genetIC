@@ -28,15 +28,15 @@ namespace modifications {
         \param underlying_ - underlying multi-level context object.
         \param cosmology_ - struct containing cosmological data.
     */
-    LinearModification(multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
+    LinearModification(const multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
                        const cosmology::CosmologicalParameters<T> &cosmology_) :
-        Modification<DataType, T>(underlying_, cosmology_) {
+      Modification<DataType, T>(underlying_, cosmology_) {
       this->order = 1;
 
-      if(this->flaggedCells[this->underlying.getNumLevels() - 1].empty()){
-           throw std::runtime_error("Linear modifications use exclusively information from the highest resolution grid "
-                                            "but no cells have been flagged on this grid.\n"
-                                            "Change flagged cells selection to use linear modifications.");
+      if (this->flaggedCells[this->underlying.getNumLevels() - 1].empty()) {
+        throw std::runtime_error("Linear modifications use exclusively information from the highest resolution grid "
+                                 "but no cells have been flagged on this grid.\n"
+                                 "Change flagged cells selection to use linear modifications.");
       } else {
         this->flaggedCellsFinestGrid = this->flaggedCells[this->underlying.getNumLevels() - 1];
       }
@@ -45,17 +45,15 @@ namespace modifications {
 
     //! Calculates the current value of a.field for the modification defined by covector a on the field.
     T calculateCurrentValue(const fields::MultiLevelField<DataType> &field) override {
-      T val = this->getCovector()->innerProduct(field).real();
+      T val = this->getCovector(field.getTransferType())->innerProduct(field).real();
       return val;
     }
 
     //! Returns the covector that defines this modification.
-    std::shared_ptr<fields::ConstraintField<DataType>> getCovector() {
-      if(this->covector==nullptr) {
-        this->covector = this->calculateCovectorOnAllLevels();
-        this->covector->toFourier();
-      }
-      return this->covector;
+    std::shared_ptr<fields::ConstraintField<DataType>> getCovector(particle::species forSpecies) {
+      auto r = this->calculateCovectorOnAllLevels(forSpecies);
+      r->toFourier();
+      return r;
     }
 
   protected:
@@ -63,37 +61,25 @@ namespace modifications {
     std::vector<size_t> flaggedCellsFinestGrid; //!< Linear modifications only use high-res information and extrapolate from there.
 
     //! Calculate covector on finest level and generate from it the multi-grid field
-    std::shared_ptr<fields::ConstraintField<DataType>> calculateCovectorOnAllLevels() {
+    std::shared_ptr<fields::ConstraintField<DataType>> calculateCovectorOnAllLevels(particle::species forSpecies) {
 
       size_t level = this->underlying.getNumLevels() - 1;
 
       using tools::numerics::operator/=;
       auto highResModif = calculateLocalisationCovector(this->underlying.getGridForLevel(level));
 
-      if (level != 0) {
-        highResModif.getDataVector() /= this->underlying.getWeightForLevel(level);
-      }
+      auto multiLevelCovector = this->underlying.generateMultilevelCovectorFromHiresCovector(std::move(highResModif), forSpecies);
 
-      // Note - implicitly applies to dark matter only (baryon modifications not implemented):
-      auto multiLevelConstraint = this->underlying.generateMultilevelFromHighResField(std::move(highResModif));
-      for(level=0; level<this->underlying.getNumLevels(); ++level) {
-        turnLocalisationCovectorIntoModificationCovector(multiLevelConstraint->getFieldForLevel(level));
-      }
-      return multiLevelConstraint;
+      turnLocalisationCovectorIntoModificationCovector(*multiLevelCovector);
+      return multiLevelCovector;
     }
 
     //! Returns a covector for the specified grid defined such that a.f returns the average of field f over the flagged points on the grid.
-    fields::Field<DataType, T> calculateLocalisationCovector(grids::Grid<T> &grid)  {
-
+    virtual fields::Field<DataType, T> calculateLocalisationCovector(const grids::Grid<T> &grid) {
       fields::Field<DataType, T> outputField = fields::Field<DataType, T>(grid, false);
       std::vector<DataType> &outputData = outputField.getDataVector();
 
-
       T w = 1.0 / this->flaggedCellsFinestGrid.size();
-
-      for (size_t i = 0; i < grid.size3; ++i) {
-        outputData[i] = 0;
-      }
 
       for (size_t i = 0; i < this->flaggedCellsFinestGrid.size(); i++) {
         outputData[this->flaggedCellsFinestGrid[i]] += w;
@@ -104,7 +90,8 @@ namespace modifications {
     }
 
     //! To be overriden to perform any required non-local manipulation of the covector, e.g. taking gradients etc
-    virtual void turnLocalisationCovectorIntoModificationCovector(fields::Field<DataType, T> &fieldOnLevel) const = 0;
+    virtual void
+    turnLocalisationCovectorIntoModificationCovector(fields::MultiLevelField<DataType> & field) const = 0;
 
 
     //! Obtain centre of region of interest
@@ -131,15 +118,27 @@ namespace modifications {
         \param underlying_ - underlying multi-level context object.
         \param cosmology_ - struct containing cosmological parameters.
     */
-    OverdensityModification(multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
+    OverdensityModification(const multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
                             const cosmology::CosmologicalParameters<T> &cosmology_) :
-                                LinearModification<DataType, T>(underlying_, cosmology_) {
+      LinearModification<DataType, T>(underlying_, cosmology_) {
 
     };
 
 
-    //! In the case of the overdensity modification, the average of the field is what we want to constrain, so this function doesn't need to do anything.
-    void turnLocalisationCovectorIntoModificationCovector(fields::Field<DataType, T> &fieldOnLevel) const override {}
+    /*! The modifications are normally made to the white noise field, so the covector itself needs to carry the power spectrum
+     *
+     * If we are calculating this covector for e.g. the DM field rather than the white noise field, this will
+     * automatically be a null-op since we will already have set our particle species to particle::species::dm (in
+     * calculateCovectorOnAllLevels, above).
+     */
+    void turnLocalisationCovectorIntoModificationCovector(fields::MultiLevelField<DataType> & field) const override
+    {
+      field.applyTransferRatio(field.getTransferType(), particle::species::dm);
+      // Note that this does NOT update the field's own transferType to dm, which is the correct behaviour
+      // e.g. it may be a covector that acts on whitenoise vectors, in which case we pick up a factor of the
+      // DM transfer function here (so that the output is a DM overdensity). The transferType of the covector
+      // refers to which type of vector it will act on.
+    }
   };
 
 
@@ -148,22 +147,27 @@ namespace modifications {
   \brief Constrains the average of the Newtonian potential over the flagged points to be equal to the target
   */
   template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
-  class PotentialModification : public LinearModification<DataType, T> {
+  class PotentialModification : public OverdensityModification<DataType, T> {
   public:
     /*! \brief Constructor from underlying multi-level context and cosmological data.
 
         \param underlying_ - underlying multi-level context object.
         \param cosmology_ - struct containing cosmological parameters.
     */
-    PotentialModification(multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
-                          const cosmology::CosmologicalParameters<T> &cosmology_) : LinearModification<DataType, T>(
-        underlying_, cosmology_) {
+    PotentialModification(const multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
+                          const cosmology::CosmologicalParameters<T> &cosmology_) : OverdensityModification<DataType, T>(
+      underlying_, cosmology_) {
 
     };
 
     //! Converts the density into a potential, but otherwise will just average over the flagged cells
-    void turnLocalisationCovectorIntoModificationCovector(fields::Field<DataType, T> &fieldOnLevel) const override {
-      cosmology::densityToPotential(fieldOnLevel, this->cosmology);
+    void turnLocalisationCovectorIntoModificationCovector(fields::MultiLevelField<DataType> & field) const override {
+      // TODO: combine these operations to make more efficient
+      OverdensityModification<DataType,T>::turnLocalisationCovectorIntoModificationCovector(field);
+      for(size_t level=0; level<field.getNumLevels(); ++level) {
+        auto &fieldOnLevel = field.getFieldForLevel(level);
+        cosmology::densityToPotential(fieldOnLevel, this->cosmology);
+      }
     }
 
   };
@@ -173,6 +177,9 @@ namespace modifications {
   */
   template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
   class VelocityModification : public OverdensityModification<DataType, T> {
+  private:
+    const bool derivInRealSpace = true;
+
   protected:
     int direction; //!< Component of velocity to modify, (0,1,2) <-> (x,y,x).
 
@@ -181,16 +188,67 @@ namespace modifications {
 
         \param underlying_ - underlying multi-level context object.
         \param cosmology_ - struct containing cosmological data
-        \param direction - component of t velocity to modify, (0,1,2) <-> (x,y,x).
+         \param direction - component of t velocity to modify, (0,1,2) <-> (x,y,z).
     */
-    VelocityModification(multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
-                          const cosmology::CosmologicalParameters<T> &cosmology_, int direction_) :
-                          OverdensityModification<DataType, T>(underlying_, cosmology_), direction(direction_) {};
+    VelocityModification(const multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
+                         const cosmology::CosmologicalParameters<T> &cosmology_, int direction_) :
+      OverdensityModification<DataType, T>(underlying_, cosmology_), direction(direction_) {};
+
+  protected:
+
+    fields::Field<DataType, T> calculateLocalisationCovector(const grids::Grid<T> &grid) override {
+#ifdef VELOCITY_MODIFICATION_GRADIENT_FOURIER_SPACE
+      return OverdensityModification<DataType,T>::calculateLocalisationCovector(grid);
+#else
+      // Uses a finite difference 4th order stencil to create just a derivative covector
+      Coordinate<int> directionVector;
+      Coordinate<int> negDirectionVector;
+
+      directionVector[direction] = 1;
+      negDirectionVector[direction] = -1;
+
+      fields::Field<DataType, T> outputField = fields::Field<DataType, T>(grid, false);
+      std::vector<DataType> &outputData = outputField.getDataVector();
+
+      T w = 1.0 / this->flaggedCellsFinestGrid.size();
+
+      size_t ind_p1, ind_m1, ind_p2, ind_m2;
+
+      // Coeffs for the finite difference.  The signs here so that result is - Nabla Phi
+      T a = -w / 12. / grid.cellSize, b = w * 2. / 3. / grid.cellSize;
+
+      for (size_t i = 0; i < this->flaggedCellsFinestGrid.size(); i++) {
+        size_t index = this->flaggedCellsFinestGrid[i];
+        ind_m1 = grid.getIndexFromIndexAndStep(index, negDirectionVector);
+        ind_p1 = grid.getIndexFromIndexAndStep(index, directionVector);
+        ind_m2 = grid.getIndexFromIndexAndStep(ind_m1, negDirectionVector);
+        ind_p2 = grid.getIndexFromIndexAndStep(ind_p1, directionVector);
+        outputData[ind_m2] += a;
+        outputData[ind_m1] += b;
+        outputData[ind_p1] -= b;
+        outputData[ind_p2] -= a;
+      }
+
+      outputField.toFourier();
+      return outputField;
+
+#endif
+
+    }
+
+  public:
 
 
+    //! Converts (in-place) from a overdensity covector to a velocity covector
+    void turnLocalisationCovectorIntoModificationCovector(fields::MultiLevelField<DataType> & field) const override {
+      if(this->underlying.getLevelsAreCombined())
+        throw std::runtime_error("Cannot create velocity covector for recombined fields (i.e. after output generation is complete)");
+      // Note on the above exception: the problem is that we need to use the Fourier filters to calculate the
+      // multi-level Poisson solution. Once Fourier modes are combined on zoom grids, there is no simple way to get the potential.
 
-      //! Converts (in-place) from a overdensity covector to a velocity covector
-      void turnLocalisationCovectorIntoModificationCovector(fields::Field<DataType, T> &fieldOnLevel) const override {
+      OverdensityModification<DataType,T>::turnLocalisationCovectorIntoModificationCovector(field);
+      for(size_t level=0; level<field.getNumLevels(); ++level) {
+        auto &fieldOnLevel = field.getFieldForLevel(level);
         using compT = std::complex<T>;
         fieldOnLevel.toFourier(); // probably already in Fourier space, but best to be sure
         const grids::Grid<T> &grid(fieldOnLevel.getGrid());
@@ -199,30 +257,40 @@ namespace modifications {
         const T nyquist = tools::numerics::fourier::getNyquistModeThatMustBeReal(grid) * grid.getFourierKmin();
 
         auto calcCell =
-                [I, scale, nyquist](complex<T> overdensityFieldValue, T kx, T ky, T kz, T k_chosen_direction) -> complex<T> {
+          [I, scale, nyquist, this](complex<T> overdensityFieldValue, T kx, T ky, T kz, T k_chosen_direction) -> complex<T> {
 
-          // This lambda evaluates the derivative for the given Fourier-space cell. kx,ky,kz are the
-          // input k-space coordinates, and k_chosen_direction must be set to whichever of these specifies
-          // the derivative direction
+            // This lambda evaluates the derivative for the given Fourier-space cell. kx,ky,kz are the
+            // input k-space coordinates, and k_chosen_direction must be set to whichever of these specifies
+            // the derivative direction
 
-          T k2 = kx*kx+ky*ky+kz*kz;
+            T k2 = kx * kx + ky * ky + kz * kz;
 
-          if(k_chosen_direction==nyquist || k2==0)
-            return complex<T>(0);
-          else
-            return -scale * overdensityFieldValue * I * k_chosen_direction/k2;
-        };
+            if ( k2 == 0)
+              return complex<T>(0);
+            else {
+#ifdef VELOCITY_MODIFICATION_GRADIENT_FOURIER_SPACE
+              if(k_chosen_direction == nyquist) return complex<T>(0);
+              return -scale * overdensityFieldValue * I * k_chosen_direction / k2;
+#else
+              return -scale * overdensityFieldValue / k2;
+#endif
+              }
+          };
 
-
-        if(direction == 0)
-          fieldOnLevel.forEachFourierCell([calcCell](compT v, T kx, T ky, T kz) { return calcCell(v, kx, ky, kz, kx);});
-        else if(direction == 1)
-          fieldOnLevel.forEachFourierCell([calcCell](compT v, T kx, T ky, T kz) { return calcCell(v, kx, ky, kz, ky);});
-        else if(direction == 2)
-          fieldOnLevel.forEachFourierCell([calcCell](compT v, T kx, T ky, T kz) { return calcCell(v, kx, ky, kz, kz);});
+        if (direction == 0)
+          fieldOnLevel.forEachFourierCell(
+            [calcCell](compT v, T kx, T ky, T kz) { return calcCell(v, kx, ky, kz, kx); });
+        else if (direction == 1)
+          fieldOnLevel.forEachFourierCell(
+            [calcCell](compT v, T kx, T ky, T kz) { return calcCell(v, kx, ky, kz, ky); });
+        else if (direction == 2)
+          fieldOnLevel.forEachFourierCell(
+            [calcCell](compT v, T kx, T ky, T kz) { return calcCell(v, kx, ky, kz, kz); });
         else
           throw std::runtime_error("Unknown velocity direction");
+
       }
+    }
   };
 
 }

@@ -36,9 +36,9 @@ namespace fields {
 
 
   public:
-  //! Constructor with known multi-level field.
+    //! Constructor with known multi-level field.
     RandomFieldGenerator(MultiLevelField <DataType> &field_, unsigned long seed = 0) :
-        field(field_) {
+      field(field_) {
       randomNumberGeneratorType = gsl_rng_ranlxs2; // shouldn't this be gsl_rng_ranlxd2 for FloatType = double? -> it's single precision for compatibility with previous versions!
       randomState = gsl_rng_alloc(randomNumberGeneratorType); // this allocates memory for the generator with type T
       gsl_rng_set(randomState, seed);
@@ -49,20 +49,19 @@ namespace fields {
     }
 
     //! Copy constructor
-    RandomFieldGenerator(const RandomFieldGenerator& copy) : field(copy.field)
-    {
-        // Copy accross old variables:
-        seeded = copy.seeded;
-        baseSeed = copy.baseSeed;
-        parallel = copy.parallel;
-        randomNumberGeneratorType = copy.randomNumberGeneratorType;
-        drawInFourierSpace = copy.drawInFourierSpace;
-        reverseRandomDrawOrder = copy.reverseRandomDrawOrder;
+    RandomFieldGenerator(const RandomFieldGenerator &copy) : field(copy.field) {
+      // Copy accross old variables:
+      seeded = copy.seeded;
+      baseSeed = copy.baseSeed;
+      parallel = copy.parallel;
+      randomNumberGeneratorType = copy.randomNumberGeneratorType;
+      drawInFourierSpace = copy.drawInFourierSpace;
+      reverseRandomDrawOrder = copy.reverseRandomDrawOrder;
 
-        // Construct our copy's own generator (resizing a vector of randomFieldGenerators will
-        // delete the object randomState points to otherwise, so each copy needs its own instance!):
-        randomState = gsl_rng_alloc(randomNumberGeneratorType);
-        gsl_rng_set(randomState,copy.baseSeed);
+      // Construct our copy's own generator (resizing a vector of randomFieldGenerators will
+      // delete the object randomState points to otherwise, so each copy needs its own instance!):
+      randomState = gsl_rng_alloc(randomNumberGeneratorType);
+      gsl_rng_set(randomState, copy.baseSeed);
 
     }
 
@@ -97,15 +96,12 @@ namespace fields {
         Note that we cannot seed more than once, or an error will be generated.
     */
     void seed(unsigned long seed) {
-      if (seeded)
-      {
+      if (seeded) {
         throw std::runtime_error("The random number generator has already been seeded");
-      }
-      else
-      {
+      } else {
         gsl_rng_set(randomState, seed);
-      this->baseSeed = seed;
-      seeded = true;
+        this->baseSeed = seed;
+        seeded = true;
       }
     }
 
@@ -126,7 +122,7 @@ namespace fields {
 
   protected:
 
-  //! Draws a random number for a given Fourier mode.
+    //! Draws a random number for a given Fourier mode.
     void drawOneFourierMode(Field <DataType> &field, int k1, int k2, int k3,
                             FloatType norm, gsl_rng *localRandomState) {
 
@@ -201,7 +197,7 @@ namespace fields {
 
       std::cerr << "Drawing random numbers in fourier space..." << std::endl;
 
-      FloatType  sigma = 1.0 / sqrt(2.0);
+      FloatType sigma = 1.0 / sqrt(2.0);
 
 
 
@@ -211,15 +207,15 @@ namespace fields {
       // The original, serial approach uses a single seed. The new parallel approach uses a seed for each shell in
       // k space. Note that one therefore gets different fields when running in parallel vs in serial.
 
-      if(parallel) {
+      if (parallel) {
         // N.B. Parallel implementation produces results that are incompatible with the original serial
         // implementation
 
 #pragma omp parallel for schedule(dynamic)
         for (int ks = 0; ks < int(g.size / 2); ks++) {
-          gsl_rng * localRandomState = gsl_rng_alloc(randomNumberGeneratorType);
-          gsl_rng_set(localRandomState, baseSeed+ks);
-          if(omp_get_thread_num()==0)
+          gsl_rng *localRandomState = gsl_rng_alloc(randomNumberGeneratorType);
+          gsl_rng_set(localRandomState, baseSeed + ks);
+          if (omp_get_thread_num() == 0)
             pb.setProgress(float(ks * ks) * (ks * 8) / g.size3);
           for (int k1 = -ks; k1 < ks; k1++) {
             for (int k2 = -ks; k2 < ks; k2++) {
@@ -248,8 +244,6 @@ namespace fields {
 
 
     }
-
-
 
 
   };

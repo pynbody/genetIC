@@ -4,18 +4,17 @@
 # literal zoom grid, but the particles will be interpolated from the
 # low-res grid.
 #
+# This used to mean that the flagged particles were activated in low-res
+# blocks, but now they should be uniquely identified.
+#
 # The input.txt ids to set are constructed from the same geometry
 # as in mapper_test_6, but with an ACTUAL high-res region that
-# extends far enough rather than with stray mode. This leads to
-# a better-defined sphere of particles. The output is then midway
-# between the two: the lo-res parts completely match but the
-# virtual-hi-res regions pick up extra particles (since the flags
-# are actually stored on the lo-res grid).
+# extends far enough rather than with stray mode. 
 
 
 # output parameters
 outdir	 ./
-outformat 4
+outformat tipsy
 outname test_11
 
 strays_on
@@ -41,7 +40,7 @@ zoomgrid_with_origin_at 23 23 23 4 64 # zoom grid intentionally too small
 
 
 
-idfile input.txt
+idfile reference.txt
 dump_idfile output.txt
 
 

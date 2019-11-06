@@ -3,10 +3,12 @@
 
 #include <cassert>
 #include <vector>
+#include <complex>
+#include <cmath>
 
 namespace tools {
   namespace numerics {
-    //! Multiplyies vector a by constant b
+    //! Multiplies vector a by constant b
     template<typename T, typename S>
     void operator*=(std::vector<T> &a, S b) {
 #pragma omp parallel for
@@ -31,6 +33,16 @@ namespace tools {
 #pragma omp parallel for
       for (size_t i = 0; i < a.size(); ++i) {
         a[i] *= b[i];
+      }
+    }
+
+    //! Adds b to a, element-wise
+    template<typename T>
+    void operator+=(std::vector<T> &a, const std::vector<T> &b) {
+      assert(a.size() == b.size());
+#pragma omp parallel for
+      for (size_t i = 0; i < a.size(); ++i) {
+        a[i] += b[i];
       }
     }
 
@@ -127,6 +139,16 @@ namespace tools {
 #pragma omp parallel for
       for (size_t i = 0; i < a.size(); ++i) {
         output[i] = a[i] / b[i];
+      }
+      return output;
+    }
+
+    template<typename T>
+    std::vector<T> log(const std::vector<T> &x) {
+      std::vector<T> output;
+      for(auto i = x.begin(); i!=x.end(); i++) {
+        output.push_back(std::log(*i));
+        std::cerr << output.back() << " " << std::endl;
       }
       return output;
     }

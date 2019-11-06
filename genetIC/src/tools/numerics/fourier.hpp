@@ -41,9 +41,28 @@ namespace tools {
         fftw_plan_with_nthreads(FFTW_THREADS);
   std::cerr << "Note: " << FFTW_THREADS << " FFTW Threads were initialised" << std::endl;
 #else
-        fftw_plan_with_nthreads(omp_get_max_threads());
-        std::cerr << "Note: " << omp_get_max_threads() << " FFTW Threads (determined by OpenMP) were initialised"
-                  << std::endl;
+        int numThreads = omp_get_max_threads();
+        bool emitThreadLimitMessage = false;
+#if __APPLE__ && __MACH__
+#ifndef IGNORE_APPLE_FFTW_THREAD_LIMIT
+        if(numThreads>8) {
+          emitThreadLimitMessage = true;
+          numThreads=8;
+        }
+#endif
+#endif
+        fftw_plan_with_nthreads(numThreads);
+        if(emitThreadLimitMessage) {
+          std::cerr << std::endl
+            << "Limiting number of FFTW Threads to " << numThreads << ", because FFTW on Mac OS seems to become slow beyond this point."
+            << std::endl
+            << "To disable this behaviour, recompile with -DIGNORE_APPLE_FFTW_THREAD_LIMIT" << std::endl
+            << "OpenMP parts of the code will still run with " << omp_get_max_threads() << " threads."
+            << std::endl << std::endl;
+        } else {
+          std::cerr << "Note: " << numThreads << " FFTW Threads (determined by OpenMP) were initialised"
+                    << std::endl;
+        }
 #endif
 #else
         std::cerr << "Note: FFTW Threads are not enabled" << std::endl;
@@ -155,7 +174,7 @@ namespace tools {
            *
            */
         void forEachFourierCell(
-            const std::function<ComplexType(ComplexType, CoordinateType, CoordinateType, CoordinateType)> &fn) {
+          const std::function<ComplexType(ComplexType, CoordinateType, CoordinateType, CoordinateType)> &fn) {
 
           CoordinateType kMin = grid.getFourierKmin();
           iterateFourierCells([&fn, this, kMin](int kx, int ky, int kz) {
@@ -171,7 +190,7 @@ namespace tools {
            * at k-mode kx, ky, kz.
            */
         void forEachFourierCell(
-            const std::function<void(ComplexType, CoordinateType, CoordinateType, CoordinateType)> &fn) const {
+          const std::function<void(ComplexType, CoordinateType, CoordinateType, CoordinateType)> &fn) const {
           CoordinateType kMin = grid.getFourierKmin();
           iterateFourierCells([&fn, this, kMin](int kx, int ky, int kz) {
             ComplexType value = getFourierCoefficient(kx, ky, kz);
@@ -223,9 +242,9 @@ namespace tools {
 
         //! Takes a function outputting a tuple of three complex numbers, and iterates it over the Fourier grid, to create three Fourier fields
         auto generateNewFourierFields(
-            const std::function<std::tuple<ComplexType, ComplexType, ComplexType>(ComplexType, CoordinateType,
-                                                                                  CoordinateType,
-                                                                                  CoordinateType)> &fn) {
+          const std::function<std::tuple<ComplexType, ComplexType, ComplexType>(ComplexType, CoordinateType,
+                                                                                CoordinateType,
+                                                                                CoordinateType)> &fn) {
           using Field = fields::Field<DataType, CoordinateType>;
           // TODO: ought to be possible to generalise away from ugly 3D-specific case using template programming
           auto ret1 = std::make_shared<Field>(grid);
@@ -249,10 +268,10 @@ namespace tools {
       public:
 
         //! Sets the specified Fourier coefficient to the specified value
-        virtual void setFourierCoefficient(int kx, int ky, int kz, const ComplexType &val)=0;
+        virtual void setFourierCoefficient(int kx, int ky, int kz, const ComplexType &val) = 0;
 
         //! Returns the value of the Fourier coefficient at the specified integer wave-numbers
-        virtual ComplexType getFourierCoefficient(int kx, int ky, int kz) const =0;
+        virtual ComplexType getFourierCoefficient(int kx, int ky, int kz) const = 0;
       };
 
       /*! \class FieldFourierManager<double>
@@ -341,8 +360,8 @@ namespace tools {
           size_t source_range_end = FieldFourierManagerBase::grid.size3;
           size_t padding_amount = compressed_size * 2 - FieldFourierManagerBase::grid.size;
           size_t target_range_end =
-              FieldFourierManagerBase::grid.size * FieldFourierManagerBase::grid.size * 2 * compressed_size -
-              padding_amount;
+            FieldFourierManagerBase::grid.size * FieldFourierManagerBase::grid.size * 2 * compressed_size -
+            padding_amount;
           auto &data = FieldFourierManagerBase::field.getDataVector();
 
           while (source_range_end > FieldFourierManagerBase::grid.size) {
@@ -433,7 +452,7 @@ namespace tools {
           // for FFTW3 real<->complex FFTs
           // see http://www.fftw.org/fftw3_doc/Real_002ddata-DFT-Array-Format.html#Real_002ddata-DFT-Array-Format
           return 2 * FieldFourierManagerBase::field.getGrid().size2 * (
-              FieldFourierManagerBase::field.getGrid().size / 2 + 1);
+            FieldFourierManagerBase::field.getGrid().size / 2 + 1);
         }
 
         //! Performs the Fourier transform, interfacing with FFTW

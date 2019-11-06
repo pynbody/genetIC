@@ -9,14 +9,14 @@
 namespace io {
 
   namespace tipsy {
-  /*! \namespace io::tipsy
-    \brief Functions related to outputting particles in tipsy format.
-*/
+    /*! \namespace io::tipsy
+      \brief Functions related to outputting particles in tipsy format.
+    */
 
 
-  //! \struct io_header_tipsy
-  /*! \brief Struct to hold tipsy header information.
-  */
+    //! \struct io_header_tipsy
+    /*! \brief Struct to hold tipsy header information.
+    */
     struct io_header_tipsy {
       double scalefactor;
       int n;
@@ -52,9 +52,9 @@ namespace io {
     }
 
     namespace TipsyParticle {
-    /*! \namespace io::tipsy::TipsyParticle
-    \brief Classes related to defining tipsy particles.
-    */
+      /*! \namespace io::tipsy::TipsyParticle
+      \brief Classes related to defining tipsy particles.
+      */
 
       //! \struct dark
       /*! \brief Dark matter particles.
@@ -79,7 +79,7 @@ namespace io {
       //! \brief Initialise baryonic particles:
       template<typename T>
       void initialise(gas &p, const cosmology::CosmologicalParameters<T> &cosmo) {
-        p.temp = cosmo.TCMB / cosmo.scalefactor;
+        p.temp = cosmo.TCMB * cosmo.scalefactorAtDecoupling / (cosmo.scalefactor * cosmo.scalefactor);
         p.metals = 0.0;
         p.rho = 0.0;
       }
@@ -116,24 +116,24 @@ namespace io {
 
 
         begin.parallelIterate([&](size_t i, const particle::mapper::MapperIterator<GridDataType> &localIterator) {
-            TipsyParticle::initialise(p[i], cosmology);
-            auto thisParticle = localIterator.getParticle();
-            p[i].x = thisParticle.pos.x * pos_factor - 0.5;
-            p[i].y = thisParticle.pos.y * pos_factor - 0.5;
-            p[i].z = thisParticle.pos.z * pos_factor - 0.5;
-            p[i].eps = thisParticle.soft * pos_factor;
+          TipsyParticle::initialise(p[i], cosmology);
+          auto thisParticle = localIterator.getParticle();
+          p[i].x = thisParticle.pos.x * pos_factor - 0.5;
+          p[i].y = thisParticle.pos.y * pos_factor - 0.5;
+          p[i].z = thisParticle.pos.z * pos_factor - 0.5;
+          p[i].eps = thisParticle.soft * pos_factor;
 
-            p[i].vx = thisParticle.vel.x * vel_factor;
-            p[i].vy = thisParticle.vel.y * vel_factor;
-            p[i].vz = thisParticle.vel.z * vel_factor;
-            p[i].mass = thisParticle.mass * mass_factor;
+          p[i].vx = thisParticle.vel.x * vel_factor;
+          p[i].vy = thisParticle.vel.y * vel_factor;
+          p[i].vz = thisParticle.vel.z * vel_factor;
+          p[i].mass = thisParticle.mass * mass_factor;
 
 #ifdef _OPENMP
-            if (thisParticle.mass == min_mass && omp_get_thread_num() == 0)
+          if (thisParticle.mass == min_mass && omp_get_thread_num() == 0)
 #else
-              if(thisParticle.mass==min_mass)
+            if(thisParticle.mass==min_mass)
 #endif
-              photogenic_file << iord + i << std::endl;
+            photogenic_file << iord + i << std::endl;
 
         }, n);
 
@@ -143,7 +143,7 @@ namespace io {
       }
 
 
-        //! \brief Saves particles in tipsy format
+      //! \brief Saves particles in tipsy format
       template<typename ParticleType>
       void saveTipsyParticles(particle::mapper::MapperIterator<GridDataType> &&begin,
                               particle::mapper::MapperIterator<GridDataType> &&end) {
@@ -190,7 +190,7 @@ namespace io {
 
 
     public:
-    //! \brief Constructor
+      //! \brief Constructor
       TipsyOutput(double boxLength,
                   const particle::SpeciesToGeneratorMap<GridDataType> &_generators,
                   std::shared_ptr<particle::mapper::ParticleMapper<GridDataType>> pMapper,
