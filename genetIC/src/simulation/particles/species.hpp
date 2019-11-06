@@ -40,6 +40,11 @@ namespace particle {
       case species::baryon:
         outputStream << "baryon";
         break;
+      case species::whitenoise:
+        outputStream << "whitenoise";
+        break;
+      default:
+        outputStream << "unknown";
     }
     return outputStream;
   }
