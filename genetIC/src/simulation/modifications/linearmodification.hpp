@@ -324,7 +324,8 @@ namespace modifications {
       for (size_t i = 0; i < this->flaggedCellsFinestGrid.size(); ++i) {
         size_t index = this->flaggedCellsFinestGrid[i];
         Coordinate<T> xp = grid.getCentroidFromIndex(index);
-        Coordinate<T> dx = grid.getWrappedOffset(xp, x0);
+        // Coordinate<T> dx = grid.getWrappedOffset(xp, x0);
+        Coordinate<T> dx = xp - x0;
         Coordinate<T> rCrossCoeff;
         // Coefficient to compute cross product (this is the "r \cross" part of r \cross v)
         rCrossCoeff[direction] = 0;
