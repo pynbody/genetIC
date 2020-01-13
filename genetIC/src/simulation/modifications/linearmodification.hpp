@@ -298,6 +298,18 @@ namespace modifications {
   protected:
     int direction;
 
+  /*! \brief Construct an angular momentum modification from a specified multi-level context, cosmology, and velocity component
+
+      \param underlying_ - underlying multi-level context object.
+      \param cosmology_ - struct containing cosmological data
+      \param direction - component of t velocity to modify, (0,1,2) <-> (x,y,z).
+
+      This evaluates the integral \int_\Gamma (q-\bar{q}) x (d Psi / dt) d³q,
+      where q is the Lagrangian position, \bar{q} is the mean withing the Lagrangian 
+      patch and Psi is the rescaled potential. Note that this integral is done in 
+      Lagrangian space (d³q) over the Lagrangian patch.
+  */
+
   public:
     AngMomentumModification(const multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
                             const cosmology::CosmologicalParameters<T> &cosmology_, int direction_) :
@@ -312,7 +324,7 @@ namespace modifications {
   protected:
     fields::Field<DataType, T> calculateLocalisationCovector(const grids::Grid<T> &grid) override {
 
-      auto x0 = this->getCentre(grid);
+      auto qcenter = this->getCentre(grid);
       T a = -1. / 12. / grid.cellSize, b = 2. / 3. / grid.cellSize;  // signs here so that L ~ - Nabla Phi
 
       int dirp1 = (direction + 1) % 3,
@@ -323,17 +335,17 @@ namespace modifications {
 
       for (size_t i = 0; i < this->flaggedCellsFinestGrid.size(); ++i) {
         size_t index = this->flaggedCellsFinestGrid[i];
-        Coordinate<T> xp = grid.getCentroidFromIndex(index);
-        // Coordinate<T> dx = grid.getWrappedOffset(xp, x0);
-        Coordinate<T> dx = xp - x0;
-        Coordinate<T> rCrossCoeff;
-        // Coefficient to compute cross product (this is the "r \cross" part of r \cross v)
-        rCrossCoeff[direction] = 0;
-        rCrossCoeff[dirp2] =  dx[dirp1];  // lx = ry * vz
-        rCrossCoeff[dirp1] = -dx[dirp2];  //              - rz * vy
+        Coordinate<T> q = grid.getCentroidFromIndex(index);
+
+        Coordinate<T> deltaq = q - qcenter;
+        Coordinate<T> qCrossCoeff;
+        // Coefficient to compute cross product (this is the "q \cross" part of q \cross v)
+        qCrossCoeff[direction] = 0;
+        qCrossCoeff[dirp2] =  deltaq[dirp1];  // lx \propto qy * vz
+        qCrossCoeff[dirp1] = -deltaq[dirp2];  //                    - qz * vy
 
         // Create gradient + cross product covector by combining gradient operator with cross product
-        // to yield -r \cross \nabla · operator (using 4-th order finite-difference)
+        // to yield -q \cross \nabla · operator (using 4-th order finite-difference)
         for (int dir = 0; dir < 3; ++dir) {
           if (dir != direction) { // Not necessary, but saves one iteration
             size_t ind_p1, ind_m1, ind_p2, ind_m2;
@@ -347,10 +359,10 @@ namespace modifications {
             ind_m2 = grid.getIndexFromIndexAndStep(ind_m1, negDirectionVector);
             ind_p1 = grid.getIndexFromIndexAndStep(index, directionVector);
             ind_p2 = grid.getIndexFromIndexAndStep(ind_p1, directionVector);
-            outputData[ind_m2] += rCrossCoeff[dir] * a;
-            outputData[ind_m1] += rCrossCoeff[dir] * b;
-            outputData[ind_p1] -= rCrossCoeff[dir] * b;
-            outputData[ind_p2] -= rCrossCoeff[dir] * a;
+            outputData[ind_m2] += qCrossCoeff[dir] * a;
+            outputData[ind_m1] += qCrossCoeff[dir] * b;
+            outputData[ind_p1] -= qCrossCoeff[dir] * b;
+            outputData[ind_p2] -= qCrossCoeff[dir] * a;
           }
         }
       }
