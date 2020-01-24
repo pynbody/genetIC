@@ -342,7 +342,7 @@ namespace modifications {
 
         Coordinate<T> deltaq = q - qcenter;
         for (int dir = 0; dir < 3; ++dir) {
-          if (deltaq[i] > grid.periodicDomainSize / 2) {
+          if (deltaq[dir] > grid.periodicDomainSize / 2) {
             throw std::runtime_error("The Lagrangian patch contains particles located at more than half the box size ; this will likely result in spurious results.");
           }
         }
