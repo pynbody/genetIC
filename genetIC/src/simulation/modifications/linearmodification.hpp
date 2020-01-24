@@ -341,6 +341,11 @@ namespace modifications {
         Coordinate<T> q = grid.getCentroidFromIndex(index);
 
         Coordinate<T> deltaq = q - qcenter;
+        for (int dir = 0; dir < 3; ++dir) {
+          if (deltaq[i] > grid.periodicDomainSize / 2) {
+            throw std::runtime_error("The Lagrangian patch contains particles located at more than half the box size ; this will likely result in spurious results.");
+          }
+        }
         Coordinate<T> qCrossCoeff;
         // Coefficient to compute cross product (this is the "q \cross" part of q \cross v)
         qCrossCoeff[direction] = 0;
