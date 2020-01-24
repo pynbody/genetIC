@@ -317,6 +317,9 @@ namespace modifications {
       if (direction_ < 0 || direction_ > 2)
         throw std::runtime_error("Angular momentum direction must be 0 (x), 1 (y) or 2 (z)");
 
+#ifdef ZELDOVICH_GRADIENT_FOURIER_SPACE
+    throw std::runtime_error("The code performs badly with the Zeldovich displacement is computed in Fourier space. Disable this error if you are sure about what you are doing.");
+#endif
       direction = direction_;
 
     };
