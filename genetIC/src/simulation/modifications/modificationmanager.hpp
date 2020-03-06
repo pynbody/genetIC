@@ -15,7 +15,7 @@ namespace modifications {
 
   protected:
     std::shared_ptr<fields::OutputField<DataType>> outputField;      //!< The field on which modifications are being made
-    const multilevelcontext::MultiLevelContextInformation<DataType> &multiLevelContext;          //!< Grid context in which modifications take place
+    const multilevelgrid::MultiLevelGrid<DataType> &multiLevelContext;          //!< Grid context in which modifications take place
     const cosmology::CosmologicalParameters<T> &cosmology;                          //!< Cosmology context in which modifications take place
     std::vector<std::shared_ptr<LinearModification<DataType, T>>> linearModificationList;  //!< Modifications to be applied
     std::vector<std::shared_ptr<QuadraticModification<DataType, T>>> quadraticModificationList; //!< List of quadratic modifications to be applied
@@ -26,7 +26,7 @@ namespace modifications {
         \param cosmology_ - stores cosmological parameters
         \param outputFields_ - vector of shared pointers to the output fields. Only the dark matter is modified, but we need to propagate the modifications to the others.
     */
-    ModificationManager(multilevelcontext::MultiLevelContextInformation<DataType> &multiLevelContext_,
+    ModificationManager(multilevelgrid::MultiLevelGrid<DataType> &multiLevelContext_,
                         const cosmology::CosmologicalParameters<T> &cosmology_,
                         const std::shared_ptr<fields::OutputField<DataType>> &outputField_) :
       outputField(outputField_), multiLevelContext(multiLevelContext_), cosmology(cosmology_) {

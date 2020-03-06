@@ -176,7 +176,7 @@ namespace particle {
          * is run.
          */
       virtual void extendParticleListToUnreferencedGrids(
-        multilevelcontext::MultiLevelContextInformation<GridDataType> &grids) {
+        multilevelgrid::MultiLevelGrid<GridDataType> &grids) {
 
         for (size_t i = 0; i < grids.getNumLevels(); i++) {
           auto pGrid = grids.getGridForLevel(i).shared_from_this();

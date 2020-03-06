@@ -1,7 +1,7 @@
 #ifndef IC_MULTILEVELFIELD_HPP
 #define IC_MULTILEVELFIELD_HPP
 
-#include "src/simulation/multilevelcontext/multilevelcontext.hpp"
+#include "src/simulation/multilevelgrid/multilevelgrid.hpp"
 #include "src/simulation/filters/filterfamily.hpp"
 #include "src/simulation/field/field.hpp"
 
@@ -22,7 +22,7 @@ namespace fields {
     using ComplexType = tools::datatypes::ensure_complex<DataType>;
 
   protected:
-    const multilevelcontext::MultiLevelContextInformation<DataType> *multiLevelContext; //!< Pointer to the underlying multi-level context
+    const multilevelgrid::MultiLevelGrid<DataType> *multiLevelContext; //!< Pointer to the underlying multi-level context
     bool isCovector; //!< True if the multi-level field is a covector, used to define a modification.
 
     std::vector<std::shared_ptr<Field<DataType, T>>> fieldsOnLevels; //!< Vector that stores all the fields on the different levels
@@ -40,7 +40,7 @@ namespace fields {
      * This means there are no fields defined on the grid levels, which is an inconsistent state
      * for the object; therefore this should only be called by constructors of child classes.
     */ 
-    MultiLevelField(const multilevelcontext::MultiLevelContextInformation<DataType> &multiLevelContext,
+    MultiLevelField(const multilevelgrid::MultiLevelGrid<DataType> &multiLevelContext,
                     particle::species transfer_type = particle::species::dm) :
       multiLevelContext(&multiLevelContext), transferType(transfer_type) {
       isCovector = false;
@@ -49,7 +49,7 @@ namespace fields {
   public:
 
     //! Constructor from fields for each level of a specified multi-level context
-    MultiLevelField(const multilevelcontext::MultiLevelContextInformation<DataType> &multiLevelContext,
+    MultiLevelField(const multilevelgrid::MultiLevelGrid<DataType> &multiLevelContext,
                     const std::vector<std::shared_ptr<Field<DataType, T>>> &fieldsOnLevels,
                     particle::species transfer_type = particle::species::dm) :
       multiLevelContext(&multiLevelContext), fieldsOnLevels(fieldsOnLevels) {
@@ -78,8 +78,8 @@ namespace fields {
     }
 
     //! Returns a reference to the multi-level context associated to this multi-level field.
-    virtual multilevelcontext::MultiLevelContextInformation<DataType> &getContext() const {
-      return const_cast<multilevelcontext::MultiLevelContextInformation<DataType> &>(*multiLevelContext);
+    virtual multilevelgrid::MultiLevelGrid<DataType> &getContext() const {
+      return const_cast<multilevelgrid::MultiLevelGrid<DataType> &>(*multiLevelContext);
     }
 
     //! Returns a constant reference to the field on level i of the multi-level context.
@@ -662,7 +662,7 @@ namespace fields {
     \param multiLevelContext - multiLevel context to define the field on
     \param transfer_type - specifies the transfer function to use for this field
     */
-    OutputField(const multilevelcontext::MultiLevelContextInformation<DataType> &multiLevelContext,
+    OutputField(const multilevelgrid::MultiLevelGrid<DataType> &multiLevelContext,
                 particle::species transfer_type)
       : MultiLevelField<DataType>(multiLevelContext, transfer_type) {
 
@@ -706,7 +706,7 @@ namespace fields {
     \param fieldsOnGrids - fields that define the constraint field on each level
     \param transferType - transfer function that has been applied to fields on which this covector will act
     */
-    ConstraintField(const multilevelcontext::MultiLevelContextInformation<DataType> &multiLevelContext,
+    ConstraintField(const multilevelgrid::MultiLevelGrid<DataType> &multiLevelContext,
                     const std::vector<std::shared_ptr<Field<DataType, T>>> &fieldsOnGrids,
                     particle::species transferType,
                     bool isCovector)

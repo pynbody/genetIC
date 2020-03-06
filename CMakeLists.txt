@@ -33,7 +33,7 @@ set(SOURCE_FILES
         genetIC/src/simulation/field/randomfieldgenerator.hpp
         genetIC/src/tools/filesystem.h
         genetIC/src/simulation/filters/filter.hpp
-        genetIC/src/simulation/multilevelcontext/multilevelcontext.hpp
+        genetIC/src/simulation/multilevelgrid/multilevelgrid.hpp
         genetIC/src/tools/filesystem.cpp
         genetIC/src/simulation/field/multilevelfield.hpp
         genetIC/src/simulation/particles/particle.hpp
@@ -59,7 +59,7 @@ set(SOURCE_FILES
         genetIC/src/simulation/modifications/modificationmanager.hpp
         genetIC/src/simulation/modifications/linearmodification.hpp
         genetIC/src/simulation/modifications/quadraticmodification.hpp
-        genetIC/src/simulation/multilevelcontext/mask.hpp genetIC/src/tools/memmap.hpp genetIC/src/tools/numerics/tricubic.hpp)
+        genetIC/src/simulation/multilevelgrid/mask.hpp genetIC/src/tools/memmap.hpp genetIC/src/tools/numerics/tricubic.hpp)
 
 include_directories( /opt/local/include )
 link_directories(/opt/local/lib )

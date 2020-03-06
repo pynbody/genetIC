@@ -1,6 +1,6 @@
 #include <sys/stat.h>
 #include <src/simulation/particles/multilevelgenerator.hpp>
-#include <src/simulation/multilevelcontext/mask.hpp>
+#include <src/simulation/multilevelgrid/mask.hpp>
 #include "src/tools/memmap.hpp"
 #include <memory>
 #include <vector>
@@ -41,10 +41,10 @@ namespace io {
     class GraficOutput {
     protected:
       std::string outputFilename; //!< Filename used for the output files.
-      multilevelcontext::MultiLevelContextInformation<DataType> context; //!< Multi-level context for grafic output.
+      multilevelgrid::MultiLevelGrid<DataType> context; //!< Multi-level context for grafic output.
       particle::SpeciesToGeneratorMap<DataType> generators; //!< Vector of generators used to create particles of different species.
       const cosmology::CosmologicalParameters<T> &cosmology; //!< Struct containing cosmological parameters.
-      multilevelcontext::GraficMask<DataType, T> *mask; //!< Grafic mask to be used.
+      multilevelgrid::GraficMask<DataType, T> *mask; //!< Grafic mask to be used.
       std::vector<std::shared_ptr<fields::OutputField<DataType>>> outputFields; //!< Vector of output fields (needed for baryon overdensity).
 
 
@@ -70,7 +70,7 @@ namespace io {
           \param outFields - vector of output overdensity fields (needed for baryon output).
       */
       GraficOutput(const std::string &fname,
-                   multilevelcontext::MultiLevelContextInformation<DataType> &levelContext,
+                   multilevelgrid::MultiLevelGrid<DataType> &levelContext,
                    const particle::SpeciesToGeneratorMap<DataType> &particleGenerators,
                    const cosmology::CosmologicalParameters<T> &cosmology,
                    const T pvarValue,
@@ -88,7 +88,7 @@ namespace io {
 
         levelContext.copyContextWithCenteredIntermediate(context, center, 2, subsample, supersample);
 
-        mask = new multilevelcontext::GraficMask<DataType, T>(&context, input_mask);
+        mask = new multilevelgrid::GraficMask<DataType, T>(&context, input_mask);
         mask->calculateMask();
 
         lengthFactorHeader = 1. / cosmology.hubble; // Gadget Mpc a h^-1 -> GrafIC file Mpc a
@@ -269,7 +269,7 @@ namespace io {
     template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
     void save(const std::string &filename,
               const particle::SpeciesToGeneratorMap<DataType> &generators,
-              multilevelcontext::MultiLevelContextInformation<DataType> &context,
+              multilevelgrid::MultiLevelGrid<DataType> &context,
               const cosmology::CosmologicalParameters<T> &cosmology,
               const T pvarValue, Coordinate<T> center, size_t subsample, size_t supersample,
               std::vector<std::vector<size_t>> &input_mask,

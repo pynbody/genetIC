@@ -146,7 +146,7 @@ namespace particle {
   template<typename GridDataType, typename TParticleGenerator, typename T=tools::datatypes::strip_complex<GridDataType>>
   class MultiLevelParticleGenerator : public AbstractMultiLevelParticleGenerator<GridDataType> {
   protected:
-    using ContextType = multilevelcontext::MultiLevelContextInformation<GridDataType>;
+    using ContextType = multilevelgrid::MultiLevelGrid<GridDataType>;
     fields::OutputField<GridDataType> &overdensityField; //!< Reference to the multi-level field (ie, overdensity) we need to generate particles
     const ContextType &context; //!< Reference to the multi-level context
     std::vector<std::shared_ptr<TParticleGenerator>> pGenerators; //!< Vector of generators for each level

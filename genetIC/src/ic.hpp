@@ -19,7 +19,7 @@
 #include "cosmology/camb.hpp"
 #include "simulation/window.hpp"
 #include "simulation/particles/species.hpp"
-#include "simulation/multilevelcontext/multilevelcontext.hpp"
+#include "simulation/multilevelgrid/multilevelgrid.hpp"
 #include "simulation/field/randomfieldgenerator.hpp"
 #include "simulation/field/multilevelfield.hpp"
 #include "simulation/field/evaluator.hpp"
@@ -56,7 +56,7 @@ protected:
   friend class DummyICGenerator<GridDataType>;
 
   cosmology::CosmologicalParameters<T> cosmology; //!< Cosmological parameters
-  multilevelcontext::MultiLevelContextInformation<GridDataType> multiLevelContext; //!< Class to keep track of the multi-level context of the simulation
+  multilevelgrid::MultiLevelGrid<GridDataType> multiLevelContext; //!< Class to keep track of the multi-level context of the simulation
 
   //! Vector of output fields (defaults to just a single field)
   std::vector<std::shared_ptr<fields::OutputField<GridDataType>>> outputFields;
@@ -156,7 +156,7 @@ protected:
   //! Input mapper, used to relate particles in a different simulation to particles in this one.
   shared_ptr<particle::mapper::ParticleMapper<GridDataType>> pInputMapper;
   //! Multi-level context of the input mapper.
-  shared_ptr<multilevelcontext::MultiLevelContextInformation<GridDataType>> pInputMultiLevelContext;
+  shared_ptr<multilevelgrid::MultiLevelGrid<GridDataType>> pInputMultiLevelContext;
 
   //! Particle generators for each particle species.
   particle::SpeciesToGeneratorMap<GridDataType> pParticleGenerator;
@@ -917,7 +917,7 @@ public:
   virtual void dumpMask() {
     cerr << "Dumping mask grids" << endl;
     // this is ugly but it makes sure I can dump virtual grids if there are any.
-    multilevelcontext::MultiLevelContextInformation<GridDataType> newcontext;
+    multilevelgrid::MultiLevelGrid<GridDataType> newcontext;
     if (this->centerOnTargetRegion) {
       this->multiLevelContext.copyContextWithCenteredIntermediate(newcontext, Coordinate<T>(x0, y0, z0), 2,
                                                                   subsample, supersample);
@@ -926,7 +926,7 @@ public:
                                                                   subsample, supersample);
     }
 
-    auto dumpingMask = multilevelcontext::GraficMask<GridDataType, T>(&newcontext, this->zoomParticleArray);
+    auto dumpingMask = multilevelgrid::GraficMask<GridDataType, T>(&newcontext, this->zoomParticleArray);
     dumpingMask.calculateMask();
 
 
@@ -1042,7 +1042,7 @@ public:
 #endif
     cerr << "******** Finished with " << fname << " ***********" << endl;
     pInputMapper = pseudoICs.pMapper;
-    pInputMultiLevelContext = std::make_shared<multilevelcontext::MultiLevelContextInformation<GridDataType>>
+    pInputMultiLevelContext = std::make_shared<multilevelgrid::MultiLevelGrid<GridDataType>>
       (pseudoICs.multiLevelContext);
   }
 

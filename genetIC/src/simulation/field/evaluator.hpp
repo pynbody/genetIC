@@ -5,7 +5,7 @@
 #include "../grid/grid.hpp"
 #include "../grid/virtualgrid.hpp"
 #include "field.hpp"
-#include "../multilevelcontext/multilevelcontext.hpp"
+#include "../multilevelgrid/multilevelgrid.hpp"
 #include <string>
 
 namespace fields {
@@ -268,7 +268,7 @@ namespace fields {
     // which in fact contain only a single level each, then call the multi-level
     // makeEvaluator.                     
 
-    multilevelcontext::MultiLevelContextInformation<DataType> dummyContext;
+    multilevelgrid::MultiLevelGrid<DataType> dummyContext;
     dummyContext.addLevel(const_cast<grids::Grid<CoordinateType> &>(field.getGrid()).shared_from_this());
     MultiLevelField<DataType> dummyMultiField(dummyContext,
                                               {const_cast<Field<DataType, CoordinateType> &>(field).shared_from_this()});

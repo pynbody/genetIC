@@ -28,7 +28,7 @@ namespace filters {
 }
 
 /*!
-    \namespace multilevelcontext
+    \namespace multilevelgrid
     \brief Keep track of the different grids and their level of refinement. Intermediate between grids and multi level fields.
 
     Because C++ doesn't allow partial specialization of member functions, there is a workaround involving splitting
@@ -36,21 +36,21 @@ namespace filters {
     See http://stackoverflow.com/questions/165101/invalid-use-of-incomplete-type-error-with-partial-template-specialization
 
  */
-namespace multilevelcontext {
+namespace multilevelgrid {
 
-  /*! \class MultiLevelContextInformation
-  \brief Object used to store information about the multi-level context
+  /*! \class MultiLevelGrid
+  \brief Object used to store information about the grids on each zoom level
 
   Inherits from the base class in order to specialise to real/complex grids.
 */
   template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
-  class MultiLevelContextInformation;
+  class MultiLevelGrid;
 
-  /*! \class MultiLevelContextInformationBase
-    \brief Base class defining the multi-level context object. Contains most of the class structure
+  /*! \class MultiLevelGridBase
+    \brief Base class defining the multi-level grid. Contains most of the class structure
   */
   template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
-  class MultiLevelContextInformationBase : public tools::Signaling {
+  class MultiLevelGridBase : public tools::Signaling {
   private:
     std::vector<std::shared_ptr<grids::Grid<T>>> pGrids; //!< Pointers to the grids for each level
     std::vector<std::shared_ptr<grids::Grid<T>>> pOutputGrid; //!< Pointers to the output grids for each level -- may be different from the underlying grids if allowStrays is on
@@ -71,13 +71,13 @@ namespace multilevelcontext {
     T simSize; //!< Comoving size of the simulation box
 
 
-    MultiLevelContextInformationBase() {}
+    MultiLevelGridBase() {}
 
 
   public:
 
 
-    virtual ~MultiLevelContextInformationBase() {}
+    virtual ~MultiLevelGridBase() {}
 
     void setLevelsAreCombined() {
       levelsAreCombined = true;
@@ -107,7 +107,7 @@ namespace multilevelcontext {
 
     /*! Define the power spectrum generator to be used when power spectra are required.
      *
-     * This must remain alive for the lifetime of the MultiLevelContextInformation class
+     * This must remain alive for the lifetime of the MultiLevelGrid class
     */
     void setPowerspectrumGenerator(const cosmology::PowerSpectrum<DataType> &generator) {
       this->powerSpectrumGenerator = &generator;
@@ -312,7 +312,7 @@ namespace multilevelcontext {
       }
 
       auto retVal = std::make_shared<fields::ConstraintField<DataType>>(
-        *dynamic_cast<const MultiLevelContextInformation<DataType, T> *>(this),
+        *dynamic_cast<const MultiLevelGrid<DataType, T> *>(this),
         fieldsOnLevels, transferType, true);
 
       retVal->applyFilters(filters::FilterFamily<DataType>(*this));
@@ -335,10 +335,10 @@ namespace multilevelcontext {
     }
 
 
-    void copyContextWithIntermediateResolutionGrids(MultiLevelContextInformation<DataType> &newStack,
+    void copyContextWithIntermediateResolutionGrids(MultiLevelGrid<DataType> &newStack,
                                                     size_t base_factor,
                                                     size_t extra_lores, size_t extra_highres) const {
-      //! Copy this MultiLevelContextInformation, but insert intermediate virtual grids such that
+      //! Copy this MultiLevelGrid, but insert intermediate virtual grids such that
       //! there is a full stack increasing in the specified power.
       /*!
        * E.g. if there is a 256^3 and a 1024^3 grid stack, with default parameters this will return a
@@ -346,7 +346,7 @@ namespace multilevelcontext {
        *
        * The first two will be based on the 256^3 literal grid, and the second two on the 1024^3 literal grid.
        *
-       * @param newStack     the MultiLevelContextInformation into which the new stack will be placed. Any
+       * @param newStack     the MultiLevelGrid into which the new stack will be placed. Any
        *                     existing grids in the stack will be removed.
        * @param base_factor  grids will be downgraded by factors of base_factor^N where N is an integer
        * @param extra_lores  number of additional grids *above* the base level to add
@@ -399,7 +399,7 @@ namespace multilevelcontext {
         \param newStack - reference to where the new context should be stored
         \param pointToCenterOnto - new centre point.
     */
-    void copyContextAndCenter(MultiLevelContextInformation<DataType> &newStack,
+    void copyContextAndCenter(MultiLevelGrid<DataType> &newStack,
                               const Coordinate<T> pointToCenterOnto) const {
 
       newStack.clear();
@@ -427,7 +427,7 @@ namespace multilevelcontext {
         \param subsample - factor times smaller resolution that we want the coarsest grid to be
         \param supersample - factor times higher resolution that we want the finest grid to be
     */
-    void copyContextWithCenteredIntermediate(MultiLevelContextInformation<DataType> &newStack,
+    void copyContextWithCenteredIntermediate(MultiLevelGrid<DataType> &newStack,
                                              const Coordinate<T> pointToCenterOnto,
                                              size_t base_factor,
                                              size_t subsample, size_t supersample) const {
@@ -443,7 +443,7 @@ namespace multilevelcontext {
           "Subsample and supersample cannot be converted into an integer number of grids with this base factor");
       }
 
-      auto extracontext = multilevelcontext::MultiLevelContextInformation<DataType>();
+      auto extracontext = multilevelgrid::MultiLevelGrid<DataType>();
       this->copyContextWithIntermediateResolutionGrids(extracontext, base_factor, extralowres, extrahighres);
       extracontext.copyContextAndCenter(newStack, pointToCenterOnto);
     }
@@ -474,18 +474,18 @@ namespace multilevelcontext {
 
   };
 
-  /*! \class MultiLevelContextInformation<T, T>
+  /*! \class MultiLevelGrid<T, T>
     \brief Object used to store information about the multi-level context
 
     Inherits from the base class in order to specialise to real/complex grids.
   */
   template<typename T>
-  class MultiLevelContextInformation<T, T> : public MultiLevelContextInformationBase<T, T> {
+  class MultiLevelGrid<T, T> : public MultiLevelGridBase<T, T> {
   protected:
     using DataType = T;
-    using MultiLevelContextInformationBase<DataType, T>::cumu_Ns;
-    using MultiLevelContextInformationBase<DataType, T>::Ns;
-    using MultiLevelContextInformationBase<DataType, T>::nLevels;
+    using MultiLevelGridBase<DataType, T>::cumu_Ns;
+    using MultiLevelGridBase<DataType, T>::Ns;
+    using MultiLevelGridBase<DataType, T>::nLevels;
 
   public:
     /*! \brief Sums the result of evaluating the specified function over the cells on the specified levels
