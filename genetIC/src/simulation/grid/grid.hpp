@@ -509,13 +509,17 @@ namespace grids {
 
     //! Wraps a point so that it lies within the periodic domain.
     Coordinate<T> wrapPoint(Coordinate<T> pos) const {
-      pos.x = fmod(pos.x, periodicDomainSize);
-      if (pos.x < 0) pos.x += periodicDomainSize;
-      pos.y = fmod(pos.y, periodicDomainSize);
-      if (pos.y < 0) pos.y += periodicDomainSize;
-      pos.z = fmod(pos.z, periodicDomainSize);
-      if (pos.z < 0) pos.z += periodicDomainSize;
+      pos.x = this->wrapIndividualCoordinate(pos.x);
+      pos.y = this->wrapIndividualCoordinate(pos.y);
+      pos.z = this->wrapIndividualCoordinate(pos.z);
       return pos;
+    }
+
+      //! Wraps a coordinate so that it lies within the periodic domain.
+    T wrapIndividualCoordinate(T x) const {
+      x = fmod(x, periodicDomainSize);
+      if (x < 0) x += periodicDomainSize;
+      return x;
     }
 
     /*! \brief True if cell with pixel coordinates is on this grid

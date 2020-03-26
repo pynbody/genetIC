@@ -1,4 +1,4 @@
-# Test velocity offset of output (including a zoom region)
+# Test position offset of output (including a zoom region)
 
 
 # output parameters
