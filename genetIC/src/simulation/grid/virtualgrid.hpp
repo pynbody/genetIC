@@ -820,9 +820,9 @@ namespace grids {
     OffsetGrid(GridPtrType pUnderlying, T dx, T dy, T dz) :
       VirtualGrid<T>(pUnderlying, pUnderlying->periodicDomainSize, pUnderlying->size,
                      pUnderlying->cellSize,
-                     pUnderlying->offsetLower.x + dx,
-                     pUnderlying->offsetLower.y + dy,
-                     pUnderlying->offsetLower.z + dz,
+                     pUnderlying->wrapIndividualCoordinate(pUnderlying->offsetLower.x + dx),
+                     pUnderlying->wrapIndividualCoordinate(pUnderlying->offsetLower.y + dy),
+                     pUnderlying->wrapIndividualCoordinate(pUnderlying->offsetLower.z + dz),
                      pUnderlying->cellMassFrac,
                      pUnderlying->cellSofteningScale) {}
 

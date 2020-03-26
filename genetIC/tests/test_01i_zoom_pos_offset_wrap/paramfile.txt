@@ -1,0 +1,30 @@
+# Testing centering when the lower left corner of the zoom is wrapped (issue 69)
+
+# output parameters
+outdir	 ./
+outformat grafic
+outname test_1
+
+# cosmology:
+Om  0.279
+Ol  0.721
+s8  0.817
+zin	99
+camb	../camb_transfer_kmax40_z0.dat
+
+# basegrid 50 Mpc/h, 32^3
+basegrid 50.0 16
+
+# fourier seeding
+seed	8896131
+
+# Choose a center such that the zoom is nearly centered in x,
+# wrapped to the right in y and wrapped to the left in z
+centre 22.0000001 43.00001 2.000001
+select_sphere 5
+zoomgrid 4 16
+
+center_output
+done
+dump_grid 0
+dump_grid 1
