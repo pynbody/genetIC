@@ -3,7 +3,7 @@
 
 # output parameters
 outdir	 ./
-outformat tipsy
+outformat grafic
 outname test_1
 
 # cosmology:
@@ -17,7 +17,7 @@ camb	../camb_transfer_kmax40_z0.dat
 basegrid 50.0 16
 
 # fourier seeding
-seed	8896131
+random_seed_real_space	8896131
 
 
 

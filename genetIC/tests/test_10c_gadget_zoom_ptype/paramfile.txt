@@ -18,7 +18,7 @@ basegrid 50.0 64
 gadget_particle_type 1
 
 # fourier seeding
-seed	8896131
+random_seed_real_space	8896131
 
 
 

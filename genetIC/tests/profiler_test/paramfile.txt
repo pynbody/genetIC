@@ -17,7 +17,7 @@ camb	../camb_transfer_kmax40_z0.dat
 basegrid 50.0 256
 
 # fourier seeding
-seedfourier 1512351
+random_seed_serial 1512351
 
 # zoom level 1:
 centre 25 25 25

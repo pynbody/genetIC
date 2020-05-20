@@ -7,7 +7,7 @@ Ol  0.721
 s8  0.817
 zin	99
 
-seed	8896131
+random_seed_real_space	8896131
 outname mappertest
 
 

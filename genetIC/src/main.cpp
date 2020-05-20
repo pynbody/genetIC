@@ -39,10 +39,16 @@ void setup_parser(tools::ClassDispatch<ICf, void> &dispatch) {
   // Set seeds for random draws
   // Static casts here needed to differentiate between overloaded versions of setSeed,
   // now that we have both DM and baryon fields to seed.
-  dispatch.add_class_route("seed", static_cast<void (ICf::*)(int)>(&ICf::setSeed));
-  dispatch.add_class_route("seedfourier", static_cast<void (ICf::*)(int)>(&ICf::setSeedFourier));
+  // DEPRECATED forms:
+  dispatch.add_deprecated_class_route("seed", "random_seed_real_space", static_cast<void (ICf::*)(int)>(&ICf::setSeed));
+  dispatch.add_deprecated_class_route("seedfourier", "random_seed_serial", static_cast<void (ICf::*)(int)>(&ICf::setSeedFourier));
   dispatch.add_class_route("seedfourier_reverse", static_cast<void (ICf::*)(int)>(&ICf::setSeedFourierReverseOrder));
-  dispatch.add_class_route("seedfourier_parallel", static_cast<void (ICf::*)(int)>(&ICf::setSeedFourierParallel));
+  dispatch.add_deprecated_class_route("seedfourier_parallel", "random_seed", static_cast<void (ICf::*)(int)>(&ICf::setSeedFourierParallel));
+
+  // NEW FORMS, May 2020, ahead of release (to steer people towards a sensible default)
+  dispatch.add_class_route("random_seed", static_cast<void (ICf::*)(int)>(&ICf::setSeedFourierParallel));
+  dispatch.add_class_route("random_seed_serial", static_cast<void (ICf::*)(int)>(&ICf::setSeedFourier));
+  dispatch.add_class_route("random_seed_real_space", static_cast<void (ICf::*)(int)>(&ICf::setSeed));
 
   // Optional computational properties
   dispatch.add_class_route("exact_power_spectrum_enforcement", &ICf::setExactPowerSpectrumEnforcement);
@@ -57,6 +63,9 @@ void setup_parser(tools::ClassDispatch<ICf, void> &dispatch) {
   dispatch.add_class_route("center_grafic_output",
                            &ICf::setCenteringOnRegion); // This should be deprecated -- now works for all output types
 
+
+  dispatch.add_class_route("centre_output", &ICf::setCenteringOnRegion);
+  // US variant:
   dispatch.add_class_route("center_output", &ICf::setCenteringOnRegion);
 
   // Gadget options
@@ -83,9 +92,13 @@ void setup_parser(tools::ClassDispatch<ICf, void> &dispatch) {
   dispatch.add_class_route("append_IDfile", &ICf::appendID);
   dispatch.add_class_route("dump_IDfile", &ICf::dumpID);
 
-  // Point to specific coordinates
+  // Point to specific coordinates:
   dispatch.add_class_route("centre_on", &ICf::centreParticle);
   dispatch.add_class_route("centre", &ICf::setCentre);
+
+  // US variants:
+  dispatch.add_class_route("center_on", &ICf::centreParticle);
+  dispatch.add_class_route("center", &ICf::setCentre);
 
   // Flag cells
   dispatch.add_class_route("select_sphere", &ICf::selectSphere);

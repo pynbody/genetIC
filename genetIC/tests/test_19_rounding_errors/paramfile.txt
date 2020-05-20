@@ -10,7 +10,7 @@ hubble	     0.6727
 zin	         500
 
 camb	../camb_transfer_kmax40_z500.dat
-seed	8896131
+random_seed_real_space	8896131
 
 
 # output:
