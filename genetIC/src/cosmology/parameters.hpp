@@ -24,7 +24,7 @@ namespace cosmology {
     FloatType hubble; //!< Hubble rate in units of 100kms^{-1}Mpc^{-1}
     FloatType redshift; //!< Redshift at which we are generating the initial conditions.
     FloatType scalefactor; //!< Scale factor at this redshift, relative to the scale factor at z = 0
-    FloatType scalefactorAtDecoupling; //!< Scale factor at baryon-photon decoupling (z~1100)
+    FloatType scalefactorAtDecoupling; //!< Scale factor at baryon-photon decoupling (z~150, NOT photon-baryon decoupling at z~1100)
     FloatType sigma8; //!< Sigma8 parameter
     FloatType ns; //!< Scalar spectral index
     FloatType TCMB; //!< CMB temperature today, in K

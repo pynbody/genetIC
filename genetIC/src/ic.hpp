@@ -194,7 +194,10 @@ public:
     cosmology.OmegaBaryons0 = 0.0;
     cosmology.ns = 0.96;      // old default
     cosmology.TCMB = 2.725;
-    cosmology.scalefactorAtDecoupling = 1./1100.; 
+    cosmology.scalefactorAtDecoupling = 1./150.; // NB - this is NOT photon decoupling, it's baryon decoupling
+    cosmology.OmegaM0 = 0.3;
+    outputFolder = "./";
+
     // only an approximate value is needed to initialise a gas temperature
     
     haveInitialisedRandomComponent = false;
