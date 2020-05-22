@@ -746,27 +746,21 @@ public:
   /*!
   * \param level - level on which to import the data
   * \param filename - string giving the path to the file to be imported.
-  * \param nField - optional (default is field 0). Specifies which field to import the data into. 0 = dark matter, 1 = baryons.
   */
-  virtual void importLevel(size_t level, std::string filename, size_t nField = 0) {
-    checkFieldExists(nField);
+  virtual void importLevel(size_t level, std::string filename) {
+
     initialiseRandomComponentIfUninitialised();
     cerr << "Importing random field on level " << level << " from " << filename << endl;
-    checkLevelExists(level, nField);
+    checkLevelExists(level, 0);
 
-
-    auto &levelField = outputFields[nField]->getFieldForLevel(level);
+    auto &levelField = outputFields[0]->getFieldForLevel(level);
     levelField.loadGridData(filename);
     levelField.setFourier(false);
     levelField.toFourier();
-    outputFields[nField]->applyTransferRatioOneLevel(particle::species::dm, particle::species::whitenoise, level); // transform back to whitenoise
+    outputFields[0]->applyTransferRatioOneLevel(particle::species::dm, particle::species::whitenoise, level); // transform back to whitenoise
     cerr << "... success!" << endl;
   }
 
-  //! Imports dark matter overdensity field data for a given level from a supplied file.
-  virtual void importLevel(size_t level, std::string filename) {
-    this->importLevel(level, filename, 0);
-  }
 
   //! Applies appropriate power spectrum to all fields.
   virtual void applyPowerSpec() {
