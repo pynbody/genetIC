@@ -1,2 +1,2 @@
-ESTIMATED delta chi^2 from linear modifications = 0.00408574
-         Total delta chi^2 = 0.00408574
+  Modification Delta chi^2 = 0.00408574
+           d.o.f. in field = 262144
