@@ -166,31 +166,29 @@ void setup_parser(tools::ClassDispatch<ICf, void> &dispatch) {
 
 }
 
-void header(ostream &outf) {
+void header(ostream &outf, std::string prefix="") {
+  outf << prefix << "genetIC v1.0, compiled: " << __DATE__ << ", " << __TIME__ << endl;
   time_t now = time(0);
   struct tm tstruct;
   char buf[80];
   tstruct = *localtime(&now);
-  strftime(buf, sizeof(buf), "%Y-%m-%d.%X", &tstruct);
-  outf << "#\n"
-          "#   \\             ___,,,,---'''''''--.,,,,___            /\n"
-          "#    \\    ,,,---'   |    |    |    |    |    `---___    /\n"
-          "#     `\\ /     |    |    |    |    |    |    |      `...\n"
-          "#       .,     |    |    |    |    |    |    |      ..'\n"
-          "#     ./  '---,,,   |    |    |    |    |    ,,,---' ..\n"
-          "#    /           '---,,,,___  |   ___,,,,---'         `\\.\n"
-          "#   /                       ''''''                       \\\n"
-          "#\n"
-          "#               g    e    n    e    t    I    C   \n"
-          "#           Quality galactic engineering since 2014\n" << endl;
-
-  outf << "# genetIC, compiled " << __DATE__ << " " << __TIME__ << endl;
-  outf << "# git HEAD:" << GIT_VERSION << endl;
+  strftime(buf, sizeof(buf), "%b %d %Y, %X", &tstruct);
+  outf << prefix << "              runtime:  " << buf << endl << endl;
+#ifdef GIT_VERSION
+  if (sizeof(GIT_VERSION) > 1)
+    outf << prefix << "git HEAD:" << GIT_VERSION << endl;
   if (sizeof(GIT_MODIFIED) > 1) {
-    outf << "# At the time of compilation, the following files had been modified:" << endl;
-    outf << "#  " << GIT_MODIFIED << endl;
+    outf << prefix << "At the time of compilation, the following files had been modified:" << endl;
+    std::istringstream modifFiles(GIT_MODIFIED);
+    while(!modifFiles.eof()) {
+      std::string thisFile;
+      modifFiles >> thisFile;
+      outf << prefix << "  " << thisFile << endl;
+    }
   }
-  outf << "# Runtime: " << buf << endl << endl;
+#endif
+
+
 }
 
 int main(int argc, char *argv[]) {
@@ -221,7 +219,7 @@ int main(int argc, char *argv[]) {
     exit(1);
   }
 
-  header(outf);
+  header(outf, "# ");
   header(cerr);
 
   // Set up the command interpreter to issue commands to main_generator

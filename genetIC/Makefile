@@ -42,12 +42,15 @@ FFTWLIB = -lfftw3 -lfftw3_threads
 #FFTWLIB = -ldfftw -ldrfftw
 
 
+# Provide information on the git repository, to be printed out on each run
+GIT_MODIFIED = $(shell git ls-files -m 2>/dev/null | tr "\n" " " )
+GIT_VERSION = $(shell git rev-parse --short HEAD 2>/dev/null)
+GIT_VARIABLES = -DGIT_VERSION='"$(GIT_VERSION)"' -DGIT_MODIFIED='"$(GIT_MODIFIED)"'
+
+
 # Some customizations for known systems
 
 HOST	= $(shell if [ `which scutil 2>/dev/null` ]; then scutil --get ComputerName | cut -c1-5; else hostname | cut -c1-5 ; fi )
-GIT_VERSION = $(shell git rev-parse --short HEAD)
-GIT_MODIFIED = $(shell git ls-files -m | tr "\n" " ")
-GIT_VARIABLES = -DGIT_VERSION='"$(GIT_VERSION)"' -DGIT_MODIFIED='"$(GIT_MODIFIED)"'
 HOST3	= $(shell hostname | cut -c1-3)
 
 ifeq ($(HOST3), pfe)

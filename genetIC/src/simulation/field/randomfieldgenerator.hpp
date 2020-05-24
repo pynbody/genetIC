@@ -111,6 +111,12 @@ namespace fields {
         throw std::runtime_error("The random number generator has not been seeded");
       for (size_t i = 0; i < field.getNumLevels(); ++i) {
         auto &fieldOnGrid = field.getFieldForLevel(i);
+        std::cerr << "Drawing random numbers";
+        if(i==0)
+          std::cerr << " (base grid)" << std::endl;
+        else
+          std::cerr << " (zoom level " << i << ")" << std::endl;
+
         if (drawInFourierSpace) {
           fieldOnGrid.toFourier();
           drawRandomForSpecifiedGridFourier(fieldOnGrid);
@@ -168,8 +174,6 @@ namespace fields {
       auto &fieldData = field.getDataVector();
       size_t nPartTotal = g.size3;
 
-      std::cerr << "Drawing random numbers...";
-
       // N.B. DO NOT PARALLELIZE this loop - want things to be done in a reliable order
       for (size_t i = 0; i < nPartTotal; i++) {
         fieldData[i] = gsl_ran_gaussian_ziggurat(randomState, 1.);
@@ -178,7 +182,6 @@ namespace fields {
       field.toFourier();
       tools::set_zero(fieldData[0]);
 
-      std::cerr << "done" << std::endl;
     }
 
     /*! \brief Draw random white noise in Fourier space.
@@ -195,10 +198,7 @@ namespace fields {
 
       tools::progress::ProgressBar pb("");
 
-      std::cerr << "Drawing random numbers in fourier space..." << std::endl;
-
       FloatType sigma = 1.0 / sqrt(2.0);
-
 
 
       // Both approaches to making the random field below do it in square k-shells, in order of increasing |k|, so that

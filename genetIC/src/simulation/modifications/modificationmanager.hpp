@@ -95,7 +95,6 @@ namespace modifications {
       T post_modif_chi2_from_field;
 
       pre_modif_chi2_from_field = outputField->getChi2();
-      std::cerr << "BEFORE modifications chi^2 = " << pre_modif_chi2_from_field << std::endl;
 
 
       // Extract A, b from modification list
@@ -105,28 +104,30 @@ namespace modifications {
       }
 
       // Apply all linear modifications
+      std::cerr << std::endl << "Applying modifications" << std::endl;
       orthonormaliseModifications(modificationCovectors, linearTargetValues);
-      std::cerr << "ESTIMATED delta chi^2 from linear modifications = "
+#ifdef DEBUG_INFO
+      std::cerr << "ESTIMATED delta chi^2 from all linear modifications = "
                 << getDeltaChi2FromLinearModifs(*outputField, modificationCovectors, linearTargetValues)
                 << std::endl;
+#endif
+
       applyLinearModif( modificationCovectors, linearTargetValues);
-
-
-      // Apply the joint linear and quadratic in an iterative procedure
-      // TODO DeltaChi2 from quadratic could be calculated from the iterations and added here.
       applyLinQuadModif(modificationCovectors);
 
       post_modif_chi2_from_field = outputField->getChi2();
-      std::cerr << "AFTER  modifications chi^2 = " << post_modif_chi2_from_field << std::endl;
-      std::cerr << "         Total delta chi^2 = " << post_modif_chi2_from_field - pre_modif_chi2_from_field
+      std::cerr << "   Post-modification chi^2 = " << post_modif_chi2_from_field << std::endl;
+      size_t dof = this->multiLevelContext.getNumDof();
+      std::cerr << "  Modification Delta chi^2 = " << post_modif_chi2_from_field - pre_modif_chi2_from_field
                 << std::endl;
-
+      std::cerr << "           d.o.f. in field = " << dof << std::endl;
+      std::cerr << std::endl;
     }
 
 
     //! Clear all modifications from the list of modifications to be applied.
     void clearModifications() {
-      std::cout << "Clearing modification list" << std::endl;
+      std::cerr << "Clearing modification list" << std::endl;
       linearModificationList.clear();
       quadraticModificationList.clear();
     }
@@ -227,10 +228,10 @@ namespace modifications {
 
         // Perform procedure on real output
         if (n_steps > init_n_steps) {
-          std::cout << n_steps << " steps are required for the quadratic algorithm " << std::endl;
+          std::cerr << n_steps << " steps are required for the quadratic algorithm " << std::endl;
           performIterations(*outputField, orthonormalisedCovectors, modif_i, n_steps);
         } else {
-          std::cout << "No need to do more steps to achieve target precision" << std::endl;
+          std::cerr << "No need to do more steps to achieve target precision" << std::endl;
           performIterations(*outputField, orthonormalisedCovectors, modif_i, init_n_steps);
         }
 
