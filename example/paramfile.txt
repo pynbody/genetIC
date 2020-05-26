@@ -1,16 +1,19 @@
-# Example genetIC parameter file:
+# Example genetIC parameter file
 
-# Cosmology:
-Ob           0.0486
-Om           0.3156
-Ol           0.6844
-s8           0.831
-ns           0.9645
-hubble       0.6727
+# Cosmology, based on Planck 2018
+Ob           0.0494
+Om           0.3158
+Ol           0.6842
+s8           0.8117
+ns           0.9660
+hubble       0.6732
 z            200
 
 # Import transfer function data.
-camb	planck15_camb_transfer.dat
+# If you change the cosmological parameters above be sure to update the transfer
+# function accordingly. Some help is given in the folder tools/transfer_function/
+# within the genetIC distribution
+camb	planck_2018_transfer_out.dat
 
 # Seed the field using the default algorithm (parallel Fourier space):
 random_seed	8896131
