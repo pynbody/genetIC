@@ -42,7 +42,16 @@ class FermiLowPass(object):
     def __call__(self, k):
         return 1. / (1. + np.exp((k - self.k0) / self.temp));
 
+class VelocityFromDensity(object):
+    def __init__(self, OmegaM0=0.3, z=15.7):
+        self._OmegaM0 = OmegaM0
+        self._z = z
 
+    def __call__(self, k):
+        E_z2 = self._OmegaM0 * (1+self._z)**3 + (1.-self._OmegaM0)# H(z)^2/H_0^2
+        result = 1e4 * E_z2/(k**2 * (1+self._z)**2) # H(z)^2/((1+z)^2 k^2)
+        result[np.isinf(result)] = 0
+        return result
 
 def subsampling_plot(x,y,*args,**kwargs):
     length = len(x)
@@ -54,18 +63,19 @@ def subsampling_plot(x,y,*args,**kwargs):
 
 
 class PowerSpectrum(object):
-    def __init__(self, pspec=None, spacing_Mpc=0.01, npix=2 ** 19):
+    def __init__(self, pspec=None, spacing_Mpc=0.01, npix=2 ** 19, z=0.0):
         self.spacing_Mpc = spacing_Mpc
         self.npix = npix
         self.k = 2 * np.pi * np.fft.fftfreq(npix, spacing_Mpc)
-
-
-
+        self.z = z
 
         k_sanitized = copy.copy(self.k)
         k_sanitized[k_sanitized == 0] = 1
         if pspec is None:
-            pspec = pynbody.analysis.hmf.PowerSpectrumCAMBLive(pynbody.new())
+            f = pynbody.new()
+            f.properties['z'] = self.z
+            pspec = pynbody.analysis.hmf.PowerSpectrumCAMBLive(f)
+            print("sigma8 = %.2f"%pspec.get_sigma8())
         if not hasattr(pspec, "__call__"):
             self.Pk = 1e2*k_sanitized**pspec*(k_sanitized>1e-2)*(k_sanitized<1e2)
         else:
@@ -131,14 +141,15 @@ class CorrelationFunction(object):
         xi_r[xi_r == np.inf] = 0
         return xi_r
 
-    def plot(self, remove_dc=False, r_offset=0, scale=False):
-        xi_r = self.xi[:self.npix / 2]
-        r = self.r[:self.npix / 2]
+    def plot(self, remove_dc=False, r2_weighted=True, r_offset=0, scale=False):
+        xi_r = self.xi[:self.npix // 2]
+        r = self.r[:self.npix // 2]
         if remove_dc:
             xi_r = xi_r-np.average(xi_r,weights=r**2)
 
-
-        subsampling_plot(r-r_offset, xi_r * r**2 )
+        if r2_weighted:
+            xi_r = xi_r*r**2
+        subsampling_plot(r-r_offset, xi_r)
 
         if scale:
             p.xlim(0, 200)
