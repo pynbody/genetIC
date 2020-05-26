@@ -887,18 +887,21 @@ public:
   \param species - the type of particle (in case of multiple transfer functions)
   */
   virtual void dumpPS(size_t level, particle::species species) {
-    int nField = static_cast<size_t>(species);
-    checkLevelExists(level, nField);
+    //int nField = static_cast<size_t>(species);
+    //checkLevelExists(level, nField);
 
-
-    auto &field = outputFields[nField]->getFieldForLevel(level);
+    auto &field = getOutputFieldForSpecies(species).getFieldForLevel(level);
     field.toFourier();
     std::string filename;
-    if (nField == 1) {
+    if (species == particle::species::baryon) {
       filename = (getOutputPath() + "_" + ((char) (level + '0')) + "_baryons.ps");
     } else {
       filename = (getOutputPath() + "_" + ((char) (level + '0')) + ".ps");
     }
+
+    if(!useBaryonTransferFunction)
+      species = particle::species::all;
+
     cosmology::dumpPowerSpectrum(field,
                                  *multiLevelContext.getCovariance(level, species),
                                  filename.c_str());
