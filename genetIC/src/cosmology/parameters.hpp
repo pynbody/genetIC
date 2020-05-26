@@ -158,7 +158,9 @@ namespace cosmology {
     // ... convert to comoving units ...
     std::ofstream ofs(filename);
     FloatType psnorm =
-      1 / (CAMB<FloatType>::getPowerSpectrumNormalizationForGrid(field.getGrid()) * pow((2.0 * M_PI), 3.0));
+      1 / (CAMB<FloatType>::getPowerSpectrumNormalizationForGrid(field.getGrid()));
+    // Pre-v1 this had an extra factor pow((2.0 * M_PI), 3.0), which made it differ from CAMB normalisation
+    // Updated to prevent confusion.
 
     for (ix = 0; ix < nBins; ix++) {
 

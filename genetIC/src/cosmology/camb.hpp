@@ -165,7 +165,9 @@ namespace cosmology {
 
     const std::map<particle::species, size_t> speciesToCambColumn
       {{particle::species::dm, 1},
-       {particle::species::baryon, 2}};
+       {particle::species::baryon, 2},
+       {particle::species::all, 6 // if using a single transfer function, use the column for total
+     }};
       //!< Columns of CAMB that we request for DM and baryons respectively
 
     std::map<particle::species, tools::numerics::LogInterpolator<CoordinateType>> speciesToTransferFunction; //!< Interpolation functions:
@@ -292,7 +294,7 @@ namespace cosmology {
 
       //! Compute the variance in a spherical top hat window
       CoordinateType calculateLinearVarianceInSphere(CoordinateType radius,
-                                                     particle::species transferType = particle::species::dm) const {
+                                                     particle::species transferType = particle::species::all) const {
 
         CoordinateType s = 0., k, t;
 

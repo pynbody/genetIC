@@ -777,12 +777,12 @@ public:
       // make a copy of the white noise field:
       outputFields.emplace_back(std::make_shared<fields::OutputField<GridDataType>>(*outputFields[0]));
       outputFields[1]->applyPowerSpectrumFor(particle::species::baryon);
+      outputFields[0]->applyPowerSpectrumFor(particle::species::dm);
+    } else {
+      outputFields[0]->applyPowerSpectrumFor(particle::species::all);
     }
 
-    outputFields[0]->applyPowerSpectrumFor(particle::species::dm);
-
     // Check everything has worked as expected (e.g. no accidental pointer copying)
-    assert(outputFields[0]->getTransferType() == particle::species::dm);
     if(useBaryonTransferFunction)
       assert(outputFields[1]->getTransferType() == particle::species::baryon);
 
@@ -992,8 +992,8 @@ public:
   }
 
   fields::OutputField<GridDataType> & getOutputFieldForSpecies(particle::species species) {
-    if(species==particle::species::baryon && !useBaryonTransferFunction)
-      species = particle::species::dm;
+    if(!useBaryonTransferFunction)
+      species = particle::species::all;
 
     for(auto outputField : this->outputFields) {
       if(outputField->getTransferType()==species)
