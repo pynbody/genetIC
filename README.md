@@ -1,6 +1,6 @@
 ![genetIC](./genetic.svg)
 
-[![Build Status](https://travis-ci.com/ucl-cosmoparticles/genetIC.svg?token=Ps3yU4QT9XRs2FGy3Bnr&branch=master)](https://travis-ci.com/ucl-cosmoparticles/genetIC)
+[![Build Status](https://travis-ci.com/pynbody/genetIC.svg?token=Kwgna3AKWpdHTHRrmaYX&branch=master)](https://travis-ci.com/pynbody/genetIC)
 
 GenetIC
 =======
