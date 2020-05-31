@@ -1,0 +1,31 @@
+# Test that refinement masks are generated correctly for multiple suupersampled virtual grids
+# Issue: https://github.com/ucl-cosmoparticles/genetIC/issues/71
+
+# output parameters
+outdir	 ./
+outformat 5
+outname test_8
+center_grafic_output
+
+# cosmology:
+Om  0.279
+Ol  0.721
+s8  0.817
+zin	99
+camb    ../camb_transfer_kmax40_z0_post2015.dat
+
+# fourier seeding
+seed	8896131
+
+# Ask for two layers of subsampling to test this case as well
+supersample 4
+
+basegrid 50.0 8
+
+# Generate a wrapped zoom region with two layers of intermediate virtual grids
+centre 20. 20. 20.
+select_nearest
+zoomgrid 4 4
+
+done
+dump_mask

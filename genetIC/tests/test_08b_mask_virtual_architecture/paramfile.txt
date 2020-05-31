@@ -1,4 +1,4 @@
-# Test that refinement masks are generated correctly with multiple layers of virtual grids
+# Test that refinement masks are generated correctly with multiple zoom grids
 
 
 # output parameters
