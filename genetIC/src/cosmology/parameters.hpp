@@ -24,7 +24,7 @@ namespace cosmology {
     FloatType hubble; //!< Hubble rate in units of 100kms^{-1}Mpc^{-1}
     FloatType redshift; //!< Redshift at which we are generating the initial conditions.
     FloatType scalefactor; //!< Scale factor at this redshift, relative to the scale factor at z = 0
-    FloatType scalefactorAtDecoupling; //!< Scale factor at baryon-photon decoupling (z~1100)
+    FloatType scalefactorAtDecoupling; //!< Scale factor at baryon-photon decoupling (z~150, NOT photon-baryon decoupling at z~1100)
     FloatType sigma8; //!< Sigma8 parameter
     FloatType ns; //!< Scalar spectral index
     FloatType TCMB; //!< CMB temperature today, in K
@@ -158,7 +158,9 @@ namespace cosmology {
     // ... convert to comoving units ...
     std::ofstream ofs(filename);
     FloatType psnorm =
-      1 / (CAMB<FloatType>::getPowerSpectrumNormalizationForGrid(field.getGrid()) * pow((2.0 * M_PI), 3.0));
+      1 / (CAMB<FloatType>::getPowerSpectrumNormalizationForGrid(field.getGrid()));
+    // Pre-v1 this had an extra factor pow((2.0 * M_PI), 3.0), which made it differ from CAMB normalisation
+    // Updated to prevent confusion.
 
     for (ix = 0; ix < nBins; ix++) {
 

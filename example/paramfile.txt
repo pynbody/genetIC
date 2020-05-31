@@ -1,0 +1,57 @@
+# Example genetIC parameter file
+
+# Cosmology, based on Planck 2018
+Ob           0.0494
+Om           0.3158
+Ol           0.6842
+s8           0.8117
+ns           0.9660
+hubble       0.6732
+z            200
+
+# Import transfer function data.
+# If you change the cosmological parameters above be sure to update the transfer
+# function accordingly. Some help is given in the folder tools/transfer_function/
+# within the genetIC distribution
+camb	planck_2018_transfer_out.dat
+
+# Seed the field using the default algorithm (parallel Fourier space):
+random_seed	8896131
+
+# Specify output directory:
+outname test
+outdir	 ./
+
+# Pick output format:
+outformat gadget3
+
+# Specify the base-level grid, 50 Mpc/h, 128 cells on a side:
+base_grid 50.0 128
+
+# Prepare to "zoom" all particles within a sphere radius 6 Mpc/h, centred
+# on the coordinate 32.5,32.5,32.5 Mpc/h:
+centre 32.5 32.5 32.5
+select_sphere 6
+
+# Note that instead of defining the zoom region geometrically in the above way,
+# we could also have used id_file (see below) to load particle IDs to
+# replace with zoom particles
+
+# Now open the zoom region. Make the zoom grid itself a factor 3
+# smaller than the base grid, and have 128 cells on a side (thus
+# an equivalent resolution to (3x128)=384 on a side):
+zoom_grid 3 128
+
+# ...  modifications could be added here ...
+
+# Initialise the random component, apply modifications, and write the
+# resulting initial conditions:
+done
+
+# Optionally, write diagnostic output --
+# Dark matter power spectrum:
+dump_ps 0 # <-- the power spectrum evaluated on the base grid
+dump_ps 1 # <-- the power spectrum evaluated on the first zoom region
+# Numpy array with the overdensity on a grid:
+dump_grid 0 # <-- for the base grid
+dump_grid 1 # <-- for the first zoom region

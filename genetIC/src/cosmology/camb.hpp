@@ -165,7 +165,9 @@ namespace cosmology {
 
     const std::map<particle::species, size_t> speciesToCambColumn
       {{particle::species::dm, 1},
-       {particle::species::baryon, 2}};
+       {particle::species::baryon, 2},
+       {particle::species::all, 6 // if using a single transfer function, use the column for total
+     }};
       //!< Columns of CAMB that we request for DM and baryons respectively
 
     std::map<particle::species, tools::numerics::LogInterpolator<CoordinateType>> speciesToTransferFunction; //!< Interpolation functions:
@@ -246,20 +248,7 @@ namespace cosmology {
           } else continue;
         }
 
-        // Extend high-k range using Meszaros solution
-        // This is a very naive approximation and a big warning will be issued if the power is actually evaluated
-        // at these high k's (see operator() below).
         kcamb_max_in_file = kInterpolationPoints.back();
-        CoordinateType keq = 0.01;
-        while (kInterpolationPoints.back() < 1e7) {
-          kInterpolationPoints.push_back(kInterpolationPoints.back() * 1.1);
-          CoordinateType kratio = kInterpolationPoints.back() / kcamb_max_in_file;
-          for (auto i = speciesToInterpolationPoints.begin(); i != speciesToInterpolationPoints.end(); ++i) {
-            i->second.push_back(i->second.back() * pow(kratio, -2.0) * log(kInterpolationPoints.back() / keq) / log(kcamb_max_in_file / keq));
-          }
-        }
-
-
 
       }
 
@@ -271,8 +260,10 @@ namespace cosmology {
       auto P = PowerSpectrum<DataType>::getPowerSpectrumForGridUncached(grid, transferType);
 
       if (kcamb_max_in_file == std::numeric_limits<CoordinateType>().max()) {
-        std::cerr << "WARNING: maximum k in CAMB input file is insufficient" << std::endl;
-        std::cerr << "         extrapolating using naive Meszaros solution" << std::endl;
+        std::cerr << "WARNING: Maximum k in CAMB input file is insufficient" << std::endl
+                  << "*        You therefore have zero power in some of your modes, which is almost certainly not what you want" << std::endl
+                  << "*        You need to generate a transfer function that reaches higher k." << std::endl;
+        std::cerr << "*        The current grid reaches k = " << grid->getFourierKmax() << " h/Mpc" << std::endl;
       }
 
       return P;
@@ -292,7 +283,7 @@ namespace cosmology {
 
       //! Compute the variance in a spherical top hat window
       CoordinateType calculateLinearVarianceInSphere(CoordinateType radius,
-                                                     particle::species transferType = particle::species::dm) const {
+                                                     particle::species transferType = particle::species::all) const {
 
         CoordinateType s = 0., k, t;
 

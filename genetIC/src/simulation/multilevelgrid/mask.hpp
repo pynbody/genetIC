@@ -1,9 +1,9 @@
 #ifndef IC_MASK_HPP
 #define IC_MASK_HPP
 
-#include "src/simulation/multilevelcontext/multilevelcontext.hpp"
+#include "src/simulation/multilevelgrid/multilevelgrid.hpp"
 
-namespace multilevelcontext {
+namespace multilevelgrid {
 
   //! Abstract class to generate masks through the multilevel hierarchy
   template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
@@ -11,8 +11,8 @@ namespace multilevelcontext {
   public:
 
     //! Constructor from the specified multi-level context.
-    explicit AbstractBaseMask(MultiLevelContextInformation <DataType> *multilevelcontext_) :
-      multilevelcontext(multilevelcontext_), flaggedIdsAtEachLevel(multilevelcontext->getNumLevels()) {}
+    explicit AbstractBaseMask(MultiLevelGrid <DataType> *multilevelgrid_) :
+      multilevelgrid(multilevelgrid_), flaggedIdsAtEachLevel(multilevelgrid->getNumLevels()) {}
 
     /*! \brief Returns 1 if the specified cell is in the mask, 0 otherwise.
 
@@ -28,7 +28,7 @@ namespace multilevelcontext {
     virtual void calculateMask() = 0;
 
   protected:
-    MultiLevelContextInformation <DataType> *multilevelcontext; //!< Pointer to the multi-level context object.
+    MultiLevelGrid <DataType> *multilevelgrid; //!< Pointer to the multi-level context object.
     std::vector<std::vector<size_t>> flaggedIdsAtEachLevel; //!< Vector whose elements are vectors of the ids flagged at each level of the mask.
 
     //! Calculates the flagged cells on all levels.
@@ -51,12 +51,12 @@ namespace multilevelcontext {
 
   public:
     /*! \brief Constructor, requires a pointer to the multi-level context and a reference to a vector of mask vectors for each level
-        \param multilevelcontext_ - pointer to the multi-level context object.
+        \param multilevelgrid_ - pointer to the multi-level context object.
         \param input_mask - vector of vectors, where each vector is a mask for a given level.
     */
-    explicit GraficMask(MultiLevelContextInformation <DataType> *multilevelcontext_,
+    explicit GraficMask(MultiLevelGrid <DataType> *multilevelgrid_,
                         std::vector<std::vector<size_t>> &input_mask) :
-      AbstractBaseMask<DataType, T>(multilevelcontext_), inputzoomParticlesAsMask(input_mask) {
+      AbstractBaseMask<DataType, T>(multilevelgrid_), inputzoomParticlesAsMask(input_mask) {
       assert(inputzoomParticlesAsMask.size() <= this->flaggedIdsAtEachLevel.size());
     };
 
@@ -94,8 +94,8 @@ namespace multilevelcontext {
     void identifyLevelsOfInputMask() {
       size_t input_level = 0;
 
-      for (size_t level = 0; level < this->multilevelcontext->getNumLevels() - 1; level++) {
-        for (size_t i = 0; i < this->multilevelcontext->getGridForLevel(level).size3; i++) {
+      for (size_t level = 0; level < this->multilevelgrid->getNumLevels() - 1; level++) {
+        for (size_t i = 0; i < this->multilevelgrid->getGridForLevel(level).size3; i++) {
 
           // Terminate calculation if all possible input masks have been found
           if (input_level >= this->inputzoomParticlesAsMask.size()) {
@@ -142,7 +142,7 @@ namespace multilevelcontext {
           // Generate flags on intermediate levels that will not have some
           for (size_t i : this->flaggedIdsAtEachLevel[level + 1]) {
             this->flaggedIdsAtEachLevel[level].push_back(
-              this->multilevelcontext->getIndexOfCellOnOtherLevel(level + 1, level, i));
+              this->multilevelgrid->getIndexOfCellOnOtherLevel(level + 1, level, i));
           }
           // The above procedure might not be ordered and will create duplicates, get rid of them.
           sortAndEraseDuplicate(level);
@@ -154,10 +154,10 @@ namespace multilevelcontext {
     void generateHierarchyBelowLevelExclusive(size_t coarsestLevel) {
 
       // Do all level between this level and the finest
-      for (size_t level = coarsestLevel + 1; level < this->multilevelcontext->getNumLevels() - 1; level++) {
+      for (size_t level = coarsestLevel + 1; level < this->multilevelgrid->getNumLevels() - 1; level++) {
 
-        for (size_t i = 0; i < this->multilevelcontext->getGridForLevel(level).size3; i++) {
-          size_t aboveindex = this->multilevelcontext->getIndexOfCellOnOtherLevel(level, level - 1, i);
+        for (size_t i = 0; i < this->multilevelgrid->getGridForLevel(level).size3; i++) {
+          size_t aboveindex = this->multilevelgrid->getIndexOfCellOnOtherLevel(level, level - 1, i);
           if (this->isMasked(aboveindex, level - 1)) {
             this->flaggedIdsAtEachLevel[level].push_back(i);
           }
@@ -196,24 +196,24 @@ namespace multilevelcontext {
       std::vector<std::shared_ptr<fields::Field<DataType, T>>> fields;
 
       // Field full of zeros
-      for (size_t level = 0; level < this->multilevelcontext->getNumLevels(); ++level) {
+      for (size_t level = 0; level < this->multilevelgrid->getNumLevels(); ++level) {
         fields.push_back(std::shared_ptr<fields::Field<DataType, T>>(
-          new fields::Field<DataType, T>(this->multilevelcontext->getGridForLevel(level))));
+          new fields::Field<DataType, T>(this->multilevelgrid->getGridForLevel(level))));
       }
 
-      auto maskfield = std::make_shared<fields::MultiLevelField<DataType>>(*(this->multilevelcontext), fields);
+      auto maskfield = std::make_shared<fields::MultiLevelField<DataType>>(*(this->multilevelgrid), fields);
 
       // Field with mask information
-      for (size_t level = 0; level < this->multilevelcontext->getNumLevels(); ++level) {
-        for (size_t i_z = 0; i_z < this->multilevelcontext->getGridForLevel(level).size; ++i_z) {
-          for (size_t i_y = 0; i_y < this->multilevelcontext->getGridForLevel(level).size; ++i_y) {
-            for (size_t i_x = 0; i_x < this->multilevelcontext->getGridForLevel(level).size; ++i_x) {
+      for (size_t level = 0; level < this->multilevelgrid->getNumLevels(); ++level) {
+        for (size_t i_z = 0; i_z < this->multilevelgrid->getGridForLevel(level).size; ++i_z) {
+          for (size_t i_y = 0; i_y < this->multilevelgrid->getGridForLevel(level).size; ++i_y) {
+            for (size_t i_x = 0; i_x < this->multilevelgrid->getGridForLevel(level).size; ++i_x) {
 
               // These two indices can be different if some virtual grid are used in the context, e.g. centered.
               // In all other cases, they will be equal.
-              size_t i = size_t(i_x * this->multilevelcontext->getGridForLevel(level).size + i_y)
-                         * this->multilevelcontext->getGridForLevel(level).size + i_z;
-              size_t virtual_i = this->multilevelcontext->getGridForLevel(level).getIndexFromCoordinateNoWrap(i_x, i_y,
+              size_t i = size_t(i_x * this->multilevelgrid->getGridForLevel(level).size + i_y)
+                         * this->multilevelgrid->getGridForLevel(level).size + i_z;
+              size_t virtual_i = this->multilevelgrid->getGridForLevel(level).getIndexFromCoordinateNoWrap(i_x, i_y,
                                                                                                               i_z);
 
               maskfield->getFieldForLevel(level).getDataVector()[i] = isInMask(level, virtual_i);

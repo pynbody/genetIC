@@ -16,7 +16,7 @@ zin	99
 camb    ../camb_transfer_kmax40_z0_post2015.dat
 
 # fourier seeding
-seed	8896131
+random_seed_real_space	8896131
 
 basegrid 64.0 64
 

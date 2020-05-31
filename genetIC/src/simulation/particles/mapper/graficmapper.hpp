@@ -29,7 +29,7 @@ namespace particle {
       using typename MapType::ConstGridPtrType;
 
     protected:
-      multilevelcontext::MultiLevelContextInformation<GridDataType> contextInformation; //!< Copy of the multi-level context information used by the simulation
+      multilevelgrid::MultiLevelGrid<GridDataType> multiLevelGrid; //!< Copy of the multi-level context information used by the simulation
 
     public:
 
@@ -40,16 +40,16 @@ namespace particle {
         \param subsample - sub-sampling factor
         \param supersample - super-sampling factor
       */
-      GraficMapper(const multilevelcontext::MultiLevelContextInformation<GridDataType> &context,
+      GraficMapper(const multilevelgrid::MultiLevelGrid<GridDataType> &context,
                    Coordinate<T> center,
                    size_t subsample, size_t supersample) {
-        context.copyContextWithCenteredIntermediate(contextInformation, center, 2, subsample, supersample);
+        context.copyContextWithCenteredIntermediate(multiLevelGrid, center, 2, subsample, supersample);
       }
 
       //! Returns true if any grid in the multi-level context is a proxy for the specified grid
       bool references(GridPtrType grid) const override {
         bool hasReference = false;
-        contextInformation.forEachLevel([&grid, &hasReference](const GridType &targetGrid) {
+        multiLevelGrid.forEachLevel([&grid, &hasReference](const GridType &targetGrid) {
           if (targetGrid.isProxyFor(grid.get())) {
             hasReference = true;
           }
@@ -68,14 +68,14 @@ namespace particle {
 
       //! Returns the total number of cells in the stored multi-level context
       virtual size_t size() const override {
-        return contextInformation.getNumCells();
+        return multiLevelGrid.getNumCells();
       }
 
       //! Flags the particles in the stored multi-level context specified by genericParticleArray
       virtual void flagParticles(const std::vector<size_t> &genericParticleArray) override {
         size_t gridStart = 0;
         size_t i = 0;
-        contextInformation.forEachLevel([&genericParticleArray, &i, &gridStart, this](GridType &targetGrid) {
+        multiLevelGrid.forEachLevel([&genericParticleArray, &i, &gridStart, this](GridType &targetGrid) {
           std::vector<size_t> gridCellArray;
           size_t gridEnd = gridStart + targetGrid.size3;
 
@@ -108,25 +108,25 @@ namespace particle {
 
       //! Unflag all the particles on every level of the stored multi-level context
       virtual void unflagAllParticles() override {
-        contextInformation.forEachLevel([](GridType &targetGrid) {
+        multiLevelGrid.forEachLevel([](GridType &targetGrid) {
           targetGrid.unflagAllCells();
         });
       }
 
       //! Returns a pointer to the coarsest grid in the stored multi-level context
       virtual GridPtrType getCoarsestGrid() override {
-        return contextInformation.getGridForLevel(0).shared_from_this();
+        return multiLevelGrid.getGridForLevel(0).shared_from_this();
       }
 
       //! Returns a pointer to the finest grid in the stored multi-level context
       GridPtrType getFinestGrid() override {
-        return contextInformation.getGridForLevel(contextInformation.getNumLevels() - 1).shared_from_this();
+        return multiLevelGrid.getGridForLevel(multiLevelGrid.getNumLevels() - 1).shared_from_this();
       }
 
       //! Copies the flags in the stored multi-level context to particleArray
       void getFlaggedParticles(std::vector<size_t> &particleArray) const override {
         size_t offset = 0;
-        contextInformation.forEachLevel([&particleArray, &offset](const GridType &targetGrid) {
+        multiLevelGrid.forEachLevel([&particleArray, &offset](const GridType &targetGrid) {
           size_t last = particleArray.size();
           targetGrid.getFlaggedCells(particleArray);
 
@@ -163,23 +163,23 @@ namespace particle {
       // namely here, grid.downscale and upscale methods, and grafic masks. There should be a unified framework for this.
       void propagateFlagsThroughHierarchy() {
 
-        auto levelsOfRealGrids = this->contextInformation.getFullResolutionGrids();
+        auto levelsOfRealGrids = this->multiLevelGrid.getFullResolutionGrids();
 
         for (unsigned long i = levelsOfRealGrids.size() - 1; i > 0; i--) {
           size_t this_level = levelsOfRealGrids[i];
           size_t coarser_level = levelsOfRealGrids[i - 1];
           std::vector<size_t> flags_at_this_level;
           std::vector<size_t> flags_at_coarser_level;
-          this->contextInformation.getGridForLevel(this_level).getFlaggedCells(flags_at_this_level);
+          this->multiLevelGrid.getGridForLevel(this_level).getFlaggedCells(flags_at_this_level);
 
           for (size_t flag : flags_at_this_level) {
             flags_at_coarser_level.push_back(
-              this->contextInformation.getIndexOfCellOnOtherLevel(this_level, coarser_level, flag));
+              this->multiLevelGrid.getIndexOfCellOnOtherLevel(this_level, coarser_level, flag));
           }
 
           tools::sortAndEraseDuplicate(flags_at_coarser_level);
 
-          this->contextInformation.getGridForLevel(coarser_level).flagCells(flags_at_coarser_level);
+          this->multiLevelGrid.getGridForLevel(coarser_level).flagCells(flags_at_coarser_level);
 
         }
       }

@@ -35,17 +35,26 @@ void setup_parser(tools::ClassDispatch<ICf, void> &dispatch) {
   dispatch.add_class_route("s8", &ICf::setSigma8);
   dispatch.add_class_route("ns", &ICf::setns);
   dispatch.add_class_route("zin", &ICf::setZ0);
+  dispatch.add_class_route("z", &ICf::setZ0);
 
   // Set seeds for random draws
   // Static casts here needed to differentiate between overloaded versions of setSeed,
   // now that we have both DM and baryon fields to seed.
-  dispatch.add_class_route("seed", static_cast<void (ICf::*)(int)>(&ICf::setSeed));
-  dispatch.add_class_route("seedfourier", static_cast<void (ICf::*)(int)>(&ICf::setSeedFourier));
+  // DEPRECATED forms:
+  dispatch.add_deprecated_class_route("seed", "random_seed_real_space", static_cast<void (ICf::*)(int)>(&ICf::setSeed));
+  dispatch.add_deprecated_class_route("seedfourier", "random_seed_serial", static_cast<void (ICf::*)(int)>(&ICf::setSeedFourier));
   dispatch.add_class_route("seedfourier_reverse", static_cast<void (ICf::*)(int)>(&ICf::setSeedFourierReverseOrder));
-  dispatch.add_class_route("seedfourier_parallel", static_cast<void (ICf::*)(int)>(&ICf::setSeedFourierParallel));
+  dispatch.add_deprecated_class_route("seedfourier_parallel", "random_seed", static_cast<void (ICf::*)(int)>(&ICf::setSeedFourierParallel));
+
+  // NEW FORMS, May 2020, ahead of release (to steer people towards a sensible default)
+  dispatch.add_class_route("random_seed", static_cast<void (ICf::*)(int)>(&ICf::setSeedFourierParallel));
+  dispatch.add_class_route("random_seed_serial", static_cast<void (ICf::*)(int)>(&ICf::setSeedFourier));
+  dispatch.add_class_route("random_seed_real_space", static_cast<void (ICf::*)(int)>(&ICf::setSeed));
 
   // Optional computational properties
-  dispatch.add_class_route("exact_power_spectrum_enforcement", &ICf::setExactPowerSpectrumEnforcement);
+  dispatch.add_deprecated_class_route("exact_power_spectrum_enforcement", "fix_power", &ICf::setExactPowerSpectrumEnforcement);
+  dispatch.add_class_route("fix_power", &ICf::setExactPowerSpectrumEnforcement);
+
   dispatch.add_class_route("strays_on", &ICf::setStraysOn);
   dispatch.add_class_route("supersample", &ICf::setSupersample);
   dispatch.add_class_route("supersample_gas", &ICf::setSupersampleGas);
@@ -54,9 +63,12 @@ void setup_parser(tools::ClassDispatch<ICf, void> &dispatch) {
 
   // Grafic options
   dispatch.add_class_route("pvar", &ICf::setpvarValue);
-  dispatch.add_class_route("center_grafic_output",
-                           &ICf::setCenteringOnRegion); // This should be deprecated -- now works for all output types
+  dispatch.add_deprecated_class_route("center_grafic_output", "center_output",
+                           &ICf::setCenteringOnRegion);
 
+
+  dispatch.add_class_route("centre_output", &ICf::setCenteringOnRegion);
+  // US variant:
   dispatch.add_class_route("center_output", &ICf::setCenteringOnRegion);
 
   // Gadget options
@@ -73,19 +85,34 @@ void setup_parser(tools::ClassDispatch<ICf, void> &dispatch) {
   dispatch.add_class_route("outname", &ICf::setOutName);
   dispatch.add_class_route("outformat", &ICf::setOutputFormat);
 
-  // Define grid structure
-  dispatch.add_class_route("basegrid", &ICf::initBaseGrid);
-  dispatch.add_class_route("zoomgrid", &ICf::initZoomGrid);
-  dispatch.add_class_route("zoomgrid_with_origin_at", &ICf::initZoomGridWithLowLeftCornerAt);
+  // Define grid structure - OLD NAMES
+  dispatch.add_deprecated_class_route("basegrid", "base_grid", &ICf::initBaseGrid);
+  dispatch.add_deprecated_class_route("zoomgrid", "zoom_grid", &ICf::initZoomGrid);
+  dispatch.add_deprecated_class_route("zoomgrid_with_origin_at", "zoom_grid_with_origin_at", &ICf::initZoomGridWithLowLeftCornerAt);
 
-  // Input Output of flagged particles
-  dispatch.add_class_route("IDfile", &ICf::loadID);
-  dispatch.add_class_route("append_IDfile", &ICf::appendID);
-  dispatch.add_class_route("dump_IDfile", &ICf::dumpID);
+  // Define grid structure - NEW NAMES May 2020
+  dispatch.add_class_route("base_grid", &ICf::initBaseGrid);
+  dispatch.add_class_route("zoom_grid", &ICf::initZoomGrid);
+  dispatch.add_class_route("zoom_grid_with_origin_at", &ICf::initZoomGridWithLowLeftCornerAt);
 
-  // Point to specific coordinates
+
+  // Input Output of flagged particles - OLD NAMES
+  dispatch.add_deprecated_class_route("IDfile", "id_file", &ICf::loadID);
+  dispatch.add_deprecated_class_route("append_IDfile", "append_id_file", &ICf::appendID);
+  dispatch.add_deprecated_class_route("dump_IDfile","dump_id_file", &ICf::dumpID);
+
+  // I/O of flagged particles - NEW NAMES May 2020
+  dispatch.add_class_route("id_file", &ICf::loadID);
+  dispatch.add_class_route("merge_id_file", &ICf::appendID);
+  dispatch.add_class_route("dump_id_file", &ICf::dumpID);
+
+  // Point to specific coordinates:
   dispatch.add_class_route("centre_on", &ICf::centreParticle);
   dispatch.add_class_route("centre", &ICf::setCentre);
+
+  // US variants:
+  dispatch.add_class_route("center_on", &ICf::centreParticle);
+  dispatch.add_class_route("center", &ICf::setCentre);
 
   // Flag cells
   dispatch.add_class_route("select_sphere", &ICf::selectSphere);
@@ -96,11 +123,9 @@ void setup_parser(tools::ClassDispatch<ICf, void> &dispatch) {
   dispatch.add_class_route("autopad", &ICf::setAutopad);
 
   // Deal with modifications
+  dispatch.add_class_route("modify", &ICf::modify);
   dispatch.add_class_route("calculate", static_cast<void (ICf::*)(std::string)>(&ICf::calculate));
-  // dispatch.add_class_route("calculate_field", static_cast<void (ICf::*)(std::string, size_t)>(&ICf::calculate));
   dispatch.add_class_route("filtering_scale", &ICf::setVarianceFilteringScale);
-  dispatch.add_class_route("modify", static_cast< void (ICf::*)(std::string, std::string, float)>(&ICf::modify));
-  dispatch.add_class_route("modify_field", static_cast< void (ICf::*)(std::string, std::string, float)>(&ICf::modify));
   dispatch.add_class_route("clear_modifications", static_cast<void (ICf::*)()>(&ICf::clearModifications));
   dispatch.add_class_route("done", &ICf::done);
   dispatch.add_class_route("apply_modifications", static_cast<void (ICf::*)()>(&ICf::applyModifications));
@@ -125,15 +150,13 @@ void setup_parser(tools::ClassDispatch<ICf, void> &dispatch) {
 
   // Load existing random field instead of generating
   dispatch.add_class_route("import_level", static_cast<void (ICf::*)(size_t, std::string)>(&ICf::importLevel));
-  dispatch.add_class_route("import_level_field",
-                           static_cast<void (ICf::*)(size_t, std::string, size_t)>(&ICf::importLevel));
 
   // Extra commands related to the transfer functions:
   dispatch.add_class_route("baryon_tf_on", &ICf::setUsingBaryons);
   dispatch.add_class_route("baryons_all_levels", &ICf::setBaryonsOnAllLevels);
 
   // To debug
-  dispatch.add_class_route("zeroLevel", static_cast<void (ICf::*)(
+  dispatch.add_deprecated_class_route("zeroLevel", "zero_level", static_cast<void (ICf::*)(
     size_t)>(&ICf::zeroLevel)); // Retained for backwards compatibility.
   dispatch.add_class_route("zero_level", static_cast<void (ICf::*)(size_t)>(&ICf::zeroLevel)); // Use this instead.
   dispatch.add_class_route("zero_level_field", static_cast<void (ICf::*)(size_t, size_t)>(&ICf::zeroLevel));
@@ -143,31 +166,29 @@ void setup_parser(tools::ClassDispatch<ICf, void> &dispatch) {
 
 }
 
-void header(ostream &outf) {
+void header(ostream &outf, std::string prefix="") {
+  outf << prefix << "genetIC v1.0, compiled: " << __DATE__ << ", " << __TIME__ << endl;
   time_t now = time(0);
   struct tm tstruct;
   char buf[80];
   tstruct = *localtime(&now);
-  strftime(buf, sizeof(buf), "%Y-%m-%d.%X", &tstruct);
-  outf << "#\n"
-          "#   \\             ___,,,,---'''''''--.,,,,___            /\n"
-          "#    \\    ,,,---'   |    |    |    |    |    `---___    /\n"
-          "#     `\\ /     |    |    |    |    |    |    |      `...\n"
-          "#       .,     |    |    |    |    |    |    |      ..'\n"
-          "#     ./  '---,,,   |    |    |    |    |    ,,,---' ..\n"
-          "#    /           '---,,,,___  |   ___,,,,---'         `\\.\n"
-          "#   /                       ''''''                       \\\n"
-          "#\n"
-          "#               g    e    n    e    t    I    C   \n"
-          "#           Quality galactic engineering since 2014\n" << endl;
-
-  outf << "# genetIC, compiled " << __DATE__ << " " << __TIME__ << endl;
-  outf << "# git HEAD:" << GIT_VERSION << endl;
+  strftime(buf, sizeof(buf), "%b %d %Y, %X", &tstruct);
+  outf << prefix << "              runtime:  " << buf << endl << endl;
+#ifdef GIT_VERSION
+  if (sizeof(GIT_VERSION) > 1)
+    outf << prefix << "git HEAD:" << GIT_VERSION << endl;
   if (sizeof(GIT_MODIFIED) > 1) {
-    outf << "# At the time of compilation, the following files had been modified:" << endl;
-    outf << "#  " << GIT_MODIFIED << endl;
+    outf << prefix << "At the time of compilation, the following files had been modified:" << endl;
+    std::istringstream modifFiles(GIT_MODIFIED);
+    while(!modifFiles.eof()) {
+      std::string thisFile;
+      modifFiles >> thisFile;
+      outf << prefix << "  " << thisFile << endl;
+    }
   }
-  outf << "# Runtime: " << buf << endl << endl;
+#endif
+
+
 }
 
 int main(int argc, char *argv[]) {
@@ -198,7 +219,7 @@ int main(int argc, char *argv[]) {
     exit(1);
   }
 
-  header(outf);
+  header(outf, "# ");
   header(cerr);
 
   // Set up the command interpreter to issue commands to main_generator

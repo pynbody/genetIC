@@ -19,7 +19,7 @@ pvar 0.01
 center_grafic_output
 
 # fourier seeding
-seed	8896131
+random_seed_real_space	8896131
 
 basegrid 50.0 64
 

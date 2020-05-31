@@ -12,7 +12,7 @@ namespace modifications {
     T target;    /*!< Target to be achieved by the modification */
 
   protected:
-    const multilevelcontext::MultiLevelContextInformation<DataType> &underlying; //!< Underlying multi-level context object.
+    const multilevelgrid::MultiLevelGrid<DataType> &underlying; //!< Underlying multi-level context object.
     const cosmology::CosmologicalParameters<T> &cosmology; //!< Struct containing cosmological parameters.
     std::vector<std::vector<size_t>> flaggedCells; //!< Region targeted by the modification.
     unsigned int order; //!< Linear are first order, qudartic are second etc.
@@ -26,7 +26,7 @@ namespace modifications {
           \param cosmology_ - struct containing cosmological parameters.
           \param forSpecies - specifies the nature of the field we will apply this modification to
       */
-    Modification(const multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
+    Modification(const multilevelgrid::MultiLevelGrid<DataType> &underlying_,
                  const cosmology::CosmologicalParameters<T> &cosmology_) : underlying(underlying_),
                                                  cosmology(cosmology_),
                                                  flaggedCells(underlying_.getNumLevels()),

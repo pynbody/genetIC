@@ -19,7 +19,7 @@
 #include "cosmology/camb.hpp"
 #include "simulation/window.hpp"
 #include "simulation/particles/species.hpp"
-#include "simulation/multilevelcontext/multilevelcontext.hpp"
+#include "simulation/multilevelgrid/multilevelgrid.hpp"
 #include "simulation/field/randomfieldgenerator.hpp"
 #include "simulation/field/multilevelfield.hpp"
 #include "simulation/field/evaluator.hpp"
@@ -56,7 +56,7 @@ protected:
   friend class DummyICGenerator<GridDataType>;
 
   cosmology::CosmologicalParameters<T> cosmology; //!< Cosmological parameters
-  multilevelcontext::MultiLevelContextInformation<GridDataType> multiLevelContext; //!< Class to keep track of the multi-level context of the simulation
+  multilevelgrid::MultiLevelGrid<GridDataType> multiLevelContext; //!< Class to keep track of the multi-level context of the simulation
 
   //! Vector of output fields (defaults to just a single field)
   std::vector<std::shared_ptr<fields::OutputField<GridDataType>>> outputFields;
@@ -156,7 +156,7 @@ protected:
   //! Input mapper, used to relate particles in a different simulation to particles in this one.
   shared_ptr<particle::mapper::ParticleMapper<GridDataType>> pInputMapper;
   //! Multi-level context of the input mapper.
-  shared_ptr<multilevelcontext::MultiLevelContextInformation<GridDataType>> pInputMultiLevelContext;
+  shared_ptr<multilevelgrid::MultiLevelGrid<GridDataType>> pInputMultiLevelContext;
 
   //! Particle generators for each particle species.
   particle::SpeciesToGeneratorMap<GridDataType> pParticleGenerator;
@@ -194,7 +194,10 @@ public:
     cosmology.OmegaBaryons0 = 0.0;
     cosmology.ns = 0.96;      // old default
     cosmology.TCMB = 2.725;
-    cosmology.scalefactorAtDecoupling = 1./1100.; 
+    cosmology.scalefactorAtDecoupling = 1./150.; // NB - this is NOT photon decoupling, it's baryon decoupling
+    cosmology.OmegaM0 = 0.3;
+    outputFolder = "./";
+
     // only an approximate value is needed to initialise a gas temperature
     
     haveInitialisedRandomComponent = false;
@@ -357,6 +360,11 @@ public:
     if (haveInitialisedRandomComponent) {
       throw (std::runtime_error("Trying to initialize a grid after the random field was already drawn"));
     }
+
+    cerr << "Initialized the base grid:" << endl;
+    cerr << "  Box length            = " << boxSize << " Mpc/h" << endl;
+    cerr << "  n                     = " << n << endl;
+    cerr << "  dx                    = " << boxSize/n << endl;
 
     addLevelToContext(boxSize, n);
     updateParticleMapper();
@@ -539,18 +547,18 @@ public:
 
     grids::Grid<T> &newGrid = multiLevelContext.getGridForLevel(multiLevelContext.getNumLevels() - 1);
 
-    cout << "Initialized a zoom region:" << endl;
-    cout << "  Subbox length         = " << newGrid.thisGridSize << " Mpc/h" << endl;
-    cout << "  n                     = " << newGrid.size << endl;
-    cout << "  dx                    = " << newGrid.cellSize << endl;
-    cout << "  Zoom factor           = " << zoomfac << endl;
-    cout << "  Num particles         = " << untrimmedParticleArray.size() << endl;
-    cout << "  Low-left corner in parent grid = " << lowerCorner << endl;
-    cout << "  Low-left corner (h**-1 Mpc)    = " << newGrid.offsetLower.x << ", " << newGrid.offsetLower.y << ", "
+    cerr << "Initialized a zoom region:" << endl;
+    cerr << "  Subbox length         = " << newGrid.thisGridSize << " Mpc/h" << endl;
+    cerr << "  n                     = " << newGrid.size << endl;
+    cerr << "  dx                    = " << newGrid.cellSize << endl;
+    cerr << "  Zoom factor           = " << zoomfac << endl;
+    cerr << "  Num particles         = " << untrimmedParticleArray.size() << endl;
+    cerr << "  Low-left corner in parent grid = " << lowerCorner << endl;
+    cerr << "  Low-left corner (h**-1 Mpc)    = " << newGrid.offsetLower.x << ", " << newGrid.offsetLower.y << ", "
          << newGrid.offsetLower.z << endl;
     updateParticleMapper();
 
-    cout << "  Total particles = " << pMapper->size() << endl;
+    cerr << "  Total particles       = " << pMapper->size() << endl;
 
     // Flag all cells on the fine grid which were included in the zoom
     vector<size_t> transferredCells;
@@ -743,27 +751,21 @@ public:
   /*!
   * \param level - level on which to import the data
   * \param filename - string giving the path to the file to be imported.
-  * \param nField - optional (default is field 0). Specifies which field to import the data into. 0 = dark matter, 1 = baryons.
   */
-  virtual void importLevel(size_t level, std::string filename, size_t nField = 0) {
-    checkFieldExists(nField);
+  virtual void importLevel(size_t level, std::string filename) {
+
     initialiseRandomComponentIfUninitialised();
     cerr << "Importing random field on level " << level << " from " << filename << endl;
-    checkLevelExists(level, nField);
+    checkLevelExists(level, 0);
 
-
-    auto &levelField = outputFields[nField]->getFieldForLevel(level);
+    auto &levelField = outputFields[0]->getFieldForLevel(level);
     levelField.loadGridData(filename);
     levelField.setFourier(false);
     levelField.toFourier();
-    outputFields[nField]->applyTransferRatioOneLevel(particle::species::dm, particle::species::whitenoise, level); // transform back to whitenoise
+    outputFields[0]->applyTransferRatioOneLevel(particle::species::dm, particle::species::whitenoise, level); // transform back to whitenoise
     cerr << "... success!" << endl;
   }
 
-  //! Imports dark matter overdensity field data for a given level from a supplied file.
-  virtual void importLevel(size_t level, std::string filename) {
-    this->importLevel(level, filename, 0);
-  }
 
   //! Applies appropriate power spectrum to all fields.
   virtual void applyPowerSpec() {
@@ -775,12 +777,12 @@ public:
       // make a copy of the white noise field:
       outputFields.emplace_back(std::make_shared<fields::OutputField<GridDataType>>(*outputFields[0]));
       outputFields[1]->applyPowerSpectrumFor(particle::species::baryon);
+      outputFields[0]->applyPowerSpectrumFor(particle::species::dm);
+    } else {
+      outputFields[0]->applyPowerSpectrumFor(particle::species::all);
     }
 
-    outputFields[0]->applyPowerSpectrumFor(particle::species::dm);
-
     // Check everything has worked as expected (e.g. no accidental pointer copying)
-    assert(outputFields[0]->getTransferType() == particle::species::dm);
     if(useBaryonTransferFunction)
       assert(outputFields[1]->getTransferType() == particle::species::baryon);
 
@@ -818,7 +820,6 @@ public:
 
     ofstream ifile;
     ifile.open(filename.str());
-    cerr << "Writing to " << filename.str() << endl;
 
     ifile << levelGrid.offsetLower.x << " " << levelGrid.offsetLower.y << " "
           << levelGrid.offsetLower.z << " " << levelGrid.thisGridSize << endl;
@@ -886,18 +887,21 @@ public:
   \param species - the type of particle (in case of multiple transfer functions)
   */
   virtual void dumpPS(size_t level, particle::species species) {
-    int nField = static_cast<size_t>(species);
-    checkLevelExists(level, nField);
+    //int nField = static_cast<size_t>(species);
+    //checkLevelExists(level, nField);
 
-
-    auto &field = outputFields[nField]->getFieldForLevel(level);
+    auto &field = getOutputFieldForSpecies(species).getFieldForLevel(level);
     field.toFourier();
     std::string filename;
-    if (nField == 1) {
+    if (species == particle::species::baryon) {
       filename = (getOutputPath() + "_" + ((char) (level + '0')) + "_baryons.ps");
     } else {
       filename = (getOutputPath() + "_" + ((char) (level + '0')) + ".ps");
     }
+
+    if(!useBaryonTransferFunction)
+      species = particle::species::all;
+
     cosmology::dumpPowerSpectrum(field,
                                  *multiLevelContext.getCovariance(level, species),
                                  filename.c_str());
@@ -915,9 +919,8 @@ public:
 
   //! Dumps mask information to numpy grid files
   virtual void dumpMask() {
-    cerr << "Dumping mask grids" << endl;
     // this is ugly but it makes sure I can dump virtual grids if there are any.
-    multilevelcontext::MultiLevelContextInformation<GridDataType> newcontext;
+    multilevelgrid::MultiLevelGrid<GridDataType> newcontext;
     if (this->centerOnTargetRegion) {
       this->multiLevelContext.copyContextWithCenteredIntermediate(newcontext, Coordinate<T>(x0, y0, z0), 2,
                                                                   subsample, supersample);
@@ -926,7 +929,7 @@ public:
                                                                   subsample, supersample);
     }
 
-    auto dumpingMask = multilevelcontext::GraficMask<GridDataType, T>(&newcontext, this->zoomParticleArray);
+    auto dumpingMask = multilevelgrid::GraficMask<GridDataType, T>(&newcontext, this->zoomParticleArray);
     dumpingMask.calculateMask();
 
 
@@ -980,7 +983,6 @@ public:
     const Coordinate<GridDataType> zeroCoord;
 
     if (posOffset != zeroCoord || velOffset != zeroCoord) {
-      cerr << "Adding offset to the output" << endl;
       pParticleGenerator[species] = std::make_shared<OffsetGeneratorType>(pParticleGenerator[species], posOffset,
                                                                           velOffset);
     }
@@ -993,8 +995,8 @@ public:
   }
 
   fields::OutputField<GridDataType> & getOutputFieldForSpecies(particle::species species) {
-    if(species==particle::species::baryon && !useBaryonTransferFunction)
-      species = particle::species::dm;
+    if(!useBaryonTransferFunction)
+      species = particle::species::all;
 
     for(auto outputField : this->outputFields) {
       if(outputField->getTransferType()==species)
@@ -1032,7 +1034,7 @@ public:
 
     if (!inf.is_open())
       throw std::runtime_error("Cannot open IC paramfile for relative_to command");
-    cerr << "******** Running commands in " << fname << " to work out relationship ***********" << endl;
+    cerr << "******** Input mapper: computing geometry from " << fname << " ***********" << endl;
 
     tools::ChangeCwdWhileInScope temporary(tools::getDirectoryName(fname));
 
@@ -1042,7 +1044,7 @@ public:
 #endif
     cerr << "******** Finished with " << fname << " ***********" << endl;
     pInputMapper = pseudoICs.pMapper;
-    pInputMultiLevelContext = std::make_shared<multilevelcontext::MultiLevelContextInformation<GridDataType>>
+    pInputMultiLevelContext = std::make_shared<multilevelgrid::MultiLevelGrid<GridDataType>>
       (pseudoICs.multiLevelContext);
   }
 
@@ -1198,7 +1200,8 @@ public:
     applyPowerSpec();
     ensureParticleGeneratorInitialised();
 
-    cerr << "Write, ndm=" << pMapper->size_dm() << ", ngas=" << pMapper->size_gas() << endl;
+    cerr << "Writing output; number dm particles=" << pMapper->size_dm()
+         << ", number gas particles=" << pMapper->size_gas() << endl;
 #ifdef DEBUG_INFO
     cerr << (*pMapper);
 #endif
@@ -1233,6 +1236,8 @@ public:
       default:
         throw std::runtime_error("Unknown output format");
     }
+
+    cerr << "Finished writing initial conditions" << endl;
 
   }
 
@@ -1297,15 +1302,18 @@ protected:
   * be called instead.
   */
   void appendParticleIdFile(std::string filename) {
-
+#ifdef DEBUG_INFO
     cerr << "Loading " << filename << endl;
-
+#endif
     io::getBuffer(flaggedParticles, filename);
     size_t size = flaggedParticles.size();
     tools::sortAndEraseDuplicate(flaggedParticles);
+
+#ifdef DEBUG_INFO
     if (flaggedParticles.size() < size)
       cerr << "  ... erased " << size - flaggedParticles.size() << " duplicate particles" << endl;
     cerr << "  -> total number of particles is " << flaggedParticles.size() << endl;
+#endif
 
     reflag();
   }
@@ -1333,8 +1341,8 @@ public:
   //! Output to a file the currently flagged particles
   virtual void dumpID(string fname) {
     std::vector<size_t> results;
-    cerr << "dumpID using current mapper" << endl;
 #ifdef DEBUG_INFO
+    cerr << "dumpID using current mapper" << endl;
     cerr << (*pMapper);
 #endif
     pMapper->getFlaggedParticles(results);
@@ -1351,7 +1359,9 @@ public:
     auto &grid = multiLevelContext.getGridForLevel(deepestLevel() - 1);
     pMapper->unflagAllParticles();
     size_t id = grid.getIndexFromPoint(Coordinate<T>(x0, y0, z0));
+#ifdef DEBUG_INFO
     cerr << "selectNearest " << x0 << " " << y0 << " " << z0 << " " << id << " " << endl;
+#endif
     grid.flagCells({id});
   }
 
@@ -1489,7 +1499,7 @@ public:
     initialiseRandomComponentIfUninitialised();
 
     GridDataType val = modificationManager.calculateCurrentValueByName(name, this->variance_filterscale);
-    cout << name << ": calculated value = " << val << endl;
+    cerr << name << ": calculated value = " << val << endl;
   }
 
   //! Define a modification to be applied to the field

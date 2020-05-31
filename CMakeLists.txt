@@ -33,7 +33,7 @@ set(SOURCE_FILES
         genetIC/src/simulation/field/randomfieldgenerator.hpp
         genetIC/src/tools/filesystem.h
         genetIC/src/simulation/filters/filter.hpp
-        genetIC/src/simulation/multilevelcontext/multilevelcontext.hpp
+        genetIC/src/simulation/multilevelgrid/multilevelgrid.hpp
         genetIC/src/tools/filesystem.cpp
         genetIC/src/simulation/field/multilevelfield.hpp
         genetIC/src/simulation/particles/particle.hpp
@@ -59,7 +59,9 @@ set(SOURCE_FILES
         genetIC/src/simulation/modifications/modificationmanager.hpp
         genetIC/src/simulation/modifications/linearmodification.hpp
         genetIC/src/simulation/modifications/quadraticmodification.hpp
-        genetIC/src/simulation/multilevelcontext/mask.hpp genetIC/src/tools/memmap.hpp genetIC/src/tools/numerics/tricubic.hpp)
+        genetIC/src/simulation/multilevelgrid/mask.hpp
+        genetIC/src/tools/memmap.hpp
+        genetIC/src/tools/numerics/tricubic.hpp)
 
 include_directories( /opt/local/include )
 link_directories(/opt/local/lib )
@@ -99,13 +101,16 @@ exec_program(
 # -DFILTER_ON_COARSE_GRID: When moving long wavelength information onto a zoom grid, filters on the base grid
 #    and then interpolates into the zoom, rather than the default which is to interpolate and then filter.
 # -DDEBUG_INFO: Output extra debug/performance information
-add_definitions(-DCUBIC_INTERPOLATION  -DFRACTIONAL_K_SPLIT=0.3 -DFRACTIONAL_FILTER_TEMPERATURE=0.1 -DFILTER_ON_COARSE_GRID
-        -DFFTW3 -DFFTW_THREADS -DOPENMP
-        -DGIT_VERSION="${GIT_VERSION}" -DGIT_MODIFIED="${GIT_MODIFIED}" -DDOUBLEPRECISION -DOUTPUT_IN_DOUBLEPRECISION)
-
+add_definitions(-DCUBIC_INTERPOLATION
+        -DFRACTIONAL_K_SPLIT=0.3
+        -DFRACTIONAL_FILTER_TEMPERATURE=0.1
+        -DFILTER_ON_COARSE_GRID
+        -DFFTW3
+        -DFFTW_THREADS
+        -DOPENMP
+        -DGIT_VERSION="${GIT_VERSION}"
+        -DGIT_MODIFIED="${GIT_MODIFIED}"
+        -DDOUBLEPRECISION
+        -DOUTPUT_IN_DOUBLEPRECISION)
 add_compile_options(-Wextra)
-add_executable(IC ${SOURCE_FILES})
-
-add_executable(IC_CFFT ${SOURCE_FILES} )
-
-target_compile_definitions(IC_CFFT PUBLIC -DUSE_COMPLEX_FFT)
+add_executable(genetIC ${SOURCE_FILES})

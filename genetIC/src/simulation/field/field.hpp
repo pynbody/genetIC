@@ -391,6 +391,7 @@ namespace fields {
     }
 
     numerics::LocalUnitTricubicApproximation<DataType> makeTricubicInterpolator(int x_p_0, int y_p_0, int z_p_0) const {
+      assert(!this->isFourier());
       DataType valsForInterpolation[4][4][4];
       for(int i=-1; i<3; ++i) {
         for(int j=-1; j<3; ++j) {

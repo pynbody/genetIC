@@ -18,7 +18,7 @@ CFLAGS	= -Wall -g -lpthread -Og -fopenmp -std=c++14   -fdiagnostics-color=auto -
 # -DFILTER_ON_COARSE_GRID: When moving long wavelength information onto a zoom grid, filters on the base grid
 #    and then interpolates into the zoom, rather than the default which is to interpolate and then filter.
 
-CODEOPTIONS  = -DOPENMP  -DDOUBLEPRECISION -DOUTPUT_IN_DOUBLEPRECISION -DCUBIC_INTERPOLATION -DFRACTIONAL_K_SPLIT=0.3 -DFRACTIONAL_FILTER_TEMPERATURE=0.1 -DFILTER_ON_COARSE_GRID
+CODEOPTIONS  = -DDOUBLEPRECISION -DOUTPUT_IN_DOUBLEPRECISION -DCUBIC_INTERPOLATION -DFRACTIONAL_K_SPLIT=0.3 -DFRACTIONAL_FILTER_TEMPERATURE=0.1 -DFILTER_ON_COARSE_GRID
 CPATH 	= /opt/local/include/
 LPATH   = /opt/local/lib
 
@@ -42,12 +42,15 @@ FFTWLIB = -lfftw3 -lfftw3_threads
 #FFTWLIB = -ldfftw -ldrfftw
 
 
+# Provide information on the git repository, to be printed out on each run
+GIT_MODIFIED = $(shell git ls-files -m 2>/dev/null | tr "\n" " " )
+GIT_VERSION = $(shell git rev-parse --short HEAD 2>/dev/null)
+GIT_VARIABLES = -DGIT_VERSION='"$(GIT_VERSION)"' -DGIT_MODIFIED='"$(GIT_MODIFIED)"'
+
+
 # Some customizations for known systems
 
 HOST	= $(shell if [ `which scutil 2>/dev/null` ]; then scutil --get ComputerName | cut -c1-5; else hostname | cut -c1-5 ; fi )
-GIT_VERSION = $(shell git rev-parse --short HEAD)
-GIT_MODIFIED = $(shell git ls-files -m | tr "\n" " ")
-GIT_VARIABLES = -DGIT_VERSION='"$(GIT_VERSION)"' -DGIT_MODIFIED='"$(GIT_MODIFIED)"'
 HOST3	= $(shell hostname | cut -c1-3)
 
 ifeq ($(HOST3), pfe)
@@ -75,7 +78,7 @@ ifeq ($(HOST), clema)
  endif
 
 ifeq ($(HOST), jasmi)
-	CXX = /opt/local/bin/clang++-mp-9.0   -L/opt/local/lib/
+	CXX = /opt/local/bin/g++-mp-9   -L/opt/local/lib/
 	CFLAGS = -O2 -g -fopenmp -std=c++14 -I`pwd` -DOPENMP -DDOUBLEPRECISION
 endif
 
@@ -118,15 +121,15 @@ ifeq ($(HOST3), hyp)
         CFLAGS += -Wextra
 endif
 
-all: IC
+all: genetIC
 
 %.o: %.cpp ; $(CXX) $(CFLAGS) $(CODEOPTIONS) $(GIT_VARIABLES) -I$(CPATH) $(FFTW) -c $< -o $@
 
-IC: src/main.o src/tools/filesystem.o src/tools/progress/progress.o
-		$(CXX) $(CFLAGS) -o IC $(GIT_VARIABLES) -I$(CPATH) $(FFTW) src/main.o src/tools/filesystem.o src/tools/progress/progress.o -L$(LPATH) $(GSLFLAGS) -lm $(FFTWLIB)
+genetIC: src/main.o src/tools/filesystem.o src/tools/progress/progress.o
+		$(CXX) $(CFLAGS) -o genetIC $(GIT_VARIABLES) -I$(CPATH) $(FFTW) src/main.o src/tools/filesystem.o src/tools/progress/progress.o -L$(LPATH) $(GSLFLAGS) -lm $(FFTWLIB)
 
 clean:
-	rm -f IC
+	rm -f genetIC
 	rm -f src/*.o
 	rm -f src/*/*.o
 	rm -f src/*/*/*.o

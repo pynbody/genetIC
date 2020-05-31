@@ -13,7 +13,7 @@ baryon_tf_on
 # Import transfer function data:
 camb planck_transfer_99.dat
 # Seed the field in Fourier space:
-seedfourier 8896131
+random_seed_serial 8896131
 # Specify output directory:
 outname test_16
 outdir ./

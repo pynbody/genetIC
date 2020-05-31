@@ -6,7 +6,7 @@
 #include <tuple>
 #include <src/simulation/grid/grid.hpp>
 #include <src/simulation/modifications/modification.hpp>
-#include <src/simulation/multilevelcontext/multilevelcontext.hpp>
+#include <src/simulation/multilevelgrid/multilevelgrid.hpp>
 #include <src/simulation/field/field.hpp>
 
 namespace modifications {
@@ -28,7 +28,7 @@ namespace modifications {
         \param underlying_ - underlying multi-level context object.
         \param cosmology_ - struct containing cosmological data.
     */
-    LinearModification(const multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
+    LinearModification(const multilevelgrid::MultiLevelGrid<DataType> &underlying_,
                        const cosmology::CosmologicalParameters<T> &cosmology_) :
       Modification<DataType, T>(underlying_, cosmology_) {
       this->order = 1;
@@ -118,7 +118,7 @@ namespace modifications {
         \param underlying_ - underlying multi-level context object.
         \param cosmology_ - struct containing cosmological parameters.
     */
-    OverdensityModification(const multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
+    OverdensityModification(const multilevelgrid::MultiLevelGrid<DataType> &underlying_,
                             const cosmology::CosmologicalParameters<T> &cosmology_) :
       LinearModification<DataType, T>(underlying_, cosmology_) {
 
@@ -154,7 +154,7 @@ namespace modifications {
         \param underlying_ - underlying multi-level context object.
         \param cosmology_ - struct containing cosmological parameters.
     */
-    PotentialModification(const multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
+    PotentialModification(const multilevelgrid::MultiLevelGrid<DataType> &underlying_,
                           const cosmology::CosmologicalParameters<T> &cosmology_) : OverdensityModification<DataType, T>(
       underlying_, cosmology_) {
 
@@ -190,7 +190,7 @@ namespace modifications {
         \param cosmology_ - struct containing cosmological data
          \param direction - component of t velocity to modify, (0,1,2) <-> (x,y,z).
     */
-    VelocityModification(const multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
+    VelocityModification(const multilevelgrid::MultiLevelGrid<DataType> &underlying_,
                          const cosmology::CosmologicalParameters<T> &cosmology_, int direction_) :
       OverdensityModification<DataType, T>(underlying_, cosmology_), direction(direction_) {};
 

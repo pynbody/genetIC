@@ -6,7 +6,7 @@ Ol  0.721
 s8  0.817
 zin	99
 
-seed	13842314
+random_seed_real_space	13842314
 camb	../camb_transfer_kmax40_z0.dat
 
 outname test_2

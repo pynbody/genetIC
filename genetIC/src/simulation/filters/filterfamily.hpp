@@ -6,9 +6,9 @@
 #include <stdexcept>
 #include "src/simulation/filters/filter.hpp"
 
-namespace multilevelcontext {
+namespace multilevelgrid {
   template<typename DataType, typename T>
-  class MultiLevelContextInformation;
+  class MultiLevelGrid;
 }
 
 namespace filters {
@@ -84,7 +84,7 @@ namespace filters {
   public:
 
     template<typename S>
-    explicit FilterFamily(const multilevelcontext::MultiLevelContextInformationBase<T, S> &fromContext) {
+    explicit FilterFamily(const multilevelgrid::MultiLevelGridBase<T, S> &fromContext) {
       if(fromContext.getLevelsAreCombined()) {
         // Output fields have been generated already...
         // Regard levels as independent. Strictly the filters should now be spatial, i.e. each grid

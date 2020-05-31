@@ -324,12 +324,22 @@ namespace tools {
       adderFunctions.emplace_back(addcall);
     }
 
+    //! Adds a (string,function) pair to the list of pairs that need to be setup for a given instance of the Ctype class.
+    template<typename... Args>
+    void add_deprecated_class_route(const std::string &name, const std::string &preferredName, Rtype (Ctype::*f)(Args...)) {
+      auto addcall = std::function<void(InstanceDispatch<Ctype, Rtype> &)>(
+        [name, preferredName, f](InstanceDispatch<Ctype, Rtype> &pDispatchObj) {
+          pDispatchObj.add_deprecated_class_route(name, preferredName, f);
+        });
+
+      adderFunctions.emplace_back(addcall);
+    }
+
     //! For the given instance of Ctype, setup class routes for its member functions
     InstanceDispatch<Ctype, Rtype> specify_instance(Ctype &c) {
       auto id = InstanceDispatch<Ctype, Rtype>(c);
       for (auto fn : adderFunctions)
-        fn(
-          id); // Calls the add_class_route member member function of InstanceDispatch, creating a (string,function) pair and adding it to the map
+        fn(id); // Calls the add_class_route member member function of InstanceDispatch, creating a (string,function) pair and adding it to the map
       return id;
 
     }
@@ -354,6 +364,18 @@ namespace tools {
       // make a lambda that performs the call
       auto call = [this, f](Args... input_args) { (pC->*f)(input_args...); };
       // add it as the route
+      this->add_route(name, std::function<Rtype(Args...)>(call));
+    }
+
+    //! As add_class_route, but emits a deprecation warning if the call is made
+    template<typename... Args>
+    void add_deprecated_class_route(const std::string &name, const std::string &preferredName, Rtype (Ctype::*f)(Args...)) {
+      auto call = [this, f, name, preferredName](Args... input_args) {
+        std::cerr << "WARNING: " << name << " is a deprecated command and has been replaced by " << preferredName
+                  << std::endl;
+        (pC->*f)(input_args...);
+      };
+
       this->add_route(name, std::function<Rtype(Args...)>(call));
     }
 

@@ -36,14 +36,14 @@ class TestGenerator():
     modification_pos = [[size_Mpc/2]*3] # list of modification target positions (one for each modification)
     zoom_cen = [size_Mpc/2, size_Mpc/2, size_Mpc/2] # centre of the zoom region
     modification_size = [None] # list of modification region sphere sizes (one for each modif, or None for point)
-    path_to_IC =  os.path.join(_genetIC_folder,"IC") # path to the genetIC executable
+    path_to_IC =  os.path.join(_genetIC_folder,"genetIC") # path to the genetIC executable
 
     setup_block = """
     Om  0.279
     Ol  0.721
     s8  0.817
     zin	99
-    seedfourier_parallel	8896131
+    random_seed	8896131
     """
 
     @property

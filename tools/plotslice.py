@@ -138,7 +138,8 @@ def _downsample(hr_b, ratio):
     return b
 
 
-def plotslice_onegrid(prefix="output/",grid=0,slice=None,vmin=-0.15,vmax=0.15,padcells=0,offset=None,plot_offset=(0,0),
+def plotslice_onegrid(prefix="output/",grid=0,slice=None,vmin=-0.15,vmax=0.15,padcells=0,
+                      offset=None,plot_offset=(0,0),save_image=None,
                       diff_prefix=None,name='grid'):
     new_plot = p.gcf().axes == []
 
@@ -177,6 +178,9 @@ def plotslice_onegrid(prefix="output/",grid=0,slice=None,vmin=-0.15,vmax=0.15,pa
         a = a[padcells:-padcells,padcells:-padcells]
 
     p.imshow(a.real,extent=(ax,ax+aL,ay+aL,ay),vmin=vmin,vmax=vmax,interpolation='nearest')
+    if save_image:
+        p.imsave(save_image, a.real[::-1], vmin=vmin,vmax=vmax)
+
     p.plot([ax,ax+aL,ax+aL,ax,ax],[ay,ay,ay+aL,ay+aL,ay],'k:')
 
     if new_plot:
@@ -186,22 +190,34 @@ def plotslice_onegrid(prefix="output/",grid=0,slice=None,vmin=-0.15,vmax=0.15,pa
 
 
 def plotslice(prefix="output/",maxgrid=10,slice=None,onelevel=False,vmin=-0.15,vmax=0.15,padcells=4, offset=None,
-              diff_prefix=None,name='grid'):
+              diff_prefix=None,name='grid',save_image=None,wrap=True):
     maxgrid_on_disk = len(glob.glob(prefix+name+"-?.npy"))
-    print(maxgrid_on_disk)
     if maxgrid_on_disk<maxgrid:
         maxgrid = maxgrid_on_disk
+
+    if wrap:
+        plotfn = plotslice_onegrid_with_wrapping
+    else:
+        plotfn = plotslice_onegrid
 
     levels = range(maxgrid)
     if onelevel:
         levels = [0]
 
     for level in levels:
-        slice, vmin, vmax, offset = plotslice_onegrid_with_wrapping(prefix,level,slice,vmin,vmax,
+        save_image_this_level = _add_level_number_to_filename(save_image, level)
+
+        slice, vmin, vmax, offset = plotfn(prefix,level,slice,vmin,vmax,
                                                       padcells=0 if level==0 else padcells, offset=offset,
-                                                                    diff_prefix=diff_prefix,name=name)
+                                                                    diff_prefix=diff_prefix,name=name,
+                                                                    save_image=save_image_this_level)
 
-
+def _add_level_number_to_filename(filename, level_number):
+    if filename is None:
+        return None
+    else:
+        import re
+        return re.sub(r"(.*)\.([A-z]+)$",r"\1-%d.\2"%level_number,filename)
 
 def plotslice_pynbody(f, slice=0.0,vmin=-0.15,vmax=0.15,use_overdensity=False):
     import pynbody
@@ -228,9 +244,12 @@ def plotslice_pynbody(f, slice=0.0,vmin=-0.15,vmax=0.15,use_overdensity=False):
 
     return f
 
-def plot_ps(f, with_theory=False):
+def plot_ps(f, with_theory=False, postfix=None):
     for level in range(3):
-        search = f+"/*_%d.ps"%level
+        if postfix:
+            search = f+"/*_%d_%s.ps"%(level,postfix)
+        else:
+            search = f+"/*_%d.ps"%level
         ps_fname = glob.glob(search)
         if len(ps_fname)==0:
             return

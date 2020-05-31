@@ -81,6 +81,8 @@ namespace particle {
     using ZPG=ZeldovichParticleGenerator<GridDataType>;
     size_t nlevels = generator.context.getNumLevels();
 
+    cerr << "Calculating particles from overdensity fields..." << endl;
+
     generator.overdensityField.toFourier();
 
     if (nlevels == 0) {
@@ -89,14 +91,13 @@ namespace particle {
       generator.pGenerators.emplace_back(
         std::make_shared<ZPG>(generator.overdensityField.getFieldForLevel(0)));
     } else if (nlevels >= 2) {
-      cerr << "Zeldovich approximation on successive levels..." << endl;
 
 
       for (size_t level = 0; level < nlevels; ++level)
         generator.pGenerators.emplace_back(
           std::make_shared<ZPG>(generator.overdensityField.getFieldForLevel(level)));
 
-      cerr << "Interpolating low-frequency information into zoom regions..." << endl;
+      cerr << "Combining information from different levels..." << endl;
 
       auto filters = generator.overdensityField.getFilters();
 
@@ -123,8 +124,6 @@ namespace particle {
         generator.pGenerators[i]->toReal();
 
 
-      cerr << "done." << endl;
-
     }
   }
 
@@ -146,7 +145,7 @@ namespace particle {
   template<typename GridDataType, typename TParticleGenerator, typename T=tools::datatypes::strip_complex<GridDataType>>
   class MultiLevelParticleGenerator : public AbstractMultiLevelParticleGenerator<GridDataType> {
   protected:
-    using ContextType = multilevelcontext::MultiLevelContextInformation<GridDataType>;
+    using ContextType = multilevelgrid::MultiLevelGrid<GridDataType>;
     fields::OutputField<GridDataType> &overdensityField; //!< Reference to the multi-level field (ie, overdensity) we need to generate particles
     const ContextType &context; //!< Reference to the multi-level context
     std::vector<std::shared_ptr<TParticleGenerator>> pGenerators; //!< Vector of generators for each level
