@@ -381,7 +381,7 @@ namespace multilevelgrid {
       this->addExtraSuperSampledGrids(newStack, number_extra_highres, resolution_step_factor);
     }
 
-    void addExtraSubSampledGrids(MultiLevelContextInformation<DataType> &newStack,
+    void addExtraSubSampledGrids(MultiLevelGridBase<DataType> &newStack,
                                  size_t number_extra_grids, size_t resolution_step_factor, size_t level) const {
 
 
@@ -400,7 +400,7 @@ namespace multilevelgrid {
       }
     }
 
-    void addExtraSuperSampledGrids(MultiLevelContextInformation<DataType> &newStack,
+    void addExtraSuperSampledGrids(MultiLevelGridBase<DataType> &newStack,
                                    size_t number_extra_highres, size_t resolution_step_factor) const {
 
       size_t factor = resolution_step_factor;
