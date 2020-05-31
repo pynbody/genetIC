@@ -244,9 +244,12 @@ def plotslice_pynbody(f, slice=0.0,vmin=-0.15,vmax=0.15,use_overdensity=False):
 
     return f
 
-def plot_ps(f, with_theory=False):
+def plot_ps(f, with_theory=False, postfix=None):
     for level in range(3):
-        search = f+"/*_%d.ps"%level
+        if postfix:
+            search = f+"/*_%d_%s.ps"%(level,postfix)
+        else:
+            search = f+"/*_%d.ps"%level
         ps_fname = glob.glob(search)
         if len(ps_fname)==0:
             return

@@ -140,6 +140,11 @@ namespace grids {
       return kMin;
     }
 
+    //! Returns the Nyquist frequency for this grid in (h/Mpc) units
+    T getFourierKmax() const {
+      return kMin * size;
+    }
+
     //! Returns debug information about this object (debug use only)
     virtual void debugInfo(std::ostream &s) const {
       s << "Grid of side " << size << " address " << this << "; " << this->flags.size() << " cells marked";
