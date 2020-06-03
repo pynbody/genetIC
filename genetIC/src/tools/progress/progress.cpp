@@ -1,7 +1,7 @@
 #include <mutex>
 #include <iostream>
 #include <sys/ioctl.h>
-#include <zconf.h>
+#include <unistd.h>
 
 #include "progress.hpp"
 

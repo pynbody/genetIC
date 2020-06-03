@@ -1,5 +1,5 @@
 # Reasonably sensible defaults
-CFLAGS	= -Wall -g -lpthread -Og -fopenmp -std=c++14   -fdiagnostics-color=auto -I`pwd`
+CFLAGS	= -Wall -g -lpthread -O2 -fopenmp -std=c++14   -fdiagnostics-color=auto -I`pwd`
 
 # Here are code options. Probably don't fiddle with these unless you know what you're doing.
 #
