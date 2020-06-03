@@ -1,6 +1,4 @@
-![genetIC](./genetic.svg)[![DOI](https://zenodo.org/badge/81329348.svg)](https://zenodo.org/badge/latestdoi/81329348)
-
-[![Build Status](https://travis-ci.com/pynbody/genetIC.svg?token=Kwgna3AKWpdHTHRrmaYX&branch=master)](https://travis-ci.com/pynbody/genetIC)
+![genetIC](./genetic.svg)[![DOI](https://zenodo.org/badge/81329348.svg)](https://zenodo.org/badge/latestdoi/81329348) [![Build Status](https://travis-ci.com/pynbody/genetIC.svg?token=Kwgna3AKWpdHTHRrmaYX&branch=master)](https://travis-ci.com/pynbody/genetIC)
 
 GenetIC
 =======
