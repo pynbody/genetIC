@@ -8,7 +8,7 @@ GenetIC is a code to generate initial conditions for cosmological simulations, e
 * A set of python tools for development and testing is provded in `tools`.
 * If you wish to use the code for science, we recommend adopting a particular version. The current release is v1.0.2 and can be downloaded at https://github.com/pynbody/genetIC/releases/tag/v1.0.2
 * Documentation can be found in the form of a PDF user manual, also at https://github.com/pynbody/genetIC/releases/tag/v1.0.2
-* The technical underpinnings of the code are described in a release paper at https://github.com/pynbody/genetIC/releases/tag/v1.0.2 (this will be replaced with the arXiv link when it is available)
+* The technical underpinnings of the code are described in a release paper at https://arxiv.org/abs/2006.01841
 
 License and acknowledgement policy
 ----------------------------------
