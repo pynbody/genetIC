@@ -1,15 +1,12 @@
-Pre-requisites:
----------------
+Very brief installation instructions
+------------------------------------
 
-You need `fftw3` and `GSL`. For mac, you can get these from the macports
-project. I recommend installing packages `gcc5`, `fftw-3` and `gsl`.
+You need a modern C++ compiler, `fftw3` and `GSL`. For mac, you can get these from the macports
+project. I recommend installing packages `gcc9`, `fftw-3` and `gsl`. With 
+these installed, you should be able to simply `make` the project. 
 
-You may need to edit the Makefile for your machine. Don't edit the global
-settings in the makefile, create a new section like the existing ones for
-`pfe`, `dirac` (which are typical Linux configurations) and `Snowd`, `Rhodo`
-(which are typical Mac OS configurations).
-
-Then to make, just type `make`.
+For more detailed installation instructions and explanation, see the PDF user
+manual. This is available alongside the latest release at https://github.com/pynbody/genetIC/releases
 
 
 Test suite
@@ -20,15 +17,7 @@ to accomplish this is to install `anaconda` python on your machine, then
 type `pip install pynbody`.
 
 Once compiled, enter the `tests` subfolder and type `./run_tests.sh`.
-If all is OK, you will see `Tests seem OK`.
+If all is OK, you will see `Tests seem OK`. You should also test the particle
+mapping by typing `./run_mapper_tests.sh` which should also report that `Tests seem OK`.
 
-
-Documentation
--------------
-
-The documentation can be built by doxygen (also available through macports).
-Once doxygen is installed, just type `doxygen` from the genetIC subfolder.
-Then open the HTML it's created in doxygen/html/index.html.
-
-Unfortuantely the documentation is a little sparse at the moment, but
-you can at least take a look through the list of classes.
+For more information, see the PDF user manual  at https://github.com/pynbody/genetIC/releases.
