@@ -1,9 +1,12 @@
 Very brief installation instructions
 ------------------------------------
 
-You need a modern C++ compiler, `fftw3` and `GSL`. For mac, you can get these 
-from the macports project. I recommend installing packages `gcc9`, `fftw-3` 
-and `gsl`. With these installed, you should be able to simply `make` the project. 
+The development team for `GenetIC` have tested the code on Linux and MacOS. 
+Using any other operating system is not recommended, but may work (e.g. with WSL). 
+You need a modern C++ compiler supporting OpenMP, plus the libraries `fftw3` and `GSL`. 
+For MacOS, you can get these from the [macports](https://www.macports.org) project. 
+I recommend installing packages `gcc9`, `fftw-3` and `gsl`. With these installed, 
+you should be able to simply `make` the project. 
 
 For more detailed installation instructions and explanation, see the PDF user
 manual. This is available alongside the latest release at 
