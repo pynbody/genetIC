@@ -16,9 +16,9 @@ https://github.com/pynbody/genetIC/releases
 Test suite
 ----------
 
-The test suite requires python and pynbody to be installed. The easiest way
-to accomplish this is to install `anaconda` python on your machine, then
-type `pip install pynbody`.
+The test suite requires Python 3 and `pynbody` to be installed. The easiest way
+to accomplish this is to install [Anaconda Python 3](https://anaconda.org) on your
+machine, then type `pip install pynbody`.
 
 Once compiled, enter the `tests` subfolder and type `./run_tests.sh`.
 If all is OK, you will see `Tests seem OK`. You should also test the particle
