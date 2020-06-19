@@ -27,3 +27,38 @@ mapping by typing `./run_mapper_tests.sh` which should also report that
 
 For more information, see the PDF user manual at 
 https://github.com/pynbody/genetIC/releases.
+
+Using Docker
+------------
+
+If you have [docker](https://docker.com) installed, you can conveniently build genetIC inside a container,
+along with pynbody for running tests. From this folder type
+
+```
+docker build -t genetic .
+```
+
+This part creates an image and is reasonably self-explanatory (though it may take a while).
+
+After the build is complete, to run the example, type
+```
+cd ../example
+docker run -v `pwd`:/working_folder/ genetic /genetIC/genetIC /working_folder/paramfile.txt  
+```
+
+To explain what is going on here:
+
+ * `docker run` is the command to run a docker instance
+ * ``-v `pwd`:/working_folder/`` mounts the example folder into the docker image filesystem, at
+  `/working_folder/`. 
+ * `genetic` specifies the image you just created at the build step
+ * Within the container, the code was already compiled; the binary is in `/genetIC/genetIC` 
+ * `/working_folder/paramfile.txt` is the argument to `genetIC` that specifies the initial conditions parameter file.
+ 
+To run the tests, use
+```
+cd ..
+docker run -v `pwd`:/genetic_repository/ -e IC=/genetIC/genetIC -w /genetic_repository/genetIC/tests genetic bash run_tests.sh
+docker run -v `pwd`:/genetic_repository/ -e IC=/genetIC/genetIC -w /genetic_repository/genetIC/tests genetic bash run_mapper_tests.sh
+```
+
