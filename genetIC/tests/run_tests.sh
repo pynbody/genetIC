@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 function runtest {
+  command -v python >/dev/null && PYTHON=python || PYTHON=python3
   rm $1/*.tipsy 2>/dev/null
   echo -n "Running test on $1   "
   head -1 $1/paramfile.txt
@@ -16,7 +17,7 @@ function runtest {
   fi
   cd ..
   echo "Testing output"
-  python ../../tools/compare.py $1/
+  $PYTHON ../../tools/compare.py $1/
   if [ $? -ne 0 ]
   then
       echo
