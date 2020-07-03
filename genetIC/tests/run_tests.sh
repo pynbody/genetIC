@@ -4,7 +4,7 @@ function runtest {
   command -v python >/dev/null && PYTHON=python || PYTHON=python3
   rm $1/*.tipsy 2>/dev/null
   echo -n "Running test on $1   "
-  head -1 $1/paramfile.txt
+  head -1  $1/paramfile.txt
   cd $1 || exit
   IC=${IC:-../../genetIC}
   command="$IC paramfile.txt > IC_output.txt 2>&1"

@@ -5,9 +5,10 @@ GenetIC
 
 GenetIC is a code to generate initial conditions for cosmological simulations, especially for zoom simulations of galaxies. It provides support for 'genetic modifications' as described by e.g. [Roth et al 2015](https://arxiv.org/abs/1504.07250), [Rey & Pontzen 2018](https://arxiv.org/abs/1706.04615).
 * The main code is written in C++ and can be found (with build instructions and a test suite) in the subfolder `genetIC`. 
-* A set of python tools for development and testing is provded in `tools`.
-* If you wish to use the code for science, we recommend adopting a particular version. The current release is v1.0.3 and can be downloaded at https://github.com/pynbody/genetIC/releases/tag/v1.0.3
-* Documentation can be found in the form of a PDF user manual, also at https://github.com/pynbody/genetIC/releases/tag/v1.0.3
+* The code is also available as [docker](http://docker.io) image `apontzen/genetic` (see the user manual for further information)
+* A set of python tools for development and testing is provided in `tools`.
+* If you wish to use the code for science, we recommend adopting a particular version. The current release is v1.1.0 and can be downloaded at https://github.com/pynbody/genetIC/releases/tag/v1.1.0
+* Documentation can be found in the form of a PDF user manual, also at https://github.com/pynbody/genetIC/releases/tag/v1.1.0
 * The technical underpinnings of the code are described in a release paper at https://arxiv.org/abs/2006.01841
 
 License and acknowledgement policy

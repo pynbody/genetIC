@@ -31,34 +31,41 @@ https://github.com/pynbody/genetIC/releases.
 Using Docker
 ------------
 
-If you have [docker](https://docker.com) installed, you can conveniently build genetIC inside a container,
-along with pynbody for running tests. From this folder type
+If you have [docker](https://docker.com) installed, you can conveniently use genetIC inside a container,
+along with pynbody for running tests. 
+
+To get the latest version from dockerhub, simply type
+```
+docker pull apontzen/genetic
+```
+*Alternatively*, to build your own docker image from this folder type
 
 ```
-docker build -t genetic .
+docker build -t apontzen/genetic .
 ```
 
-This part creates an image and is reasonably self-explanatory (though it may take a while).
+Either of the two commands above creates an image and and are reasonably self-explanatory.
 
-After the build is complete, to run the example, type
+After the build or pull is complete, to run the example, type
 ```
 cd ../example
-docker run -v `pwd`:/working_folder/ genetic /genetIC/genetIC /working_folder/paramfile.txt  
+docker run --rm -v `pwd`:/working_folder/ apontzen/genetic /working_folder/paramfile.txt  
 ```
 
 To explain what is going on here:
 
  * `docker run` is the command to run a docker instance
+ * `--rm` specifies the container should be removed on exit (don't worry, this doesn't delete the output data which is
+ safely stored in the working directory)
  * ``-v `pwd`:/working_folder/`` mounts the example folder into the docker image filesystem, at
   `/working_folder/`. 
- * `genetic` specifies the image you just created at the build step
- * Within the container, the code was already compiled; the binary is in `/genetIC/genetIC` 
+ * `apontzen/genetic` specifies the image you just created at the pull or build step 
  * `/working_folder/paramfile.txt` is the argument to `genetIC` that specifies the initial conditions parameter file.
  
 To run the tests, use
 ```
 cd ..
-docker run -v `pwd`:/genetic_repository/ -e IC=/genetIC/genetIC -w /genetic_repository/genetIC/tests genetic bash run_tests.sh
-docker run -v `pwd`:/genetic_repository/ -e IC=/genetIC/genetIC -w /genetic_repository/genetIC/tests genetic bash run_mapper_tests.sh
+docker run --rm -v `pwd`:/genetic_repository/ -e IC=/genetIC/genetIC -w /genetic_repository/genetIC/tests --entrypoint bash apontzen/genetic run_tests.sh
+docker run --rm -v `pwd`:/genetic_repository/ -e IC=/genetIC/genetIC -w /genetic_repository/genetIC/tests --entrypoint bash apontzen/genetic run_mapper_tests.sh
 ```
 
