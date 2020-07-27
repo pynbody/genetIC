@@ -173,7 +173,7 @@ namespace io {
     io_header_3 createGadget3Header(vector<InternalFloatType> masses, vector<long> npart, double Boxlength,
                                     const cosmology::CosmologicalParameters<InternalFloatType> &cosmology) {
       io_header_3 header3;
-      ::memset(&header3, 0, sizeof(io_header_2)); // ensure unused flags are all zero
+      ::memset(&header3, 0, sizeof(io_header_3)); // ensure unused flags are all zero
       header3.npart[0] = (unsigned int) (npart[0]);
       header3.npart[1] = (unsigned int) (npart[1]);
       header3.npart[2] = (unsigned int) (npart[2]);
