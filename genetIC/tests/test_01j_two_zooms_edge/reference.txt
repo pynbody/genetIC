@@ -1,0 +1,2 @@
+  Low-left corner in parent grid = (32, 17, 17)
+  

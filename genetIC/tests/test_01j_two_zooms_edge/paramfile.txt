@@ -1,0 +1,41 @@
+# Test zooming with TWO refinement levels
+
+
+# output parameters
+outdir	 ./
+outformat tipsy
+outname test_1
+
+# cosmology:
+Om  0.279
+Ol  0.721
+s8  0.817
+zin	99
+camb	../camb_transfer_kmax40_z0.dat
+
+# basegrid 50 Mpc/h, 64^3
+basegrid 50.0 64
+
+# fourier seeding
+random_seed_real_space	889613
+
+# zoom level 1:
+centre 25 25 25
+select_sphere 5
+zoomgrid 3 64
+
+# zoom level 2, but near the edge of level 1
+centre 29.5 25 25
+select_nearest
+zoomgrid 2 64
+
+
+
+
+done
+dump_grid 0
+dump_grid 1
+dump_grid 2
+dump_ps 0
+dump_ps 1
+dump_ps 2
