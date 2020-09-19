@@ -202,6 +202,45 @@ public:
 
   }
 
+  //! Moves the window into the fundamental wrapping domain
+  void clampToFundamentalDomain() {
+    auto oldSize = wrap(upperCornerExclusive - lowerCornerInclusive);
+    if(oldSize.x>=wrapLength || oldSize.y>=wrapLength || oldSize.z>=wrapLength) {
+      throw std::runtime_error("The window is too large to be moved into the fundamental domain");
+      // Hopefully a user never encounters the above error. If this error is reached, the calling code should
+      // be examined for inconsistencies -- why is it trying to shift something into a box it doesn't fit in?
+    }
+
+    if (lowerCornerInclusive.x<=0) {
+      upperCornerExclusive.x-=lowerCornerInclusive.x;
+      lowerCornerInclusive.x=0;
+    }
+    if (lowerCornerInclusive.y<=0) {
+      upperCornerExclusive.y-=lowerCornerInclusive.y;
+      lowerCornerInclusive.y=0;
+    }
+    if (lowerCornerInclusive.z<=0) {
+      upperCornerExclusive.z-=lowerCornerInclusive.z;
+      lowerCornerInclusive.z=0;
+    }
+
+    if (upperCornerExclusive.x>wrapLength) {
+      lowerCornerInclusive.x = wrapLength - oldSize.x;
+      upperCornerExclusive.x=wrapLength;
+    }
+    if (upperCornerExclusive.y>wrapLength) {
+      lowerCornerInclusive.y = wrapLength - oldSize.y;
+      upperCornerExclusive.y=wrapLength;
+    }
+    if (upperCornerExclusive.z>wrapLength) {
+      lowerCornerInclusive.z = wrapLength - oldSize.z;
+      upperCornerExclusive.z=wrapLength;
+    }
+
+    auto newSize = upperCornerExclusive - lowerCornerInclusive;
+    assert(oldSize==newSize);
+  }
+
   //! Returns true if the window contains the test co-ordinate
   bool contains(const Coordinate<T> &test) const {
     bool inX, inY, inZ;

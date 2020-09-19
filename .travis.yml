@@ -20,7 +20,7 @@ before_install:
  - sudo pip install numpy
  - sudo pip install scipy
  - sudo pip install cython
- - sudo pip install git+git://github.com/pynbody/pynbody.git
+ - sudo pip install pynbody
 
 script:
  - cd tests

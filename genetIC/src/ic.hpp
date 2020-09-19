@@ -441,9 +441,20 @@ public:
 
     auto lci = zoomWindow.getLowerCornerInclusive();
 
-    // The zoom grid is opened on top of the previous actual grid, not the output grid, so we now need to convert:
+    // The zoom grid is opened on top of the previous actual grid, not the output grid,
+    // so we now need to convert. We set the domain size to be the grid above, so that we
+    // can ensure the new zoom window is fully contained within that (unless the grid above
+    // is the base level, in which case the wrapping is already done and no clamping should
+    // be applied).
 
-    lci = actualGridAbove.getCoordinateFromPoint(outputGridAbove.getCentroidFromCoordinate(lci));
+    Window<int> windowOnActualGrid(actualGridAbove.size,
+      actualGridAbove.getCoordinateFromPoint(outputGridAbove.getCentroidFromCoordinate(lci)), lci+n_user);
+
+    if(!outputGridAbove.coversFullSimulation())
+      windowOnActualGrid.clampToFundamentalDomain(); // ensure we're not trying to wrap around when we can't!
+
+    lci = windowOnActualGrid.getLowerCornerInclusive(); // fetch the updated lower corner coordinates
+
     initZoomGridWithLowLeftCornerAt(lci.x, lci.y, lci.z, zoomfac, n);
 
   }
