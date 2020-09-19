@@ -184,7 +184,10 @@ class TestGenerator():
 
         if save_filename:
             p.figure(figsize=(9,9))
-        p.set_cmap('RdBu_r')
+        if vx:
+            p.set_cmap('RdBu_r')
+        else:
+            p.set_cmap('PuOr')
         ax = p.subplot(221)
         p.title("Modification")
         for zoom in True, False:
@@ -202,13 +205,14 @@ class TestGenerator():
         ax = p.subplot(223, sharex=ax)
 
         ps.plotslice(self.dir_name(True)+"/", slice=self.modification_pos[0][2],name=name,vmin=vmin,vmax=vmax)
-        ax.text(0.05, 0.05, r"Colour scale: %s $\pm %.2f$"%(name,vmax),transform=ax.transAxes)
+        friendly_name = "overden" if name=="grid" else name
+        ax.text(0.05, 0.05, r"Colour scale: %s $\pm %.2f$"%(friendly_name,vmax),transform=ax.transAxes)
         new_ax = p.subplot(224, sharex=ax, sharey=ax)
         new_ax.yaxis.set_label_position('right')
         new_ax.yaxis.tick_right()
         ps.plotslice(self.dir_name(True)+"/", diff_prefix=self.dir_name(False)+"/", slice=self.modification_pos[0][2],
-                     vmin=-0.05,vmax=0.05,name=name)
-        new_ax.text(1.05, 0.05, r"$\pm 5\%$ of peak",transform=ax.transAxes)
+                     vmin=-0.02,vmax=0.02,name=name)
+        new_ax.text(1.05, 0.05, r"$\pm 2\%$ of peak",transform=ax.transAxes)
 
         if save_filename:
             p.subplots_adjust(wspace=0,hspace=0,left=0.1,right=0.9)
@@ -223,8 +227,8 @@ class TestGenerator():
         self.make_plots(save_filename)
 
     def go_no_interaction(self):
-        self.go("figures/"+self.test_name+".pdf")
-        self.make_plots("figures/"+self.test_name+"-vx.pdf",True)
+        self.go("figures/"+self.test_name+"-overden-plot.pdf")
+        self.make_plots("figures/"+self.test_name+"-vx-plot.pdf",True)
 
 class VelTestGenerator(TestGenerator):
     test_name = 'velocity'
