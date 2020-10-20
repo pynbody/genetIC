@@ -1253,7 +1253,7 @@ public:
   }
 
   //! Initialise random components for all the fields.
-  void initialiseAllRandomComponents() {
+  virtual void initialiseAllRandomComponents() {
     if (haveInitialisedRandomComponent)
       throw (std::runtime_error("Trying to re-draw the random field after it was already initialised"));
 
@@ -1506,7 +1506,7 @@ public:
   }
 
   //! Calculate unmodified property for the dark matter field:
-  void calculate(std::string name) {
+  virtual void calculate(std::string name) {
     initialiseRandomComponentIfUninitialised();
 
     GridDataType val = modificationManager.calculateCurrentValueByName(name, this->variance_filterscale);
@@ -1558,13 +1558,13 @@ public:
 
 
   //! Reverses the sign of the field.
-  void reverse() {
+  virtual void reverse() {
     initialiseRandomComponentIfUninitialised();
     outputFields[0]->reverse();
   }
 
   //! Reverses the sign of the low-k modes.
-  void reverseSmallK(T kmax) {
+  virtual void reverseSmallK(T kmax) {
 
     initialiseRandomComponentIfUninitialised();
 
