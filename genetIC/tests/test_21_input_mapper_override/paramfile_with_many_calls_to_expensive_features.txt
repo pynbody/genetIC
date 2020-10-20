@@ -1,0 +1,59 @@
+# output parameters
+outdir	 ./
+outformat tipsy
+outname test_1
+
+# cosmology:
+Om  0.279
+Ol  0.721
+s8  0.817
+zin	99
+camb	../camb_transfer_kmax40_z0.dat
+
+# basegrid 50 Mpc/h, 32^3
+base_grid 50.0 32
+
+# fourier seeding
+random_seed_real_space	889613
+
+# zoom level 1, centre on the central pixel = 25-(50/32/2) = 24.219
+centre 24.219 24.219 24.219
+select_nearest
+zoom_grid 4 32
+
+# zoom level 2
+select_cube 0.8
+zoom_grid 4 32
+
+# test that calculate has no effect
+calculate overdensity
+calculate vx
+calculate vy
+calculate vz
+
+# test that modify has no effect
+modify vx absolute 0.0
+modify vy absolute 0.0
+modify vz absolute 0.0
+
+# test that modifications are not applied
+apply_modifications
+clear_modifications
+
+# test that zerolevel is not applied
+zero_level 2
+
+# test that importing level fails is not applied
+import_level 0 dummy_file.txt
+
+# test that reversing operations are not applied
+reverse
+reverse_small_k 0.0
+
+done
+
+dump_mask
+dump_grid 0
+dump_grid 1
+
+
