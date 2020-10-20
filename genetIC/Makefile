@@ -113,13 +113,6 @@ ifeq ($(HOST), marti)
 	FFTWLIB = -lfftw3 -lfftw3_threads
 endif
 
-ifeq ($(HOST), Marti)
-	CXX      = /opt/local/bin/g++-mp-6
-	CFLAGS  += -Wextra
-	FFTW    = -DFFTW3 -DFFTW_THREADS
-	FFTWLIB = -lfftw3 -lfftw3_threads
-endif
-
 ifeq ($(HOST3), hyp)
         CXX = g++
         CPATH = /share/apps/fftw-3.3.5/include/:/share/apps/gsl-2.4/include
