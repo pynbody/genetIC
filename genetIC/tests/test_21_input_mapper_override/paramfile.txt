@@ -1,0 +1,27 @@
+# Test that setting an input mapper calling expensive user-levels methods such as "calculate", "modify" etc
+# does not actually trigger the draw and lead to unnecessary calculations (issue-73)
+# Test is done on the log, verifying that logged outputs from these expensive functions are not written
+
+# output parameters
+outdir	 ./
+outformat tipsy
+outname test_1
+
+# cosmology:
+Om  0.279
+Ol  0.721
+s8  0.817
+zin	99
+camb	../camb_transfer_kmax40_z0.dat
+
+# basegrid 50 Mpc/h, 32^3
+base_grid 50.0 32
+
+# fourier seeding
+random_seed_real_space	889613
+
+mapper_relative_to ./paramfile_with_many_calls_to_expensive_features.txt
+
+done
+
+

@@ -57,12 +57,13 @@ public:
     this->gadgetTypesForLevels.push_back(1);
   }
 
+  /* User-level calls from parameter file that require an unnecessary (and potentially costly) operation
+   * when working out the relationship between input mappers should not be executed.
+   * Ensure this is always the case by overriding them empty in this dummy IC class
+  */
 
   //! Calls to this function has no effect in a dummy IC generator, since it is only working out the mapper structure
   void zeroLevel(size_t /*level*/, size_t) override {}
-
-  //! Calls to this function has no effect in a dummy IC generator, since it is only working out the mapper structure
-  void applyPowerSpec() override {}
 
   //! Calls to this function has no effect in a dummy IC generator, since it is only working out the mapper structure
   void dumpGrid(size_t /*level*/, particle::species) override {}
@@ -72,9 +73,6 @@ public:
 
   //! Calls to this function has no effect in a dummy IC generator, since it is only working out the mapper structure
   void dumpMask() override {}
-
-  //! Calls to this function has no effect in a dummy IC generator, since it is only working out the mapper structure
-  virtual void ensureParticleGeneratorInitialised() override {}
 
   //! Calls to this function has no effect in a dummy IC generator, since it is only working out the mapper structure
   void dumpID(string /*fname*/) override {}
@@ -89,7 +87,40 @@ public:
   void done() override {}
 
   //! Calls to this function has no effect in a dummy IC generator, since it is only working out the mapper structure
+  void applyModifications() override {}
+
+  //! Calls to this function has no effect in a dummy IC generator, since it is only working out the mapper structure
+  void calculate(string /* name */) override {}
+
+  //! Calls to this function has no effect in a dummy IC generator, since it is only working out the mapper structure
+  void getFieldChi2() override {}
+
+  //! Calls to this function has no effect in a dummy IC generator, since it is only working out the mapper structure
+  void reverse() override {}
+
+  //! Calls to this function has no effect in a dummy IC generator, since it is only working out the mapper structure
+  void reverseSmallK(T /*kmax*/) override {}
+
+  //! Calls to this function has no effect in a dummy IC generator, since it is only working out the mapper structure
+  void importLevel(size_t /*level*/, std::string /*filename*/) override {}
+
+  //! Calls to this function has no effect in a dummy IC generator, since it is only working out the mapper structure
   void saveTipsyArray(string fname, size_t nField) override {}
+
+  /* Override low-levels functions to ensure that certain operations such as drawing the random field or convolving with
+   * the power spectrum are never applied in the context of working out relationships between input mappers,
+   * covering cases when new user-level facilities are added but not necessarily overriden in the dummy IC class
+   * (see https://github.com/pynbody/genetIC/issues/73)
+   * */
+
+  //! Calls to this function has no effect in a dummy IC generator, since it is only working out the mapper structure
+  void initialiseAllRandomComponents() override {}
+
+  //! Calls to this function has no effect in a dummy IC generator, since it is only working out the mapper structure
+  void ensureParticleGeneratorInitialised() override {}
+
+  //! Calls to this function has no effect in a dummy IC generator, since it is only working out the mapper structure
+  void applyPowerSpec() override {}
 };
 
 #endif
