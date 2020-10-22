@@ -8,7 +8,11 @@
 #include <ostream>
 
 namespace logging {
-  std::ostream & entry();
+  enum level {
+    warning = 0, info = 1, debug = 2
+  };
+
+  std::ostream & entry(level lev = info);
 
   class IndentWhileInScope {
   public:

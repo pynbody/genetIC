@@ -38,7 +38,7 @@ namespace modifications {
 
 
         if (this->flaggedCells[level].size() == grid.size3 && level != 0) {
-          logging::entry() << "WARNING: Region selected for modification is the entire zoom grid. This is likely "
+          logging::entry(logging::level::warning) << "WARNING: Region selected for modification is the entire zoom grid. This is likely "
                     << "because the cell selection extends beyond the zoom boundaries." << std::endl;
           std::cerr
             << "By design, modifications are meant to be defined inside a zoom region. Increase the size of your "

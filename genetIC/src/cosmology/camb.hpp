@@ -261,10 +261,10 @@ namespace cosmology {
       auto P = PowerSpectrum<DataType>::getPowerSpectrumForGridUncached(grid, transferType);
 
       if (kcamb_max_in_file == std::numeric_limits<CoordinateType>().max()) {
-        logging::entry() << "WARNING: Maximum k in CAMB input file is insufficient" << std::endl
+        logging::entry(logging::level::warning) << "WARNING: Maximum k in CAMB input file is insufficient" << std::endl
                   << "*        You therefore have zero power in some of your modes, which is almost certainly not what you want" << std::endl
-                  << "*        You need to generate a transfer function that reaches higher k." << std::endl;
-        logging::entry() << "*        The current grid reaches k = " << grid->getFourierKmax() << " h/Mpc" << std::endl;
+                  << "*        You need to generate a transfer function that reaches higher k." << std::endl
+                  << "*        The current grid reaches k = " << grid->getFourierKmax() << " h/Mpc" << std::endl;
       }
 
       return P;

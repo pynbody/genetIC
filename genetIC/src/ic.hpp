@@ -430,7 +430,7 @@ public:
     int borderSafety = 3;
     for (auto cell_id : zoomParticleArray.back()) {
       if (!zoomWindow.containsWithBorderSafety(outputGridAbove.getCoordinateFromIndex(cell_id), borderSafety)) {
-        logging::entry() << "WARNING: Opening a zoom where flagged particles are within " << borderSafety <<
+        logging::entry(logging::level::warning) << "WARNING: Opening a zoom where flagged particles are within " << borderSafety <<
                   " pixels of the edge. This is prone to numerical errors." << std::endl;
         break;
       }
@@ -533,7 +533,7 @@ public:
     }
 
     if (missed_particle > 0) {
-      logging::entry() << "WARNING: the requested zoom particles do not all fit in the requested zoom window" << endl;
+      logging::entry(logging::level::warning) << "WARNING: the requested zoom particles do not all fit in the requested zoom window" << endl;
       if (allowStrayParticles) {
         logging::entry() << "         of " << untrimmedParticleArray.size() << " particles, " << missed_particle
              << " will be interpolated from LR grid (stray particle mode)" << endl;

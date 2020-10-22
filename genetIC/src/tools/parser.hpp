@@ -373,7 +373,7 @@ namespace tools {
     template<typename... Args>
     void add_deprecated_class_route(const std::string &name, const std::string &preferredName, Rtype (Ctype::*f)(Args...)) {
       auto call = [this, f, name, preferredName](Args... input_args) {
-        logging::entry() << "WARNING: " << name << " is a deprecated command and has been replaced by " << preferredName
+        logging::entry(logging::level::warning) << "WARNING: " << name << " is a deprecated command and has been replaced by " << preferredName
                   << std::endl;
         (pC->*f)(input_args...);
       };

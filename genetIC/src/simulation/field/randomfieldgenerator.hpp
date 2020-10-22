@@ -111,11 +111,10 @@ namespace fields {
         throw std::runtime_error("The random number generator has not been seeded");
       for (size_t i = 0; i < field.getNumLevels(); ++i) {
         auto &fieldOnGrid = field.getFieldForLevel(i);
-        logging::entry() << "Drawing random numbers";
         if(i==0)
-          logging::entry() << " (base grid)" << std::endl;
+          logging::entry() << "Drawing random numbers (base grid)" << std::endl;
         else
-          logging::entry() << " (zoom level " << i << ")" << std::endl;
+          logging::entry() << "Drawing random numbers (zoom level " << i << ")" << std::endl;
 
         if (drawInFourierSpace) {
           fieldOnGrid.toFourier();
