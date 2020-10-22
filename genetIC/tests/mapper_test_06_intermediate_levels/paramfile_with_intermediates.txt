@@ -34,4 +34,8 @@ adapt_mask 1
 
 autopad 1
 
+idfile  input.txt
+dump_idfile output.txt
+
+
 done

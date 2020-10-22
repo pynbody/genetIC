@@ -292,7 +292,7 @@ namespace io {
         npart = vector<long>(6, 0);
         nTotal = 0;
 
-        cerr << "Particles by gadget type:" << endl;
+        logging::entry() << "Particles by gadget type:" << endl;
 
         for (unsigned int ptype = 0; ptype < 6; ++ptype) {
           InternalFloatType min_mass, max_mass;
@@ -303,7 +303,7 @@ namespace io {
               variableMass = true;
             }
 
-            cerr << "   Particle type " << ptype << ": " << n << " particles" << endl;
+            logging::entry() << "   Particle type " << ptype << ": " << n << " particles" << endl;
             npart[ptype] = n;
             masses[ptype] = min_mass;
             nTotal += n;
@@ -311,12 +311,12 @@ namespace io {
         }
 
         if (variableMass) {
-          cerr << "Using variable-mass gadget format" << endl;
+          logging::entry() << "Using variable-mass gadget format" << endl;
           for (unsigned int ptype = 0; ptype < 6; ++ptype) {
             masses[ptype] = 0;
           }
         } else {
-          cerr << "Using fixed-mass gadget format" << endl;
+          logging::entry() << "Using fixed-mass gadget format" << endl;
         }
       }
 

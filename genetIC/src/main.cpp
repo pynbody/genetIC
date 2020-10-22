@@ -5,6 +5,7 @@
 #include <iomanip>
 
 #include "tools/parser.hpp"
+#include "tools/logging.hpp"
 #include "ic.hpp"
 #include "dummyic.hpp"
 
@@ -195,7 +196,7 @@ int main(int argc, char *argv[]) {
   using namespace std;
 
   if (argc != 2) {
-    cerr << "usage: genetIC paramfile" << endl;
+    logging::entry() << "usage: genetIC paramfile" << endl;
     return -1;
   }
 
@@ -205,7 +206,7 @@ int main(int argc, char *argv[]) {
   inf.open(fname);
 
   if (!inf.is_open()) {
-    cerr << "Error: could not open parameter file " << argv[1] << endl;
+    logging::entry() << "Error: could not open parameter file " << argv[1] << endl;
     exit(1);
   }
 
@@ -215,7 +216,7 @@ int main(int argc, char *argv[]) {
   outf.open("IC_output.params");
 
   if (!outf.is_open()) {
-    cerr << "Error: could not open output file" << endl;
+    logging::entry() << "Error: could not open output file" << endl;
     exit(1);
   }
 

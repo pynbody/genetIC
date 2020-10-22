@@ -125,8 +125,8 @@ all: genetIC
 
 %.o: %.cpp ; $(CXX) $(CFLAGS) $(CODEOPTIONS) $(GIT_VARIABLES) -I$(CPATH) $(FFTW) -c $< -o $@
 
-genetIC: src/main.o src/tools/filesystem.o src/tools/progress/progress.o
-		$(CXX) $(CFLAGS) -o genetIC $(GIT_VARIABLES) -I$(CPATH) $(FFTW) src/main.o src/tools/filesystem.o src/tools/progress/progress.o -L$(LPATH) $(GSLFLAGS) -lm $(FFTWLIB)
+genetIC: src/main.o src/tools/filesystem.o src/tools/progress/progress.o src/tools/logging.o
+		$(CXX) $(CFLAGS) -o genetIC $(GIT_VARIABLES) -I$(CPATH) $(FFTW) src/main.o src/tools/filesystem.o src/tools/progress/progress.o src/tools/logging.o -L$(LPATH) $(GSLFLAGS) -lm $(FFTWLIB)
 
 clean:
 	rm -f genetIC

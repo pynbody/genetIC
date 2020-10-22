@@ -30,7 +30,7 @@
 #include "simulation/particles/mapper/gasmapper.hpp"
 #include "simulation/particles/mapper/graficmapper.hpp"
 #include "simulation/particles/offsetgenerator.hpp"
-
+#include "tools/logging.hpp"
 
 using namespace std;
 
@@ -126,8 +126,6 @@ protected:
    */
   size_t autopad = 0;
 
-  //! Vector storing flagged particle ids.
-  std::vector<size_t> flaggedParticles;
   //! Zoom masks for each level.
   std::vector<std::vector<size_t>> zoomParticleArray;
 
@@ -361,10 +359,10 @@ public:
       throw (std::runtime_error("Trying to initialize a grid after the random field was already drawn"));
     }
 
-    cerr << "Initialized the base grid:" << endl;
-    cerr << "  Box length            = " << boxSize << " Mpc/h" << endl;
-    cerr << "  n                     = " << n << endl;
-    cerr << "  dx                    = " << boxSize/n << endl;
+    logging::entry() << "Initialized the base grid:" << endl;
+    logging::entry() << "  Box length            = " << boxSize << " Mpc/h" << endl;
+    logging::entry() << "  n                     = " << n << endl;
+    logging::entry() << "  dx                    = " << boxSize/n << endl;
 
     addLevelToContext(boxSize, n);
     updateParticleMapper();
@@ -432,7 +430,7 @@ public:
     int borderSafety = 3;
     for (auto cell_id : zoomParticleArray.back()) {
       if (!zoomWindow.containsWithBorderSafety(outputGridAbove.getCoordinateFromIndex(cell_id), borderSafety)) {
-        std::cerr << "WARNING: Opening a zoom where flagged particles are within " << borderSafety <<
+        logging::entry() << "WARNING: Opening a zoom where flagged particles are within " << borderSafety <<
                   " pixels of the edge. This is prone to numerical errors." << std::endl;
         break;
       }
@@ -535,16 +533,16 @@ public:
     }
 
     if (missed_particle > 0) {
-      cerr << "WARNING: the requested zoom particles do not all fit in the requested zoom window" << endl;
+      logging::entry() << "WARNING: the requested zoom particles do not all fit in the requested zoom window" << endl;
       if (allowStrayParticles) {
-        cerr << "         of " << untrimmedParticleArray.size() << " particles, " << missed_particle
+        logging::entry() << "         of " << untrimmedParticleArray.size() << " particles, " << missed_particle
              << " will be interpolated from LR grid (stray particle mode)" << endl;
       } else {
-        cerr << "         of " << untrimmedParticleArray.size() << " particles, " << missed_particle
+        logging::entry() << "         of " << untrimmedParticleArray.size() << " particles, " << missed_particle
              << " have been omitted" << endl;
       }
 
-      cerr << "         to make a new zoom flag list of " << trimmedParticleArray.size() << endl;
+      logging::entry() << "         to make a new zoom flag list of " << trimmedParticleArray.size() << endl;
     }
 
     zoomParticleArray.pop_back();
@@ -558,18 +556,18 @@ public:
 
     grids::Grid<T> &newGrid = multiLevelContext.getGridForLevel(multiLevelContext.getNumLevels() - 1);
 
-    cerr << "Initialized a zoom region:" << endl;
-    cerr << "  Subbox length         = " << newGrid.thisGridSize << " Mpc/h" << endl;
-    cerr << "  n                     = " << newGrid.size << endl;
-    cerr << "  dx                    = " << newGrid.cellSize << endl;
-    cerr << "  Zoom factor           = " << zoomfac << endl;
-    cerr << "  Num particles         = " << untrimmedParticleArray.size() << endl;
-    cerr << "  Low-left corner in parent grid = " << lowerCorner << endl;
-    cerr << "  Low-left corner (h**-1 Mpc)    = " << newGrid.offsetLower.x << ", " << newGrid.offsetLower.y << ", "
+    logging::entry() << "Initialized a zoom region:" << endl;
+    logging::entry() << "  Subbox length         = " << newGrid.thisGridSize << " Mpc/h" << endl;
+    logging::entry() << "  n                     = " << newGrid.size << endl;
+    logging::entry() << "  dx                    = " << newGrid.cellSize << endl;
+    logging::entry() << "  Zoom factor           = " << zoomfac << endl;
+    logging::entry() << "  Num particles         = " << untrimmedParticleArray.size() << endl;
+    logging::entry() << "  Low-left corner in parent grid = " << lowerCorner << endl;
+    logging::entry() << "  Low-left corner (h**-1 Mpc)    = " << newGrid.offsetLower.x << ", " << newGrid.offsetLower.y << ", "
          << newGrid.offsetLower.z << endl;
     updateParticleMapper();
 
-    cerr << "  Total particles       = " << pMapper->size() << endl;
+    logging::entry() << "  Total particles       = " << pMapper->size() << endl;
 
     // Flag all cells on the fine grid which were included in the zoom
     vector<size_t> transferredCells;
@@ -743,7 +741,7 @@ public:
   //! Zeroes field values at a given level. Meant for debugging.
   virtual void zeroLevel(size_t level, size_t nField) {
     checkFieldExists(nField);
-    cerr << "*** Warning: your script calls zeroLevel(" << level << "). This is intended for testing purposes only!"
+    logging::entry() << "*** Warning: your script calls zeroLevel(" << level << "). This is intended for testing purposes only!"
          << endl;
 
     checkLevelExists(level, nField);
@@ -766,7 +764,7 @@ public:
   virtual void importLevel(size_t level, std::string filename) {
 
     initialiseRandomComponentIfUninitialised();
-    cerr << "Importing random field on level " << level << " from " << filename << endl;
+    logging::entry() << "Importing random field on level " << level << " from " << filename << endl;
     checkLevelExists(level, 0);
 
     auto &levelField = outputFields[0]->getFieldForLevel(level);
@@ -774,7 +772,7 @@ public:
     levelField.setFourier(false);
     levelField.toFourier();
     outputFields[0]->applyTransferRatioOneLevel(particle::species::dm, particle::species::whitenoise, level); // transform back to whitenoise
-    cerr << "... success!" << endl;
+    logging::entry() << "... success!" << endl;
   }
 
 
@@ -1045,15 +1043,23 @@ public:
 
     if (!inf.is_open())
       throw std::runtime_error("Cannot open IC paramfile for relative_to command");
-    cerr << "******** Input mapper: computing geometry from " << fname << " ***********" << endl;
+    logging::entry() << "+ Input mapper: computing geometry from " << fname << " ------------------------" << endl;
+    {
+      tools::ChangeCwdWhileInScope temporary(tools::getDirectoryName(fname));
+      logging::IndentWhileInScope temporaryIndent;
+      logging::entry() << endl;
+      dispatch.run_loop(inf);
+    }
 
-    tools::ChangeCwdWhileInScope temporary(tools::getDirectoryName(fname));
 
-    dispatch.run_loop(inf);
 #ifdef DEBUG_INFO
-    cerr << *(pseudoICs.pMapper) << endl;
+    logging::entry() << endl;
+    logging::entry() << "Input mapper retrieved:" << endl;
+    logging::entry() << *(pseudoICs.pMapper);
+    logging::entry() << endl;
 #endif
-    cerr << "******** Finished with " << fname << " ***********" << endl;
+
+
     pInputMapper = pseudoICs.pMapper;
     pInputMultiLevelContext = std::make_shared<multilevelgrid::MultiLevelGrid<GridDataType>>
       (pseudoICs.multiLevelContext);
@@ -1211,10 +1217,10 @@ public:
     applyPowerSpec();
     ensureParticleGeneratorInitialised();
 
-    cerr << "Writing output; number dm particles=" << pMapper->size_dm()
+    logging::entry() << "Writing output; number dm particles=" << pMapper->size_dm()
          << ", number gas particles=" << pMapper->size_gas() << endl;
 #ifdef DEBUG_INFO
-    cerr << (*pMapper);
+    logging::entry() << (*pMapper);
 #endif
 
     T boxlen = multiLevelContext.getGridForLevel(0).periodicDomainSize;
@@ -1248,7 +1254,7 @@ public:
         throw std::runtime_error("Unknown output format");
     }
 
-    cerr << "Finished writing initial conditions" << endl;
+    logging::entry() << "Finished writing initial conditions" << endl;
 
   }
 
@@ -1303,7 +1309,7 @@ protected:
     x0 = centre.x;
     y0 = centre.y;
     z0 = centre.z;
-    cerr << "Centre of region is " << setprecision(12) << x0 << " " << y0 << " " << z0 << endl;
+    logging::entry() << "Centre of region is " << setprecision(12) << x0 << " " << y0 << " " << z0 << endl;
   }
 
 
@@ -1314,24 +1320,23 @@ protected:
   */
   void appendParticleIdFile(std::string filename) {
 #ifdef DEBUG_INFO
-    cerr << "Loading " << filename << endl;
+    logging::entry() << "Loading " << filename << endl;
 #endif
     io::getBuffer(flaggedParticles, filename);
     size_t size = flaggedParticles.size();
     tools::sortAndEraseDuplicate(flaggedParticles);
 
 #ifdef DEBUG_INFO
-    if (flaggedParticles.size() < size)
-      cerr << "  ... erased " << size - flaggedParticles.size() << " duplicate particles" << endl;
-    cerr << "  -> total number of particles is " << flaggedParticles.size() << endl;
+    logging::entry() << "  -> total number of particle IDs loaded is " << flaggedParticles.size() << endl;
+    flaggedParticles.clear();
+    pMapper->getFlaggedParticles(flaggedParticles);
+    logging::entry() << "     total number of accessible cells flagged is " << flaggedParticles.size() << endl;
 #endif
-
-    reflag();
   }
 
   //! Clears the currently flagged particles and then loads new flags from a file.
   void loadParticleIdFile(std::string filename) {
-    flaggedParticles.clear();
+    clearCellFlags();
     appendParticleIdFile(filename);
   }
 
@@ -1353,8 +1358,8 @@ public:
   virtual void dumpID(string fname) {
     std::vector<size_t> results;
 #ifdef DEBUG_INFO
-    cerr << "dumpID using current mapper" << endl;
-    cerr << (*pMapper);
+    logging::entry() << "dumpID using current mapper" << endl;
+    logging::entry() << (*pMapper);
 #endif
     pMapper->getFlaggedParticles(results);
     io::dumpBuffer(results, fname);
@@ -1371,7 +1376,7 @@ public:
     pMapper->unflagAllParticles();
     size_t id = grid.getIndexFromPoint(Coordinate<T>(x0, y0, z0));
 #ifdef DEBUG_INFO
-    cerr << "selectNearest " << x0 << " " << y0 << " " << z0 << " " << id << " " << endl;
+    logging::entry() << "selectNearest " << x0 << " " << y0 << " " << z0 << " " << id << " " << endl;
 #endif
     grid.flagCells({id});
   }
@@ -1380,9 +1385,6 @@ public:
   void select(std::function<bool(T, T, T)> inclusionFunction) {
     T delta_x, delta_y, delta_z;
     T xp, yp, zp;
-
-    flaggedParticles.clear();
-
 
     // unflag all grids first. This can't be in the loop below in case there are subtle
     // relationships between grids (in particular the ResolutionMatchingGrid which actually
@@ -1437,7 +1439,7 @@ public:
     if (multiLevelContext.getNumLevels() < 1) {
       throw std::runtime_error("No grid has yet been initialised");
     }
-    std::cerr << "Expand flagged region by " << nCells << " cells" << std::endl;
+    logging::entry() << "Expand flagged region by " << nCells << " cells" << std::endl;
     for (size_t level = 0; level < multiLevelContext.getNumLevels(); ++level) {
       grids::Grid<T> &thisGrid = multiLevelContext.getGridForLevel(level);
       size_t initial_length = thisGrid.numFlaggedCells();
@@ -1502,7 +1504,7 @@ public:
     initialiseRandomComponentIfUninitialised();
     T val = this->outputFields[0]->getChi2();
     size_t dof = this->multiLevelContext.getNumDof();
-    std::cerr << "Calculated chi^2 = " << std::setprecision(10) << val << " (dof = " << dof << ")" << std::endl;
+    logging::entry() << "Calculated chi^2 = " << std::setprecision(10) << val << " (dof = " << dof << ")" << std::endl;
   }
 
   //! Calculate unmodified property for the dark matter field:
@@ -1510,7 +1512,7 @@ public:
     initialiseRandomComponentIfUninitialised();
 
     GridDataType val = modificationManager.calculateCurrentValueByName(name, this->variance_filterscale);
-    cerr << name << ": calculated value = " << val << endl;
+    logging::entry() << name << ": calculated value = " << val << endl;
   }
 
   //! Define a modification to be applied to the field

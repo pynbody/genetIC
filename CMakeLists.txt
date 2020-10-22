@@ -4,9 +4,9 @@ project(IC)
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/genetIC)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14  -fopenmp -g ")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14  -g ")
 
-set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Og")
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O0 -DDEBUG_INFO")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")
 
 set(SOURCE_FILES
@@ -61,7 +61,7 @@ set(SOURCE_FILES
         genetIC/src/simulation/modifications/quadraticmodification.hpp
         genetIC/src/simulation/multilevelgrid/mask.hpp
         genetIC/src/tools/memmap.hpp
-        genetIC/src/tools/numerics/tricubic.hpp)
+        genetIC/src/tools/numerics/tricubic.hpp genetIC/src/tools/logging.hpp genetIC/src/tools/logging.cpp)
 
 include_directories( /opt/local/include )
 link_directories(/opt/local/lib )
@@ -107,7 +107,6 @@ add_definitions(-DCUBIC_INTERPOLATION
         -DFILTER_ON_COARSE_GRID
         -DFFTW3
         -DFFTW_THREADS
-        -DOPENMP
         -DGIT_VERSION="${GIT_VERSION}"
         -DGIT_MODIFIED="${GIT_MODIFIED}"
         -DDOUBLEPRECISION

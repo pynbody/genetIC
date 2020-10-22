@@ -10,6 +10,7 @@
 #include "src/tools/numerics/interpolation.hpp"
 #include "src/io/input.hpp"
 #include "src/simulation/particles/particle.hpp"
+#include "src/tools/logging.hpp"
 
 /*!
     \namespace cosmology
@@ -225,11 +226,11 @@ namespace cosmology {
 
         if (numCols == c_old_camb) {
 #ifdef DEBUG_INFO
-          std::cerr << "Using pre 2015 CAMB transfer function" << std::endl;
+          logging::entry() << "Using pre 2015 CAMB transfer function" << std::endl;
 #endif
         } else if (numCols == c_new_camb) {
 #ifdef DEBUG_INFO
-          std::cerr << "Using post 2015 CAMB transfer function" << std::endl;
+          logging::entry() << "Using post 2015 CAMB transfer function" << std::endl;
 #endif
         } else {
           throw std::runtime_error("CAMB transfer file doesn't have a sensible number of columns");
@@ -260,10 +261,10 @@ namespace cosmology {
       auto P = PowerSpectrum<DataType>::getPowerSpectrumForGridUncached(grid, transferType);
 
       if (kcamb_max_in_file == std::numeric_limits<CoordinateType>().max()) {
-        std::cerr << "WARNING: Maximum k in CAMB input file is insufficient" << std::endl
+        logging::entry() << "WARNING: Maximum k in CAMB input file is insufficient" << std::endl
                   << "*        You therefore have zero power in some of your modes, which is almost certainly not what you want" << std::endl
                   << "*        You need to generate a transfer function that reaches higher k." << std::endl;
-        std::cerr << "*        The current grid reaches k = " << grid->getFourierKmax() << " h/Mpc" << std::endl;
+        logging::entry() << "*        The current grid reaches k = " << grid->getFourierKmax() << " h/Mpc" << std::endl;
       }
 
       return P;

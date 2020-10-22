@@ -148,7 +148,7 @@ namespace tools {
       std::vector<T> output;
       for(auto i = x.begin(); i!=x.end(); i++) {
         output.push_back(std::log(*i));
-        std::cerr << output.back() << " " << std::endl;
+        logging::entry() << output.back() << " " << std::endl;
       }
       return output;
     }

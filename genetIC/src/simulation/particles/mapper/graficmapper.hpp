@@ -88,7 +88,7 @@ namespace particle {
           // Flagging virtual grids implies effective downscaling of the flag IDs. Left as a warning since we might
           // still want to do it for some cases
           if (targetGrid.isUpsampledOrDownsampled() && !gridCellArray.empty()) {
-            std::cerr << gridCellArray.size() <<
+            logging::entry() << gridCellArray.size() <<
                       " input ids reference a GRAFIC intermediate grid - make sure you intended to do this !"
                       << std::endl;
           }

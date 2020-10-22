@@ -81,7 +81,7 @@ namespace particle {
     using ZPG=ZeldovichParticleGenerator<GridDataType>;
     size_t nlevels = generator.context.getNumLevels();
 
-    cerr << "Calculating particles from overdensity fields..." << endl;
+    logging::entry() << "Calculating particles from overdensity fields..." << endl;
 
     generator.overdensityField.toFourier();
 
@@ -97,7 +97,7 @@ namespace particle {
         generator.pGenerators.emplace_back(
           std::make_shared<ZPG>(generator.overdensityField.getFieldForLevel(level)));
 
-      cerr << "Combining information from different levels..." << endl;
+      logging::entry() << "Combining information from different levels..." << endl;
 
       auto filters = generator.overdensityField.getFilters();
 
