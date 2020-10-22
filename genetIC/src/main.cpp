@@ -99,7 +99,7 @@ void setup_parser(tools::ClassDispatch<ICf, void> &dispatch) {
 
   // Input Output of flagged particles - OLD NAMES
   dispatch.add_deprecated_class_route("IDfile", "id_file", &ICf::loadID);
-  dispatch.add_deprecated_class_route("append_IDfile", "append_id_file", &ICf::appendID);
+  dispatch.add_deprecated_class_route("append_IDfile", "merge_id_file", &ICf::appendID);
   dispatch.add_deprecated_class_route("dump_IDfile","dump_id_file", &ICf::dumpID);
 
   // I/O of flagged particles - NEW NAMES May 2020
