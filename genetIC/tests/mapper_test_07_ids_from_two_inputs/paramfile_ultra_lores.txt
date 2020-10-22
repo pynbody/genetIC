@@ -1,0 +1,23 @@
+# Test merge_id_file using two different input mappers
+#
+# Previously, the IDs were stored and merged then passed through the input
+# mapper after a merge_id_file, which could lead to incorrect behaviour
+# or crashes. Now the merge is done at the cell level.
+
+# output parameters
+outdir	 ./
+outformat tipsy
+outname test_1
+
+# cosmology:
+Om  0.279
+Ol  0.721
+s8  0.817
+zin	99
+camb	../camb_transfer_kmax40_z0.dat
+
+basegrid 50.0 32
+
+subsample 2
+
+done
