@@ -121,13 +121,17 @@ def compare_ps(ref, test):
     npt.assert_allclose(ref_vals, test_vals, rtol=1e-4)
     print("Power-spectrum output %s matches" % ref)
 
+def _strip_time(line):
+    return re.sub("^ [0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}   ", "", line)
+
 def compare_outputlogfile(reference_file, test_file):
     with open(test_file) as f:
         with open(reference_file) as ref:
-            list = ref.read().splitlines()
-            tests = f.read().splitlines()
-            for s in list:
-                assert(s in tests), "Line %s from reference.txt is not present in the logged output" % s
+            lines_to_match = ref.read().splitlines()
+            lines_in_output = f.read().splitlines()
+            lines_in_output = [_strip_time(t) for t in lines_in_output]
+            for s in lines_to_match:
+                assert(s in lines_in_output), "Line %s from reference.txt is not present in the logged output" % s
     print("Log output matches")
 
 def get_grafic_files(path):
