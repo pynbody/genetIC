@@ -1,26 +1,26 @@
-******** Input mapper: computing geometry from ./paramfile_with_many_calls_to_expensive_features.txt ***********
-Initialized the base grid:
-  Box length            = 50 Mpc/h
-  n                     = 32
-  dx                    = 1.5625
-Initialized a zoom region:
-  Subbox length         = 12.5 Mpc/h
-  n                     = 32
-  dx                    = 0.390625
-  Zoom factor           = 4
-  Num particles         = 1
-  Low-left corner in parent grid = (11, 11, 11)
-  Low-left corner (h**-1 Mpc)    = 17.1875, 17.1875, 17.1875
-  Total particles       = 32831
-WARNING: Opening a zoom where flagged particles are within 3 pixels of the edge. This is prone to numerical errors.
-Initialized a zoom region:
-  Subbox length         = 3.125 Mpc/h
-  n                     = 32
-  dx                    = 0.0976562
-  Zoom factor           = 4
-  Num particles         = 8
-  Low-left corner in parent grid = (13, 13, 13)
-  Low-left corner (h**-1 Mpc)    = 22.2656, 22.2656, 22.2656
-  Total particles       = 33335
-Clearing modification list
-******** Finished with ./paramfile_with_many_calls_to_expensive_features.txt ***********
++ Input mapper: computing geometry from ./paramfile_with_many_calls_to_expensive_features.txt ------------------------
+| 
+| Initialized the base grid:
+|   Box length            = 50 Mpc/h
+|   n                     = 32
+|   dx                    = 1.5625
+| Initialized a zoom region:
+|   Subbox length         = 12.5 Mpc/h
+|   n                     = 32
+|   dx                    = 0.390625
+|   Zoom factor           = 4
+|   Num particles         = 1
+|   Low-left corner in parent grid = (11, 11, 11)
+|   Low-left corner (h**-1 Mpc)    = 17.1875, 17.1875, 17.1875
+|   Total particles       = 32831
+| WARNING: Opening a zoom where flagged particles are within 3 pixels of the edge. This is prone to numerical errors.
+| Initialized a zoom region:
+|   Subbox length         = 3.125 Mpc/h
+|   n                     = 32
+|   dx                    = 0.0976562
+|   Zoom factor           = 4
+|   Num particles         = 8
+|   Low-left corner in parent grid = (13, 13, 13)
+|   Low-left corner (h**-1 Mpc)    = 22.2656, 22.2656, 22.2656
+|   Total particles       = 33335
+| Clearing modification list
