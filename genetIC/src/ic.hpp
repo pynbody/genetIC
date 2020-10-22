@@ -1188,22 +1188,27 @@ public:
     return pForSubmap;
   }
 
-  //! \brief Clear out existing flags in the particle mapper and reflag using the selected particles
+  //! \brief Clear flags on all cells on all grids
+  void clearCellFlags() {
+    pMapper->unflagAllParticles();
+
+    if (pInputMapper != nullptr)
+      pInputMapper->unflagAllParticles();
+
+  }
+
+  //! \brief Flag cells which correspond to the particle IDs given
   /*!
     If an input mapper has been specified, then we map the flags specified relative to that setup
-    into flags specified in the current setup. This allows for seamless transition, with flags defined
-    in one simulation setup to be interpreted in another setup.
+    into flags specified in the current setup. This allows for flags defined in one simulation setup
+    to be interpreted in another setup.
   */
-  void reflag() {
-
+  void flagCellsCorrespondingToParticles(const std::vector<size_t> & flaggedParticles) {
     if (pInputMapper != nullptr) {
-      pMapper->unflagAllParticles();
-      pInputMapper->unflagAllParticles();
       pInputMapper->flagParticles(flaggedParticles);
       pInputMapper->extendParticleListToUnreferencedGrids(multiLevelContext);
       pMapper->extendParticleListToUnreferencedGrids(*pInputMultiLevelContext);
     } else {
-      pMapper->unflagAllParticles();
       pMapper->flagParticles(flaggedParticles);
     }
   }
@@ -1322,10 +1327,12 @@ protected:
 #ifdef DEBUG_INFO
     logging::entry() << "Loading " << filename << endl;
 #endif
+    std::vector<size_t> flaggedParticles;
     io::getBuffer(flaggedParticles, filename);
     size_t size = flaggedParticles.size();
     tools::sortAndEraseDuplicate(flaggedParticles);
 
+    flagCellsCorrespondingToParticles(flaggedParticles);
 #ifdef DEBUG_INFO
     logging::entry() << "  -> total number of particle IDs loaded is " << flaggedParticles.size() << endl;
     flaggedParticles.clear();
@@ -1444,7 +1451,7 @@ public:
       grids::Grid<T> &thisGrid = multiLevelContext.getGridForLevel(level);
       size_t initial_length = thisGrid.numFlaggedCells();
       thisGrid.expandFlaggedRegion(nCells);
-      std::cerr << "  - level " << level << " increased number of flagged cells by "
+      logging::entry() << "  - level " << level << " increased number of flagged cells by "
                 << thisGrid.numFlaggedCells() - initial_length
                 << " (now " << thisGrid.numFlaggedCells() << ")" << std::endl;
     }
