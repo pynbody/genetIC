@@ -53,12 +53,14 @@ namespace tools {
 #endif
         fftw_plan_with_nthreads(numThreads);
         if(emitThreadLimitMessage) {
-          logging::entry() << std::endl
-            << "Limiting number of FFTW Threads to " << numThreads << ", because FFTW on Mac OS seems to become slow beyond this point."
-            << std::endl
-            << "To disable this behaviour, recompile with -DIGNORE_APPLE_FFTW_THREAD_LIMIT" << std::endl
-            << "OpenMP parts of the code will still run with " << omp_get_max_threads() << " threads."
-            << std::endl << std::endl;
+          logging::entry() << std::endl;
+          logging::entry()  << "Limiting number of FFTW Threads to " << numThreads << ", because FFTW on Mac OS seems to become slow beyond this point."
+            << std::endl;
+          logging::entry()
+            << "To disable this behaviour, recompile with -DIGNORE_APPLE_FFTW_THREAD_LIMIT" << std::endl;
+          logging::entry()
+            << "OpenMP parts of the code will still run with " << omp_get_max_threads() << " threads." << std::endl;
+          logging::entry() << std::endl;
         } else {
           logging::entry() << "Note: " << numThreads << " FFTW Threads (determined by OpenMP) were initialised"
                     << std::endl;
