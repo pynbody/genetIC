@@ -1043,13 +1043,15 @@ public:
 
     if (!inf.is_open())
       throw std::runtime_error("Cannot open IC paramfile for relative_to command");
-    logging::entry() << "+ Input mapper: computing geometry from " << fname << " ------------------------" << endl;
+    logging::entry() << endl;
+    logging::entry() << "+ Input mapper: computing geometry from " << fname << endl;
     {
       tools::ChangeCwdWhileInScope temporary(tools::getDirectoryName(fname));
       logging::IndentWhileInScope temporaryIndent;
       logging::entry() << endl;
       dispatch.run_loop(inf);
     }
+    logging::entry() << endl;
 
 
 #ifdef DEBUG_INFO
