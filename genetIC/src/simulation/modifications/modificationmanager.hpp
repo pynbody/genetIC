@@ -1,9 +1,9 @@
 #ifndef IC_MODIFICATIONMANAGER_HPP
 #define IC_MODIFICATIONMANAGER_HPP
 
-#include <src/simulation/modifications/linearmodification.hpp>
-#include <src/simulation/modifications/quadraticmodification.hpp>
-
+#include "src/simulation/modifications/linearmodification.hpp"
+#include "src/simulation/modifications/quadraticmodification.hpp"
+#include "src/tools/logging.hpp"
 #include <string>
 
 //! Deals with the creation of genetically modified fields
@@ -104,10 +104,10 @@ namespace modifications {
       }
 
       // Apply all linear modifications
-      std::cerr << std::endl << "Applying modifications" << std::endl;
+      logging::entry() << std::endl << "Applying modifications" << std::endl;
       orthonormaliseModifications(modificationCovectors, linearTargetValues);
 #ifdef DEBUG_INFO
-      std::cerr << "ESTIMATED delta chi^2 from all linear modifications = "
+      logging::entry() << "ESTIMATED delta chi^2 from all linear modifications = "
                 << getDeltaChi2FromLinearModifs(*outputField, modificationCovectors, linearTargetValues)
                 << std::endl;
 #endif
@@ -116,18 +116,18 @@ namespace modifications {
       applyLinQuadModif(modificationCovectors);
 
       post_modif_chi2_from_field = outputField->getChi2();
-      std::cerr << "   Post-modification chi^2 = " << post_modif_chi2_from_field << std::endl;
+      logging::entry() << "   Post-modification chi^2 = " << post_modif_chi2_from_field << std::endl;
       size_t dof = this->multiLevelContext.getNumDof();
-      std::cerr << "  Modification Delta chi^2 = " << post_modif_chi2_from_field - pre_modif_chi2_from_field
+      logging::entry() << "  Modification Delta chi^2 = " << post_modif_chi2_from_field - pre_modif_chi2_from_field
                 << std::endl;
-      std::cerr << "           d.o.f. in field = " << dof << std::endl;
-      std::cerr << std::endl;
+      logging::entry() << "           d.o.f. in field = " << dof << std::endl;
+      logging::entry() << std::endl;
     }
 
 
     //! Clear all modifications from the list of modifications to be applied.
     void clearModifications() {
-      std::cerr << "Clearing modification list" << std::endl;
+      logging::entry() << "Clearing modification list" << std::endl;
       linearModificationList.clear();
       quadraticModificationList.clear();
     }
@@ -228,10 +228,10 @@ namespace modifications {
 
         // Perform procedure on real output
         if (n_steps > init_n_steps) {
-          std::cerr << n_steps << " steps are required for the quadratic algorithm " << std::endl;
+          logging::entry() << n_steps << " steps are required for the quadratic algorithm " << std::endl;
           performIterations(*outputField, orthonormalisedCovectors, modif_i, n_steps);
         } else {
-          std::cerr << "No need to do more steps to achieve target precision" << std::endl;
+          logging::entry() << "No need to do more steps to achieve target precision" << std::endl;
           performIterations(*outputField, orthonormalisedCovectors, modif_i, init_n_steps);
         }
 

@@ -39,7 +39,7 @@ namespace tools {
           throw std::runtime_error("Cannot initialize FFTW threads");
 #ifndef _OPENMP
         fftw_plan_with_nthreads(FFTW_THREADS);
-  std::cerr << "Note: " << FFTW_THREADS << " FFTW Threads were initialised" << std::endl;
+  logging::entry() << "Note: " << FFTW_THREADS << " FFTW Threads were initialised" << std::endl;
 #else
         int numThreads = omp_get_max_threads();
         bool emitThreadLimitMessage = false;
@@ -53,19 +53,21 @@ namespace tools {
 #endif
         fftw_plan_with_nthreads(numThreads);
         if(emitThreadLimitMessage) {
-          std::cerr << std::endl
-            << "Limiting number of FFTW Threads to " << numThreads << ", because FFTW on Mac OS seems to become slow beyond this point."
-            << std::endl
-            << "To disable this behaviour, recompile with -DIGNORE_APPLE_FFTW_THREAD_LIMIT" << std::endl
-            << "OpenMP parts of the code will still run with " << omp_get_max_threads() << " threads."
-            << std::endl << std::endl;
+          logging::entry() << std::endl;
+          logging::entry()  << "Limiting number of FFTW Threads to " << numThreads << ", because FFTW on Mac OS seems to become slow beyond this point."
+            << std::endl;
+          logging::entry()
+            << "To disable this behaviour, recompile with -DIGNORE_APPLE_FFTW_THREAD_LIMIT" << std::endl;
+          logging::entry()
+            << "OpenMP parts of the code will still run with " << omp_get_max_threads() << " threads." << std::endl;
+          logging::entry() << std::endl;
         } else {
-          std::cerr << "Note: " << numThreads << " FFTW Threads (determined by OpenMP) were initialised"
+          logging::entry() << "Note: " << numThreads << " FFTW Threads (determined by OpenMP) were initialised"
                     << std::endl;
         }
 #endif
 #else
-        std::cerr << "Note: FFTW Threads are not enabled" << std::endl;
+        logging::entry() << "Note: FFTW Threads are not enabled" << std::endl;
 #endif
         fftwThreadsInitialised = true;
       }

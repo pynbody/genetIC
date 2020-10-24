@@ -125,7 +125,7 @@ namespace multilevelgrid {
     void generateFlagsHierarchy() override {
 
       if (this->deepestLevelWithMaskedCells < 0) {
-        std::cerr << "WARNING No zoom regions were ever opened. Grafic mask will not be generated in this case"
+        logging::entry(logging::level::warning) << "WARNING No zoom regions were ever opened. Grafic mask will not be generated in this case"
                   << std::endl;
         return;
       }

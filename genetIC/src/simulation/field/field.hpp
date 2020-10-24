@@ -73,8 +73,8 @@ namespace fields {
           if(accumHits>0 || accumMisses>0) {
             double fracHits = 100 * double(accumHits) / double(accumHits + accumMisses);
             double fracMisses = 100 * double(accumMisses) / double(accumHits + accumMisses);
-            std::cerr << std::setprecision(2);
-            std::cerr << "Interpolation cache performance report. Hits: " << accumHits
+            logging::entry() << std::setprecision(2);
+            logging::entry() << "Interpolation cache performance report. Hits: " << accumHits
                       << " (" << fracHits << "%); misses: " << accumMisses << " (" << fracMisses << "%)"
                       << std::defaultfloat << std::endl;
           }

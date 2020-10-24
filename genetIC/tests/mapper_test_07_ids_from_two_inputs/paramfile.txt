@@ -1,0 +1,37 @@
+# Test merge_id_file using two different input mappers
+#
+# Previously, the IDs were stored and merged then passed through the input
+# mapper after a merge_id_file, which could lead to incorrect behaviour
+# or crashes. Now the merge is done at the cell level.
+
+# output parameters
+outdir	 ./
+outformat tipsy
+outname test_1
+
+# cosmology:
+Om  0.279
+Ol  0.721
+s8  0.817
+zin	99
+camb	../camb_transfer_kmax40_z0.dat
+
+base_grid 50.0 32
+
+
+# fourier seeding
+random_seed_real_space	889613
+
+# zoom level 1, centre on the central pixel = 25-(50/32/2) = 24.219
+centre 24.219 24.219 24.219
+select_nearest
+zoom_grid 4 32
+
+mapper_relative_to paramfile_lores.txt
+id_file  input_lores.txt
+mapper_relative_to paramfile_ultra_lores.txt
+merge_id_file  input_ultra_lores.txt
+dump_id_file output.txt
+
+
+done

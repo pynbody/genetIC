@@ -24,6 +24,8 @@
 #include <algorithm>
 #include <vector>
 
+#include "logging.hpp"
+
 namespace tools {
   /*! \class DispatchError
       \brief Wrapper for runtime_errors, which specifically identifies errors related to parsing the input file.
@@ -200,7 +202,7 @@ namespace tools {
         try {
           run(ss, output_stream);
         } catch (std::runtime_error &e) {
-          std::cerr << "Error \"" << e.what() << "\" on line " << line << " (\"" << str << "\")" << std::endl;
+          logging::entry() << "Error \"" << e.what() << "\" on line " << line << " (\"" << str << "\")" << std::endl;
           exit(1);
         }
         ss.clear();
@@ -371,7 +373,7 @@ namespace tools {
     template<typename... Args>
     void add_deprecated_class_route(const std::string &name, const std::string &preferredName, Rtype (Ctype::*f)(Args...)) {
       auto call = [this, f, name, preferredName](Args... input_args) {
-        std::cerr << "WARNING: " << name << " is a deprecated command and has been replaced by " << preferredName
+        logging::entry(logging::level::warning) << "WARNING: " << name << " is a deprecated command and has been replaced by " << preferredName
                   << std::endl;
         (pC->*f)(input_args...);
       };

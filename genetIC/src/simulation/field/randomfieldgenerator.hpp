@@ -111,11 +111,10 @@ namespace fields {
         throw std::runtime_error("The random number generator has not been seeded");
       for (size_t i = 0; i < field.getNumLevels(); ++i) {
         auto &fieldOnGrid = field.getFieldForLevel(i);
-        std::cerr << "Drawing random numbers";
         if(i==0)
-          std::cerr << " (base grid)" << std::endl;
+          logging::entry() << "Drawing random numbers (base grid)" << std::endl;
         else
-          std::cerr << " (zoom level " << i << ")" << std::endl;
+          logging::entry() << "Drawing random numbers (zoom level " << i << ")" << std::endl;
 
         if (drawInFourierSpace) {
           fieldOnGrid.toFourier();
@@ -215,7 +214,9 @@ namespace fields {
         for (int ks = 0; ks < int(g.size / 2); ks++) {
           gsl_rng *localRandomState = gsl_rng_alloc(randomNumberGeneratorType);
           gsl_rng_set(localRandomState, baseSeed + ks);
+#ifdef OPENMP
           if (omp_get_thread_num() == 0)
+#endif
             pb.setProgress(float(ks * ks) * (ks * 8) / g.size3);
           for (int k1 = -ks; k1 < ks; k1++) {
             for (int k2 = -ks; k2 < ks; k2++) {

@@ -219,17 +219,17 @@ namespace particle {
          *    for which there is no distinction between cell and particle IDs.
          * */
         if (this->level1CellsToReplace.size() != level1ParticlesToReplace.size()) {
-          cerr << "WANTED:" << endl;
+          logging::entry() << "WANTED:" << endl;
           for (size_t i = 0; i < this->level1CellsToReplace.size(); ++i) {
-            cerr << this->level1CellsToReplace[i] << endl;
+            logging::entry() << this->level1CellsToReplace[i] << endl;
           }
           pLevel1->unflagAllParticles();
           pLevel1->flagParticles(level1ParticlesToReplace);
           this->level1CellsToReplace.clear();
           pGrid1->getFlaggedCells(this->level1CellsToReplace);
-          cerr << "GOT:" << endl;
+          logging::entry() << "GOT:" << endl;
           for (size_t i = 0; i < this->level1CellsToReplace.size(); ++i) {
-            cerr << this->level1CellsToReplace[i] << " (" << this->level1ParticlesToReplace[i] << ")" << endl;
+            logging::entry() << this->level1CellsToReplace[i] << " (" << this->level1ParticlesToReplace[i] << ")" << endl;
           }
           assert(false);
         }
@@ -338,14 +338,18 @@ namespace particle {
         // N.B. the following parallelism does not seem to achieve much speed-up.
         // Is this because it is memory access bound, or some more subtle reason?
 
+#ifdef OPENMP
 #pragma omp parallel
         {
+#endif
           std::vector<size_t> hrCellsCache;
           std::vector<size_t> localLrParticles;
           hrCellsCache.resize(n_hr_per_lr);
           size_t lrParticleLastAccessed = std::numeric_limits<size_t>::max();
 
+#ifdef OPENMP
 #pragma omp for schedule(static, n_hr_per_lr*10)
+#endif
           for (size_t i = firstHrParticleInInput; i < orderedParticleIndices.size(); ++i) {
             size_t thisParticle = orderedParticleIndices[i];
             size_t lr_index = (thisParticle - firstHiresParticleInMapper) / n_hr_per_lr;
@@ -373,12 +377,16 @@ namespace particle {
 
           }
 
+#ifdef OPENMP
 #pragma omp critical
+#endif
           {
             level1particles.insert(level1particles.end(), localLrParticles.begin(), localLrParticles.end());
           }
 
+#ifdef OPENMP
         }
+#endif
 
         // The divided particle lists will now be passed to the underlying particle mappers,
         // which require the input to be sorted
@@ -632,7 +640,7 @@ namespace particle {
             supersampledLevel1CellsToReplace,
             skipLevel1);
 
-          cerr << "Added a padding region of effective resolution " <<
+          logging::entry() << "Added a padding region of effective resolution " <<
                superSampleVersionOfFinestLRGrid->getEffectiveSimulationSize() << " of physical size ~" <<
                expandedsize << "Mpc/h" << " (inner resolution "
                << mapperHR->getFinestGrid()->getEffectiveSimulationSize() << ", size ~" <<

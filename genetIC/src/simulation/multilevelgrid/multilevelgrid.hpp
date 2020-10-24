@@ -361,7 +361,7 @@ namespace multilevelgrid {
           // First add the base subsampled grids from 'subsample' command
           this->addExtraSubSampledGrids(newStack, number_extra_lowres, resolution_step_factor, level);
 
-          std::cerr << "Adding real grid with resolution " << pGrids[0]->size << std::endl;
+          logging::entry() << "Adding real grid with resolution " << pGrids[0]->size << std::endl;
           newStack.addLevel(pGrids[level]);
         } else if (level > 0) {
 
@@ -373,7 +373,7 @@ namespace multilevelgrid {
             round(log10(zoomfactor) / log10(double(resolution_step_factor))) - 1);
           this->addExtraSubSampledGrids(newStack, number_intermediate_grids, resolution_step_factor, level);
 
-          std::cerr << "Adding real grid with resolution " << neff_zoom << std::endl;
+          logging::entry() << "Adding real grid with resolution " << neff_zoom << std::endl;
           newStack.addLevel(pGrids[level]);
         }
       }
@@ -392,7 +392,7 @@ namespace multilevelgrid {
         for (size_t i = 0; i < number_extra_grids; ++i) {
           auto vGrid = std::make_shared<grids::SubSampleGrid<T>>(pGrids[level], factor);
 
-          std::cerr << "Adding virtual grid with effective resolution " << neff_real_grid / factor << std::endl;
+          logging::entry() << "Adding virtual grid with effective resolution " << neff_real_grid / factor << std::endl;
           newStack.addLevel(vGrid);
 
           factor /= resolution_step_factor;
@@ -411,7 +411,7 @@ namespace multilevelgrid {
         for (size_t i = 0; i < number_extra_highres; ++i) {
           auto vGrid = std::make_shared<grids::SuperSampleGrid<T>>(pGrids[finest_level], factor);
 
-          std::cerr << "Adding virtual grid with effective resolution " << neff_finest * factor << std::endl;
+          logging::entry() << "Adding virtual grid with effective resolution " << neff_finest * factor << std::endl;
           newStack.addLevel(vGrid);
 
           factor *= resolution_step_factor;

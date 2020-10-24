@@ -62,7 +62,7 @@ namespace tools {
         msync(addr_aligned, size_bytes, MS_SYNC);
         if(munmap(addr_aligned, size_bytes)!=0) {
           // This probably indicates something has gone catastrophically wrong...
-          std::cerr << "ERROR: Failed to delete the mem-map (reason: " << ::strerror(errno) << ")" << std::endl;
+          logging::entry() << "ERROR: Failed to delete the mem-map (reason: " << ::strerror(errno) << ")" << std::endl;
           exit(1);
         }
       }

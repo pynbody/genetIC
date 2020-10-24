@@ -3,7 +3,8 @@
 
 #include <numeric>
 #include <functional>
-#include <src/simulation/modifications/modification.hpp>
+#include "src/simulation/modifications/modification.hpp"
+#include "src/tools/logging.hpp"
 
 namespace modifications {
 
@@ -140,9 +141,9 @@ namespace modifications {
 
       T window_size = finest_grid.getFlaggedCellsPhysicalSize();
       if (scale_ > window_size) {
-        std::cerr << "WARNING: High-pass filtering scale: " << scale_ << " h**-1 Mpc is greater than the rough window "
+        logging::entry(logging::level::warning) << "WARNING: High-pass filtering scale: " << scale_ << " h**-1 Mpc is greater than the rough window "
                   << "size: " << window_size << " h**-1 Mpc used for modifications." << std::endl;
-        std::cerr << "This is prone to numerical errors when modifying the field."
+        logging::entry() << "This is prone to numerical errors when modifying the field."
                   << " Decrease filtering scale to avoid it." << std::endl;
       }
 
