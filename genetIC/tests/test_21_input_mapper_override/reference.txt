@@ -1,4 +1,4 @@
-+ Input mapper: computing geometry from ./paramfile_with_many_calls_to_expensive_features.txt ------------------------
++ Input mapper: computing geometry from ./paramfile_with_many_calls_to_expensive_features.txt
 | 
 | Initialized the base grid:
 |   Box length            = 50 Mpc/h
