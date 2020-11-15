@@ -352,7 +352,9 @@ def zoom_demo(nP=256, nW=256, hires_window_scale=4, hires_window_offset=8,plaw=-
               constraint_val=None, constraint_covec=None,
               no_random=False,pad=None,
               show_covec=False,errors=False,linewidth=None,
-              constrain_potential=False):
+              constrain_potential=False,seed=None,
+              splice_seed=None,diff_seed=None,
+              splice_range=(100,200),plot_kwargs={}):
 
     if errors and not no_random:
         raise ValueError("To display errors in the convolved constraint, you must disable the random component")
@@ -371,7 +373,18 @@ def zoom_demo(nP=256, nW=256, hires_window_scale=4, hires_window_offset=8,plaw=-
     if pad is None:
         pad = X.get_default_plot_padding()
 
-    delta_P, delta_W = X.realization(no_random=no_random)
+    if seed:
+        np.random.seed(seed)
+
+    if splice_seed:
+        delta_P, delta_W = X.get_spliced_realization(seed, splice_seed, splice_range)
+    else:
+        delta_P, delta_W = X.realization(no_random=no_random,seed=seed)
+
+    if diff_seed:
+        delta_P_diff, delta_W_diff = X.realization(seed=diff_seed)
+        delta_P-=delta_P_diff
+        delta_W-=delta_W_diff
 
 
     if errors:
@@ -406,20 +419,28 @@ def zoom_demo(nP=256, nW=256, hires_window_scale=4, hires_window_offset=8,plaw=-
         xW = xW[hr_pad:-hr_pad]
         delta_W = delta_W[hr_pad:-hr_pad]
 
-    line, = p.plot(xW, delta_W, label=X.description,linewidth=linewidth)
+    line, = p.plot(xW, delta_W, label=X.description,linewidth=linewidth,**plot_kwargs)
 
     left_of_window = slice(0,hires_window_offset+pad+1)
     right_of_window = slice(hires_window_offset+nP//hires_window_scale-pad-1, None)
 
 
     for sl in left_of_window, right_of_window:
-        p.plot(xP[sl], delta_P[sl], ":", color=line.get_color(),linewidth=linewidth)
+        plot_kwargs['color'] = line.get_color()
+        p.plot(xP[sl], delta_P[sl], ":",linewidth=linewidth,**plot_kwargs)
 
 
     if show_covec:
         p.legend()
         p.twinx()
         p.plot(X.xs()[1], constraint_covec, color='#aaaaaa')
+
+    if splice_seed:
+        xP, xW = X.xs()
+        y_range = max(abs(delta_W).max(),abs(delta_P).max())*2
+        yl = p.ylim()
+        p.fill_betweenx([-y_range, y_range], xW[splice_range[0]], xW[splice_range[1]-1], color='#eeeeee')
+        p.ylim(*yl)
 
     return X
 

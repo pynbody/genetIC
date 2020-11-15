@@ -43,6 +43,16 @@ class FFTArray(np.ndarray):
 
         return self
 
+    def norm(self):
+        if self.fourier:
+            return math.sqrt(complex_dot(self,self))
+        else:
+            return np.linalg.norm(self)
+
+    @property
+    def k(self):
+        return scipy.fftpack.rfftfreq(len(self))
+
 def unitary_fft_matrix(n):
     ki, xi = np.mgrid[:n,:n]
     return np.exp(-2.j*np.pi*ki*xi/n)/np.sqrt(n)

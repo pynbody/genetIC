@@ -22,6 +22,11 @@ class GeometryAndPixelization:
         return (np.arange(self.nP) + 0.5) / self.nP, \
                (self.offset + (np.arange(self.nW) + 0.5) / self.pixel_size_ratio) / self.nP
 
+    def _hires_to_lores_pixel(self, pixel_number):
+        """Return the lores pixel corresponding to the given hires pixel"""
+        lores_offset = pixel_number // self.pixel_size_ratio
+        return lores_offset + self.offset
+
     def boundary_xs(self):
         """Return the real-space coordinates of the pixel boundaries for the outputs"""
         centre1, centre2 = self.xs()
@@ -97,7 +102,7 @@ class GeometryAndPixelization:
     @in_real_space
     def downsample(self, hires_vector: FFTArray, input_unpadded=True, output_padded=True) -> FFTArray:
         """Take a high-res region vector and downsample it onto the low-res grid"""
-        vec_lr = np.zeros(self.nP).view(type=FFTArray)
+        vec_lr = np.zeros(self.nP, dtype=hires_vector.dtype).view(type=FFTArray)
         if input_unpadded:
             vec_lr[self.offset:self.offset + self.nW // self.pixel_size_ratio] = \
                 hires_vector.reshape((self.nW // self.pixel_size_ratio, self.pixel_size_ratio)).mean(axis=1)

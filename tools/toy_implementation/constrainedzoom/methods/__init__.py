@@ -8,7 +8,7 @@ from ..fft_wrapper import FFTArray, in_fourier_space, in_real_space, complex_dot
 from .detail.powspec import Powspec
 from .detail.geometry import GeometryAndPixelization
 from .detail.covcalc import CovarianceCalculation
-
+from .detail.cg import conjugate_gradient
 
 class ZoomConstrained(GeometryAndPixelization, Powspec, CovarianceCalculation,
                       metaclass=abc.ABCMeta):
@@ -27,7 +27,7 @@ class ZoomConstrained(GeometryAndPixelization, Powspec, CovarianceCalculation,
         """The default plot padding (in coarse pixels) to hide from the high-res region"""
         return 0
 
-    def realization(self, no_random=False, noiseP: FFTArray=None, noiseW: FFTArray=None) -> [FFTArray, FFTArray] :
+    def realization(self, no_random=False, noiseP: FFTArray=None, noiseW: FFTArray=None, seed=None) -> [FFTArray, FFTArray] :
         """Generate a realization of the Gaussian random field with constraints, if present.
         
         This implementation calls a generic sequence of operations which are overriden in base class implementations to
@@ -36,6 +36,7 @@ class ZoomConstrained(GeometryAndPixelization, Powspec, CovarianceCalculation,
         :param no_random: if True, create a zeroed random field to see effect of constraints in isolation
         :param noiseP: if present, the array of white noise for the low-frequency (nP) box
         :param noiseW:  if present, the array of white noise for the high-frequency (nW) sub-box
+        :param seed: if present, the seed for the numpy random number generator
         :return: delta_low, delta_high: the fields for the low-frequency (nP) box and high-frequency (nW) sub-box respectively
         """
 
@@ -46,6 +47,8 @@ class ZoomConstrained(GeometryAndPixelization, Powspec, CovarianceCalculation,
             noiseW = np.zeros_like(k_high).view(FFTArray)
         else:
             # Generate white-noise, or correctly encapsulate the white-noise samples passed in
+            if seed:
+                np.random.seed(seed)
             noiseP, noiseW = self._get_whitenoise(noiseP, noiseW)
 
         # In trad approach, apply constraints directly to the noise; covariance lives in the constraint covectors
@@ -72,6 +75,125 @@ class ZoomConstrained(GeometryAndPixelization, Powspec, CovarianceCalculation,
 
         return delta_low.in_real_space(), delta_high.in_real_space()
 
+    def get_spliced_realization(self, seed_in_mask, seed_out_mask, mask_range):
+        np.random.seed(seed_in_mask)
+        noiseP1, noiseW1 = self._get_whitenoise()
+        np.random.seed(seed_out_mask)
+        noiseP2, noiseW2 = self._get_whitenoise()
+
+        noiseP, noiseW = self.splice_realizations(noiseP1, noiseW1, noiseP2, noiseW2, mask_range)
+        noiseP.in_fourier_space(), noiseW.in_fourier_space()
+        return self.realization(noiseP=noiseP, noiseW=noiseW)
+
+    @classmethod
+    def _splice_realizations_one_level(cls, noise1: FFTArray, noise2: FFTArray, cov: FFTArray, mask: np.ndarray):
+        """Implementation of splice_realizations for single level of the zoom hierarchy.
+
+        :param noise1: noise for inside the mask
+        :param noise2: noise for outside the mask
+        :param cov: power spectrum / covariance in Fourier space
+        :param mask: masking array (in real space)"""
+
+        complementary_mask=~mask
+        inv_cov=1./cov
+        inv_cov[cov==0] = 0
+
+        assert noise1.fourier == noise2.fourier
+        # Cast into form X.alpha = z
+
+        delta_diff = (noise2-noise1)
+        delta_diff.in_fourier_space()
+        delta_diff*=cov**0.5
+        delta_diff.in_real_space()
+
+        z = delta_diff.copy()
+        z*=mask
+        z.in_fourier_space()
+        z*=inv_cov
+        z.in_real_space()
+        z*=complementary_mask
+        z.in_fourier_space()
+        z*=cov**0.5
+        z.in_real_space()
+
+
+        def X(input: FFTArray):
+            nonlocal cov, inv_cov, mask, complementary_mask
+            v = input.copy()
+            assert not v.fourier
+            v.in_fourier_space()
+            v*=cov**0.5
+            v.in_real_space()
+            v*=complementary_mask
+            v.in_fourier_space()
+            v*=inv_cov
+            v.in_real_space()
+            v*=complementary_mask
+            v.in_fourier_space()
+            v*=cov**0.5
+            v.in_real_space()
+            return v
+
+        # solve the inverse problem for alpha
+        alpha = conjugate_gradient(X,z)
+
+
+        alpha.in_fourier_space()
+        alpha*=cov**0.5
+        alpha.in_real_space()
+
+
+        # assemble the result; this is going to be in the delta basis (not the noise basis)
+        delta2 = noise2.copy()
+        delta2.in_fourier_space()
+        delta2*=cov**0.5
+        delta2.in_real_space()
+        result = -(mask*delta_diff) + complementary_mask*alpha + delta2
+
+        # deconvolve the power spectrum to get back to the noise basis (necessary if there are multiple zoom levels)
+        assert not result.fourier
+        result.in_fourier_space()
+        result*=inv_cov**0.5
+        result.in_real_space()
+        return result
+
+
+    def splice_realizations(self, noiseP_1, noiseW_1, noiseP_2, noiseW_2, mask_range):
+        """From two realizations (1) and (2), generate a third realization which =(1) in a masked region, ~=(2) outside.
+
+        This method operates on the noise vectors, but the mask is understood to apply to the delta vectors, i.e.
+
+        M.delta = M.delta_1
+        (I-M).delta ~= (I-M).delta_2
+
+        The ~= is obtained by minimizing the distance in field space, i.e. minimize Q where
+
+                    Q = (delta - delta_2).C^(-1).(delta - delta_2)
+        s.t.  M.delta = M.delta_1
+
+        :param noiseP_1, noiseW_1: the low-res and high-res noise vectors for realisation 1
+        :param noiseP_2, noiseW_2: the low-res and high-res noise vectors for realisation 2
+        :param mask_range: range of high-res pixels to constraint to realisation 1
+        :returns noiseP, noiseW: the low-res and high-res noise vectors for the spliced realisation
+        """
+
+        boundary_safety = 5
+
+        mask_high = np.zeros(self.nW, bool)
+        mask_high[:] = False
+        mask_high[mask_range[0]-boundary_safety:mask_range[1]+boundary_safety+1] = True
+
+        mask_low = np.zeros(self.nP, bool)
+        mask_low[:] = False
+        low_start = self._hires_to_lores_pixel(mask_range[0]-boundary_safety)
+        low_end = self._hires_to_lores_pixel(mask_range[1]+boundary_safety)
+        mask_low[low_start:low_end+1] = True
+
+        noiseP = self._splice_realizations_one_level(noiseP_1, noiseP_2, self.C_low,
+                                                     mask_low)
+        noiseW = self._splice_realizations_one_level(noiseW_1, noiseW_2,
+                                                     self.C_high, mask_high)
+        return noiseP, noiseW
 
     @in_fourier_space
     def _get_whitenoise(self, noiseP: FFTArray=None, noiseW: FFTArray=None):
