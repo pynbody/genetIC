@@ -396,7 +396,7 @@ namespace fields {
     not the amplitude. This can be used to perform simulations that can quickly estimate ensemble parameters
     (see Angulo and Pontzen 2016).
     */
-    void enforceExactPowerSpectrum() {
+    void enforceUnitVariance() {
       assertContextConsistent();
       toFourier();
 

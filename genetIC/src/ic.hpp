@@ -1278,7 +1278,7 @@ public:
 
     // Enforce exact unit variance if requested
     if(exactPowerSpectrum)
-      outputFields[0]->enforceExactPowerSpectrum();
+      outputFields[0]->enforceUnitVariance();
 
     // Make copies of the field ready for additional transfer functions (such as baryons)
     for (size_t i = 1; i < outputFields.size(); i++) {
