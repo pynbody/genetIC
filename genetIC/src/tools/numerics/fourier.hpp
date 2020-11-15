@@ -75,10 +75,9 @@ namespace tools {
       /*! \class FieldFourierManagerBase
           \brief Class that handles all operations to do with Fourier transforms used by the code.
       */
-      template<typename DataType>
+      template<typename DataType, typename CoordinateType = tools::datatypes::strip_complex<DataType>>
       class FieldFourierManagerBase {
       protected:
-        using CoordinateType = tools::datatypes::strip_complex<DataType>;
         using ComplexType = tools::datatypes::ensure_complex<DataType>;
         fields::Field<DataType, CoordinateType> &field; //!< Reference to a field to which Fourier operations will be applied.
         const grids::Grid<CoordinateType> &grid; //!< Constant reference to the grid on which the Fourier transform is applied.
@@ -573,6 +572,38 @@ namespace tools {
           field.setFourier(!field.isFourier());
         }
 
+
+      };
+
+      //! A dummy specialisation expressing that fourier transforms over boolean masks can't be done!
+      template<>
+      class FieldFourierManager<char> : public FieldFourierManagerBase<char, double> {
+      public:
+
+        void ensureFourierModesAreMirrored() override {
+
+        }
+
+        FieldFourierManager(fields::Field<char, double> &field) : FieldFourierManagerBase(field) {
+
+        }
+
+        size_t getRequiredDataSize() {
+          return field.getGrid().size3;
+        }
+
+        void performTransform() {
+          throw std::runtime_error("Boolean fields cannot be Fourier transformed");
+
+        }
+
+        void setFourierCoefficient(int kx, int ky, int kz, const ComplexType &val) override {
+          throw std::runtime_error("Boolean fields cannot be Fourier transformed");
+        }
+
+        ComplexType getFourierCoefficient(int kx, int ky, int kz) const override {
+          throw std::runtime_error("Boolean fields cannot be Fourier transformed");
+        }
 
       };
 

@@ -134,6 +134,7 @@ void setup_parser(tools::ClassDispatch<ICf, void> &dispatch) {
 
   dispatch.add_class_route("reverse", static_cast<void (ICf::*)()>(&ICf::reverse));
   dispatch.add_class_route("reverse_small_k", static_cast<void (ICf::*)(FloatType)>(&ICf::reverseSmallK));
+  dispatch.add_class_route("splice", &ICf::splice);
 
   // Write objects to files
   // dispatch.add_class_route("dump_grid", &ICf::dumpGrid);
@@ -168,13 +169,13 @@ void setup_parser(tools::ClassDispatch<ICf, void> &dispatch) {
 }
 
 void header(ostream &outf, std::string prefix="") {
-  outf << prefix << "genetIC v1.1.1, compiled: " << __DATE__ << ", " << __TIME__ << endl;
+  outf << prefix << "genetIC v1.2.0, compiled: " << __DATE__ << ", " << __TIME__ << endl;
   time_t now = time(0);
   struct tm tstruct;
   char buf[80];
   tstruct = *localtime(&now);
   strftime(buf, sizeof(buf), "%b %d %Y, %X", &tstruct);
-  outf << prefix << "              runtime:  " << buf << endl << endl;
+  outf << prefix << "                 runtime: " << buf << endl << endl;
 #ifdef GIT_VERSION
   if (sizeof(GIT_VERSION) > 1)
     outf << prefix << "git HEAD:" << GIT_VERSION << endl;

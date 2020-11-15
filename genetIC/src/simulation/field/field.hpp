@@ -133,6 +133,14 @@ namespace fields {
       assert(data.size() == fourierManager->getRequiredDataSize());
     }
 
+    //! Move operator
+    auto & operator=(Field<DataType, CoordinateType> &&move) {
+      assert(move.pGrid == pGrid);
+      data = std::move(move.data);
+      fourier = move.fourier;
+      return *this;
+    }
+
     //! Copy constructor
     Field(const Field<DataType, CoordinateType> &copy)
       : std::enable_shared_from_this<Field<DataType, CoordinateType>>(),
@@ -150,6 +158,8 @@ namespace fields {
       assert(data.size() == fourierManager->getRequiredDataSize());
 
     }
+
+
 
     //! Construct a field on the specified grid by copying the given data
     Field(TGrid &grid, const TData &dataVector, bool fourier = true) : pGrid(grid.shared_from_this()),
@@ -207,6 +217,112 @@ namespace fields {
 
       return (*this)[pGrid->getIndexFromCoordinate(Coordinate<int>(x_p_0, y_p_0, z_p_0))];
     }
+
+    //! Multiply the field in-place by the provided field
+    template<typename OtherDataType>
+    void operator*=(const Field<OtherDataType, CoordinateType> & other) {
+      size_t N = data.size();
+#pragma omp parallel for
+      for(size_t i=0; i<N; i++) {
+        data[i]*=other[i];
+      }
+    }
+
+    //! Multiply the field in-place by the provided value
+    template<typename OtherDataType>
+    void operator*=(OtherDataType value) {
+      size_t N = data.size();
+#pragma omp parallel for
+      for(size_t i=0; i<N; i++) {
+        data[i]*=value;
+      }
+    }
+
+    //! Add the provided field to this one in-place
+    void operator+=(const Field<DataType, CoordinateType> & other) {
+      size_t N = data.size();
+#pragma omp parallel for
+      for(size_t i=0; i<N; i++) {
+        data[i]+=other[i];
+      }
+    }
+
+    //! Subtract the provided field from this one in-place
+    void operator-=(const Field<DataType, CoordinateType> & other) {
+      size_t N = data.size();
+#pragma omp parallel for
+      for(size_t i=0; i<N; i++) {
+        data[i]-=other[i];
+      }
+    }
+
+    Field<DataType, CoordinateType> operator-(const Field<DataType, CoordinateType> & other) const {
+      auto ret = Field<DataType, CoordinateType>(*this);
+      ret-=other;
+      return ret;
+    }
+
+    //! Add a multiple of the provided field to this one in-place
+    void addScaled(const Field<DataType, CoordinateType> & other,
+                   tools::datatypes::strip_complex<DataType> scale) {
+      size_t N = data.size();
+#pragma omp parallel for
+      for(size_t i=0; i<N; i++) {
+        data[i]+=scale*other[i];
+      }
+    }
+
+    //! Single grid inner product. Only implemented for real space.
+    auto innerProduct(const Field<DataType, CoordinateType> & other) const {
+      assert(!other.isFourier());
+      assert(!isFourier());
+
+      tools::datatypes::strip_complex<DataType> v=0;
+      size_t N = data.size();
+
+#pragma omp parallel for reduction(+:v)
+      for(size_t i=0; i<N; i++) {
+        v+=data[i]*other[i];
+      }
+      return v;
+    }
+
+    auto norm() const {
+      auto norm2 = innerProduct(*this);
+      return sqrt(norm2);
+    }
+
+    Field<DataType, CoordinateType> operator-() const {
+      auto ret(*this);
+      size_t N = data.size();
+#pragma omp parallel for
+      for(size_t i=0; i<N; i++) {
+        ret[i]=-ret[i];
+      }
+      return ret;
+    }
+
+    void applyTransferFunction(const Field<DataType, CoordinateType> & covariance, double power) {
+      using T = tools::datatypes::ensure_complex<DataType>;
+      assert(this->isFourier());
+      assert(covariance.isFourier());
+      assert(&covariance.getGrid() == &this->getGrid());
+      auto grid = this->getGrid();
+      forEachFourierCellInt([&grid, this, &covariance, power]
+                                    (T existingValue, int kx, int ky, int kz) {
+
+        auto spec = covariance.getFourierCoefficient(kx,ky,kz).real();
+
+        if(power!=1.0 && spec!=0.0)
+          spec = pow(spec, power);
+
+        T new_val = existingValue*spec;
+
+        return new_val;
+      });
+    }
+
+
 
     //! Add the specified value to the field and the given location, using conjugate deinterpolation
     /*! For an explanation of what is meant by 'conjugate deinterpolation' see the

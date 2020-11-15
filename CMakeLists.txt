@@ -61,7 +61,7 @@ set(SOURCE_FILES
         genetIC/src/simulation/modifications/quadraticmodification.hpp
         genetIC/src/simulation/multilevelgrid/mask.hpp
         genetIC/src/tools/memmap.hpp
-        genetIC/src/tools/numerics/tricubic.hpp genetIC/src/tools/logging.hpp genetIC/src/tools/logging.cpp)
+        genetIC/src/tools/numerics/tricubic.hpp genetIC/src/tools/logging.hpp genetIC/src/tools/logging.cpp genetIC/src/simulation/modifications/splice.hpp)
 
 include_directories( /opt/local/include )
 link_directories(/opt/local/lib )

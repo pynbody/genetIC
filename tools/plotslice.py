@@ -75,7 +75,7 @@ def get_peak_value(prefix, name):
     x = np.load(all_grids[-1])
     return abs(x).max()
 
-def _load_grid(prefix,diff_prefix, grid, name="grid"):
+def _load_grid(prefix,diff_prefix, grid, name="grid", diff_normalized=True):
     a = np.load(prefix+name+"-%d.npy"%grid).real
     ax,ay,az,aL = [float(x) for x in open(prefix+name+"-info-%d.txt"%grid).readline().split()]
 
@@ -123,7 +123,8 @@ def _load_grid(prefix,diff_prefix, grid, name="grid"):
             b = _downsample(b, ratio)
 
         a-=b
-        a/=get_peak_value(diff_prefix, name)
+        if diff_normalized:
+            a/=get_peak_value(diff_prefix, name)
 
     return a
 
@@ -140,10 +141,10 @@ def _downsample(hr_b, ratio):
 
 def plotslice_onegrid(prefix="output/",grid=0,slice=None,vmin=-0.15,vmax=0.15,padcells=0,
                       offset=None,plot_offset=(0,0),save_image=None,
-                      diff_prefix=None,name='grid'):
+                      diff_prefix=None,diff_normalized=True,name='grid'):
     new_plot = p.gcf().axes == []
 
-    a = _load_grid(prefix, diff_prefix, grid, name)
+    a = _load_grid(prefix, diff_prefix, grid, name, diff_normalized)
 
     ax,ay,az,aL = [float(x) for x in open(prefix+name+"-info-%d.txt"%grid).readline().split()]
 
@@ -190,7 +191,7 @@ def plotslice_onegrid(prefix="output/",grid=0,slice=None,vmin=-0.15,vmax=0.15,pa
 
 
 def plotslice(prefix="output/",maxgrid=10,slice=None,onelevel=False,vmin=-0.15,vmax=0.15,padcells=4, offset=None,
-              diff_prefix=None,name='grid',save_image=None,wrap=True):
+              diff_prefix=None,diff_normalized=True,name='grid',save_image=None,wrap=True):
     maxgrid_on_disk = len(glob.glob(prefix+name+"-?.npy"))
     if maxgrid_on_disk<maxgrid:
         maxgrid = maxgrid_on_disk
@@ -208,9 +209,9 @@ def plotslice(prefix="output/",maxgrid=10,slice=None,onelevel=False,vmin=-0.15,v
         save_image_this_level = _add_level_number_to_filename(save_image, level)
 
         slice, vmin, vmax, offset = plotfn(prefix,level,slice,vmin,vmax,
-                                                      padcells=0 if level==0 else padcells, offset=offset,
-                                                                    diff_prefix=diff_prefix,name=name,
-                                                                    save_image=save_image_this_level)
+                                           padcells=0 if level==0 else padcells, offset=offset,
+                                           diff_prefix=diff_prefix,diff_normalized=diff_normalized,name=name,
+                                           save_image=save_image_this_level)
 
 def _add_level_number_to_filename(filename, level_number):
     if filename is None:

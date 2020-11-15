@@ -50,7 +50,7 @@ namespace fields {
 
     //! Copy constructor
     RandomFieldGenerator(const RandomFieldGenerator &copy) : field(copy.field) {
-      // Copy accross old variables:
+      // Copy across old variables:
       seeded = copy.seeded;
       baseSeed = copy.baseSeed;
       parallel = copy.parallel;
@@ -63,6 +63,18 @@ namespace fields {
       randomState = gsl_rng_alloc(randomNumberGeneratorType);
       gsl_rng_set(randomState, copy.baseSeed);
 
+    }
+
+    //! Constructor, using settings from existing generator but tying to new field (used for splicing)
+    RandomFieldGenerator(MultiLevelField <DataType> &field_, const RandomFieldGenerator &copy) : field(field_) {
+      seeded = false;
+      baseSeed = copy.baseSeed;
+      parallel = copy.parallel;
+      randomNumberGeneratorType = copy.randomNumberGeneratorType;
+      drawInFourierSpace = copy.drawInFourierSpace;
+      reverseRandomDrawOrder = copy.reverseRandomDrawOrder;
+      randomState = gsl_rng_alloc(randomNumberGeneratorType);
+      gsl_rng_set(randomState, copy.baseSeed);
     }
 
     //! Destructor - frees the random state
