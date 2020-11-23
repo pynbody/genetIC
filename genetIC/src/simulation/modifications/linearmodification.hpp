@@ -305,23 +305,22 @@ namespace modifications {
       \param direction - component of t velocity to modify, (0,1,2) <-> (x,y,z).
 
       This evaluates the integral \int_\Gamma (q-\bar{q}) x (d Psi / dt) d³q,
-      where q is the Lagrangian position, \bar{q} is the mean withing the Lagrangian 
-      patch and Psi is the rescaled potential. Note that this integral is done in 
+      where q is the Lagrangian position, \bar{q} is the mean withing the Lagrangian
+      patch and Psi is the rescaled potential. Note that this integral is done in
       Lagrangian space (d³q) over the Lagrangian patch.
   */
 
   public:
-    AngMomentumModification(const multilevelcontext::MultiLevelContextInformation<DataType> &underlying_,
+    AngMomentumModification(const multilevelgrid::MultiLevelGrid<DataType> &underlying_,
                             const cosmology::CosmologicalParameters<T> &cosmology_, int direction_) :
         OverdensityModification<DataType, T>(underlying_, cosmology_), direction(direction_) {
       if (direction_ < 0 || direction_ > 2)
         throw std::runtime_error("Angular momentum direction must be 0 (x), 1 (y) or 2 (z)");
 
 #ifdef ZELDOVICH_GRADIENT_FOURIER_SPACE
-    throw std::runtime_error("The code performs badly with the Zeldovich displacement is computed in Fourier space. Disable this error if you are sure about what you are doing.");
+      throw std::runtime_error("Refusing to continue as the code was compiled with the 'ZELDOVICH_GRADIENT_FOURIER_SPACE' activated, but an angular momentum modification was applied. These modifications require the gradient to be performed using a finite-difference scheme ; otherwise, the output may not satisfy the modifications. Comment out this error if you are sure about what you are doingotherwise, it may lead to discrepancies.");
 #endif
       direction = direction_;
-
     };
 
   protected:
