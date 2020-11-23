@@ -340,9 +340,13 @@ namespace modifications {
         Coordinate<T> q = grid.getCentroidFromIndex(index);
 
         Coordinate<T> deltaq = q - qcenter;
+
+        // Wrap around domain size
         for (int dir = 0; dir < 3; ++dir) {
           if (deltaq[dir] > grid.periodicDomainSize / 2) {
-            throw std::runtime_error("The Lagrangian patch contains particles located at more than half the box size ; this will likely result in spurious results.");
+            delta[dir] -= grid.periodicDomainSize;
+          else if (deltaq[dir] < -grid.periodicDomainSize / 2) {
+            delta[dir] += grid.periodicDomainSize;
           }
         }
         Coordinate<T> qCrossCoeff;
