@@ -178,7 +178,7 @@ namespace modifications {
   template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
   class VelocityModification : public OverdensityModification<DataType, T> {
   private:
-    bool derivInRealSpace = true; //!< If true, make the derivation in real space. Otherwise, make the derivation in Fourier space.
+    bool derivInRealSpace = true; //!< If true, make the derivative in real space. Otherwise, make the derivative in Fourier space.
   protected:
     int direction; //!< Component of velocity to modify, (0,1,2) <-> (x,y,z).
 
@@ -339,16 +339,8 @@ namespace modifications {
         size_t index = this->flaggedCellsFinestGrid[i];
         Coordinate<T> q = grid.getCentroidFromIndex(index);
 
-        Coordinate<T> deltaq = q - qcenter;
+        Coordinate<T> deltaq = grid.getWrappedOffset(qcenter, q);
 
-        // Wrap around domain size
-        for (int dir = 0; dir < 3; ++dir) {
-          if (deltaq[dir] > grid.periodicDomainSize / 2) {
-            delta[dir] -= grid.periodicDomainSize;
-          else if (deltaq[dir] < -grid.periodicDomainSize / 2) {
-            delta[dir] += grid.periodicDomainSize;
-          }
-        }
         Coordinate<T> qCrossCoeff;
         // Coefficient to compute cross product (this is the "q \cross" part of q \cross v)
         qCrossCoeff[direction] = 0;
