@@ -318,7 +318,7 @@ namespace modifications {
         throw std::runtime_error("Angular momentum direction must be 0 (x), 1 (y) or 2 (z)");
 
 #ifdef ZELDOVICH_GRADIENT_FOURIER_SPACE
-      throw std::runtime_error("Refusing to continue as the code was compiled with the 'ZELDOVICH_GRADIENT_FOURIER_SPACE' activated, but an angular momentum modification was applied. These modifications require the gradient to be performed using a finite-difference scheme ; otherwise, the output may not satisfy the modifications. Comment out this error if you are sure about what you are doingotherwise, it may lead to discrepancies.");
+      throw std::runtime_error("Refusing to continue as the code was compiled with the 'ZELDOVICH_GRADIENT_FOURIER_SPACE' activated, but an angular momentum modification was applied. These modifications require the gradient to be performed using a finite-difference scheme ; otherwise the output may not satisfy the modifications. Comment out this error if you are sure about what you are doing.");
 #endif
       direction = direction_;
     };
