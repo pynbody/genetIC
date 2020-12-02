@@ -179,9 +179,9 @@ namespace modifications {
   class VelocityModification : public OverdensityModification<DataType, T> {
   private:
 #ifdef VELOCITY_MODIFICATION_GRADIENT_FOURIER_SPACE
-    const bool derivInRealSpace = false; //!< If true, make the derivative in real space. Otherwise, make the derivative in Fourier space.
+    const bool derivInFourierSpace = true; //!< If true, make the derivative in Fourier space. Otherwise, make the derivative in real space.
 #else
-    const bool derivInRealSpace = true;
+    const bool derivInFourierSpace = false;
 #endif
   protected:
     int direction; //!< Component of velocity to modify, (0,1,2) <-> (x,y,z).
@@ -200,7 +200,7 @@ namespace modifications {
   protected:
 
     fields::Field<DataType, T> calculateLocalisationCovector(const grids::Grid<T> &grid) override {
-      if (!this->derivInRealSpace) {
+      if (this->derivInFourierSpace) {
         return OverdensityModification<DataType,T>::calculateLocalisationCovector(grid);
       } else {
         // Uses a finite difference 4th order stencil to create just a derivative covector
@@ -250,7 +250,7 @@ namespace modifications {
         const T nyquist = tools::numerics::fourier::getNyquistModeThatMustBeReal(grid) * grid.getFourierKmin();
 
         auto calcCell =
-          [I, scale, nyquist](complex<T> overdensityFieldValue, T kx, T ky, T kz, T k_chosen_direction, bool derivInRealSpace) -> complex<T> {
+          [I, scale, nyquist](complex<T> overdensityFieldValue, T kx, T ky, T kz, T k_chosen_direction, bool derivInFourierSpace) -> complex<T> {
 
             // This lambda evaluates the derivative for the given Fourier-space cell. kx,ky,kz are the
             // input k-space coordinates, and k_chosen_direction must be set to whichever of these specifies
@@ -261,7 +261,7 @@ namespace modifications {
             if (k2 == 0)
               return complex<T>(0);
             else {
-              if (!derivInRealSpace) {
+              if (derivInFourierSpace) {
                 if(k_chosen_direction == nyquist) return complex<T>(0);
                 return -scale * overdensityFieldValue * I * k_chosen_direction / k2;
               } else {
@@ -272,13 +272,13 @@ namespace modifications {
 
         if (direction == 0)
           fieldOnLevel.forEachFourierCell(
-            [calcCell, this](compT v, T kx, T ky, T kz) { return calcCell(v, kx, ky, kz, kx, this->derivInRealSpace); });
+            [calcCell, this](compT v, T kx, T ky, T kz) { return calcCell(v, kx, ky, kz, kx, this->derivInFourierSpace); });
         else if (direction == 1)
           fieldOnLevel.forEachFourierCell(
-            [calcCell, this](compT v, T kx, T ky, T kz) { return calcCell(v, kx, ky, kz, ky, this->derivInRealSpace); });
+            [calcCell, this](compT v, T kx, T ky, T kz) { return calcCell(v, kx, ky, kz, ky, this->derivInFourierSpace); });
         else if (direction == 2)
           fieldOnLevel.forEachFourierCell(
-            [calcCell, this](compT v, T kx, T ky, T kz) { return calcCell(v, kx, ky, kz, kz, this->derivInRealSpace); });
+            [calcCell, this](compT v, T kx, T ky, T kz) { return calcCell(v, kx, ky, kz, kz, this->derivInFourierSpace); });
         else
           throw std::runtime_error("Unknown direction");
       }
