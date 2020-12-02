@@ -178,7 +178,11 @@ namespace modifications {
   template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
   class VelocityModification : public OverdensityModification<DataType, T> {
   private:
-    bool derivInRealSpace = true; //!< If true, make the derivative in real space. Otherwise, make the derivative in Fourier space.
+#ifdef VELOCITY_MODIFICATION_GRADIENT_FOURIER_SPACE
+    const bool derivInRealSpace = false; //!< If true, make the derivative in real space. Otherwise, make the derivative in Fourier space.
+#else
+    const bool derivInRealSpace = true;
+#endif
   protected:
     int direction; //!< Component of velocity to modify, (0,1,2) <-> (x,y,z).
 
