@@ -1,4 +1,4 @@
-# Test basic uniform volume
+# Test angular momentum modification on uniform grid
 
 Om  0.279
 Ol  0.721
