@@ -322,7 +322,7 @@ namespace modifications {
         throw std::runtime_error("Angular momentum direction must be 0 (x), 1 (y) or 2 (z)");
 
 #ifdef ZELDOVICH_GRADIENT_FOURIER_SPACE
-      throw std::runtime_error("Refusing to continue as the code was compiled with the 'ZELDOVICH_GRADIENT_FOURIER_SPACE' activated, but an angular momentum modification was applied. These modifications require the gradient to be performed using a finite-difference scheme ; otherwise the output may not satisfy the modifications. Comment out this error if you are sure about what you are doing.");
+      logging::entry(logging::level::warning) << "WARNING: The code was compiled with the 'ZELDOVICH_GRADIENT_FOURIER_SPACE' activated, but an angular momentum modification was applied. For consistency, consider recompiling the code with the flag deactivated; otherwise the output may not satisfy the modifications. Comment out this error if you are sure about what you are doing." << std::endl;
 #endif
       direction = direction_;
     };
@@ -331,7 +331,10 @@ namespace modifications {
     fields::Field<DataType, T> calculateLocalisationCovector(const grids::Grid<T> &grid) override {
 
       auto qcenter = this->getCentre(grid);
-      T a = -1. / 12. / grid.cellSize, b = 2. / 3. / grid.cellSize;  // signs here so that L ~ - Nabla Phi
+
+      // Normalize by cell spacing and number of elements (to obtain specific AM)
+      T norm = this->flaggedCellsFinestGrid.size() * grid.cellSize;
+      T a = 1. / 12. / norm, b = -2. / 3. / norm;  // signs here so that L ~ - Nabla Phi
 
       int dirp1 = (direction + 1) % 3,
           dirp2 = (direction + 2) % 3;
