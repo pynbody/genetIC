@@ -1331,7 +1331,6 @@ protected:
 #endif
     std::vector<size_t> flaggedParticles;
     io::getBuffer(flaggedParticles, filename);
-    size_t size = flaggedParticles.size();
     tools::sortAndEraseDuplicate(flaggedParticles);
 
     flagCellsCorrespondingToParticles(flaggedParticles);

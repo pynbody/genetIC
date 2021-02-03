@@ -13,11 +13,9 @@ namespace logging {
     unsigned numIndent = 0;
 
     const char* RESET = "\x1B[0m";
-    const char* RED = "\x1B[31m";
     const char* YELLOW = "\x1B[33m";
-    const char* BLUE = "\x1B[34m";
-
-
+    // const char* RED = "\x1B[31m";
+    // const char* BLUE = "\x1B[34m";
   }
 
   std::ostream & entry(level lev) {

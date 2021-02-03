@@ -30,8 +30,6 @@ namespace fields {
     //! \brief Adds this field to the destination field.
     virtual void addTo(Field <DataType, CoordinateType> &destination) const {
 
-      size_t size3 = destination.getGrid().size3;
-
       fields::cache::enableInterpolationCaches();
 
       // A note on the scheduling here: the most costly operations operations are encountered when there is
