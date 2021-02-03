@@ -65,12 +65,7 @@ To explain what is going on here:
 To run the tests, use
 ```
 cd ..
-<<<<<<< HEAD
 docker run --rm -v `pwd`:/genetic_repository/ -e IC=/genetIC/genetIC -w /genetic_repository/genetIC/tests --entrypoint bash apontzen/genetic run_tests.sh
 docker run --rm -v `pwd`:/genetic_repository/ -e IC=/genetIC/genetIC -w /genetic_repository/genetIC/tests --entrypoint bash apontzen/genetic run_mapper_tests.sh
-=======
-docker run -v `pwd`:/genetic_repository/ -e IC=/genetIC/genetIC -w /genetic_repository/genetIC/tests genetic bash run_tests.sh
-docker run -v `pwd`:/genetic_repository/ -e IC=/genetIC/genetIC -w /genetic_repository/genetIC/tests genetic bash run_mapper_tests.sh
->>>>>>> 7f29693d65e56db580292e6da5e15efd8d558241
 ```
 
