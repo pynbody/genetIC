@@ -204,7 +204,6 @@ namespace fields {
           T kMin = fieldThis.getGrid().getFourierKmin();
           fieldThis.forEachFourierCellInt([&fieldOther, kMin, scale]
                                             (ComplexType currentVal, int kx, int ky, int kz) {
-            T k_value = kMin * sqrt(T(kx * kx) + T(ky * ky) + T(kz * kz));
             return currentVal + scale * fieldOther.getFourierCoefficient(kx, ky, kz);
           });
         }
@@ -273,11 +272,8 @@ namespace fields {
         return this->innerProduct(otherAsVector);
       }
 
-      const filters::Filter<T> *pFiltOther;
-      const grids::Grid<T> *pCurrentGrid;
       const Field<DataType> *pFieldThis, *pFieldOther;
       const std::vector<DataType> *pFieldDataThis;
-      const Field<DataType> *pCov;
 
       ComplexType result(0, 0);
 
