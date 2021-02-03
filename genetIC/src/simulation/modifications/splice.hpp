@@ -47,36 +47,42 @@ namespace modifications {
       a.toFourier();
       b.toFourier();
 
+      // The preconditioner should be almost equal to the covariance.
+      // We however set the fundamental of the power spectrum to a non-null value,
+      // otherwise, the mean value in the spliced region is unconstrained.
+      fields::Field<DataType,T> preconditioner(cov);
+      preconditioner.setFourierCoefficient(0, 0, 0, 1);
+
       fields::Field<DataType,T> delta_diff = b-a;
-      delta_diff.applyTransferFunction(cov, 0.5);
+      delta_diff.applyTransferFunction(preconditioner, 0.5);
       delta_diff.toReal();
 
 
       fields::Field<DataType,T> z(delta_diff);
       z*=mask;
       z.toFourier();
-      z.applyTransferFunction(cov, -1.0);
+      z.applyTransferFunction(preconditioner, -1.0);
       z.toReal();
       z*=maskCompl;
       z.toFourier();
-      z.applyTransferFunction(cov, 0.5);
+      z.applyTransferFunction(preconditioner, 0.5);
       z.toReal();
 
-      auto X = [&cov, &maskCompl](const fields::Field<DataType,T> & input) -> fields::Field<DataType,T>
+      auto X = [&preconditioner, &maskCompl](const fields::Field<DataType,T> & input) -> fields::Field<DataType,T>
       {
         fields::Field<DataType,T> v(input);
         assert (!input.isFourier());
         assert (!v.isFourier());
         v.toFourier();
-        v.applyTransferFunction(cov, 0.5);
+        v.applyTransferFunction(preconditioner, 0.5);
         v.toReal();
         v*=maskCompl;
         v.toFourier();
-        v.applyTransferFunction(cov, -1.0);
+        v.applyTransferFunction(preconditioner, -1.0);
         v.toReal();
         v*=maskCompl;
         v.toFourier();
-        v.applyTransferFunction(cov, 0.5);
+        v.applyTransferFunction(preconditioner, 0.5);
         v.toReal();
         return v;
       };
@@ -85,12 +91,12 @@ namespace modifications {
       fields::Field<DataType,T> alpha = tools::numerics::conjugateGradient<DataType>(X,z);
 
       alpha.toFourier();
-      alpha.applyTransferFunction(cov, 0.5);
+      alpha.applyTransferFunction(preconditioner, 0.5);
       alpha.toReal();
 
       fields::Field<DataType,T> bInDeltaBasis(b);
       bInDeltaBasis.toFourier();
-      bInDeltaBasis.applyTransferFunction(cov, 0.5);
+      bInDeltaBasis.applyTransferFunction(preconditioner, 0.5);
       bInDeltaBasis.toReal();
 
       alpha*=maskCompl;
@@ -101,7 +107,7 @@ namespace modifications {
 
       assert(!alpha.isFourier());
       alpha.toFourier();
-      alpha.applyTransferFunction(cov, -0.5);
+      alpha.applyTransferFunction(preconditioner, -0.5);
       alpha.toReal();
 
       return alpha;
