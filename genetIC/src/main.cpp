@@ -117,6 +117,7 @@ void setup_parser(tools::ClassDispatch<ICf, void> &dispatch) {
 
   // Flag cells
   dispatch.add_class_route("select_sphere", &ICf::selectSphere);
+  dispatch.add_class_route("select_ellipse", &ICf::selectEllipse);
   dispatch.add_class_route("select_cube", &ICf::selectCube);
   dispatch.add_class_route("select_nearest", &ICf::selectNearest);
   dispatch.add_class_route("expand_flagged_region", &ICf::expandFlaggedRegion);

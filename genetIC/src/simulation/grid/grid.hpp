@@ -348,6 +348,9 @@ namespace grids {
      * unlikely to be an issue.)
      */
     void parallelIterateOverCellsSpatiallyClustered(std::function<void(size_t)> callback, int chunk_size=16) const {
+      // This prevents error when the grid is tiny
+      if (chunk_size > int(size))
+        chunk_size = size;
       size_t nChunksPerSide = size_t(std::ceil(size/double(chunk_size)));
       size_t nChunks = std::pow(nChunksPerSide,3);
       Grid<T> gridOfChunks(periodicDomainSize, nChunksPerSide, cellSize*chunk_size);
@@ -460,7 +463,7 @@ namespace grids {
         The underlying assumption of this method is that the centering is done on the coarse grid.
      *  Centering on zoom grids is not taken care off.
      */
-    Coordinate<T> const getCentreWrapped(const std::vector<size_t> &vector_ids) {
+    Coordinate<T> const getCentreWrapped(const std::vector<size_t> &vector_ids) const {
       if (vector_ids.empty()) {
         throw std::runtime_error("Cannot calculate the center of an empty region");
       }

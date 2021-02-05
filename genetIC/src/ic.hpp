@@ -1431,6 +1431,22 @@ public:
 
   }
 
+  //! Flag all cells contained in the ellipsoid centered at the coordinates currently pointed at
+  /*!
+   * \param a, b, c in Mpc/h. Semi-axes in directions x, y and z.
+   * */
+  void selectEllipse(float a, float b, float c) {
+    T a2, b2, c2;
+    a2 = a * a;
+    b2 = b * b;
+    c2 = c * c;
+    select([a2, b2, c2](T delta_x, T delta_y, T delta_z) -> bool {
+      T r2_i = delta_x * delta_x / a2 + delta_y * delta_y / b2 + delta_z * delta_z / c2;
+      return r2_i < 1.;
+    });
+
+  } 
+
   //! Flag all cells contained in the cube centered at the coordinates currently pointed at
   /*!
    * \param side in Mpc/h

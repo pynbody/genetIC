@@ -90,6 +90,8 @@ exec_program(
 # -DVELOCITY_MODIFICATION_GRADIENT_FOURIER_SPACE: As the name suggests, use "ik" as the gradient operator; otherwise
 #    uses a fourth order stencil in real space. Enabling this is essential if you disable CUBIC_INTERPOLATION and/or
 #    FILTER_ON_COARSE_GRID.
+# -DZELDOVICH_GRADIENT_FOURIER_SPACE: Same as VELOCITY_MODIFICATION_GRADIENT_FOURIER_SPACE, but for computing the
+#    Zeldovich displacement field.
 # -DFRACTIONAL_K_SPLIT: This defines the characteristic k0 of the filter used to split information between zoom levels,
 #    defined by k0 = k_nyquist * FRACTIONAL_K_SPLIT, where k_nyquist is the Nyquist frequency of the lower-resolution grid.
 #    Higher values correlate the zoom grids more precisely with the unzoomed base grids, but at the cost of errors
@@ -110,6 +112,7 @@ add_definitions(-DCUBIC_INTERPOLATION
         -DGIT_VERSION="${GIT_VERSION}"
         -DGIT_MODIFIED="${GIT_MODIFIED}"
         -DDOUBLEPRECISION
-        -DOUTPUT_IN_DOUBLEPRECISION)
+        -DOUTPUT_IN_DOUBLEPRECISION
+        -DZELDOVICH_GRADIENT_FOURIER_SPACE)
 add_compile_options(-Wextra)
 add_executable(genetIC ${SOURCE_FILES})
