@@ -432,7 +432,7 @@ namespace numerics {
 
   public:
 
-    /* \brief Get the elements of the tranpose operation
+    /* \brief Get the elements of the transpose operation
      *
      * In the supporting notes, the matrix mapping a low-res onto an interpolated grid is \hat{P}^+.
      * This function helps construct \hat{P}^{+\dagger}, which is required during the process of constructing

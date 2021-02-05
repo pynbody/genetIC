@@ -376,7 +376,7 @@ namespace fields {
   protected:
 
 
-    const numerics::LocalUnitTricubicApproximation<DataType> & getTricubicInterpolatorCached(int x_p_0, int y_p_0, int z_p_0) const {
+    const numerics::LocalUnitTricubicApproximation<DataType> getTricubicInterpolatorCached(int x_p_0, int y_p_0, int z_p_0) const {
       assert(cache::enabled);
       auto key = std::make_tuple(x_p_0, y_p_0, z_p_0, static_cast<const void *>(this));
       auto result = cache::cachedInterpolators.get(key);
