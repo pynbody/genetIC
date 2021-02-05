@@ -221,7 +221,7 @@ namespace fields {
     //! Multiply the field in-place by the provided field
     template<typename OtherDataType>
     void operator*=(const Field<OtherDataType, CoordinateType> & other) {
-      size_t N = data.size();
+      size_t N = this->pGrid->size3;
 #pragma omp parallel for
       for(size_t i=0; i<N; i++) {
         data[i]*=other[i];
