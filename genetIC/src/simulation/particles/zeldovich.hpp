@@ -202,26 +202,40 @@ namespace particle {
 
       // Differentiation operator
       auto differentiate = [a, b, &potential](auto & zeldovichOffsetField, int dir) {
-        Coordinate<int> directionVector;
-        Coordinate<int> negDirectionVector;
-
         zeldovichOffsetField->toReal();
-        directionVector[dir] = 1;
-        negDirectionVector[dir] = -1;
 
         // Create zeldovich offset field
         std::vector<GridDataType> &data = zeldovichOffsetField->getDataVector();
         auto grid2 = zeldovichOffsetField->getGrid();
 
+        // Cannot compute second order finite-difference on a grid smaller than 2
+        assert(grid2.size >= 2);
+
         // Iterate over cells and compute finite difference
         grid2.parallelIterateOverCellsSpatiallyClustered(
-           [&data, grid2, &potential, a, b, directionVector, negDirectionVector](size_t index){
+           [&data, grid2, &potential, a, b, dir](size_t index){
 
           size_t ind_p1, ind_m1, ind_p2, ind_m2;
-          ind_m1 = grid2.getIndexFromIndexAndStep(index, negDirectionVector);
-          ind_m2 = grid2.getIndexFromIndexAndStep(ind_m1, negDirectionVector);
-          ind_p1 = grid2.getIndexFromIndexAndStep(index, directionVector);
-          ind_p2 = grid2.getIndexFromIndexAndStep(ind_p1, directionVector);
+          auto coord = grid2.getCoordinateFromIndex(index);
+          auto coord_m1 = coord, coord_m2 = coord, coord_p1 = coord, coord_p2 = coord;
+
+          coord_m1[dir] -= 1;
+          coord_m2[dir] -= 2;
+
+          coord_p1[dir] += 1;
+          coord_p2[dir] += 2;
+
+          // Assume the grid is periodic (equivalent to what is done with Fourier)
+          if (coord_m1[dir] < 0) coord_m1[dir] += grid2.size;
+          if (coord_m2[dir] < 0) coord_m2[dir] += grid2.size;
+          if (coord_p1[dir] >= int(grid2.size)) coord_p1[dir] -= grid2.size;
+          if (coord_p2[dir] >= int(grid2.size)) coord_p2[dir] -= grid2.size;
+
+          ind_m1 = grid2.getIndexFromCoordinate(coord_m1);
+          ind_m2 = grid2.getIndexFromCoordinate(coord_m2);
+
+          ind_p1 = grid2.getIndexFromCoordinate(coord_p1);
+          ind_p2 = grid2.getIndexFromCoordinate(coord_p2);
 
           // 4th order stencil (with periodic boundaries)
           data[index] =
