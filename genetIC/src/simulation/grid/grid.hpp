@@ -544,6 +544,13 @@ namespace grids {
       return i < size3;
     }
 
+    //! Returns the linear index of the point displaced from index by the co-ordinate vector step, wrapping around the *grid*
+    size_t getIndexFromIndexAndStepWithWrap(size_t index, const Coordinate<int> &step) const {
+      auto coord = getCoordinateFromIndex(index);
+      coord = this->wrapCoordinateAroundGrid(coord + step);
+      return this->getIndexFromCoordinate(coord);
+    }
+
     //! Returns the linear index of the point displaced from index by the co-ordinate vector step.
     size_t getIndexFromIndexAndStep(size_t index, const Coordinate<int> &step) const {
       auto coord = getCoordinateFromIndex(index);
@@ -563,6 +570,20 @@ namespace grids {
       if (coord.x < 0) coord.x += simEquivalentSize;
       if (coord.y < 0) coord.y += simEquivalentSize;
       if (coord.z < 0) coord.z += simEquivalentSize;
+      return coord;
+    }
+
+    /*! \brief Wrap the coordinate such that it lies within [0,size) (i.e. within the grid).
+     *
+     * Note that for efficiency this routine only "corrects" coordinates within one gridsize of the fundamental domain.
+     */
+    Coordinate<int> wrapCoordinateAroundGrid(Coordinate<int> coord) const {
+      if (coord.x > (signed) size - 1) coord.x -= size;
+      if (coord.y > (signed) size - 1) coord.y -= size;
+      if (coord.z > (signed) size - 1) coord.z -= size;
+      if (coord.x < 0) coord.x += size;
+      if (coord.y < 0) coord.y += size;
+      if (coord.z < 0) coord.z += size;
       return coord;
     }
 
