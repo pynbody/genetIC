@@ -1,0 +1,65 @@
+name: Build and Test
+
+on: [push, pull_request]
+
+env:
+  HOMEBREW_NO_AUTO_UPDATE: 1
+  CPATH: /usr/local/include -I/usr/local/Cellar/gsl/2.6/include -I/usr/local/Cellar/fftw/3.3.9/include
+  LPATH: /usr/local/include -L/usr/local/Cellar/gsl/2.6/lib -L/usr/local/Cellar/fftw/3.3.9/lib
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+
+  build:
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        python-version: [3.7]
+        cxx: [g++-8, g++-9, g++-10]
+        include:
+          - os: macos-latest
+            python-version: 3.7
+            cxx: g++-10
+    runs-on: ${{ matrix.os }}
+    env:
+      CXX: ${{ matrix.cxx }}
+    steps:
+    - name: Install Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: ${{ matrix.python-version }}
+    - uses: actions/checkout@v2
+    - name: Install dependencies
+      if: matrix.os == 'ubuntu-latest'
+      shell: bash
+      run: |
+        sudo add-apt-repository ppa:ubuntu-toolchain-r/test
+        sudo apt-get update -qq
+        sudo apt install libfftw3-dev libgsl0-dev
+        sudo apt install gcc-8 g++-8 gcc-9 g++-9 gcc-10 g++-10
+    - name: Install dependencies
+      if: matrix.os == 'macos-latest'
+      shell: bash
+      run: |
+        brew install gcc@8 gcc@9 gcc@10 fftw gsl
+        brew link gsl
+    - name: Compile code
+      working-directory: genetIC
+      run: make
+    - name: Install python dependencies
+      shell: bash
+      run: |
+        python -m pip install --upgrade pip setuptools wheel
+        python -m pip install numpy scipy cython
+        python -m pip install pynbody
+    - name: Run tests
+      shell: bash
+      working-directory: genetIC/tests
+      run: ./run_tests.sh
+    - name: Run mapper tests
+      shell: bash
+      working-directory: genetIC/tests
+      run: ./run_mapper_tests.sh
