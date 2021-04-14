@@ -1,5 +1,5 @@
 # Reasonably sensible defaults
-CFLAGS	= -Wall -g -lpthread -O2 -fopenmp -std=c++14   -fdiagnostics-color=auto -I`pwd`
+CFLAGS ?= -Wall -g -lpthread -O0 -fopenmp -std=c++14 -fdiagnostics-color=auto -I`pwd`
 
 # Here are code options. Probably don't fiddle with these unless you know what you're doing.
 #
@@ -21,8 +21,8 @@ CFLAGS	= -Wall -g -lpthread -O2 -fopenmp -std=c++14   -fdiagnostics-color=auto -
 #    and then interpolates into the zoom, rather than the default which is to interpolate and then filter.
 
 CODEOPTIONS  = -DDOUBLEPRECISION -DOUTPUT_IN_DOUBLEPRECISION -DCUBIC_INTERPOLATION -DFRACTIONAL_K_SPLIT=0.3 -DFRACTIONAL_FILTER_TEMPERATURE=0.1 -DFILTER_ON_COARSE_GRID -DZELDOVICH_GRADIENT_FOURIER_SPACE
-CPATH 	= /opt/local/include/
-LPATH   = /opt/local/lib
+CPATH ?= /opt/local/include/
+LPATH ?= /opt/local/lib
 
 GSLFLAGS = -lgsl -lgslcblas
 
