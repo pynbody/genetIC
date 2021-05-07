@@ -250,10 +250,10 @@ public:
     Coordinate<T> moveDistance;
 
     for(int dim=0; dim<3; dim++) {
-      if (!other.contains(this->lowerCornerInclusive[dim]))
+      if (!other.contains(this->lowerCornerInclusive[dim], dim))
         moveDistance[dim] = getWrappedOffset(this->lowerCornerInclusive[dim], other.lowerCornerInclusive[dim]);
 
-      if (!other.contains(smallDecrement(this->upperCornerExclusive[dim]))) {
+      if (!other.contains(smallDecrement(this->upperCornerExclusive[dim]), dim)) {
         assert(moveDistance[dim]==0); // if this fails, we are trying to move left already... we can't also move right!
         // suggests the window is too big (which should have been tested above already, so we shouldn't reach this point.)
         moveDistance[dim] = getWrappedOffset(this->upperCornerExclusive[dim], other.upperCornerExclusive[dim]);
@@ -269,12 +269,17 @@ public:
 
   }
 
+  //! Returns true if the window contains the test co-ordinate in the specified dimension
+  bool contains(T coord, int dim) const {
+    return withinWrapped(lowerCornerInclusive[dim], upperCornerExclusive[dim], coord);
+  }
+
   //! Returns true if the window contains the test co-ordinate
   bool contains(const Coordinate<T> &test) const {
     bool inX, inY, inZ;
-    inX = withinWrapped(lowerCornerInclusive.x, upperCornerExclusive.x, test.x);
-    inY = withinWrapped(lowerCornerInclusive.y, upperCornerExclusive.y, test.y);
-    inZ = withinWrapped(lowerCornerInclusive.z, upperCornerExclusive.z, test.z);
+    inX = contains(test.x, 0);
+    inY = contains(test.y, 1);
+    inZ = contains(test.z, 2);
     return inX && inY && inZ;
   }
 
