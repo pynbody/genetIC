@@ -425,35 +425,42 @@ public:
     if (n_required < n_user)
       zoomWindow.expandSymmetricallyToSize(n_user);
 
-    // The edges of zooms regions carry numerical errors due to interpolation between levels (see ref)
-    // Do not use them if you can
+    // Now zoomWindow may lie partially outside actualGridAbove, due to the
+    // expansion not taking into account the finite extent of actualGridAbove.
+    // Note this is not a concern if actualGridAbove is the fundamental domain
+    // grid, since there are then no edges
+
+    Window<int> outputWindowAbove = outputGridAbove.getWindow().convertPointToCell(actualGridAbove.cellSize);
+    // zoomWindow is currently expressed on a wrapping grid which is the size of the simulation, but
+    // which has its origin at the origin of outputGridAbove.
+    //
+    // Express zoomWindow relative to origin of entire simulation
+    zoomWindow+=outputWindowAbove.getLowerCornerInclusive();
+
+    Window<int> actualWindowAbove = actualGridAbove.getWindow().convertPointToCell(actualGridAbove.cellSize);
+
+    // Next, make sure zoomWindow is contained within actualWindowAbove:
+    zoomWindow.moveInto( actualWindowAbove );
+
+    // Now express zoomWindow relative to the origin of actualWindowAbove.
+    zoomWindow-=actualWindowAbove.getLowerCornerInclusive();
+
+    // The edges of zooms regions carry numerical errors due to interpolation between levels (see Stopyra+ 2020)
+    // Do not use them unless you know what you are doing.
     int borderSafety = 3;
+    auto offsetBetweenOutputAndActualWindow = actualWindowAbove.getLowerCornerInclusive() - outputWindowAbove.getLowerCornerInclusive();
     for (auto cell_id : zoomParticleArray.back()) {
-      if (!zoomWindow.containsWithBorderSafety(outputGridAbove.getCoordinateFromIndex(cell_id), borderSafety)) {
+      auto coordinateOfCell = outputGridAbove.getCoordinateFromIndex(cell_id) - offsetBetweenOutputAndActualWindow;
+      if (!zoomWindow.containsWithBorderSafety(coordinateOfCell, borderSafety)) {
         logging::entry(logging::level::warning) << "WARNING: Opening a zoom where flagged particles are within " << borderSafety <<
                   " pixels of the edge. This is prone to numerical errors." << std::endl;
         break;
       }
     }
 
+    auto LCIOffset = zoomWindow.getLowerCornerInclusive();
 
-    auto lci = zoomWindow.getLowerCornerInclusive();
-
-    // The zoom grid is opened on top of the previous actual grid, not the output grid,
-    // so we now need to convert. We set the domain size to be the grid above, so that we
-    // can ensure the new zoom window is fully contained within that (unless the grid above
-    // is the base level, in which case the wrapping is already done and no clamping should
-    // be applied).
-
-    Window<int> windowOnActualGrid(actualGridAbove.size,
-      actualGridAbove.getCoordinateFromPoint(outputGridAbove.getCentroidFromCoordinate(lci)), lci+n_user);
-
-    if(!outputGridAbove.coversFullSimulation())
-      windowOnActualGrid.clampToFundamentalDomain(); // ensure we're not trying to wrap around when we can't!
-
-    lci = windowOnActualGrid.getLowerCornerInclusive(); // fetch the updated lower corner coordinates
-
-    initZoomGridWithLowLeftCornerAt(lci.x, lci.y, lci.z, zoomfac, n);
+    initZoomGridWithLowLeftCornerAt(LCIOffset.x, LCIOffset.y, LCIOffset.z, zoomfac, n);
 
   }
 

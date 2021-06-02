@@ -43,7 +43,7 @@ namespace tools {
   //! As getRatioAndAssertInteger, but additionally throws an error if the arguments are not positive.
   template<typename T>
   size_t getRatioAndAssertPositiveInteger(T p, T q, T tolerance = 1e-8) {
-    assert(p > 0);
+    assert(p >= 0);
     assert(q > 0);
     return (size_t) getRatioAndAssertInteger(p, q, tolerance);
   }

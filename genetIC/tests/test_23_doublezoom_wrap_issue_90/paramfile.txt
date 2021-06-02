@@ -1,0 +1,36 @@
+# Test zooming two levels with off-centre windows
+# Would lead to an assertion error (issue #90)
+
+
+# output parameters
+outdir	 ./
+outformat tipsy
+outname test_1
+
+# cosmology:
+Om  0.279
+Ol  0.721
+s8  0.817
+zin	99
+camb	../camb_transfer_kmax40_z0.dat
+
+# basegrid 16 Mpc/h, 16^3
+base_grid 16 16
+
+# fourier seeding
+random_seed_real_space	889613
+
+# zoom level 1:
+centre 8 8 8
+select_cube 4
+zoom_grid 4 16
+
+# zoom level 2
+centre 6 8 8
+select_nearest
+zoom_grid 2 16
+
+
+
+
+done

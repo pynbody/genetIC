@@ -81,7 +81,7 @@ public:
   */
   Window(T wrapLength, Coordinate<T> lowerCornerInclusive, Coordinate<T> upperCornerExclusive) :
     wrapLength(wrapLength), upperCornerExclusive(upperCornerExclusive), lowerCornerInclusive(lowerCornerInclusive) {
-
+    wrapCorners();
   }
 
   //! Returns a co-ordinate pointing to the centre of the current window
@@ -105,6 +105,28 @@ public:
     return result;
   }
 
+  void wrapCorners() {
+    this->lowerCornerInclusive = wrap(lowerCornerInclusive);
+
+    // because the upper corner is exclusive, the actual point to wrap is the one just inside
+    // This is an important distinction if the window covers the whole domain (since otherwise
+    // the upper corner can wrap back round to zero, making a full-size window look like a
+    // zero-size window!)
+    this->upperCornerExclusive = smallIncrement(wrap(smallDecrement(upperCornerExclusive)));
+  }
+
+  void operator-=(const Coordinate<T> &shift) {
+    lowerCornerInclusive-=shift;
+    upperCornerExclusive-=shift;
+    wrapCorners();
+  }
+
+  void operator+=(const Coordinate<T> &shift) {
+    lowerCornerInclusive+=shift;
+    upperCornerExclusive+=shift;
+    wrapCorners();
+  }
+
 
   //! Wrap a difference into the closest possible offset [-wrapLength/2, wrapLength/2)
   T getWrappedOffset(T a, T b) const {
@@ -114,7 +136,7 @@ public:
     return distance;
   }
 
-  //! Get the offset between two co-ordinates, taking into account wrapping
+  //! Get the offset between two co-ordinates, b-a, taking into account wrapping
   Coordinate<T> getWrappedOffset(const Coordinate<T> &a, const Coordinate<T> &b) const {
     return Coordinate<T>(getWrappedOffset(a.x, b.x), getWrappedOffset(a.y, b.y), getWrappedOffset(a.z, b.z));
   }
@@ -122,12 +144,24 @@ public:
   //! Returns a co-ordinate pointing from the lower front left to the upper back right hand corner, wrapped into the fundamental domain
   Coordinate<T> getSizes() const {
     Coordinate<T> size = upperCornerExclusive - lowerCornerInclusive;
-    return wrap(size);
+    return smallIncrement(wrap(smallDecrement(size)));
   }
 
   //! Returns the position of the lower front left hand corner
   Coordinate<T> getLowerCornerInclusive() const {
     return lowerCornerInclusive;
+  }
+
+  //! Returns the integer cell window corresponding to this
+  Window<int> convertPointToCell(T cellSize) const {
+    Coordinate<int> windowLCI;
+    Coordinate<int> windowUCE;
+    for(int dir=0; dir<3; dir++) {
+      windowLCI[dir] = tools::getRatioAndAssertPositiveInteger(lowerCornerInclusive[dir], cellSize);
+      windowUCE[dir] = tools::getRatioAndAssertPositiveInteger(upperCornerExclusive[dir], cellSize);
+    }
+    int windowWrapLength = tools::getRatioAndAssertPositiveInteger(this->wrapLength, cellSize);
+    return {windowWrapLength, windowLCI, windowUCE};
   }
 
   //! Returns the largest dimension of the cuboid window
@@ -202,51 +236,50 @@ public:
 
   }
 
-  //! Moves the window into the fundamental wrapping domain
-  void clampToFundamentalDomain() {
-    auto oldSize = wrap(upperCornerExclusive - lowerCornerInclusive);
-    if(oldSize.x>=wrapLength || oldSize.y>=wrapLength || oldSize.z>=wrapLength) {
-      throw std::runtime_error("The window is too large to be moved into the fundamental domain");
-      // Hopefully a user never encounters the above error. If this error is reached, the calling code should
-      // be examined for inconsistencies -- why is it trying to shift something into a box it doesn't fit in?
+  //! Move this window minimally so that it fits inside the other
+  void moveInto(const Window<T> &other) {
+    auto otherSizes = other.getSizes();
+    auto thisSizes = getSizes();
+    assert(otherSizes.x>=thisSizes.x && otherSizes.y>=thisSizes.y && otherSizes.z>=thisSizes.z);
+    // If above assertion fails, code is trying to move this window into another window that it doesn't
+    // actually fit inside! Look for bugs in the caller.
+
+    assert(other.wrapLength == this->wrapLength);
+    // If this fails, the wrapping length is ambiguous. The caller is asking for something dodgy.
+
+    Coordinate<T> moveDistance;
+
+    for(int dim=0; dim<3; dim++) {
+      if (!other.contains(this->lowerCornerInclusive[dim], dim))
+        moveDistance[dim] = getWrappedOffset(this->lowerCornerInclusive[dim], other.lowerCornerInclusive[dim]);
+
+      if (!other.contains(smallDecrement(this->upperCornerExclusive[dim]), dim)) {
+        assert(moveDistance[dim]==0); // if this fails, we are trying to move left already... we can't also move right!
+        // suggests the window is too big (which should have been tested above already, so we shouldn't reach this point.)
+        moveDistance[dim] = getWrappedOffset(this->upperCornerExclusive[dim], other.upperCornerExclusive[dim]);
+      }
+
     }
 
-    if (lowerCornerInclusive.x<=0) {
-      upperCornerExclusive.x-=lowerCornerInclusive.x;
-      lowerCornerInclusive.x=0;
-    }
-    if (lowerCornerInclusive.y<=0) {
-      upperCornerExclusive.y-=lowerCornerInclusive.y;
-      lowerCornerInclusive.y=0;
-    }
-    if (lowerCornerInclusive.z<=0) {
-      upperCornerExclusive.z-=lowerCornerInclusive.z;
-      lowerCornerInclusive.z=0;
-    }
+    (*this)+=moveDistance;
 
-    if (upperCornerExclusive.x>wrapLength) {
-      lowerCornerInclusive.x = wrapLength - oldSize.x;
-      upperCornerExclusive.x=wrapLength;
-    }
-    if (upperCornerExclusive.y>wrapLength) {
-      lowerCornerInclusive.y = wrapLength - oldSize.y;
-      upperCornerExclusive.y=wrapLength;
-    }
-    if (upperCornerExclusive.z>wrapLength) {
-      lowerCornerInclusive.z = wrapLength - oldSize.z;
-      upperCornerExclusive.z=wrapLength;
-    }
+    assert(other.contains(lowerCornerInclusive));
+    assert(other.contains(smallDecrement(upperCornerExclusive)));
 
-    auto newSize = upperCornerExclusive - lowerCornerInclusive;
-    assert(oldSize==newSize);
+
+  }
+
+  //! Returns true if the window contains the test co-ordinate in the specified dimension
+  bool contains(T coord, int dim) const {
+    return withinWrapped(lowerCornerInclusive[dim], upperCornerExclusive[dim], coord);
   }
 
   //! Returns true if the window contains the test co-ordinate
   bool contains(const Coordinate<T> &test) const {
     bool inX, inY, inZ;
-    inX = withinWrapped(lowerCornerInclusive.x, upperCornerExclusive.x, test.x);
-    inY = withinWrapped(lowerCornerInclusive.y, upperCornerExclusive.y, test.y);
-    inZ = withinWrapped(lowerCornerInclusive.z, upperCornerExclusive.z, test.z);
+    inX = contains(test.x, 0);
+    inY = contains(test.y, 1);
+    inZ = contains(test.z, 2);
     return inX && inY && inZ;
   }
 
