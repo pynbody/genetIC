@@ -4,8 +4,8 @@ on: [push, pull_request]
 
 env:
   HOMEBREW_NO_AUTO_UPDATE: 1
-  CPATH: /usr/local/include -I/usr/local/Cellar/gsl/2.6/include -I/usr/local/Cellar/fftw/3.3.9/include
-  LPATH: /usr/local/include -L/usr/local/Cellar/gsl/2.6/lib -L/usr/local/Cellar/fftw/3.3.9/lib
+  CPATH: /usr/local/include -I/usr/local/Cellar/gsl/2.7/include -I/usr/local/Cellar/fftw/3.3.9/include
+  LPATH: /usr/local/include -L/usr/local/Cellar/gsl/2.7/lib -L/usr/local/Cellar/fftw/3.3.9/lib
 
 defaults:
   run:
