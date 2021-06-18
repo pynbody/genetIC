@@ -45,7 +45,9 @@ jobs:
       if: matrix.os == 'macos-latest'
       shell: bash
       run: |
-        brew install gcc@8 gcc@9 gcc@10 fftw@3.3.9 gsl@2.7
+        brew search fftw
+        brew search gsl
+        brew install gcc@8 gcc@9 gcc@10 fftw gsl@2.7
         brew link gsl
     - name: Compile code
       working-directory: genetIC
