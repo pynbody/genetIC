@@ -5,7 +5,7 @@ on: [push, pull_request]
 env:
   HOMEBREW_NO_AUTO_UPDATE: 1
   CPATH: /usr/local/include
-  LPATH: /usr/local/include
+  LPATH: /usr/local/lib
 
 defaults:
   run:
