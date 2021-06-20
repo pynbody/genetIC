@@ -4,8 +4,8 @@ on: [push, pull_request]
 
 env:
   HOMEBREW_NO_AUTO_UPDATE: 1
-  CPATH: /usr/local/include -I/usr/local/Cellar/gsl/2.6/include -I/usr/local/Cellar/fftw/3.3.9/include
-  LPATH: /usr/local/include -L/usr/local/Cellar/gsl/2.6/lib -L/usr/local/Cellar/fftw/3.3.9/lib
+  CPATH: /usr/local/include
+  LPATH: /usr/local/include
 
 defaults:
   run:
@@ -44,7 +44,7 @@ jobs:
       if: matrix.os == 'macos-latest'
       shell: bash
       run: |
-        brew install gcc@8 gcc@9 gcc@10 fftw@3.3.9 gsl@2.6
+        brew install gcc@8 gcc@9 gcc@10 fftw gsl
         brew link gsl
     - name: Compile code
       working-directory: genetIC
