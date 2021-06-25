@@ -173,7 +173,14 @@ namespace tools {
     //! Get a memory-mapped view of the file for writing, and surround it with Fortran-style size blocks
     template<typename DataType>
     auto getMemMapFortran(size_t n_elements) {
-      int fortranFieldSize = n_elements*sizeof(DataType);
+      size_t fieldSize = n_elements*sizeof(DataType);
+      int fortranFieldSize;
+
+      if(fieldSize>std::numeric_limits<int>::max())
+        fortranFieldSize=std::numeric_limits<int>::max(); // unclear what else to do
+      else
+        fortranFieldSize = int(fieldSize);
+
       write(fortranFieldSize);
       auto region = getMemMap<DataType>(n_elements);
       write(fortranFieldSize);
