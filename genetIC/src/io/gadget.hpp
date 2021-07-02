@@ -114,7 +114,8 @@ namespace io {
 
 
     template<typename OutputFloatType, typename InternalFloatType>
-    io_header_2 createGadget2Header(vector<InternalFloatType> masses, vector<long> npart, double Boxlength,
+    io_header_2 createGadget2Header(vector<InternalFloatType> masses, vector<long> npart,
+                                    vector<long> npartTotal, int nFiles, double Boxlength,
                                     const cosmology::CosmologicalParameters<InternalFloatType> &cosmology) {
       io_header_2 header2;
       ::memset(&header2, 0, sizeof(io_header_2)); // ensure unused flags are all zero
@@ -134,21 +135,21 @@ namespace io {
       header2.redshift = cosmology.redshift;
       header2.flag_sfr = 0;
       header2.flag_feedback = 0;
-      header2.nPartTotal[0] = (unsigned int) (npart[0]);
-      header2.nPartTotal[1] = (unsigned int) (npart[1]);
-      header2.nPartTotal[2] = (unsigned int) (npart[2]);
-      header2.nPartTotal[3] = (unsigned int) (npart[3]);
-      header2.nPartTotal[4] = (unsigned int) (npart[4]);
-      header2.nPartTotal[5] = (unsigned int) (npart[5]);
+      header2.nPartTotal[0] = (unsigned int) (npartTotal[0]);
+      header2.nPartTotal[1] = (unsigned int) (npartTotal[1]);
+      header2.nPartTotal[2] = (unsigned int) (npartTotal[2]);
+      header2.nPartTotal[3] = (unsigned int) (npartTotal[3]);
+      header2.nPartTotal[4] = (unsigned int) (npartTotal[4]);
+      header2.nPartTotal[5] = (unsigned int) (npartTotal[5]);
       // Same basic thing should happen here as with gadget3:
-      header2.nPartTotalHighWord[0] = (unsigned int) (npart[0] >> 32);
-      header2.nPartTotalHighWord[1] = (unsigned int) (npart[1] >> 32);
-      header2.nPartTotalHighWord[2] = (unsigned int) (npart[2] >> 32);
-      header2.nPartTotalHighWord[3] = (unsigned int) (npart[3] >> 32);
-      header2.nPartTotalHighWord[4] = (unsigned int) (npart[4] >> 32);
-      header2.nPartTotalHighWord[5] = (unsigned int) (npart[5] >> 32);
+      header2.nPartTotalHighWord[0] = (unsigned int) (npartTotal[0] >> 32);
+      header2.nPartTotalHighWord[1] = (unsigned int) (npartTotal[1] >> 32);
+      header2.nPartTotalHighWord[2] = (unsigned int) (npartTotal[2] >> 32);
+      header2.nPartTotalHighWord[3] = (unsigned int) (npartTotal[3] >> 32);
+      header2.nPartTotalHighWord[4] = (unsigned int) (npartTotal[4] >> 32);
+      header2.nPartTotalHighWord[5] = (unsigned int) (npartTotal[5] >> 32);
       header2.flag_cooling = 0;
-      header2.num_files = 1;
+      header2.num_files = nFiles;
       header2.BoxSize = Boxlength;
       header2.Omega0 = cosmology.OmegaM0;
       header2.OmegaLambda = cosmology.OmegaLambda0;
@@ -159,7 +160,7 @@ namespace io {
       header2.flag_metals = 0;
       header2.flag_entropy_instead_u = 0;
 
-      if (npart[0] > 0) { //options for baryons
+      if (npartTotal[0] > 0) { //options for baryons
         header2.flag_sfr = 1;
         header2.flag_feedback = 1;
         header2.flag_cooling = 1;
@@ -170,7 +171,9 @@ namespace io {
     }
 
     template<typename OutputFloatType, typename InternalFloatType>
-    io_header_3 createGadget3Header(vector<InternalFloatType> masses, vector<long> npart, double Boxlength,
+    io_header_3 createGadget3Header(vector<InternalFloatType> masses, vector<long> npart,
+                                    vector<long> npartTotal, int nFiles,
+                                    double Boxlength,
                                     const cosmology::CosmologicalParameters<InternalFloatType> &cosmology) {
       io_header_3 header3;
       ::memset(&header3, 0, sizeof(io_header_3)); // ensure unused flags are all zero
@@ -190,32 +193,32 @@ namespace io {
       header3.redshift = cosmology.redshift;
       header3.flag_sfr = 0;
       header3.flag_feedback = 0;
-      header3.nPartTotal[0] = (unsigned int) (npart[0]);
-      header3.nPartTotal[1] = (unsigned int) (npart[1]);
-      header3.nPartTotal[2] = (unsigned int) (npart[2]);
-      header3.nPartTotal[3] = (unsigned int) (npart[3]);
-      header3.nPartTotal[4] = (unsigned int) (npart[4]);
-      header3.nPartTotal[5] = (unsigned int) (npart[5]);
+      header3.nPartTotal[0] = (unsigned int) (npartTotal[0]);
+      header3.nPartTotal[1] = (unsigned int) (npartTotal[1]);
+      header3.nPartTotal[2] = (unsigned int) (npartTotal[2]);
+      header3.nPartTotal[3] = (unsigned int) (npartTotal[3]);
+      header3.nPartTotal[4] = (unsigned int) (npartTotal[4]);
+      header3.nPartTotal[5] = (unsigned int) (npartTotal[5]);
       header3.flag_cooling = 0;
-      header3.num_files = 1;
+      header3.num_files = nFiles;
       header3.BoxSize = Boxlength;
       header3.Omega0 = cosmology.OmegaM0;
       header3.OmegaLambda = cosmology.OmegaLambda0;
       header3.HubbleParam = cosmology.hubble;
       header3.flag_stellarage = 0;  /*!< flags whether the file contains formation times of star particles */
       header3.flag_metals = 0;    /*!< flags whether the file contains metallicity values for gas and star  particles */
-      header3.nPartTotalHighWord[0] = (unsigned int) (npart[0] >> 32);
-      header3.nPartTotalHighWord[1] = (unsigned int) (npart[1] >> 32); //copied from Gadget3
-      header3.nPartTotalHighWord[2] = (unsigned int) (npart[2] >> 32);
-      header3.nPartTotalHighWord[3] = (unsigned int) (npart[3] >> 32);
-      header3.nPartTotalHighWord[4] = (unsigned int) (npart[4] >> 32);
-      header3.nPartTotalHighWord[5] = (unsigned int) (npart[5] >> 32);
+      header3.nPartTotalHighWord[0] = (unsigned int) (npartTotal[0] >> 32);
+      header3.nPartTotalHighWord[1] = (unsigned int) (npartTotal[1] >> 32); //copied from Gadget3
+      header3.nPartTotalHighWord[2] = (unsigned int) (npartTotal[2] >> 32);
+      header3.nPartTotalHighWord[3] = (unsigned int) (npartTotal[3] >> 32);
+      header3.nPartTotalHighWord[4] = (unsigned int) (npartTotal[4] >> 32);
+      header3.nPartTotalHighWord[5] = (unsigned int) (npartTotal[5] >> 32);
       header3.flag_entropy_instead_u = 0; /*!< flags that IC-file contains entropy instead of u */
       header3.flag_doubleprecision = tools::datatypes::floatinfo<OutputFloatType>::doubleprecision;
       header3.flag_ic_info = 1;
       header3.lpt_scalingfactor = 0.f; /*!dummy value since we never use ic_info!=1 */
 
-      if (npart[0] > 0) { //options for baryons & special behavior
+      if (npartTotal[0] > 0) { //options for baryons & special behavior
         header3.flag_sfr = 1;
         header3.flag_feedback = 1;
         header3.flag_cooling = 1;
@@ -240,14 +243,15 @@ namespace io {
       particle::mapper::ParticleMapper<GridDataType> &mapper; //!< Particle mapper, for relating offsets in the file to GenetIC grid cells.
       particle::SpeciesToGeneratorMap<GridDataType> generators; //!< Particle generators for each particle species.
       const cosmology::CosmologicalParameters<InternalFloatType> &cosmology; //!< Struct containing cosmological parameters.
-      tools::MemMapFileWriter writer; //!< Low-level file operations are handled by this object.
+      std::vector<tools::MemMapFileWriter> writers; //!< Low-level file operations are handled by this object.
       size_t nTotal; //!< Total number of particles to output.
+      std::vector<size_t> nTotalPerFile; //!< Number of particles to write per file
       double boxLength; //!< Size of simulation box.
       int gadgetVersion; //!< Which version of the gadget file to output. Allowed values 2 or 3.
       vector<InternalFloatType> masses; //!< Masses of particles if constant. Zero if variable.
-      vector<long> npart; //!< Number of particles of each gadget type
+      vector<long> nPartPerType; //!< Number of particles of each gadget type
       bool variableMass; //!< Stores whether we are using variable mass gadget particles
-
+      int nFiles = 1; //!< Number of files to write
 
       // Mapping between gadget particle types (0->6) and our internal field type. This selects the appropriate
       // transfer function, if multiple are being used.
@@ -266,7 +270,10 @@ namespace io {
 
         size_t current_n = 0;
 
-        auto currentWriteBlockC = writer.getMemMapFortran<WriteType>(nTotal);
+        std::vector<decltype(writers[0].getMemMapFortran<WriteType>(std::declval<size_t>()))> currentWriteBlocks;
+
+        for(int i=0; i<nFiles; i++)
+          currentWriteBlocks.push_back(writers[i].getMemMapFortran<WriteType>(nTotalPerFile[i]));
 
         for (unsigned int particle_type = 0; particle_type < 6; particle_type++) {
           auto begin = mapper.beginParticleType(*generators[gadgetTypeToSpecies[particle_type]], particle_type);
@@ -275,8 +282,17 @@ namespace io {
 
           current_n += begin.parallelIterate(
             [&](size_t n_offset, const particle::mapper::MapperIterator<GridDataType> &localIterator) {
+              int fileNum = 0;
               size_t addr = n_offset + current_n;
-              currentWriteBlockC[addr] = getData(localIterator);
+
+              // now figure out which file to dump this into.
+              // TODO: It's possible this is a bit slow?
+              while(addr>=nTotalPerFile[fileNum]) {
+                addr-=nTotalPerFile[fileNum];
+                fileNum++;
+              }
+
+              currentWriteBlocks[fileNum][addr] = getData(localIterator);
             }, nMax);
 
         }
@@ -289,7 +305,7 @@ namespace io {
       void preScanForMassesAndParticleNumbers() {
         variableMass = false;
         masses = vector<InternalFloatType>(6, 0.0);
-        npart = vector<long>(6, 0);
+        nPartPerType = vector<long>(6, 0);
         nTotal = 0;
 
         logging::entry() << "Particles by gadget type:" << endl;
@@ -304,7 +320,7 @@ namespace io {
             }
 
             logging::entry() << "   Particle type " << ptype << ": " << n << " particles" << endl;
-            npart[ptype] = n;
+            nPartPerType[ptype] = n;
             masses[ptype] = min_mass;
             nTotal += n;
           }
@@ -318,6 +334,21 @@ namespace io {
         } else {
           logging::entry() << "Using fixed-mass gadget format" << endl;
         }
+
+        for(int i=0; i<nFiles; i++) {
+          if (i == nFiles - 1) // last file
+            nTotalPerFile.push_back(nTotal - (nTotal / nFiles) * (nFiles - 1));
+          else
+            nTotalPerFile.push_back(nTotal / nFiles);
+        }
+
+        if(nFiles>1) {
+          logging::entry() << "Particles per file: ";
+          for (int i = 0; i < nFiles; i++)
+            std::cerr << nTotalPerFile[i] << " ";
+          std::cerr << endl;
+        }
+
       }
 
       //! \brief Extract the minimum mass, maximum mass, and number of a particle species
@@ -341,12 +372,49 @@ namespace io {
 
       //! \brief Output the gadget3 or gadget2 header:
       void writeHeader() {
-        if (gadgetVersion == 3) {
-          writer.writeFortran(createGadget3Header<OutputFloatType>(masses, npart, boxLength, cosmology));
-        } else if (gadgetVersion == 2) {
-          writer.writeFortran(createGadget2Header<OutputFloatType>(masses, npart, boxLength, cosmology));
-        } else {
-          throw std::runtime_error("Unknown gadget format");
+        std::vector<long> nPartPerTypeThisFile(6, 0);
+        std::vector<long> nPartRemainingPerType = nPartPerType;
+        size_t offset = 0;
+
+        for(int i=0; i<nFiles; i++) {
+
+          size_t nPartRemainingInFile = nTotalPerFile[i];
+
+          // now figure out what gadget particle types are going to appear in this particular file
+          for(int partType = 0; partType<6 ; partType++) {
+            if(nPartRemainingPerType[partType] < nPartRemainingInFile)
+              nPartPerTypeThisFile[partType] = nPartRemainingPerType[partType];
+            else
+              nPartPerTypeThisFile[partType] = nPartRemainingInFile;
+
+            nPartRemainingInFile-=nPartPerTypeThisFile[partType];
+            nPartRemainingPerType[partType]-=nPartPerTypeThisFile[partType];
+          }
+
+          logging::entry(logging::debug) << "i=" << i << " nPartPerTypeThisFile = ";
+          for(int partType=0; partType<6; partType++) {
+            std::cerr << nPartPerTypeThisFile[partType] << " ";
+          }
+          std::cerr << std::endl;
+
+          logging::entry(logging::debug) << " nPartPerType = ";
+          for(int partType=0; partType<6; partType++) {
+            std::cerr << nPartPerType[partType] << " ";
+          }
+
+          std::cerr << std::endl;
+
+          assert(nPartRemainingInFile == 0); // ensure we have assigned all the particles to a type
+
+          if (gadgetVersion == 3) {
+            writers[i].writeFortran(createGadget3Header<OutputFloatType>(masses, nPartPerTypeThisFile, nPartPerType, nFiles,
+                                                                         boxLength, cosmology));
+          } else if (gadgetVersion == 2) {
+            writers[i].writeFortran(createGadget2Header<OutputFloatType>(masses, nPartPerTypeThisFile, nPartPerType, nFiles,
+                                                                         boxLength, cosmology));
+          } else {
+            throw std::runtime_error("Unknown gadget format");
+          }
         }
       }
 
@@ -363,9 +431,9 @@ namespace io {
                    particle::mapper::ParticleMapper<GridDataType> &mapper,
                    const particle::SpeciesToGeneratorMap<GridDataType> &generators_,
                    const cosmology::CosmologicalParameters<tools::datatypes::strip_complex<GridDataType>> &cosmology,
-                   int gadgetVersion) :
+                   int gadgetVersion, int numFiles) :
         mapper(mapper), generators(generators_), cosmology(cosmology), boxLength(boxLength),
-        gadgetVersion(gadgetVersion) {
+        gadgetVersion(gadgetVersion), nFiles(numFiles) {
       }
 
       //! \brief Operation to save gadget particles
@@ -373,7 +441,13 @@ namespace io {
 
         preScanForMassesAndParticleNumbers();
 
-        writer = tools::MemMapFileWriter(name + std::to_string(gadgetVersion));
+        if(nFiles==1) {
+          writers.push_back(tools::MemMapFileWriter(name + std::to_string(gadgetVersion)));
+        } else {
+          for(int i=0; i<nFiles; i++) {
+            writers.push_back(tools::MemMapFileWriter(name + std::to_string(gadgetVersion) + "." + std::to_string(i)));
+          }
+        }
 
         writeHeader();
 
@@ -425,9 +499,9 @@ namespace io {
               particle::mapper::ParticleMapper<GridDataType> &mapper,
               particle::SpeciesToGeneratorMap<GridDataType> &generators,
               const cosmology::CosmologicalParameters<tools::datatypes::strip_complex<GridDataType>> &cosmology,
-              int gadgetformat) {
+              int gadgetformat, int nFiles) {
 
-      GadgetOutput<GridDataType, OutputFloatType> output(Boxlength, mapper, generators, cosmology, gadgetformat);
+      GadgetOutput<GridDataType, OutputFloatType> output(Boxlength, mapper, generators, cosmology, gadgetformat, nFiles);
       output(name);
 
     }
