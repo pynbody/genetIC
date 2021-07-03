@@ -285,8 +285,10 @@ namespace io {
               int fileNum = 0;
               size_t addr = n_offset + current_n;
 
-              // now figure out which file to dump this into.
-              // TODO: It's possible this is a bit slow?
+              // Now figure out which file to dump this into.
+              // The following approach looks slow (doing it for every particle!),
+              // but code profiling suggests it's not a significant overhead.
+              // Easier to do this than to try and have thread-local variables
               while(addr>=nTotalPerFile[fileNum]) {
                 addr-=nTotalPerFile[fileNum];
                 fileNum++;
