@@ -33,11 +33,15 @@ namespace modifications {
     return mask;
   }
 
-  //! Keep the flagged region of a, but
+  //! Return the field f which satisfies f = a in flagged region while minimising (f-b).C^-1.(f-b) elsewhere
   template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
   fields::Field<DataType,T> spliceOneLevel(fields::Field<DataType,T> & a,
                                            fields::Field<DataType,T> & b,
                                            const fields::Field<DataType,T> & cov) {
+
+      // To understand the implementation below, first read Appendix A of Cadiou et al (2021),
+      // and/or look at the 1D toy implementation (in tools/toy_implementation/gene_splicing.ipynb) which
+      // contains a similar derivation and near-identical implementation.
 
       assert (&a.getGrid() == &b.getGrid());
       assert (&a.getGrid() == &cov.getGrid());
