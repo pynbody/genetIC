@@ -219,7 +219,10 @@ namespace particle {
          *    for which there is no distinction between cell and particle IDs.
          * */
         if (this->level1CellsToReplace.size() != level1ParticlesToReplace.size()) {
-          logging::entry() << "WANTED:" << endl;
+          logging::entry() << "Consistency error when relating cells to particles" << endl;
+          logging::entry() << "The particle mapper is as follows:" << endl;
+          logging::entry() << (*pLevel1Indept) << endl;
+          logging::entry() << "The cells that we want to identify are:" << endl;
           for (size_t i = 0; i < this->level1CellsToReplace.size(); ++i) {
             logging::entry() << this->level1CellsToReplace[i] << endl;
           }
@@ -227,7 +230,7 @@ namespace particle {
           pLevel1->flagParticles(level1ParticlesToReplace);
           this->level1CellsToReplace.clear();
           pGrid1->getFlaggedCells(this->level1CellsToReplace);
-          logging::entry() << "GOT:" << endl;
+          logging::entry() << "The particle list generated is:" << endl;
           for (size_t i = 0; i < this->level1CellsToReplace.size(); ++i) {
             logging::entry() << this->level1CellsToReplace[i] << " (" << this->level1ParticlesToReplace[i] << ")" << endl;
           }

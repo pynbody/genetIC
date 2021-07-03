@@ -147,6 +147,7 @@ namespace particle {
     virtual void calculateOffsetFields() {
       const T nyquist = tools::numerics::fourier::getNyquistModeThatMustBeReal(grid) * grid.getFourierKmin();
 
+#ifdef ZELDOVICH_GRADIENT_FOURIER_SPACE
       auto zeldovichOffsetFields = linearOverdensityField.generateNewFourierFields(
         [nyquist](complex<T> inputVal, T kx, T ky, T kz) -> std::tuple<complex<T>, complex<T>, complex<T>> {
           complex<T> result_x;
@@ -173,12 +174,72 @@ namespace particle {
 
           return std::make_tuple(result_x, result_y, result_z);
         });
+#else
+      // Solve Poisson equation in Fourier space
+      auto potentialField = TField(linearOverdensityField);
 
+      potentialField.toFourier();
+
+      potentialField.forEachFourierCell(
+        [nyquist](complex<T> inputval, T kx, T ky, T kz) -> complex<T> {
+          complex<T> result;
+          T kfft = kx * kx + ky * ky + kz * kz; // k^2
+          if (kfft == 0)
+            result = 0;
+          else
+            result = inputval / kfft;
+          return result;
+      });
+      potentialField.toReal();
+      auto grid = potentialField.getGrid();
+      std::vector<GridDataType> &potential = potentialField.getDataVector();
+      auto zeldovichOffsetFields = linearOverdensityField.generateNewFourierFields(
+        [](complex<T> inputVal, T kx, T ky, T kz) -> std::tuple<complex<T>, complex<T>, complex<T>> {
+          return std::make_tuple(0, 0, 0);
+        });
+
+      T a = 1. / 12. / grid.cellSize, b = -2. / 3. / grid.cellSize;
+
+      // Differentiation operator
+      auto differentiate = [a, b, &potential](auto & zeldovichOffsetField, int dir) {
+        Coordinate<int> directionVector;
+        Coordinate<int> negDirectionVector;
+
+        zeldovichOffsetField->toReal();
+        directionVector[dir] = 1;
+        negDirectionVector[dir] = -1;
+
+        // Create zeldovich offset field
+        std::vector<GridDataType> &data = zeldovichOffsetField->getDataVector();
+        auto grid2 = zeldovichOffsetField->getGrid();
+
+        // Iterate over cells and compute finite difference
+        grid2.parallelIterateOverCellsSpatiallyClustered(
+           [&data, grid2, &potential, a, b, directionVector, negDirectionVector](size_t index){
+
+          size_t ind_p1, ind_m1, ind_p2, ind_m2;
+          ind_m1 = grid2.getIndexFromIndexAndStep(index, negDirectionVector);
+          ind_m2 = grid2.getIndexFromIndexAndStep(ind_m1, negDirectionVector);
+          ind_p1 = grid2.getIndexFromIndexAndStep(index, directionVector);
+          ind_p2 = grid2.getIndexFromIndexAndStep(ind_p1, directionVector);
+
+          // 4th order stencil (with periodic boundaries)
+          data[index] =
+               a * (potential[ind_m2] - potential[ind_p2])
+             + b * (potential[ind_m1] - potential[ind_p1]);
+
+        });
+
+      };
+      differentiate(std::get<0>(zeldovichOffsetFields), 0);
+      differentiate(std::get<1>(zeldovichOffsetFields), 1);
+      differentiate(std::get<2>(zeldovichOffsetFields), 2);
+
+#endif
       std::tie(this->pOff_x, this->pOff_y, this->pOff_z) = zeldovichOffsetFields;
       this->pOff_x->toReal();
       this->pOff_y->toReal();
       this->pOff_z->toReal();
-
 
     }
 

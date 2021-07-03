@@ -11,7 +11,8 @@ def plot1dslice(prefix="output/",name="grid",ps="-",slice_z=None,slice_y=None,ma
 
     a = _load_grid(prefix, diff_prefix, thisgrid, name)
 
-    ax,ay,az,aL = [float(x) for x in open(prefix+name+"-info-%d.txt"%thisgrid).readline().split()]
+    fname = os.path.join(prefix, '%s-info-%d.txt' % (name, thisgrid))
+    ax,ay,az,aL = [float(x) for x in open(fname).readline().split()]
 
     if offset is None:
         offset = aL/2
@@ -71,20 +72,24 @@ def _check_and_return_integers(*vals):
     return np.array(rounded,dtype=int)
 
 def get_peak_value(prefix, name):
-    all_grids = sorted(glob.glob(prefix+"/"+name+"-?.npy"))
+    fname_glob = os.path.join(prefix, '%s-?.npy' % (name))
+    all_grids = sorted(glob.glob(fname_glob))
     x = np.load(all_grids[-1])
     return abs(x).max()
 
 def _load_grid(prefix,diff_prefix, grid, name="grid", diff_normalized=True):
-    a = np.load(prefix+name+"-%d.npy"%grid).real
-    ax,ay,az,aL = [float(x) for x in open(prefix+name+"-info-%d.txt"%grid).readline().split()]
+    fname = os.path.join(prefix, '%s-%d.npy' % (name, grid))
+    info_fname = os.path.join(prefix, '%s-info-%d.txt' % (name, grid))
+    a = np.load(fname).real
+    ax,ay,az,aL = [float(x) for x in open(info_fname).readline().split()]
 
     if diff_prefix is not None:
         # load best matching grid
         for diff_grid in range(10,-1,-1): # prefer the highest resolution grid that can be made to match
             bx = None
             try:
-                bx,by,bz,bL = [float(x) for x in open(diff_prefix+name+"-info-%d.txt"%diff_grid).readline().split()]
+                fname_info_diff = os.path.join(diff_prefix, '%s-info-%d.txt' % (name, diff_grid))
+                bx,by,bz,bL = [float(x) for x in open(fname_info_diff).readline().split()]
             except IOError:
                 continue
 
@@ -94,7 +99,8 @@ def _load_grid(prefix,diff_prefix, grid, name="grid", diff_normalized=True):
         if bx is None:
             raise RuntimeError("On grid %d of %r, cannot find a suitable match in %r"%(grid,prefix,diff_prefix))
 
-        b = np.load(diff_prefix+name+"-%d.npy"%diff_grid).real
+        npy_fname = os.path.join(diff_prefix, '%s-%d.npy' % (name, diff_grid))
+        b = np.load(npy_fname).real
         b_cellsize = bL/len(b)
 
         # Trim to match
@@ -146,7 +152,8 @@ def plotslice_onegrid(prefix="output/",grid=0,slice=None,vmin=-0.15,vmax=0.15,pa
 
     a = _load_grid(prefix, diff_prefix, grid, name, diff_normalized)
 
-    ax,ay,az,aL = [float(x) for x in open(prefix+name+"-info-%d.txt"%grid).readline().split()]
+    fname = os.path.join(prefix, '%s-info-%d.txt' % (name, grid))
+    ax,ay,az,aL = [float(x) for x in open(fname).readline().split()]
 
     if offset is None:
         offset=(-aL/2,-aL/2)
@@ -192,7 +199,9 @@ def plotslice_onegrid(prefix="output/",grid=0,slice=None,vmin=-0.15,vmax=0.15,pa
 
 def plotslice(prefix="output/",maxgrid=10,slice=None,onelevel=False,vmin=-0.15,vmax=0.15,padcells=4, offset=None,
               diff_prefix=None,diff_normalized=True,name='grid',save_image=None,wrap=True):
-    maxgrid_on_disk = len(glob.glob(prefix+name+"-?.npy"))
+    fname_glob = os.path.join(prefix, '%s-?.npy' % name)
+    maxgrid_on_disk = len(glob.glob(fname_glob))
+    print(maxgrid_on_disk)
     if maxgrid_on_disk<maxgrid:
         maxgrid = maxgrid_on_disk
 

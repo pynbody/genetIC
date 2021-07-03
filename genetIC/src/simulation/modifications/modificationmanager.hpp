@@ -168,6 +168,12 @@ namespace modifications {
         return make_shared<VelocityModification<DataType, T>>(multiLevelContext, cosmology, 1);
       } else if ((strcasecmp(name_.c_str(), "vz") == 0)) {
         return make_shared<VelocityModification<DataType, T>>(multiLevelContext, cosmology, 2);
+      } else if ((strcasecmp(name_.c_str(), "Lx") == 0)) {
+        return make_shared<AngMomentumModification<DataType, T>>(multiLevelContext, cosmology, 0);
+      } else if ((strcasecmp(name_.c_str(), "Ly") == 0)) {
+        return make_shared<AngMomentumModification<DataType, T>>(multiLevelContext, cosmology, 1);
+      } else if ((strcasecmp(name_.c_str(), "Lz") == 0)) {
+        return make_shared<AngMomentumModification<DataType, T>>(multiLevelContext, cosmology, 2);
       } else {
         throw UnknownModificationException(name_ + " " + "is an unknown modification name");
       }

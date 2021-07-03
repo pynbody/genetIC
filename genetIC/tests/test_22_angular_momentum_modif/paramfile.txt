@@ -1,0 +1,27 @@
+# Test angular momentum modification on uniform grid
+
+Om  0.279
+Ol  0.721
+#Ob  0.04
+s8  0.817
+zin	99
+
+random_seed_real_space	8896131
+camb	../camb_transfer_kmax40_z0.dat
+
+outname test_1
+outdir	 ./
+outformat gadget3
+
+
+base_grid 50.0 32
+
+center 25 25 25
+select_ellipse 10 7.5 5
+
+calculate Ly
+
+modify Ly absolute 100
+
+done
+calculate Ly

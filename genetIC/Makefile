@@ -1,5 +1,5 @@
 # Reasonably sensible defaults
-CFLAGS	= -Wall -g -lpthread -O2 -fopenmp -std=c++14   -fdiagnostics-color=auto -I`pwd`
+CFLAGS ?= -Wall -g -lpthread -O0 -fopenmp -std=c++14 -fdiagnostics-color=auto -I`pwd`
 
 # Here are code options. Probably don't fiddle with these unless you know what you're doing.
 #
@@ -7,6 +7,8 @@ CFLAGS	= -Wall -g -lpthread -O2 -fopenmp -std=c++14   -fdiagnostics-color=auto -
 #    much better.
 # -DVELOCITY_MODIFICATION_GRADIENT_FOURIER_SPACE: As the name suggests, use "ik" as the gradient operator; otherwise
 #    uses a fourth order stencil in real space. Enabling this is essential if you disable CUBIC_INTERPOLATION.
+# -DZELDOVICH_GRADIENT_FOURIER_SPACE: Same as VELOCITY_MODIFICATION_GRADIENT_FOURIER_SPACE, but for computing the
+#    Zeldovich displacement field.
 # -DFRACTIONAL_K_SPLIT: This defines the characteristic k0 of the filter used to split information between zoom levels,
 #    defined by k0 = k_nyquist * FRACTIONAL_K_SPLIT, where k_nyquist is the Nyquist frequency of the lower-resolution grid.
 #    Higher values correlate the zoom grids more precisely with the unzoomed base grids, but at the cost of errors
@@ -18,9 +20,9 @@ CFLAGS	= -Wall -g -lpthread -O2 -fopenmp -std=c++14   -fdiagnostics-color=auto -
 # -DFILTER_ON_COARSE_GRID: When moving long wavelength information onto a zoom grid, filters on the base grid
 #    and then interpolates into the zoom, rather than the default which is to interpolate and then filter.
 
-CODEOPTIONS  = -DDOUBLEPRECISION -DOUTPUT_IN_DOUBLEPRECISION -DCUBIC_INTERPOLATION -DFRACTIONAL_K_SPLIT=0.3 -DFRACTIONAL_FILTER_TEMPERATURE=0.1 -DFILTER_ON_COARSE_GRID
-CPATH 	= /opt/local/include/
-LPATH   = /opt/local/lib
+CODEOPTIONS  = -DDOUBLEPRECISION -DOUTPUT_IN_DOUBLEPRECISION -DCUBIC_INTERPOLATION -DFRACTIONAL_K_SPLIT=0.3 -DFRACTIONAL_FILTER_TEMPERATURE=0.1 -DFILTER_ON_COARSE_GRID -DZELDOVICH_GRADIENT_FOURIER_SPACE
+CPATH ?= /opt/local/include/
+LPATH ?= /opt/local/lib
 
 GSLFLAGS = -lgsl -lgslcblas
 

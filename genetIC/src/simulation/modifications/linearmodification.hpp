@@ -98,7 +98,7 @@ namespace modifications {
     /*!
      * Mostly useful for angular momentum modifications. Has not been tested for two years.
      */
-    Coordinate<T> getCentre(grids::Grid<T> &grid) {
+    Coordinate<T> getCentre(const grids::Grid<T> &grid) const {
       return grid.getCentreWrapped(this->flaggedCellsFinestGrid);
     }
 
@@ -178,10 +178,13 @@ namespace modifications {
   template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
   class VelocityModification : public OverdensityModification<DataType, T> {
   private:
-    const bool derivInRealSpace = true;
-
+#ifdef VELOCITY_MODIFICATION_GRADIENT_FOURIER_SPACE
+    const bool derivInFourierSpace = true; //!< If true, make the derivative in Fourier space. Otherwise, make the derivative in real space.
+#else
+    const bool derivInFourierSpace = false;
+#endif
   protected:
-    int direction; //!< Component of velocity to modify, (0,1,2) <-> (x,y,x).
+    int direction; //!< Component of velocity to modify, (0,1,2) <-> (x,y,z).
 
   public:
     /*! \brief Construct a velocity modification from a specified multi-level context, cosmology, and velocity component
@@ -197,56 +200,46 @@ namespace modifications {
   protected:
 
     fields::Field<DataType, T> calculateLocalisationCovector(const grids::Grid<T> &grid) override {
-#ifdef VELOCITY_MODIFICATION_GRADIENT_FOURIER_SPACE
-      return OverdensityModification<DataType,T>::calculateLocalisationCovector(grid);
-#else
-      // Uses a finite difference 4th order stencil to create just a derivative covector
-      Coordinate<int> directionVector;
-      Coordinate<int> negDirectionVector;
+      if (this->derivInFourierSpace) {
+        return OverdensityModification<DataType,T>::calculateLocalisationCovector(grid);
+      } else {
+        // Uses a finite difference 4th order stencil to create just a derivative covector
+        Coordinate<int> directionVector;
+        Coordinate<int> negDirectionVector;
 
-      directionVector[direction] = 1;
-      negDirectionVector[direction] = -1;
+        directionVector[direction] = 1;
+        negDirectionVector[direction] = -1;
 
-      fields::Field<DataType, T> outputField = fields::Field<DataType, T>(grid, false);
-      std::vector<DataType> &outputData = outputField.getDataVector();
+        fields::Field<DataType, T> outputField = fields::Field<DataType, T>(grid, false);
+        std::vector<DataType> &outputData = outputField.getDataVector();
 
-      T w = 1.0 / this->flaggedCellsFinestGrid.size();
+        T w = 1.0 / this->flaggedCellsFinestGrid.size();
 
-      size_t ind_p1, ind_m1, ind_p2, ind_m2;
+        size_t ind_p1, ind_m1, ind_p2, ind_m2;
 
-      // Coeffs for the finite difference.  The signs here so that result is - Nabla Phi
-      T a = -w / 12. / grid.cellSize, b = w * 2. / 3. / grid.cellSize;
+        // Coeffs for the finite difference.  The signs here so that result is - Nabla Phi
+        T a = -w / 12. / grid.cellSize, b = w * 2. / 3. / grid.cellSize;
 
-      for (size_t i = 0; i < this->flaggedCellsFinestGrid.size(); i++) {
-        size_t index = this->flaggedCellsFinestGrid[i];
-        ind_m1 = grid.getIndexFromIndexAndStep(index, negDirectionVector);
-        ind_p1 = grid.getIndexFromIndexAndStep(index, directionVector);
-        ind_m2 = grid.getIndexFromIndexAndStep(ind_m1, negDirectionVector);
-        ind_p2 = grid.getIndexFromIndexAndStep(ind_p1, directionVector);
-        outputData[ind_m2] += a;
-        outputData[ind_m1] += b;
-        outputData[ind_p1] -= b;
-        outputData[ind_p2] -= a;
+        for (size_t i = 0; i < this->flaggedCellsFinestGrid.size(); i++) {
+          size_t index = this->flaggedCellsFinestGrid[i];
+          ind_m1 = grid.getIndexFromIndexAndStep(index, negDirectionVector);
+          ind_p1 = grid.getIndexFromIndexAndStep(index, directionVector);
+          ind_m2 = grid.getIndexFromIndexAndStep(ind_m1, negDirectionVector);
+          ind_p2 = grid.getIndexFromIndexAndStep(ind_p1, directionVector);
+          outputData[ind_m2] += a;
+          outputData[ind_m1] += b;
+          outputData[ind_p1] -= b;
+          outputData[ind_p2] -= a;
+        }
+
+        outputField.toFourier();
+        return outputField;
+
       }
-
-      outputField.toFourier();
-      return outputField;
-
-#endif
 
     }
 
-  public:
-
-
-    //! Converts (in-place) from a overdensity covector to a velocity covector
-    void turnLocalisationCovectorIntoModificationCovector(fields::MultiLevelField<DataType> & field) const override {
-      if(this->underlying.getLevelsAreCombined())
-        throw std::runtime_error("Cannot create velocity covector for recombined fields (i.e. after output generation is complete)");
-      // Note on the above exception: the problem is that we need to use the Fourier filters to calculate the
-      // multi-level Poisson solution. Once Fourier modes are combined on zoom grids, there is no simple way to get the potential.
-
-      OverdensityModification<DataType,T>::turnLocalisationCovectorIntoModificationCovector(field);
+    void computeVelocity(fields::MultiLevelField<DataType> & field, int direction) const {
       for(size_t level=0; level<field.getNumLevels(); ++level) {
         auto &fieldOnLevel = field.getFieldForLevel(level);
         using compT = std::complex<T>;
@@ -257,7 +250,7 @@ namespace modifications {
         const T nyquist = tools::numerics::fourier::getNyquistModeThatMustBeReal(grid) * grid.getFourierKmin();
 
         auto calcCell =
-          [I, scale, nyquist, this](complex<T> overdensityFieldValue, T kx, T ky, T kz, T k_chosen_direction) -> complex<T> {
+          [I, scale, nyquist](complex<T> overdensityFieldValue, T kx, T ky, T kz, T k_chosen_direction, bool derivInFourierSpace) -> complex<T> {
 
             // This lambda evaluates the derivative for the given Fourier-space cell. kx,ky,kz are the
             // input k-space coordinates, and k_chosen_direction must be set to whichever of these specifies
@@ -265,29 +258,154 @@ namespace modifications {
 
             T k2 = kx * kx + ky * ky + kz * kz;
 
-            if ( k2 == 0)
+            if (k2 == 0)
               return complex<T>(0);
             else {
-#ifdef VELOCITY_MODIFICATION_GRADIENT_FOURIER_SPACE
-              if(k_chosen_direction == nyquist) return complex<T>(0);
-              return -scale * overdensityFieldValue * I * k_chosen_direction / k2;
-#else
-              return -scale * overdensityFieldValue / k2;
-#endif
+              if (derivInFourierSpace) {
+                if(k_chosen_direction == nyquist) return complex<T>(0);
+                return -scale * overdensityFieldValue * I * k_chosen_direction / k2;
+              } else {
+                return -scale * overdensityFieldValue / k2;
               }
+            }
           };
 
         if (direction == 0)
           fieldOnLevel.forEachFourierCell(
-            [calcCell](compT v, T kx, T ky, T kz) { return calcCell(v, kx, ky, kz, kx); });
+            [calcCell, this](compT v, T kx, T ky, T kz) { return calcCell(v, kx, ky, kz, kx, this->derivInFourierSpace); });
         else if (direction == 1)
           fieldOnLevel.forEachFourierCell(
-            [calcCell](compT v, T kx, T ky, T kz) { return calcCell(v, kx, ky, kz, ky); });
+            [calcCell, this](compT v, T kx, T ky, T kz) { return calcCell(v, kx, ky, kz, ky, this->derivInFourierSpace); });
         else if (direction == 2)
           fieldOnLevel.forEachFourierCell(
-            [calcCell](compT v, T kx, T ky, T kz) { return calcCell(v, kx, ky, kz, kz); });
+            [calcCell, this](compT v, T kx, T ky, T kz) { return calcCell(v, kx, ky, kz, kz, this->derivInFourierSpace); });
         else
-          throw std::runtime_error("Unknown velocity direction");
+          throw std::runtime_error("Unknown direction");
+      }
+    }
+
+  public:
+
+    //! Converts (in-place) from a overdensity covector to a velocity covector
+    void turnLocalisationCovectorIntoModificationCovector(fields::MultiLevelField<DataType> & field) const override {
+      if(this->underlying.getLevelsAreCombined())
+        throw std::runtime_error("Cannot create velocity covector for recombined fields (i.e. after output generation is complete)");
+      // Note on the above exception: the problem is that we need to use the Fourier filters to calculate the
+      // multi-level Poisson solution. Once Fourier modes are combined on zoom grids, there is no simple way to get the potential.
+      OverdensityModification<DataType,T>::turnLocalisationCovectorIntoModificationCovector(field);
+      this->computeVelocity(field, this->direction);
+    }
+  };
+
+  template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
+  class AngMomentumModification : public OverdensityModification<DataType, T> {
+  protected:
+    int direction;
+
+  /*! \brief Construct an angular momentum modification from a specified multi-level context, cosmology, and velocity component
+
+      \param underlying_ - underlying multi-level context object.
+      \param cosmology_ - struct containing cosmological data
+      \param direction - component of t velocity to modify, (0,1,2) <-> (x,y,z).
+
+      This evaluates the integral \int_\Gamma (q-\bar{q}) x (d Psi / dt) d³q,
+      where q is the Lagrangian position, \bar{q} is the mean withing the Lagrangian
+      patch and Psi is the rescaled potential. Note that this integral is done in
+      Lagrangian space (d³q) over the Lagrangian patch.
+  */
+
+  public:
+    AngMomentumModification(const multilevelgrid::MultiLevelGrid<DataType> &underlying_,
+                            const cosmology::CosmologicalParameters<T> &cosmology_, int direction_) :
+        OverdensityModification<DataType, T>(underlying_, cosmology_), direction(direction_) {
+      if (direction_ < 0 || direction_ > 2)
+        throw std::runtime_error("Angular momentum direction must be 0 (x), 1 (y) or 2 (z)");
+
+#ifdef ZELDOVICH_GRADIENT_FOURIER_SPACE
+      logging::entry(logging::level::warning) << "WARNING: The code was compiled with the 'ZELDOVICH_GRADIENT_FOURIER_SPACE' activated, but an angular momentum modification was applied. For consistency, consider recompiling the code with the flag deactivated; otherwise the output may not satisfy the modifications. Comment out this error if you are sure about what you are doing." << std::endl;
+#endif
+      direction = direction_;
+    };
+
+  protected:
+    fields::Field<DataType, T> calculateLocalisationCovector(const grids::Grid<T> &grid) override {
+
+      auto qcenter = this->getCentre(grid);
+
+      // Normalize by cell spacing and number of elements (to obtain specific AM)
+      T norm = this->flaggedCellsFinestGrid.size() * grid.cellSize;
+      T a = 1. / 12. / norm, b = -2. / 3. / norm;  // signs here so that L ~ - Nabla Phi
+
+      int dirp1 = (direction + 1) % 3,
+          dirp2 = (direction + 2) % 3;
+
+      fields::Field<DataType, T> outputField = fields::Field<DataType, T>(grid, false);
+      std::vector<DataType> &outputData = outputField.getDataVector();
+
+      for (size_t i = 0; i < this->flaggedCellsFinestGrid.size(); ++i) {
+        size_t index = this->flaggedCellsFinestGrid[i];
+        Coordinate<T> q = grid.getCentroidFromIndex(index);
+
+        Coordinate<T> deltaq = grid.getWrappedOffset(qcenter, q);
+
+        Coordinate<T> qCrossCoeff;
+        // Coefficient to compute cross product (this is the "q \cross" part of q \cross v)
+        qCrossCoeff[direction] = 0;
+        qCrossCoeff[dirp2] =  deltaq[dirp1];  // lx \propto qy * vz
+        qCrossCoeff[dirp1] = -deltaq[dirp2];  //                    - qz * vy
+
+        // Create gradient + cross product covector by combining gradient operator with cross product
+        // to yield -q \cross \nabla · operator (using 4-th order finite-difference)
+        for (int dir = 0; dir < 3; ++dir) {
+          if (dir != direction) { // Not necessary, but saves one iteration
+            size_t ind_p1, ind_m1, ind_p2, ind_m2;
+            Coordinate<int> directionVector;
+            Coordinate<int> negDirectionVector;
+
+            directionVector[dir] = 1;
+            negDirectionVector[dir] = -1;
+
+            ind_m1 = grid.getIndexFromIndexAndStep(index, negDirectionVector);
+            ind_m2 = grid.getIndexFromIndexAndStep(ind_m1, negDirectionVector);
+            ind_p1 = grid.getIndexFromIndexAndStep(index, directionVector);
+            ind_p2 = grid.getIndexFromIndexAndStep(ind_p1, directionVector);
+            outputData[ind_m2] += qCrossCoeff[dir] * a;
+            outputData[ind_m1] += qCrossCoeff[dir] * b;
+            outputData[ind_p1] -= qCrossCoeff[dir] * b;
+            outputData[ind_p2] -= qCrossCoeff[dir] * a;
+          }
+        }
+      }
+
+      outputField.toFourier();
+
+      return outputField;
+    }
+
+  public:
+    void turnLocalisationCovectorIntoModificationCovector (fields::MultiLevelField<DataType> & field) const override {
+      OverdensityModification<DataType,T>::turnLocalisationCovectorIntoModificationCovector(field);
+
+      field.toFourier();
+      for(size_t level=0; level<field.getNumLevels(); ++level) {
+        auto &fieldOnLevel = field.getFieldForLevel(level);
+
+        complex<T> I(0, 1);
+        T scale = zeldovichVelocityToOffsetRatio(this->cosmology);
+
+        auto calcCell =
+          [I, scale](complex<T> overdensityFieldValue, T kx, T ky, T kz) -> complex<T> {
+
+            T k2 = kx * kx + ky * ky + kz * kz;
+
+            if (k2 == 0)
+              return complex<T>(0);
+            else
+              return -scale * overdensityFieldValue / k2;
+        };
+
+        // Missing k^2 factor (density->potential) and scale (potential->velocity)
+        fieldOnLevel.forEachFourierCell(calcCell);
 
       }
     }
