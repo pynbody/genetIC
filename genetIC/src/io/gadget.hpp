@@ -320,6 +320,7 @@ namespace io {
             }
 
             logging::entry() << "   Particle type " << ptype << ": " << n << " particles" << endl;
+
             nPartPerType[ptype] = n;
             masses[ptype] = min_mass;
             nTotal += n;
@@ -342,12 +343,14 @@ namespace io {
             nTotalPerFile.push_back(nTotal / nFiles);
         }
 
+#ifdef DEBUG_INFO
         if(nFiles>1) {
           logging::entry() << "Particles per file: ";
           for (int i = 0; i < nFiles; i++)
             std::cerr << nTotalPerFile[i] << " ";
           std::cerr << endl;
         }
+#endif
 
       }
 
@@ -391,18 +394,14 @@ namespace io {
             nPartRemainingPerType[partType]-=nPartPerTypeThisFile[partType];
           }
 
+#ifdef DEBUG_INFO
           logging::entry(logging::debug) << "i=" << i << " nPartPerTypeThisFile = ";
           for(int partType=0; partType<6; partType++) {
             std::cerr << nPartPerTypeThisFile[partType] << " ";
           }
           std::cerr << std::endl;
+#endif
 
-          logging::entry(logging::debug) << " nPartPerType = ";
-          for(int partType=0; partType<6; partType++) {
-            std::cerr << nPartPerType[partType] << " ";
-          }
-
-          std::cerr << std::endl;
 
           assert(nPartRemainingInFile == 0); // ensure we have assigned all the particles to a type
 
