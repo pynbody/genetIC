@@ -77,6 +77,9 @@ protected:
   //! Gadget type of flagged particles.
   unsigned int flaggedGadgetParticleType;
 
+  //! Number of gadget files (if in use)
+  int nGadgetFiles = 1;
+
   //! DM supersampling to perform on deepest zoom grid
   int supersample = 1;
 
@@ -654,6 +657,10 @@ public:
     exactPowerSpectrum = true;
   }
 
+  //! Set the number of gadget files to output (only does anything for gadget)
+  void setGadgetNumFiles(int nFiles) {
+    this->nGadgetFiles = nFiles;
+  }
 
   //! Set the gadget particle type to be produced by the deepest level currently in the grid hierarchy
   void setGadgetParticleType(unsigned int type) {
@@ -1245,7 +1252,8 @@ public:
       case OutputFormat::gadget3:
         gadget::save<float>(getOutputPath() + ".gadget", boxlen, *pMapper,
                             pParticleGenerator,
-                            cosmology, static_cast<int>(outputFormat));
+                            cosmology, static_cast<int>(outputFormat),
+                            nGadgetFiles);
         break;
       case OutputFormat::tipsy:
         tipsy::save(getOutputPath() + ".tipsy", boxlen, pParticleGenerator,

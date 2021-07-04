@@ -188,7 +188,12 @@ def check_comparison_is_possible(dirname):
 
 
 def particle_files_in_dir(dirname):
-    return glob.glob(dirname + "/*.tipsy") + glob.glob(dirname + "/*.gadget?")
+    gadget_multifiles = glob.glob(dirname + "/*.gadget?.0")
+    if len(gadget_multifiles) == 1:
+        gadget_multifiles = [gadget_multifiles[0][:-2]]
+    elif len(gadget_multifiles) > 1:
+        raise IOError("There is more than one particle output file to test against.")
+    return glob.glob(dirname + "/*.tipsy") + glob.glob(dirname + "/*.gadget?") + gadget_multifiles
 
 
 def default_comparisons():

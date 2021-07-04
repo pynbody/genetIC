@@ -173,7 +173,17 @@ namespace tools {
     //! Get a memory-mapped view of the file for writing, and surround it with Fortran-style size blocks
     template<typename DataType>
     auto getMemMapFortran(size_t n_elements) {
-      int fortranFieldSize = n_elements*sizeof(DataType);
+      size_t fieldSize = n_elements*sizeof(DataType);
+      int fortranFieldSize;
+
+      if(fieldSize>std::numeric_limits<int>::max()) {
+        fortranFieldSize = std::numeric_limits<int>::max(); // unclear what else to do
+        logging::entry(logging::warning) << "One of the output Fortran fields is too large for the file format." << std::endl;
+        logging::entry(logging::warning) << "Writing will proceed, but the resulting file may appear corrupt" << std::endl;
+        logging::entry(logging::warning) << "Try using gadget_num_files <n> to split your output into multiple files." << std::endl;
+      } else
+        fortranFieldSize = int(fieldSize);
+
       write(fortranFieldSize);
       auto region = getMemMap<DataType>(n_elements);
       write(fortranFieldSize);
