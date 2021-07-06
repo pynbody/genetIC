@@ -221,7 +221,13 @@ namespace fields {
     //! Multiply the field in-place by the provided field
     template<typename OtherDataType>
     void operator*=(const Field<OtherDataType, CoordinateType> & other) {
-      size_t N = data.size();
+      // This operation only really make sense in real space
+      assert(!other.isFourier() && !this->isFourier());
+      // We need to use size3 rather than data.size() as `other` may not
+      // be padded by FFTW (and hence it may be shorter).
+      // To be on the safe side, we check that their grid have the same size.
+      assert(other.getGrid().size3 == this->pGrid->size3);
+      size_t N = this->pGrid->size3;
 #pragma omp parallel for
       for(size_t i=0; i<N; i++) {
         data[i]*=other[i];
