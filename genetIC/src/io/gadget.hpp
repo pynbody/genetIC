@@ -270,10 +270,10 @@ namespace io {
 
         size_t current_n = 0;
 
-        std::vector<decltype(writers[0].getMemMapFortran<WriteType>(std::declval<size_t>()))> currentWriteBlocks;
+        std::vector<decltype(writers[0].template getMemMapFortran<WriteType>(std::declval<size_t>()))> currentWriteBlocks;
 
         for(int i=0; i<nFiles; i++)
-          currentWriteBlocks.push_back(writers[i].getMemMapFortran<WriteType>(nTotalPerFile[i]));
+          currentWriteBlocks.push_back(writers[i].template getMemMapFortran<WriteType>(nTotalPerFile[i]));
 
         for (unsigned int particle_type = 0; particle_type < 6; particle_type++) {
           auto begin = mapper.beginParticleType(*generators[gadgetTypeToSpecies[particle_type]], particle_type);
