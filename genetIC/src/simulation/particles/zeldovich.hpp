@@ -202,26 +202,30 @@ namespace particle {
 
       // Differentiation operator
       auto differentiate = [a, b, &potential](auto & zeldovichOffsetField, int dir) {
-        Coordinate<int> directionVector;
-        Coordinate<int> negDirectionVector;
+        Coordinate<int> step_right, step_left;
+        step_right[dir] = 1;
+        step_left[dir] = -1;
 
         zeldovichOffsetField->toReal();
-        directionVector[dir] = 1;
-        negDirectionVector[dir] = -1;
 
         // Create zeldovich offset field
         std::vector<GridDataType> &data = zeldovichOffsetField->getDataVector();
         auto grid2 = zeldovichOffsetField->getGrid();
 
+        // Cannot compute second order finite-difference on a grid smaller than 2
+        assert(grid2.size >= 2);
+
         // Iterate over cells and compute finite difference
         grid2.parallelIterateOverCellsSpatiallyClustered(
-           [&data, grid2, &potential, a, b, directionVector, negDirectionVector](size_t index){
+           [&data, &grid2, &potential, a, b, &step_left, &step_right](size_t index){
 
           size_t ind_p1, ind_m1, ind_p2, ind_m2;
-          ind_m1 = grid2.getIndexFromIndexAndStep(index, negDirectionVector);
-          ind_m2 = grid2.getIndexFromIndexAndStep(ind_m1, negDirectionVector);
-          ind_p1 = grid2.getIndexFromIndexAndStep(index, directionVector);
-          ind_p2 = grid2.getIndexFromIndexAndStep(ind_p1, directionVector);
+
+          ind_m1 = grid2.getIndexFromIndexAndStepWithWrap(index, step_left);
+          ind_m2 = grid2.getIndexFromIndexAndStepWithWrap(ind_m1, step_left);
+
+          ind_p1 = grid2.getIndexFromIndexAndStepWithWrap(index, step_right);
+          ind_p2 = grid2.getIndexFromIndexAndStepWithWrap(ind_p1, step_right);
 
           // 4th order stencil (with periodic boundaries)
           data[index] =
