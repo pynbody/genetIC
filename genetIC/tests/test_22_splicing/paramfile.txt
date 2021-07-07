@@ -1,0 +1,26 @@
+# Test splicing of two different random fields
+
+Om  0.279
+Ol  0.721
+#Ob  0.04
+s8  0.817
+zin	99
+
+random_seed_real_space	8896131
+camb	../camb_transfer_kmax40_z0.dat
+
+outname test_22
+outdir	 ./
+outformat tipsy
+
+
+basegrid 50.0 16
+
+center 25 25 25
+select_sphere 10
+splice 8896132
+
+done
+
+dump_ps 0
+dump_grid 0

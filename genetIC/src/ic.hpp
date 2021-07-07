@@ -11,6 +11,7 @@
 #include <iostream>
 #include <list>
 
+
 #include "tools/numerics/vectormath.hpp"
 #include "tools/numerics/fourier.hpp"
 #include "tools/filesystem.h"
@@ -24,6 +25,7 @@
 #include "simulation/field/multilevelfield.hpp"
 #include "simulation/field/evaluator.hpp"
 #include "simulation/modifications/modificationmanager.hpp"
+#include "simulation/modifications/splice.hpp"
 #include "simulation/particles/multilevelgenerator.hpp"
 #include "simulation/particles/mapper/onelevelmapper.hpp"
 #include "simulation/particles/mapper/twolevelmapper.hpp"
@@ -1291,7 +1293,7 @@ public:
 
     // Enforce exact unit variance if requested
     if(exactPowerSpectrum)
-      outputFields[0]->enforceExactPowerSpectrum();
+      outputFields[0]->enforceUnitVariance();
 
     // Make copies of the field ready for additional transfer functions (such as baryons)
     for (size_t i = 1; i < outputFields.size(); i++) {
@@ -1602,6 +1604,38 @@ public:
   virtual void reverse() {
     initialiseRandomComponentIfUninitialised();
     outputFields[0]->reverse();
+  }
+
+  //! Splicing: fixes the flagged region, while reinitialising the exterior from a new random field
+  virtual void splice(size_t newSeed) {
+    initialiseRandomComponentIfUninitialised();
+    if(outputFields.size()>1)
+      throw std::runtime_error("Splicing is not yet implemented for the case of multiple transfer functions");
+
+    // This operation only makes sense while we are still working with the white noise
+    if(outputFields[0]->getTransferType() != particle::species::whitenoise) {
+      throw std::runtime_error("It is too late in the IC generation process to perform splicing; try moving the splice command earlier");
+    }
+
+    fields::OutputField<GridDataType> newField = fields::OutputField<GridDataType>(multiLevelContext, particle::species::whitenoise);
+    auto newGenerator = fields::RandomFieldGenerator<GridDataType>(newField);
+
+    if(multiLevelContext.getNumLevels()>1)
+      logging::entry(logging::level::warning) << "Splicing operations on multiple levels work, but may have edge artefacts. Use experimentally/at your own risk!" << endl;
+
+    logging::entry() << "Constructing new random field for exterior of splice" << endl;
+    newGenerator.seed(newSeed);
+    newGenerator.draw();
+    logging::entry() << "Finished constructing new random field. Beginning splice operation." << endl;
+
+    for(size_t level=0; level<multiLevelContext.getNumLevels(); ++level) {
+      auto &originalFieldThisLevel = outputFields[0]->getFieldForLevel(level);
+      auto &newFieldThisLevel = newField.getFieldForLevel(level);
+      auto splicedFieldThisLevel = modifications::spliceOneLevel(newFieldThisLevel, originalFieldThisLevel,
+                                                             *multiLevelContext.getCovariance(level, particle::species::all));
+      splicedFieldThisLevel.toFourier();
+      originalFieldThisLevel = std::move(splicedFieldThisLevel);
+    }
   }
 
   //! Reverses the sign of the low-k modes.

@@ -392,7 +392,7 @@ namespace fields {
     not the amplitude. This can be used to perform simulations that can quickly estimate ensemble parameters
     (see Angulo and Pontzen 2016).
     */
-    void enforceExactPowerSpectrum() {
+    void enforceUnitVariance() {
       assertContextConsistent();
       toFourier();
 
@@ -433,10 +433,10 @@ namespace fields {
 
     void applyTransferRatioOneLevel(particle::species oldSpecies, particle::species newSpecies, size_t i) {
       auto &grid = multiLevelContext->getGridForLevel(i);
-      applyTransferRatioOneGrid(getFieldForLevel(i),
-                                multiLevelContext->getCovariance(i, oldSpecies).get(),
-                                multiLevelContext->getCovariance(i, newSpecies).get(),
-                                grid);
+      if(multiLevelContext->getCovariance(i, oldSpecies)!=nullptr)
+        getFieldForLevel(i).applyTransferFunction(*(multiLevelContext->getCovariance(i, oldSpecies)),-0.5);
+      if(multiLevelContext->getCovariance(i, newSpecies)!=nullptr)
+        getFieldForLevel(i).applyTransferFunction(*(multiLevelContext->getCovariance(i, newSpecies)),0.5);
     }
 
   protected:
@@ -448,42 +448,11 @@ namespace fields {
       for (size_t i = 0; i < multiLevelContext->getNumLevels(); ++i) {
         auto &grid = multiLevelContext->getGridForLevel(i);
 
-        applySpectrumOneGrid(getFieldForLevel(i),
-                             *multiLevelContext->getCovariance(i, ofSpecies),
-                             grid);
+        getFieldForLevel(i).applyTransferFunction(*multiLevelContext->getCovariance(i, ofSpecies), 0.5);
 
       }
     }
 
-    //! Divide by one power spectrum and multiply by another for a single level.
-    void applyTransferRatioOneGrid(Field<DataType> &field,
-                                   const Field<DataType> *spectrum1,
-                                   const Field<DataType> *spectrum2,
-                                   const grids::Grid<T> &grid) {
-      field.forEachFourierCellInt([&grid, &field, &spectrum1, &spectrum2]
-                                    (complex<T> existingValue, int kx, int ky, int kz) {
-        T sqrt_spec1, sqrt_spec2;
-
-        if(spectrum1)
-          sqrt_spec1 = sqrt(spectrum1->getFourierCoefficient(kx, ky, kz).real());
-        else
-          sqrt_spec1 = 1.0;
-        if(spectrum2)
-          sqrt_spec2 = sqrt(spectrum2->getFourierCoefficient(kx, ky, kz).real());
-        else
-          sqrt_spec2 = 1.0;
-
-        complex<T> new_val;
-        if (sqrt_spec1 == 0.0) {
-          // Existing power spectrum is zero, so can't be divided out; basically we are applying a pseudo-inverse
-          // rather than a true inverse of spectrum 1.
-          new_val = 0.0;
-        } else {
-          new_val = existingValue * sqrt_spec2 / sqrt_spec1;
-        }
-        return new_val;
-      });
-    }
 
   public:
 
@@ -519,85 +488,6 @@ namespace fields {
 
 
   private:
-    //! \brief Applies the power spectrum to a single level of the multi level field.
-    /*!
-    \param field - field to apply to
-    \param spectrum - covariance matrix to use
-    \param grid - grid on which field is defined.
-    */
-    void applySpectrumOneGrid(Field<DataType> &field,
-                              const Field<DataType> &spectrum,
-                              const grids::Grid<T> &grid) {
-
-      field.forEachFourierCellInt([&grid, &field, &spectrum]
-                                    (complex<T> existingValue, int kx, int ky, int kz) {
-        T sqrt_spec = sqrt(spectrum.getFourierCoefficient(kx, ky, kz).real());
-        return existingValue * sqrt_spec;
-      });
-    }
-
-    //! \brief Invert applySpectrumOneGrid
-    /*!
-    \param field - field to apply to
-    \param spectrum - covariance matrix to use
-    \param grid - grid on which field is defined.
-    */
-    void applyInverseSpectrumOneGrid(Field<DataType> &field,
-                                     const Field<DataType> &spectrum,
-                                     const grids::Grid<T> &grid) {
-
-      field.forEachFourierCellInt([&grid, &field, &spectrum]
-                                    (complex<T> existingValue, int kx, int ky, int kz) {
-        T sqrt_spec = sqrt(spectrum.getFourierCoefficient(kx, ky, kz).real());
-        if (sqrt_spec == 0.0) {
-          return existingValue * 0.0;
-        } else {
-          return existingValue / sqrt_spec;
-        }
-      });
-    }
-
-    //! \brief Multiplies one level of the multi level field by the relevant covariance matrix.
-    /*!
-    \param field - field to apply to
-    \param spectrum - covariance matrix to use
-    \param grid - grid on which field is defined.
-    \param weight - extra factor to multiply by along with the covariance.
-    */
-    void multiplyByCovarianceOneGrid(Field<DataType> &field,
-                                     const Field<DataType> &spectrum,
-                                     const grids::Grid<T> &grid,
-                                     T weight) {
-
-      field.forEachFourierCellInt([weight, &grid, &field, &spectrum]
-                                    (complex<T> existingValue, int kx, int ky, int kz) {
-        T spec = spectrum.getFourierCoefficient(kx, ky, kz).real() * weight;
-        return existingValue * spec;
-      });
-    }
-
-    //! \brief Divides one level by the relevant covariance matrix.
-    /*!
-    \param field - field to apply to
-    \param spectrum - covariance matrix to use
-    \param grid - grid on which field is defined.
-    \param weight - extra factor to multiply by along with the covariance.
-    */
-    void divideByCovarianceOneGrid(Field<DataType> &field,
-                                   const Field<DataType> &spectrum,
-                                   const grids::Grid<T> &grid,
-                                   T weight) {
-
-      field.forEachFourierCellInt([weight, &grid, &field, &spectrum]
-                                    (complex<T> existingValue, int kx, int ky, int kz) {
-        T spec = spectrum.getFourierCoefficient(kx, ky, kz).real() * weight;
-        if (spec == 0) {
-          return complex<DataType>(0, 0);
-        } else {
-          return existingValue / (spec);
-        }
-      });
-    }
 
     //! Apply 'exact' power spectrum on a single grid:
     /*!
