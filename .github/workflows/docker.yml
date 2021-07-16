@@ -12,6 +12,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v2
+        with:
+          ref: refs/tags/v1.3 # temporary
       
       - name: Determine version tag
         run: VERSION_TAG=`git describe --tags`
