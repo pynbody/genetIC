@@ -42,5 +42,7 @@ jobs:
          
       - name: Docker push
         run: | 
+         docker tag apontzen/genetic apontzen/genetic:latest
+         docker tag apontzen/genetic apontzen/genetic:${{ env.VERSION_TAG }}
          docker push apontzen/genetic:${{ env.VERSION_TAG }}
          docker push apontzen/genetic:latest
