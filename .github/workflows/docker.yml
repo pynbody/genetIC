@@ -6,31 +6,40 @@ on:
 
   workflow_dispatch:
 
+
+
 jobs:
   build:
     runs-on: ubuntu-latest
-
+    environment: Docker
     steps:
       - uses: actions/checkout@v2
         with:
           ref: refs/tags/v1.3 # temporary
       
       - name: Determine version tag
-        run: echo "VERSION_TAG=`git describe --tags`" >> $GITHUB_ENV
+        run: | 
+          echo "VERSION_TAG=`git describe --tags | cut -c 2-`" >> $GITHUB_ENV
+          echo Version is ${{ env.VERSION_TAG }}
+          
+      - name: Login to Dockerhub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Docker build
-        if: ${{ false }}
         run: |
          cd genetIC
          docker build -t apontzen/genetic .
          cd ..
 
       - name: Run tests
-        if: ${{ false }}
         run: |
          docker run --rm -v `pwd`:/genetic_repository/ -e IC=/genetIC/genetIC -w /genetic_repository/genetIC/tests --entrypoint bash apontzen/genetic run_tests.sh
          docker run --rm -v `pwd`:/genetic_repository/ -e IC=/genetIC/genetIC -w /genetic_repository/genetIC/tests --entrypoint bash apontzen/genetic run_mapper_tests.sh
          
-      - name: Docker push (eventually)
+      - name: Docker push
         run: | 
-         echo ${{ env.VERSION_TAG }}
+         docker push apontzen/genetic:${{ env.VERSION_TAG }}
+         docker push apontzen/genetic:latest
