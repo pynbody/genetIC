@@ -18,9 +18,10 @@ jobs:
           ref: refs/tags/v1.3 # temporary
       
       - name: Determine version tag
-        run: | 
-          echo "VERSION_TAG=`git describe --tags | cut -c 2-`" >> $GITHUB_ENV
-          echo Version is ${{ env.VERSION_TAG }}
+        run: echo "VERSION_TAG=`git describe --tags | cut -c 2-`" >> $GITHUB_ENV
+        
+      - name: Display version tag
+        run: echo Version is ${{ env.VERSION_TAG }}
           
       - name: Login to Dockerhub
         uses: docker/login-action@v1
