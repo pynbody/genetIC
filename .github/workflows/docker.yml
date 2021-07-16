@@ -14,8 +14,6 @@ jobs:
     environment: Docker
     steps:
       - uses: actions/checkout@v2
-        with:
-          ref: refs/tags/v1.3 # temporary
       
       - name: Determine version tag
         run: echo "VERSION_TAG=`git describe --tags | cut -c 2-`" >> $GITHUB_ENV
