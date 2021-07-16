@@ -16,19 +16,21 @@ jobs:
           ref: refs/tags/v1.3 # temporary
       
       - name: Determine version tag
-        run: VERSION_TAG=`git describe --tags`
+        run: echo "VERSION_TAG=`git describe --tags`" >> $GITHUB_ENV
 
       - name: Docker build
+        if: ${{ false }}
         run: |
          cd genetIC
          docker build -t apontzen/genetic .
          cd ..
 
       - name: Run tests
+        if: ${{ false }}
         run: |
          docker run --rm -v `pwd`:/genetic_repository/ -e IC=/genetIC/genetIC -w /genetic_repository/genetIC/tests --entrypoint bash apontzen/genetic run_tests.sh
          docker run --rm -v `pwd`:/genetic_repository/ -e IC=/genetIC/genetIC -w /genetic_repository/genetIC/tests --entrypoint bash apontzen/genetic run_mapper_tests.sh
          
       - name: Docker push (eventually)
         run: | 
-         echo $VERSION_TAG
+         echo ${{ env.VERSION_TAG }}
