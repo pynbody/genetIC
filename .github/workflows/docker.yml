@@ -1,0 +1,29 @@
+name: Docker build
+
+on:
+  push:
+    tags: v*
+
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      
+      - name: Determine version tag
+        run: VERSION_TAG=`git describe --tags`
+
+      - name: Docker build
+        run: docker build -t apontzen/genetic .
+
+      - name: Run tests
+        run: |
+         docker run --rm -v `pwd`:/genetic_repository/ -e IC=/genetIC/genetIC -w /genetic_repository/genetIC/tests --entrypoint bash apontzen/genetic run_tests.sh
+         docker run --rm -v `pwd`:/genetic_repository/ -e IC=/genetIC/genetIC -w /genetic_repository/genetIC/tests --entrypoint bash apontzen/genetic run_mapper_tests.sh
+         
+      - name: Docker push (eventually)
+        run: | 
+         echo $VERSION_TAG
