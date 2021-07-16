@@ -19,7 +19,10 @@ jobs:
         run: VERSION_TAG=`git describe --tags`
 
       - name: Docker build
-        run: docker build -t apontzen/genetic .
+        run: |
+         cd genetic
+         docker build -t apontzen/genetic .
+         cd ..
 
       - name: Run tests
         run: |
