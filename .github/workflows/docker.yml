@@ -20,7 +20,7 @@ jobs:
 
       - name: Docker build
         run: |
-         cd genetic
+         cd genetIC
          docker build -t apontzen/genetic .
          cd ..
 
