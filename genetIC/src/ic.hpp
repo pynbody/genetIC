@@ -1655,7 +1655,7 @@ public:
   }
 
   //! Splicing: fixes the flagged region, while reinitialising the exterior from a new random field
-  virtual void splice(size_t newSeed) {
+  virtual void splice_with_factor(size_t newSeed, int k_factor=0) {
     initialiseRandomComponentIfUninitialised();
     if(outputFields.size()>1)
       throw std::runtime_error("Splicing is not yet implemented for the case of multiple transfer functions");
@@ -1679,11 +1679,23 @@ public:
     for(size_t level=0; level<multiLevelContext.getNumLevels(); ++level) {
       auto &originalFieldThisLevel = outputFields[0]->getFieldForLevel(level);
       auto &newFieldThisLevel = newField.getFieldForLevel(level);
-      auto splicedFieldThisLevel = modifications::spliceOneLevel(newFieldThisLevel, originalFieldThisLevel,
-                                                             *multiLevelContext.getCovariance(level, particle::species::all));
+      auto splicedFieldThisLevel = modifications::spliceOneLevel(
+        newFieldThisLevel,
+        originalFieldThisLevel,
+        *multiLevelContext.getCovariance(level, particle::species::all),
+        k_factor
+      );
       splicedFieldThisLevel.toFourier();
       originalFieldThisLevel = std::move(splicedFieldThisLevel);
     }
+  }
+
+  virtual void splice_density(size_t newSeed) {
+    splice_with_factor(newSeed, 0);
+  }
+
+  virtual void splice_potential(size_t newSeed) {
+    splice_with_factor(newSeed, -2);
   }
 
   //! Reverses the sign of the low-k modes.
