@@ -59,7 +59,7 @@ namespace tools {
      //! Destructor - exit with an error if we detect something has gone wrong deleting the memory map
     ~MemMapRegion() {
       if (addr_aligned != nullptr) {
-        msync(addr_aligned, size_bytes, MS_SYNC);
+        msync(addr_aligned, size_bytes, MS_ASYNC);
         if(munmap(addr_aligned, size_bytes)!=0) {
           // This probably indicates something has gone catastrophically wrong...
           logging::entry() << "ERROR: Failed to delete the mem-map (reason: " << ::strerror(errno) << ")" << std::endl;
@@ -86,6 +86,7 @@ namespace tools {
       this->addr = move.addr;
       this->addr_aligned = move.addr_aligned;
       this->size_bytes = move.size_bytes;
+      move.addr = nullptr;
       move.addr_aligned = nullptr;
       return (*this);
     }
