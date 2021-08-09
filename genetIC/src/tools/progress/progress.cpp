@@ -3,6 +3,7 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 
+#include "src/tools/logging.hpp"
 #include "progress.hpp"
 
 namespace tools {
@@ -17,7 +18,7 @@ namespace tools {
         return size_t(size.ws_col);
     }
 
-    //! Returns true if the terminal display is wider than 0
+    //! Returns true if stdout is believed to be a terminal display
     bool ProgressBar::isInteractive() {
       return terminalWidth() > 0;
     }
@@ -42,7 +43,7 @@ namespace tools {
       stream << "\r";
     }
 
-    //! Update the display if possible
+    //! Update the display if stdout is a terminal
     void ProgressBar::update() {
       if (!isInteractive())
         return;
@@ -94,7 +95,8 @@ namespace tools {
         update();
       }
       update();
-      stream << std::endl;
+      if(isInteractive())
+        stream << std::endl;
     }
 
 
@@ -104,6 +106,8 @@ namespace tools {
       terminated = true;
       cv.notify_all();
       thread.join();
+      if(!isInteractive() && !title.empty())
+        logging::entry() << "Finished " << title << std::endl;
     }
 
     //! Updates the progress variable
@@ -122,6 +126,8 @@ namespace tools {
       nOpsCurrent = 0;
       terminated = false;
       thread = std::thread([this]() { this->runUpdateLoop(); });
+      if(!isInteractive() && !title.empty())
+        logging::entry() << "Starting " << title << std::endl;
     }
 
     //! Destructor - terminates progress bar if still in progress.
