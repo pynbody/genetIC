@@ -38,7 +38,10 @@ namespace modifications {
   fields::Field<DataType,T> spliceOneLevel(fields::Field<DataType,T> & a,
                                            fields::Field<DataType,T> & b,
                                            const fields::Field<DataType,T> & cov,
-                                           const int k_factor=0) {
+                                           const double rtol,
+                                           const double atol,
+                                           const int k_factor=0
+  ) {
 
       // To understand the implementation below, first read Appendix A of Cadiou et al (2021),
       // and/or look at the 1D toy implementation (in tools/toy_implementation/gene_splicing.ipynb) which
@@ -105,7 +108,7 @@ namespace modifications {
       };
 
 
-      fields::Field<DataType,T> alpha = tools::numerics::conjugateGradient<DataType>(X,z);
+      fields::Field<DataType,T> alpha = tools::numerics::conjugateGradient<DataType>(X, z, rtol, atol);
 
       alpha.toFourier();
       alpha.applyTransferFunction(preconditioner, 0.5);

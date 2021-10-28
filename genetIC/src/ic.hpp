@@ -160,6 +160,10 @@ protected:
   int initial_number_steps = 10; //!< Number of steps always used by quadratic modifications.
   T precision = 0.001; //!< Target precision required of quadratic modifications.
 
+  //! Accuracy of the conjugate gradient method for the splicing method
+  T splicing_cg_rel_tol = 1e-6;
+  T splicing_cg_abs_tol = 1e-12;
+
   //! Mapper that keep track of particles in the mulit-level context.
   shared_ptr<particle::mapper::ParticleMapper<GridDataType>> pMapper = nullptr;
   //! Input mapper, used to relate particles in a different simulation to particles in this one.
@@ -1683,11 +1687,25 @@ public:
         newFieldThisLevel,
         originalFieldThisLevel,
         *multiLevelContext.getCovariance(level, particle::species::all),
+        splicing_cg_rel_tol,
+        splicing_cg_abs_tol,
         k_factor
       );
       splicedFieldThisLevel.toFourier();
       originalFieldThisLevel = std::move(splicedFieldThisLevel);
     }
+  }
+
+  //! Set the conjugate gradient precision for the splicing method
+  /*!
+   * @param type  Precision can be relative or absolute
+   * @param tolerance Precision of the CG
+   */
+  virtual void set_splice_accuracy(string type, double tolerance) {
+    if (type == "absolute")
+      splicing_cg_abs_tol = tolerance;
+    else if (type == "relative")
+      splicing_cg_rel_tol = tolerance;
   }
 
   virtual void splice_density(size_t newSeed) {

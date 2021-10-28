@@ -137,6 +137,7 @@ void setup_parser(tools::ClassDispatch<ICType, void> &dispatch) {
 
   dispatch.add_class_route("reverse", static_cast<void (ICf::*)()>(&ICf::reverse));
   dispatch.add_class_route("reverse_small_k", static_cast<void (ICf::*)(FloatType)>(&ICf::reverseSmallK));
+  dispatch.add_class_route("splice_accuracy", &ICf::set_splice_accuracy);
   dispatch.add_class_route("splice", &ICf::splice_density);
   dispatch.add_class_route("splice_potential", &ICf::splice_potential);
 
