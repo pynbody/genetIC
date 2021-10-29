@@ -59,19 +59,20 @@ namespace modifications {
       // We however set the fundamental of the power spectrum to a non-null value,
       // otherwise, the mean value in the spliced region is unconstrained.
       fields::Field<DataType,T> preconditioner(cov);
-      preconditioner.setFourierCoefficient(0, 0, 0, 1);
 
       if (k_factor != 0) {
-        preconditioner.forEachFourierCell(
-          [k_factor](std::complex<DataType> val, DataType kx, DataType ky, DataType kz){
-            auto k = sqrt(kx * kx + ky * ky + kz * kz);
-            if (k == 0 && k_factor < 0) {
-              return val;
-            } else {
-              return val * pow(k, k_factor);
-            }
-          });
+        // Comments assume here that k_factor=-2, i.e. we splice the potential
+        auto divide_by_k = [k_factor](std::complex<DataType> val, DataType kx, DataType ky, DataType kz){
+          auto k = sqrt(kx * kx + ky * ky + kz * kz);
+          if (k == 0 && k_factor < 0) {
+            return std::complex<DataType>(0, 0);
+          } else {
+            return val * pow(k, 2*k_factor);
+          }
+        };
+        preconditioner.forEachFourierCell(divide_by_k);
       }
+      preconditioner.setFourierCoefficient(0, 0, 0, 1);
 
       fields::Field<DataType,T> delta_diff = b-a;
       delta_diff.applyTransferFunction(preconditioner, 0.5);
