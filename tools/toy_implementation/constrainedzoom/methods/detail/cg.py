@@ -1,6 +1,6 @@
 import numpy as np
 
-def conjugate_gradient(Q, b, rtol=1e-6):
+def conjugate_gradient(Q, b, rtol=1e-6, verbose=False):
     """Solve Qx=b using conjugate gradient. Return x.
 
     Q should be a function such that for any vector a it returns Qa.
@@ -34,6 +34,7 @@ def conjugate_gradient(Q, b, rtol=1e-6):
         beta = np.dot(residual, Q(direction)) / np.dot(direction, Q(direction))
         direction = -residual + beta * direction
 
-    print("Converged after %d iterations" % i)
+    if verbose:
+        print("Converged after %d iterations" % i)
 
     return x
