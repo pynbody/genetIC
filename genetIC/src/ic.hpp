@@ -1697,10 +1697,13 @@ public:
    * @param tolerance Precision of the CG
    */
   virtual void set_splice_accuracy(string type, double tolerance) {
-    if (type == "absolute")
+    if (type == "absolute") {
       splicing_cg_abs_tol = tolerance;
-    else if (type == "relative")
+      logging::entry() << "Setting splicing CG absolute tolerance to " << tolerance << std::endl;
+    } else if (type == "relative") {
       splicing_cg_rel_tol = tolerance;
+      logging::entry() << "Setting splicing CG relative tolerance to " << tolerance << std::endl;
+    }
   }
 
   virtual void splice_density(size_t newSeed) {
