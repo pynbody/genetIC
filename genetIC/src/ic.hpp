@@ -63,7 +63,7 @@ protected:
   //! Vector of output fields (defaults to just a single field)
   std::vector<std::shared_ptr<fields::OutputField<GridDataType>>> outputFields;
   bool useBaryonTransferFunction{false}; //!< True if gas particles should use a different transfer function
-  modifications::ModificationManager<GridDataType> modificationManager; //!< Handles applying modificaitons to the various fields.
+  modifications::ModificationManager<GridDataType> modificationManager; //!< Handles applying modifications to the various fields.
   std::unique_ptr<fields::RandomFieldGenerator<GridDataType>> randomFieldGenerator; //!< Generate white noise for the output fields
   std::unique_ptr<cosmology::PowerSpectrum<GridDataType>> spectrum; //!< Transfer function data
 
@@ -263,7 +263,7 @@ public:
     allowStrayParticles = true;
   }
 
-//!\brief Enables the use of a baryon density field.
+  //!\brief Enables the use of a baryon density field.
   //! If flagged on, the code will extract the transfer function for baryons from CAMB separately from
   //! the dark matter transfer. This causes twice as many fields to be stored and generated, but
   //! produces more accurate results for baryons than assuming they follow the same transfer function
@@ -716,11 +716,6 @@ public:
     usedGadgetParticleTypes[type]=true;
     this->updateParticleMapper();
   }
-
-
-
-
-
 
   //! \brief Obtain power spectrum from a CAMB data file
   /*!
