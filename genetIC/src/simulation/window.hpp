@@ -201,38 +201,44 @@ public:
   //! Expand symmetrically in all directions to make the new distance between upper and lower corners equal to newSize
   void expandSymmetricallyToSize(T newSize) {
     assert(getMaximumDimension() <= newSize);
-    auto centre = getCurrentCentre();
-
     auto oldLCI = lowerCornerInclusive;
     auto oldUCE = upperCornerExclusive;
 
-    lowerCornerInclusive = wrap(centre - newSize / 2);
-    if (newSize % 2 == 0)
-      upperCornerExclusive = wrap(centre + newSize / 2 - 1) + 1;
-    else
-      upperCornerExclusive = wrap(centre + newSize / 2 ) + 1;
+    if(newSize==wrapLength) {
+      lowerCornerInclusive = {0,0,0};
+      upperCornerExclusive = {newSize, newSize, newSize};
+    } else {
+      auto centre = getCurrentCentre();
 
-    // Note in the above, because the corner is *exclusive*, the +1 happens after the wrapping
 
-    // There is an edge case where T is int, newSize is odd, and also getSize()==newSize, where the new
-    // window might be aligned too far up to capture the old lower corner. Fix this:
-    if (lowerCornerInclusive.x > oldLCI.x) {
-      lowerCornerInclusive.x -= 1;
-      upperCornerExclusive.x -= 1;
-    }
-    if (lowerCornerInclusive.y > oldLCI.z) {
-      lowerCornerInclusive.y -= 1;
-      upperCornerExclusive.y -= 1;
-    }
-    if (lowerCornerInclusive.z > oldLCI.z) {
-      lowerCornerInclusive.z -= 1;
-      upperCornerExclusive.z -= 1;
+      lowerCornerInclusive = wrap(centre - newSize / 2);
+      if (newSize % 2 == 0)
+        upperCornerExclusive = wrap(centre + newSize / 2 - 1) + 1;
+      else
+        upperCornerExclusive = wrap(centre + newSize / 2) + 1;
+
+      // Note in the above, because the corner is *exclusive*, the +1 happens after the wrapping
+
+      // There is an edge case where T is int, newSize is odd, and also getSize()==newSize, where the new
+      // window might be aligned too far up to capture the old lower corner. Fix this:
+      if (lowerCornerInclusive.x > oldLCI.x) {
+        lowerCornerInclusive.x -= 1;
+        upperCornerExclusive.x -= 1;
+      }
+      if (lowerCornerInclusive.y > oldLCI.z) {
+        lowerCornerInclusive.y -= 1;
+        upperCornerExclusive.y -= 1;
+      }
+      if (lowerCornerInclusive.z > oldLCI.z) {
+        lowerCornerInclusive.z -= 1;
+        upperCornerExclusive.z -= 1;
+      }
     }
 
     assert(this->contains(oldLCI));
     assert(this->contains(oldUCE - 1));
 
-    assert(getSizes() == wrap(newSize));
+    assert(getSizes() == smallIncrement(wrap(smallDecrement(newSize))));
 
   }
 

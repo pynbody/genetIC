@@ -1,0 +1,29 @@
+# Test "zooming" when in fact the zoom grid has same resolution as base grid
+
+
+# output parameters
+outdir	 ./
+outformat tipsy
+outname test_25
+
+# cosmology:
+Om  0.279
+Ol  0.721
+s8  0.817
+zin	99
+camb	../camb_transfer_kmax40_z0.dat
+
+# basegrid 50 Mpc/h, 8^3
+basegrid 50.0 8
+
+# fourier seeding
+random_seed_real_space	8896131
+
+center 25 25 25
+select_sphere 10
+
+zoomgrid 1 16
+
+done
+
+dump_tipsy test_25.tipsy.overden
