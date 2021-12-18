@@ -48,6 +48,12 @@ def compare(f1,f2) :
         npt.assert_almost_equal(f1['overdensity'],f2['overdensity'],decimal=5)
         print("Overdensity array output matches")
 
+    if 'u' in f2.gas.loadable_keys():
+        # NB intentional to check for u in f2's loadable_keys
+        # older versions of genetIC did not write 'u' with gas output
+        assert 'u' in f1.gas.loadable_keys()
+        npt.assert_almost_equal(f1.gas['u'], f2.gas['u'], decimal=5)
+
 def post_compare_diagnostic_plot(f1,f2):
     import pylab as p
     p.figure(figsize=(12,7))

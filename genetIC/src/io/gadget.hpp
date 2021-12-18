@@ -114,8 +114,8 @@ namespace io {
 
 
     template<typename OutputFloatType, typename InternalFloatType>
-    io_header_2 createGadget2Header(vector<InternalFloatType> masses, vector<long> npart,
-                                    vector<long> npartTotal, int nFiles, double Boxlength,
+    io_header_2 createGadget2Header(vector<InternalFloatType> masses, vector<size_t> npart,
+                                    vector<size_t> npartTotal, int nFiles, double Boxlength,
                                     const cosmology::CosmologicalParameters<InternalFloatType> &cosmology) {
       io_header_2 header2;
       ::memset(&header2, 0, sizeof(io_header_2)); // ensure unused flags are all zero
@@ -171,8 +171,8 @@ namespace io {
     }
 
     template<typename OutputFloatType, typename InternalFloatType>
-    io_header_3 createGadget3Header(vector<InternalFloatType> masses, vector<long> npart,
-                                    vector<long> npartTotal, int nFiles,
+    io_header_3 createGadget3Header(vector<InternalFloatType> masses, vector<size_t> npart,
+                                    vector<size_t> npartTotal, int nFiles,
                                     double Boxlength,
                                     const cosmology::CosmologicalParameters<InternalFloatType> &cosmology) {
       io_header_3 header3;
@@ -244,14 +244,18 @@ namespace io {
       particle::SpeciesToGeneratorMap<GridDataType> generators; //!< Particle generators for each particle species.
       const cosmology::CosmologicalParameters<InternalFloatType> &cosmology; //!< Struct containing cosmological parameters.
       std::vector<tools::MemMapFileWriter> writers; //!< Low-level file operations are handled by this object.
-      size_t nTotal; //!< Total number of particles to output.
-      std::vector<size_t> nTotalPerFile; //!< Number of particles to write per file
+
+      size_t nTotal; //!< Total number of particles to output across all files and types
+      std::vector<size_t> nPartPerFile; //!< Number of particles to write per file
+      vector<size_t> nPartPerType; //!< Number of particles of each gadget type
+      std::vector<std::vector<size_t>> nPartPerTypePerFile; //!< nPartPerTypePerFile[i][j] = num particles in file i of type j
+
       double boxLength; //!< Size of simulation box.
       int gadgetVersion; //!< Which version of the gadget file to output. Allowed values 2 or 3.
       vector<InternalFloatType> masses; //!< Masses of particles if constant. Zero if variable.
-      vector<long> nPartPerType; //!< Number of particles of each gadget type
+
       bool variableMass; //!< Stores whether we are using variable mass gadget particles
-      int nFiles = 1; //!< Number of files to write
+      unsigned int nFiles = 1; //!< Number of files to write
 
       // Mapping between gadget particle types (0->6) and our internal field type. This selects the appropriate
       // transfer function, if multiple are being used.
@@ -266,16 +270,38 @@ namespace io {
       //! Takes a lambda (or other function) which, given a mapper iterator, returns the data to be written for that
       //! particle. The writing proceeds in parallel using a memmap.
       template<typename WriteType>
-      void saveGadgetBlock(std::function<WriteType(const particle::mapper::MapperIterator<GridDataType> &)> getData) {
+      void saveGadgetBlock(particle::species forSpecies,
+                           std::function<WriteType(const particle::mapper::MapperIterator<GridDataType> &)> getData) {
 
         size_t current_n = 0;
+        size_t nTotalForThisBlock = 0;
 
         std::vector<decltype(writers[0].template getMemMapFortran<WriteType>(std::declval<size_t>()))> currentWriteBlocks;
 
-        for(int i=0; i<nFiles; i++)
-          currentWriteBlocks.push_back(writers[i].template getMemMapFortran<WriteType>(nTotalPerFile[i]));
+        std::vector<size_t> nPerFile(nFiles,0);
 
-        for (unsigned int particle_type = 0; particle_type < 6; particle_type++) {
+        // What gadget particle types we are going to write?
+        std::vector<unsigned int> particleTypes;
+        for(unsigned int i=0; i<6; i++) {
+          if(forSpecies == gadgetTypeToSpecies[i] || forSpecies == particle::species::all)
+            particleTypes.push_back(i);
+        }
+
+        // Work out how many particles there will be in each file in this block
+        for(auto pType: particleTypes) {
+          for(unsigned int i=0; i<nFiles; i++) {
+            nPerFile[i]+=this->nPartPerTypePerFile[i][pType];
+            nTotalForThisBlock+=this->nPartPerTypePerFile[i][pType];
+          }
+        }
+
+        if(forSpecies == particle::species::all)
+          assert (nTotalForThisBlock==nTotal);
+
+        for(int i=0; i<nFiles; i++)
+          currentWriteBlocks.push_back(writers[i].template getMemMapFortran<WriteType>(nPerFile[i]));
+
+        for (auto particle_type: particleTypes) {
           auto begin = mapper.beginParticleType(*generators[gadgetTypeToSpecies[particle_type]], particle_type);
           auto end = mapper.endParticleType(*generators[gadgetTypeToSpecies[particle_type]], particle_type);
           size_t nMax = end.getIndex() - begin.getIndex();
@@ -289,8 +315,8 @@ namespace io {
               // The following approach looks slow (doing it for every particle!),
               // but code profiling suggests it's not a significant overhead.
               // Easier to do this than to try and have thread-local variables
-              while(addr>=nTotalPerFile[fileNum]) {
-                addr-=nTotalPerFile[fileNum];
+              while(addr >= nPartPerFile[fileNum]) {
+                addr-=nPartPerFile[fileNum];
                 fileNum++;
               }
 
@@ -299,7 +325,7 @@ namespace io {
 
         }
 
-        assert(current_n == nTotal);
+        assert(current_n == nTotalForThisBlock);
 
       }
 
@@ -307,7 +333,7 @@ namespace io {
       void preScanForMassesAndParticleNumbers() {
         variableMass = false;
         masses = vector<InternalFloatType>(6, 0.0);
-        nPartPerType = vector<long>(6, 0);
+        nPartPerType = vector<size_t>(6, 0);
         nTotal = 0;
 
         logging::entry() << "Particles by gadget type:" << endl;
@@ -323,7 +349,7 @@ namespace io {
 
             logging::entry() << "   Particle type " << ptype << ": " << n << " particles" << endl;
 
-            nPartPerType[ptype] = n;
+            nPartPerType[ptype] = size_t(n);
             masses[ptype] = min_mass;
             nTotal += n;
           }
@@ -340,16 +366,16 @@ namespace io {
 
         for(int i=0; i<nFiles; i++) {
           if (i == nFiles - 1) // last file
-            nTotalPerFile.push_back(nTotal - (nTotal / nFiles) * (nFiles - 1));
+            nPartPerFile.push_back(nTotal - (nTotal / nFiles) * (nFiles - 1));
           else
-            nTotalPerFile.push_back(nTotal / nFiles);
+            nPartPerFile.push_back(nTotal / nFiles);
         }
 
 #ifdef DEBUG_INFO
         if(nFiles>1) {
           logging::entry() << "Particles per file: ";
           for (int i = 0; i < nFiles; i++)
-            std::cerr << nTotalPerFile[i] << " ";
+            std::cerr << nPartPerFile[i] << " ";
           std::cerr << endl;
         }
 #endif
@@ -377,13 +403,13 @@ namespace io {
 
       //! \brief Output the gadget3 or gadget2 header:
       void writeHeader() {
-        std::vector<long> nPartPerTypeThisFile(6, 0);
-        std::vector<long> nPartRemainingPerType = nPartPerType;
+        std::vector<size_t> nPartPerTypeThisFile(6, 0);
+        std::vector<size_t> nPartRemainingPerType = nPartPerType;
         size_t offset = 0;
 
         for(int i=0; i<nFiles; i++) {
 
-          size_t nPartRemainingInFile = nTotalPerFile[i];
+          size_t nPartRemainingInFile = nPartPerFile[i];
 
           // now figure out what gadget particle types are going to appear in this particular file
           for(int partType = 0; partType<6 ; partType++) {
@@ -416,7 +442,24 @@ namespace io {
           } else {
             throw std::runtime_error("Unknown gadget format");
           }
+
+          this->nPartPerTypePerFile.push_back(nPartPerTypeThisFile);
         }
+
+        // Cross-check that the various information we now hold on numbers of particles is self-consistent
+        for(int partType=0; partType<6; partType++) {
+          size_t numPerType = 0;
+          for(int fileNum=0; fileNum<nFiles; fileNum++)
+            numPerType+=nPartPerTypePerFile[fileNum][partType];
+          assert(numPerType == this->nPartPerType[partType]);
+        }
+        for(int fileNum=0; fileNum<nFiles; fileNum++) {
+          size_t numPerFile = 0;
+          for(int partType=0; partType<6; partType++)
+            numPerFile+=nPartPerTypePerFile[fileNum][partType];
+          assert(numPerFile == this->nPartPerFile[fileNum]);
+        }
+
       }
 
     public:
@@ -454,6 +497,7 @@ namespace io {
 
         // positions
         saveGadgetBlock<Coordinate<OutputFloatType>>(
+           particle::species::all,
           [](auto &localIterator) {
             auto particle = localIterator.getParticle();
             return Coordinate<OutputFloatType>(particle.pos);
@@ -461,13 +505,15 @@ namespace io {
 
         // velocities
         saveGadgetBlock<Coordinate<OutputFloatType>>(
+          particle::species::all,
           [](auto &localIterator) {
             auto particle = localIterator.getParticle();
             return Coordinate<OutputFloatType>(particle.vel);
           });
 
         // IDs
-        saveGadgetBlock<long>(
+        saveGadgetBlock<unsigned long>(
+          particle::species::all,
           [](auto &localIterator) {
             return localIterator.getIndex();
           });
@@ -475,8 +521,18 @@ namespace io {
 
         if (variableMass) {
           saveGadgetBlock<OutputFloatType>(
+            particle::species::all,
             [](auto &localIterator) {
               return localIterator.getMass();
+            });
+        }
+
+        if(cosmology.OmegaBaryons0>0) {
+          // dummy internal energy
+          saveGadgetBlock<OutputFloatType>(
+            particle::species::baryon,
+            [](auto &localIterator) -> OutputFloatType {
+              return 0;
             });
         }
 
