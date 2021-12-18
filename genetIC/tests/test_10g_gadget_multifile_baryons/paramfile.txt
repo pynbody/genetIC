@@ -1,0 +1,31 @@
+# Based on test 10c, but use multi-file gadget output
+
+
+# output parameters
+outdir	 ./
+outformat gadget3
+outname test_1
+gadget_num_files 5
+
+# cosmology:
+Om  0.279
+Ol  0.721
+Ob  0.05
+s8  0.817
+zin	99
+camb	../camb_transfer_kmax40_z0.dat
+
+# basegrid 50 Mpc/h, 16^3
+basegrid 50.0 16
+
+# fourier seeding
+random_seed_real_space	8896131
+
+center 0 0 0
+select_sphere 6
+
+zoomgrid 3 16
+
+
+
+done
