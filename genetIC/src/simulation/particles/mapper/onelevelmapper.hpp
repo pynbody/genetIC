@@ -36,10 +36,9 @@ namespace particle {
     protected:
 
       //! Dereferences the iterator with the grid for this level, and the current position
-      virtual void
-      dereferenceIterator(const iterator *pIterator, ConstGridPtrType &gp, size_t &i) const override {
-        gp = pGrid;
-        i = pIterator->i;
+      virtual std::pair<ConstGridPtrType, size_t>
+      dereferenceIterator(const iterator *pIterator) const override {
+        return std::make_pair(pGrid, pIterator->i);
       }
 
       /*! \brief Decrements the iterator by the specified step.

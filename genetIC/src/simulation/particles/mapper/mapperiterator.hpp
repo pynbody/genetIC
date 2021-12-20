@@ -52,6 +52,7 @@ namespace particle {
       using GridType = grids::Grid<T>;
       using ConstGridPtrType = std::shared_ptr<const grids::Grid<T>>;
       using DereferenceType = std::pair<ConstGridPtrType, size_t>;
+      using EvaluatorPtrType = std::shared_ptr<const ParticleEvaluator<GridDataType>>;
 
       friend class ParticleMapper<GridDataType>;
 
@@ -68,9 +69,12 @@ namespace particle {
 
       const ParticleMapper<GridDataType> *pMapper; //!< Pointer to the particle mapper that uses the iterator
       const AbstractMultiLevelParticleGenerator<GridDataType> &generator; //!< Generator used by the iterator to create particles for a given cell
-      mutable ConstGridPtrType pLastGrid; //!< Pointer to the last grid pointed to
-      mutable std::shared_ptr<const ParticleEvaluator<GridDataType>> pLastGridEvaluator; //!< Evaluator for fields on the last grid pointed to
 
+    private:
+      mutable ConstGridPtrType pLastGrid; //!< Pointer to the last grid pointed to
+      mutable EvaluatorPtrType pLastGridEvaluator; //!< Evaluator for fields on the last grid pointed to. Don't use directly: always call getEvaluatorAndIndex instead.
+
+    protected:
       /*! \brief Constructor, that accepts a particle mapper, and a particle generator
         \param pMapper - particle mapper that uses this iterator
         \param generator - particle generator that will be used to create particles at each cell
@@ -128,40 +132,30 @@ namespace particle {
 
       //! Dereferences the iterator at its current position and returns a pointer to the level current pointed at, and the index of the cell pointed to on that level
       DereferenceType operator*() const {
-        ConstGridPtrType gp;
-        size_t i;
-        deReference(gp, i);
-        return std::make_pair(gp, i);
+        return pMapper->dereferenceIterator(this);
       }
 
-
-      /*! \brief Performs the dereferencing operation
-        \param gp - reference to store pointer to level the iterator is pointing to
-        \param id - reference to store index for cell pointed to on the relevant level
-      */
-      void deReference(ConstGridPtrType &gp, size_t &id) const {
-        // TODO: weird that this is now partly updating internal state and partly returning results
-        pMapper->dereferenceIterator(this, gp, id);
+      //! Get a grid evaluator and the index in that evaluator corresponding to the current location
+      auto getParticleEvaluatorAndIndex() const {
+        ConstGridPtrType gp;
+        size_t id;
+        std::tie(gp, id) = **this;
         if (gp != pLastGrid) {
           pLastGrid = gp;
-          updateGridReference();
+          pLastGridEvaluator = generator.makeParticleEvaluatorForGrid(*pLastGrid);
         }
+        return std::make_pair(pLastGridEvaluator, id);
       }
-
 
       //! Returns the particle pointed to by the iterator
       Particle<T> getParticle() const {
-        ConstGridPtrType pGrid;
+        EvaluatorPtrType evaluator;
         size_t id;
-        deReference(pGrid, id);
-        return pLastGridEvaluator->getParticle(id);
+        std::tie(evaluator, id) = getParticleEvaluatorAndIndex();
+        return evaluator->getParticle(id);
       }
 
     protected:
-      //! Updates the stored evaluator to match the last grid pointed to.
-      void updateGridReference() const {
-        pLastGridEvaluator = generator.makeParticleEvaluatorForGrid(*pLastGrid);
-      }
 
       mutable const fields::MultiLevelField<GridDataType> *lastMLField; //!< Pointer to the last multi-level field pointed to
       mutable ConstGridPtrType lastGridPtr; //!< Pointer to the last grid pointed to
@@ -251,10 +245,10 @@ namespace particle {
 
       //! Gets the mass in the cell currently pointed at.
       T getMass() const {
-        ConstGridPtrType pGrid;
+        EvaluatorPtrType pEval;
         size_t id;
-        deReference(pGrid, id);
-        return pLastGridEvaluator->getMass();
+        std::tie(pEval, id) = getParticleEvaluatorAndIndex();
+        return pEval->getMass();
       }
 
       //! Returns a pointer to the pair obtained by dereferencing the iterator at its current position
