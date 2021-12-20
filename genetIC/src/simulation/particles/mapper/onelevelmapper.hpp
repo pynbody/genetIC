@@ -50,6 +50,10 @@ namespace particle {
         pIterator->i -= increment;
       }
 
+      void incrementIteratorBy(iterator *pIterator, size_t increment) const override {
+        pIterator->i += increment;
+      }
+
       //! Returns the gadget type associated to this one level mapper
       virtual unsigned int
       gadgetParticleTypeFromIterator(const iterator * /*pIterator*/) const override {

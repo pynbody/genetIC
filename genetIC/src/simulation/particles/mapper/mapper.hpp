@@ -71,7 +71,9 @@ namespace particle {
         \param increment - amount to increment pIterator by
       */
       virtual void incrementIteratorBy(iterator *pIterator, size_t increment) const {
-        pIterator->i += increment;
+        // should be optimized where possible in child classes:
+        for (size_t i = 0; i < increment; ++i)
+          incrementIterator(pIterator);
       }
 
       //! Decrement the specified iterator by the specified number of steps. Only implemented by derived mapper classes.
