@@ -227,26 +227,45 @@ namespace particle {
         return i;
       }
 
+      iterator beginSecond(const AbstractMultiLevelParticleGenerator <GridDataType> &generator) const {
+        iterator i = begin(generator);
+        i.i+=firstMap->size();
+        // This is OK because the first sub-iterator will be ignored, and the second sub-iterator will start at zero
+        return i;
+      }
+
       //! Returns an iterator pointing to the beginning of the dark matter particles
       virtual iterator
       beginDm(const AbstractMultiLevelParticleGenerator <GridDataType> &generator) const override {
-        return (gasFirst ? secondMap : firstMap)->begin(generator);
+        if(!gasFirst)
+          return begin(generator);
+        else
+          return beginSecond(generator);
       }
 
       //! Returns an iterator pointing to the end fo the dark matter particles
       virtual iterator endDm(const AbstractMultiLevelParticleGenerator <GridDataType> &generator) const override {
-        return (gasFirst ? secondMap : firstMap)->end(generator);
+        if(!gasFirst)
+          return beginSecond(generator);
+        else
+          return this->end(generator);
       }
 
       //! Returns an iterator pointing to the beginning of the baryonic particles
       virtual iterator
       beginGas(const AbstractMultiLevelParticleGenerator <GridDataType> &generator) const override {
-        return (gasFirst ? firstMap : secondMap)->begin(generator);
+        if(gasFirst)
+          return begin(generator);
+        else
+          return beginSecond(generator);
       }
 
       //! Returns an iterator pointing to the end of the dark matter particles
       virtual iterator endGas(const AbstractMultiLevelParticleGenerator <GridDataType> &generator) const override {
-        return (gasFirst ? firstMap : secondMap)->end(generator);
+        if(gasFirst)
+          return beginSecond(generator);
+        else
+          return this->end(generator);
       }
 
       /*! \brief Returns a mapper that either super-samples or sub-samples the dark matter

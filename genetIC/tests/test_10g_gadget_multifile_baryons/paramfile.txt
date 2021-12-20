@@ -5,7 +5,7 @@
 outdir	 ./
 outformat gadget3
 outname test_1
-gadget_num_files 5
+gadget_num_files 1
 
 # cosmology:
 Om  0.279

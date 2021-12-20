@@ -778,18 +778,6 @@ namespace particle {
         }
       }
 
-
-      /*! \brief Increments the specified iterator by the specified amount
-        \param pIterator - iterator to move
-        \param increment - number of steps to increment the iterator by
-      */
-      virtual void incrementIteratorBy(iterator *pIterator, size_t increment) const override {
-        // could be optimized:
-        for (size_t i = 0; i < increment; ++i)
-          incrementIterator(pIterator);
-
-      }
-
       /*! \brief Dereference the specified iterator, storing the pointed to grid and cell index
         \param pIterator - iterator to dereference
         \param gp - reference to where the grid pointer should be stored

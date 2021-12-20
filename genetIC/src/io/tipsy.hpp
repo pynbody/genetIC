@@ -108,9 +108,11 @@ namespace io {
       //! \brief Save a block of tipsy particles in parallel
       template<typename ParticleType>
       void saveNextBlockOfTipsyParticles(particle::mapper::MapperIterator<GridDataType> &begin,
-                                         size_t nMax = 256 * 1024 * 1024) {
+                                         particle::mapper::MapperIterator<GridDataType> &end,
+                                         typename particle::mapper::MapperIterator<GridDataType>::difference_type
+                                          nMax = 256 * 1024 * 1024) {
 
-        size_t n = std::min({nMax, begin.getNumRemainingParticles()});
+        size_t n = std::min({nMax, end - begin});
 
         auto p = writer.getMemMap<ParticleType>(n);
 
@@ -151,9 +153,8 @@ namespace io {
         ParticleType p;
         TipsyParticle::initialise(p, cosmology);
         auto i = begin;
-        std::thread writerThread;
         while (i != end) {
-          saveNextBlockOfTipsyParticles<ParticleType>(i);
+          saveNextBlockOfTipsyParticles<ParticleType>(i, end);
         }
       }
 

@@ -82,6 +82,8 @@ namespace particle {
 
     public:
 
+      using difference_type = std::ptrdiff_t;
+
       //! Constructor that copies another iterator
       MapperIterator(const MapperIterator<GridDataType> &source) :
         i(source.i), extraData(source.extraData), pMapper(source.pMapper),
@@ -117,6 +119,11 @@ namespace particle {
       MapperIterator &operator-=(size_t m) {
         pMapper->decrementIteratorBy(this, m);
         return (*this);
+      }
+
+      difference_type operator-(const MapperIterator &other) const {
+        assert(this->pMapper == other.pMapper);
+        return difference_type(this->i) - difference_type(other.i);
       }
 
       //! Dereferences the iterator at its current position and returns a pointer to the level current pointed at, and the index of the cell pointed to on that level
@@ -195,11 +202,6 @@ namespace particle {
       //! Returns the index to which the iterator currently points.
       size_t getIndex() const {
         return i;
-      }
-
-      //! Returns the number of particles remaining before the end of the particle list, from the current position
-      size_t getNumRemainingParticles() const {
-        return pMapper->size() - getIndex();
       }
 
       //! Iterates in parallel, applying the callback function
