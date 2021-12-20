@@ -81,8 +81,12 @@ namespace particle {
         throw std::runtime_error("Attempting to reverse in a mapper that does not support random access");
       }
 
-      //! Dereference the specified iterator, storing the grid pointer of the level pointed to and index of the cell pointed to on that level. Only implemented by derived mapper classes
-      virtual void dereferenceIterator(const iterator *, ConstGridPtrType &, size_t &) const {
+      /*! \brief Dereference the specified iterator, working out the grid and cell index it refers to
+          \param pIterator - iterator to dereference
+          \returns gp - pointer to the grid
+          \returns i - pointer to the cell within that grid
+      */
+      virtual std::pair<ConstGridPtrType, size_t> dereferenceIterator(const iterator *) const {
         throw std::runtime_error("There is no grid associated with this particle mapper");
       }
 

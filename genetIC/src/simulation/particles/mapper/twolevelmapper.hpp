@@ -778,17 +778,12 @@ namespace particle {
         }
       }
 
-      /*! \brief Dereference the specified iterator, storing the pointed to grid and cell index
-        \param pIterator - iterator to dereference
-        \param gp - reference to where the grid pointer should be stored
-        \param i - reference to where the cell index should be stored
-      */
-      virtual void
-      dereferenceIterator(const iterator *pIterator, ConstGridPtrType &gp, size_t &i) const override {
+      virtual std::pair<ConstGridPtrType, size_t>
+      dereferenceIterator(const iterator *pIterator) const override {
         if (pIterator->i >= firstLevel2Particle)
-          pIterator->subIterators[1]->deReference(gp, i);
+          return **(pIterator->subIterators[1]);
         else
-          pIterator->subIterators[0]->deReference(gp, i);
+          return **(pIterator->subIterators[0]);
       }
 
 
