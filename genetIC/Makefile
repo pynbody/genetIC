@@ -1,5 +1,5 @@
 # Reasonably sensible defaults
-CFLAGS ?= -Wall -g -lpthread -O0 -fopenmp -std=c++14 -fdiagnostics-color=auto -I`pwd`
+CFLAGS ?= -Wall -g -lpthread -O3 -fopenmp -std=c++14 -fdiagnostics-color=auto -I`pwd`
 
 # Here are code options. Probably don't fiddle with these unless you know what you're doing.
 #
@@ -80,8 +80,8 @@ ifeq ($(HOST), clema)
  endif
 
 ifeq ($(HOST), jasmi)
-	CXX = /opt/local/bin/g++-mp-9   -L/opt/local/lib/
-	CFLAGS = -O2 -g -fopenmp -std=c++14 -I`pwd` -DOPENMP -DDOUBLEPRECISION
+	CXX = /opt/local/bin/g++-mp-11   -L/opt/local/lib/
+	CFLAGS = -O3 -g -fopenmp -std=c++14 -I`pwd` -DOPENMP -DDOUBLEPRECISION
 endif
 
 ifeq ($(HOST), Rhodo)
