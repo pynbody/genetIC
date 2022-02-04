@@ -258,6 +258,8 @@ public:
   //! produces more accurate results for baryons than assuming they follow the same transfer function
   //! (which holds only at late times).
   void setUsingBaryons() {
+    throw std::runtime_error("Sorry, use of the baryon transfer function currently has a bug which makes it highly inaccurate. "
+                             "This is being fixed and in current versions it is disabled.")
     this->useBaryonTransferFunction = true;
   }
 
