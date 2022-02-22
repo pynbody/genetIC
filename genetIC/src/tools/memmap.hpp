@@ -43,7 +43,7 @@ namespace tools {
 
       size_bytes+=byte_page_offset;
 
-      addr_aligned = static_cast<char*>(::mmap(nullptr, size_bytes, PROT_READ | PROT_WRITE,
+      addr_aligned = static_cast<char*>(::mmap(nullptr, size_bytes, PROT_WRITE,
           MAP_SHARED, fd, aligned_offset));
 
       if(addr_aligned==MAP_FAILED)
