@@ -91,6 +91,9 @@ namespace tools {
           logging::entry(logging::level::warning) << "ERROR: Failed to delete the mem-map (reason: " << ::strerror(errno) << ")" << std::endl;
           exit(1);
         }
+        for(auto f: onEndCallbacks) {
+           f();
+         }
       }
 #endif
     }
