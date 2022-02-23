@@ -26,6 +26,10 @@ namespace tools {
     char *addr_aligned; //!< Address for the start of the current page
     DataType *addr; //!< Address for data to be written to in the memory map
     size_t size_bytes; //!< Size in bytes of the data to be written, plus any data since the start of the current page
+    std::vector<std::function<void()>> onEndCallbacks; //!< A callback for when the
+#ifdef NO_MEMMAP
+    int fd; //!< File descriptor, only stored when running in NO_MEMMAP emulation mode
+#endif
 
     /*! \brief Define a MemMapRegion for a given file descriptor, write location, and number of elements to be written
     \param fd - file descriptor (-1 for errors)
@@ -34,6 +38,11 @@ namespace tools {
     */
     MemMapRegion(int fd, size_t file_offset, size_t n_elements) {
       size_bytes = n_elements*sizeof(DataType);
+#ifdef NO_MEMMAP
+      this->addr = new DataType[n_elements];
+      this->fd = fd;
+#else
+
       ::lseek(fd, file_offset+size_bytes-1, SEEK_SET);
       ::write(fd,"",1);
 
@@ -50,6 +59,7 @@ namespace tools {
         throw std::runtime_error("Failed to create a mem-map for output (reason: "+std::string(::strerror(errno))+")");
 
       addr = reinterpret_cast<DataType*>(&addr_aligned[byte_page_offset]);
+#endif
 
     }
 
@@ -58,14 +68,31 @@ namespace tools {
   public:
      //! Destructor - exit with an error if we detect something has gone wrong deleting the memory map
     ~MemMapRegion() {
+#ifdef NO_MEMMAP
+       if(addr!=nullptr) {
+         ssize_t rval = ::write(fd, reinterpret_cast<void *>(addr), size_bytes);
+         if (rval < 0)
+           logging::entry(logging::level::warning) << "Failed to write to file (reason: " << ::strerror(errno) << ")"
+                                                   << std::endl;
+         else if (rval != size_bytes)
+           logging::entry(logging::level::warning) << "Kernel did not write sufficient data to the file" << std::endl;
+         delete addr;
+         addr = nullptr;
+         for(auto f: onEndCallbacks) {
+           f();
+         }
+
+       }
+#else
       if (addr_aligned != nullptr) {
         msync(addr_aligned, size_bytes, MS_ASYNC);
         if(munmap(addr_aligned, size_bytes)!=0) {
           // This probably indicates something has gone catastrophically wrong...
-          logging::entry() << "ERROR: Failed to delete the mem-map (reason: " << ::strerror(errno) << ")" << std::endl;
+          logging::entry(logging::level::warning) << "ERROR: Failed to delete the mem-map (reason: " << ::strerror(errno) << ")" << std::endl;
           exit(1);
         }
       }
+#endif
     }
 
     //! Disallow copying of the MemMapRegion object (to avoid two of them writing to the same block at the same time)
@@ -76,6 +103,11 @@ namespace tools {
       (*this)=std::move(move);
     }
 
+    //! Sets a callback function for when this memmap is being deconstructed
+    void onFinish(const std::function<void()> & f) {
+      this->onEndCallbacks.emplace_back(std::move(f));
+    }
+
     //! Returns the data at offset from the current read/write location
     DataType & operator[](size_t offset) {
       return addr[offset];
@@ -84,8 +116,12 @@ namespace tools {
     //! Copy the data from another MemMapRegion and disable the old one
     MemMapRegion & operator=(MemMapRegion && move) noexcept {
       this->addr = move.addr;
+#ifdef NO_MEMMAP
+      this->fd = move.fd;
+#endif
       this->addr_aligned = move.addr_aligned;
       this->size_bytes = move.size_bytes;
+      this->onEndCallbacks = std::move(move.onEndCallbacks);
       move.addr = nullptr;
       move.addr_aligned = nullptr;
       return (*this);
@@ -133,6 +169,10 @@ namespace tools {
     MemMapFileWriter(std::string filename)  {
       // Open file in read/write mode, creating it if it doesn't already exist
       fd = ::open(filename.c_str(), O_RDWR | O_CREAT, (mode_t)0666);
+#ifdef NO_MEMMAP
+      logging::entry(logging::level::debug) << "Caution: running with NO_MEMMAP, which emulates memmaps "
+                                               "for experimental testing" << std::endl;
+#endif
       if(fd==-1)
         throw std::runtime_error("Failed to open file (reason: "+std::string(::strerror(errno))+")");
       ::ftruncate(fd, 0);
@@ -167,7 +207,9 @@ namespace tools {
     auto getMemMap(size_t n_elements) {
       auto region = MemMapRegion<DataType>(fd,offset,n_elements);
       offset+=n_elements*sizeof(DataType);
+#ifndef NO_MEMMAP
       ::lseek(fd, offset, SEEK_SET);
+#endif
       return region;
     }
 
@@ -187,7 +229,10 @@ namespace tools {
 
       write(fortranFieldSize);
       auto region = getMemMap<DataType>(n_elements);
-      write(fortranFieldSize);
+      region.onFinish([fortranFieldSize, this]() {
+        this->write(fortranFieldSize);
+      });
+
       return region;
     }
 
