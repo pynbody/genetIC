@@ -43,8 +43,8 @@ namespace tools {
       this->fd = fd;
 #else
 
-      ::lseek(fd, file_offset+size_bytes-1, SEEK_SET);
-      ::write(fd,"",1);
+      ::ftruncate(fd, file_offset+size_bytes);
+      ::lseek(fd, file_offset+size_bytes, SEEK_SET);
 
       size_t npage_offset = file_offset/::getpagesize(); // Number of full pages written at the current write position
       size_t aligned_offset = npage_offset*::getpagesize(); // Beginning of page that the current write position is on
