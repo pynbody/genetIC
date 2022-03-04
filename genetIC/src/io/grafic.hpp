@@ -161,13 +161,12 @@ namespace io {
 
         for (size_t i_z = 0; i_z < targetGrid.size; ++i_z) {
           pb.tick();
-          writeBlockHeaderFooter(block_lengths, files);
 
           std::vector<tools::MemMapRegion<float>> varMaps;
           for (int m = 0; m < 9; ++m)
-            varMaps.push_back(files[m].getMemMap<float>(targetGrid.size2));
+            varMaps.push_back(files[m].getMemMapFortran<float>(targetGrid.size2));
 
-          tools::MemMapRegion<size_t> idMap = files[9].getMemMap<size_t>(targetGrid.size2);
+          tools::MemMapRegion<size_t> idMap = files[9].getMemMapFortran<size_t>(targetGrid.size2);
 
 #pragma omp parallel for
           for (size_t i_y = 0; i_y < targetGrid.size; ++i_y) {
@@ -201,22 +200,10 @@ namespace io {
 
             }
           }
-          writeBlockHeaderFooter(block_lengths, files);
         }
         iordOffset += targetGrid.size3;
       }
 
-      //! \brief Output the length in bytes of the fields, as header and footer to each data block, FORTRAN-style
-      /*!
-      \param block_lengths - lengths of blocks of data, for each file.
-      \param files - files to output to.
-      */
-      void writeBlockHeaderFooter(const vector<size_t> &block_lengths, vector<tools::MemMapFileWriter> &files) const {
-        assert(block_lengths.size() == files.size());
-        for (size_t i = 0; i < block_lengths.size(); ++i) {
-          files[i].write<int>(int(block_lengths[i]));
-        }
-      }
 
       //! \brief Output the header for a given level of the simulation.
       /*!

@@ -26,6 +26,7 @@ namespace tools {
     char *addr_aligned; //!< Address for the start of the current page
     DataType *addr; //!< Address for data to be written to in the memory map
     size_t size_bytes; //!< Size in bytes of the data to be written, plus any data since the start of the current page
+    std::vector<std::function<void()>> onEndCallbacks; //!< A callback for when the
 
     /*! \brief Define a MemMapRegion for a given file descriptor, write location, and number of elements to be written
     \param fd - file descriptor (-1 for errors)
@@ -34,8 +35,9 @@ namespace tools {
     */
     MemMapRegion(int fd, size_t file_offset, size_t n_elements) {
       size_bytes = n_elements*sizeof(DataType);
-      ::lseek(fd, file_offset+size_bytes-1, SEEK_SET);
-      ::write(fd,"",1);
+
+      ::ftruncate(fd, file_offset+size_bytes);
+      ::lseek(fd, file_offset+size_bytes, SEEK_SET);
 
       size_t npage_offset = file_offset/::getpagesize(); // Number of full pages written at the current write position
       size_t aligned_offset = npage_offset*::getpagesize(); // Beginning of page that the current write position is on
@@ -43,7 +45,7 @@ namespace tools {
 
       size_bytes+=byte_page_offset;
 
-      addr_aligned = static_cast<char*>(::mmap(nullptr, size_bytes, PROT_READ | PROT_WRITE,
+      addr_aligned = static_cast<char*>(::mmap(nullptr, size_bytes, PROT_WRITE,
           MAP_SHARED, fd, aligned_offset));
 
       if(addr_aligned==MAP_FAILED)
@@ -62,9 +64,12 @@ namespace tools {
         msync(addr_aligned, size_bytes, MS_ASYNC);
         if(munmap(addr_aligned, size_bytes)!=0) {
           // This probably indicates something has gone catastrophically wrong...
-          logging::entry() << "ERROR: Failed to delete the mem-map (reason: " << ::strerror(errno) << ")" << std::endl;
+          logging::entry(logging::level::warning) << "ERROR: Failed to delete the mem-map (reason: " << ::strerror(errno) << ")" << std::endl;
           exit(1);
         }
+        for(auto f: onEndCallbacks) {
+           f();
+         }
       }
     }
 
@@ -74,6 +79,11 @@ namespace tools {
     //! Moves a memory map to a new variable
     MemMapRegion(MemMapRegion && move) {
       (*this)=std::move(move);
+    }
+
+    //! Sets a callback function for when this memmap is being deconstructed
+    void onFinish(const std::function<void()> & f) {
+      this->onEndCallbacks.emplace_back(std::move(f));
     }
 
     //! Returns the data at offset from the current read/write location
@@ -86,6 +96,7 @@ namespace tools {
       this->addr = move.addr;
       this->addr_aligned = move.addr_aligned;
       this->size_bytes = move.size_bytes;
+      this->onEndCallbacks = std::move(move.onEndCallbacks);
       move.addr = nullptr;
       move.addr_aligned = nullptr;
       return (*this);
@@ -167,7 +178,14 @@ namespace tools {
     auto getMemMap(size_t n_elements) {
       auto region = MemMapRegion<DataType>(fd,offset,n_elements);
       offset+=n_elements*sizeof(DataType);
-      ::lseek(fd, offset, SEEK_SET);
+      region.onFinish([this]() {
+        // leave file position as though we just finished writing this in a "normal" way
+        // this is important for the fortran file writing below. Note that although the
+        // end of the fortran block could in principle be written before the memmap is
+        // created, this non-sequential writing caused erratically bad performance with
+        // network file systems
+        ::lseek(this->fd, this->offset, SEEK_SET);
+      });
       return region;
     }
 
@@ -187,7 +205,10 @@ namespace tools {
 
       write(fortranFieldSize);
       auto region = getMemMap<DataType>(n_elements);
-      write(fortranFieldSize);
+      region.onFinish([fortranFieldSize, this]() {
+        this->write(fortranFieldSize);
+      });
+
       return region;
     }
 
