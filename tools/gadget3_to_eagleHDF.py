@@ -1,9 +1,3 @@
-import numpy as np
-import os
-import argparse
-from scipy.io import FortranFile
-import h5py as h5
-
 """
 Script for converting .gadget3 binary ICs to the hdf5 format, for use with the EAGLE code.
 
@@ -13,20 +7,23 @@ Usage: ics2hdf.py ics_file
 * Creates an hdf5 file in the same directory as the original ICs, with the same name.
 """
 
+import numpy as np
+import os
+import argparse
+from scipy.io import FortranFile
+import h5py as h5
+
 def ics2hdf(ics_file):
 
-    raw_ics = os.path.abspath(ics_file)
+    # Do quick check to make sure input is valid
+    assert ics_file.name.split('.')[-1] == 'gadget3','Input ICs not valid. Please input GADGET3 binary ICs (.gadget3)'
 
-    # Do quick checks to make sure input is valid
-    assert os.path.isfile(raw_ics),'Input ICs file does not exist.'
-    assert raw_ics.split('.')[-1] == 'gadget3','Input ICs not valid. Please input GADGET3 binary ICs (.gadget3)'
+    out_ics = ics_file.name[:-7] + 'hdf5'
 
-    out_ics = raw_ics[:-7] + 'hdf5'
-
-    print('Reading binary file '+raw_ics)
+    print(f"Reading binary file {ics_file.name}")
 
     # Open the FORTRAN unformatted binary ICs
-    f = FortranFile(raw_ics, 'r')
+    f = FortranFile(ics_file, 'r')
 
     # Read the header with the proper types
     header = f.read_record('(6,)i4','(6,)f8','f8','f8','i4','i4','(6,)i4','i4','i4','f8','f8','f8','f8','i4','i4','(6,)i4','i4','i4','(56,)b')
@@ -104,7 +101,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         'input_ICs',
-        type=str,
+        type=argparse.FileType(mode="br"),
         help="The input .gadget3 binary ICs file"
     )
     args = parser.parse_args()
