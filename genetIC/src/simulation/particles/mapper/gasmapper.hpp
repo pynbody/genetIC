@@ -36,6 +36,14 @@ namespace particle {
       size_t nFirst; //!< Number of particles in the first mapper.
       size_t nSecond; //!< Number of particles in the second mapper.
 
+      MapPtrType getGasMap() const {
+        return gasFirst?firstMap:secondMap;
+      }
+
+      MapPtrType getDmMap() const {
+        return gasFirst?secondMap:firstMap;
+      }
+
 
       //! Increments the specified iterator, increasing either its baryon or dark matter iterator according to the current position
       virtual void incrementIterator(iterator *pIterator) const override {
@@ -119,15 +127,17 @@ namespace particle {
         nSecond(pSecond->size()) {
         assert(pFirst->size_gas() == 0);
         assert(pSecond->size_gas() == 0);
-        for (unsigned int particleType = 0; particleType < 6; ++particleType) {
-          // All particle types must be the default (1), as we will now override them for our own purposes
-          if (particleType != 1) {
+
+        decltype(pFirst) pGasMapper;
+        if(gasFirst)
+          pGasMapper = pFirst;
+        else
+          pGasMapper = pSecond;
+
+        for (unsigned int particleType = 1; particleType < 6; ++particleType) {
             NullMultiLevelParticleGenerator<GridDataType> g;
-            if (pFirst->beginParticleType(g, particleType) != pFirst->endParticleType(g, particleType) ||
-                pSecond->beginParticleType(g, particleType) != pSecond->endParticleType(g, particleType)) {
-              throw std::runtime_error("Cannot currently combine custom gadget particle type numbers with gas");
-            }
-          }
+            assert(pGasMapper->beginParticleType(g, particleType) == pGasMapper->endParticleType(g, particleType));
+            // If the above assertion fails, gas particles have received a non-zero gadget particle type
         }
       };
 
@@ -192,10 +202,7 @@ namespace particle {
                                          unsigned int particleType) const override {
         if (particleType == 0)
           return beginGas(generator);
-        else if (particleType == 1)
-          return beginDm(generator);
-        else
-          return endDm(generator);
+        else return getDmMap()->beginParticleType(generator, particleType);
       }
 
 
@@ -207,10 +214,7 @@ namespace particle {
                                        unsigned int particleType) const override {
         if (particleType == 0)
           return endGas(generator);
-        else if (particleType == 1)
-          return endDm(generator);
-        else
-          return endDm(generator);
+        else return getDmMap()->endParticleType(generator, particleType);
       }
 
 
