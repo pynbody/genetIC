@@ -128,16 +128,18 @@ namespace particle {
         assert(pFirst->size_gas() == 0);
         assert(pSecond->size_gas() == 0);
 
-        decltype(pFirst) pGasMapper;
-        if(gasFirst)
-          pGasMapper = pFirst;
-        else
-          pGasMapper = pSecond;
+        NullMultiLevelParticleGenerator<GridDataType> g;
 
         for (unsigned int particleType = 1; particleType < 6; ++particleType) {
-            NullMultiLevelParticleGenerator<GridDataType> g;
-            assert(pGasMapper->beginParticleType(g, particleType) == pGasMapper->endParticleType(g, particleType));
+            assert(getGasMap()->beginParticleType(g, particleType) == getGasMap()->endParticleType(g, particleType));
             // If the above assertion fails, gas particles have received a non-zero gadget particle type
+        }
+
+        if(getDmMap()->beginParticleType(g, 0) != getDmMap()->endParticleType(g, 0)) {
+          throw std::runtime_error("You have asked for some gadget DM particles to be output with type 0, "
+                                   "but have also set non-zero baryon density. Type 0 is reserved for gas "
+                                   "particles in hydro simulations, and genetIC particle types refer only "
+                                   "to the dark matter part of the output.");
         }
       };
 

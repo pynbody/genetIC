@@ -1,0 +1,30 @@
+# Test zooming using different gadget particle types for the levels
+
+
+# output parameters
+outdir	 ./
+outformat gadget3
+outname test_1
+
+# cosmology:
+Om  0.279
+Ol  0.721
+s8  0.817
+Ob  0.05 # add gas!
+zin	99
+camb	../camb_transfer_kmax40_z0.dat
+random_seed_real_space	8896131
+
+
+base_grid 50.0 16
+gadget_particle_type 5
+
+
+centre 25 25 25
+select_nearest
+zoom_grid 3 32
+gadget_particle_type 2
+
+
+
+done
