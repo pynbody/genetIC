@@ -153,16 +153,23 @@ namespace particle {
         \param toGrids - vector of grids - only create usable mappers if this grid is a proxy for one of these.
       */
       std::pair<MapPtrType, MapPtrType> splitMass(T massRatio, const std::vector<GridPtrType> &toGrids) override {
-        if (pGrid->isProxyForAnyOf(toGrids)) {
-          return std::make_pair(
-            std::make_shared<OneLevelParticleMapper<GridDataType>>(
-              this->pGrid->makeScaledMassVersion(massRatio)),
-            std::make_shared<OneLevelParticleMapper<GridDataType>>(
-              this->pGrid->makeScaledMassVersion(1.0 - massRatio)));
+        std::shared_ptr<OneLevelParticleMapper<GridDataType>> s1,s2;
+
+        if(pGrid->isProxyForAnyOf(toGrids)) {
+          s1 = std::make_shared<OneLevelParticleMapper<GridDataType>>(
+            this->pGrid->makeScaledMassVersion(massRatio));
+          s2 = std::make_shared<OneLevelParticleMapper<GridDataType>>(
+            this->pGrid->makeScaledMassVersion(1.0 - massRatio));
+          s1->setGadgetParticleType(0);
+          s2->setGadgetParticleType(this->gadgetParticleType);
         } else {
-          return std::make_pair(std::shared_ptr<OneLevelParticleMapper<GridDataType>>(nullptr),
-                                std::make_shared<OneLevelParticleMapper<GridDataType>>(this->pGrid));
+          s1 = nullptr;
+          s2 = std::make_shared<OneLevelParticleMapper<GridDataType>>(this->pGrid);
+          s2->setGadgetParticleType(this->gadgetParticleType);
         }
+
+        return std::make_pair(s1, s2);
+
       }
 
       /*! \brief sub/super samples dark matter
