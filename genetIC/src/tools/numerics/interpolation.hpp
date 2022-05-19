@@ -97,6 +97,8 @@ namespace tools {
             logy.push_back(logy_i);
           }
         }
+        if(logx.size()<2)
+          throw std::range_error("Could not find enough valid values in the transfer function. This may mean that one of the transfer function columns is full of zeros.");
         Interpolator<T>::initialise(logx, logy);
       }
 
