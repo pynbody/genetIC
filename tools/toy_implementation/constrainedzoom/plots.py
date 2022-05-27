@@ -354,6 +354,7 @@ def zoom_demo(nP=256, nW=256, hires_window_scale=4, hires_window_offset=8,plaw=-
               show_covec=False,errors=False,linewidth=None,
               constrain_potential=False,seed=None,
               splice_seed=None,diff_seed=None,
+              diff_abs=False,
               splice_range=(100,200),plot_kwargs={}):
 
     if errors and not no_random:
@@ -385,6 +386,10 @@ def zoom_demo(nP=256, nW=256, hires_window_scale=4, hires_window_offset=8,plaw=-
         delta_P_diff, delta_W_diff = X.realization(seed=diff_seed)
         delta_P-=delta_P_diff
         delta_W-=delta_W_diff
+
+        if diff_abs:
+            delta_P = np.abs(delta_P)
+            delta_W = np.abs(delta_W)
 
 
     if errors:
