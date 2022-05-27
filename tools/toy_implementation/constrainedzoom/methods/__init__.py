@@ -87,50 +87,51 @@ class ZoomConstrained(GeometryAndPixelization, Powspec, CovarianceCalculation,
 
     @classmethod
     def _splice_realizations_one_level(cls, noise1: FFTArray, noise2: FFTArray, cov: FFTArray, mask: np.ndarray):
-        """Implementation of splice_realizations for single level of the zoom hierarchy.
+        """
+        Implementation of splice_realizations for single level of the zoom hierarchy.
 
         :param noise1: noise for inside the mask
         :param noise2: noise for outside the mask
         :param cov: power spectrum / covariance in Fourier space
-        :param mask: masking array (in real space)"""
-
+        :param mask: masking array (in real space)
+        """
         complementary_mask=~mask
-        inv_cov=1./cov
+        inv_cov = 1./cov
         inv_cov[cov==0] = 0
 
         assert noise1.fourier == noise2.fourier
         # Cast into form X.alpha = z
 
-        delta_diff = (noise2-noise1)
+        delta_diff: FFTArray = noise2 - noise1
         delta_diff.in_fourier_space()
-        delta_diff*=cov**0.5
+        delta_diff[:] *= cov**0.5
         delta_diff.in_real_space()
 
         z = delta_diff.copy()
-        z*=mask
+        z[:] *= mask
         z.in_fourier_space()
-        z*=inv_cov
+        z[:] *= inv_cov
         z.in_real_space()
-        z*=complementary_mask
+        z[:] *= complementary_mask
         z.in_fourier_space()
-        z*=cov**0.5
+        z[:] *= cov**0.5
         z.in_real_space()
 
 
-        def X(input: FFTArray):
+        def X(input: FFTArray) -> FFTArray:
             nonlocal cov, inv_cov, mask, complementary_mask
             v = input.copy()
             assert not v.fourier
             v.in_fourier_space()
-            v*=cov**0.5
+            v[:] *= cov**0.5
             v.in_real_space()
-            v*=complementary_mask
+            v[:] *= complementary_mask
             v.in_fourier_space()
-            v*=inv_cov
+            v[:] *= inv_cov
             v.in_real_space()
-            v*=complementary_mask
+            v[:] *= complementary_mask
             v.in_fourier_space()
-            v*=cov**0.5
+            v[:] *= cov**0.5
             v.in_real_space()
             return v
 
@@ -178,7 +179,7 @@ class ZoomConstrained(GeometryAndPixelization, Powspec, CovarianceCalculation,
         :returns noiseP, noiseW: the low-res and high-res noise vectors for the spliced realisation
         """
 
-        boundary_safety = 5
+        boundary_safety = self.pixel_size_ratio
 
         mask_high = np.zeros(self.nW, bool)
         mask_high[:] = False

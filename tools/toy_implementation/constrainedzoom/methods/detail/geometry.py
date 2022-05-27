@@ -90,14 +90,48 @@ class GeometryAndPixelization:
         result = delta_highres[self.offset * self.pixel_size_ratio:self.offset * self.pixel_size_ratio + self.nW]
         return result.view(type=FFTArray)
 
+    @staticmethod
+    def interp1d(x_vals_low, delta, x_vals_high):
+        delta_high = np.zeros_like(x_vals_high)
+        for ih, xh in enumerate(x_vals_high):
+            i = np.argmin(np.abs(x_vals_low - xh))
+            if x_vals_low[i] > xh:
+                i -= 1
+
+            # Now do a trilinear interpolation
+            p0 = delta[i]
+            p1 = delta[i+1]
+            m0 = (delta[i+1] - delta[i-1])/(x_vals_low[i+1] - x_vals_low[i-1])
+            m1 = (delta[i+2] - delta[i  ])/(x_vals_low[i+2] - x_vals_low[i  ])
+
+            t = xh - x_vals_low[i]
+            t2 = t * t
+            t3 = t2 * t
+
+            delta_high[ih] = (
+                (2 * t3 - 3 * t2 + 1) * p0 +
+                (t3 - 2 * t2 + t) * m0 +
+                (-2 * t3 + 3 * t2) * p1 +
+                (t3 - t2) * m1
+            )
+        return delta_high
+
     @in_real_space
     def upsample_cubic(self, delta_low) -> FFTArray:
         "Take a low-res vector and interpolate it into the high-res region - cubic interpolation"
 
         x_vals_low, x_vals_high = self.xs()
-        delta_highres = scipy.interpolate.interp1d(x_vals_low, delta_low, kind='cubic')(x_vals_high)
+
+        # Note: scipy's `interp1d` uses information from non-local pixels. This is slightly
+        # more accurate, but is not equivalent to what is done in the C++ code. Instead
+        # we use here a simple spline cubic interpolation that only uses information from
+        # pixels in the [-1, 2] range, where [0, 1] would be the left and right pixel location
+        # in the low-resolution region.
+        # > delta_highres = scipy.interpolate.interp1d(x_vals_low, delta_low, kind='cubic')(x_vals_high)
+        delta_highres = self.interp1d(x_vals_low, delta_low, x_vals_high)
 
         return delta_highres.view(type=FFTArray)
+
 
     @in_real_space
     def downsample(self, hires_vector: FFTArray, input_unpadded=True, output_padded=True) -> FFTArray:
