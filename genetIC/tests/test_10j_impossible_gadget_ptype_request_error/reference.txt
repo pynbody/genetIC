@@ -1,0 +1,1 @@
+Error "Cannot reuse a gadget particle type" on line 31 ("gadget_particle_type 5")

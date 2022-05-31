@@ -53,12 +53,6 @@ namespace particle {
         pIterator->i += increment;
       }
 
-      //! Returns the gadget type associated to this one level mapper
-      virtual unsigned int
-      gadgetParticleTypeFromIterator(const iterator * /*pIterator*/) const override {
-        return gadgetParticleType;
-      }
-
     public:
       /*! \brief Outputs debug information about the one level mapper to the specified stream
         \param s - stream to output to.
@@ -67,7 +61,7 @@ namespace particle {
       virtual void debugInfo(std::ostream &s, int level = 0) const override {
         tools::indent(s, level);
         pGrid->debugInfo(s);
-        s << std::endl;
+        s << " (gadgetParticleType=" << gadgetParticleType <<")" << std::endl;
       }
 
       /*! \brief Outputs debug information about the specified iterator
@@ -123,9 +117,12 @@ namespace particle {
         return true;
       }
 
-      //! Change the gadget type of this one level mapper (default is dark matter)
-      void setGadgetParticleType(unsigned int type) {
+      void setGadgetParticleType(unsigned int type) override {
         gadgetParticleType = type;
+      }
+
+      unsigned int getGadgetParticleTypeForFinestGrid() override {
+        return gadgetParticleType;
       }
 
       //! Go to the begining of the particles of the specified gadget type.
@@ -198,11 +195,15 @@ namespace particle {
       }
 
       MapPtrType withIndependentFlags() override {
-        return std::make_shared<OneLevelParticleMapper<GridDataType>>(this->pGrid->withIndependentFlags());
+        MapPtrType result = std::make_shared<OneLevelParticleMapper<GridDataType>>(this->pGrid->withIndependentFlags());
+        result->setGadgetParticleType(this->gadgetParticleType);
+        return result;
       }
 
       MapPtrType withCoupledFlags() override {
-        return std::make_shared<OneLevelParticleMapper<GridDataType>>(this->pGrid->withCoupledFlags());
+        MapPtrType result = std::make_shared<OneLevelParticleMapper<GridDataType>>(this->pGrid->withCoupledFlags());
+        result->setGadgetParticleType(this->gadgetParticleType);
+        return result;
       }
 
 

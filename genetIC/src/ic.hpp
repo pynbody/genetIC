@@ -666,10 +666,28 @@ public:
     this->nGadgetFiles = nFiles;
   }
 
+protected:
+  vector<bool> usedGadgetParticleTypes {false, true, false, false, false, false};
+  unsigned int lastType = 1;
+
+  void markGadgetParticleTypeUsed(unsigned int type) {
+    // With the current approach to mappers, and specifically beginGadgetType / endGadgetType, there is a built-in
+    // assumption that particles of different types appear contiguously in the genetIC mapping
+    if(usedGadgetParticleTypes[type]) {
+      throw runtime_error("Cannot reuse a gadget particle type");
+    }
+    usedGadgetParticleTypes[type]=true;
+  }
+
+
+public:
   //! Set the gadget particle type to be produced by the deepest level currently in the grid hierarchy
   void setGadgetParticleType(unsigned int type) {
     if (type >= 6)
       throw (std::runtime_error("Gadget particle type must be between 0 and 5"));
+    if (type!=lastType) {
+      markGadgetParticleTypeUsed(type);
+    }
     if (multiLevelContext.getNumLevels() == 0)
       throw (std::runtime_error("Can't set a gadget particle type until a level has been initialised to set it for"));
     this->gadgetTypesForLevels[multiLevelContext.getNumLevels() - 1] = type;
@@ -681,6 +699,7 @@ public:
   void setFlaggedGadgetParticleType(unsigned int type) {
     if (type >= 6)
       throw (std::runtime_error("Gadget particle type must be between 0 and 5"));
+    markGadgetParticleTypeUsed(type);
     flaggedParticlesHaveDifferentGadgetType = true;
     flaggedGadgetParticleType = type;
     this->updateParticleMapper();
