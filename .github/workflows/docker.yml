@@ -41,7 +41,6 @@ jobs:
           builder: ${{ steps.buildx.outputs.name }}
           context: ./genetIC
           file: ./genetIC/Dockerfile
-          target: prod
           platforms: linux/amd64,linux/arm64
           push: true
           tags: apontzen/genetic:${{ env.VERSION_TAG }}, apontzen/genetic:latest
