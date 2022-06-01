@@ -259,6 +259,12 @@ namespace particle {
         const std::function<void(const iterator &)> &callback) const {
         auto begin = beginParticleType(generator, particle_type);
         auto end = endParticleType(generator, particle_type);
+        if(particle_type==3 || particle_type==5) {
+          cerr << "BEGIN" << endl;
+          begin.debugInfo(cerr);
+          std::cerr << "END" << endl;
+          end.debugInfo(cerr);
+        }
         for (auto i = begin; i != end; ++i) {
           callback(i);
         }

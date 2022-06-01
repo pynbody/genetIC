@@ -73,6 +73,12 @@ protected:
   //! Gadget particle types to be generated on each level (default 1)
   std::vector<unsigned int> gadgetTypesForLevels;
 
+  //! Note of which gadget particle types have already been assigned
+  vector<bool> usedGadgetParticleTypes {false, false, false, false, false, false};
+
+  //! The most recently used gadget particle type
+  unsigned int mruGadgetType = 1;
+
   //! If true, at output time assign a different gadget particle type to the flagged particles on the finest known level
   bool flaggedParticlesHaveDifferentGadgetType;
 
@@ -601,7 +607,8 @@ public:
     // This forwards to multiLevelContext but is required because it is overriden in DummyICGenerator,
     // which needs to ensure that grids are synchronised between two different contexts
     multiLevelContext.addLevel(size, nside, offset);
-    this->gadgetTypesForLevels.push_back(1);
+    this->gadgetTypesForLevels.push_back(this->mruGadgetType);
+    usedGadgetParticleTypes[this->mruGadgetType]=true; // previously selected type is now definitely reserved/in use
   }
 
   //! \brief Set up the random field generator to work in real space with a specified random seed
@@ -667,16 +674,13 @@ public:
   }
 
 protected:
-  vector<bool> usedGadgetParticleTypes {false, true, false, false, false, false};
-  unsigned int lastType = 1;
 
-  void markGadgetParticleTypeUsed(unsigned int type) {
+  void checkWhetherGadgetTypeUsed(unsigned int type) {
     // With the current approach to mappers, and specifically beginGadgetType / endGadgetType, there is a built-in
     // assumption that particles of different types appear contiguously in the genetIC mapping
     if(usedGadgetParticleTypes[type]) {
-      throw runtime_error("Cannot reuse a gadget particle type");
+      throw runtime_error("Cannot reuse a gadget particle type; this type was already used in a different section of the ICs");
     }
-    usedGadgetParticleTypes[type]=true;
   }
 
 
@@ -685,8 +689,9 @@ public:
   void setGadgetParticleType(unsigned int type) {
     if (type >= 6)
       throw (std::runtime_error("Gadget particle type must be between 0 and 5"));
-    if (type!=lastType) {
-      markGadgetParticleTypeUsed(type);
+    if (type != mruGadgetType) {
+      checkWhetherGadgetTypeUsed(type);
+      mruGadgetType = type;
     }
     if (multiLevelContext.getNumLevels() == 0)
       throw (std::runtime_error("Can't set a gadget particle type until a level has been initialised to set it for"));
@@ -699,9 +704,10 @@ public:
   void setFlaggedGadgetParticleType(unsigned int type) {
     if (type >= 6)
       throw (std::runtime_error("Gadget particle type must be between 0 and 5"));
-    markGadgetParticleTypeUsed(type);
+    checkWhetherGadgetTypeUsed(type);
     flaggedParticlesHaveDifferentGadgetType = true;
     flaggedGadgetParticleType = type;
+    usedGadgetParticleTypes[type]=true;
     this->updateParticleMapper();
   }
 
