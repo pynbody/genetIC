@@ -608,7 +608,8 @@ public:
     // which needs to ensure that grids are synchronised between two different contexts
     multiLevelContext.addLevel(size, nside, offset);
     this->gadgetTypesForLevels.push_back(this->mruGadgetType);
-    usedGadgetParticleTypes[this->mruGadgetType]=true; // previously selected type is now definitely reserved/in use
+    if(this->gadgetTypesForLevels.size()>1)
+      usedGadgetParticleTypes[this->mruGadgetType]=true; // previously selected type is now definitely reserved/in use
   }
 
   //! \brief Set up the random field generator to work in real space with a specified random seed
