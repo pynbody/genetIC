@@ -92,6 +92,11 @@ namespace particle {
 
     public:
 
+      //! True if this mapper contains particles with the specified gadget particle type
+      virtual bool containsGadgetParticleType(unsigned int t)  {
+        return false;
+      }
+
       /*! \brief Outputs debug information about the mapper. Should be over-written by derived classes.
         \param s - stream to output debug information to.
         \param level - level about which to output debug information.
@@ -259,12 +264,6 @@ namespace particle {
         const std::function<void(const iterator &)> &callback) const {
         auto begin = beginParticleType(generator, particle_type);
         auto end = endParticleType(generator, particle_type);
-        if(particle_type==3 || particle_type==5) {
-          cerr << "BEGIN" << endl;
-          begin.debugInfo(cerr);
-          std::cerr << "END" << endl;
-          end.debugInfo(cerr);
-        }
         for (auto i = begin; i != end; ++i) {
           callback(i);
         }

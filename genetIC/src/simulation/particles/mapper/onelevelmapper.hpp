@@ -34,7 +34,6 @@ namespace particle {
       unsigned int gadgetParticleType; //!< Gadget type for the particle species pointed to by this mapper
 
     protected:
-
       //! Dereferences the iterator with the grid for this level, and the current position
       virtual std::pair<ConstGridPtrType, size_t>
       dereferenceIterator(const iterator *pIterator) const override {
@@ -54,6 +53,10 @@ namespace particle {
       }
 
     public:
+      bool containsGadgetParticleType(unsigned int t) override {
+        return (t==gadgetParticleType);
+      }
+
       /*! \brief Outputs debug information about the one level mapper to the specified stream
         \param s - stream to output to.
         \param level - level about which to output debug information.

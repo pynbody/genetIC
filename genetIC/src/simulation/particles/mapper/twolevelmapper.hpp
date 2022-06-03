@@ -76,8 +76,38 @@ namespace particle {
       */
       virtual iterator endParticleType(const AbstractMultiLevelParticleGenerator <GridDataType> &generator,
                                        unsigned int particleType) const override {
-        return iteratorFromSubiterators(pLevel1->endParticleType(generator, particleType),
-                                        pLevel2->endParticleType(generator, particleType));
+        bool presentLevel1 = pLevel1->containsGadgetParticleType(particleType) && !skipLevel1;
+        bool presentLevel2 = pLevel2->containsGadgetParticleType(particleType);
+
+        if(!presentLevel1 && !presentLevel2)
+          return this->end(generator);
+
+        if(presentLevel2) {
+          if(presentLevel1)
+            // we can only make sense of the situation if it's the last bits of level 1 glued onto the start of level 2
+            assert(pLevel1->endParticleType(generator, particleType) == pLevel1->end(generator));
+
+          // level 2 is only one particle type, so we know the end is the end of the whole mapper
+          return this->end(generator);
+        } else {
+          assert (presentLevel1 && !presentLevel2); // just to be sure...
+
+          iterator l1Iterator = pLevel1->endParticleType(generator, particleType);
+
+          // we now need to find the right place to reflect wherever things sit in level 1
+          iterator i(this, generator);
+          i.extraData.push_back(0); // current position in zoom ID list
+          i.extraData.push_back(level1ParticlesToReplace[0]); // next entry in zoom ID list
+
+          i.subIterators.emplace_back(std::make_shared<iterator>(l1Iterator));
+          i.subIterators.emplace_back(nullptr); // level 2 won't be accessed
+
+          setIteratorIndexFromLevel1SubIterator(i);
+          moveLevel1SubIteratorPastZoomedParticles(i);
+
+          return i;
+        }
+
       }
 
       /*! \brief Returns an iterator pointing at the beginning of the list of particles with the specified type
@@ -93,15 +123,57 @@ namespace particle {
       */
       virtual iterator beginParticleType(const AbstractMultiLevelParticleGenerator <GridDataType> &generator,
                                          unsigned int particleType) const override {
-        return iteratorFromSubiterators(pLevel1->beginParticleType(generator, particleType),
-                                        pLevel2->beginParticleType(generator, particleType));
+        bool presentLevel1 = pLevel1->containsGadgetParticleType(particleType) && !skipLevel1;
+        bool presentLevel2 = pLevel2->containsGadgetParticleType(particleType);
+
+        if(!presentLevel1 && !presentLevel2)
+          return this->end(generator);
+
+        iterator i(this, generator);
+
+        i.extraData.push_back(0); // current position in zoom ID list
+        i.extraData.push_back(level1ParticlesToReplace[0]); // next entry in zoom ID list
+
+        if(presentLevel1) {
+          i.subIterators.emplace_back(std::make_shared<iterator>(pLevel1->beginParticleType(generator, particleType)));
+          moveLevel1SubIteratorPastZoomedParticles(i);
+          setIteratorIndexFromLevel1SubIterator(i);
+        } else {
+          // nothing on level 1; but we know level 2 (a) is a OneLevelParticleMapper and (b) includes this type
+          // [due to return above]
+          i.i = firstLevel2Particle;
+          i.subIterators.emplace_back(nullptr);
+        }
+
+        if(presentLevel2) {
+          iterator iLev2 = pLevel2->beginParticleType(generator, particleType);
+          adjustLevel2IteratorForSpecifiedZoomParticle(0, iLev2);
+          i.subIterators.emplace_back(std::make_shared<iterator>(iLev2));
+        } else {
+          i.subIterators.emplace_back(nullptr);
+        }
+
+        return i;
       }
 
       /*! \brief Returns an iterator pointing to the beginning of the particle list, for both levels pointed to
         \param generator - particle generator to use for this iterator
       */
       virtual iterator begin(const AbstractMultiLevelParticleGenerator <GridDataType> &generator) const override {
-        return iteratorFromSubiterators(pLevel1->begin(generator), pLevel2->begin(generator));
+        iterator i(this, generator);
+
+        i.extraData.push_back(0); // current position in zoom ID list
+        i.extraData.push_back(level1ParticlesToReplace[0]); // next entry in zoom ID list
+
+        i.subIterators.emplace_back(std::make_shared<iterator>(pLevel1->begin(generator)));
+        moveLevel1SubIteratorPastZoomedParticles(i);
+        setIteratorIndexFromLevel1SubIterator(i);
+
+        iterator iLev2 = pLevel2->begin(generator);
+        adjustLevel2IteratorForSpecifiedZoomParticle(0, iLev2);
+        i.subIterators.emplace_back(std::make_shared<iterator>(iLev2));
+
+        return i;
       }
 
     protected:
@@ -126,42 +198,24 @@ namespace particle {
        */
       iterator iteratorFromSubiterators(const iterator &l1Iterator, const iterator &l2Iterator) const {
 
+        bool doesntIncludeLevel1 = skipLevel1
+          || l1Iterator.pMapper == nullptr
+          || l1Iterator == pLevel1->end(l1Iterator.generator);
+
+        bool doesntIncludeLevel2 = l2Iterator.pMapper == nullptr
+          || l2Iterator == pLevel2->end(l2Iterator.generator);
+
         // special case: no particles to be generated on level 1 or level 2
-        if(l1Iterator.pMapper==nullptr && l2Iterator.pMapper==nullptr)
+        if(doesntIncludeLevel1 && doesntIncludeLevel2)
           return this->end(l1Iterator.generator);
 
         if (level1ParticlesToReplace.size() == 0)
           return this->end(l1Iterator.generator);
 
-        iterator x(this, l1Iterator.generator);
-        x.extraData.push_back(0); // current position in zoom ID list
-        x.extraData.push_back(level1ParticlesToReplace[0]); // next entry in zoom ID list
 
-        if (!skipLevel1 && l1Iterator.pMapper != nullptr) {
-          x.subIterators.emplace_back(new iterator(l1Iterator));
-          moveLevel1SubIteratorPastZoomedParticles(x);
-          setIteratorIndexFromLevel1SubIterator(x);
-        } else {
-          x.i = firstLevel2Particle;
-          x.subIterators.emplace_back(nullptr);
-        }
-
-        if (l2Iterator.pMapper != nullptr) {
-          x.subIterators.emplace_back(new iterator(l2Iterator));
-          if (l2Iterator != pLevel2->end(l2Iterator.generator)) {
-            // TODO: is the following definitely needed?
-            adjustLevel2IteratorForSpecifiedZoomParticle(0, *(x.subIterators.back()));
-          } else {
-            x.i = size(); // iterator is at end
-          }
-        } else {
-          x.subIterators.emplace_back(nullptr);
-        }
-
-        return x;
       }
 
-      //! Uses the iterators on the deepers levels (level 2) to set the index of iterator x on level 1
+      //! Uses the sub-iterators for level 1 to set the index of the overall iterator
       void setIteratorIndexFromLevel1SubIterator(iterator &x) const {
         size_t targetLevel1Index = x.subIterators[0]->i;
         if (targetLevel1Index == 0)
@@ -182,6 +236,10 @@ namespace particle {
       }
 
     public:
+
+      bool containsGadgetParticleType(unsigned int t) override {
+        return (pLevel1->containsGadgetParticleType(t) && !this->skipLevel1) || pLevel2->containsGadgetParticleType(t);
+      }
 
 
       /*! \brief Constructs a two level mapper from two mappers and a vector of particles on the coarse level to replace
