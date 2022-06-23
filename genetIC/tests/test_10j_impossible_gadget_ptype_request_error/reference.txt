@@ -1,0 +1,1 @@
+Error "Cannot reuse a gadget particle type; this type was already used in a different section of the ICs" on line 31 ("gadget_particle_type 5")
