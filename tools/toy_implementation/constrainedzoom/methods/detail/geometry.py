@@ -91,7 +91,7 @@ class GeometryAndPixelization:
         return result.view(type=FFTArray)
 
     @staticmethod
-    def interp1d(x_vals_low, delta, x_vals_high):
+    def _interp1d_helper(x_vals_low, delta, x_vals_high):
         delta_high = np.zeros_like(x_vals_high)
         for ih, xh in enumerate(x_vals_high):
             i = np.argmin(np.abs(x_vals_low - xh))
@@ -119,7 +119,6 @@ class GeometryAndPixelization:
     @in_real_space
     def upsample_cubic(self, delta_low) -> FFTArray:
         "Take a low-res vector and interpolate it into the high-res region - cubic interpolation"
-
         x_vals_low, x_vals_high = self.xs()
 
         # Note: scipy's `interp1d` uses information from non-local pixels. This is slightly
@@ -128,7 +127,7 @@ class GeometryAndPixelization:
         # pixels in the [-1, 2] range, where [0, 1] would be the left and right pixel location
         # in the low-resolution region.
         # > delta_highres = scipy.interpolate.interp1d(x_vals_low, delta_low, kind='cubic')(x_vals_high)
-        delta_highres = self.interp1d(x_vals_low, delta_low, x_vals_high)
+        delta_highres = np.dot(self._upsample_cubic_matrix, delta_low)
 
         return delta_highres.view(type=FFTArray)
 
@@ -152,14 +151,15 @@ class GeometryAndPixelization:
     @lru_cache()
     def _upsample_cubic_matrix(self):
         matr = np.zeros((self.nW, self.nP))
+        x_vals_low, x_vals_high = self.xs()
         for i in range(self.nP):
             test = np.zeros(self.nP)
             test[i] = 1.0
-            matr[:, i] = self.upsample_cubic(test)
+            matr[:, i] = self._interp1d_helper(x_vals_low, test, x_vals_high)
 
-        test = np.random.uniform(0, 1, self.nP)
-        result = self.upsample_cubic(test)
-        np.testing.assert_allclose(np.dot(matr, test), result, atol=1e-5)
+        # test = np.random.uniform(0, 1, self.nP)
+        # result = self.upsample_cubic(test)
+        # np.testing.assert_allclose(np.dot(matr, test), result, atol=1e-5)
 
         return matr
 

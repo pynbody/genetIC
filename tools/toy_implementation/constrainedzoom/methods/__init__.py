@@ -1,6 +1,6 @@
 import abc
 import math
-from typing import Tuple
+from typing import Tuple, Callable
 import numpy as np
 import scipy.fftpack
 import scipy.interpolate
@@ -28,6 +28,7 @@ class ZoomConstrained(GeometryAndPixelization, Powspec, CovarianceCalculation,
         """The default plot padding (in coarse pixels) to hide from the high-res region"""
         return 0
 
+    @in_fourier_space
     def realization(self, no_random=False, noiseP: FFTArray=None, noiseW: FFTArray=None, seed=None) -> Tuple[FFTArray, FFTArray] :
         """Generate a realization of the Gaussian random field with constraints, if present.
         
