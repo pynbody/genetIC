@@ -36,7 +36,7 @@ GSLFLAGS = -lgsl -lgslcblas
 # Note that genetIC no longer supports the use of FFTW2
 
 FFTW = -DFFTW3 -DFFTW_THREADS
-FFTWLIB = -lfftw3 -lfftw3_threads
+FFTWLIB = -lfftw3 -lfftw3f -lfftw3_threads
 
 
 # Provide information on the git repository, to be printed out on each run

@@ -161,8 +161,8 @@ namespace cosmology {
     using typename PowerSpectrum<DataType>::CoordinateType;
 
   protected:
-    std::vector<CoordinateType> kInterpolationPoints; //!< Wavenumbers read from CAMB file
-    std::map<particle::species, std::vector<CoordinateType>> speciesToInterpolationPoints; //!< Vector to store transfer functions
+    std::vector<double> kInterpolationPoints; //!< Wavenumbers read from CAMB file
+    std::map<particle::species, std::vector<double>> speciesToInterpolationPoints; //!< Vector to store transfer functions
 
     const std::map<particle::species, size_t> speciesToCambColumn
       {{particle::species::dm, 1},
@@ -171,7 +171,7 @@ namespace cosmology {
      }};
       //!< Columns of CAMB that we request for DM and baryons respectively
 
-    std::map<particle::species, tools::numerics::LogInterpolator<CoordinateType>> speciesToTransferFunction; //!< Interpolation functions:
+    std::map<particle::species, tools::numerics::LogInterpolator<double>> speciesToTransferFunction; //!< Interpolation functions:
     CoordinateType amplitude; //!< Amplitude of the initial power spectrum
     CoordinateType ns;        //!< tensor to scalar ratio of the initial power spectrum
     mutable CoordinateType kcamb_max_in_file; //!< Maximum CAMB wavenumber. If too small compared to grid resolution, Meszaros solution will be computed

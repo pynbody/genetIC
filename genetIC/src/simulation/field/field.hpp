@@ -24,7 +24,7 @@ namespace tools {
       /*! \class FieldFourierManager
           \brief Class for handling Fourier transforms. Has complex and real specialisations.
       */
-      template<typename T>
+      template<typename T, typename S=datatypes::strip_complex<T>>
       class FieldFourierManager;
       // implementation in fourier.hpp
       
@@ -35,29 +35,40 @@ namespace tools {
 
 namespace fields {
   namespace cache {
-    // A cache to prevent the tricubic interpolation coefficients being needlessly recalculated
-    // Ideally following should be a static class member for Fields, but thread_local doesn't seem to work
-    // on static class members with Clang...?
-    thread_local boost::compute::detail::lru_cache<std::tuple<int,int,int,const void*>,
-      numerics::LocalUnitTricubicApproximation<double>> cachedInterpolators(1024);
+
+    template<typename T>
+    thread_local
+      std::unique_ptr<
+        boost::compute::detail::lru_cache<std::tuple<int,int,int,const void*>,
+                                          numerics::LocalUnitTricubicApproximation<T>
+                                          >
+                      > cachedInterpolators;
+    // The above is a workaround for the fact that thread_local variables are not guaranteed to be initialized
+    // (or at least I can't find any documentation that I understand on this).
 
     thread_local size_t cacheHits, cacheMisses;
     bool enabled;
     size_t accumHits, accumMisses;
 
+    template<typename T>
     void enableInterpolationCaches() {
       enabled = true;
 #pragma omp parallel default(none)
       {
-        cachedInterpolators.clear();
+        cachedInterpolators<T> = std::make_unique<
+          boost::compute::detail::lru_cache<std::tuple<int,int,int,const void*>,
+                                            numerics::LocalUnitTricubicApproximation<T>
+                                            >
+          >(1024);
         cacheHits = 0;
         cacheMisses = 0;
       }
     }
 
+    template <typename T>
     void disableInterpolationCaches() {
       enabled = false;
-      cachedInterpolators.clear();
+      cachedInterpolators<T> = nullptr;
 #pragma omp parallel default(none) shared(accumHits, accumMisses)
       {
 #pragma omp critical
@@ -102,6 +113,69 @@ namespace fields {
   std::shared_ptr<EvaluatorBase<DataType, CoordinateType>> makeEvaluator(const MultiLevelField<DataType> &field,
                                                                          const grids::Grid<CoordinateType> &grid);
 
+  size_t peakMemUsage = 0;
+  size_t currentMemUsage = 0;
+
+  std::string formatBytes(size_t bytes) {
+    std::string suffixes[] = {"B", "KB", "MB", "GB", "TB"};
+    int suffix = 0;
+    while (bytes > 10*1024 && suffix<4) {
+      bytes /= 1024;
+      suffix++;
+    }
+    return std::to_string(bytes) + suffixes[suffix];
+  }
+
+  void memUsagePeriodicReportInThread() {
+    // Check memory usage every 0.1 second. If zero, report the peak memory usage and return.
+    // If non-zero, report the current memory usage but only if that has changed since the
+    // last report, and the last report was at least 10 seconds ago
+
+    size_t lastReportedMemUsage = 0;
+    auto lastReportTime = std::chrono::steady_clock::now();
+
+    while(true) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(100));
+      if(currentMemUsage==0) {
+        logging::entry() << "Peak memory usage: " << formatBytes(peakMemUsage) << std::endl;
+        return;
+      }
+
+      if(std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now() - lastReportTime).count() > 10) {
+        if(currentMemUsage != lastReportedMemUsage) {
+          logging::entry() << "Current memory usage: " << formatBytes(currentMemUsage) << std::endl;
+          lastReportedMemUsage = currentMemUsage;
+          lastReportTime = std::chrono::steady_clock::now();
+        }
+      }
+
+    }
+
+  }
+
+  static std::thread reporter;
+
+  void addMemUsage(size_t bytes) {
+    currentMemUsage += bytes;
+    if(currentMemUsage > peakMemUsage) {
+      peakMemUsage = currentMemUsage;
+    }
+
+    // now launch the periodic reporter
+    if(!reporter.joinable()) {
+      reporter = std::thread(memUsagePeriodicReportInThread);
+    }
+  }
+
+  void removeMemUsage(size_t bytes) {
+    currentMemUsage -= bytes;
+    // close the reporter thread
+    if(currentMemUsage == 0 && reporter.joinable()) {
+      reporter.join();
+    }
+
+  }
+
   //! Class to manage and evaluate a field defined on a single grid.
   template<typename DataType, typename CoordinateType=tools::datatypes::strip_complex<DataType>>
   class Field : public std::enable_shared_from_this<Field<DataType, CoordinateType>> {
@@ -112,7 +186,7 @@ namespace fields {
     using value_type = DataType;
     using ComplexType = tools::datatypes::ensure_complex<DataType>;
 
-    using FourierManager = tools::numerics::fourier::FieldFourierManager<DataType>;
+    using FourierManager = tools::numerics::fourier::FieldFourierManager<DataType, CoordinateType>;
     enum {
       x, y, z
     } DirectionType;
@@ -129,7 +203,8 @@ namespace fields {
     Field(Field<DataType, CoordinateType> &&move) : pGrid(move.pGrid), data(std::move(move.data)),
                                                     fourier(move.fourier) {
       fourierManager = std::make_shared<FourierManager>(*this);
-      assert(data.size() == fourierManager->getRequiredDataSize());
+      assert(data.size() == this->fourierManager->getRequiredDataSize());
+      addMemUsage(data.size() * sizeof(DataType));
     }
 
     //! Move operator
@@ -147,6 +222,7 @@ namespace fields {
         fourier(copy.fourier) {
       fourierManager = std::make_shared<FourierManager>(*this);
       assert(data.size() == fourierManager->getRequiredDataSize());
+      addMemUsage(data.size() * sizeof(DataType));
     }
 
     //! Construct a field on the specified grid by moving the given data
@@ -155,6 +231,7 @@ namespace fields {
 
       fourierManager = std::make_shared<FourierManager>(*this);
       assert(data.size() == fourierManager->getRequiredDataSize());
+      addMemUsage(data.size() * sizeof(DataType));
 
     }
 
@@ -166,6 +243,7 @@ namespace fields {
 
       fourierManager = std::make_shared<FourierManager>(*this);
       assert(data.size() == fourierManager->getRequiredDataSize());
+      addMemUsage(data.size() * sizeof(DataType));
 
     }
 
@@ -174,6 +252,11 @@ namespace fields {
                                               fourierManager(std::make_shared<FourierManager>(*this)),
                                               data(fourierManager->getRequiredDataSize(), 0),
                                               fourier(fourier) {
+      addMemUsage(data.size() * sizeof(DataType));
+    }
+
+    virtual ~Field() {
+      removeMemUsage(data.size() * sizeof(DataType));
     }
 
   public:
@@ -357,7 +440,7 @@ namespace fields {
       dz-=z_p_0;
 
       // Caching would speed this up, since we anticipate repeated calls with the same dx,dy,dz (to numerical accuracy)
-      numerics::LocalUnitTricubicApproximation<DataType>::getTransposeElementsForPosition(dx,dy,dz,valsForInterpolation);
+      numerics::LocalUnitTricubicApproximation<CoordinateType>::getTransposeElementsForPosition(dx,dy,dz,valsForInterpolation);
 
 
 
@@ -500,11 +583,11 @@ namespace fields {
     const numerics::LocalUnitTricubicApproximation<DataType> getTricubicInterpolatorCached(int x_p_0, int y_p_0, int z_p_0) const {
       assert(cache::enabled);
       auto key = std::make_tuple(x_p_0, y_p_0, z_p_0, static_cast<const void *>(this));
-      auto result = cache::cachedInterpolators.get(key);
+      auto result = cache::cachedInterpolators<DataType>->get(key);
       if (result == boost::none) {
         cache::cacheMisses += 1;
-        cache::cachedInterpolators.insert(key, makeTricubicInterpolator(x_p_0, y_p_0, z_p_0));
-        return cache::cachedInterpolators.get(key).get();
+        cache::cachedInterpolators<DataType>->insert(key, makeTricubicInterpolator(x_p_0, y_p_0, z_p_0));
+        return cache::cachedInterpolators<DataType>->get(key).get();
       } else {
         cache::cacheHits += 1;
         return result.get();
