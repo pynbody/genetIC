@@ -28,8 +28,9 @@ namespace cosmology {
   template<typename F>
   struct CacheKeyComparator {
     bool operator()(const F &a, const F &b) const {
-      bool ptr_less = std::owner_less<typename F::first_type>()(a.first, b.first);
-      return ptr_less || (!ptr_less && a.second < b.second); // equivalent to normal std::pair sorting
+      return std::owner_less<typename F::first_type>()(a.first, b.first) ||
+             (!std::owner_less<typename F::first_type>()(b.first, a.first) && a.second < b.second);
+
     }
   };
 
@@ -54,8 +55,6 @@ namespace cosmology {
       CacheKeyComparator<CacheKeyType>> calculatedCovariancesCache;
 
   public:
-
-    virtual ~PowerSpectrum() {}
 
     //! \brief Evaluate power spectrum for a given species at wavenumber k (Mpc/h), including the normalisation
     //! transferType specifies the transfer function to use (currently dm or baryon)

@@ -200,17 +200,18 @@ namespace fields {
 
   public:
     //! Move constructor
-    Field(Field<DataType, CoordinateType> &&move) : pGrid(move.pGrid), data(std::move(move.data)),
+    Field(Field<DataType, CoordinateType> &&move) : pGrid(move.pGrid),
                                                     fourier(move.fourier) {
       fourierManager = std::make_shared<FourierManager>(*this);
+      std::swap(data, move.data);
       assert(data.size() == this->fourierManager->getRequiredDataSize());
-      addMemUsage(data.size() * sizeof(DataType));
     }
 
     //! Move operator
     auto & operator=(Field<DataType, CoordinateType> &&move) {
       assert(move.pGrid == pGrid);
-      data = std::move(move.data);
+      std::swap(data, move.data);
+      assert(data.size() == this->fourierManager->getRequiredDataSize());
       fourier = move.fourier;
       return *this;
     }
