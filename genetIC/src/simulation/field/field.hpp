@@ -6,10 +6,11 @@
 #include <cassert>
 #include <src/simulation/filters/filter.hpp>
 #include <src/tools/numerics/fourier.hpp>
+#include <execinfo.h>
 #include "src/io/numpy.hpp"
 #include "src/simulation/grid/grid.hpp"
 #include "src/tools/numerics/tricubic.hpp"
-#include "boost/compute/detail/lru_cache.hpp"
+#include "src/tools/lru_cache.hpp"
 
 /*!
     \namespace fields
@@ -39,7 +40,7 @@ namespace fields {
     template<typename T>
     thread_local
       std::unique_ptr<
-        boost::compute::detail::lru_cache<std::tuple<int,int,int,const void*>,
+        tools::lru_cache<std::tuple<int,int,int,const void*>,
                                           numerics::LocalUnitTricubicApproximation<T>
                                           >
                       > cachedInterpolators;
@@ -56,9 +57,9 @@ namespace fields {
 #pragma omp parallel default(none)
       {
         cachedInterpolators<T> = std::make_unique<
-          boost::compute::detail::lru_cache<std::tuple<int,int,int,const void*>,
-                                            numerics::LocalUnitTricubicApproximation<T>
-                                            >
+          tools::lru_cache<std::tuple<int,int,int,const void*>,
+                                      numerics::LocalUnitTricubicApproximation<T>
+                                      >
           >(1024);
         cacheHits = 0;
         cacheMisses = 0;
@@ -169,7 +170,6 @@ namespace fields {
 
   void removeMemUsage(size_t bytes) {
     currentMemUsage -= bytes;
-    // close the reporter thread
     if(currentMemUsage == 0 && reporter.joinable()) {
       reporter.join();
     }

@@ -6,11 +6,13 @@
 #include <utility>
 #include <map>
 
+
 #include "src/cosmology/parameters.hpp"
 #include "src/tools/numerics/interpolation.hpp"
 #include "src/io/input.hpp"
 #include "src/simulation/particles/particle.hpp"
 #include "src/tools/logging.hpp"
+#include "src/tools/lru_cache.hpp"
 
 /*!
     \namespace cosmology
@@ -34,6 +36,8 @@ namespace cosmology {
     }
   };
 
+  size_t lru_cache_size = 10;
+
   /*! \class PowerSpectrum
   * \brief Abstract base class for power spectrum calculations.
   *
@@ -51,8 +55,13 @@ namespace cosmology {
     using CacheKeyType = std::pair<std::weak_ptr<const grids::Grid<CoordinateType>>, particle::species>;
 
     //! A cache for previously calculated covariances. The key is a pair: (weak pointer to the grid, transfer fn)
-    mutable std::map<CacheKeyType, std::shared_ptr<FieldType>,
-      CacheKeyComparator<CacheKeyType>> calculatedCovariancesCache;
+    // mutable std::map<CacheKeyType, std::shared_ptr<FieldType>,
+    //  CacheKeyComparator<CacheKeyType>> calculatedCovariancesCache;
+
+    mutable tools::lru_cache<CacheKeyType,
+      std::shared_ptr<FieldType>,
+      CacheKeyComparator<CacheKeyType>> calculatedCovariancesCache{lru_cache_size};
+
 
   public:
 
@@ -68,16 +77,20 @@ namespace cosmology {
       if(transferType == particle::species::whitenoise)
         return nullptr;
 
+      if(lru_cache_size==0)
+        return getPowerSpectrumForGridUncached(grid, transferType);
+
       auto cacheKey = std::make_pair(std::weak_ptr<const grids::Grid<CoordinateType>>(grid), transferType);
 
-      auto result = this->calculatedCovariancesCache[cacheKey];
+      auto result = this->calculatedCovariancesCache.get(cacheKey);
 
-      if (result == nullptr) {
-        result = getPowerSpectrumForGridUncached(grid, transferType);
-        this->calculatedCovariancesCache[cacheKey] = result;
+      if (result == boost::none) {
+        auto psForGrid = getPowerSpectrumForGridUncached(grid, transferType);
+        this->calculatedCovariancesCache.insert(cacheKey, psForGrid);
+        return psForGrid;
+      } else {
+        return result.get();
       }
-
-      return result;
     }
 
 

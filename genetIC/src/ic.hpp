@@ -49,11 +49,11 @@ class DummyICGenerator;
 */
 template<typename GridDataType>
 class ICGenerator {
+public:
+  using T = tools::datatypes::strip_complex<GridDataType>;
 protected:
 
-  using T = tools::datatypes::strip_complex<GridDataType>;
   using GridPtrType = std::shared_ptr<grids::Grid<T>>;
-
 
   friend class DummyICGenerator<GridDataType>;
 
