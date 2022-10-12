@@ -256,6 +256,7 @@ namespace modifications {
       auto outputs = Tplus_op_T(inputs, Chalf_op);
       outputs      = Tplus_op_T(outputs, Mbar_Cm1_Mbar_op);
       outputs      = Tplus_op_T(outputs, Chalf_op);
+      outputs.toReal();
       return outputs;
     };
 
@@ -266,6 +267,7 @@ namespace modifications {
     Tplus_op_T(rhs, Chalf_op); // + preconditioning
 
     // Solve the linear system [T^+ Mbar C^-1 Mbar T] nZ = rhs
+    rhs.toReal();
     auto nZ = tools::numerics::conjugateGradient2<DataType>(Q, rhs);
     Tplus_op_T(nZ, Chalf_op); // + preconditioning
 

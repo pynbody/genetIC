@@ -67,16 +67,18 @@ namespace tools {
     ) {
       fields::OutputField<T> residual(b);
       fields::OutputField<T> direction(b);
-      fields::OutputField<T> x(b.getContext(), b.getTransferType());
+      fields::OutputField<T> x(b);
       
       double scale = 0;
       size_t dimension = 0;
       size_t Nlevel = b.getNumLevels();
 
-      direction.reverse();
+      direction *= -1;
+      x *= 0;
   
       for(auto ilevel = 0; ilevel<Nlevel; ++ilevel){
         auto field = b.getFieldForLevel(ilevel);
+        assert(field.isFourier() == false);
         scale += field.norm();
         dimension += field.getGrid().size3;
       }
@@ -92,16 +94,21 @@ namespace tools {
         double alpha = 0;
         for (auto ilevel = 0; ilevel<Nlevel; ++ilevel){
           // distance to travel in specified direction
-          auto & res = residual.getFieldForLevel(ilevel);
-          auto & dir = direction.getFieldForLevel(ilevel);
-          auto & Q_dir = Q_direction.getFieldForLevel(ilevel);
-          alpha += -res.innerProduct(dir) / dir.innerProduct(Q_dir);
+          auto & resField = residual.getFieldForLevel(ilevel);
+          auto & dirField = direction.getFieldForLevel(ilevel);
+          auto & Q_dirField = Q_direction.getFieldForLevel(ilevel);
+          assert(resField.isFourier() == false);
+          assert(dirField.isFourier() == false);
+          assert(Q_dirField.isFourier() == false);
+          alpha += -resField.innerProduct(dirField) / dirField.innerProduct(Q_dirField);
         }
+
         x.addScaled(direction, alpha);
 
         residual = Q(x);
 
         residual.addScaled(b, -1);
+        residual.toReal();
         double norm = 0;
         for (auto ilevel = 0; ilevel<Nlevel; ++ilevel){
           norm += residual.getFieldForLevel(ilevel).norm();
@@ -115,10 +122,13 @@ namespace tools {
         // update direction for next cycle; must be Q-orthogonal to all previous updates
         double beta = 0;
         for (auto ilevel = 0; ilevel<Nlevel; ++ilevel){
-          auto & res = residual.getFieldForLevel(ilevel);
-          auto & dir = direction.getFieldForLevel(ilevel);
-          auto & Q_dir = Q_direction.getFieldForLevel(ilevel);
-          beta += res.innerProduct(Q_dir) / dir.innerProduct(Q_dir);
+          auto & resField = residual.getFieldForLevel(ilevel);
+          auto & dirField = direction.getFieldForLevel(ilevel);
+          auto & Q_dirField = Q_direction.getFieldForLevel(ilevel);
+          assert(resField.isFourier() == false);
+          assert(dirField.isFourier() == false);
+          assert(Q_dirField.isFourier() == false);
+          beta += resField.innerProduct(Q_dirField) / dirField.innerProduct(Q_dirField);
         }
 
         direction *= beta;
