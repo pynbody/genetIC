@@ -178,6 +178,16 @@ namespace fields {
       }
     }
 
+    //! Multiplied the field by the specified ratio.
+    void operator*=(DataType ratio) {
+      using namespace tools::numerics;
+
+      for (size_t level = 0; level < getNumLevels(); level++) {
+        auto &data = getFieldForLevel(level).getDataVector();
+        data *= ratio;
+      }
+    }
+
     //! Flips the sign of the field.
     void reverse() {
       for (size_t level = 0; level < getNumLevels(); ++level) {

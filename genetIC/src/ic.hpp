@@ -10,6 +10,7 @@
 #include <limits>
 #include <iostream>
 #include <list>
+#include <vector>
 
 
 #include "tools/numerics/vectormath.hpp"
@@ -1656,14 +1657,23 @@ public:
     newGenerator.draw();
     logging::entry() << "Finished constructing new random field. Beginning splice operation." << endl;
 
-    for(size_t level=0; level<multiLevelContext.getNumLevels(); ++level) {
-      auto &originalFieldThisLevel = outputFields[0]->getFieldForLevel(level);
-      auto &newFieldThisLevel = newField.getFieldForLevel(level);
-      auto splicedFieldThisLevel = modifications::spliceOneLevel(newFieldThisLevel, originalFieldThisLevel,
-                                                             *multiLevelContext.getCovariance(level, particle::species::all));
-      splicedFieldThisLevel.toFourier();
-      originalFieldThisLevel = std::move(splicedFieldThisLevel);
-    }
+    // for(size_t level=0; level<multiLevelContext.getNumLevels(); ++level) {
+    //   auto &originalFieldThisLevel = outputFields[0]->getFieldForLevel(level);
+    //   auto &newFieldThisLevel = newField.getFieldForLevel(level);
+    //   auto splicedFieldThisLevel = modifications::spliceOneLevel(newFieldThisLevel, originalFieldThisLevel,
+    //                                                          *multiLevelContext.getCovariance(level, particle::species::all));
+    //   splicedFieldThisLevel.toFourier();
+    //   originalFieldThisLevel = std::move(splicedFieldThisLevel);
+    // }
+    fields::OutputField<GridDataType> &a = *outputFields[0];
+    fields::OutputField<GridDataType> &b = newField;
+
+    fields::OutputField<GridDataType> f = modifications::spliceMultiLevel<GridDataType>(a, b);
+    //   outputFields[0], std::make_shared<fields::OutputField<GridDataType>>(newField), multiLevelContext
+    // );
+    // auto vroum = modifications::spliceMultiLevel<GridDataType>(
+    //   outputFields[0], std::make_shared<fields::OutputField<GridDataType>>(newField), multiLevelContext
+    // );
   }
 
   //! Reverses the sign of the low-k modes.

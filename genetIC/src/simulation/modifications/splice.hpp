@@ -116,6 +116,162 @@ namespace modifications {
 
       return alpha;
   }
+
+  template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
+  fields::OutputField<DataType> spliceMultiLevel(
+    const fields::OutputField<DataType> &noiseB,
+    const fields::OutputField<DataType> &noiseA
+  ) {
+    auto multiLevelContext = noiseA.getContext();
+
+    // Prefetch covariances and masks
+    int Nlevel = noiseA.getNumLevels();
+    std::vector<fields::Field<char, T>> Mbars;
+    std::vector<fields::Field<char, T>> Ms;
+    std::vector<fields::Field<DataType, T>> covs;
+
+    auto transferType = noiseA.getTransferType();
+    auto filters = noiseA.getFilters();
+    
+    for(size_t level=0; level<Nlevel; ++level) {
+      Mbars.push_back(generateMaskComplementFromFlags(multiLevelContext.getGridForLevel(level)));
+      Ms.push_back(generateMaskFromFlags(multiLevelContext.getGridForLevel(level)));
+
+      fields::Field<DataType, T> cov(*multiLevelContext.getCovariance(level, particle::species::all));
+      cov.setFourierCoefficient(0, 0, 0, 1);
+      covs.push_back(cov);
+    }
+
+    // Compute the operator that applies T^+ ... T *at all levels*
+    auto Tplus_op_T = [&covs, &filters, &multiLevelContext, &transferType, Nlevel](
+        fields::OutputField<DataType> &inputs,
+        std::function<void(const int, fields::Field<DataType, T> &)> op
+    ) -> fields::OutputField<DataType> {
+      // Create output multifield
+      fields::OutputField<DataType> outputs(inputs);
+
+      // Compute operator using each possible pair
+      for (auto level=0; level<Nlevel; ++level) {
+        auto & cov_me = covs[level];
+        auto & f_me = filters.getFilterForLevel(level);
+        auto & out = outputs.getFieldForLevel(level);
+
+        fields::Field<DataType, T> tmp2(multiLevelContext.getGridForLevel(level), false);
+
+        out.toFourier();
+        out.applyTransferFunction(cov_me, 0.5);
+        out.applyFilter(f_me);
+        out.toReal();
+        // Apply splicing operator
+        op(level, out);
+        out.toFourier();
+        out.applyFilter(f_me);
+        out.applyTransferFunction(cov_me, 0.5);
+        out.toReal();
+
+        // Contribution from coarser levels
+        for(auto level_low=0; level_low<level; ++level_low) {
+          T pixel_volume_ratio = multiLevelContext.getWeightForLevel(level_low) /
+                        multiLevelContext.getWeightForLevel(level);
+          auto & f_low = filters.getFilterForLevel(level_low);
+          auto & cov_low = covs[level_low];
+          auto tmp_from_low = inputs.getFieldForLevel(level_low);
+          tmp_from_low.toFourier();
+          tmp_from_low.applyTransferFunction(cov_low, 0.5);
+          tmp_from_low.applyFilter(f_low);
+          tmp_from_low.toReal();
+          // Reset to 0
+          tmp2 *= 0;
+          tmp2.addFieldFromDifferentGrid(tmp_from_low);
+          op(level, tmp2);
+          tmp2.toFourier();
+          tmp2.applyFilter(f_me);
+          tmp2.applyTransferFunction(cov_me, 0.5);
+
+          tmp2.toReal();
+          tmp2 *= 1. / pixel_volume_ratio;
+          out += tmp2;
+        }
+
+        // Contribution from finer levels
+        for(size_t level_high=level+1; level_high<Nlevel; ++level_high) {
+          T pixel_volume_ratio = multiLevelContext.getWeightForLevel(level_high) /
+                        multiLevelContext.getWeightForLevel(level);
+          auto & f_high = filters.getFilterForLevel(level_high);
+          auto & cov_high = covs[level_high];
+          auto tmp_from_high = inputs.getFieldForLevel(level_high);
+          tmp_from_high.toFourier();
+          tmp_from_high.applyTransferFunction(cov_high, 0.5);
+          tmp_from_high.applyFilter(f_high);
+          tmp_from_high.toReal();
+          op(level_high, tmp_from_high);
+          // Reset to 0
+          tmp2 *= 0;
+          tmp2.addFieldFromDifferentGrid(tmp_from_high);
+          tmp2.toFourier();
+          tmp2.applyFilter(f_me);
+          tmp2.applyTransferFunction(cov_me, 0.5);
+
+          tmp2.toReal();
+          tmp2 *= 1./pixel_volume_ratio;
+          out += tmp2;
+        }
+      }
+
+      return outputs;
+    };
+
+    // Apply C^0.5 *at a single level*
+    auto Chalf_op = [&covs, &multiLevelContext](const int level, fields::Field<DataType,T> & input) {
+      input.toFourier();
+      input.applyTransferFunction(covs[level], 0.5);
+    };
+
+    // Apply Mbar C^-1 Mbar *at a single level*
+    auto Mbar_Cm1_Mbar_op = [&covs, &multiLevelContext, &Mbars](const int level, fields::Field<DataType,T> & input) {
+      input.toReal();
+      input *= Mbars[level];
+      input.toFourier();
+      input.applyTransferFunction(covs[level], -1.0);
+      input.toReal();
+      input *= Mbars[level];
+    };
+
+    // Apply Mbar C^-1 M *at a single field*
+    auto Mbar_Cm1_M_op = [&covs, &multiLevelContext, &Mbars, &Ms](const int level, fields::Field<DataType,T> & input) {
+      input.toReal();
+      input *= Ms[level];
+      input.toFourier();
+      input.applyTransferFunction(covs[level], -1.0);
+      input.toReal();
+      input *= Mbars[level];
+    };
+
+    // Full splicing operator
+    // Q := T^+ Mbar C^-1 Mbar T (+ preconditioning)
+    auto Q = [&Tplus_op_T, &Mbar_Cm1_Mbar_op, &Chalf_op](
+      fields::OutputField<DataType> & inputs
+    ) -> fields::OutputField<DataType> {
+      // Precondition
+      auto outputs = Tplus_op_T(inputs, Chalf_op);
+      outputs      = Tplus_op_T(outputs, Mbar_Cm1_Mbar_op);
+      outputs      = Tplus_op_T(outputs, Chalf_op);
+      return outputs;
+    };
+
+    // Compute the rhs T^+ Mbar C^-1 M T (b - a)
+    fields::OutputField<T> rhs(noiseB);
+    rhs.addScaled(noiseA, -1);
+    Tplus_op_T(rhs, Mbar_Cm1_M_op);
+    Tplus_op_T(rhs, Chalf_op); // + preconditioning
+
+    // Solve the linear system [T^+ Mbar C^-1 Mbar T] nZ = rhs
+    auto nZ = tools::numerics::conjugateGradient2<DataType>(Q, rhs);
+    Tplus_op_T(nZ, Chalf_op); // + preconditioning
+
+    return nZ;
+    // Compute the solution
+  }
 }
 
 #endif //IC_SPLICE_HPP
