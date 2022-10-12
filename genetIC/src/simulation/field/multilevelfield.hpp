@@ -203,22 +203,32 @@ namespace fields {
     //! Add a scaled multilevel field to the current one
     void addScaled(const MultiLevelField &other, DataType scale) {
       assertContextConsistent();
-      assert(other.isFourierOnAllLevels());
       assert (isCompatible(other));
-      toFourier();
+      if (other.isFourierOnAllLevels()) {
+        toFourier();
 
-      for (size_t level = 0; level < getNumLevels(); level++) {
-        if (hasFieldForLevel(level) && other.hasFieldForLevel(level)) {
+        for (size_t level = 0; level < getNumLevels(); level++) {
+          if (hasFieldForLevel(level) && other.hasFieldForLevel(level)) {
+            Field<DataType> &fieldThis = getFieldForLevel(level);
+            const Field<DataType> &fieldOther = other.getFieldForLevel(level);
+            T kMin = fieldThis.getGrid().getFourierKmin();
+            fieldThis.forEachFourierCellInt([&fieldOther, kMin, scale]
+                                              (ComplexType currentVal, int kx, int ky, int kz) {
+              return currentVal + scale * fieldOther.getFourierCoefficient(kx, ky, kz);
+            });
+          }
+        }
+      } else if (other.isRealOnAllLevels()) {
+        toReal();
+        for (size_t level = 0; level < getNumLevels(); level++) {
           Field<DataType> &fieldThis = getFieldForLevel(level);
           const Field<DataType> &fieldOther = other.getFieldForLevel(level);
-          T kMin = fieldThis.getGrid().getFourierKmin();
-          fieldThis.forEachFourierCellInt([&fieldOther, kMin, scale]
-                                            (ComplexType currentVal, int kx, int ky, int kz) {
-            return currentVal + scale * fieldOther.getFourierCoefficient(kx, ky, kz);
-          });
-        }
-      }
 
+          fieldThis.addScaled(fieldOther, scale);
+        }
+      } else {
+        throw std::runtime_error("Expected the other field to be in real/fourier space, not a mix of these.");
+      }
     }
 
     //! \brief Copy across data from another field.
