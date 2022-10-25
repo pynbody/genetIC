@@ -145,10 +145,12 @@ namespace modifications {
     // Compute the operator that applies T^+ ... T *at all levels*
     auto Tplus_op_T = [&covs, &filters, &multiLevelContext, &transferType, Nlevel](
         fields::OutputField<DataType> &inputs,
-        std::function<void(const int, fields::Field<DataType, T> &)> op
+        const std::function<void(const int, fields::Field<DataType, T> &)> op
     ) -> fields::OutputField<DataType> {
-      // Create output multifield
       fields::OutputField<DataType> outputs(inputs);
+      
+      // TODO: optimize, as we don't need to compute the off-diagonal term twice (operation is symmetric)
+      // TODO: precompute F C^0.5 for each level (otherwise it is recomputed multiple times)
 
       // Compute operator using each possible pair
       for (auto level=0; level<Nlevel; ++level) {
@@ -158,63 +160,39 @@ namespace modifications {
 
         fields::Field<DataType, T> tmp2(multiLevelContext.getGridForLevel(level), false);
 
-        out.toFourier();
-        out.applyTransferFunction(cov_me, 0.5);
-        out.applyFilter(f_me);
-        out.toReal();
-        // Apply splicing operator
-        op(level, out);
-        out.toFourier();
-        out.applyFilter(f_me);
-        out.applyTransferFunction(cov_me, 0.5);
-        out.toReal();
+        // This loop computes contribution from off-diagonal terms (high-from-low and low-from-high)
+        // as well as the diagonal term (low-from-low).
+        for (auto level_other=0; level_other<Nlevel; ++level_other) {
+          T pixel_volume_ratio = multiLevelContext.getWeightForLevel(level) /
+                                 multiLevelContext.getWeightForLevel(level_other);
+          auto & f_other = filters.getFilterForLevel(level_other);
+          auto & cov_other = covs[level_other];
+          auto tmp_from_other = inputs.getFieldForLevel(level_other).copy();
 
-        // Contribution from coarser levels
-        for(auto level_low=0; level_low<level; ++level_low) {
-          T pixel_volume_ratio = multiLevelContext.getWeightForLevel(level_low) /
-                        multiLevelContext.getWeightForLevel(level);
-          auto & f_low = filters.getFilterForLevel(level_low);
-          auto & cov_low = covs[level_low];
-          auto tmp_from_low = inputs.getFieldForLevel(level_low);
-          tmp_from_low.toFourier();
-          tmp_from_low.applyTransferFunction(cov_low, 0.5);
-          tmp_from_low.applyFilter(f_low);
-          tmp_from_low.toReal();
-          // Reset to 0
+          tmp_from_other->toFourier();
+          tmp_from_other->applyFilter(f_other);
+          tmp_from_other->applyTransferFunction(cov_other, 0.5);
+          tmp_from_other->toReal();
+
           tmp2 *= 0;
-          tmp2.addFieldFromDifferentGrid(tmp_from_low);
-          op(level, tmp2);
+          if (level_other < level) {             // Contribution from coarser levels
+            tmp2.addFieldFromDifferentGrid(*tmp_from_other);  // upsample
+            op(level, tmp2);                                  // then apply operator
+          } else if (level_other > level) {      // Contribution from finer levels
+            op(level_other, *tmp_from_other);                 // apply operator
+            tmp_from_other->toReal();
+            tmp2.addFieldFromDifferentGrid(*tmp_from_other);  // then downsample
+          } else if (level_other == level) {     // Contribution from same level
+            tmp2 += *tmp_from_other;
+            op(level, tmp2);
+          }
+
           tmp2.toFourier();
-          tmp2.applyFilter(f_me);
           tmp2.applyTransferFunction(cov_me, 0.5);
+          tmp2.applyFilter(f_me);
 
           tmp2.toReal();
-          tmp2 *= 1. / pixel_volume_ratio;
-          out += tmp2;
-        }
-
-        // Contribution from finer levels
-        for(size_t level_high=level+1; level_high<Nlevel; ++level_high) {
-          T pixel_volume_ratio = multiLevelContext.getWeightForLevel(level_high) /
-                        multiLevelContext.getWeightForLevel(level);
-          auto & f_high = filters.getFilterForLevel(level_high);
-          auto & cov_high = covs[level_high];
-          auto tmp_from_high = inputs.getFieldForLevel(level_high);
-          tmp_from_high.toFourier();
-          tmp_from_high.applyTransferFunction(cov_high, 0.5);
-          tmp_from_high.applyFilter(f_high);
-          tmp_from_high.toReal();
-          op(level_high, tmp_from_high);
-          // Reset to 0
-          tmp2 *= 0;
-          tmp2.addFieldFromDifferentGrid(tmp_from_high);
-          tmp2.toFourier();
-          tmp2.applyFilter(f_me);
-          tmp2.applyTransferFunction(cov_me, 0.5);
-
-          tmp2.toReal();
-          tmp2 *= 1./pixel_volume_ratio;
-          out += tmp2;
+          out.addScaled(tmp2, sqrt(pixel_volume_ratio));
         }
       }
 
