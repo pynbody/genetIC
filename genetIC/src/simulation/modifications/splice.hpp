@@ -246,7 +246,7 @@ namespace modifications {
 
     // Solve the linear system [T^+ Mbar C^-1 Mbar T] nZ = rhs
     rhs.toReal();
-    auto nZ = tools::numerics::conjugateGradient2<DataType>(Q, rhs);
+    auto nZ = tools::numerics::minres<DataType>(Q, rhs);
     Tplus_op_T(nZ, Chalf_op); // + preconditioning
 
     return nZ;

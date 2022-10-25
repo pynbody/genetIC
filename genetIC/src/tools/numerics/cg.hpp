@@ -138,6 +138,66 @@ namespace tools {
 
       return x;
     }
+
+    template<typename T>
+    fields::OutputField<T> minres(
+        std::function<fields::OutputField<T>(fields::OutputField<T> &)> A,
+        fields::OutputField<T> &b,
+        double rtol = 1e-6,
+        double atol = 1e-12
+    ) {
+      fields::OutputField<T> x(b);
+      x *= 0;
+      fields::OutputField<T> r(b);
+      fields::OutputField<T> s(b);
+      s = A(r);
+
+      fields::OutputField<T> p(r);
+      fields::OutputField<T> q(s);
+
+      auto innerProduct = [](fields::OutputField<T> &a, fields::OutputField<T> &b) -> double {
+        double result = 0;
+        for (auto ilevel = 0; ilevel < a.getNumLevels(); ++ilevel) {
+          result += a.getFieldForLevel(ilevel).innerProduct(b.getFieldForLevel(ilevel));
+        }
+        return result;
+      };
+      double r2 = innerProduct(r, r);
+      double rho = innerProduct(r, s);
+
+      size_t dimension = 0;
+      for(auto ilevel = 0; ilevel<b.getNumLevels(); ++ilevel){
+        dimension += b.getFieldForLevel(ilevel).getGrid().size3;
+      }
+
+      // Start iteration
+      size_t iter = 0;
+      for(; iter<dimension; ++iter) {
+        // We have q = A(p), but no need to compute it again
+        double alpha = rho / innerProduct(q, q);
+        x.addScaled(p, alpha);
+        r.addScaled(q, -alpha);
+
+        double norm = innerProduct(r, r);
+        if (norm < rtol * r2 || norm < atol)
+          break;
+
+        logging::entry() << "Conjugate gradient iteration " << iter << " residual=" << norm << std::endl;
+        s = A(r);
+        double rhobar = rho;
+        rho = innerProduct(r, s);
+        double beta = rho / rhobar;
+        p *= beta;
+        p += r;
+
+        q *= beta;
+        q += s;
+      }
+
+      logging::entry() << "MINRES ended after " << iter << " iterations" << std::endl;
+
+      return x;
+    }
   }
 }
 
