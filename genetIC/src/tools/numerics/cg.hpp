@@ -139,6 +139,8 @@ namespace tools {
       return x;
     }
 
+
+    /* Adapted from https://stanford.edu/group/SOL/reports/SOL-2011-2R.pdf */
     template<typename T>
     fields::OutputField<T> minres(
         std::function<fields::OutputField<T>(fields::OutputField<T> &)> A,
@@ -162,7 +164,7 @@ namespace tools {
         }
         return result;
       };
-      double r2 = innerProduct(r, r);
+      double scale = sqrt(innerProduct(b, b));
       double rho = innerProduct(r, s);
 
       size_t dimension = 0;
@@ -178,14 +180,63 @@ namespace tools {
         x.addScaled(p, alpha);
         r.addScaled(q, -alpha);
 
-        double norm = innerProduct(r, r);
-        if (norm < rtol * r2 || norm < atol)
+        double norm = sqrt(innerProduct(r, r));
+        if (norm < rtol * scale || norm < atol)
           break;
 
-        logging::entry() << "Conjugate gradient iteration " << iter << " residual=" << norm << std::endl;
+        logging::entry() << "MINRES iteration " << iter << " residual=" << norm << std::endl;
         s = A(r);
         double rhobar = rho;
         rho = innerProduct(r, s);
+        double beta = rho / rhobar;
+        p *= beta;
+        p += r;
+
+        q *= beta;
+        q += s;
+      }
+
+      logging::entry() << "MINRES ended after " << iter << " iterations" << std::endl;
+
+      return x;
+    }
+    template<typename T>
+    fields::Field<T> minresField(
+        std::function<fields::Field<T>(fields::Field<T> &)> A,
+        fields::Field<T> &b,
+        double rtol = 1e-6,
+        double atol = 1e-12
+    ) {
+      fields::Field<T> x(b);
+      x *= 0;
+      fields::Field<T> r(b);
+      fields::Field<T> s(b);
+      s = A(r);
+
+      fields::Field<T> p(r);
+      fields::Field<T> q(s);
+
+      double scale = b.norm();
+      double rho = r.innerProduct(s);
+
+      size_t dimension = b.getGrid().size3;
+
+      // Start iteration
+      size_t iter = 0;
+      for(; iter<dimension; ++iter) {
+        // We have q = A(p), but no need to compute it again
+        double alpha = rho / q.innerProduct(q);
+        x.addScaled(p, alpha);
+        r.addScaled(q, -alpha);
+
+        double norm = r.norm();
+        if (norm < rtol * scale || norm < atol)
+          break;
+
+        logging::entry() << "MINRES iteration " << iter << " residual=" << norm << std::endl;
+        s = A(r);
+        double rhobar = rho;
+        rho = r.innerProduct(s);
         double beta = rho / rhobar;
         p *= beta;
         p += r;

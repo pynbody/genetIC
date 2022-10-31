@@ -588,6 +588,58 @@ namespace fields {
       return *(this->fieldsOnLevels[i]);
     }
 
+    /* Combine all grids together
+
+    This effectively converts from whitenoise basis into delta basis.
+    */
+
+   void combineGrids() {
+      auto filters = this->getFilters();
+      size_t nlevels = this->getContext().getNumLevels();
+
+      logging::entry() << "Combining information from different levels..." << std::endl;
+
+      for (size_t level = 1; level < nlevels; ++level) {
+
+        // remove the low-frequency information from this level
+        this->getFieldForLevel(level).applyFilter(
+          filters.getHighPassFilterForLevel(level));
+
+        // replace with the low-frequency information from the level below
+        this->getFieldForLevel(level).addFieldFromDifferentGridWithFilter(
+          getFieldForLevel(level - 1),
+          filters.getLowPassFilterForLevel(level - 1));
+      }
+
+      this->getContext().setLevelsAreCombined();
+   }
+
+   void combineGridsLowerHigher() {
+      auto filters = this->getFilters();
+      auto copy = *this;
+      size_t nlevels = this->getContext().getNumLevels();
+
+      logging::entry() << "Combining information from different levels..." << std::endl;
+
+      for (size_t level = 1; level < nlevels; ++level) {
+        // remove the low-frequency information from this level
+        this->getFieldForLevel(level).applyFilter(
+          filters.getFilterForLevel(level));
+
+        // replace with the low-frequency information from the level below
+        this->getFieldForLevel(level).addFieldFromDifferentGridWithFilter(
+          copy.getFieldForLevel(level-1),
+          filters.getFilterForLevel(level - 1));
+        
+        // replace with the high-frequency information from the level above
+        if (level < nlevels - 1) {
+          this->getFieldForLevel(level).addFieldFromDifferentGridWithFilter(
+            copy.getFieldForLevel(level+1),
+            filters.getFilterForLevel(level + 1));
+        }
+      }
+   }
+
 
   };
 
