@@ -60,6 +60,7 @@ set(SOURCE_FILES
         genetIC/src/simulation/modifications/linearmodification.hpp
         genetIC/src/simulation/modifications/quadraticmodification.hpp
         genetIC/src/simulation/multilevelgrid/mask.hpp
+        genetIC/src/tools/numerics/cg.hpp
         genetIC/src/tools/memmap.hpp
         genetIC/src/tools/numerics/tricubic.hpp genetIC/src/tools/logging.hpp genetIC/src/tools/logging.cpp genetIC/src/simulation/modifications/splice.hpp genetIC/src/tools/lru_cache.hpp)
 
@@ -117,3 +118,8 @@ add_definitions(-DCUBIC_INTERPOLATION
         )
 add_compile_options(-Wextra)
 add_executable(genetIC ${SOURCE_FILES})
+find_package(OpenMP)
+if(OpenMP_CXX_FOUND)
+    target_link_libraries(genetIC PUBLIC OpenMP::OpenMP_CXX)
+    add_definitions(-DOPENMP)
+endif()
