@@ -95,7 +95,7 @@ namespace modifications {
         return v;
       };
 
-      fields::Field<DataType,T> alpha = tools::numerics::minresField<DataType>(X, z);
+      fields::Field<DataType,T> alpha = tools::numerics::conjugateGradient<DataType>(X, z);
 
       alpha.toFourier();
       alpha.applyTransferFunction(preconditioner, 0.5);
@@ -304,6 +304,7 @@ namespace modifications {
     fields::OutputField<DataType> Ma_minus_b(noiseA);
     Ma_minus_b.addScaled(noiseB, -1);
     Ma_minus_b.applyPowerSpectrumFor(particle::species::all);
+    // Ma_minus_b.combineGrids();
     Ma_minus_b.toReal();
     for (auto level = 0; level<Nlevel; ++level)
       Ma_minus_b.getFieldForLevel(level) *= masks[level];
@@ -313,6 +314,7 @@ namespace modifications {
     // Note: we use an alias here for the sake of readability
     fields::OutputField<DataType> & Mbar_n_alpha = n_alpha;
     Mbar_n_alpha.applyPowerSpectrumFor(particle::species::all);
+    // Mbar_n_alpha.combineGrids();
     Mbar_n_alpha.toReal();
     for (auto level = 0; level<Nlevel; ++level)
       Mbar_n_alpha.getFieldForLevel(level) *= masksCompl[level];
@@ -327,15 +329,6 @@ namespace modifications {
     outputs += Ma_minus_b;
     outputs += Mbar_n_alpha;
 
-    Ma_minus_b.getFieldForLevel(0).dumpGridData("Ma_minus_b-0.npz");
-    Mbar_n_alpha.getFieldForLevel(0).dumpGridData("Mbar_n_alpha-0.npz");
-    outputs.getFieldForLevel(0).dumpGridData("output-0.npz");
-
-    if (Nlevel > 1) {
-      Ma_minus_b.getFieldForLevel(1).dumpGridData("Ma_minus_b-1.npz");
-      Mbar_n_alpha.getFieldForLevel(1).dumpGridData("Mbar_n_alpha-1.npz");
-      outputs.getFieldForLevel(1).dumpGridData("output-1.npz");
-    }
     // Combine the grids
     outputs.combineGrids();
 
