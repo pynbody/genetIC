@@ -95,8 +95,6 @@ namespace modifications {
         return v;
       };
 
-
-      logging::entry() << "Solving splicing problem ------------------------" << std::endl;
       fields::Field<DataType,T> alpha = tools::numerics::minresField<DataType>(X, z);
 
       alpha.toFourier();
@@ -176,27 +174,23 @@ namespace modifications {
             auto tmp_from_other = inputCopy.getFieldForLevel(level_other).copy();
             tmp.addFieldFromDifferentGrid(*tmp_from_other);
             tmp.toFourier();
-            // tmp_from_other->applyFilter(filters.getHighPassFilterForLevel(level_other));
             tmp.applyFilter(filters.getFilterForLevel(level));
             tmp.applyTransferFunction(covs[level], 0.5);
             tmp.toReal();
             op(level, tmp);
             tmp.toFourier();
             tmp.applyTransferFunction(covs[level], power_out);
-            // tmp.applyFilter(filters.getLowPassFilterForLevel(level));
             tmp.applyFilter(filters.getFilterForLevel(level));
             tmp.toReal();
           } else if (level_other < level) { // Contribution from coarser level
             auto tmp_from_other = inputCopy.getFieldForLevel(level_other).copy();
             tmp_from_other->toFourier();
-            // tmp_from_other->applyFilter(filters.getLowPassFilterForLevel(level_other));
             tmp_from_other->applyFilter(filters.getFilterForLevel(level_other));
             tmp_from_other->applyTransferFunction(covs[level_other], 0.5);
             tmp_from_other->toReal();
             op(level_other, *tmp_from_other);
             tmp_from_other->toFourier();
             tmp_from_other->applyTransferFunction(covs[level_other], power_out);
-            // tmp.applyFilter(filters.getHighPassFilterForLevel(level_other));
             tmp_from_other->applyFilter(filters.getFilterForLevel(level_other));
             tmp_from_other->toReal();
             tmp.addFieldFromDifferentGrid(*tmp_from_other);
@@ -302,8 +296,8 @@ namespace modifications {
 
     // Solve the linear system [T^t Mbar C^-1 Mbar T] n_alpha = rhs
     // that approximates [T^+ Mbar C^-1 Mbar T] and is symmetric
-    auto n_alpha = tools::numerics::minres<DataType>(Q, rhs, 1e-4, 1e-10);
-    // auto n_alpha = tools::numerics::bicgstab<DataType>(Q, rhs, 1e-4, 1e-10);
+    auto n_alpha = tools::numerics::minres<DataType>(Q, rhs);
+    // auto n_alpha = tools::numerics::bicgstab<DataType>(Q, rhs);
     preconditioner(n_alpha);
 
     // T^+ M T (n_a-n_b)

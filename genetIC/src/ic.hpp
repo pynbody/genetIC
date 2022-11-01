@@ -10,7 +10,6 @@
 #include <limits>
 #include <iostream>
 #include <list>
-#include <vector>
 
 
 #include "tools/numerics/vectormath.hpp"
@@ -850,9 +849,6 @@ public:
   */
   template<typename TField>
   void dumpGridData(size_t level, const TField &data, std::string prefix = "grid") {
-    if (level >= multiLevelContext.getNumLevels() || level < 0) {
-      throw (std::runtime_error("Attempted to dump grid data for level that does not exist."));
-    }
     initialiseRandomComponentIfUninitialised();
 
     auto levelGrid = data.getGrid();
@@ -906,6 +902,7 @@ public:
   * \param species - the field to dump
   */
   virtual void dumpGrid(size_t level, particle::species species ) {
+    checkLevelExists(level, species);
     auto & field = this->getOutputFieldForSpecies(species);
     field.toReal();
     dumpGridData(level, field.getFieldForLevel(level));
@@ -920,17 +917,20 @@ public:
   }
 
   virtual void dumpVelocityX(size_t level) {
+    checkLevelExists(level, particle::species::dm);
     dumpGridData(level, *(this->pParticleGenerator[particle::species::dm]->getGeneratorForLevel(
       level).getGeneratedFields()[0]), "vx");
   }
 
   //! For backwards compatibility. Dumpts baryons to field at requested level to file named grid-level.
   virtual void dumpGridFourier(size_t level = 0) {
+    checkLevelExists(level, particle::species::dm);
     this->dumpGridFourier(level, particle::species::dm);
   }
 
   //! Output the grid in Fourier space.
   virtual void dumpGridFourier(size_t level, particle::species species) {
+    checkLevelExists(level, species);
     auto & field = this->getOutputFieldForSpecies(species);
     field.toFourier();
     fields::Field<complex<T>, T> fieldToWrite = tools::numerics::fourier::getComplexFourierField(field.getFieldForLevel(level));

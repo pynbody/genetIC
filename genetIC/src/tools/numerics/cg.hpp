@@ -169,7 +169,7 @@ namespace tools {
 
       size_t dimension = 0;
       for(auto ilevel = 0; ilevel<b.getNumLevels(); ++ilevel){
-        dimension += b.getFieldForLevel(ilevel).getGrid().size3;
+        dimension += b.getFieldForLevel(ilevel).getGrid().size;
       }
 
       // Start iteration
