@@ -253,27 +253,26 @@ namespace modifications {
     };
 
     auto preconditioner = [&covs, &masksCompl, &filters, Nlevel, &Tdagger_op_T, &Tplus_op_T](fields::OutputField<DataType> & inputs) {
-    auto preconditioner = [&covs, &masksCompl, &filters, Nlevel](fields::OutputField<DataType> & inputs) {
-      const bool precondition = false;
+      // const bool precondition = false;
 
-      if (precondition) {
-        for (auto level=0; level<Nlevel; ++level) {
-          auto & field = inputs.getFieldForLevel(level);
-          field.toFourier();
-          field.applyTransferFunction(covs[level], -0.5);
-          field.applyFilter(filters.getFilterForLevel(level));
-          field.toReal();
-          field *= masksCompl[level];
-          field.toFourier();
-          field.applyTransferFunction(covs[level], 1.0);
-          field.toReal();
-          field *= masksCompl[level];
-          field.toFourier();
-          field.applyTransferFunction(covs[level], -0.5);
-          field.applyFilter(filters.getFilterForLevel(level));
-          field.toReal();
-        }
-      }
+      // if (precondition) {
+      //   for (auto level=0; level<Nlevel; ++level) {
+      //     auto & field = inputs.getFieldForLevel(level);
+      //     field.toFourier();
+      //     field.applyTransferFunction(covs[level], -0.5);
+      //     field.applyFilter(filters.getFilterForLevel(level));
+      //     field.toReal();
+      //     field *= masksCompl[level];
+      //     field.toFourier();
+      //     field.applyTransferFunction(covs[level], 1.0);
+      //     field.toReal();
+      //     field *= masksCompl[level];
+      //     field.toFourier();
+      //     field.applyTransferFunction(covs[level], -0.5);
+      //     field.applyFilter(filters.getFilterForLevel(level));
+      //     field.toReal();
+      //   }
+      // }
     };
 
     // Full splicing operator
