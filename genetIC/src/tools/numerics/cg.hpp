@@ -249,6 +249,98 @@ namespace tools {
 
       return x;
     }
+
+
+    template<typename T>
+    fields::OutputField<T> bicgstab(
+        std::function<fields::OutputField<T>(fields::OutputField<T> &)> A,
+        fields::OutputField<T> &b,
+        double rtol = 1e-6,
+        double atol = 1e-12,
+        const fields::OutputField<T> *x0 = nullptr
+    ) {
+      fields::OutputField<T> x(b);
+      fields::OutputField<T> r(b);
+      fields::OutputField<T> rOld(b);
+      fields::OutputField<T> rhat(r);
+
+      double rho;
+      double omega;
+      double rhoOld = 1;
+      double alpha = 1;
+      double omegaOld = 1;
+
+      x *= 0;
+      fields::OutputField<T> v(x);
+      fields::OutputField<T> p(x);
+      if (x0 != nullptr) {
+        x = *x0;
+        r.addScaled(A(x), -1);
+      }
+
+      auto innerProduct = [](fields::OutputField<T> &a, fields::OutputField<T> &b) -> double {
+        double result = 0;
+        for (auto ilevel = 0; ilevel < a.getNumLevels(); ++ilevel) {
+          result += a.getFieldForLevel(ilevel).innerProduct(b.getFieldForLevel(ilevel));
+        }
+        return result;
+      };
+
+      assert (innerProduct(rhat, r) != 0);
+
+      size_t dimension = 0;
+      for(auto ilevel = 0; ilevel<b.getNumLevels(); ++ilevel){
+        dimension += b.getFieldForLevel(ilevel).getGrid().size;
+      }
+
+      double scale = sqrt(innerProduct(b, b));
+
+      // Start iteration
+      size_t iter = 0;
+      for(; iter<dimension; ++iter) {
+        // rho_i = rhat_0 . r_{i-1}
+        rho = innerProduct(rhat, rOld);
+        // beta = (rho_i / rho_{i-1}) (alpha / omega_{i-1})
+        double beta = (rho / rhoOld) * (alpha / omegaOld);
+        // p_i = r_{i-1} + beta * (p_{i-1} - omega_{i-1} * v_{i-1})
+        p *= beta;
+        p.addScaled(rOld, 1);
+        p.addScaled(v, -omegaOld * beta);
+        // v_i = A.p_i
+        v = A(p);
+        // alpha = rho_i / (rhat_0 . v_i)
+        alpha = rho / innerProduct(rhat, v);
+        // x_{i} = x_{i-1} + alpha p_i
+        x.addScaled(p, alpha);
+        // s = r_{i-1} - alpha v_i
+        auto s = rOld;
+        s.addScaled(v, -alpha);
+        double norm = std::sqrt(innerProduct(s, s));
+        if (norm < rtol * scale || norm < atol) {
+          break;
+        }
+        // t = A.s
+        auto t = A(s);
+        // omega_i = (t . s) / (t . t)
+        omega = innerProduct(t, s) / innerProduct(t, t);
+        // x_i = x_i + omega_i s
+        x.addScaled(s, omega);
+        // r_i = s - omega_i t
+        r = s;
+        r.addScaled(t, -omega);
+        norm = std::sqrt(innerProduct(r, r));
+        if (norm < rtol * scale || norm < atol)
+          break;
+
+        logging::entry() << "BiCGSTAB iteration " << iter << " residual=" << norm << std::endl;
+        // Save old values
+        rOld = r;
+        rhoOld = rho;
+        omegaOld = omega;
+      }
+      logging::entry() << "BiCGSTAB ended after " << iter << " iterations" << std::endl;
+      return x;
+    }
   }
 }
 

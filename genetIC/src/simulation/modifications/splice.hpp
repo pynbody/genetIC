@@ -304,6 +304,7 @@ namespace modifications {
     // Solve the linear system [T^t Mbar C^-1 Mbar T] n_alpha = rhs
     // that approximates [T^+ Mbar C^-1 Mbar T] and is symmetric
     auto n_alpha = tools::numerics::minres<DataType>(Q, rhs, 1e-4, 1e-10);
+    // auto n_alpha = tools::numerics::bicgstab<DataType>(Q, rhs, 1e-4, 1e-10);
     preconditioner(n_alpha);
 
     // T^+ M T (n_a-n_b)
