@@ -850,7 +850,9 @@ public:
   */
   template<typename TField>
   void dumpGridData(size_t level, const TField &data, std::string prefix = "grid") {
-
+    if (level >= multiLevelContext.getNumLevels() || level < 0) {
+      throw (std::runtime_error("Attempted to dump grid data for level that does not exist."));
+    }
     initialiseRandomComponentIfUninitialised();
 
     auto levelGrid = data.getGrid();
@@ -1636,9 +1638,7 @@ public:
   }
 
   //! Splicing: fixes the flagged region, while reinitialising the exterior from a new random field
-  virtual void splice(size_t newSeed, int approach) {
-
-    logging::entry() << "ENTERING splicing" << std::endl;
+  virtual void splice(size_t newSeed) {
     initialiseRandomComponentIfUninitialised();
 
     if(outputFields.size()>1)
@@ -1663,28 +1663,17 @@ public:
     fields::OutputField<GridDataType> &a = *outputFields[0];
     fields::OutputField<GridDataType> &b = newField;
 
-    if (multiLevelContext.getNumLevels() == 1 && approach == 1) {
-      for(size_t level=0; level<multiLevelContext.getNumLevels(); ++level) {
-        auto &originalFieldThisLevel = outputFields[0]->getFieldForLevel(level);
-        auto &newFieldThisLevel = newField.getFieldForLevel(level);
-        auto splicedFieldThisLevel = modifications::spliceOneLevel(newFieldThisLevel, originalFieldThisLevel,
-                                                                  *multiLevelContext.getCovariance(level, particle::species::all));
-        splicedFieldThisLevel.toFourier();
-        originalFieldThisLevel = std::move(splicedFieldThisLevel);
-      }
-    } else {
-      fields::OutputField<GridDataType> f = modifications::spliceMultiLevel<GridDataType>(a, b);
-        
-      for (size_t level=0; level<multiLevelContext.getNumLevels(); ++level) {
-        auto &originalFieldThisLevel = outputFields[0]->getFieldForLevel(level);
-        auto &newFieldThisLevel = f.getFieldForLevel(level);
-        assert(originalFieldThisLevel.isFourier());
-        newFieldThisLevel.toFourier();
-        originalFieldThisLevel = std::move(newFieldThisLevel);
-      }
-      // At this point, we have already combined the fields ()
-      multiLevelContext.setLevelsAreCombined();
+    fields::OutputField<GridDataType> f = modifications::spliceMultiLevel<GridDataType>(a, b);
+      
+    for (size_t level=0; level<multiLevelContext.getNumLevels(); ++level) {
+      auto &originalFieldThisLevel = outputFields[0]->getFieldForLevel(level);
+      auto &newFieldThisLevel = f.getFieldForLevel(level);
+      assert(originalFieldThisLevel.isFourier());
+      newFieldThisLevel.toFourier();
+      originalFieldThisLevel = std::move(newFieldThisLevel);
     }
+    // At this point, we have already combined the fields ()
+    multiLevelContext.setLevelsAreCombined();
   }
 
   //! Reverses the sign of the low-k modes.
