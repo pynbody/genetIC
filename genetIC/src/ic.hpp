@@ -1649,8 +1649,8 @@ public:
       throw std::runtime_error("It is too late in the IC generation process to perform splicing; try moving the splice command earlier");
     }
 
-    fields::OutputField<GridDataType> newField = fields::OutputField<GridDataType>(multiLevelContext, particle::species::whitenoise);
-    auto newGenerator = fields::RandomFieldGenerator<GridDataType>(newField);
+    fields::OutputField<GridDataType> a = fields::OutputField<GridDataType>(multiLevelContext, particle::species::whitenoise);
+    auto newGenerator = fields::RandomFieldGenerator<GridDataType>(a);
 
     if(multiLevelContext.getNumLevels()>1)
       logging::entry(logging::level::warning) << "Splicing operations on multiple levels work, but may have edge artefacts. Use experimentally/at your own risk!" << endl;
@@ -1660,19 +1660,14 @@ public:
     newGenerator.draw();
     logging::entry() << "Finished constructing new random field. Beginning splice operation." << endl;
     
-    fields::OutputField<GridDataType> &a = *outputFields[0];
-    fields::OutputField<GridDataType> &b = newField;
+    auto & b = *outputFields[0];
 
-    fields::OutputField<GridDataType> f = modifications::spliceMultiLevel<GridDataType>(a, b);
-      
-    for (size_t level=0; level<multiLevelContext.getNumLevels(); ++level) {
-      auto &originalFieldThisLevel = outputFields[0]->getFieldForLevel(level);
-      auto &newFieldThisLevel = f.getFieldForLevel(level);
-      assert(originalFieldThisLevel.isFourier());
-      newFieldThisLevel.toFourier();
-      originalFieldThisLevel = std::move(newFieldThisLevel);
-    }
-    // At this point, we have already combined the fields ()
+    fields::OutputField<GridDataType> f = modifications::spliceMultiLevel<GridDataType>(b, a);
+
+    // Copy the result back into the output field
+    outputFields[0]->copyData(f);
+
+    // Mark the field as already combined
     multiLevelContext.setLevelsAreCombined();
   }
 

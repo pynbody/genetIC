@@ -59,15 +59,15 @@ namespace fields {
     }
 
     //! Copy constructor
-    MultiLevelField(const MultiLevelField<DataType> &copy) :
-      std::enable_shared_from_this<MultiLevelField<DataType>>(), multiLevelContext(&(copy.getContext())) {
-
+    MultiLevelField(const MultiLevelField<DataType> &other) :
+      std::enable_shared_from_this<MultiLevelField<DataType>>(), multiLevelContext(&(other.getContext())) {
+      std::cout << "COPY CONSTRUCTOR" << std::endl;
       for (size_t level = 0; level < multiLevelContext->getNumLevels(); level++) {
-        fieldsOnLevels.push_back(std::make_shared<Field<DataType, T>>(copy.getFieldForLevel(level)));
+        fieldsOnLevels.push_back(other.getFieldForLevel(level).copy());
       }
-      transferType = copy.transferType;
+      transferType = other.transferType;
 
-      isCovector = copy.isCovector;
+      isCovector = other.isCovector;
     }
 
     virtual ~MultiLevelField() {}
@@ -166,6 +166,11 @@ namespace fields {
     //! Adds the specified multi-level field to this one.
     void operator+=(const MultiLevelField<DataType> &other) {
       addScaled(other, 1.0);
+    }
+
+    //! Subtracts the specified multi-level field from this one.
+    void operator-=(const MultiLevelField<DataType> &other) {
+      addScaled(other, -1.0);
     }
 
     //! Divides the field by the specified ratio.
@@ -606,8 +611,6 @@ namespace fields {
           getFieldForLevel(level - 1),
           filters.getLowPassFilterForLevel(level - 1));
       }
-
-      this->getContext().setLevelsAreCombined();
    }
   };
 

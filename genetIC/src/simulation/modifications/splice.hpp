@@ -144,6 +144,7 @@ namespace modifications {
       masks.push_back(generateMaskFromFlags(multiLevelContext.getGridForLevel(level)));
 
       fields::Field<DataType, T> cov(*multiLevelContext.getCovariance(level, particle::species::all));
+      cov.setFourierCoefficient(0, 0, 0, 1);
       covs.push_back(cov);
     }
 
@@ -172,6 +173,8 @@ namespace modifications {
 
           if (level_other > level) {        // Contribution from finer level
             auto tmp_from_other = inputCopy.getFieldForLevel(level_other).copy();
+            tmp_from_other->toReal();
+            tmp.toReal();
             tmp.addFieldFromDifferentGrid(*tmp_from_other);
             tmp.toFourier();
             tmp.applyFilter(filters.getFilterForLevel(level));
@@ -193,6 +196,7 @@ namespace modifications {
             tmp_from_other->applyTransferFunction(covs[level_other], power_out);
             tmp_from_other->applyFilter(filters.getFilterForLevel(level_other));
             tmp_from_other->toReal();
+            tmp.toReal();
             tmp.addFieldFromDifferentGrid(*tmp_from_other);
           } else {
             tmp += inputCopy.getFieldForLevel(level);
@@ -283,12 +287,12 @@ namespace modifications {
     };
 
     // Compute the rhs T^+ Mbar C^-1 M T (b - a)
-    fields::OutputField<T> rhs(noiseB);
-    rhs.addScaled(noiseA, -1);
-    rhs.toFourier();
-    rhs.applyPowerSpectrumFor(particle::species::all);
-    rhs.combineGrids();
-    rhs.applyPowerSpectrumFor(particle::species::whitenoise);
+    auto rhs = noiseB;
+    rhs -= noiseA;
+    // rhs.toFourier();
+    // rhs.applyPowerSpectrumFor(particle::species::all);
+    // rhs.combineGrids();
+    // rhs.applyPowerSpectrumFor(particle::species::whitenoise);
     rhs.toReal();
     rhs = Tdagger_op_T(rhs, Mbar_Cm1_M_op);
     preconditioner(rhs);
@@ -300,41 +304,43 @@ namespace modifications {
     // auto n_alpha = tools::numerics::bicgstab<DataType>(Q, rhs);
     preconditioner(n_alpha);
 
+
     // T^+ M T (n_a-n_b)
-    fields::OutputField<DataType> Ma_minus_b(noiseA);
-    Ma_minus_b.addScaled(noiseB, -1);
+    auto Ma_minus_b = noiseA;
+    Ma_minus_b -= noiseB;
+    Ma_minus_b.toFourier();
     Ma_minus_b.applyPowerSpectrumFor(particle::species::all);
-    // Ma_minus_b.combineGrids();
+    Ma_minus_b.combineGrids();
     Ma_minus_b.toReal();
     for (auto level = 0; level<Nlevel; ++level)
       Ma_minus_b.getFieldForLevel(level) *= masks[level];
     Ma_minus_b.toReal();
 
+
     // T^+ Mbar T n_alpha 
     // Note: we use an alias here for the sake of readability
-    fields::OutputField<DataType> & Mbar_n_alpha = n_alpha;
+    auto & Mbar_n_alpha = n_alpha;
+    Mbar_n_alpha.toFourier();
     Mbar_n_alpha.applyPowerSpectrumFor(particle::species::all);
-    // Mbar_n_alpha.combineGrids();
+    Mbar_n_alpha.combineGrids();
     Mbar_n_alpha.toReal();
     for (auto level = 0; level<Nlevel; ++level)
       Mbar_n_alpha.getFieldForLevel(level) *= masksCompl[level];
     Mbar_n_alpha.toReal();
 
     // f = b + M (a-b) + alpha;
-    fields::OutputField<DataType> outputs(noiseB);
+    auto outputs = noiseB;
+    outputs.toFourier();
     outputs.applyPowerSpectrumFor(particle::species::all);
-    // outputs.combineGrids();
+    outputs.combineGrids();
     outputs.toReal();
 
     outputs += Ma_minus_b;
     outputs += Mbar_n_alpha;
 
-    // Combine the grids
-    outputs.combineGrids();
-
     // Convert back to whitenoise
+    outputs.toFourier();
     outputs.applyPowerSpectrumFor(particle::species::whitenoise);
-
     return outputs;
   }
 }
