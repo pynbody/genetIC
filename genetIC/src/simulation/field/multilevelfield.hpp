@@ -77,6 +77,11 @@ namespace fields {
       return transferType;
     }
 
+    //! Manually set the transfer function
+    void setForceTransferType(particle::species transfer_type) {
+      transferType = transfer_type;
+    }
+
     //! Returns a reference to the multi-level context associated to this multi-level field.
     virtual multilevelgrid::MultiLevelGrid<DataType> &getContext() const {
       return const_cast<multilevelgrid::MultiLevelGrid<DataType> &>(*multiLevelContext);

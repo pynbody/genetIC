@@ -340,7 +340,7 @@ namespace modifications {
 
     // Convert back to whitenoise
     outputs.toFourier();
-    outputs.applyPowerSpectrumFor(particle::species::whitenoise);
+    // outputs.applyPowerSpectrumFor(particle::species::whitenoise);
     return outputs;
   }
 }

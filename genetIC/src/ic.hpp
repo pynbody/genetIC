@@ -174,13 +174,16 @@ protected:
 
   tools::ClassDispatch<ICGenerator<GridDataType>, void> &interpreter; //!< Parser for parameter files
 
+  bool shouldSplice; //!< True if the code should perform the splicing operation.
+  size_t spliceSeed; //!< Seed for the random number generator used in the splicing operation.
 
 public:
   //! \brief Main constructor for this class.
   //! Requires a single interpreter to initialise, from which it will receive input commands.
   ICGenerator(tools::ClassDispatch<ICGenerator<GridDataType>, void> &interpreter) :
     modificationManager(multiLevelContext, cosmology, nullptr),
-    interpreter(interpreter) {
+    interpreter(interpreter),
+    shouldSplice(false) {
 
     // By default, we assume there is only one field - at first this will contain white noise:
     outputFields.push_back(
@@ -1268,7 +1271,10 @@ public:
     using namespace io;
 
     initialiseRandomComponentIfUninitialised();
-    applyPowerSpec();
+    if (shouldSplice)
+      spliceFields(spliceSeed);
+    else
+      applyPowerSpec();
     ensureParticleGeneratorInitialised();
 
     logging::entry() << "Writing output; number dm particles=" << pMapper->size_dm()
@@ -1637,8 +1643,10 @@ public:
     outputFields[0]->reverse();
   }
 
-  //! Splicing: fixes the flagged region, while reinitialising the exterior from a new random field
+  //! Save that splicing should happen in the generation of the output
   virtual void splice(size_t newSeed) {
+    this->spliceSeed = newSeed;
+    this->shouldSplice = true;
     initialiseRandomComponentIfUninitialised();
 
     if(outputFields.size()>1)
@@ -1648,6 +1656,10 @@ public:
     if(outputFields[0]->getTransferType() != particle::species::whitenoise) {
       throw std::runtime_error("It is too late in the IC generation process to perform splicing; try moving the splice command earlier");
     }
+  }
+
+  //! Splicing: fixes the flagged region, while reinitialising the exterior from a new random field
+  virtual void spliceFields(size_t newSeed) {
 
     fields::OutputField<GridDataType> a = fields::OutputField<GridDataType>(multiLevelContext, particle::species::whitenoise);
     auto newGenerator = fields::RandomFieldGenerator<GridDataType>(a);
@@ -1666,6 +1678,10 @@ public:
 
     // Copy the result back into the output field
     outputFields[0]->copyData(f);
+
+    // The field f is in delta space and we just copied it, so mark
+    // the outputFields accordingly. 
+    outputFields[0]->setForceTransferType(particle::species::all);
 
     // Mark the field as already combined
     multiLevelContext.setLevelsAreCombined();

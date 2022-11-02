@@ -119,8 +119,6 @@ namespace particle {
 
       generator.overdensityField.getContext().setLevelsAreCombined();
 
-      logging::entry() << "Combined grids" << endl;
-
       for (size_t i = 0; i < nlevels; ++i)
         generator.pGenerators[i]->toReal();
     }
