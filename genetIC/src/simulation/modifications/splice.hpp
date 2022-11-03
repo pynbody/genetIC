@@ -152,7 +152,8 @@ namespace modifications {
     auto T_op_T = [&covs, &filters, &multiLevelContext, Nlevel](
         const fields::OutputField<DataType> &inputs,
         const std::function<void(const int, fields::Field<DataType, T> &)> op,
-        const TOPERATOR Top
+        const TOPERATOR Top,
+        const bool filter_in_window=true
     ) -> fields::OutputField<DataType> {
       fields::OutputField<DataType> outputs(inputs.getContext(), inputs.getTransferType());
       fields::OutputField<DataType> inputCopy(inputs);
@@ -202,13 +203,23 @@ namespace modifications {
           } else {
             tmp += inputCopy.getFieldForLevel(level);
             tmp.toFourier();
-            tmp.applyFilter(this_level_filter);
+            if (filter_in_window && level < Nlevel-1) {
+              auto window = multiLevelContext.getGridForLevel(level+1).getWindow();
+              tmp.applyFilterInWindow(this_level_filter, window, true);
+            } else {
+              tmp.applyFilter(this_level_filter);
+            }
             tmp.applyTransferFunction(covs[level], 0.5);
             tmp.toReal();
             op(level, tmp);
             tmp.toFourier();
             tmp.applyTransferFunction(covs[level], power_out);
-            tmp.applyFilter(this_level_filter);
+            if (filter_in_window && level < Nlevel-1) {
+              auto window = multiLevelContext.getGridForLevel(level+1).getWindow();
+              tmp.applyFilterInWindow(this_level_filter, window, false);
+            } else {
+              tmp.applyFilter(this_level_filter);
+            }
             tmp.toReal();
           }
 
