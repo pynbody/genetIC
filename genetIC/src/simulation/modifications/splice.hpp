@@ -165,51 +165,53 @@ namespace modifications {
         auto & out = outputs.getFieldForLevel(level);
         out.toReal();
 
-        for (auto level_other=std::max(0, level-1); level_other<std::min(Nlevel, level+2); ++level_other) {
+        for (auto source_level=std::max(0, level-1); source_level<std::min(Nlevel, level+2); ++source_level) {
           T pixel_volume_ratio = multiLevelContext.getWeightForLevel(level) /
-                                 multiLevelContext.getWeightForLevel(level_other);
+                                 multiLevelContext.getWeightForLevel(source_level);
 
           fields::Field<DataType, T> tmp(out.getGrid(), false);
 
-          if (level_other > level) {        // Contribution from finer level
-            auto tmp_from_other = inputCopy.getFieldForLevel(level_other).copy();
-            tmp_from_other->toReal();
-            tmp.toReal();
-            tmp.addFieldFromDifferentGrid(*tmp_from_other);
+          // if (source_level != level) continue;
+          auto & this_level_filter = filters.getFilterForLevel(level);
+          auto & source_level_filter = filters.getFilterForLevel(source_level);
+
+          if (source_level > level) {        // Contribution from finer level
+            tmp.addFieldFromDifferentGrid(inputCopy.getFieldForLevel(source_level));
             tmp.toFourier();
-            tmp.applyFilter(filters.getFilterForLevel(level));
+            tmp.applyFilter(source_level_filter);
             tmp.applyTransferFunction(covs[level], 0.5);
             tmp.toReal();
             op(level, tmp);
             tmp.toFourier();
             tmp.applyTransferFunction(covs[level], power_out);
-            tmp.applyFilter(filters.getFilterForLevel(level));
+            tmp.applyFilter(this_level_filter);
             tmp.toReal();
-          } else if (level_other < level) { // Contribution from coarser level
-            auto tmp_from_other = inputCopy.getFieldForLevel(level_other).copy();
-            tmp_from_other->toFourier();
-            tmp_from_other->applyFilter(filters.getFilterForLevel(level_other));
-            tmp_from_other->applyTransferFunction(covs[level_other], 0.5);
-            tmp_from_other->toReal();
-            op(level_other, *tmp_from_other);
-            tmp_from_other->toFourier();
-            tmp_from_other->applyTransferFunction(covs[level_other], power_out);
-            tmp_from_other->applyFilter(filters.getFilterForLevel(level_other));
-            tmp_from_other->toReal();
+          } else if (source_level < level) { // Contribution from coarser level
+            auto source_field = inputCopy.getFieldForLevel(source_level).copy();
+            source_field->toFourier();
+            source_field->applyFilter(source_level_filter);
+            source_field->applyTransferFunction(covs[source_level], 0.5);
+            source_field->toReal();
+            op(source_level, *source_field);
+            source_field->toFourier();
+            source_field->applyTransferFunction(covs[source_level], power_out);
+            source_field->applyFilter(this_level_filter);
+            source_field->toReal();
             tmp.toReal();
-            tmp.addFieldFromDifferentGrid(*tmp_from_other);
+            tmp.addFieldFromDifferentGrid(*source_field);
           } else {
             tmp += inputCopy.getFieldForLevel(level);
             tmp.toFourier();
-            tmp.applyFilter(filters.getFilterForLevel(level));
+            tmp.applyFilter(this_level_filter);
             tmp.applyTransferFunction(covs[level], 0.5);
             tmp.toReal();
             op(level, tmp);
             tmp.toFourier();
             tmp.applyTransferFunction(covs[level], power_out);
-            tmp.applyFilter(filters.getFilterForLevel(level));
+            tmp.applyFilter(this_level_filter);
             tmp.toReal();
           }
+
           out.addScaled(tmp, std::sqrt(pixel_volume_ratio));
         }
       }
@@ -300,10 +302,30 @@ namespace modifications {
 
     // Solve the linear system [T^t Mbar C^-1 Mbar T] n_alpha = rhs
     // that approximates [T^+ Mbar C^-1 Mbar T] and is symmetric
+    rhs.getFieldForLevel(0).dumpGridData("rhs-0.npz");
+    if (Nlevel > 1) rhs.getFieldForLevel(1).dumpGridData("rhs-1.npz");
     auto n_alpha = tools::numerics::minres<DataType>(Q, rhs);
     // auto n_alpha = tools::numerics::bicgstab<DataType>(Q, rhs);
     preconditioner(n_alpha);
 
+    // if (Nlevel > 1) {
+    //   auto Ntot = rhs.getFieldForLevel(0).getGrid().size3 + ((Nlevel > 1) ? rhs.getFieldForLevel(1).getGrid().size3 : 0);
+    //   for (auto i = 0; i < Ntot; ++i) {
+    //     if (i % 10 == 0) std::cout << i << "/" << Ntot << std::endl;
+    //     auto input = rhs;
+    //     input *= 0;
+    //     if (i < rhs.getFieldForLevel(0).getGrid().size3)
+    //       input.getFieldForLevel(0)[i] = 1;
+    //     else
+    //       input.getFieldForLevel(1)[i-rhs.getFieldForLevel(0).getGrid().size3] = 1;
+    //     auto output = Q(input);
+    //     std::ostringstream stream;
+    //     stream << "field" << i;
+    //     std::string filename = stream.str();
+    //     output.getFieldForLevel(0).dumpGridData(filename + "_0.npz");
+    //     output.getFieldForLevel(1).dumpGridData(filename + "_1.npz");
+    //   }
+    // }
 
     // T^+ M T (n_a-n_b)
     auto Ma_minus_b = noiseA;

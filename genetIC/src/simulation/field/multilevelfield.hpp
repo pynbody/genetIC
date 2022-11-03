@@ -61,7 +61,6 @@ namespace fields {
     //! Copy constructor
     MultiLevelField(const MultiLevelField<DataType> &other) :
       std::enable_shared_from_this<MultiLevelField<DataType>>(), multiLevelContext(&(other.getContext())) {
-      std::cout << "COPY CONSTRUCTOR" << std::endl;
       for (size_t level = 0; level < multiLevelContext->getNumLevels(); level++) {
         fieldsOnLevels.push_back(other.getFieldForLevel(level).copy());
       }

@@ -172,6 +172,8 @@ namespace tools {
         dimension += b.getFieldForLevel(ilevel).getGrid().size;
       }
 
+      dimension *= 10;
+
       // Start iteration
       size_t iter = 0;
       for(; iter<dimension; ++iter) {
@@ -238,10 +240,13 @@ namespace tools {
 
       assert (innerProduct(rhat, r) != 0);
 
+
       size_t dimension = 0;
       for(auto ilevel = 0; ilevel<b.getNumLevels(); ++ilevel){
         dimension += b.getFieldForLevel(ilevel).getGrid().size;
       }
+
+      dimension *= 10;
 
       double scale = sqrt(innerProduct(b, b));
 
