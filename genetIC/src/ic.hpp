@@ -1271,10 +1271,7 @@ public:
     using namespace io;
 
     initialiseRandomComponentIfUninitialised();
-    if (shouldSplice)
-      spliceFields(spliceSeed);
-    else
-      applyPowerSpec();
+    applyPowerSpec();
     ensureParticleGeneratorInitialised();
 
     logging::entry() << "Writing output; number dm particles=" << pMapper->size_dm()
@@ -1656,6 +1653,8 @@ public:
     if(outputFields[0]->getTransferType() != particle::species::whitenoise) {
       throw std::runtime_error("It is too late in the IC generation process to perform splicing; try moving the splice command earlier");
     }
+
+    spliceFields(newSeed);
   }
 
   //! Splicing: fixes the flagged region, while reinitialising the exterior from a new random field
@@ -1681,10 +1680,10 @@ public:
 
     // The field f is in delta space and we just copied it, so mark
     // the outputFields accordingly. 
-    outputFields[0]->setForceTransferType(particle::species::all);
+    // outputFields[0]->setForceTransferType(particle::species::all);
 
     // Mark the field as already combined
-    multiLevelContext.setLevelsAreCombined();
+    // multiLevelContext.setLevelsAreCombined();
   }
 
   //! Reverses the sign of the low-k modes.
