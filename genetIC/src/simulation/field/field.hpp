@@ -354,6 +354,9 @@ namespace fields {
     //! Add a multiple of the provided field to this one in-place
     void addScaled(const Field<DataType, CoordinateType> & other,
                    tools::datatypes::strip_complex<DataType> scale) {
+      assert(!other.isFourier());
+      assert(!isFourier());
+
       size_t N = data.size();
 #pragma omp parallel for
       for(size_t i=0; i<N; i++) {
@@ -367,7 +370,7 @@ namespace fields {
       assert(!isFourier());
 
       tools::datatypes::strip_complex<DataType> v=0;
-      size_t N = data.size();
+      size_t N = getGrid().size3;
 
 #pragma omp parallel for reduction(+:v)
       for(size_t i=0; i<N; i++) {
