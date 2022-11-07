@@ -137,6 +137,8 @@ namespace modifications {
 
     assert (noiseA.getTransferType() == particle::species::whitenoise);
     assert (noiseB.getTransferType() == particle::species::whitenoise);
+    assert (noiseA.isFourierOnAllLevels());
+    assert (noiseB.isFourierOnAllLevels());
 
 
     for(size_t level=0; level<Nlevel; ++level) {
@@ -177,7 +179,8 @@ namespace modifications {
           auto & source_level_filter = filters.getFilterForLevel(source_level);
 
           if (source_level > level) {        // Contribution from finer level
-            tmp.addFieldFromDifferentGrid(inputCopy.getFieldForLevel(source_level));
+            tmp.deInterpolate(inputCopy.getFieldForLevel(source_level));
+            // tmp.addFieldFromDifferentGrid(inputCopy.getFieldForLevel(source_level));
             tmp.toFourier();
             tmp.applyFilter(source_level_filter);
             tmp.applyTransferFunction(covs[level], 0.5);
@@ -264,9 +267,14 @@ namespace modifications {
     };
 
     auto preconditioner = [&covs, &masksCompl, &filters, Nlevel, &Tdagger_op_T, &Tplus_op_T](fields::OutputField<DataType> & inputs) {
-      // const bool precondition = false;
+      const bool precondition = false;
 
-      // if (precondition) {
+      if (precondition) {
+        Tdagger_op_T(inputs, [covs](const int level, fields::Field<DataType, T> & input) {
+          input.toFourier();
+          input.applyTransferFunction(covs[level], 0.5);
+        });
+      }
       //   for (auto level=0; level<Nlevel; ++level) {
       //     auto & field = inputs.getFieldForLevel(level);
       //     field.toFourier();
@@ -341,76 +349,34 @@ namespace modifications {
     // T^+ M T (n_a-n_b)
     auto Ma_minus_b = noiseA;
     Ma_minus_b -= noiseB;
-    Ma_minus_b = Tplus_op_T(Ma_minus_b, [masks](const int level, fields::Field<DataType, T> & input) {
+    Ma_minus_b.toReal();
+    Ma_minus_b = Tplus_op_T(Ma_minus_b, [&masks](const int level, fields::Field<DataType, T> & input) {
       input.toReal();
       input *= masks[level];
     });
 
     // T^+ Mbar T n_alpha
-    auto Mbar_n_alpha = Tplus_op_T(n_alpha, [masksCompl](const int level, fields::Field<DataType, T> & input) {
+    auto Mbar_n_alpha = Tplus_op_T(n_alpha, [&masksCompl](const int level, fields::Field<DataType, T> & input) {
       input.toReal();
       input *= masksCompl[level];
     });
 
     // Reconstruct solution
-    auto outputs = noiseB; // Tplus_op_T(noiseB, [](const int level, fields::Field<DataType, T> & input) {});
+    auto outputs = noiseB;
+    // outputs.toReal();
+    // outputs = Tplus_op_T(outputs, [](const int level, fields::Field<DataType, T> & input) {});
 
-    Ma_minus_b.toFourier();
-    Mbar_n_alpha.toFourier();
-    outputs.toFourier();
+    Ma_minus_b.toReal();
+    Mbar_n_alpha.toReal();
+    outputs.toReal();
     for (auto level = 0; level < Nlevel; ++level) {
       auto & field = outputs.getFieldForLevel(level);
       field += Ma_minus_b.getFieldForLevel(level);
       field += Mbar_n_alpha.getFieldForLevel(level);
     }
 
+    outputs.toFourier();
     return outputs;
-
-
-    // // Tplus_op_T(Ma_minus_b, [&masks](const int level, fields::Field<DataType,T> & input) {
-    // //   input.toReal();
-    // //   input *= masks[level];
-    // // });
-    // Ma_minus_b.toFourier();
-    // Ma_minus_b.applyPowerSpectrumFor(particle::species::all);
-    // Ma_minus_b.combineGrids();
-    // Ma_minus_b.toReal();
-    // for (auto level = 0; level<Nlevel; ++level)
-    //   Ma_minus_b.getFieldForLevel(level) *= masks[level];
-    // Ma_minus_b.toReal();
-
-
-    // // T^+ Mbar T n_alpha 
-    // // Note: we use an alias here for the sake of readability
-    // auto & Mbar_n_alpha = n_alpha;
-    // // Tplus_op_T(Mbar_n_alpha, [&masksCompl](const int level, fields::Field<DataType,T> & input) {
-    // //   input.toReal();
-    // //   input *= masksCompl[level];
-    // // });
-    // Mbar_n_alpha.toFourier();
-    // Mbar_n_alpha.applyPowerSpectrumFor(particle::species::all);
-    // Mbar_n_alpha.combineGrids();
-    // Mbar_n_alpha.toReal();
-    // for (auto level = 0; level<Nlevel; ++level)
-    //   Mbar_n_alpha.getFieldForLevel(level) *= masksCompl[level];
-    // Mbar_n_alpha.toReal();
-
-    // // f = b + M (a-b) + alpha;
-    // auto outputs = noiseB;
-    // // Tplus_op_T(outputs, [](const int level, fields::Field<DataType,T> & input) {});
-    // outputs.toFourier();
-    // outputs.applyPowerSpectrumFor(particle::species::all);
-    // outputs.combineGrids();
-    // outputs.toReal();
-
-    // outputs += Ma_minus_b;
-    // outputs += Mbar_n_alpha;
-
-    // // Convert back to whitenoise
-    // outputs.toFourier();
-    // outputs.applyPowerSpectrumFor(particle::species::whitenoise);
-    // outputs.combineGrids();
-    // return outputs;
   }
 }
 
