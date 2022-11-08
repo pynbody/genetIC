@@ -49,7 +49,7 @@ GIT_VARIABLES = -DGIT_VERSION='"$(GIT_VERSION)"' -DGIT_MODIFIED='"$(GIT_MODIFIED
 HOST	= $(shell if [ `which scutil 2>/dev/null` ]; then scutil --get ComputerName | cut -c1-5; else hostname | cut -c1-5 ; fi )
 HOST3	= $(shell hostname | cut -c1-3)
 
-USE_CUFFT=1
+USE_CUFFT=0
 ifeq ($(USE_CUFFT), 1)
 	CPATH = /opt/local/include/:/opt/cuda/include/cufft/:/opt/cuda/targets/x86_64-linux/include/
 	LPATH = /opt/local/lib:/opt/cuda/lib64/
