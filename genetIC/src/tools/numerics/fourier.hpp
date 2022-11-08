@@ -3,7 +3,11 @@
 
 
 #include <stdexcept>
+#ifdef USE_CUFFT
+#include <cufftw.h>
+#else
 #include <fftw3.h>
+#endif
 
 #ifdef _OPENMP
 
@@ -34,6 +38,10 @@ namespace tools {
         if (fftwThreadsInitialised)
           return;
 
+#ifdef USE_CUFFT
+       // nothing to do
+       logging::entry() << "Using CUFFT" << std::endl;
+#else
 #ifdef FFTW_THREADS
         if (fftw_init_threads() == 0)
           throw std::runtime_error("Cannot initialize FFTW threads");
@@ -68,6 +76,7 @@ namespace tools {
 #endif
 #else
         logging::entry() << "Note: FFTW Threads are not enabled" << std::endl;
+#endif
 #endif
         fftwThreadsInitialised = true;
       }
