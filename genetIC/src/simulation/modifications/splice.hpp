@@ -155,10 +155,12 @@ namespace modifications {
         const fields::OutputField<DataType> &inputs,
         const std::function<void(const int, fields::Field<DataType, T> &)> op,
         const TOPERATOR Top,
-        const bool filter_in_window=true
+        const bool diagonal_only=false,
+        const bool no_filtering=false
     ) -> fields::OutputField<DataType> {
       fields::OutputField<DataType> outputs(inputs.getContext(), inputs.getTransferType());
       fields::OutputField<DataType> inputCopy(inputs);
+      const bool filter_in_window=true;
       const double power_out = (Top == TDAGGER) ? 0.5 : -0.5;
 
       assert (inputs.isRealOnAllLevels());
@@ -168,9 +170,14 @@ namespace modifications {
         auto & out = outputs.getFieldForLevel(level);
         out.toReal();
 
-        for (auto source_level=std::max(0, level-1); source_level<std::min(Nlevel, level+2); ++source_level) {
+        // Add a small value to the diagonal to avoid singularities
+        // out.addScaled(inputCopy.getFieldForLevel(level), 1e-6);
+
+        for (auto source_level=0; source_level<Nlevel; ++source_level) {
           T pixel_volume_ratio = multiLevelContext.getWeightForLevel(level) /
                                  multiLevelContext.getWeightForLevel(source_level);
+
+          if (diagonal_only && (source_level != level)) continue;
 
           fields::Field<DataType, T> tmp(out.getGrid(), false);
 
@@ -206,22 +213,26 @@ namespace modifications {
           } else {
             tmp += inputCopy.getFieldForLevel(level);
             tmp.toFourier();
-            if (filter_in_window && level < Nlevel-1) {
-              auto window = multiLevelContext.getGridForLevel(level+1).getWindow();
-              tmp.applyFilterInWindow(this_level_filter, window, true);
-            } else {
-              tmp.applyFilter(this_level_filter);
+            if (!no_filtering) {
+              if (filter_in_window && level < Nlevel-1) {
+                auto window = multiLevelContext.getGridForLevel(level+1).getWindow();
+                tmp.applyFilterInWindow(this_level_filter, window, true);
+              } else {
+                tmp.applyFilter(this_level_filter);
+              }
             }
             tmp.applyTransferFunction(covs[level], 0.5);
             tmp.toReal();
             op(level, tmp);
             tmp.toFourier();
             tmp.applyTransferFunction(covs[level], power_out);
-            if (filter_in_window && level < Nlevel-1) {
-              auto window = multiLevelContext.getGridForLevel(level+1).getWindow();
-              tmp.applyFilterInWindow(this_level_filter, window, false);
-            } else {
-              tmp.applyFilter(this_level_filter);
+            if (!no_filtering) {
+              if (filter_in_window && level < Nlevel-1) {
+                auto window = multiLevelContext.getGridForLevel(level+1).getWindow();
+                tmp.applyFilterInWindow(this_level_filter, window, false);
+              } else {
+                tmp.applyFilter(this_level_filter);
+              }
             }
             tmp.toReal();
           }
@@ -234,15 +245,19 @@ namespace modifications {
     };
 
     auto Tplus_op_T = [&T_op_T](const fields::OutputField<DataType> &inputs,
-                                const std::function<void(const int, fields::Field<DataType, T> &)> op
+                                const std::function<void(const int, fields::Field<DataType, T> &)> op,
+                                const bool diagonal_only=false,
+                                const bool no_filtering=false
     ) -> fields::OutputField<DataType> {
-      return T_op_T(inputs, op, TPLUS);
+      return T_op_T(inputs, op, TPLUS, diagonal_only, no_filtering);
     };
 
     auto Tdagger_op_T = [&T_op_T](const fields::OutputField<DataType> &inputs,
-                                  const std::function<void(const int, fields::Field<DataType, T> &)> op
+                                  const std::function<void(const int, fields::Field<DataType, T> &)> op,
+                                  const bool diagonal_only=false,
+                                  const bool no_filtering=false
     ) -> fields::OutputField<DataType> {
-      return T_op_T(inputs, op, TDAGGER);
+      return T_op_T(inputs, op, TDAGGER, diagonal_only, no_filtering);
     };
 
     // Compute Mbar C^-1 Mbar for a single level
@@ -267,41 +282,37 @@ namespace modifications {
     };
 
     auto preconditioner = [&covs, &masksCompl, &filters, Nlevel, &Tdagger_op_T, &Tplus_op_T](fields::OutputField<DataType> & inputs) {
-      const bool precondition = false;
+      const bool precondition = true;
+      // iterations to converge to 1e-5 with 64x64x64
+      // no precond:           520  chi² looks fishy
+      // T^+C^0.5T:             36
+      // T^+C T:                28
+      // T^+C^0.25 T:           44
+      // T^+Mbar C^0.5 Mbar T:  41
+      // T^+ T:                 47
+      // T^+Mbar C^0.5 T:      >80
+      // T^+ Mbar T:            51
 
+      // filter^2:             541 chi² looks fishy
+      // filter^2C^0.5:        310 chi² looks fishy
       if (precondition) {
-        Tdagger_op_T(inputs, [covs](const int level, fields::Field<DataType, T> & input) {
-          input.toFourier();
-          input.applyTransferFunction(covs[level], 0.5);
+        inputs = Tdagger_op_T(inputs, [&covs, &masksCompl](const int level, fields::Field<DataType, T> & input) {
+          // input.toReal();
+          // input *= masksCompl[level];
+          // input.toFourier();
+          // input.applyTransferFunction(covs[level], .25);
+          // input.toReal();
+          // input *= masksCompl[level];
         });
       }
-      //   for (auto level=0; level<Nlevel; ++level) {
-      //     auto & field = inputs.getFieldForLevel(level);
-      //     field.toFourier();
-      //     field.applyTransferFunction(covs[level], -0.5);
-      //     field.applyFilter(filters.getFilterForLevel(level));
-      //     field.toReal();
-      //     field *= masksCompl[level];
-      //     field.toFourier();
-      //     field.applyTransferFunction(covs[level], 1.0);
-      //     field.toReal();
-      //     field *= masksCompl[level];
-      //     field.toFourier();
-      //     field.applyTransferFunction(covs[level], -0.5);
-      //     field.applyFilter(filters.getFilterForLevel(level));
-      //     field.toReal();
-      //   }
-      // }
     };
 
     // Full splicing operator
     // Q := T^+ Mbar C^-1 Mbar T
-    auto Q = [&Tdagger_op_T, &Tplus_op_T, &Mbar_Cm1_Mbar_op, &preconditioner](
-      const fields::OutputField<DataType> & inputs
-    ) -> fields::OutputField<DataType> {
+    auto Q = [&Tdagger_op_T, &Tplus_op_T, &Mbar_Cm1_Mbar_op, &preconditioner](const fields::OutputField<DataType> & inputs) -> fields::OutputField<DataType> {
       auto outputs = inputs;
       preconditioner(outputs);
-      outputs = Tdagger_op_T(outputs, Mbar_Cm1_Mbar_op);
+      outputs = Tdagger_op_T(outputs, Mbar_Cm1_Mbar_op, false, false);
       preconditioner(outputs);
       outputs.toReal();
       return outputs;
@@ -310,10 +321,6 @@ namespace modifications {
     // Compute the rhs T^+ Mbar C^-1 M T (b - a)
     auto rhs = noiseB;
     rhs -= noiseA;
-    // rhs.toFourier();
-    // rhs.applyPowerSpectrumFor(particle::species::all);
-    // rhs.combineGrids();
-    // rhs.applyPowerSpectrumFor(particle::species::whitenoise);
     rhs.toReal();
     rhs = Tdagger_op_T(rhs, Mbar_Cm1_M_op);
     preconditioner(rhs);
@@ -323,21 +330,28 @@ namespace modifications {
     // that approximates [T^+ Mbar C^-1 Mbar T] and is symmetric
     rhs.getFieldForLevel(0).dumpGridData("rhs-0.npz");
     if (Nlevel > 1) rhs.getFieldForLevel(1).dumpGridData("rhs-1.npz");
-    auto n_alpha = tools::numerics::minres<DataType>(Q, rhs);
+    std::cout << "rhs[0]=" << rhs.getFieldForLevel(0).getDataVector()[0] << std::endl;
+    auto n_alpha = tools::numerics::minresYolo<DataType>(Q, rhs, 1e-5);
     // auto n_alpha = tools::numerics::bicgstab<DataType>(Q, rhs);
     preconditioner(n_alpha);
+
+    n_alpha.getFieldForLevel(0).dumpGridData("n_alpha_0.npz");
+    if (Nlevel > 1) n_alpha.getFieldForLevel(1).dumpGridData("n_alpha_1.npz");
+
 
     // if (Nlevel > 1) {
     //   auto Ntot = rhs.getFieldForLevel(0).getGrid().size3 + ((Nlevel > 1) ? rhs.getFieldForLevel(1).getGrid().size3 : 0);
     //   for (auto i = 0; i < Ntot; ++i) {
     //     if (i % 10 == 0) std::cout << i << "/" << Ntot << std::endl;
     //     auto input = rhs;
+    //     input.toReal();
     //     input *= 0;
     //     if (i < rhs.getFieldForLevel(0).getGrid().size3)
     //       input.getFieldForLevel(0)[i] = 1;
     //     else
     //       input.getFieldForLevel(1)[i-rhs.getFieldForLevel(0).getGrid().size3] = 1;
-    //     auto output = Q(input);
+    //     auto output = Q(input, false, false);
+    //     output.toReal();
     //     std::ostringstream stream;
     //     stream << "field" << i;
     //     std::string filename = stream.str();
