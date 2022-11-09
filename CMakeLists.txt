@@ -61,12 +61,12 @@ set(SOURCE_FILES
         genetIC/src/simulation/modifications/quadraticmodification.hpp
         genetIC/src/simulation/multilevelgrid/mask.hpp
         genetIC/src/tools/memmap.hpp
-        genetIC/src/tools/numerics/tricubic.hpp genetIC/src/tools/logging.hpp genetIC/src/tools/logging.cpp genetIC/src/simulation/modifications/splice.hpp)
+        genetIC/src/tools/numerics/tricubic.hpp genetIC/src/tools/logging.hpp genetIC/src/tools/logging.cpp genetIC/src/simulation/modifications/splice.hpp genetIC/src/tools/lru_cache.hpp)
 
 include_directories( /opt/local/include )
 link_directories(/opt/local/lib )
 include_directories( genetIC/  )
-link_libraries(fftw3 m fftw3 fftw3_threads gsl gslcblas)
+link_libraries(fftw3 m fftw3f fftw3_threads gsl gslcblas)
 
 
 exec_program(
@@ -113,6 +113,7 @@ add_definitions(-DCUBIC_INTERPOLATION
         -DGIT_MODIFIED="${GIT_MODIFIED}"
         -DDOUBLEPRECISION
         -DOUTPUT_IN_DOUBLEPRECISION
-        -DZELDOVICH_GRADIENT_FOURIER_SPACE)
+        -DZELDOVICH_GRADIENT_FOURIER_SPACE
+        )
 add_compile_options(-Wextra)
 add_executable(genetIC ${SOURCE_FILES})
