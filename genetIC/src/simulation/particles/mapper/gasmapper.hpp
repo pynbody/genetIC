@@ -3,6 +3,8 @@
 
 #include "src/simulation/particles/mapper/mapper.hpp"
 
+#define GADGET_GAS_TYPE 0
+
 namespace particle {
 
   namespace mapper {
@@ -67,6 +69,10 @@ namespace particle {
 
 
     public:
+
+      bool containsGadgetParticleType(unsigned int t) override {
+        return t==GADGET_GAS_TYPE || getDmMap()->containsGadgetParticleType(t);
+      }
 
 
       //! Returns true if either the first or second mapper points to the specified grid
@@ -135,7 +141,7 @@ namespace particle {
             // If the above assertion fails, gas particles have received a non-zero gadget particle type
         }
 
-        if(getDmMap()->beginParticleType(g, 0) != getDmMap()->endParticleType(g, 0)) {
+        if(getDmMap()->beginParticleType(g, GADGET_GAS_TYPE) != getDmMap()->endParticleType(g, GADGET_GAS_TYPE)) {
           throw std::runtime_error("You have asked for some gadget DM particles to be output with type 0, "
                                    "but have also set non-zero baryon density. Type 0 is reserved for gas "
                                    "particles in hydro simulations, and genetIC particle types refer only "
@@ -198,11 +204,11 @@ namespace particle {
 
       /*! \brief Return an iterator pointing to the beginning of the list of particles of the specified type
         \param generator - particle generator to use
-        \param particleType - particle species to find the beginning of (0 for dark matter, 1 for baryons)
+        \param particleType - gadget particle type to find the beginning of
       */
       virtual iterator beginParticleType(const AbstractMultiLevelParticleGenerator <GridDataType> &generator,
                                          unsigned int particleType) const override {
-        if (particleType == 0)
+        if (particleType == GADGET_GAS_TYPE)
           return beginGas(generator);
         else return getDmMap()->beginParticleType(generator, particleType);
       }
@@ -210,11 +216,11 @@ namespace particle {
 
       /*! \brief Return an iterator pointing to the end of the list of particles of the specified type
         \param generator - particle generator to use
-        \param particleType - particle species to find the end of (0 for dark matter, 1 for baryons)
+        \param particleType - gadget particle type to find the end of
       */
       virtual iterator endParticleType(const AbstractMultiLevelParticleGenerator <GridDataType> &generator,
                                        unsigned int particleType) const override {
-        if (particleType == 0)
+        if (particleType == GADGET_GAS_TYPE)
           return endGas(generator);
         else return getDmMap()->endParticleType(generator, particleType);
       }
