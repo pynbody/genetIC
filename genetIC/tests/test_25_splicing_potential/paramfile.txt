@@ -10,15 +10,16 @@ random_seed_real_space	8896131
 camb	../camb_transfer_kmax40_z0.dat
 
 outname test_25
-outdir	 ./
+outdir	 ./f/
 outformat tipsy
 
-basegrid 50.0 64
+basegrid 50.0 128
 
 center 25 25 25
-select_sphere 2.5
+select_sphere 5.0
 splice_accuracy relative 1e-4
 splice_potential 8896132
+# splice 8896132
 
 done
 

@@ -60,19 +60,18 @@ namespace modifications {
       // otherwise, the mean value in the spliced region is unconstrained.
       fields::Field<DataType,T> preconditioner(cov);
 
+      preconditioner.setFourierCoefficient(0, 0, 0, 1);
       if (k_factor != 0) {
-        // Comments assume here that k_factor=-2, i.e. we splice the potential
         auto divide_by_k = [k_factor](std::complex<DataType> val, DataType kx, DataType ky, DataType kz){
-          auto k = sqrt(kx * kx + ky * ky + kz * kz);
-          if (k == 0 && k_factor < 0) {
+          auto k2 = kx * kx + ky * ky + kz * kz;
+          if (k2 == 0 && k_factor < 0) {
             return std::complex<DataType>(0, 0);
           } else {
-            return val * pow(k, 2*k_factor);
+            return val * pow(k2, k_factor);
           }
         };
         preconditioner.forEachFourierCell(divide_by_k);
       }
-      preconditioner.setFourierCoefficient(0, 0, 0, 1);
 
       fields::Field<DataType,T> delta_diff = b-a;
       delta_diff.applyTransferFunction(preconditioner, 0.5);
@@ -109,8 +108,7 @@ namespace modifications {
       };
 
 
-      fields::Field<DataType,T> alpha = tools::numerics::conjugateGradient<DataType>(X, z, rtol, atol);
-
+      fields::Field<DataType,T> alpha(z); // = tools::numerics::conjugateGradient<DataType>(X, z, rtol, atol);
       alpha.toFourier();
       alpha.applyTransferFunction(preconditioner, 0.5);
       alpha.toReal();
@@ -120,7 +118,7 @@ namespace modifications {
       bInDeltaBasis.applyTransferFunction(preconditioner, 0.5);
       bInDeltaBasis.toReal();
 
-      alpha*=maskCompl;
+      alpha*=0; //maskCompl;
       alpha+=bInDeltaBasis;
 
       delta_diff*=mask;
