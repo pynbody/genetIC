@@ -1711,7 +1711,7 @@ public:
   }
 
   virtual void splice_potential(size_t newSeed) {
-    splice_with_factor(newSeed, -2);
+    splice_with_factor(newSeed, -1);
   }
 
   //! Reverses the sign of the low-k modes.

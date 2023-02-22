@@ -108,7 +108,7 @@ namespace modifications {
       };
 
 
-      fields::Field<DataType,T> alpha(z); // = tools::numerics::conjugateGradient<DataType>(X, z, rtol, atol);
+      fields::Field<DataType,T> alpha = tools::numerics::conjugateGradient<DataType>(X, z, rtol, atol);
       alpha.toFourier();
       alpha.applyTransferFunction(preconditioner, 0.5);
       alpha.toReal();
@@ -118,7 +118,7 @@ namespace modifications {
       bInDeltaBasis.applyTransferFunction(preconditioner, 0.5);
       bInDeltaBasis.toReal();
 
-      alpha*=0; //maskCompl;
+      alpha*=maskCompl;
       alpha+=bInDeltaBasis;
 
       delta_diff*=mask;
