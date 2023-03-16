@@ -1672,6 +1672,9 @@ public:
 
     logging::entry() << "Constructing new random field for exterior of splice" << endl;
     newGenerator.seed(newSeed);
+    newGenerator.setDrawInFourierSpace(true);
+    newGenerator.setParallel(true);
+    newGenerator.setReverseRandomDrawOrder(false);
     newGenerator.draw();
     logging::entry() << "Finished constructing new random field. Beginning splice operation." << endl;
 
