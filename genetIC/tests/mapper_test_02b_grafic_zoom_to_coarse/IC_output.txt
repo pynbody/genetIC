@@ -1,0 +1,51 @@
+genetIC v1.3.1, compiled: Mar 27 2023, 10:51:15
+                 runtime: Mar 27 2023, 10:52:19
+
+git HEAD:234b54f
+At the time of compilation, the following files had been modified:
+  Makefile
+  genetIC
+  
+ 2023-03-27 10:52:19   Note: 64 FFTW Threads (determined by OpenMP) were initialised
+ 2023-03-27 10:52:19   WARNING: basegrid is a deprecated command and has been replaced by base_grid
+ 2023-03-27 10:52:19   Initialized the base grid:
+ 2023-03-27 10:52:19     Box length            = 50 Mpc/h
+ 2023-03-27 10:52:19     n                     = 64
+ 2023-03-27 10:52:19     dx                    = 0.78125
+ 2023-03-27 10:52:19   Adding virtual grid with effective resolution 32
+ 2023-03-27 10:52:19   Adding real grid with resolution 64
+ 2023-03-27 10:52:19   WARNING: zoomgrid is a deprecated command and has been replaced by zoom_grid
+ 2023-03-27 10:52:19   Initialized a zoom region:
+ 2023-03-27 10:52:19     Subbox length         = 12.5 Mpc/h
+ 2023-03-27 10:52:19     n                     = 64
+ 2023-03-27 10:52:19     dx                    = 0.195312
+ 2023-03-27 10:52:19     Zoom factor           = 4
+ 2023-03-27 10:52:19     Num particles         = 208
+ 2023-03-27 10:52:19     Low-left corner in parent grid = (23, 23, 23)
+ 2023-03-27 10:52:19     Low-left corner (h**-1 Mpc)    = 17.9688, 17.9688, 17.9688
+ 2023-03-27 10:52:19   Adding virtual grid with effective resolution 32
+ 2023-03-27 10:52:19   Adding real grid with resolution 64
+ 2023-03-27 10:52:19   Adding virtual grid with effective resolution 128
+ 2023-03-27 10:52:19   Adding real grid with resolution 256
+ 2023-03-27 10:52:19     Total particles       = 589824
+ 2023-03-27 10:52:19   WARNING: IDfile is a deprecated command and has been replaced by id_file
+ 2023-03-27 10:52:19   Centre of region is 24.31640625 18.06640625 18.84765625
+ 2023-03-27 10:52:19   WARNING: dump_IDfile is a deprecated command and has been replaced by dump_id_file
+ 2023-03-27 10:52:19   Drawing random numbers (base grid)
+ 2023-03-27 10:52:19   Drawing random numbers (zoom level 1)
+ 2023-03-27 10:52:19   Calculating particles from overdensity fields...
+ 2023-03-27 10:52:19   Combining information from different levels...
+ 2023-03-27 10:52:20   Writing output; number dm particles=589824, number gas particles=0
+ 2023-03-27 10:52:20   Adding virtual grid with effective resolution 32
+ 2023-03-27 10:52:20   Adding real grid with resolution 64
+ 2023-03-27 10:52:20   Adding virtual grid with effective resolution 128
+ 2023-03-27 10:52:20   Adding real grid with resolution 256
+ 2023-03-27 10:52:20   Starting write grid 32
+ 2023-03-27 10:52:20   Finished write grid 32
+ 2023-03-27 10:52:20   Starting write grid 64
+ 2023-03-27 10:52:20   Finished write grid 64
+ 2023-03-27 10:52:20   Starting write grid 128
+ 2023-03-27 10:52:20   Finished write grid 128
+ 2023-03-27 10:52:20   Starting write grid 256
+ 2023-03-27 10:52:20   Finished write grid 256
+ 2023-03-27 10:52:20   Finished writing initial conditions

@@ -1,0 +1,44 @@
+genetIC v1.3.1, compiled: Mar 27 2023, 10:51:15
+                 runtime: Mar 27 2023, 10:52:22
+
+git HEAD:234b54f
+At the time of compilation, the following files had been modified:
+  Makefile
+  genetIC
+  
+ 2023-03-27 10:52:22   Note: 64 FFTW Threads (determined by OpenMP) were initialised
+ 2023-03-27 10:52:22   WARNING: basegrid is a deprecated command and has been replaced by base_grid
+ 2023-03-27 10:52:22   Initialized the base grid:
+ 2023-03-27 10:52:22     Box length            = 50 Mpc/h
+ 2023-03-27 10:52:22     n                     = 64
+ 2023-03-27 10:52:22     dx                    = 0.78125
+ 2023-03-27 10:52:22   
+ 2023-03-27 10:52:22   + Input mapper: computing geometry from ../mapper_test_01a_zoom/unzoomed_paramfile.txt
+ 2023-03-27 10:52:22   | 
+ 2023-03-27 10:52:22   | WARNING: basegrid is a deprecated command and has been replaced by base_grid
+ 2023-03-27 10:52:22   | Initialized the base grid:
+ 2023-03-27 10:52:22   |   Box length            = 50 Mpc/h
+ 2023-03-27 10:52:22   |   n                     = 64
+ 2023-03-27 10:52:22   |   dx                    = 0.78125
+ 2023-03-27 10:52:22   
+ 2023-03-27 10:52:22   WARNING: IDfile is a deprecated command and has been replaced by id_file
+ 2023-03-27 10:52:22   Centre of region is 25.0097565911 24.996747803 25.0126474329
+ 2023-03-27 10:52:22   WARNING: zoomgrid is a deprecated command and has been replaced by zoom_grid
+ 2023-03-27 10:52:22   Initialized a zoom region:
+ 2023-03-27 10:52:22     Subbox length         = 16.6666666667 Mpc/h
+ 2023-03-27 10:52:22     n                     = 64
+ 2023-03-27 10:52:22     dx                    = 0.260416666667
+ 2023-03-27 10:52:22     Zoom factor           = 3
+ 2023-03-27 10:52:22     Num particles         = 1081
+ 2023-03-27 10:52:22     Low-left corner in parent grid = (21, 21, 21)
+ 2023-03-27 10:52:22     Low-left corner (h**-1 Mpc)    = 16.40625, 16.40625, 16.40625
+ 2023-03-27 10:52:22     Total particles       = 319437
+ 2023-03-27 10:52:22   WARNING: IDfile is a deprecated command and has been replaced by id_file
+ 2023-03-27 10:52:22   Centre of region is 26.953125 23.828125 28.125
+ 2023-03-27 10:52:22   WARNING: dump_IDfile is a deprecated command and has been replaced by dump_id_file
+ 2023-03-27 10:52:22   Drawing random numbers (base grid)
+ 2023-03-27 10:52:22   Drawing random numbers (zoom level 1)
+ 2023-03-27 10:52:22   Calculating particles from overdensity fields...
+ 2023-03-27 10:52:22   Combining information from different levels...
+ 2023-03-27 10:52:22   Writing output; number dm particles=290250, number gas particles=29187
+ 2023-03-27 10:52:22   Finished writing initial conditions

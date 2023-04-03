@@ -1,0 +1,85 @@
+genetIC v1.3.1, compiled: Mar 27 2023, 10:51:15
+                 runtime: Mar 27 2023, 10:52:32
+
+git HEAD:234b54f
+At the time of compilation, the following files had been modified:
+  Makefile
+  genetIC
+  
+ 2023-03-27 10:52:32   Note: 64 FFTW Threads (determined by OpenMP) were initialised
+ 2023-03-27 10:52:32   WARNING: basegrid is a deprecated command and has been replaced by base_grid
+ 2023-03-27 10:52:32   Initialized the base grid:
+ 2023-03-27 10:52:32     Box length            = 50 Mpc/h
+ 2023-03-27 10:52:32     n                     = 32
+ 2023-03-27 10:52:32     dx                    = 1.5625
+ 2023-03-27 10:52:32   WARNING: zoomgrid is a deprecated command and has been replaced by zoom_grid
+ 2023-03-27 10:52:32   Initialized a zoom region:
+ 2023-03-27 10:52:32     Subbox length         = 12.5 Mpc/h
+ 2023-03-27 10:52:32     n                     = 32
+ 2023-03-27 10:52:32     dx                    = 0.390625
+ 2023-03-27 10:52:32     Zoom factor           = 4
+ 2023-03-27 10:52:32     Num particles         = 1
+ 2023-03-27 10:52:32     Low-left corner in parent grid = (11, 11, 11)
+ 2023-03-27 10:52:32     Low-left corner (h**-1 Mpc)    = 17.1875, 17.1875, 17.1875
+ 2023-03-27 10:52:32     Total particles       = 4607
+ 2023-03-27 10:52:32   WARNING: zoomgrid is a deprecated command and has been replaced by zoom_grid
+ 2023-03-27 10:52:32   WARNING: Opening a zoom where flagged particles are within 3 pixels of the edge. This is prone to numerical errors.
+ 2023-03-27 10:52:32   Initialized a zoom region:
+ 2023-03-27 10:52:32     Subbox length         = 3.125 Mpc/h
+ 2023-03-27 10:52:32     n                     = 32
+ 2023-03-27 10:52:32     dx                    = 0.0976562
+ 2023-03-27 10:52:32     Zoom factor           = 4
+ 2023-03-27 10:52:32     Num particles         = 8
+ 2023-03-27 10:52:32     Low-left corner in parent grid = (13, 13, 13)
+ 2023-03-27 10:52:32     Low-left corner (h**-1 Mpc)    = 22.2656, 22.2656, 22.2656
+ 2023-03-27 10:52:32     Total particles       = 5111
+ 2023-03-27 10:52:32   
+ 2023-03-27 10:52:32   + Input mapper: computing geometry from paramfile_with_intermediates.txt
+ 2023-03-27 10:52:32   | 
+ 2023-03-27 10:52:32   | WARNING: basegrid is a deprecated command and has been replaced by base_grid
+ 2023-03-27 10:52:32   | Initialized the base grid:
+ 2023-03-27 10:52:32   |   Box length            = 50 Mpc/h
+ 2023-03-27 10:52:32   |   n                     = 32
+ 2023-03-27 10:52:32   |   dx                    = 1.5625
+ 2023-03-27 10:52:32   | WARNING: zoomgrid is a deprecated command and has been replaced by zoom_grid
+ 2023-03-27 10:52:32   | Initialized a zoom region:
+ 2023-03-27 10:52:32   |   Subbox length         = 12.5 Mpc/h
+ 2023-03-27 10:52:32   |   n                     = 32
+ 2023-03-27 10:52:32   |   dx                    = 0.390625
+ 2023-03-27 10:52:32   |   Zoom factor           = 4
+ 2023-03-27 10:52:32   |   Num particles         = 1
+ 2023-03-27 10:52:32   |   Low-left corner in parent grid = (11, 11, 11)
+ 2023-03-27 10:52:32   |   Low-left corner (h**-1 Mpc)    = 17.1875, 17.1875, 17.1875
+ 2023-03-27 10:52:32   |   Total particles       = 4607
+ 2023-03-27 10:52:32   | WARNING: zoomgrid is a deprecated command and has been replaced by zoom_grid
+ 2023-03-27 10:52:32   | WARNING: Opening a zoom where flagged particles are within 3 pixels of the edge. This is prone to numerical errors.
+ 2023-03-27 10:52:32   | Initialized a zoom region:
+ 2023-03-27 10:52:32   |   Subbox length         = 3.125 Mpc/h
+ 2023-03-27 10:52:32   |   n                     = 32
+ 2023-03-27 10:52:32   |   dx                    = 0.0976562
+ 2023-03-27 10:52:32   |   Zoom factor           = 4
+ 2023-03-27 10:52:32   |   Num particles         = 8
+ 2023-03-27 10:52:32   |   Low-left corner in parent grid = (13, 13, 13)
+ 2023-03-27 10:52:32   |   Low-left corner (h**-1 Mpc)    = 22.2656, 22.2656, 22.2656
+ 2023-03-27 10:52:32   |   Total particles       = 5111
+ 2023-03-27 10:52:32   | Added a padding region of effective resolution 32 of physical size ~12.5Mpc/h (inner resolution 128, size ~6.25Mpc/h)
+ 2023-03-27 10:52:32   | Added a padding region of effective resolution 64 of physical size ~9.375Mpc/h (inner resolution 128, size ~6.25Mpc/h)
+ 2023-03-27 10:52:32   | Added a padding region of effective resolution 256 of physical size ~1.5625Mpc/h (inner resolution 512, size ~0.78125Mpc/h)
+ 2023-03-27 10:52:32   | WARNING: IDfile is a deprecated command and has been replaced by id_file
+ 2023-03-27 10:52:32   | Centre of region is 23.876953125 23.876953125 23.876953125
+ 2023-03-27 10:52:32   | WARNING: dump_IDfile is a deprecated command and has been replaced by dump_id_file
+ 2023-03-27 10:52:32   
+ 2023-03-27 10:52:32   WARNING: IDfile is a deprecated command and has been replaced by id_file
+ 2023-03-27 10:52:32   Centre of region is 23.876953125 23.876953125 23.876953125
+ 2023-03-27 10:52:32   WARNING: dump_IDfile is a deprecated command and has been replaced by dump_id_file
+ 2023-03-27 10:52:32   Drawing random numbers (base grid)
+ 2023-03-27 10:52:32   Drawing random numbers (zoom level 1)
+ 2023-03-27 10:52:32   Drawing random numbers (zoom level 2)
+ 2023-03-27 10:52:32   WARNING: Maximum k in CAMB input file is insufficient
+*        You therefore have zero power in some of your modes, which is almost certainly not what you want
+*        You need to generate a transfer function that reaches higher k.
+*        The current grid reaches k = 64.3398175455 h/Mpc
+ 2023-03-27 10:52:32   Calculating particles from overdensity fields...
+ 2023-03-27 10:52:33   Combining information from different levels...
+ 2023-03-27 10:52:33   Writing output; number dm particles=8688, number gas particles=0
+ 2023-03-27 10:52:33   Finished writing initial conditions

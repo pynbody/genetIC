@@ -1,0 +1,19 @@
+genetIC v1.3.1, compiled: Mar 27 2023, 10:51:15
+                 runtime: Mar 27 2023, 10:52:50
+
+git HEAD:234b54f
+At the time of compilation, the following files had been modified:
+  Makefile
+  genetIC
+  
+ 2023-03-27 10:52:50   Note: 64 FFTW Threads (determined by OpenMP) were initialised
+ 2023-03-27 10:52:50   WARNING: basegrid is a deprecated command and has been replaced by base_grid
+ 2023-03-27 10:52:50   Initialized the base grid:
+ 2023-03-27 10:52:50     Box length            = 50 Mpc/h
+ 2023-03-27 10:52:50     n                     = 64
+ 2023-03-27 10:52:50     dx                    = 0.78125
+ 2023-03-27 10:52:50   Drawing random numbers (base grid)
+ 2023-03-27 10:52:51   Calculated chi^2 = 263092.7138 (dof = 262144)
+ 2023-03-27 10:52:51   Calculating particles from overdensity fields...
+ 2023-03-27 10:52:51   Writing output; number dm particles=262144, number gas particles=0
+ 2023-03-27 10:52:51   Finished writing initial conditions

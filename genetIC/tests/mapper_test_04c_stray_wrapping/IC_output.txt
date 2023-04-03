@@ -1,0 +1,36 @@
+genetIC v1.3.1, compiled: Mar 27 2023, 10:51:15
+                 runtime: Mar 27 2023, 10:52:32
+
+git HEAD:234b54f
+At the time of compilation, the following files had been modified:
+  Makefile
+  genetIC
+  
+ 2023-03-27 10:52:32   Note: 64 FFTW Threads (determined by OpenMP) were initialised
+ 2023-03-27 10:52:32   WARNING: basegrid is a deprecated command and has been replaced by base_grid
+ 2023-03-27 10:52:32   Initialized the base grid:
+ 2023-03-27 10:52:32     Box length            = 50 Mpc/h
+ 2023-03-27 10:52:32     n                     = 8
+ 2023-03-27 10:52:32     dx                    = 6.25
+ 2023-03-27 10:52:32   WARNING: zoomgrid_with_origin_at is a deprecated command and has been replaced by zoom_grid_with_origin_at
+ 2023-03-27 10:52:32   WARNING: the requested zoom particles do not all fit in the requested zoom window
+ 2023-03-27 10:52:32            of 60 particles, 20 will be interpolated from LR grid (stray particle mode)
+ 2023-03-27 10:52:32            to make a new zoom flag list of 60
+ 2023-03-27 10:52:32   Initialized a zoom region:
+ 2023-03-27 10:52:32     Subbox length         = 25 Mpc/h
+ 2023-03-27 10:52:32     n                     = 8
+ 2023-03-27 10:52:32     dx                    = 3.125
+ 2023-03-27 10:52:32     Zoom factor           = 2
+ 2023-03-27 10:52:32     Num particles         = 60
+ 2023-03-27 10:52:32     Low-left corner in parent grid = (6, 6, 2)
+ 2023-03-27 10:52:32     Low-left corner (h**-1 Mpc)    = 37.5, 37.5, 12.5
+ 2023-03-27 10:52:32     Total particles       = 932
+ 2023-03-27 10:52:32   WARNING: IDfile is a deprecated command and has been replaced by id_file
+ 2023-03-27 10:52:32   Centre of region is 45.3125 1.5625 14.0625
+ 2023-03-27 10:52:32   WARNING: dump_IDfile is a deprecated command and has been replaced by dump_id_file
+ 2023-03-27 10:52:32   Drawing random numbers (base grid)
+ 2023-03-27 10:52:32   Drawing random numbers (zoom level 1)
+ 2023-03-27 10:52:32   Calculating particles from overdensity fields...
+ 2023-03-27 10:52:32   Combining information from different levels...
+ 2023-03-27 10:52:32   Writing output; number dm particles=932, number gas particles=0
+ 2023-03-27 10:52:32   Finished writing initial conditions

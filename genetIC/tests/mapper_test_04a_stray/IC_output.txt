@@ -1,0 +1,34 @@
+genetIC v1.3.1, compiled: Mar 27 2023, 10:51:15
+                 runtime: Mar 27 2023, 10:52:23
+
+git HEAD:234b54f
+At the time of compilation, the following files had been modified:
+  Makefile
+  genetIC
+  
+ 2023-03-27 10:52:23   Note: 64 FFTW Threads (determined by OpenMP) were initialised
+ 2023-03-27 10:52:23   WARNING: basegrid is a deprecated command and has been replaced by base_grid
+ 2023-03-27 10:52:23   Initialized the base grid:
+ 2023-03-27 10:52:23     Box length            = 50 Mpc/h
+ 2023-03-27 10:52:23     n                     = 64
+ 2023-03-27 10:52:23     dx                    = 0.78125
+ 2023-03-27 10:52:23   WARNING: zoomgrid_with_origin_at is a deprecated command and has been replaced by zoom_grid_with_origin_at
+ 2023-03-27 10:52:23   WARNING: the requested zoom particles do not all fit in the requested zoom window
+ 2023-03-27 10:52:23            of 6272 particles, 2388 will be interpolated from LR grid (stray particle mode)
+ 2023-03-27 10:52:23            to make a new zoom flag list of 6272
+ 2023-03-27 10:52:23   Initialized a zoom region:
+ 2023-03-27 10:52:23     Subbox length         = 12.5 Mpc/h
+ 2023-03-27 10:52:23     n                     = 64
+ 2023-03-27 10:52:23     dx                    = 0.195312
+ 2023-03-27 10:52:23     Zoom factor           = 4
+ 2023-03-27 10:52:23     Num particles         = 6272
+ 2023-03-27 10:52:23     Low-left corner in parent grid = (23, 23, 23)
+ 2023-03-27 10:52:23     Low-left corner (h**-1 Mpc)    = 17.9688, 17.9688, 17.9688
+ 2023-03-27 10:52:23     Total particles       = 657280
+ 2023-03-27 10:52:29   WARNING: dump_IDfile is a deprecated command and has been replaced by dump_id_file
+ 2023-03-27 10:52:29   Drawing random numbers (base grid)
+ 2023-03-27 10:52:30   Drawing random numbers (zoom level 1)
+ 2023-03-27 10:52:30   Calculating particles from overdensity fields...
+ 2023-03-27 10:52:30   Combining information from different levels...
+ 2023-03-27 10:52:30   Writing output; number dm particles=657280, number gas particles=0
+ 2023-03-27 10:52:30   Finished writing initial conditions

@@ -1,0 +1,48 @@
+genetIC v1.3.1, compiled: Mar 27 2023, 10:51:15
+                 runtime: Mar 27 2023, 10:52:33
+
+git HEAD:234b54f
+At the time of compilation, the following files had been modified:
+  Makefile
+  genetIC
+  
+ 2023-03-27 10:52:33   Note: 64 FFTW Threads (determined by OpenMP) were initialised
+ 2023-03-27 10:52:33   Initialized the base grid:
+ 2023-03-27 10:52:33     Box length            = 50 Mpc/h
+ 2023-03-27 10:52:33     n                     = 32
+ 2023-03-27 10:52:33     dx                    = 1.5625
+ 2023-03-27 10:52:33   Initialized a zoom region:
+ 2023-03-27 10:52:33     Subbox length         = 12.5 Mpc/h
+ 2023-03-27 10:52:33     n                     = 32
+ 2023-03-27 10:52:33     dx                    = 0.390625
+ 2023-03-27 10:52:33     Zoom factor           = 4
+ 2023-03-27 10:52:33     Num particles         = 1
+ 2023-03-27 10:52:33     Low-left corner in parent grid = (11, 11, 11)
+ 2023-03-27 10:52:33     Low-left corner (h**-1 Mpc)    = 17.1875, 17.1875, 17.1875
+ 2023-03-27 10:52:33     Total particles       = 32831
+ 2023-03-27 10:52:33   
+ 2023-03-27 10:52:33   + Input mapper: computing geometry from paramfile_lores.txt
+ 2023-03-27 10:52:33   | 
+ 2023-03-27 10:52:33   | WARNING: basegrid is a deprecated command and has been replaced by base_grid
+ 2023-03-27 10:52:33   | Initialized the base grid:
+ 2023-03-27 10:52:33   |   Box length            = 50 Mpc/h
+ 2023-03-27 10:52:33   |   n                     = 32
+ 2023-03-27 10:52:33   |   dx                    = 1.5625
+ 2023-03-27 10:52:33   
+ 2023-03-27 10:52:33   Centre of region is 49.21875 49.21875 49.21875
+ 2023-03-27 10:52:33   
+ 2023-03-27 10:52:33   + Input mapper: computing geometry from paramfile_ultra_lores.txt
+ 2023-03-27 10:52:33   | 
+ 2023-03-27 10:52:33   | WARNING: basegrid is a deprecated command and has been replaced by base_grid
+ 2023-03-27 10:52:33   | Initialized the base grid:
+ 2023-03-27 10:52:33   |   Box length            = 50 Mpc/h
+ 2023-03-27 10:52:33   |   n                     = 32
+ 2023-03-27 10:52:33   |   dx                    = 1.5625
+ 2023-03-27 10:52:33   
+ 2023-03-27 10:52:33   Centre of region is 48.5243055556 48.5243055556 1.30208333333
+ 2023-03-27 10:52:33   Drawing random numbers (base grid)
+ 2023-03-27 10:52:33   Drawing random numbers (zoom level 1)
+ 2023-03-27 10:52:33   Calculating particles from overdensity fields...
+ 2023-03-27 10:52:33   Combining information from different levels...
+ 2023-03-27 10:52:33   Writing output; number dm particles=32831, number gas particles=0
+ 2023-03-27 10:52:33   Finished writing initial conditions

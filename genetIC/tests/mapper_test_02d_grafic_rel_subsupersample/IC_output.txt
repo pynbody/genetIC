@@ -1,0 +1,81 @@
+genetIC v1.3.1, compiled: Mar 27 2023, 10:51:15
+                 runtime: Mar 27 2023, 10:52:21
+
+git HEAD:234b54f
+At the time of compilation, the following files had been modified:
+  Makefile
+  genetIC
+  
+ 2023-03-27 10:52:21   Note: 64 FFTW Threads (determined by OpenMP) were initialised
+ 2023-03-27 10:52:21   WARNING: basegrid is a deprecated command and has been replaced by base_grid
+ 2023-03-27 10:52:21   Initialized the base grid:
+ 2023-03-27 10:52:21     Box length            = 50 Mpc/h
+ 2023-03-27 10:52:21     n                     = 64
+ 2023-03-27 10:52:21     dx                    = 0.78125
+ 2023-03-27 10:52:21   Adding virtual grid with effective resolution 32
+ 2023-03-27 10:52:21   Adding real grid with resolution 64
+ 2023-03-27 10:52:21   
+ 2023-03-27 10:52:21   + Input mapper: computing geometry from ./morezoomed.txt
+ 2023-03-27 10:52:21   | 
+ 2023-03-27 10:52:21   | WARNING: basegrid is a deprecated command and has been replaced by base_grid
+ 2023-03-27 10:52:21   | Initialized the base grid:
+ 2023-03-27 10:52:21   |   Box length            = 50 Mpc/h
+ 2023-03-27 10:52:21   |   n                     = 64
+ 2023-03-27 10:52:21   |   dx                    = 0.78125
+ 2023-03-27 10:52:21   | Adding virtual grid with effective resolution 32
+ 2023-03-27 10:52:21   | Adding real grid with resolution 64
+ 2023-03-27 10:52:21   | Adding virtual grid with effective resolution 128
+ 2023-03-27 10:52:21   | Adding virtual grid with effective resolution 256
+ 2023-03-27 10:52:21   | WARNING: zoomgrid is a deprecated command and has been replaced by zoom_grid
+ 2023-03-27 10:52:21   | Initialized a zoom region:
+ 2023-03-27 10:52:21   |   Subbox length         = 12.5 Mpc/h
+ 2023-03-27 10:52:21   |   n                     = 64
+ 2023-03-27 10:52:21   |   dx                    = 0.195312
+ 2023-03-27 10:52:21   |   Zoom factor           = 4
+ 2023-03-27 10:52:21   |   Num particles         = 8
+ 2023-03-27 10:52:21   |   Low-left corner in parent grid = (23, 23, 23)
+ 2023-03-27 10:52:21   |   Low-left corner (h**-1 Mpc)    = 17.9688, 17.9688, 17.9688
+ 2023-03-27 10:52:21   | Adding virtual grid with effective resolution 32
+ 2023-03-27 10:52:21   | Adding real grid with resolution 64
+ 2023-03-27 10:52:21   | Adding virtual grid with effective resolution 128
+ 2023-03-27 10:52:21   | Adding real grid with resolution 256
+ 2023-03-27 10:52:21   | Adding virtual grid with effective resolution 512
+ 2023-03-27 10:52:21   | Adding virtual grid with effective resolution 1024
+ 2023-03-27 10:52:21   |   Total particles       = 19464192
+ 2023-03-27 10:52:21   
+ 2023-03-27 10:52:21   WARNING: zoomgrid is a deprecated command and has been replaced by zoom_grid
+ 2023-03-27 10:52:21   Initialized a zoom region:
+ 2023-03-27 10:52:21     Subbox length         = 12.5 Mpc/h
+ 2023-03-27 10:52:21     n                     = 64
+ 2023-03-27 10:52:21     dx                    = 0.195312
+ 2023-03-27 10:52:21     Zoom factor           = 4
+ 2023-03-27 10:52:21     Num particles         = 8
+ 2023-03-27 10:52:21     Low-left corner in parent grid = (23, 23, 23)
+ 2023-03-27 10:52:21     Low-left corner (h**-1 Mpc)    = 17.9688, 17.9688, 17.9688
+ 2023-03-27 10:52:21   Adding virtual grid with effective resolution 32
+ 2023-03-27 10:52:21   Adding real grid with resolution 64
+ 2023-03-27 10:52:21   Adding virtual grid with effective resolution 128
+ 2023-03-27 10:52:21   Adding real grid with resolution 256
+ 2023-03-27 10:52:21     Total particles       = 589824
+ 2023-03-27 10:52:21   WARNING: IDfile is a deprecated command and has been replaced by id_file
+ 2023-03-27 10:52:21   35328 input ids reference a GRAFIC intermediate grid - make sure you intended to do this !
+ 2023-03-27 10:52:21   Centre of region is 25 25 25
+ 2023-03-27 10:52:21   WARNING: dump_IDfile is a deprecated command and has been replaced by dump_id_file
+ 2023-03-27 10:52:21   Drawing random numbers (base grid)
+ 2023-03-27 10:52:21   Drawing random numbers (zoom level 1)
+ 2023-03-27 10:52:21   Calculating particles from overdensity fields...
+ 2023-03-27 10:52:21   Combining information from different levels...
+ 2023-03-27 10:52:22   Writing output; number dm particles=589824, number gas particles=0
+ 2023-03-27 10:52:22   Adding virtual grid with effective resolution 32
+ 2023-03-27 10:52:22   Adding real grid with resolution 64
+ 2023-03-27 10:52:22   Adding virtual grid with effective resolution 128
+ 2023-03-27 10:52:22   Adding real grid with resolution 256
+ 2023-03-27 10:52:22   Starting write grid 32
+ 2023-03-27 10:52:22   Finished write grid 32
+ 2023-03-27 10:52:22   Starting write grid 64
+ 2023-03-27 10:52:22   Finished write grid 64
+ 2023-03-27 10:52:22   Starting write grid 128
+ 2023-03-27 10:52:22   Finished write grid 128
+ 2023-03-27 10:52:22   Starting write grid 256
+ 2023-03-27 10:52:22   Finished write grid 256
+ 2023-03-27 10:52:22   Finished writing initial conditions

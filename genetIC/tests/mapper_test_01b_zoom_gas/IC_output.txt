@@ -1,0 +1,72 @@
+genetIC v1.3.1, compiled: Mar 27 2023, 10:51:15
+                 runtime: Mar 27 2023, 10:52:17
+
+git HEAD:234b54f
+At the time of compilation, the following files had been modified:
+  Makefile
+  genetIC
+  
+ 2023-03-27 10:52:17   Note: 64 FFTW Threads (determined by OpenMP) were initialised
+ 2023-03-27 10:52:17   WARNING: basegrid is a deprecated command and has been replaced by base_grid
+ 2023-03-27 10:52:17   Initialized the base grid:
+ 2023-03-27 10:52:17     Box length            = 50 Mpc/h
+ 2023-03-27 10:52:17     n                     = 64
+ 2023-03-27 10:52:17     dx                    = 0.78125
+ 2023-03-27 10:52:17   
+ 2023-03-27 10:52:17   + Input mapper: computing geometry from ../mapper_test_01a_zoom/unzoomed_paramfile.txt
+ 2023-03-27 10:52:17   | 
+ 2023-03-27 10:52:17   | WARNING: basegrid is a deprecated command and has been replaced by base_grid
+ 2023-03-27 10:52:17   | Initialized the base grid:
+ 2023-03-27 10:52:17   |   Box length            = 50 Mpc/h
+ 2023-03-27 10:52:17   |   n                     = 64
+ 2023-03-27 10:52:17   |   dx                    = 0.78125
+ 2023-03-27 10:52:17   
+ 2023-03-27 10:52:17   WARNING: IDfile is a deprecated command and has been replaced by id_file
+ 2023-03-27 10:52:17   Centre of region is 25.0097565911 24.996747803 25.0126474329
+ 2023-03-27 10:52:17   WARNING: zoomgrid is a deprecated command and has been replaced by zoom_grid
+ 2023-03-27 10:52:17   Initialized a zoom region:
+ 2023-03-27 10:52:17     Subbox length         = 16.6666666667 Mpc/h
+ 2023-03-27 10:52:17     n                     = 64
+ 2023-03-27 10:52:17     dx                    = 0.260416666667
+ 2023-03-27 10:52:17     Zoom factor           = 3
+ 2023-03-27 10:52:17     Num particles         = 1081
+ 2023-03-27 10:52:17     Low-left corner in parent grid = (21, 21, 21)
+ 2023-03-27 10:52:17     Low-left corner (h**-1 Mpc)    = 16.40625, 16.40625, 16.40625
+ 2023-03-27 10:52:17     Total particles       = 319437
+ 2023-03-27 10:52:17   
+ 2023-03-27 10:52:17   + Input mapper: computing geometry from ../mapper_test_01a_zoom/paramfile.txt
+ 2023-03-27 10:52:17   | 
+ 2023-03-27 10:52:17   | WARNING: basegrid is a deprecated command and has been replaced by base_grid
+ 2023-03-27 10:52:17   | Initialized the base grid:
+ 2023-03-27 10:52:17   |   Box length            = 50 Mpc/h
+ 2023-03-27 10:52:17   |   n                     = 64
+ 2023-03-27 10:52:17   |   dx                    = 0.78125
+ 2023-03-27 10:52:17   | WARNING: IDfile is a deprecated command and has been replaced by id_file
+ 2023-03-27 10:52:17   | Centre of region is 25.0097565911 24.996747803 25.0126474329
+ 2023-03-27 10:52:17   | WARNING: zoomgrid is a deprecated command and has been replaced by zoom_grid
+ 2023-03-27 10:52:17   | Initialized a zoom region:
+ 2023-03-27 10:52:17   |   Subbox length         = 16.6666666667 Mpc/h
+ 2023-03-27 10:52:17   |   n                     = 64
+ 2023-03-27 10:52:17   |   dx                    = 0.260416666667
+ 2023-03-27 10:52:17   |   Zoom factor           = 3
+ 2023-03-27 10:52:17   |   Num particles         = 1081
+ 2023-03-27 10:52:17   |   Low-left corner in parent grid = (21, 21, 21)
+ 2023-03-27 10:52:17   |   Low-left corner (h**-1 Mpc)    = 16.40625, 16.40625, 16.40625
+ 2023-03-27 10:52:17   |   Total particles       = 290250
+ 2023-03-27 10:52:17   | WARNING: IDfile is a deprecated command and has been replaced by id_file
+ 2023-03-27 10:52:17   | Centre of region is 25.6510416667 24.0885416667 25.1302083333
+ 2023-03-27 10:52:17   | WARNING: dump_IDfile is a deprecated command and has been replaced by dump_id_file
+ 2023-03-27 10:52:17   
+ 2023-03-27 10:52:17   WARNING: IDfile is a deprecated command and has been replaced by id_file
+ 2023-03-27 10:52:17   Centre of region is 25.6510416667 24.0885416667 25.1302083333
+ 2023-03-27 10:52:17   WARNING: dump_IDfile is a deprecated command and has been replaced by dump_id_file
+ 2023-03-27 10:52:17   Drawing random numbers (base grid)
+ 2023-03-27 10:52:17   Drawing random numbers (zoom level 1)
+ 2023-03-27 10:52:18   Calculating particles from overdensity fields...
+ 2023-03-27 10:52:18   Combining information from different levels...
+ 2023-03-27 10:52:18   Writing output; number dm particles=290250, number gas particles=29187
+ 2023-03-27 10:52:18   Particles by gadget type:
+ 2023-03-27 10:52:18      Particle type 0: 29187 particles
+ 2023-03-27 10:52:18      Particle type 1: 290250 particles
+ 2023-03-27 10:52:18   Using variable-mass gadget format
+ 2023-03-27 10:52:18   Finished writing initial conditions

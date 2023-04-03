@@ -1,0 +1,29 @@
+# genetIC v1.3.1, compiled: Mar 27 2023, 10:51:15
+#                  runtime: Mar 27 2023, 10:52:32
+
+# git HEAD:234b54f
+# At the time of compilation, the following files had been modified:
+#   Makefile
+#   genetIC
+#   
+outdir ./ 
+outformat tipsy 
+outname test_1 
+om 0.279 
+ol 0.721 
+s8 0.817 
+zin 99 
+camb ../camb_transfer_kmax40_z0.dat 
+basegrid 50 32 
+subsample 2 
+random_seed_real_space 889613 
+centre 24.219 24.219 24.219 
+select_nearest 
+zoomgrid 4 32 
+select_cube 0.8 
+zoomgrid 4 32 
+adapt_mask 1 
+mapper_relative_to paramfile_with_intermediates.txt 
+idfile input.txt 
+dump_idfile output.txt 
+done 

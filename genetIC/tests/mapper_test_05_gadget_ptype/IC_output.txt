@@ -1,0 +1,37 @@
+genetIC v1.3.1, compiled: Mar 27 2023, 10:51:15
+                 runtime: Mar 27 2023, 10:52:32
+
+git HEAD:234b54f
+At the time of compilation, the following files had been modified:
+  Makefile
+  genetIC
+  
+ 2023-03-27 10:52:32   Note: 64 FFTW Threads (determined by OpenMP) were initialised
+*** Warning: seed_field_fourier_reverse and seedfourier_reverse are deprecated commands and should be avoided.***
+ 2023-03-27 10:52:32   WARNING: basegrid is a deprecated command and has been replaced by base_grid
+ 2023-03-27 10:52:32   Initialized the base grid:
+ 2023-03-27 10:52:32     Box length            = 33.885 Mpc/h
+ 2023-03-27 10:52:32     n                     = 64
+ 2023-03-27 10:52:32     dx                    = 0.529453
+ 2023-03-27 10:52:32   
+ 2023-03-27 10:52:32   + Input mapper: computing geometry from paramfile_flagged_ptype.txt
+ 2023-03-27 10:52:32   | 
+*** Warning: seed_field_fourier_reverse and seedfourier_reverse are deprecated commands and should be avoided.***
+ 2023-03-27 10:52:32   | WARNING: basegrid is a deprecated command and has been replaced by base_grid
+ 2023-03-27 10:52:32   | Initialized the base grid:
+ 2023-03-27 10:52:32   |   Box length            = 33.885 Mpc/h
+ 2023-03-27 10:52:32   |   n                     = 64
+ 2023-03-27 10:52:32   |   dx                    = 0.529453
+ 2023-03-27 10:52:32   | WARNING: IDfile is a deprecated command and has been replaced by id_file
+ 2023-03-27 10:52:32   | Centre of region is 0.2647265625 5.3827734375 25.8549609375
+ 2023-03-27 10:52:32   
+ 2023-03-27 10:52:32   WARNING: IDfile is a deprecated command and has been replaced by id_file
+ 2023-03-27 10:52:32   Centre of region is 0.2647265625 5.3827734375 25.8549609375
+ 2023-03-27 10:52:32   WARNING: dump_IDfile is a deprecated command and has been replaced by dump_id_file
+ 2023-03-27 10:52:32   Drawing random numbers (base grid)
+ 2023-03-27 10:52:32   Calculating particles from overdensity fields...
+ 2023-03-27 10:52:32   Writing output; number dm particles=262144, number gas particles=0
+ 2023-03-27 10:52:32   Particles by gadget type:
+ 2023-03-27 10:52:32      Particle type 1: 262144 particles
+ 2023-03-27 10:52:32   Using fixed-mass gadget format
+ 2023-03-27 10:52:32   Finished writing initial conditions
