@@ -1713,8 +1713,12 @@ public:
     splice_with_factor(newSeed, 0);
   }
 
-  virtual void splice_potential(size_t newSeed) {
+  virtual void splice_velocity(size_t newSeed) {
     splice_with_factor(newSeed, -1);
+  }
+
+    virtual void splice_potential(size_t newSeed) {
+    splice_with_factor(newSeed, -2);
   }
 
   //! Reverses the sign of the low-k modes.
