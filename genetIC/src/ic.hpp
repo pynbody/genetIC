@@ -161,7 +161,7 @@ protected:
   T precision = 0.001; //!< Target precision required of quadratic modifications.
 
   //! Accuracy of the conjugate gradient method for the splicing method
-  T splicing_cg_rel_tol = 1e-6;
+  T splicing_cg_rel_tol = 1e-4; // changed from 1e-6
   T splicing_cg_abs_tol = 1e-12;
 
   //! Mapper that keep track of particles in the mulit-level context.

@@ -10,11 +10,12 @@ namespace tools {
   namespace numerics {
 
     //! Solve linear equation Qx = b, and return x, using conjugate gradient
-    template<typename T>
+    template <typename T>
     fields::Field<T> conjugateGradient(std::function<fields::Field<T>(const fields::Field<T> &)> Q,
                                        const fields::Field<T> &b,
-                                       double rtol = 1e-6,
-                                       double atol = 1e-12) {
+                                       double rtol = 1e-4, // changed from 1e-6
+                                       double atol = 1e-12)
+    {
       fields::Field<T> residual(b);
       fields::Field<T> direction = -residual;
       fields::Field<T> x = fields::Field<T>(b.getGrid(), false);
@@ -41,10 +42,14 @@ namespace tools {
         residual -= b;
 
         auto norm = residual.norm();
-        if (norm < rtol * scale || norm < atol)
+        auto max = residual.Maximum(direction);
+        //if (max < rtol * sqrt(scale))
+        //  break;
+         if (norm < rtol * scale || norm < atol)
           break;
 
         logging::entry() << "Conjugate gradient iteration " << i << " residual=" << norm << std::endl;
+        logging::entry() << "condition=" << rtol * scale << " Maximum=" << max << std::endl;
 
         // update direction for next cycle; must be Q-orthogonal to all previous updates
         double beta = residual.innerProduct(Q_direction) / direction.innerProduct(Q_direction);
@@ -55,7 +60,6 @@ namespace tools {
       logging::entry() << "Conjugate gradient ended after " << i << " iterations" << std::endl;
 
       return x;
-
     }
   }
 }
