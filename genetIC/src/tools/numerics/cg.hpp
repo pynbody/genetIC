@@ -46,12 +46,14 @@ namespace tools {
         auto max = residual.Maximum(direction);
         // if (norm < rtol * scaleNorm || norm < atol)
         //   break;
-        if (max < 1e-6 * scaleMax)
+        auto toltest = 1e-6;
+
+        if (max < toltest * scaleMax)
           break;
 
         logging::entry() << "Conjugate gradient iteration " << i << std::endl;
-        logging::entry() << "conditionNorm=" << rtol * scaleNorm << " residual=" << norm << std::endl;
-        logging::entry() << "conditionMax=" << rtol * scaleMax << " maximum=" << max << std::endl;
+        logging::entry() << "conditionNorm=" << toltest * scaleNorm << " residual=" << norm << std::endl;
+        logging::entry() << "conditionMax=" << toltest * scaleMax << " maximum=" << max << std::endl;
 
         // update direction for next cycle; must be Q-orthogonal to all previous updates
         double beta = residual.innerProduct(Q_direction) / direction.innerProduct(Q_direction);
@@ -64,7 +66,7 @@ namespace tools {
       return x;
     }
 
-        /* Adapted from https://stanford.edu/group/SOL/reports/SOL-2011-2R.pdf */
+    /* Adapted from https://stanford.edu/group/SOL/reports/SOL-2011-2R.pdf */
     template<typename T>
     fields::Field<T> minres(
         std::function<fields::Field<T>(fields::Field<T> &)> A,
@@ -81,9 +83,8 @@ namespace tools {
       fields::Field<T> p(r);
       fields::Field<T> q(s);
 
-      auto norm = b.norm();
-
-      double scale = sqrt(b.innerProduct(b));
+      double scaleNorm = sqrt(b.innerProduct(b));
+      double scaleMax = b.Maximum(b);
       double rho = r.innerProduct(s);
 
       size_t dimension = b.getGrid().size3;
@@ -100,11 +101,16 @@ namespace tools {
 
         double norm = sqrt(r.innerProduct(r));
         double max = r.Maximum(r);
-        if (max < 1e-5 * scale || norm < atol)
-          break;
-        logging::entry() << "MINRES iteration " << iter << " residual=" << norm << std::endl;
 
-        // if (std::abs(norm - old_norm) / norm < rtol) {
+        auto toltest = 1e-6;
+
+        if (max < toltest * scaleMax || norm < atol)
+          break;
+        logging::entry() << "MINRES iteration " << iter << std::endl;
+        logging::entry() << "conditionNorm=" << toltest * scaleNorm << " residual=" << norm << std::endl;
+        logging::entry() << "conditionMax=" << toltest * scaleMax << " maximum=" << max << std::endl;
+
+        // if (std::abs(norm - old_norm) / norm < toltest) {
         //   logging::entry(logging::warning) << "MINRES: stagnation detected" << std::endl;
         //   break;
         // }
