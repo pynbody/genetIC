@@ -362,22 +362,7 @@ namespace fields {
     }
 
     //! Single grid maximum. Only implemented for real space
-    auto Maximum(const Field<DataType, CoordinateType> & other) const {
-      assert(!other.isFourier());
-      assert(!isFourier());
-
-      tools::datatypes::strip_complex<DataType> max=0;
-      size_t N = data.size();
-      
-      for(size_t i=0; i<N; i++) {
-        max = std::max(max, std::abs(data[i]));
-      }
-      return max;
-    }
-
-    //! Single grid median. Only implemented for real space
-    auto Median(const Field<DataType, CoordinateType> & other) const {
-      assert(!other.isFourier());
+    auto Maximum() const {
       assert(!isFourier());
 
       tools::datatypes::strip_complex<DataType> max=0;

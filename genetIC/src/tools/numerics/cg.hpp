@@ -22,12 +22,16 @@ namespace tools {
       fields::Field<T> x = fields::Field<T>(b.getGrid(), false);
 
       double scaleNorm = b.norm();
-      double scaleMax = b.Maximum(direction);
+      double scaleMax = b.Maximum();
 
       if(scaleNorm==0.0) {
         logging::entry(logging::warning) << "Conjugate gradient: result is zero!" << std::endl;
         return x;
       }
+
+      auto toltest = 1e-6;
+
+      logging::entry() << "conditionNorm=" << toltest * scaleNorm << " conditionMax=" << toltest * scaleMax << std::endl;
 
       size_t dimension = b.getGrid().size3;
 
@@ -44,17 +48,14 @@ namespace tools {
         residual -= b;
 
         auto norm = residual.norm();
-        auto max = residual.Maximum(direction);
+        auto max = residual.Maximum();
         // if (norm < rtol * scaleNorm || norm < atol)
         //   break;
-        auto toltest = 1e-6;
 
         if (max < toltest * scaleMax)
           break;
 
-        logging::entry() << "Conjugate gradient iteration " << i << std::endl;
-        logging::entry() << "conditionNorm=" << toltest * scaleNorm << " residual=" << norm << std::endl;
-        logging::entry() << "conditionMax=" << toltest * scaleMax << " maximum=" << max << std::endl;
+        logging::entry() << "Conjugate gradient iteration " << i << "residual=" << norm << " maximum=" << max << std::endl;
 
         // update direction for next cycle; must be Q-orthogonal to all previous updates
         double beta = residual.innerProduct(Q_direction) / direction.innerProduct(Q_direction);
@@ -86,8 +87,10 @@ namespace tools {
       fields::Field<T> p(r);
       fields::Field<T> q(s);
 
+      auto toltest = 1e-7;
+
       double scaleNorm = sqrt(b.innerProduct(b));
-      double scaleMax = b.Maximum(b);
+      double scaleMax = b.Maximum();
       double rho = r.innerProduct(s);
 
       size_t dimension = b.getGrid().size3;
@@ -98,6 +101,7 @@ namespace tools {
       const int brakeTime = 164;  // Desired brake time in hours
       const std::time_t brakeDuration = brakeTime * 3600; // Calculate the duration in seconds for the brake time
       const std::time_t startTime = std::time(nullptr); // Get the current time
+      logging::entry() << "conditionNorm=" << toltest * scaleNorm << " conditionMax=" << toltest * scaleMax << std::endl;
 
       // Start iteration
       size_t iter = 0;
@@ -109,9 +113,7 @@ namespace tools {
         r.addScaled(q, -alpha);
 
         double norm = sqrt(r.innerProduct(r));
-        double max = r.Maximum(r);
-
-        auto toltest = 1e-6;
+        double max = r.Maximum();
 
         if (max < toltest * scaleMax || norm < atol)
           break;
