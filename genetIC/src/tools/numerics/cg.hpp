@@ -5,6 +5,7 @@
 #include <src/simulation/field/field.hpp>
 #include <src/tools/data_types/complex.hpp>
 #include <src/tools/logging.hpp>
+#include <ctime>
 
 namespace tools {
   namespace numerics {
@@ -66,6 +67,8 @@ namespace tools {
       return x;
     }
 
+
+
     /* Adapted from https://stanford.edu/group/SOL/reports/SOL-2011-2R.pdf */
     template<typename T>
     fields::Field<T> minres(
@@ -91,9 +94,15 @@ namespace tools {
 
       dimension *= 10;
       double old_norm = 0;
+
+      const int brakeTime = 164;  // Desired brake time in hours
+      const std::time_t brakeDuration = brakeTime * 3600; // Calculate the duration in seconds for the brake time
+      const std::time_t startTime = std::time(nullptr); // Get the current time
+
       // Start iteration
       size_t iter = 0;
       for(; iter<dimension; ++iter) {
+
         // We have q = A(p), but no need to compute it again
         double alpha = rho / q.innerProduct(q);
         x.addScaled(p, alpha);
@@ -106,6 +115,19 @@ namespace tools {
 
         if (max < toltest * scaleMax || norm < atol)
           break;
+
+        const std::time_t currentTime = std::time(nullptr); // Get the current time
+        const std::time_t elapsedTime = currentTime - startTime; // Calculate the elapsed time
+
+        if (elapsedTime >= brakeDuration) {
+          logging::entry() << "Maximum time reached" << std::endl;
+          break;
+        }
+
+        logging::entry() << "brakeDuration " << brakeDuration << std::endl;
+        logging::entry() << "startTime " << startTime << std::endl;
+        logging::entry() << "elapsedTime " << elapsedTime << std::endl;
+        
         logging::entry() << "MINRES iteration " << iter << std::endl;
         logging::entry() << "conditionNorm=" << toltest * scaleNorm << " residual=" << norm << std::endl;
         logging::entry() << "conditionMax=" << toltest * scaleMax << " maximum=" << max << std::endl;
