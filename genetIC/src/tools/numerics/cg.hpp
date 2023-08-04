@@ -6,6 +6,9 @@
 #include <src/tools/data_types/complex.hpp>
 #include <src/tools/logging.hpp>
 #include <ctime>
+#include <iostream>
+#include <fstream>
+#include <sys/stat.h>
 
 namespace tools {
   namespace numerics {
@@ -76,7 +79,8 @@ namespace tools {
         std::function<fields::Field<T>(fields::Field<T> &)> A,
         fields::Field<T> &b,
         double rtol = 1e-4, // changed from 1e-6
-        double atol = 1e-12)
+        double atol = 1e-12,
+        bool restart = false)
     {
       fields::Field<T> x(b);
       x *= 0;
@@ -105,6 +109,29 @@ namespace tools {
 
       // Start iteration
       size_t iter = 0;
+
+      //setting variables from last restart
+      if (restart == true){
+        
+          std::ifstream file;
+
+          file.open ("variables/rho.txt");
+          file >> rho;
+          file.close();
+
+          file.open ("variables/iter.txt");
+          file >> iter;
+          file.close();
+
+          x.loadGridData("variables/x");
+          r.loadGridData("variables/r");
+          q.loadGridData("variables/q");
+          p.loadGridData("variables/p");
+
+          logging::entry() << "Loaded all previous variables" << std::endl;
+
+      }
+
       for(; iter<dimension; ++iter) {
 
         // We have q = A(p), but no need to compute it again
@@ -120,15 +147,10 @@ namespace tools {
 
         const std::time_t currentTime = std::time(nullptr); // Get the current time
         const std::time_t elapsedTime = currentTime - startTime; // Calculate the elapsed time
-
         if (elapsedTime >= brakeDuration) {
           logging::entry() << "Maximum time reached" << std::endl;
           break;
         }
-
-        logging::entry() << "brakeDuration " << brakeDuration << std::endl;
-        logging::entry() << "startTime " << startTime << std::endl;
-        logging::entry() << "elapsedTime " << elapsedTime << std::endl;
         
         logging::entry() << "MINRES iteration " << iter << std::endl;
         logging::entry() << "conditionNorm=" << toltest * scaleNorm << " residual=" << norm << std::endl;
@@ -148,6 +170,32 @@ namespace tools {
 
         q *= beta;
         q += s;
+        
+        //save current minimization variables if time limit reached
+        if (elapsedTime >= brakeDuration) {
+          logging::entry() << "Maximum time reached" << std::endl;
+
+          mkdir("variables", 0777);
+
+          //save fields
+          x.dumpGridData("variables/x");
+          r.dumpGridData("variables/r");
+          q.dumpGridData("variables/q");
+          p.dumpGridData("variables/p");
+
+          //save variables
+          std::ofstream file;
+
+          file.open ("variables/rho.txt");
+          file << rho;
+          file.close();
+
+          file.open ("variables/iter.txt");
+          file << iter + 1;
+          file.close();
+
+          break;
+        }
 
         // Save old norm
         old_norm = norm;

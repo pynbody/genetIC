@@ -40,7 +40,8 @@ namespace modifications {
                                            const fields::Field<DataType,T> & cov,
                                            const double rtol,
                                            const double atol,
-                                           const int k_factor=0
+                                           const int k_factor=0,
+                                           const bool restart=false
   ) {
 
       // To understand the implementation below, first read Appendix A of Cadiou et al (2021),
@@ -109,7 +110,7 @@ namespace modifications {
 
 
       // fields::Field<DataType,T> alpha = tools::numerics::conjugateGradient<DataType>(X, z, rtol, atol);
-      fields::Field<DataType,T> alpha = tools::numerics::minres<DataType>(X, z, rtol, atol);
+      fields::Field<DataType,T> alpha = tools::numerics::minres<DataType>(X, z, rtol, atol, restart);
       alpha.toFourier();
       alpha.applyTransferFunction(preconditioner, 0.5);
       alpha.toReal();
