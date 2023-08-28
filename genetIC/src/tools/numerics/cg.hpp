@@ -72,15 +72,15 @@ namespace tools {
     }
 
 
-
     /* Adapted from https://stanford.edu/group/SOL/reports/SOL-2011-2R.pdf */
+    /*
     template<typename T>
-    fields::Field<T> minres(
-        std::function<fields::Field<T>(fields::Field<T> &)> A,
-        fields::Field<T> &b,
-        double rtol = 1e-4, // changed from 1e-6
-        double atol = 1e-12,
-        bool restart = false)
+    fields::Field<T> minres(std::function<fields::Field<T>(fields::Field<T> &)> A,
+                            fields::Field<T> &b,
+                            double rtol = 1e-4, // changed from 1e-6
+                            double atol = 1e-12,
+                            bool restart = false,
+                            std::string output_path = "")
     {
       fields::Field<T> x(b);
       x *= 0;
@@ -102,7 +102,10 @@ namespace tools {
       dimension *= 10;
       double old_norm = 0;
 
-      const int brakeTime = 164;  // Desired brake time in hours
+      logging::entry() << "conditionNorm=" << toltest * scaleNorm << " conditionMax=" << toltest * scaleMax << std::endl;
+
+
+      const double brakeTime = 0.1;  // Desired brake time in hours
       const std::time_t brakeDuration = brakeTime * 3600; // Calculate the duration in seconds for the brake time
       const std::time_t startTime = std::time(nullptr); // Get the current time
       logging::entry() << "conditionNorm=" << toltest * scaleNorm << " conditionMax=" << toltest * scaleMax << std::endl;
@@ -111,24 +114,26 @@ namespace tools {
       size_t iter = 0;
 
       //setting variables from last restart
-      if (restart == true){
+      if (restart == true) {
+          logging::entry() << "Loading restart variables" << std::endl;
+
+          std::string variables = ".variables";
+          std::string directory = output_path + variables;
+
+          x.loadGridData(directory + "/x");
+          r.loadGridData(directory + "/r");
+          q.loadGridData(directory + "/q");
+          p.loadGridData(directory + "/p");
         
           std::ifstream file;
 
-          file.open ("variables/rho.txt");
+          file.open (directory + "/rho.txt");
           file >> rho;
           file.close();
 
-          file.open ("variables/iter.txt");
+          file.open (directory + "/iter.txt");
           file >> iter;
           file.close();
-
-          x.loadGridData("variables/x");
-          r.loadGridData("variables/r");
-          q.loadGridData("variables/q");
-          p.loadGridData("variables/p");
-
-          logging::entry() << "Loaded all previous variables" << std::endl;
 
       }
 
@@ -174,23 +179,26 @@ namespace tools {
         //save current minimization variables if time limit reached
         if (elapsedTime >= brakeDuration) {
           logging::entry() << "Maximum time reached" << std::endl;
+          
+          std::string variables = ".variables";
+          std::string directory = output_path + variables;
 
-          mkdir("variables", 0777);
+          mkdir(directory.c_str(), 0777);
 
           //save fields
-          x.dumpGridData("variables/x");
-          r.dumpGridData("variables/r");
-          q.dumpGridData("variables/q");
-          p.dumpGridData("variables/p");
+          x.dumpGridData(directory + "/x");
+          r.dumpGridData(directory + "/r");
+          q.dumpGridData(directory + "/q");
+          p.dumpGridData(directory + "/p");
 
           //save variables
           std::ofstream file;
 
-          file.open ("variables/rho.txt");
+          file.open (directory + "/rho.txt");
           file << rho;
           file.close();
 
-          file.open ("variables/iter.txt");
+          file.open (directory + "/iter.txt");
           file << iter + 1;
           file.close();
 
@@ -206,6 +214,7 @@ namespace tools {
       return x;
 
     }
+    */
   }
 }
 

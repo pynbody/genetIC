@@ -1,5 +1,5 @@
-#ifndef IC_CG_HPP
-#define IC_CG_HPP
+#ifndef IC_MINRES_HPP
+#define IC_MINRES_HPP
 
 #include <functional>
 #include <src/simulation/field/field.hpp>
@@ -9,7 +9,6 @@
 #include <iostream>
 #include <fstream>
 #include <sys/stat.h>
-#include <src/ic.hpp>
 
 namespace tools {
   namespace numerics {
@@ -140,7 +139,7 @@ namespace tools {
         }
 
         // Save old norm
-        old_norm = norm;
+        // old_norm = norm;
       }
 
       logging::entry() << "MINRES ended after " << iter << " iterations" << std::endl;

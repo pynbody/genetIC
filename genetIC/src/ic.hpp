@@ -1654,7 +1654,7 @@ public:
   }
 
   //! Splicing: fixes the flagged region, while reinitialising the exterior from a new random field
-  virtual void splice_with_factor(size_t newSeed, int k_factor=0, bool restart=false) {
+  virtual void splice_with_factor(size_t newSeed, int k_factor=0, bool restart=false, std::string output_path="") {
     initialiseRandomComponentIfUninitialised();
     if(outputFields.size()>1)
       throw std::runtime_error("Splicing is not yet implemented for the case of multiple transfer functions");
@@ -1688,7 +1688,8 @@ public:
         splicing_cg_rel_tol,
         splicing_cg_abs_tol,
         k_factor,
-        restart
+        restart,
+        output_path
       );
       splicedFieldThisLevel.toFourier();
       originalFieldThisLevel = std::move(splicedFieldThisLevel);
@@ -1719,11 +1720,11 @@ public:
   }
 
   virtual void splice_potential(size_t newSeed) {
-    splice_with_factor(newSeed, -2);
+    splice_with_factor(newSeed, -2, false, getOutputPath());
   }
 
   virtual void splice_potential_restart(size_t newSeed) {
-    splice_with_factor(newSeed, -2, true);
+    splice_with_factor(newSeed, -2, true, getOutputPath());
   }
 
   //! Reverses the sign of the low-k modes.
