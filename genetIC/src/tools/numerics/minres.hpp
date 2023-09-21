@@ -31,7 +31,7 @@ namespace tools {
       fields::Field<T> p(r);
       fields::Field<T> q(s);
 
-      auto toltest = 1e-7;
+      auto toltest = 1e-9;
 
       double scaleNorm = sqrt(b.innerProduct(b));
       double scaleMax = b.Maximum();
@@ -39,13 +39,18 @@ namespace tools {
 
       size_t dimension = b.getGrid().size3;
 
+      if (dimension < 2*512*512*512)
+        toltest = 1e-8;
+      if (dimension < 2*256*256*256)
+        toltest = 1e-7;
+
       dimension *= 10;
       double old_norm = 0;
 
       logging::entry() << "conditionNorm=" << toltest * scaleNorm << " conditionMax=" << toltest * scaleMax << std::endl;
 
 
-      const double brakeTime = 0.01;  // Desired brake time in hours
+      const double brakeTime = 164;  // Desired brake time in hours
       const std::time_t brakeDuration = brakeTime * 3600; // Calculate the duration in seconds for the brake time
       const std::time_t startTime = std::time(nullptr); // Get the current time at splicing start
 
