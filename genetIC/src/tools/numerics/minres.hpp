@@ -31,7 +31,8 @@ namespace tools {
       fields::Field<T> p(r);
       fields::Field<T> q(s);
 
-      auto toltest = 1e-9;
+      auto toltest = 1e-8;     // Default tolerance (meant to even include 1024^3 potential splicing)
+      double brakeTime = 166;  // Desired brake time in hours
 
       double scaleNorm = sqrt(b.innerProduct(b));
       double scaleMax = b.Maximum();
@@ -39,25 +40,26 @@ namespace tools {
 
       size_t dimension = b.getGrid().size3;
 
-      if (dimension < 2*512*512*512)
-        toltest = 1e-8;
-      if (dimension < 2*256*256*256)
+      // Lowering tolerance for lower resolution fields
+      if (dimension == 512*512*512)
         toltest = 1e-7;
+      if (dimension == 256*256*256)
+        toltest = 1e-6;
+        brakeTime = 24; // Perhaps a time dependence instead of trying to achieve the
+                        // exact tolerance is better
+      
+      const std::time_t brakeDuration = brakeTime * 3600; // Calculate the duration in seconds for the brake time
+      const std::time_t startTime = std::time(nullptr);   // Get the current time at splicing start
 
-      dimension *= 10;
+      size_t max_iterations = dimension * 10;
       double old_norm = 0;
 
-      logging::entry() << "conditionNorm=" << toltest * scaleNorm << " conditionMax=" << toltest * scaleMax << std::endl;
+      logging::entry() << "Splicing will stop after " << brakeTime << " hours" << std::endl;
+      logging::entry() << "Maximum=" << toltest * scaleMax << std::endl;
 
-
-      const double brakeTime = 164;  // Desired brake time in hours
-      const std::time_t brakeDuration = brakeTime * 3600; // Calculate the duration in seconds for the brake time
-      const std::time_t startTime = std::time(nullptr); // Get the current time at splicing start
-
-      // Start iteration
       size_t iter = 0;
-
       //setting variables from last restart
+      /*
       if (restart == true) {
           logging::entry() << "Loading restart variables" << std::endl;
 
@@ -80,8 +82,9 @@ namespace tools {
           file.close();
 
       }
-
-      for(; iter<dimension; ++iter) {
+      */
+      // Start iteration
+      for(; iter<max_iterations; ++iter) {
 
         // We have q = A(p), but no need to compute it again
         double alpha = rho / q.innerProduct(q);
@@ -91,13 +94,13 @@ namespace tools {
         double norm = sqrt(r.innerProduct(r));
         double max = r.Maximum();
 
-        if (max < toltest * scaleMax || norm < atol)
-          break;
+        //if (max < toltest * scaleMax || norm < atol)
+        //  break;
 
         const std::time_t currentTime = std::time(nullptr); // Get the current time
         const std::time_t elapsedTime = currentTime - startTime; // Calculate the elapsed time
         
-        logging::entry() << "MINRES iteration " << iter << " residual=" << norm << " maximum=" << max << std::endl;
+        logging::entry() << "MINRES iteration " << iter << " maximum=" << max << std::endl;
 
         // if (std::abs(norm - old_norm) / norm < toltest) {
         //   logging::entry(logging::warning) << "MINRES: stagnation detected" << std::endl;
@@ -114,33 +117,45 @@ namespace tools {
         q *= beta;
         q += s;
         
-        //save current minimization variables if time limit reached
         if (elapsedTime >= brakeDuration) {
-          logging::entry() << "Maximum time reached" << std::endl;
+          if (dimension == 512*512*512) {
+
+            logging::entry() << "Maximum time reached" << std::endl;
+            break;
+
+          }
+          if (max < toltest * scaleMax || norm < atol) {
+
+            logging::entry() << "Maximum time reached" << std::endl;
           
-          std::string variables = ".variables";
-          std::string directory = output_path + variables;
+            // Save current minimization variables if time limit reached
+            /*            
+            std::string variables = ".variables";
+            std::string directory = output_path + variables;
 
-          mkdir(directory.c_str(), 0777);
+            mkdir(directory.c_str(), 0777);
 
-          //save fields
-          x.dumpGridData(directory + "/x");
-          r.dumpGridData(directory + "/r");
-          q.dumpGridData(directory + "/q");
-          p.dumpGridData(directory + "/p");
+            //save fields
+            x.dumpGridData(directory + "/x");
+            r.dumpGridData(directory + "/r");
+            q.dumpGridData(directory + "/q");
+            p.dumpGridData(directory + "/p");
 
-          //save variables
-          std::ofstream file;
+            //save variables
+            std::ofstream file;
 
-          file.open (directory + "/rho.txt");
-          file << rho;
-          file.close();
+            file.open (directory + "/rho.txt");
+            file << rho;
+            file.close();
 
-          file.open (directory + "/iter.txt");
-          file << iter + 1;
-          file.close();
+            file.open (directory + "/iter.txt");
+            file << iter + 1;
+            file.close();
+            */
 
-          break;
+            break;
+
+          }
         }
 
         // Save old norm
