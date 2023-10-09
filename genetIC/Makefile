@@ -38,7 +38,6 @@ GSLFLAGS = -lgsl -lgslcblas
 FFTW = -DFFTW3 -DFFTW_THREADS
 FFTWLIB = -lfftw3 -lfftw3f -lfftw3_threads
 
-
 # Provide information on the git repository, to be printed out on each run
 GIT_MODIFIED = $(shell git ls-files -m 2>/dev/null | tr "\n" " " )
 GIT_VERSION = $(shell git rev-parse --short HEAD 2>/dev/null)
@@ -50,6 +49,18 @@ GIT_VARIABLES = -DGIT_VERSION='"$(GIT_VERSION)"' -DGIT_MODIFIED='"$(GIT_MODIFIED
 HOST	= $(shell if [ `which scutil 2>/dev/null` ]; then scutil --get ComputerName | cut -c1-5; else hostname | cut -c1-5 ; fi )
 HOST3	= $(shell hostname | cut -c1-3)
 
+USE_CUFFT=0
+ifeq ($(USE_CUFFT), 1)
+	CPATH = /opt/local/include/:/opt/cuda/include/cufft/:/opt/cuda/targets/x86_64-linux/include/
+	LPATH = /opt/local/lib:/opt/cuda/lib64/
+
+	CODEOPTIONS += -DUSE_CUFFT
+	FFTW = -DFFTW3
+	FFTWLIB = -lcufft -lcufftw
+	OLD_CFLAGS=$(CFLAGS)
+	CFLAGS=-O3 -I`pwd` -Xcompiler="-O3 -fopenmp -std=c++14 -Wall"
+	CXX=nvcc
+endif
 ifeq ($(HOST3), pfe)
 	CXX = /nasa/pkgsrc/2016Q2/gcc5/bin/g++
 	CPATH = /u/apontzen/genetIC/genetIC:/nasa/gsl/1.14/include/:/nasa/intel/Compiler/2016.2.181/compilers_and_libraries_2016.2.181/linux/mkl/include/fftw
