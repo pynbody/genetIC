@@ -17,13 +17,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest]
-        python-version: [3.7]
-        cxx: [g++-9, g++-10]
-        include:
-          - os: macos-latest
-            python-version: 3.7
-            cxx: g++-10
+        os: [ubuntu-latest, macos-latest]
+        python-version: [3.11]
+        cxx: [g++-9, g++-13]
     runs-on: ${{ matrix.os }}
     env:
       CXX: ${{ matrix.cxx }}
@@ -45,7 +41,7 @@ jobs:
       if: matrix.os == 'macos-latest'
       shell: bash
       run: |
-        brew install gcc@8 gcc@9 gcc@10 fftw gsl
+        brew install gcc@9 gcc@13 fftw gsl
         brew link gsl
     - name: Compile code
       working-directory: genetIC
