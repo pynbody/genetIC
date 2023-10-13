@@ -66,11 +66,11 @@ namespace modifications {
       preconditioner.setFourierCoefficient(0, 0, 0, 1);
       if (k_factor != 0) {
         auto divide_by_k = [k_factor](std::complex<DataType> val, DataType kx, DataType ky, DataType kz){
-          auto k2 = kx * kx + ky * ky + kz * kz;
+          DataType k2 = kx * kx + ky * ky + kz * kz;
           if (k2 == 0 && k_factor < 0) {
             return std::complex<DataType>(0, 0);
           } else {
-            return val * pow(k2, k_factor);
+            return val * DataType(pow(k2, k_factor));
           }
         };
         preconditioner.forEachFourierCell(divide_by_k);
