@@ -59,15 +59,14 @@ namespace fields {
     }
 
     //! Copy constructor
-    MultiLevelField(const MultiLevelField<DataType> &copy) :
-      std::enable_shared_from_this<MultiLevelField<DataType>>(), multiLevelContext(&(copy.getContext())) {
-
+    MultiLevelField(const MultiLevelField<DataType> &other) :
+      std::enable_shared_from_this<MultiLevelField<DataType>>(), multiLevelContext(&(other.getContext())) {
       for (size_t level = 0; level < multiLevelContext->getNumLevels(); level++) {
-        fieldsOnLevels.push_back(std::make_shared<Field<DataType, T>>(copy.getFieldForLevel(level)));
+        fieldsOnLevels.push_back(other.getFieldForLevel(level).copy());
       }
-      transferType = copy.transferType;
+      transferType = other.transferType;
 
-      isCovector = copy.isCovector;
+      isCovector = other.isCovector;
     }
 
     virtual ~MultiLevelField() {}
@@ -75,6 +74,11 @@ namespace fields {
     //! Return the transfer function type currently applied to this field
     particle::species getTransferType() const {
       return transferType;
+    }
+
+    //! Manually set the transfer function
+    void setForceTransferType(particle::species transfer_type) {
+      transferType = transfer_type;
     }
 
     //! Returns a reference to the multi-level context associated to this multi-level field.
@@ -168,6 +172,11 @@ namespace fields {
       addScaled(other, 1.0);
     }
 
+    //! Subtracts the specified multi-level field from this one.
+    void operator-=(const MultiLevelField<DataType> &other) {
+      addScaled(other, -1.0);
+    }
+
     //! Divides the field by the specified ratio.
     void operator/=(DataType ratio) {
       using namespace tools::numerics;
@@ -175,6 +184,16 @@ namespace fields {
       for (size_t level = 0; level < getNumLevels(); level++) {
         auto &data = getFieldForLevel(level).getDataVector();
         data /= ratio;
+      }
+    }
+
+    //! Multiplied the field by the specified ratio.
+    void operator*=(DataType ratio) {
+      using namespace tools::numerics;
+
+      for (size_t level = 0; level < getNumLevels(); level++) {
+        auto &data = getFieldForLevel(level).getDataVector();
+        data *= ratio;
       }
     }
 
@@ -193,22 +212,32 @@ namespace fields {
     //! Add a scaled multilevel field to the current one
     void addScaled(const MultiLevelField &other, DataType scale) {
       assertContextConsistent();
-      assert(other.isFourierOnAllLevels());
       assert (isCompatible(other));
-      toFourier();
+      if (other.isFourierOnAllLevels()) {
+        toFourier();
 
-      for (size_t level = 0; level < getNumLevels(); level++) {
-        if (hasFieldForLevel(level) && other.hasFieldForLevel(level)) {
+        for (size_t level = 0; level < getNumLevels(); level++) {
+          if (hasFieldForLevel(level) && other.hasFieldForLevel(level)) {
+            Field<DataType> &fieldThis = getFieldForLevel(level);
+            const Field<DataType> &fieldOther = other.getFieldForLevel(level);
+            T kMin = fieldThis.getGrid().getFourierKmin();
+            fieldThis.forEachFourierCellInt([&fieldOther, kMin, scale]
+                                              (ComplexType currentVal, int kx, int ky, int kz) {
+              return currentVal + scale * fieldOther.getFourierCoefficient(kx, ky, kz);
+            });
+          }
+        }
+      } else if (other.isRealOnAllLevels()) {
+        toReal();
+        for (size_t level = 0; level < getNumLevels(); level++) {
           Field<DataType> &fieldThis = getFieldForLevel(level);
           const Field<DataType> &fieldOther = other.getFieldForLevel(level);
-          T kMin = fieldThis.getGrid().getFourierKmin();
-          fieldThis.forEachFourierCellInt([&fieldOther, kMin, scale]
-                                            (ComplexType currentVal, int kx, int ky, int kz) {
-            return currentVal + scale * fieldOther.getFourierCoefficient(kx, ky, kz);
-          });
-        }
-      }
 
+          fieldThis.addScaled(fieldOther, scale);
+        }
+      } else {
+        throw std::runtime_error("Expected the other field to be in real/fourier space, not a mix of these.");
+      }
     }
 
     //! \brief Copy across data from another field.
@@ -568,9 +597,26 @@ namespace fields {
       return *(this->fieldsOnLevels[i]);
     }
 
+    //! Combine all grids together
+    void combineGrids() {
+      auto filters = this->getFilters();
+      size_t nlevels = this->getContext().getNumLevels();
 
+      logging::entry() << "Combining information from different levels..." << std::endl;
+
+      for (size_t level = 1; level < nlevels; ++level) {
+
+        // remove the low-frequency information from this level
+        this->getFieldForLevel(level).applyFilter(
+          filters.getHighPassFilterForLevel(level));
+
+        // replace with the low-frequency information from the level below
+        this->getFieldForLevel(level).addFieldFromDifferentGridWithFilter(
+          getFieldForLevel(level - 1),
+          filters.getLowPassFilterForLevel(level - 1));
+      }
+   }
   };
-
 
   /*! \class ConstraintField
     \brief Fields used for defining constraints.

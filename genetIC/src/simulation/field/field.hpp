@@ -354,6 +354,9 @@ namespace fields {
     //! Add a multiple of the provided field to this one in-place
     void addScaled(const Field<DataType, CoordinateType> & other,
                    tools::datatypes::strip_complex<DataType> scale) {
+      assert(!other.isFourier());
+      assert(!isFourier());
+
       size_t N = data.size();
 #pragma omp parallel for
       for(size_t i=0; i<N; i++) {
@@ -367,7 +370,7 @@ namespace fields {
       assert(!isFourier());
 
       tools::datatypes::strip_complex<DataType> v=0;
-      size_t N = data.size();
+      size_t N = getGrid().size3;
 
 #pragma omp parallel for reduction(+:v)
       for(size_t i=0; i<N; i++) {
@@ -478,6 +481,35 @@ namespace fields {
       }
 
     }
+
+    void deInterpolate(const Field<DataType, CoordinateType> &hires) {
+      assert (!isFourier());
+      assert (!hires.isFourier());
+      int pixel_size_ratio = tools::getRatioAndAssertInteger(getGrid().cellSize,
+                                                             hires.getGrid().cellSize);
+      int pixel_volume_ratio = pow(pixel_size_ratio,3);
+
+      size_t hiresGridSize = hires.getGrid().size;
+      size_t hiresParallelisationSeparation = 4 * pixel_size_ratio;
+
+      Field<DataType, CoordinateType> *me = this;
+
+      for(int xoffset=0; xoffset < hiresParallelisationSeparation; xoffset++) {
+#pragma omp parallel for default(none) shared(hires, me, pixel_volume_ratio, xoffset, hiresGridSize, hiresParallelisationSeparation)
+        for(int x=xoffset; x<hiresGridSize; x+=hiresParallelisationSeparation) {
+          for(int y=0; y<hiresGridSize; y++) {
+            for(int z=0; z<hiresGridSize; z++) {
+              Coordinate<int> coord {x,y,z};
+              auto index = hires.getGrid().getIndexFromCoordinateNoWrap(coord);
+              auto location = hires.getGrid().getCentroidFromCoordinate(coord);
+              me->deInterpolate(location, hires[index]/pixel_volume_ratio);
+            }
+          }
+        }
+      }
+    }
+
+
 
     //! Evaluates the field at the specified co-ordinate using interpolation.
     DataType evaluateInterpolated(Coordinate<CoordinateType> location) const {

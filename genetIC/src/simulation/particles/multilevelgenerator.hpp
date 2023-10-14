@@ -92,38 +92,35 @@ namespace particle {
         std::make_shared<ZPG>(generator.overdensityField.getFieldForLevel(0)));
     } else if (nlevels >= 2) {
 
-
       for (size_t level = 0; level < nlevels; ++level)
         generator.pGenerators.emplace_back(
-          std::make_shared<ZPG>(generator.overdensityField.getFieldForLevel(level)));
+          std::make_shared<ZPG>(generator.overdensityField.getFieldForLevel(level))
+        );
 
-      logging::entry() << "Combining information from different levels..." << endl;
+      if (!generator.context.getLevelsAreCombined()) {
+        auto filters = generator.overdensityField.getFilters();
 
-      auto filters = generator.overdensityField.getFilters();
+        for (size_t level = 1; level < nlevels; ++level) {
 
-      for (size_t level = 1; level < nlevels; ++level) {
+          // remove the low-frequency information from this level
+          generator.overdensityField.getFieldForLevel(level).applyFilter(
+            filters.getHighPassFilterForLevel(level));
+          generator.pGenerators[level]->applyFilter(filters.getHighPassFilterForLevel(level));
 
-        // remove the low-frequency information from this level
-        generator.overdensityField.getFieldForLevel(level).applyFilter(
-          filters.getHighPassFilterForLevel(level));
-        generator.pGenerators[level]->applyFilter(filters.getHighPassFilterForLevel(level));
+          // replace with the low-frequency information from the level below
+          generator.overdensityField.getFieldForLevel(level).addFieldFromDifferentGridWithFilter(
+            generator.overdensityField.getFieldForLevel(level - 1),
+            filters.getLowPassFilterForLevel(level - 1));
+          generator.pGenerators[level]->addFieldFromDifferentGridWithFilter(*generator.pGenerators[level - 1],
+                                                                            filters.getLowPassFilterForLevel(level - 1));
 
-        // replace with the low-frequency information from the level below
-        generator.overdensityField.getFieldForLevel(level).addFieldFromDifferentGridWithFilter(
-          generator.overdensityField.getFieldForLevel(level - 1),
-          filters.getLowPassFilterForLevel(level - 1));
-        generator.pGenerators[level]->addFieldFromDifferentGridWithFilter(*generator.pGenerators[level - 1],
-                                                                          filters.getLowPassFilterForLevel(level - 1));
-
-
+        }
       }
 
       generator.overdensityField.getContext().setLevelsAreCombined();
 
       for (size_t i = 0; i < nlevels; ++i)
         generator.pGenerators[i]->toReal();
-
-
     }
   }
 

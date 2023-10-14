@@ -174,13 +174,16 @@ protected:
 
   tools::ClassDispatch<ICGenerator<GridDataType>, void> &interpreter; //!< Parser for parameter files
 
+  bool shouldSplice; //!< True if the code should perform the splicing operation.
+  size_t spliceSeed; //!< Seed for the random number generator used in the splicing operation.
 
 public:
   //! \brief Main constructor for this class.
   //! Requires a single interpreter to initialise, from which it will receive input commands.
   ICGenerator(tools::ClassDispatch<ICGenerator<GridDataType>, void> &interpreter) :
     modificationManager(multiLevelContext, cosmology, nullptr),
-    interpreter(interpreter) {
+    interpreter(interpreter),
+    shouldSplice(false) {
 
     // By default, we assume there is only one field - at first this will contain white noise:
     outputFields.push_back(
@@ -849,7 +852,6 @@ public:
   */
   template<typename TField>
   void dumpGridData(size_t level, const TField &data, std::string prefix = "grid") {
-
     initialiseRandomComponentIfUninitialised();
 
     auto levelGrid = data.getGrid();
@@ -903,6 +905,7 @@ public:
   * \param species - the field to dump
   */
   virtual void dumpGrid(size_t level, particle::species species ) {
+    checkLevelExists(level, species);
     auto & field = this->getOutputFieldForSpecies(species);
     field.toReal();
     dumpGridData(level, field.getFieldForLevel(level));
@@ -917,17 +920,20 @@ public:
   }
 
   virtual void dumpVelocityX(size_t level) {
+    checkLevelExists(level, particle::species::dm);
     dumpGridData(level, *(this->pParticleGenerator[particle::species::dm]->getGeneratorForLevel(
       level).getGeneratedFields()[0]), "vx");
   }
 
   //! For backwards compatibility. Dumpts baryons to field at requested level to file named grid-level.
   virtual void dumpGridFourier(size_t level = 0) {
+    checkLevelExists(level, particle::species::dm);
     this->dumpGridFourier(level, particle::species::dm);
   }
 
   //! Output the grid in Fourier space.
   virtual void dumpGridFourier(size_t level, particle::species species) {
+    checkLevelExists(level, species);
     auto & field = this->getOutputFieldForSpecies(species);
     field.toFourier();
     fields::Field<complex<T>, T> fieldToWrite = tools::numerics::fourier::getComplexFourierField(field.getFieldForLevel(level));
@@ -1634,9 +1640,12 @@ public:
     outputFields[0]->reverse();
   }
 
-  //! Splicing: fixes the flagged region, while reinitialising the exterior from a new random field
+  //! Save that splicing should happen in the generation of the output
   virtual void splice(size_t newSeed) {
+    this->spliceSeed = newSeed;
+    this->shouldSplice = true;
     initialiseRandomComponentIfUninitialised();
+
     if(outputFields.size()>1)
       throw std::runtime_error("Splicing is not yet implemented for the case of multiple transfer functions");
 
@@ -1645,8 +1654,14 @@ public:
       throw std::runtime_error("It is too late in the IC generation process to perform splicing; try moving the splice command earlier");
     }
 
-    fields::OutputField<GridDataType> newField = fields::OutputField<GridDataType>(multiLevelContext, particle::species::whitenoise);
-    auto newGenerator = fields::RandomFieldGenerator<GridDataType>(newField);
+    spliceFields(newSeed);
+  }
+
+  //! Splicing: fixes the flagged region, while reinitialising the exterior from a new random field
+  virtual void spliceFields(size_t newSeed) {
+
+    fields::OutputField<GridDataType> a = fields::OutputField<GridDataType>(multiLevelContext, particle::species::whitenoise);
+    auto newGenerator = fields::RandomFieldGenerator<GridDataType>(a);
 
     if(multiLevelContext.getNumLevels()>1)
       logging::entry(logging::level::warning) << "Splicing operations on multiple levels work, but may have edge artefacts. Use experimentally/at your own risk!" << endl;
@@ -1655,15 +1670,20 @@ public:
     newGenerator.seed(newSeed);
     newGenerator.draw();
     logging::entry() << "Finished constructing new random field. Beginning splice operation." << endl;
+    
+    auto & b = *outputFields[0];
 
-    for(size_t level=0; level<multiLevelContext.getNumLevels(); ++level) {
-      auto &originalFieldThisLevel = outputFields[0]->getFieldForLevel(level);
-      auto &newFieldThisLevel = newField.getFieldForLevel(level);
-      auto splicedFieldThisLevel = modifications::spliceOneLevel(newFieldThisLevel, originalFieldThisLevel,
-                                                             *multiLevelContext.getCovariance(level, particle::species::all));
-      splicedFieldThisLevel.toFourier();
-      originalFieldThisLevel = std::move(splicedFieldThisLevel);
-    }
+    fields::OutputField<GridDataType> f = modifications::spliceMultiLevel<GridDataType>(b, a);
+
+    // Copy the result back into the output field
+    outputFields[0]->copyData(f);
+
+    // The field f is in delta space and we just copied it, so mark
+    // the outputFields accordingly. 
+    // outputFields[0]->setForceTransferType(particle::species::all);
+
+    // Mark the field as already combined
+    // multiLevelContext.setLevelsAreCombined();
   }
 
   //! Reverses the sign of the low-k modes.
