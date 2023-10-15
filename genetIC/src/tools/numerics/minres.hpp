@@ -94,8 +94,8 @@ namespace tools {
         double norm = sqrt(r.innerProduct(r));
         double max = r.Maximum();
 
-        //if (max < toltest * scaleMax || norm < atol)
-        //  break;
+        if (max < toltest * scaleMax || norm < atol)
+          break;
 
         const std::time_t currentTime = std::time(nullptr); // Get the current time
         const std::time_t elapsedTime = currentTime - startTime; // Calculate the elapsed time
