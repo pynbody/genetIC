@@ -137,10 +137,11 @@ void setup_parser(tools::ClassDispatch<ICType, void> &dispatch) {
 
   dispatch.add_class_route("reverse", static_cast<void (ICType::*)()>(&ICType::reverse));
   dispatch.add_class_route("reverse_small_k", static_cast<void (ICType::*)(FloatType)>(&ICType::reverseSmallK));
+  dispatch.add_deprecated_class_route("splice_accuracy", &ICType::set_splice_accuracy);
   dispatch.add_class_route("set_splice_accuracy", &ICType::set_splice_accuracy);
   dispatch.add_class_route("splice_seedfourier_parallel", &ICType::splice_seedfourier_parallel);
   dispatch.add_class_route("restart_splice", &ICType::restart_splice);
-  dispatch.add_class_route("splice", &ICType::splice_density);
+  dispatch.add_deprecated_class_route("splice", &ICType::splice_density);
   dispatch.add_class_route("splice_density", &ICType::splice_density);
   dispatch.add_class_route("splice_potential", &ICType::splice_potential);
   
