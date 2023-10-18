@@ -144,6 +144,8 @@ void setup_parser(tools::ClassDispatch<ICType, void> &dispatch) {
   dispatch.add_deprecated_class_route("splice", "splice_density", &ICType::splice_density);
   dispatch.add_class_route("splice_density", &ICType::splice_density);
   dispatch.add_class_route("splice_potential", &ICType::splice_potential);
+
+  dispatch.add_class_route("stop_after", &ICType::stop_after);
   
   // Write objects to files
   // dispatch.add_class_route("dump_grid", &ICType::dumpGrid);

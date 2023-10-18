@@ -170,6 +170,12 @@ protected:
   //! Using fourier parallel seeding for splicing
   bool setSplicedSeedFourierParallel = false;
 
+  //! Wether to stop splicing after a certain amount of time
+  bool stop = false;
+
+  //! Set the brake time to zero (unused)
+  double brakeTime = 0;
+
   //! Mapper that keep track of particles in the mulit-level context.
   shared_ptr<particle::mapper::ParticleMapper<GridDataType>> pMapper = nullptr;
   //! Input mapper, used to relate particles in a different simulation to particles in this one.
@@ -1697,6 +1703,8 @@ public:
         splicing_cg_abs_tol,
         k_factor,
         restart,
+        stop,
+        brakeTime,
         getOutputPath()
       );
       splicedFieldThisLevel.toFourier();
@@ -1725,6 +1733,11 @@ public:
 
   virtual void restart_splice(bool restart) {
     restart = true;
+  }
+
+  virtual void stop_after(double time_to_brake) {
+    stop = true;
+    brakeTime = time_to_brake;
   }
 
   virtual void splice_density(size_t newSeed) {

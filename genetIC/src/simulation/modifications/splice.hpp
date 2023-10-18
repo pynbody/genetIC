@@ -43,6 +43,8 @@ namespace modifications {
                                            const double atol,
                                            const int k_factor=0,
                                            const bool restart=false,
+                                           const bool stop=false,
+                                           const double brakeTime=0,
                                            const std::string output_path=""
   ) {
 
@@ -112,7 +114,7 @@ namespace modifications {
 
 
       // fields::Field<DataType,T> alpha = tools::numerics::conjugateGradient<DataType>(X, z, rtol, atol);
-      fields::Field<DataType,T> alpha = tools::numerics::minres<DataType>(X, z, rtol, atol, restart, output_path);
+      fields::Field<DataType,T> alpha = tools::numerics::minres<DataType>(X, z, rtol, atol, restart, stop, brakeTime, output_path);
       alpha.toFourier();
       alpha.applyTransferFunction(preconditioner, 0.5);
       alpha.toReal();

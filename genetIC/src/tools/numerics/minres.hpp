@@ -17,10 +17,12 @@ namespace tools {
     template<typename T>
     fields::Field<T> minres(std::function<fields::Field<T>(fields::Field<T> &)> A,
                             fields::Field<T> &b,
-                            double rtol = 1e-4, // changed from 1e-6
+                            double rtol = 2e-4, // changed from 1e-6
                             double atol = 1e-12,
                             bool restart = false,
-                            std::string output_path = "")
+                            bool stop = false,
+                            double brakeTime = 0,
+                            std::string output_path="")
     {
       fields::Field<T> x(b);
       x *= 0;
@@ -31,8 +33,7 @@ namespace tools {
       fields::Field<T> p(r);
       fields::Field<T> q(s);
 
-      auto toltest = 1e-8;     // Default tolerance (meant to even include 1024^3 potential splicing)
-      double brakeTime = 166;  // Desired brake time in hours
+      // auto toltest = 1e-8;     // Default tolerance (meant to even include 1024^3 potential splicing)
 
       double scaleNorm = sqrt(b.innerProduct(b));
       double scaleMax = b.Maximum();
@@ -40,23 +41,22 @@ namespace tools {
 
       size_t dimension = b.getGrid().size3;
 
-      // Lowering tolerance for lower resolution fields
-      if (dimension == 512*512*512)
-        toltest = 1e-7;
-      if (dimension == 256*256*256) {
-        toltest = 1e-6;
-        brakeTime = 24; // Perhaps a time dependence instead of trying to achieve the
-                        // exact tolerance is better
+      /*
+      if (rtol != 2e-4) {
+
+        // Lowering tolerance for lower resolution fields
+        if (dimension == 512*512*512)
+          toltest = 1e-7;
+        if (dimension == 256*256*256) {
+          toltest = 1e-6;
+          brakeTime = 24; // Perhaps a time dependence instead of trying to achieve the
+                          // exact tolerance is better
+        }
       }
-      
-      const std::time_t brakeDuration = brakeTime * 3600; // Calculate the duration in seconds for the brake time
-      const std::time_t startTime = std::time(nullptr);   // Get the current time at splicing start
+      */
 
       size_t max_iterations = dimension * 10;
       double old_norm = 0;
-
-      logging::entry() << "Splicing will stop after " << brakeTime << " hours" << std::endl;
-      logging::entry() << "Maximum=" << toltest * scaleMax << std::endl;
 
       size_t iter = 0;
       //setting variables from last restart
@@ -84,89 +84,118 @@ namespace tools {
 
       }
       */
-      // Start iteration
-      for(; iter<max_iterations; ++iter) {
 
-        // We have q = A(p), but no need to compute it again
-        double alpha = rho / q.innerProduct(q);
-        x.addScaled(p, alpha);
-        r.addScaled(q, -alpha);
+      if (stop == true){
 
-        double norm = sqrt(r.innerProduct(r));
-        double max = r.Maximum();
+        const std::time_t brakeDuration = brakeTime * 3600; // Calculate the duration in seconds for the brake time
+        const std::time_t startTime = std::time(nullptr);   // Get the current time at splicing start
 
-        if (max < toltest * scaleMax || norm < atol)
-          break;
+        logging::entry() << "Splicing will stop after " << brakeTime << " hours, or when the maximum drops below " << rtol * scaleMax << std::endl;
 
-        const std::time_t currentTime = std::time(nullptr); // Get the current time
-        const std::time_t elapsedTime = currentTime - startTime; // Calculate the elapsed time
-        
-        logging::entry() << "MINRES iteration " << iter << " maximum=" << max << std::endl;
+        // Start iteration
+        for(; iter<max_iterations; ++iter) {
 
-        // if (std::abs(norm - old_norm) / norm < toltest) {
-        //   logging::entry(logging::warning) << "MINRES: stagnation detected" << std::endl;
-        //   break;
-        // }
+          // We have q = A(p), but no need to compute it again
+          double alpha = rho / q.innerProduct(q);
+          x.addScaled(p, alpha);
+          r.addScaled(q, -alpha);
 
-        s = A(r);
-        double rhobar = rho;
-        rho = r.innerProduct(s);
-        double beta = rho / rhobar;
-        p *= beta;
-        p += r;
+          double norm = sqrt(r.innerProduct(r));
+          double max = r.Maximum();
 
-        q *= beta;
-        q += s;
-        
-        if (elapsedTime >= brakeDuration) {
-          if (dimension == 512*512*512) {
-
-            logging::entry() << "Maximum time reached" << std::endl;
+          if (max < rtol * scaleMax || norm < atol)
             break;
 
-          }
-          if (max < toltest * scaleMax || norm < atol) {
-
-            logging::entry() << "Maximum time reached" << std::endl;
+          const std::time_t currentTime = std::time(nullptr); // Get the current time
+          const std::time_t elapsedTime = currentTime - startTime; // Calculate the elapsed time
           
-            // Save current minimization variables if time limit reached
-            /*            
-            std::string variables = ".variables";
-            std::string directory = output_path + variables;
+          logging::entry() << "MINRES iteration " << iter << " maximum=" << max << std::endl;
 
-            mkdir(directory.c_str(), 0777);
+          s = A(r);
+          double rhobar = rho;
+          rho = r.innerProduct(s);
+          double beta = rho / rhobar;
+          p *= beta;
+          p += r;
 
-            //save fields
-            x.dumpGridData(directory + "/x");
-            r.dumpGridData(directory + "/r");
-            q.dumpGridData(directory + "/q");
-            p.dumpGridData(directory + "/p");
+          q *= beta;
+          q += s;
 
-            //save variables
-            std::ofstream file;
+          if (elapsedTime >= brakeDuration) {
 
-            file.open (directory + "/rho.txt");
-            file << rho;
-            file.close();
-
-            file.open (directory + "/iter.txt");
-            file << iter + 1;
-            file.close();
-            */
-
+            logging::entry() << "Maximum time reached" << std::endl;
             break;
-
           }
+            //if (max < rtol * scaleMax || norm < atol) {
+
+            //  logging::entry() << "Maximum time reached" << std::endl;
+            
+              // Save current minimization variables if time limit reached
+              /*            
+              std::string variables = ".variables";
+              std::string directory = output_path + variables;
+
+              mkdir(directory.c_str(), 0777);
+
+              //save fields
+              x.dumpGridData(directory + "/x");
+              r.dumpGridData(directory + "/r");
+              q.dumpGridData(directory + "/q");
+              p.dumpGridData(directory + "/p");
+
+              //save variables
+              std::ofstream file;
+
+              file.open (directory + "/rho.txt");
+              file << rho;
+              file.close();
+
+              file.open (directory + "/iter.txt");
+              file << iter + 1;
+              file.close();
+              */
+
+            //  break;
+
+            //}
         }
 
-        // Save old norm
-        // old_norm = norm;
+          // Save old norm
+          // old_norm = norm;
+      }
+      else {
+
+        logging::entry() << "Splicing will stop when the maximum drops below " << rtol * scaleMax << std::endl;
+        for(; iter<max_iterations; ++iter) {
+
+          // We have q = A(p), but no need to compute it again
+          double alpha = rho / q.innerProduct(q);
+          x.addScaled(p, alpha);
+          r.addScaled(q, -alpha);
+
+          double norm = sqrt(r.innerProduct(r));
+          double max = r.Maximum();
+
+          if (max < rtol * scaleMax || norm < atol)
+            break;
+          
+          logging::entry() << "MINRES iteration " << iter << " maximum=" << max << std::endl;
+
+          s = A(r);
+          double rhobar = rho;
+          rho = r.innerProduct(s);
+          double beta = rho / rhobar;
+          p *= beta;
+          p += r;
+
+          q *= beta;
+          q += s;
+        }
       }
 
       logging::entry() << "MINRES ended after " << iter << " iterations" << std::endl;
 
       return x;
-
     }
   }
 }
