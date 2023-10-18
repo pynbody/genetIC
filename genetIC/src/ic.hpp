@@ -168,7 +168,7 @@ protected:
   bool restart = false;
 
   //! Using fourier parallel seeding for splicing
-  bool setSplicedSeedFourierParallel = false:
+  bool setSplicedSeedFourierParallel = false;
 
   //! Mapper that keep track of particles in the mulit-level context.
   shared_ptr<particle::mapper::ParticleMapper<GridDataType>> pMapper = nullptr;
