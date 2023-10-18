@@ -43,10 +43,11 @@ namespace tools {
       // Lowering tolerance for lower resolution fields
       if (dimension == 512*512*512)
         toltest = 1e-7;
-      if (dimension == 256*256*256)
+      if (dimension == 256*256*256) {
         toltest = 1e-6;
         brakeTime = 24; // Perhaps a time dependence instead of trying to achieve the
                         // exact tolerance is better
+      }
       
       const std::time_t brakeDuration = brakeTime * 3600; // Calculate the duration in seconds for the brake time
       const std::time_t startTime = std::time(nullptr);   // Get the current time at splicing start

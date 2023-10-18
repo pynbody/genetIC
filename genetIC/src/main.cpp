@@ -135,13 +135,15 @@ void setup_parser(tools::ClassDispatch<ICType, void> &dispatch) {
   dispatch.add_class_route("apply_modifications", static_cast<void (ICType::*)()>(&ICType::applyModifications));
   dispatch.add_class_route("chi2", static_cast<void (ICType::*)()>(&ICType::getFieldChi2));
 
-  dispatch.add_class_route("reverse", static_cast<void (ICf::*)()>(&ICf::reverse));
-  dispatch.add_class_route("reverse_small_k", static_cast<void (ICf::*)(FloatType)>(&ICf::reverseSmallK));
-  dispatch.add_class_route("splice_accuracy", &ICf::set_splice_accuracy);
-  dispatch.add_class_route("splice", &ICf::splice_density);
-  dispatch.add_class_route("splice_potential", &ICf::splice_potential);
-
-  dispatch.add_class_route("splice_potential_restart", &ICf::splice_potential_restart);
+  dispatch.add_class_route("reverse", static_cast<void (ICType::*)()>(&ICType::reverse));
+  dispatch.add_class_route("reverse_small_k", static_cast<void (ICType::*)(FloatType)>(&ICType::reverseSmallK));
+  dispatch.add_class_route("set_splice_accuracy", &ICType::set_splice_accuracy);
+  dispatch.add_class_route("splice_seedfourier_parallel", &ICType::splice_seedfourier_parallel);
+  dispatch.add_class_route("restart_splice", &ICType::restart_splice);
+  dispatch.add_class_route("splice", &ICType::splice_density);
+  dispatch.add_class_route("splice_density", &ICType::splice_density);
+  dispatch.add_class_route("splice_potential", &ICType::splice_potential);
+  
   // Write objects to files
   // dispatch.add_class_route("dump_grid", &ICType::dumpGrid);
   dispatch.add_class_route("dump_grid", static_cast<void (ICType::*)(size_t)>(&ICType::dumpGrid));

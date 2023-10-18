@@ -164,6 +164,12 @@ protected:
   T splicing_cg_rel_tol = 1e-4; // changed from 1e-6
   T splicing_cg_abs_tol = 1e-12;
 
+  //! Restarting function for splicing
+  bool restart = false;
+
+  //! Using fourier parallel seeding for splicing
+  bool setSplicedSeedFourierParallel = false:
+
   //! Mapper that keep track of particles in the mulit-level context.
   shared_ptr<particle::mapper::ParticleMapper<GridDataType>> pMapper = nullptr;
   //! Input mapper, used to relate particles in a different simulation to particles in this one.
@@ -1654,7 +1660,7 @@ public:
   }
 
   //! Splicing: fixes the flagged region, while reinitialising the exterior from a new random field
-  virtual void splice_with_factor(size_t newSeed, int k_factor=0, bool restart=false, std::string output_path="") {
+  virtual void splice_with_factor(size_t newSeed, int k_factor=0) {
     initialiseRandomComponentIfUninitialised();
     if(outputFields.size()>1)
       throw std::runtime_error("Splicing is not yet implemented for the case of multiple transfer functions");
@@ -1672,9 +1678,11 @@ public:
 
     logging::entry() << "Constructing new random field for exterior of splice" << endl;
     newGenerator.seed(newSeed);
-    newGenerator.setDrawInFourierSpace(true);
-    newGenerator.setParallel(true);
-    newGenerator.setReverseRandomDrawOrder(false);
+    if(setSplicedSeedFourierParallel == true) {
+      newGenerator.setDrawInFourierSpace(true);
+      newGenerator.setParallel(true);
+      newGenerator.setReverseRandomDrawOrder(false);
+    }
     newGenerator.draw();
     logging::entry() << "Finished constructing new random field. Beginning splice operation." << endl;
 
@@ -1689,7 +1697,7 @@ public:
         splicing_cg_abs_tol,
         k_factor,
         restart,
-        output_path
+        getOutputPath()
       );
       splicedFieldThisLevel.toFourier();
       originalFieldThisLevel = std::move(splicedFieldThisLevel);
@@ -1711,6 +1719,14 @@ public:
     }
   }
 
+  virtual void splice_seedfourier_parallel(bool setSplicedSeedFourierParallel) {
+    setSplicedSeedFourierParallel = true;
+  }
+
+  virtual void restart_splice(bool restart) {
+    restart = true;
+  }
+
   virtual void splice_density(size_t newSeed) {
     splice_with_factor(newSeed, 0);
   }
@@ -1720,11 +1736,7 @@ public:
   }
 
   virtual void splice_potential(size_t newSeed) {
-    splice_with_factor(newSeed, -2, false, getOutputPath());
-  }
-
-  virtual void splice_potential_restart(size_t newSeed) {
-    splice_with_factor(newSeed, -2, true, getOutputPath());
+    splice_with_factor(newSeed, -2);
   }
 
   //! Reverses the sign of the low-k modes.
