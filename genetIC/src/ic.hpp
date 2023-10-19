@@ -1694,7 +1694,8 @@ public:
       newGenerator.setReverseRandomDrawOrder(false);
     }
     newGenerator.draw();
-    logging::entry() << "Finished constructing new random field. Beginning splice operation using the " << minimization_method << " method." << endl;
+    logging::entry() << "Finished constructing new random field" << endl;
+    logging::entry() << "Beginning splice operation using the " << minimization_method << " method." << endl;
 
     for(size_t level=0; level<multiLevelContext.getNumLevels(); ++level) {
       auto &originalFieldThisLevel = outputFields[0]->getFieldForLevel(level);
@@ -1757,7 +1758,7 @@ public:
   }
 
   virtual void splice_potential(size_t newSeed) {
-    minimization_method = "MINRES";
+    // minimization_method = "MINRES";
     splice_with_factor(newSeed, -2);
   }
 
