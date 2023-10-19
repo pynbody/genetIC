@@ -42,7 +42,7 @@ namespace modifications {
                                            const double rtol,
                                            const double atol,
                                            const int k_factor=0,
-                                           const std::string minimization="CG",
+                                           const std::string minimization_method="CG",
                                            const bool restart=false,
                                            const bool stop=false,
                                            const double brakeTime=0
@@ -112,39 +112,58 @@ namespace modifications {
         return v;
       };
 
-      fields::Field<DataType,T> alpha(delta_diff);
-
-      if (minimization == "CG") {
+      if (minimization_method == "CG") {
         fields::Field<DataType,T> alpha = tools::numerics::conjugateGradient<DataType>(X, z, rtol, atol);
+        alpha.toFourier();
+        alpha.applyTransferFunction(preconditioner, 0.5);
+        alpha.toReal();
+
+        fields::Field<DataType,T> bInDeltaBasis(b);
+        bInDeltaBasis.toFourier();
+        bInDeltaBasis.applyTransferFunction(preconditioner, 0.5);
+        bInDeltaBasis.toReal();
+
+        alpha*=maskCompl;
+        alpha+=bInDeltaBasis;
+
+        delta_diff*=mask;
+        alpha-=delta_diff;
+
+        assert(!alpha.isFourier());
+        alpha.toFourier();
+        alpha.applyTransferFunction(preconditioner, -0.5);
+        alpha.toReal();
+
+        return alpha;
       }
-      else if (minimization == "MINRES") {
+      else if (minimization_method == "MINRES") {
         fields::Field<DataType,T> alpha = tools::numerics::minres<DataType>(X, z, rtol, atol, restart, stop, brakeTime);
+        alpha.toFourier();
+        alpha.applyTransferFunction(preconditioner, 0.5);
+        alpha.toReal();
+
+        fields::Field<DataType,T> bInDeltaBasis(b);
+        bInDeltaBasis.toFourier();
+        bInDeltaBasis.applyTransferFunction(preconditioner, 0.5);
+        bInDeltaBasis.toReal();
+
+        alpha*=maskCompl;
+        alpha+=bInDeltaBasis;
+
+        delta_diff*=mask;
+        alpha-=delta_diff;
+
+        assert(!alpha.isFourier());
+        alpha.toFourier();
+        alpha.applyTransferFunction(preconditioner, -0.5);
+        alpha.toReal();
+
+        return alpha;
       }
       else {
         throw std::runtime_error("Minimization method is invalid. Current implementations are CG and MINRES");
       }
 
-      alpha.toFourier();
-      alpha.applyTransferFunction(preconditioner, 0.5);
-      alpha.toReal();
-
-      fields::Field<DataType,T> bInDeltaBasis(b);
-      bInDeltaBasis.toFourier();
-      bInDeltaBasis.applyTransferFunction(preconditioner, 0.5);
-      bInDeltaBasis.toReal();
-
-      alpha*=maskCompl;
-      alpha+=bInDeltaBasis;
-
-      delta_diff*=mask;
-      alpha-=delta_diff;
-
-      assert(!alpha.isFourier());
-      alpha.toFourier();
-      alpha.applyTransferFunction(preconditioner, -0.5);
-      alpha.toReal();
-
-      return alpha;
   }
 }
 
