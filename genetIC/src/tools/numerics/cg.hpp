@@ -17,7 +17,7 @@ namespace tools {
     template <typename T>
     fields::Field<T> conjugateGradient(std::function<fields::Field<T>(const fields::Field<T> &)> Q,
                                        const fields::Field<T> &b,
-                                       double rtol = 1e-4, // changed from 1e-6
+                                       double rtol = 1e-6,
                                        double atol = 1e-12)
     {
       fields::Field<T> residual(b);
@@ -25,16 +25,13 @@ namespace tools {
       fields::Field<T> x = fields::Field<T>(b.getGrid(), false);
 
       double scaleNorm = b.norm();
-      double scaleMax = b.Maximum();
 
       if(scaleNorm==0.0) {
         logging::entry(logging::warning) << "Conjugate gradient: result is zero!" << std::endl;
         return x;
       }
 
-      auto toltest = 1e-6;
-
-      logging::entry() << "conditionNorm=" << toltest * scaleNorm << " conditionMax=" << toltest * scaleMax << std::endl;
+      logging::entry() << "Splicing will stop when the residual drops below " << rtol * scaleNorm << std::endl;
 
       size_t dimension = b.getGrid().size3;
 
@@ -51,14 +48,11 @@ namespace tools {
         residual -= b;
 
         auto norm = residual.norm();
-        auto max = residual.Maximum();
-        // if (norm < rtol * scaleNorm || norm < atol)
-        //   break;
 
-        if (max < toltest * scaleMax)
+        if (norm < rtol * scaleNorm || norm < atol)
           break;
 
-        logging::entry() << "Conjugate gradient iteration " << i << "residual=" << norm << " maximum=" << max << std::endl;
+        logging::entry() << "Conjugate gradient iteration " << i << " residual=" << norm << std::endl;
 
         // update direction for next cycle; must be Q-orthogonal to all previous updates
         double beta = residual.innerProduct(Q_direction) / direction.innerProduct(Q_direction);

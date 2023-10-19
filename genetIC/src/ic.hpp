@@ -161,8 +161,11 @@ protected:
   T precision = 0.001; //!< Target precision required of quadratic modifications.
 
   //! Accuracy of the conjugate gradient method for the splicing method
-  T splicing_cg_rel_tol = 1e-4; // changed from 1e-6
+  T splicing_cg_rel_tol = 1e-6;
   T splicing_cg_abs_tol = 1e-12;
+
+  //! Set the standard minimization method for splicing
+  std::string minimization_method = "CG";
 
   //! Restarting function for splicing
   bool restart = false;
@@ -1685,12 +1688,13 @@ public:
     logging::entry() << "Constructing new random field for exterior of splice" << endl;
     newGenerator.seed(newSeed);
     if(setSplicedSeedFourierParallel == true) {
+      logging::entry() << "-!- Drawing splice seed in fourier and parallel -!-" << endl;
       newGenerator.setDrawInFourierSpace(true);
       newGenerator.setParallel(true);
       newGenerator.setReverseRandomDrawOrder(false);
     }
     newGenerator.draw();
-    logging::entry() << "Finished constructing new random field. Beginning splice operation." << endl;
+    logging::entry() << "Finished constructing new random field. Beginning splice operation using the " << minimization_method << " method." << endl;
 
     for(size_t level=0; level<multiLevelContext.getNumLevels(); ++level) {
       auto &originalFieldThisLevel = outputFields[0]->getFieldForLevel(level);
@@ -1702,10 +1706,10 @@ public:
         splicing_cg_rel_tol,
         splicing_cg_abs_tol,
         k_factor,
+        minimization_method,
         restart,
         stop,
-        brakeTime,
-        getOutputPath()
+        brakeTime
       );
       splicedFieldThisLevel.toFourier();
       originalFieldThisLevel = std::move(splicedFieldThisLevel);
@@ -1727,12 +1731,16 @@ public:
     }
   }
 
-  virtual void splice_seedfourier_parallel(bool setSplicedSeedFourierParallel) {
+  virtual void splice_seedfourier_parallel() {
     setSplicedSeedFourierParallel = true;
   }
 
-  virtual void restart_splice(bool restart) {
+  virtual void restart_splice() {
     restart = true;
+  }
+
+  virtual void set_minimization(string set_minMethod) {
+    minimization_method = set_minMethod;
   }
 
   virtual void stop_after(double time_to_brake) {
@@ -1749,6 +1757,7 @@ public:
   }
 
   virtual void splice_potential(size_t newSeed) {
+    minimization_method = "MINRES";
     splice_with_factor(newSeed, -2);
   }
 

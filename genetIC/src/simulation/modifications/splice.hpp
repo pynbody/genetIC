@@ -3,7 +3,7 @@
 
 #include <complex>
 #include <src/tools/data_types/complex.hpp>
-//#include <src/tools/numerics/cg.hpp>
+#include <src/tools/numerics/cg.hpp>
 #include <src/tools/numerics/minres.hpp>
 
 namespace modifications {
@@ -42,10 +42,10 @@ namespace modifications {
                                            const double rtol,
                                            const double atol,
                                            const int k_factor=0,
+                                           const std::string minimization="CG",
                                            const bool restart=false,
                                            const bool stop=false,
-                                           const double brakeTime=0,
-                                           const std::string output_path=""
+                                           const double brakeTime=0
   ) {
 
       // To understand the implementation below, first read Appendix A of Cadiou et al (2021),
@@ -112,9 +112,18 @@ namespace modifications {
         return v;
       };
 
+      fields::Field<DataType,T> alpha(delta_diff);
 
-      // fields::Field<DataType,T> alpha = tools::numerics::conjugateGradient<DataType>(X, z, rtol, atol);
-      fields::Field<DataType,T> alpha = tools::numerics::minres<DataType>(X, z, rtol, atol, restart, stop, brakeTime, output_path);
+      if (minimization == "CG") {
+        fields::Field<DataType,T> alpha = tools::numerics::conjugateGradient<DataType>(X, z, rtol, atol);
+      }
+      else if (minimization == "MINRES") {
+        fields::Field<DataType,T> alpha = tools::numerics::minres<DataType>(X, z, rtol, atol, restart, stop, brakeTime);
+      }
+      else {
+        throw std::runtime_error("Minimization method is invalid. Current implementations are CG and MINRES");
+      }
+
       alpha.toFourier();
       alpha.applyTransferFunction(preconditioner, 0.5);
       alpha.toReal();

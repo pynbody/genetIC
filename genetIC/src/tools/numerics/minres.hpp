@@ -17,12 +17,11 @@ namespace tools {
     template<typename T>
     fields::Field<T> minres(std::function<fields::Field<T>(fields::Field<T> &)> A,
                             fields::Field<T> &b,
-                            double rtol = 2e-4, // changed from 1e-6
+                            double rtol = 1e-6,
                             double atol = 1e-12,
                             bool restart = false,
                             bool stop = false,
-                            double brakeTime = 0,
-                            std::string output_path="")
+                            double brakeTime = 0)
     {
       fields::Field<T> x(b);
       x *= 0;
