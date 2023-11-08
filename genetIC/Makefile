@@ -20,6 +20,7 @@ CFLAGS ?= -Wall -g -lpthread -O3 -fopenmp -std=c++17 -fdiagnostics-color=auto -I
 # -DFILTER_ON_COARSE_GRID: When moving long wavelength information onto a zoom grid, filters on the base grid
 #    and then interpolates into the zoom, rather than the default which is to interpolate and then filter.
 
+# Comment out -DZELDOVICH_GRADIENT_FOURIER_SPACE for potential splicing
 CODEOPTIONS  = -DDOUBLEPRECISION -DOUTPUT_IN_DOUBLEPRECISION -DCUBIC_INTERPOLATION -DFRACTIONAL_K_SPLIT=0.3 -DFRACTIONAL_FILTER_TEMPERATURE=0.1 -DFILTER_ON_COARSE_GRID #-DZELDOVICH_GRADIENT_FOURIER_SPACE
 CPATH ?= /opt/local/include/
 LPATH ?= /opt/local/lib
@@ -56,19 +57,13 @@ GIT_VARIABLES = -DGIT_VERSION='"$(GIT_VERSION)"' -DGIT_MODIFIED='"$(GIT_MODIFIED
 HOST	= $(shell if [ `which scutil 2>/dev/null` ]; then scutil --get ComputerName | cut -c1-5; else hostname | cut -c1-5 ; fi )
 HOST3	= $(shell hostname | cut -c1-3)
 
-
-USE_CUFFT=0
-ifeq ($(USE_CUFFT), 1)
-	CPATH = /opt/local/include/:/opt/cuda/include/cufft/:/opt/cuda/targets/x86_64-linux/include/
-	LPATH = /opt/local/lib:/opt/cuda/lib64/
-
-	CODEOPTIONS += -DUSE_CUFFT
-	FFTW = -DFFTW3
-	FFTWLIB = -lcufft -lcufftw
-	OLD_CFLAGS=$(CFLAGS)
-	CFLAGS=-O3 -I`pwd` -I`pwd`/HighFive/include -Xcompiler="-O3 -fopenmp -std=c++14 -Wall"
-	CXX=nvcc
+ifeq ($(HOST3), Ana)
+	CXX = /opt/homebrew/bin/c++-13
+	CPATH ?= /opt/local/include/
+	LPATH ?= /opt/local/lib
+	CFLAGS = -O3 -fopenmp -std=c++14 -fdiagnostics-color=auto -I`pwd` -DOPENMP -DDOUBLEPRECISION
 endif
+
 ifeq ($(HOST3), pfe)
 	CXX = /nasa/pkgsrc/2016Q2/gcc5/bin/g++
 	CPATH = /u/apontzen/genetIC/genetIC:/nasa/gsl/1.14/include/:/nasa/intel/Compiler/2016.2.181/compilers_and_libraries_2016.2.181/linux/mkl/include/fftw
