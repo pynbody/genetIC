@@ -63,10 +63,10 @@ ifeq ($(USE_CUFFT), 1)
 endif
 
 ifeq ($(HOST3), Ana)
-       CXX = /opt/homebrew/bin/c++-13
-       CPATH ?= /opt/local/include/
-       LPATH ?= /opt/local/lib
-       CFLAGS = -O3 -fopenmp -std=c++14 -fdiagnostics-color=auto -I`pwd` -DOPENMP -DDOUBLEPRECISION
+	CXX = /opt/homebrew/bin/c++-13
+	CPATH = /opt/homebrew/include/
+	LPATH = /opt/homebrew/lib
+	CFLAGS = -O3 -fopenmp -std=c++14 -fdiagnostics-color=auto -I`pwd` -DOPENMP -DDOUBLEPRECISION
 endif
 
 ifeq ($(HOST3), pfe)
