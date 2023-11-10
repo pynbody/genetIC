@@ -4,6 +4,7 @@
 #include <complex>
 #include <src/tools/data_types/complex.hpp>
 #include <src/tools/numerics/cg.hpp>
+#include <src/tools/numerics/minres.hpp>
 
 namespace modifications {
   template<typename T>
