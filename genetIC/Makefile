@@ -8,7 +8,7 @@ CFLAGS ?= -Wall -g -lpthread -O3 -fopenmp -std=c++14 -fdiagnostics-color=auto -I
 # -DVELOCITY_MODIFICATION_GRADIENT_FOURIER_SPACE: As the name suggests, use "ik" as the gradient operator; otherwise
 #    uses a fourth order stencil in real space. Enabling this is essential if you disable CUBIC_INTERPOLATION.
 # -DZELDOVICH_GRADIENT_FOURIER_SPACE: Same as VELOCITY_MODIFICATION_GRADIENT_FOURIER_SPACE, but for computing the
-#    Zeldovich displacement field.
+#    Zeldovich displacement field. Should be commented out if splicing the potential.
 # -DFRACTIONAL_K_SPLIT: This defines the characteristic k0 of the filter used to split information between zoom levels,
 #    defined by k0 = k_nyquist * FRACTIONAL_K_SPLIT, where k_nyquist is the Nyquist frequency of the lower-resolution grid.
 #    Higher values correlate the zoom grids more precisely with the unzoomed base grids, but at the cost of errors
@@ -61,6 +61,14 @@ ifeq ($(USE_CUFFT), 1)
 	CFLAGS=-O3 -I`pwd` -Xcompiler="-O3 -fopenmp -std=c++14 -Wall"
 	CXX=nvcc
 endif
+
+ifeq ($(HOST3), Ana)
+       CXX = /opt/homebrew/bin/c++-13
+       CPATH ?= /opt/local/include/
+       LPATH ?= /opt/local/lib
+       CFLAGS = -O3 -fopenmp -std=c++14 -fdiagnostics-color=auto -I`pwd` -DOPENMP -DDOUBLEPRECISION
+endif
+
 ifeq ($(HOST3), pfe)
 	CXX = /nasa/pkgsrc/2016Q2/gcc5/bin/g++
 	CPATH = /u/apontzen/genetIC/genetIC:/nasa/gsl/1.14/include/:/nasa/intel/Compiler/2016.2.181/compilers_and_libraries_2016.2.181/linux/mkl/include/fftw
