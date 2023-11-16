@@ -165,13 +165,13 @@ protected:
   T splicing_cg_abs_tol = 1e-12;
 
   //! Set the standard minimization method for splicing
-  std::string minimization_method = "CG";
+  std::string minimization_method = "MINRES"; //changed to MINRES (Masters project)
 
   //! Restarting function for splicing
   bool restart = false;
 
   //! Using fourier parallel seeding for splicing
-  bool setSplicedSeedFourierParallel = false;
+  bool setSplicedSeedFourierParallel = true; //changed to FourierParallel (Masters project)
 
   //! Wether to stop splicing after a certain amount of time
   bool stop = false;

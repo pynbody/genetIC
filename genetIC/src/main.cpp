@@ -154,8 +154,7 @@ void setup_parser(tools::ClassDispatch<ICType, void> &dispatch) {
   dispatch.add_class_route("dump_vx", static_cast<void (ICType::*)(size_t)>(&ICType::dumpVelocityX));
   dispatch.add_class_route("dump_grid_for_field", static_cast<void (ICType::*)(size_t, particle::species)>(&ICType::dumpGrid));
   dispatch.add_class_route("dump_grid_fourier", static_cast<void (ICType::*)(size_t)>(&ICType::dumpGridFourier));
-  dispatch.add_class_route("dump_grid_fourier_for_field",
-                           static_cast<void (ICType::*)(size_t, particle::species)>(&ICType::dumpGridFourier));
+  dispatch.add_class_route("dump_grid_fourier_for_field", static_cast<void (ICType::*)(size_t, particle::species)>(&ICType::dumpGridFourier));
   dispatch.add_class_route("dump_ps", static_cast<void (ICType::*)(size_t)>(&ICType::dumpPS));
   dispatch.add_class_route("dump_ps_field", static_cast<void (ICType::*)(size_t, particle::species)>(&ICType::dumpPS));
   dispatch.add_class_route("dump_tipsy", static_cast<void (ICType::*)(std::string)>(&ICType::saveTipsyArray));
