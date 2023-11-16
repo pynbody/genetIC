@@ -171,7 +171,9 @@ protected:
   bool restart = false;
 
   //! Using fourier parallel seeding for splicing
-  bool setSplicedSeedFourierParallel = true; //changed to FourierParallel (Masters project)
+  bool setSplicedSeedFourierParallel = false;
+  bool setSplicedSeedFourierSeries = false;
+  std::string spliceSeedingType = "Real";
 
   //! Wether to stop splicing after a certain amount of time
   bool stop = false;
@@ -1687,10 +1689,11 @@ public:
 
     logging::entry() << "Constructing new random field for exterior of splice" << endl;
     newGenerator.seed(newSeed);
-    if(setSplicedSeedFourierParallel == true) {
-      logging::entry() << "-!- Drawing splice seed in fourier and parallel -!-" << endl;
+    if(setSplicedSeedFourierParallel == true ||  setSplicedSeedFourierSeries == true) {
+      logging::entry() << "-!- Drawing splice seed in " << spliceSeedingType << " -!-" << endl;
       newGenerator.setDrawInFourierSpace(true);
-      newGenerator.setParallel(true);
+      if(setSplicedSeedFourierParallel == true)
+        newGenerator.setParallel(true);
       newGenerator.setReverseRandomDrawOrder(false);
     }
     newGenerator.draw();
@@ -1732,8 +1735,14 @@ public:
     }
   }
 
+  virtual void splice_seedfourier_series() {
+    setSplicedSeedFourierSeries = true;
+    spliceSeedingType = "fourier and series";
+  }
+
   virtual void splice_seedfourier_parallel() {
     setSplicedSeedFourierParallel = true;
+    spliceSeedingType = "fourier and parallel";
   }
 
   virtual void restart_splice() {
