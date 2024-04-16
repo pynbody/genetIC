@@ -40,6 +40,11 @@ FFTWLIB = -lfftw3 -lfftw3f -lfftw3_threads
 
 HDFLIB = -lhdf5 -lhdf5_cpp
 
+# if pkg-config is installed, add $(pkg-config --libs-only-L hdf5) to HDFLIB:
+HDFLIB += $(shell pkg-config --libs-only-L hdf5)
+
+# add also $(pkg-config --cflags hdf5) to CFLAGS:
+CFLAGS += $(shell pkg-config --cflags hdf5)
 
 
 # Provide information on the git repository, to be printed out on each run
