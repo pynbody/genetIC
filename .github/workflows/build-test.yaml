@@ -18,12 +18,12 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest]
-        python-version: [3.7]
-        cxx: [g++-8, g++-9, g++-10]
+        python-version: [3.10]
+        cxx: [g++-10, g++-11, g++-12]
         include:
           - os: macos-latest
-            python-version: 3.7
-            cxx: g++-10
+            python-version: 3.10
+            cxx: g++-12
     runs-on: ${{ matrix.os }}
     env:
       CXX: ${{ matrix.cxx }}
