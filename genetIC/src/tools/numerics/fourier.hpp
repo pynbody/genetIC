@@ -3,7 +3,11 @@
 
 
 #include <stdexcept>
+#ifdef USE_CUFFT
+#include <cufftw.h>
+#else
 #include <fftw3.h>
+#endif
 
 #ifdef _OPENMP
 
@@ -34,6 +38,10 @@ namespace tools {
         if (fftwThreadsInitialised)
           return;
 
+#ifdef USE_CUFFT
+       // nothing to do
+       logging::entry() << "Using CUFFT" << std::endl;
+#else
 #ifdef FFTW_THREADS
         if (fftw_init_threads() == 0)
           throw std::runtime_error("Cannot initialize FFTW threads");
@@ -68,6 +76,7 @@ namespace tools {
 #endif
 #else
         logging::entry() << "Note: FFTW Threads are not enabled" << std::endl;
+#endif
 #endif
         fftwThreadsInitialised = true;
       }
@@ -278,14 +287,15 @@ namespace tools {
       /*! \class FieldFourierManager<double>
           \brief Fourier manager class, specialised for real fields
       */
-      template<>
-      class FieldFourierManager<double> : public FieldFourierManagerBase<double> {
+      template<typename T>
+      class FieldFourierManager<T, T> : public FieldFourierManagerBase<T, T> {
       protected:
-        using T=double;
         int size; //!< Number of elements in the set to apply discrete Fourier transform to.
         size_t compressed_size; //!< Compressed size, exploiting symmetry of real discrete Fourier transforms.
-        fftw_plan forwardPlan; //!< Method used for going from real space to Fourier space.
-        fftw_plan reversePlan; //!< Method used for going from Fourier space to real space.
+        fftw_plan forwardPlan; //!< Method used for going from real space to Fourier space, if T is double
+        fftw_plan reversePlan; //!< Method used for going from Fourier space to real space, if T is double
+        fftwf_plan forwardPlanFloat; //!< Method used for going from real space to Fourier space, if T is float
+        fftwf_plan reversePlanFloat; //!< Method used for going from Fourier space to real space, if T is float
 
         //! Re-organises the wave-numbers to lie in the positive quadrant, and returns to a linear index (and whether we conjugated the field)
         auto getRealCoeffLocationAndConjugation(int kx, int ky, int kz) const {
@@ -304,7 +314,7 @@ namespace tools {
           }
           size_t logical_index = kz + compressed_size * ky + compressed_size * size_t(size * kx);
           size_t index_re = 2 * logical_index;
-          assert(index_re + 1 < FieldFourierManagerBase::field.getDataVector().size());
+          assert(index_re + 1 < this->field.getDataVector().size());
 
           return std::make_tuple(conjugate, index_re);
         }
@@ -334,15 +344,15 @@ namespace tools {
             for (int ky = size / 2; ky > -size / 2; --ky) {
               std::tie(unused, loc_source) = getRealCoeffLocationAndConjugation(kx, ky, 0);
               std::tie(unused, loc_dest) = getRealCoeffLocationAndConjugation(-kx, -ky, 0);
-              field[loc_dest] = field[loc_source];
-              field[loc_dest + 1] = -field[loc_source + 1];
+              this->field[loc_dest] = this->field[loc_source];
+              this->field[loc_dest + 1] = -this->field[loc_source + 1];
 
               // on an odd-sized grid, the following is a null op. On an even sized-grid, it sorts out the kz
               // nyquist mode.
               std::tie(unused, loc_source) = getRealCoeffLocationAndConjugation(kx, ky, this->nyquistIfEvenElseZero);
               std::tie(unused, loc_dest) = getRealCoeffLocationAndConjugation(-kx, -ky, this->nyquistIfEvenElseZero);
-              field[loc_dest] = field[loc_source];
-              field[loc_dest + 1] = -field[loc_source + 1];
+              this->field[loc_dest] = this->field[loc_source];
+              this->field[loc_dest + 1] = -this->field[loc_source + 1];
             }
           }
         }
@@ -358,16 +368,16 @@ namespace tools {
         */
         void padForFFTWRealTransform() {
 
-          size_t source_range_end = FieldFourierManagerBase::grid.size3;
-          size_t padding_amount = compressed_size * 2 - FieldFourierManagerBase::grid.size;
+          size_t source_range_end = this->grid.size3;
+          size_t padding_amount = compressed_size * 2 - this->grid.size;
           size_t target_range_end =
-            FieldFourierManagerBase::grid.size * FieldFourierManagerBase::grid.size * 2 * compressed_size -
+            this->grid.size * this->grid.size * 2 * compressed_size -
             padding_amount;
-          auto &data = FieldFourierManagerBase::field.getDataVector();
+          auto &data = this->field.getDataVector();
 
-          while (source_range_end > FieldFourierManagerBase::grid.size) {
-            size_t target_range_start = target_range_end - FieldFourierManagerBase::grid.size;
-            size_t source_range_start = source_range_end - FieldFourierManagerBase::grid.size;
+          while (source_range_end > this->grid.size) {
+            size_t target_range_start = target_range_end - this->grid.size;
+            size_t source_range_start = source_range_end - this->grid.size;
             std::copy_backward(&data[source_range_start], &data[source_range_end], &data[target_range_end]);
             target_range_end = target_range_start - padding_amount;
             source_range_end = source_range_start;
@@ -383,25 +393,27 @@ namespace tools {
           size_t target_range_start = 0;
           size_t source_max = getRequiredDataSize();
 
-          size_t padding_amount = compressed_size * 2 - FieldFourierManagerBase::grid.size;
-          auto &data = FieldFourierManagerBase::field.getDataVector();
+          size_t padding_amount = compressed_size * 2 - this->grid.size;
+          auto &data = this->field.getDataVector();
 
           while (source_range_start < source_max) {
-            size_t source_range_end = source_range_start + FieldFourierManagerBase::grid.size;
+            size_t source_range_end = source_range_start + this->grid.size;
             std::copy(&data[source_range_start], &data[source_range_end], &data[target_range_start]);
             source_range_start = source_range_end + padding_amount;
-            target_range_start += FieldFourierManagerBase::grid.size;
+            target_range_start += this->grid.size;
           }
 
         }
 
       public:
         //! Constructor from a real field
-        FieldFourierManager(fields::Field<double, double> &field) : FieldFourierManagerBase(field) {
-          size = static_cast<int>(FieldFourierManagerBase::grid.size);
-          compressed_size = FieldFourierManagerBase::grid.size / 2 + 1;
+        FieldFourierManager(fields::Field<T, T> &field) : FieldFourierManagerBase<T, T>(field) {
+          size = static_cast<int>(this->grid.size);
+          compressed_size = this->grid.size / 2 + 1;
           forwardPlan = nullptr;
           reversePlan = nullptr;
+          forwardPlanFloat = nullptr;
+          reversePlanFloat = nullptr;
         }
 
         //! Destructor
@@ -413,6 +425,14 @@ namespace tools {
           if (reversePlan != nullptr) {
             fftw_destroy_plan(reversePlan);
             reversePlan = nullptr;
+          }
+          if (forwardPlanFloat != nullptr) {
+            fftwf_destroy_plan(forwardPlanFloat);
+            forwardPlanFloat = nullptr;
+          }
+          if (reversePlanFloat != nullptr) {
+            fftwf_destroy_plan(reversePlanFloat);
+            reversePlanFloat = nullptr;
           }
         }
 
@@ -428,8 +448,8 @@ namespace tools {
 
           if (conj) imag = -imag;
 
-          FieldFourierManagerBase::field[index_re] = re;
-          FieldFourierManagerBase::field[index_re + 1] = imag;
+          this->field[index_re] = re;
+          this->field[index_re + 1] = imag;
 
         }
 
@@ -440,8 +460,8 @@ namespace tools {
 
           std::tie(conj, index_re) = getRealCoeffLocationAndConjugation(kx, ky, kz);
 
-          T re = FieldFourierManagerBase::field[index_re];
-          T im = FieldFourierManagerBase::field[index_re + 1];
+          T re = this->field[index_re];
+          T im = this->field[index_re + 1];
           if (conj)
             im = -im;
           return std::complex<T>(re, im);
@@ -452,44 +472,38 @@ namespace tools {
         size_t getRequiredDataSize() {
           // for FFTW3 real<->complex FFTs
           // see http://www.fftw.org/fftw3_doc/Real_002ddata-DFT-Array-Format.html#Real_002ddata-DFT-Array-Format
-          return 2 * FieldFourierManagerBase::field.getGrid().size2 * (
-            FieldFourierManagerBase::field.getGrid().size / 2 + 1);
+          return 2 * this->field.getGrid().size2 * (
+            this->field.getGrid().size / 2 + 1);
         }
 
         //! Performs the Fourier transform, interfacing with FFTW
         void performTransform() {
-          auto &fieldData = FieldFourierManagerBase::field.getDataVector();
+          auto &fieldData = this->field.getDataVector();
 
           initialise();
 
-          bool transformToFourier = !FieldFourierManagerBase::field.isFourier();
+          bool transformToFourier = !this->field.isFourier();
 
-          fftw_plan plan;
+          fftw_plan plan = nullptr;
+          fftwf_plan planFloat = nullptr; // only one of these two will be used
 
-          int res = static_cast<int>(FieldFourierManagerBase::field.getGrid().size);
-          double norm = pow(static_cast<double>(res), 1.5);
+          int res = static_cast<int>(this->field.getGrid().size);
+          T norm = pow(static_cast<T>(res), 1.5);
 
+          std::tie(plan, planFloat) = getFFTWPlan(transformToFourier);
 
-          if (transformToFourier) {
+          if(transformToFourier) {
             padForFFTWRealTransform();
-            if (forwardPlan == nullptr)
-              forwardPlan = fftw_plan_dft_r2c_3d(res, res, res,
-                                                 &fieldData[0],
-                                                 reinterpret_cast<fftw_complex *>(&fieldData[0]),
-                                                 FFTW_ESTIMATE);
-            plan = forwardPlan;
           } else {
             ensureFourierModesAreMirrored();
-            if (reversePlan == nullptr)
-              reversePlan = fftw_plan_dft_c2r_3d(res, res, res,
-                                                 reinterpret_cast<fftw_complex *>(&fieldData[0]),
-                                                 &fieldData[0],
-                                                 FFTW_ESTIMATE);
-            plan = reversePlan;
           }
 
-
-          fftw_execute(plan);
+          if(plan!=nullptr)
+            fftw_execute(plan);
+          else if(planFloat!=nullptr)
+            fftwf_execute(planFloat);
+          else
+            throw std::runtime_error("No plan available for FFTW transform");
 
 
           if (!transformToFourier) {
@@ -500,20 +514,64 @@ namespace tools {
           fieldData /= norm;
 
 
-          FieldFourierManagerBase::field.setFourier(!FieldFourierManagerBase::field.isFourier());
+          this->field.setFourier(!this->field.isFourier());
 
+        }
+
+      private:
+        auto getFFTWPlan(bool transformToFourier) {
+          auto &fieldData = this->field.getDataVector();
+          int res = static_cast<int>(this->field.getGrid().size);
+          fftw_plan plan(nullptr);
+          fftwf_plan planFloat(nullptr);
+
+          if (transformToFourier) {
+            if (forwardPlan == nullptr && forwardPlanFloat == nullptr) {
+              if(std::is_same<T,double>::value) {
+                forwardPlan = fftw_plan_dft_r2c_3d(res, res, res, reinterpret_cast<double*>(&fieldData[0]),
+                                                   reinterpret_cast<fftw_complex *>(&fieldData[0]),
+                                                   FFTW_ESTIMATE);
+              } else {
+                forwardPlanFloat = fftwf_plan_dft_r2c_3d(res, res, res, reinterpret_cast<float*>(&fieldData[0]),
+                                                         reinterpret_cast<fftwf_complex *>(&fieldData[0]),
+                                                         FFTW_ESTIMATE);
+              }
+            }
+
+            // one, but only one, of these will be nullptr
+            plan = forwardPlan;
+            planFloat = forwardPlanFloat;
+
+          } else {
+            if(reversePlan == nullptr && reversePlanFloat == nullptr) {
+              if(std::is_same<T,double>::value) {
+                reversePlan = fftw_plan_dft_c2r_3d(res, res, res,
+                                                   reinterpret_cast<fftw_complex *>(&fieldData[0]),
+                                                   reinterpret_cast<double*>(&fieldData[0]),
+                                                   FFTW_ESTIMATE);
+              } else {
+                reversePlanFloat = fftwf_plan_dft_c2r_3d(res, res, res,
+                                                         reinterpret_cast<fftwf_complex *>(&fieldData[0]),
+                                                         reinterpret_cast<float*>(&fieldData[0]),
+                                                         FFTW_ESTIMATE);
+              }
+            }
+            // one, but only one, of these will be nullptr
+            plan = reversePlan;
+            planFloat = reversePlanFloat;
+          }
+          return std::make_pair(plan, planFloat);
         }
 
 
       };
 
       //! FieldFourierManager specialisation to deal with Fourier transforms of complex fields.
-      template<>
-      class FieldFourierManager<std::complex<double>> : public FieldFourierManagerBase<std::complex<double>> {
-        using T=double;
+      template<typename T>
+      class FieldFourierManager<std::complex<T>, T> : public FieldFourierManagerBase<std::complex<T>, T> {
       public:
         //! Constructor from a complex field
-        FieldFourierManager(fields::Field<std::complex<T>, T> &field) : FieldFourierManagerBase(field) {
+        FieldFourierManager(fields::Field<std::complex<T>, T> &field) : FieldFourierManagerBase<std::complex<T>, T>(field) {
 
         }
 
@@ -521,36 +579,36 @@ namespace tools {
         void setFourierCoefficient(int kx, int ky, int kz, const std::complex<T> &val) {
           size_t id_k, id_negk;
 
-          id_k = grid.getIndexFromCoordinate(Coordinate<int>(kx, ky, kz));
-          id_negk = grid.getIndexFromCoordinate(Coordinate<int>(-kx, -ky, -kz));
+          id_k = this->grid.getIndexFromCoordinate(Coordinate<int>(kx, ky, kz));
+          id_negk = this->grid.getIndexFromCoordinate(Coordinate<int>(-kx, -ky, -kz));
 
-          field[id_k] = val;
-          field[id_negk] = std::conj(val);
+          this->field[id_k] = val;
+          this->field[id_negk] = std::conj(val);
         }
 
         //! Returns the specified Fourier coefficient
         std::complex<T> getFourierCoefficient(int kx, int ky, int kz) const {
-          return field[grid.getIndexFromCoordinate(Coordinate<int>(kx, ky, kz))];
+          return this->field[this->grid.getIndexFromCoordinate(Coordinate<int>(kx, ky, kz))];
         }
 
         //! Returns space required to store Fourier information (always the size of the full grid for Fourier transforms of complex fields)
         size_t getRequiredDataSize() {
-          return field.getGrid().size3;
+          return this->field.getGrid().size3;
         }
 
         //! Performs the Fourier transform operation, in this cases assuming the field is generic (ie, complex)
         void performTransform() {
 
-          auto &fieldData = field.getDataVector();
+          auto &fieldData = this->field.getDataVector();
 
           initialise();
 
           fftw_plan plan;
 
-          int res = static_cast<int>(field.getGrid().size);
+          int res = static_cast<int>(this->field.getGrid().size);
           double norm = pow(static_cast<double>(res), 1.5);
 
-          if (!field.isFourier())
+          if (!this->field.isFourier())
             plan = fftw_plan_dft_3d(res, res, res,
                                     reinterpret_cast<fftw_complex *>(&fieldData[0]),
                                     reinterpret_cast<fftw_complex *>(&fieldData[0]),
@@ -569,27 +627,28 @@ namespace tools {
           using tools::numerics::operator/=;
           fieldData /= norm;
 
-          field.setFourier(!field.isFourier());
+          this->field.setFourier(!this->field.isFourier());
         }
 
 
       };
 
       //! A dummy specialisation expressing that fourier transforms over boolean masks can't be done!
-      template<>
-      class FieldFourierManager<char> : public FieldFourierManagerBase<char, double> {
+      template<typename T>
+      class FieldFourierManager<char, T> : public FieldFourierManagerBase<char, T> {
+        using ComplexType = std::complex<char>;
       public:
 
         void ensureFourierModesAreMirrored() override {
 
         }
 
-        FieldFourierManager(fields::Field<char, double> &field) : FieldFourierManagerBase(field) {
+        FieldFourierManager(fields::Field<char, T> &field) : FieldFourierManagerBase<char, T>(field) {
 
         }
 
         size_t getRequiredDataSize() {
-          return field.getGrid().size3;
+          return this->field.getGrid().size3;
         }
 
         void performTransform() {
@@ -635,54 +694,6 @@ namespace tools {
 
         return out; // TODO - this seems quite inefficient, because it returns the field by value (after already creating a copy of it once already!)
       };
-
-      //! Performs FFT for specified field (only implemented for T = std::complex<double>, S = double)
-      template<typename T, typename S>
-      void performFFT(fields::Field<T, S> &field);
-
-
-      //! Specialisation to perform FFT for T = std::complex<double>, S = double
-      template<>
-      void performFFT(fields::Field<std::complex<double>, double> &field) {
-
-        auto &fieldData = field.getDataVector();
-
-        initialise();
-
-        fftw_plan plan;
-        size_t i;
-
-        int res = static_cast<int>(field.getGrid().size);
-
-        double norm = pow(static_cast<double>(res), 1.5);
-        size_t len = static_cast<size_t>(res * res);
-        len *= res;
-
-        if (!field.isFourier())
-          plan = fftw_plan_dft_3d(res, res, res,
-                                  reinterpret_cast<fftw_complex *>(&fieldData[0]),
-                                  reinterpret_cast<fftw_complex *>(&fieldData[0]),
-                                  FFTW_FORWARD, FFTW_ESTIMATE);
-
-        else
-          plan = fftw_plan_dft_3d(res, res, res,
-                                  reinterpret_cast<fftw_complex *>(&fieldData[0]),
-                                  reinterpret_cast<fftw_complex *>(&fieldData[0]),
-                                  FFTW_BACKWARD, FFTW_ESTIMATE);
-
-
-        fftw_execute(plan);
-        fftw_destroy_plan(plan);
-
-#pragma omp parallel for schedule(static) private(i)
-        for (i = 0; i < len; i++)
-          fieldData[i] /= norm;
-
-        field.setFourier(!field.isFourier());
-
-
-      }
-
 
     }
   }

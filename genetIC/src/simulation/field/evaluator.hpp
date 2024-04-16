@@ -30,7 +30,7 @@ namespace fields {
     //! \brief Adds this field to the destination field.
     virtual void addTo(Field <DataType, CoordinateType> &destination) const {
 
-      fields::cache::enableInterpolationCaches();
+      fields::cache::enableInterpolationCaches<CoordinateType>();
 
       // A note on the scheduling here: the most costly operations operations are encountered when there is
       // interpolation involved, at which point an thread-local LRU cache tries to reduce some of the workload. The hit
@@ -51,7 +51,7 @@ namespace fields {
       });
 
 
-      fields::cache::disableInterpolationCaches();
+      fields::cache::disableInterpolationCaches<CoordinateType>();
 
 
     }

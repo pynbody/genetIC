@@ -197,8 +197,8 @@ namespace multilevelgrid {
 
       // Field full of zeros
       for (size_t level = 0; level < this->multilevelgrid->getNumLevels(); ++level) {
-        fields.push_back(std::shared_ptr<fields::Field<DataType, T>>(
-          new fields::Field<DataType, T>(this->multilevelgrid->getGridForLevel(level))));
+        fields.push_back(std::make_shared<fields::Field<DataType, T>>(
+          this->multilevelgrid->getGridForLevel(level)));
       }
 
       auto maskfield = std::make_shared<fields::MultiLevelField<DataType>>(*(this->multilevelgrid), fields);

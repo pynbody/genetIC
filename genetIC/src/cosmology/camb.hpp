@@ -6,11 +6,13 @@
 #include <utility>
 #include <map>
 
+
 #include "src/cosmology/parameters.hpp"
 #include "src/tools/numerics/interpolation.hpp"
 #include "src/io/input.hpp"
 #include "src/simulation/particles/particle.hpp"
 #include "src/tools/logging.hpp"
+#include "src/tools/lru_cache.hpp"
 
 /*!
     \namespace cosmology
@@ -28,10 +30,13 @@ namespace cosmology {
   template<typename F>
   struct CacheKeyComparator {
     bool operator()(const F &a, const F &b) const {
-      bool ptr_less = std::owner_less<typename F::first_type>()(a.first, b.first);
-      return ptr_less || (!ptr_less && a.second < b.second); // equivalent to normal std::pair sorting
+      return std::owner_less<typename F::first_type>()(a.first, b.first) ||
+             (!std::owner_less<typename F::first_type>()(b.first, a.first) && a.second < b.second);
+
     }
   };
+
+  size_t lru_cache_size = 10;
 
   /*! \class PowerSpectrum
   * \brief Abstract base class for power spectrum calculations.
@@ -50,12 +55,15 @@ namespace cosmology {
     using CacheKeyType = std::pair<std::weak_ptr<const grids::Grid<CoordinateType>>, particle::species>;
 
     //! A cache for previously calculated covariances. The key is a pair: (weak pointer to the grid, transfer fn)
-    mutable std::map<CacheKeyType, std::shared_ptr<FieldType>,
-      CacheKeyComparator<CacheKeyType>> calculatedCovariancesCache;
+    // mutable std::map<CacheKeyType, std::shared_ptr<FieldType>,
+    //  CacheKeyComparator<CacheKeyType>> calculatedCovariancesCache;
+
+    mutable tools::lru_cache<CacheKeyType,
+      std::shared_ptr<FieldType>,
+      CacheKeyComparator<CacheKeyType>> calculatedCovariancesCache{lru_cache_size};
+
 
   public:
-
-    virtual ~PowerSpectrum() {}
 
     //! \brief Evaluate power spectrum for a given species at wavenumber k (Mpc/h), including the normalisation
     //! transferType specifies the transfer function to use (currently dm or baryon)
@@ -69,16 +77,20 @@ namespace cosmology {
       if(transferType == particle::species::whitenoise)
         return nullptr;
 
+      if(lru_cache_size==0)
+        return getPowerSpectrumForGridUncached(grid, transferType);
+
       auto cacheKey = std::make_pair(std::weak_ptr<const grids::Grid<CoordinateType>>(grid), transferType);
 
-      auto result = this->calculatedCovariancesCache[cacheKey];
+      auto result = this->calculatedCovariancesCache.get(cacheKey);
 
-      if (result == nullptr) {
-        result = getPowerSpectrumForGridUncached(grid, transferType);
-        this->calculatedCovariancesCache[cacheKey] = result;
+      if (result == boost::none) {
+        auto psForGrid = getPowerSpectrumForGridUncached(grid, transferType);
+        this->calculatedCovariancesCache.insert(cacheKey, psForGrid);
+        return psForGrid;
+      } else {
+        return result.get();
       }
-
-      return result;
     }
 
 
@@ -161,8 +173,8 @@ namespace cosmology {
     using typename PowerSpectrum<DataType>::CoordinateType;
 
   protected:
-    std::vector<CoordinateType> kInterpolationPoints; //!< Wavenumbers read from CAMB file
-    std::map<particle::species, std::vector<CoordinateType>> speciesToInterpolationPoints; //!< Vector to store transfer functions
+    std::vector<double> kInterpolationPoints; //!< Wavenumbers read from CAMB file
+    std::map<particle::species, std::vector<double>> speciesToInterpolationPoints; //!< Vector to store transfer functions
 
     const std::map<particle::species, size_t> speciesToCambColumn
       {{particle::species::dm, 1},
@@ -171,7 +183,7 @@ namespace cosmology {
      }};
       //!< Columns of CAMB that we request for DM and baryons respectively
 
-    std::map<particle::species, tools::numerics::LogInterpolator<CoordinateType>> speciesToTransferFunction; //!< Interpolation functions:
+    std::map<particle::species, tools::numerics::LogInterpolator<double>> speciesToTransferFunction; //!< Interpolation functions:
     CoordinateType amplitude; //!< Amplitude of the initial power spectrum
     CoordinateType ns;        //!< tensor to scalar ratio of the initial power spectrum
     mutable CoordinateType kcamb_max_in_file; //!< Maximum CAMB wavenumber. If too small compared to grid resolution, Meszaros solution will be computed

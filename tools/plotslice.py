@@ -4,6 +4,7 @@ import scipy.ndimage
 import pylab as p
 import glob
 import os
+import functools
 
 def plot1dslice(prefix="output/",name="grid",ps="-",slice_z=None,slice_y=None,maxgrid=2,vmin=-0.15,vmax=0.15,thisgrid=0,
                 zoom_pad_cells=3,diff_prefix=None,offset=None):
@@ -77,6 +78,7 @@ def get_peak_value(prefix, name):
     x = np.load(all_grids[-1])
     return abs(x).max()
 
+@functools.lru_cache()
 def _load_grid(prefix,diff_prefix, grid, name="grid", diff_normalized=True):
     fname = os.path.join(prefix, '%s-%d.npy' % (name, grid))
     info_fname = os.path.join(prefix, '%s-info-%d.txt' % (name, grid))
@@ -201,7 +203,6 @@ def plotslice(prefix="output/",maxgrid=10,slice=None,onelevel=False,vmin=-0.15,v
               diff_prefix=None,diff_normalized=True,name='grid',save_image=None,wrap=True):
     fname_glob = os.path.join(prefix, '%s-?.npy' % name)
     maxgrid_on_disk = len(glob.glob(fname_glob))
-    print(maxgrid_on_disk)
     if maxgrid_on_disk<maxgrid:
         maxgrid = maxgrid_on_disk
 
@@ -221,6 +222,8 @@ def plotslice(prefix="output/",maxgrid=10,slice=None,onelevel=False,vmin=-0.15,v
                                            padcells=0 if level==0 else padcells, offset=offset,
                                            diff_prefix=diff_prefix,diff_normalized=diff_normalized,name=name,
                                            save_image=save_image_this_level)
+    p.xlabel("x/Mpc/h")
+    p.ylabel("y/Mpc/h")
 
 def _add_level_number_to_filename(filename, level_number):
     if filename is None:

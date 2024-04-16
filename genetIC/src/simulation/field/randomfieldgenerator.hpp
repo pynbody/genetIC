@@ -5,6 +5,7 @@
 #include <gsl/gsl_randist.h> //for the gaussian (and other) distributions
 #include <gsl/gsl_errno.h>
 #include <gsl/gsl_spline.h>
+#include <omp.h>
 
 #include "src/simulation/grid/grid.hpp"
 

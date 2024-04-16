@@ -268,7 +268,8 @@ namespace particle {
 
       //! Outputs debug information about the iterator to the specified stream
       void debugInfo(std::ostream &s, int n = 0) const {
-        pMapper->debugInfoForIterator(s, n, this);
+        if(pMapper!=nullptr)
+          pMapper->debugInfoForIterator(s, n, this);
       }
 
 
