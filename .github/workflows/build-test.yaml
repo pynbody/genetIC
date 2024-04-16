@@ -17,9 +17,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
-        python-version: [3.11]
-        cxx: [g++-9, g++-13]
+        os: [ubuntu-latest]
+        python-version: ["3.10"]
+        cxx: [g++-10, g++-11, g++-12]
+        include:
+          - os: macos-latest
+            python-version: "3.10"
+            cxx: g++-12
     runs-on: ${{ matrix.os }}
     env:
       CXX: ${{ matrix.cxx }}
@@ -36,12 +40,12 @@ jobs:
         sudo add-apt-repository ppa:ubuntu-toolchain-r/test
         sudo apt-get update -qq
         sudo apt install libfftw3-dev libgsl0-dev
-        sudo apt install gcc-9 g++-9 gcc-13 g++-13
+        sudo apt install gcc-10 g++-10 gcc-11 g++-11 gcc-12 g++-12
     - name: Install dependencies
       if: matrix.os == 'macos-latest'
       shell: bash
       run: |
-        brew install gcc@9 gcc@13 fftw gsl
+        brew install gcc@12 fftw gsl
         brew link gsl
     - name: Compile code
       working-directory: genetIC
