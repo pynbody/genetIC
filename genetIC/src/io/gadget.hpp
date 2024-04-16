@@ -273,7 +273,7 @@ namespace io {
       void saveGadgetBlock(particle::species forSpecies,
                            std::function<WriteType(const particle::mapper::MapperIterator<GridDataType> &)> getData) {
 
-        size_t current_n = 0;
+
         size_t nTotalForThisBlock = 0;
 
         std::vector<decltype(writers[0].template getMemMapFortran<WriteType>(std::declval<size_t>()))> currentWriteBlocks;
@@ -301,31 +301,39 @@ namespace io {
         for(int i=0; i<nFiles; i++)
           currentWriteBlocks.push_back(writers[i].template getMemMapFortran<WriteType>(nPerFile[i]));
 
+        assert(this->template genericSaveBlock(particleTypes, getData, currentWriteBlocks) == nTotalForThisBlock);
+
+      }
+
+      template<typename TargetType, typename WriteType>
+      size_t genericSaveBlock(const std::vector<unsigned int> & particleTypes,
+                            std::function<WriteType(const particle::mapper::MapperIterator<GridDataType> &)> getData,
+                            std::vector<TargetType> & currentWriteBlocks) {
+        size_t current_n = 0;
+
         for (auto particle_type: particleTypes) {
           auto begin = mapper.beginParticleType(*generators[gadgetTypeToSpecies[particle_type]], particle_type);
           auto end = mapper.endParticleType(*generators[gadgetTypeToSpecies[particle_type]], particle_type);
           size_t nMax = end.getIndex() - begin.getIndex();
 
           current_n += begin.parallelIterate(
-            [&](size_t n_offset, const particle::mapper::MapperIterator<GridDataType> &localIterator) {
-              int fileNum = 0;
-              size_t addr = n_offset + current_n;
+              [&](size_t n_offset, const particle::mapper::MapperIterator<GridDataType> &localIterator) {
+                int fileNum = 0;
+                size_t addr = n_offset + current_n;
 
-              // Now figure out which file to dump this into.
-              // The following approach looks slow (doing it for every particle!),
-              // but code profiling suggests it's not a significant overhead.
-              // Easier to do this than to try and have thread-local variables
-              while(addr >= nPartPerFile[fileNum]) {
-                addr-=nPartPerFile[fileNum];
-                fileNum++;
-              }
+                // Now figure out which file to dump this into.
+                // The following approach looks slow (doing it for every particle!),
+                // but code profiling suggests it's not a significant overhead.
+                // Easier to do this than to try and have thread-local variables
+                while (addr >= nPartPerFile[fileNum]) {
+                  addr -= nPartPerFile[fileNum];
+                  fileNum++;
+                }
 
-              currentWriteBlocks[fileNum][addr] = getData(localIterator);
-            }, nMax);
-
+                currentWriteBlocks[fileNum][addr] = getData(localIterator);
+              }, nMax);
         }
-
-        assert(current_n == nTotalForThisBlock);
+        return current_n;
 
       }
 
@@ -401,8 +409,20 @@ namespace io {
 
       }
 
+      virtual void writeHeaderOneFile(size_t fileNumber, std::vector<size_t> nPartPerTypeThisFile) {
+        if (gadgetVersion == 3) {
+          writers[fileNumber].writeFortran(createGadget3Header<OutputFloatType>(masses, nPartPerTypeThisFile, nPartPerType, nFiles,
+                                                                       boxLength, cosmology));
+        } else if (gadgetVersion == 2) {
+          writers[fileNumber].writeFortran(createGadget2Header<OutputFloatType>(masses, nPartPerTypeThisFile, nPartPerType, nFiles,
+                                                                       boxLength, cosmology));
+        } else {
+          throw std::runtime_error("Unknown gadget format");
+        }
+      }
+
       //! \brief Output the gadget3 or gadget2 header:
-      void writeHeader() {
+      virtual void writeHeader() {
         std::vector<size_t> nPartPerTypeThisFile(6, 0);
         std::vector<size_t> nPartRemainingPerType = nPartPerType;
         size_t offset = 0;
@@ -433,15 +453,7 @@ namespace io {
 
           assert(nPartRemainingInFile == 0); // ensure we have assigned all the particles to a type
 
-          if (gadgetVersion == 3) {
-            writers[i].writeFortran(createGadget3Header<OutputFloatType>(masses, nPartPerTypeThisFile, nPartPerType, nFiles,
-                                                                         boxLength, cosmology));
-          } else if (gadgetVersion == 2) {
-            writers[i].writeFortran(createGadget2Header<OutputFloatType>(masses, nPartPerTypeThisFile, nPartPerType, nFiles,
-                                                                         boxLength, cosmology));
-          } else {
-            throw std::runtime_error("Unknown gadget format");
-          }
+          writeHeaderOneFile(i, nPartPerTypeThisFile);
 
           this->nPartPerTypePerFile.push_back(nPartPerTypeThisFile);
         }
@@ -481,7 +493,7 @@ namespace io {
       }
 
       //! \brief Operation to save gadget particles
-      void operator()(const std::string &name) {
+      virtual void operator()(const std::string &name) {
 
         preScanForMassesAndParticleNumbers();
 

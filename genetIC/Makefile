@@ -1,5 +1,5 @@
 # Reasonably sensible defaults
-CFLAGS ?= -Wall -g -lpthread -O3 -fopenmp -std=c++14 -fdiagnostics-color=auto -I`pwd`
+CFLAGS ?= -Wall -g -lpthread -O3 -fopenmp -std=c++17 -fdiagnostics-color=auto -I`pwd`
 
 # Here are code options. Probably don't fiddle with these unless you know what you're doing.
 #
@@ -38,6 +38,10 @@ GSLFLAGS = -lgsl -lgslcblas
 FFTW = -DFFTW3 -DFFTW_THREADS
 FFTWLIB = -lfftw3 -lfftw3f -lfftw3_threads
 
+HDFLIB = -lhdf5 -lhdf5_cpp
+
+
+
 # Provide information on the git repository, to be printed out on each run
 GIT_MODIFIED = $(shell git ls-files -m 2>/dev/null | tr "\n" " " )
 GIT_VERSION = $(shell git rev-parse --short HEAD 2>/dev/null)
@@ -65,7 +69,7 @@ ifeq ($(HOST3), pfe)
 	CXX = /nasa/pkgsrc/2016Q2/gcc5/bin/g++
 	CPATH = /u/apontzen/genetIC/genetIC:/nasa/gsl/1.14/include/:/nasa/intel/Compiler/2016.2.181/compilers_and_libraries_2016.2.181/linux/mkl/include/fftw
 	LPATH =  /nasa/gsl/1.14/lib/ -L/nasa/intel/Compiler/2016.2.181/compilers_and_libraries_2016.2.181/linux/mkl/lib/intel64/
-	CFLAGS = -Wall -g -O3 -fopenmp -std=c++14 -fdiagnostics-color=auto -I`pwd` -DOPENMP -DDOUBLEPRECISION
+	CFLAGS = -Wall -g -O3 -fopenmp -std=c++17 -fdiagnostics-color=auto -I`pwd` -DOPENMP -DDOUBLEPRECISION
 	FFTWLIB = -ldl -lpthread -lm -lstdc++ -lgfortran -lmkl_intel_ilp64 -lmkl_gnu_thread -lmkl_core
 	FFTW = -DFFTW3 -DFFTW_THREADS
 	GSLFLAGS = /nasa/gsl/1.14/lib/libgsl.a /nasa/gsl/1.14/lib/libgslcblas.a
@@ -74,20 +78,26 @@ endif
 ifeq ($(HOST), Snowd)
 	CPATH = /opt/local/include/
 	LPATH = /opt/local/lib/
-	CFLAGS = -O3 -fopenmp -std=c++14 -fdiagnostics-color=auto -I`pwd` -DOPENMP -DDOUBLEPRECISION
+	CFLAGS = -O3 -fopenmp -std=c++17 -fdiagnostics-color=auto -I`pwd` -DOPENMP -DDOUBLEPRECISION
 	CXX = /opt/local/bin/clang++-mp-6.0
 endif
 
 ifeq ($(HOST), clema)
         CPATH = /opt/local/include/
         LPATH = /opt/local/lib/
-	      CFLAGS = -O2 -g -fopenmp -std=c++14 -fdiagnostics-color=auto -I`pwd` -DOPENMP -DDOUBLEPRECISION
+	      CFLAGS = -O2 -g -fopenmp -std=c++17 -fdiagnostics-color=auto -I`pwd` -DOPENMP -DDOUBLEPRECISION
         CXX = /opt/local/bin/clang++-mp-6.0
  endif
 
+ifeq ($(HOST), butte)
+	CXX = /opt/homebrew/Cellar/llvm/17.0.6_1/bin/clang++
+	CPATH = /opt/homebrew/include/
+	LPATH = /opt/homebrew/lib/
+endif
+
 ifeq ($(HOST), jasmi)
 	CXX = /opt/local/bin/g++-mp-11   -L/opt/local/lib/
-	CFLAGS = -O3 -g -fopenmp -std=c++14 -I`pwd` -DOPENMP -DDOUBLEPRECISION
+	CFLAGS = -O3 -g -fopenmp -std=c++17 -I`pwd` -DOPENMP -DDOUBLEPRECISION
 endif
 
 ifeq ($(HOST), Rhodo)
@@ -134,7 +144,7 @@ all: genetIC
 %.o: %.cpp ; $(CXX) $(CFLAGS) $(CODEOPTIONS) $(GIT_VARIABLES) -I$(CPATH) $(FFTW) -c $< -o $@
 
 genetIC: src/main.o src/tools/filesystem.o src/tools/progress/progress.o src/tools/logging.o
-		$(CXX) $(CFLAGS) -o genetIC $(GIT_VARIABLES) -I$(CPATH) $(FFTW) src/main.o src/tools/filesystem.o src/tools/progress/progress.o src/tools/logging.o -L$(LPATH) $(GSLFLAGS) -lm $(FFTWLIB)
+		$(CXX) $(CFLAGS) -o genetIC $(GIT_VARIABLES) -I$(CPATH) $(FFTW) $(HDFLIB) src/main.o src/tools/filesystem.o src/tools/progress/progress.o src/tools/logging.o -L$(LPATH) $(GSLFLAGS) -lm $(FFTWLIB)
 
 clean:
 	rm -f genetIC

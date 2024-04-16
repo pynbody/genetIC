@@ -4,9 +4,9 @@ project(IC)
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/genetIC)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14  -g ")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -g ")
 
-set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O0 -DDEBUG_INFO")
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O0 -DOPENMP -fopenmp -DDEBUG_INFO")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -fopenmp -O3 -DOPENMP")
 
 set(SOURCE_FILES
@@ -20,6 +20,7 @@ set(SOURCE_FILES
         genetIC/src/io.hpp
         genetIC/src/io/grafic.hpp
         genetIC/src/io/gadget.hpp
+        genetIC/src/io/gadgethdf.hpp
         genetIC/src/io/input.hpp
         genetIC/src/io/tipsy.hpp
         genetIC/src/main.cpp
@@ -66,7 +67,7 @@ set(SOURCE_FILES
 include_directories( /opt/local/include )
 link_directories(/opt/local/lib )
 include_directories( genetIC/  )
-link_libraries(fftw3 m fftw3f fftw3_threads gsl gslcblas)
+link_libraries(fftw3 m fftw3f fftw3_threads gsl gslcblas hdf5 hdf5_cpp)
 
 
 exec_program(
