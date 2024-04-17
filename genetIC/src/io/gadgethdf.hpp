@@ -16,6 +16,44 @@ namespace io {
     using std::endl;
     using std::vector;
 
+    template<typename WriteType>
+    constexpr const H5::PredType & getH5Type();
+
+    template<>
+    constexpr const H5::PredType & getH5Type<float>() {
+      return H5::PredType::NATIVE_FLOAT;
+    }
+
+    template<>
+    constexpr const H5::PredType & getH5Type<double>() {
+      return H5::PredType::NATIVE_DOUBLE;
+    }
+
+    template<>
+    constexpr const H5::PredType & getH5Type<unsigned long>() {
+      return H5::PredType::NATIVE_ULONG;
+    }
+
+    template<>
+    constexpr const H5::PredType & getH5Type<bool>() {
+      return H5::PredType::NATIVE_HBOOL;
+    }
+
+    template<>
+    constexpr const H5::PredType & getH5Type<unsigned int>() {
+      return H5::PredType::NATIVE_UINT;
+    }
+
+    template<>
+    constexpr const H5::PredType & getH5Type<Coordinate<double>>() {
+      return getH5Type<double>();
+    }
+
+    template<>
+    constexpr const H5::PredType & getH5Type<Coordinate<float>>() {
+      return getH5Type<float>();
+    }
+
 
     /*! \class GadgetOutput
     \brief Class to handle output to gadget files.
@@ -45,23 +83,7 @@ namespace io {
                    gadget::GadgetOutput<GridDataType, OutputFloatType>(boxLength, mapper, generators_,
                                                                        cosmology, 0, numFiles) { }
 
-       template<typename WriteType>
-       constexpr const H5::PredType & getH5Type() {
-         if constexpr (std::is_same<WriteType, double>::value || std::is_same<WriteType, Coordinate<double>>::value) {
-           return H5::PredType::NATIVE_DOUBLE;
-         } else if constexpr (std::is_same<WriteType, float>::value ||
-                              std::is_same<WriteType, Coordinate<float>>::value) {
-           return H5::PredType::NATIVE_FLOAT;
-         } else if constexpr (std::is_same<WriteType, unsigned long>::value) {
-           return H5::PredType::NATIVE_ULONG;
-         } else if constexpr (std::is_same<WriteType, bool>::value) {
-           return H5::PredType::NATIVE_HBOOL;
-         } else if constexpr(std::is_same<WriteType, unsigned int>::value) {
-           return H5::PredType::NATIVE_UINT;
-         } else {
-           static_assert(false, "Unknown type for HDF5 output");
-         }
-       }
+
 
       template<typename WriteType, typename UnderlyingType=typename strip_coordinate<WriteType>::type>
       H5::DataSet createDataSet(H5::H5Location & location, std::string name, size_t nTotal) {
