@@ -38,10 +38,8 @@ GSLFLAGS = -lgsl -lgslcblas
 FFTW = -DFFTW3 -DFFTW_THREADS
 FFTWLIB = -lfftw3 -lfftw3f -lfftw3_threads
 
-HDFLIB = -lhdf5 -lhdf5_cpp
-
 # if pkg-config is installed, add $(pkg-config --libs-only-L hdf5) to HDFLIB:
-HDFLIB += $(shell pkg-config --libs-only-L hdf5)
+HDFLIB = $(shell pkg-config --libs-only-L hdf5) -lhdf5 -lhdf5_cpp
 
 # add also $(pkg-config --cflags hdf5) to CFLAGS:
 CFLAGS += $(shell pkg-config --cflags hdf5)
@@ -95,7 +93,7 @@ ifeq ($(HOST), clema)
  endif
 
 ifeq ($(HOST), butte)
-	CXX = /opt/homebrew/Cellar/llvm/17.0.6_1/bin/clang++
+	CXX = g++-12 # /opt/homebrew/Cellar/llvm/17.0.6_1/bin/clang++
 	CPATH = /opt/homebrew/include/
 	LPATH = /opt/homebrew/lib/
 endif
@@ -149,7 +147,7 @@ all: genetIC
 %.o: %.cpp ; $(CXX) $(CFLAGS) $(CODEOPTIONS) $(GIT_VARIABLES) -I$(CPATH) $(FFTW) -c $< -o $@
 
 genetIC: src/main.o src/tools/filesystem.o src/tools/progress/progress.o src/tools/logging.o
-		$(CXX) $(CFLAGS) -o genetIC $(GIT_VARIABLES) -I$(CPATH) $(FFTW) $(HDFLIB) src/main.o src/tools/filesystem.o src/tools/progress/progress.o src/tools/logging.o -L$(LPATH) $(GSLFLAGS) -lm $(FFTWLIB)
+		$(CXX) $(CFLAGS) -o genetIC $(GIT_VARIABLES) -I$(CPATH) $(FFTW) src/main.o src/tools/filesystem.o src/tools/progress/progress.o src/tools/logging.o -L$(LPATH) $(GSLFLAGS) -lm $(FFTWLIB) $(HDFLIB)
 
 clean:
 	rm -f genetIC

@@ -65,7 +65,7 @@ namespace io {
     try {
       int i = std::stoi(s);
       format = static_cast<OutputFormat>(i);
-    } catch (std::invalid_argument e) {
+    } catch (const std::invalid_argument & e) {
       if (s == "gadget2") {
         format = OutputFormat::gadget2;
       } else if (s == "gadget3") {
