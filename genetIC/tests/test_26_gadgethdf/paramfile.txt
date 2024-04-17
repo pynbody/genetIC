@@ -1,0 +1,22 @@
+# Test basic uniform volume with gadget output
+
+Om  0.279
+Ol  0.721
+#Ob  0.04
+s8  0.817
+zin	99
+
+random_seed_real_space	8896131
+camb	../camb_transfer_kmax40_z0.dat
+
+outname test
+outdir	 ./
+outformat gadgethdf
+
+
+basegrid 50.0 8
+
+
+
+
+done

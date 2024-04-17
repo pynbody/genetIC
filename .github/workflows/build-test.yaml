@@ -56,7 +56,7 @@ jobs:
         export CC=gcc-10
         python -m pip install --upgrade pip setuptools wheel
         python -m pip install numpy scipy cython
-        python -m pip install pynbody
+        python -m pip install --pre pynbody
     - name: Run tests
       shell: bash
       working-directory: genetIC/tests
