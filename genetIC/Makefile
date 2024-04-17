@@ -93,7 +93,7 @@ ifeq ($(HOST), clema)
  endif
 
 ifeq ($(HOST), butte)
-	CXX = g++-12 # /opt/homebrew/Cellar/llvm/17.0.6_1/bin/clang++
+	CXX = /opt/homebrew/Cellar/llvm/17.0.6_1/bin/clang++
 	CPATH = /opt/homebrew/include/
 	LPATH = /opt/homebrew/lib/
 endif
