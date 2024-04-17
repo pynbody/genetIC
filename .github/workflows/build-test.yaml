@@ -23,7 +23,7 @@ jobs:
         include:
           - os: macos-latest
             python-version: "3.10"
-            cxx: /opt/homebrew/opt/llvm/bin/clang++
+            cxx: /usr/local/opt/llvm/bin/clang++
             # gcc won't work because homebrew's hdf5_cpp is built against apple's clang C++ library
     runs-on: ${{ matrix.os }}
     env:
