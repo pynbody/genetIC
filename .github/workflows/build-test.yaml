@@ -55,7 +55,8 @@ jobs:
     - name: Install python dependencies
       shell: bash
       run: |
-        export CC=gcc-10
+        export CC=gcc-12
+        export CXX=g++-12
         python -m pip install --upgrade pip setuptools wheel
         python -m pip install numpy scipy cython
         python -m pip install --pre pynbody
