@@ -39,7 +39,7 @@ FFTW = -DFFTW3 -DFFTW_THREADS
 FFTWLIB = -lfftw3 -lfftw3f -lfftw3_threads
 
 # if pkg-config is installed, add $(pkg-config --libs-only-L hdf5) to HDFLIB:
-HDFLIB = $(shell pkg-config --libs-only-L hdf5) -lhdf5 -lhdf5_cpp
+HDFLIB = $(shell pkg-config --libs-only-L hdf5) -lhdf5
 
 # add also $(pkg-config --cflags hdf5) to CFLAGS:
 CFLAGS += $(shell pkg-config --cflags hdf5)
