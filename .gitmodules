@@ -1,0 +1,4 @@
+[submodule "genetIC/HighFive"]
+	path = genetIC/HighFive
+	url = https://github.com/BlueBrain/HighFive
+	branch = v2.9.0

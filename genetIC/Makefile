@@ -1,5 +1,5 @@
 # Reasonably sensible defaults
-CFLAGS ?= -Wall -g -lpthread -O3 -fopenmp -std=c++17 -fdiagnostics-color=auto -I`pwd`
+CFLAGS ?= -Wall -g -lpthread -O3 -fopenmp -std=c++17 -fdiagnostics-color=auto -I`pwd` -I`pwd`/HighFive/include
 
 # Here are code options. Probably don't fiddle with these unless you know what you're doing.
 #
@@ -65,14 +65,14 @@ ifeq ($(USE_CUFFT), 1)
 	FFTW = -DFFTW3
 	FFTWLIB = -lcufft -lcufftw
 	OLD_CFLAGS=$(CFLAGS)
-	CFLAGS=-O3 -I`pwd` -Xcompiler="-O3 -fopenmp -std=c++14 -Wall"
+	CFLAGS=-O3 -I`pwd` -I`pwd`/HighFive/include -Xcompiler="-O3 -fopenmp -std=c++14 -Wall"
 	CXX=nvcc
 endif
 ifeq ($(HOST3), pfe)
 	CXX = /nasa/pkgsrc/2016Q2/gcc5/bin/g++
 	CPATH = /u/apontzen/genetIC/genetIC:/nasa/gsl/1.14/include/:/nasa/intel/Compiler/2016.2.181/compilers_and_libraries_2016.2.181/linux/mkl/include/fftw
 	LPATH =  /nasa/gsl/1.14/lib/ -L/nasa/intel/Compiler/2016.2.181/compilers_and_libraries_2016.2.181/linux/mkl/lib/intel64/
-	CFLAGS = -Wall -g -O3 -fopenmp -std=c++17 -fdiagnostics-color=auto -I`pwd` -DOPENMP -DDOUBLEPRECISION
+	CFLAGS = -Wall -g -O3 -fopenmp -std=c++17 -fdiagnostics-color=auto -I`pwd` -I`pwd`/HighFive/include -DOPENMP -DDOUBLEPRECISION
 	FFTWLIB = -ldl -lpthread -lm -lstdc++ -lgfortran -lmkl_intel_ilp64 -lmkl_gnu_thread -lmkl_core
 	FFTW = -DFFTW3 -DFFTW_THREADS
 	GSLFLAGS = /nasa/gsl/1.14/lib/libgsl.a /nasa/gsl/1.14/lib/libgslcblas.a
@@ -81,26 +81,27 @@ endif
 ifeq ($(HOST), Snowd)
 	CPATH = /opt/local/include/
 	LPATH = /opt/local/lib/
-	CFLAGS = -O3 -fopenmp -std=c++17 -fdiagnostics-color=auto -I`pwd` -DOPENMP -DDOUBLEPRECISION
+	CFLAGS = -O3 -fopenmp -std=c++17 -fdiagnostics-color=auto -I`pwd` -I`pwd`/HighFive/include -DOPENMP -DDOUBLEPRECISION
 	CXX = /opt/local/bin/clang++-mp-6.0
 endif
 
 ifeq ($(HOST), clema)
         CPATH = /opt/local/include/
         LPATH = /opt/local/lib/
-	      CFLAGS = -O2 -g -fopenmp -std=c++17 -fdiagnostics-color=auto -I`pwd` -DOPENMP -DDOUBLEPRECISION
+	      CFLAGS = -O2 -g -fopenmp -std=c++17 -fdiagnostics-color=auto -I`pwd` -I`pwd`/HighFive/include -DOPENMP -DDOUBLEPRECISION
         CXX = /opt/local/bin/clang++-mp-6.0
  endif
 
 ifeq ($(HOST), butte)
-	CXX = /opt/homebrew/Cellar/llvm/17.0.6_1/bin/clang++
+	CXX = g++-13
 	CPATH = /opt/homebrew/include/
 	LPATH = /opt/homebrew/lib/
+	CFLAGS += -Wl,-ld_classic # new macOS linker doesn't like C++, see XCode bug FB13097713
 endif
 
 ifeq ($(HOST), jasmi)
 	CXX = /opt/local/bin/g++-mp-11   -L/opt/local/lib/
-	CFLAGS = -O3 -g -fopenmp -std=c++17 -I`pwd` -DOPENMP -DDOUBLEPRECISION
+	CFLAGS = -O3 -g -fopenmp -std=c++17 -I`pwd` -I`pwd`/HighFive/include -DOPENMP -DDOUBLEPRECISION
 endif
 
 ifeq ($(HOST), Rhodo)

@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.2)
 
 project(IC)
 
+
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/genetIC)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -g ")
@@ -64,10 +65,14 @@ set(SOURCE_FILES
         genetIC/src/tools/memmap.hpp
         genetIC/src/tools/numerics/tricubic.hpp genetIC/src/tools/logging.hpp genetIC/src/tools/logging.cpp genetIC/src/simulation/modifications/splice.hpp genetIC/src/tools/lru_cache.hpp)
 
+include_directories(/opt/homebrew/include)
+link_directories(/opt/homebrew/lib)
 include_directories( /opt/local/include )
 link_directories(/opt/local/lib )
+
 include_directories( genetIC/  )
-link_libraries(fftw3 m fftw3f fftw3_threads gsl gslcblas hdf5 hdf5_cpp)
+include_directories( genetIC/HighFive/include )
+link_libraries(fftw3 m fftw3f fftw3_threads gsl gslcblas hdf5 )
 
 
 exec_program(

@@ -2,7 +2,11 @@
 #define IC_GADGETHDF_HPP
 
 #include "gadget.hpp"
-#include "H5Cpp.h"
+
+// we use this third-party HDF C++ wrapper because it is more modern and doesn't require
+// a binary C++ dylib. The C++ dylib causes major problems on macos trying to get everything
+// to link correctly (e.g. GNU vs clang libstdc++ issues)
+#include <highfive/highfive.hpp>
 
 namespace io {
   /*!
@@ -16,44 +20,6 @@ namespace io {
     using std::endl;
     using std::vector;
 
-    template<typename WriteType>
-    constexpr const H5::PredType & getH5Type();
-
-    template<>
-    constexpr const H5::PredType & getH5Type<float>() {
-      return H5::PredType::NATIVE_FLOAT;
-    }
-
-    template<>
-    constexpr const H5::PredType & getH5Type<double>() {
-      return H5::PredType::NATIVE_DOUBLE;
-    }
-
-    template<>
-    constexpr const H5::PredType & getH5Type<unsigned long>() {
-      return H5::PredType::NATIVE_ULONG;
-    }
-
-    template<>
-    constexpr const H5::PredType & getH5Type<bool>() {
-      return H5::PredType::NATIVE_HBOOL;
-    }
-
-    template<>
-    constexpr const H5::PredType & getH5Type<unsigned int>() {
-      return H5::PredType::NATIVE_UINT;
-    }
-
-    template<>
-    constexpr const H5::PredType & getH5Type<Coordinate<double>>() {
-      return getH5Type<double>();
-    }
-
-    template<>
-    constexpr const H5::PredType & getH5Type<Coordinate<float>>() {
-      return getH5Type<float>();
-    }
-
 
     /*! \class GadgetOutput
     \brief Class to handle output to gadget files.
@@ -62,16 +28,7 @@ namespace io {
     class GadgetHDFOutput : public gadget::GadgetOutput<GridDataType, OutputFloatType> {
     protected:
       using InternalFloatType = tools::datatypes::strip_complex<GridDataType>;
-      std::vector<H5::H5File> h5Files;
-
-      //! \brief Save a gadget block such as the mass or position arrays.
-      //! Takes a lambda (or other function) which, given a mapper iterator, returns the data to be written for that
-      //! particle. The writing proceeds in parallel using a memmap.
-      template<typename WriteType>
-      void saveGadgetHDFBlock(particle::species forSpecies,
-                           std::function<WriteType(const particle::mapper::MapperIterator<GridDataType> &)> getData) {
-
-      }
+      std::vector<HighFive::File> h5Files;
 
     public:
 
@@ -86,28 +43,19 @@ namespace io {
 
 
       template<typename WriteType, typename UnderlyingType=typename strip_coordinate<WriteType>::type>
-      H5::DataSet createDataSet(H5::H5Location & location, std::string name, size_t nTotal) {
-        const bool three_dimensional = ~std::is_same<UnderlyingType, WriteType>::value;
+      HighFive::DataSet createDataSet(HighFive::Group & location, std::string name, size_t nTotal) {
+        const bool three_dimensional = !std::is_same<UnderlyingType, WriteType>::value;
+
+        std::unique_ptr<HighFive::DataSpace> ds;
 
         if constexpr(three_dimensional) {
           static_assert(sizeof(Coordinate<UnderlyingType>) == 3*sizeof(UnderlyingType));
-        }
-
-        int rank;
-        hsize_t dims_3d[2] = {nTotal, 3};
-        hsize_t dims_1d[1] = {nTotal};
-        hsize_t *dims;
-
-        if(three_dimensional) {
-          rank = 2;
-          dims = dims_3d;
+          ds = std::make_unique<HighFive::DataSpace>(nTotal, 3);
         } else {
-          rank = 1;
-          dims = dims_1d;
+          ds = std::make_unique<HighFive::DataSpace>(nTotal);
         }
 
-        H5::DataSpace dataspace(rank, dims);
-        H5::DataSet dataset = location.createDataSet(name, getH5Type<UnderlyingType>(), dataspace);
+        HighFive::DataSet dataset = location.createDataSet<UnderlyingType>(name, *ds);
         return dataset;
       }
 
@@ -117,6 +65,8 @@ namespace io {
                      std::function<WriteType(const particle::mapper::MapperIterator<GridDataType> &)> getData,
                      std::string name) {
 
+        using UnderlyingType = typename strip_coordinate<WriteType>::type;
+
         size_t current_n = 0;
         size_t nTotalForThisBlock = 0;
 
@@ -124,20 +74,20 @@ namespace io {
           if (forSpecies != this->gadgetTypeToSpecies[particleType] && forSpecies != particle::species::all)
             continue;
 
-          std::vector<H5::Group> groups;
-          std::vector<H5::DataSet> datasets;
+          std::vector<HighFive::Group> groups;
+          std::vector<HighFive::DataSet> datasets;
           std::vector<WriteType> buffer;
 
           size_t nPartThisType = 0;
 
           // create or open particle type groups
           for (int i=0; i<this->nFiles; i++) {
-            H5::H5File &file = h5Files[i];
+            HighFive::File &file = h5Files[i];
             std::string groupName = "/PartType"+std::to_string(particleType);
             size_t nPart = this->nPartPerTypePerFile[i][particleType];
             try {
-              groups.push_back(file.openGroup(groupName));
-            } catch (H5::Exception &e) {
+              groups.push_back(file.getGroup(groupName));
+            } catch (HighFive::Exception &e) {
               groups.push_back(file.createGroup(groupName));
             }
             datasets.push_back(createDataSet<WriteType>(groups.back(), name, nPart));
@@ -159,7 +109,7 @@ namespace io {
 
           size_t offset = 0;
           for (int i = 0; i < this->nFiles; i++) {
-            datasets[i].write(&buffer[offset], getH5Type<WriteType>());
+            datasets[i].write_raw<UnderlyingType>(reinterpret_cast<UnderlyingType*>(&buffer[offset]));
             offset+=this->nPartPerTypePerFile[i][particleType];
           }
         }
@@ -167,23 +117,21 @@ namespace io {
       }
 
       template<typename T>
-      void writeHdfAttributeArray(H5::Group & group, std::string name, const std::vector<T> & value) {
-        hsize_t size[1] = {value.size()};
-        auto & type = getH5Type<T>();
-        H5::Attribute attribute = group.createAttribute(name, type, H5::DataSpace(1, size));
-        attribute.write(type, &value[0]);
+      void writeHdfAttributeArray(HighFive::Group & group, std::string name, const std::vector<T> & value) {
+        HighFive::Attribute attribute = group.createAttribute<T>(name, HighFive::DataSpace(value.size()));
+        attribute.write( value);
       }
 
       template<typename T>
-      void writeHdfAttribute(H5::Group & group, std::string name, const T & value) {
-        auto & type = getH5Type<T>();
-        H5::Attribute attribute = group.createAttribute(name, type, H5::DataSpace(H5S_SCALAR));
-        attribute.write(type, &value);
+      void writeHdfAttribute(HighFive::Group & group, std::string name, const T & value) {
+        HighFive::Attribute attribute = group.createAttribute<T>(name,
+                   HighFive::DataSpace(HighFive::DataSpace::DataspaceType::dataspace_scalar));
+        attribute.write<T>( value);
       }
 
       virtual void writeHeaderOneFile(size_t fileNumber, std::vector<size_t> nPartPerTypeThisFile) {
         bool baryonic = (this->cosmology.OmegaBaryons0>0);
-        H5::Group headerGroup = h5Files[fileNumber].createGroup("/Header");
+        HighFive::Group headerGroup = h5Files[fileNumber].createGroup("/Header");
         writeHdfAttributeArray(headerGroup, "NumPart_ThisFile", nPartPerTypeThisFile);
         writeHdfAttributeArray(headerGroup, "NumPart_Total", this->nPartPerType);
         writeHdfAttributeArray(headerGroup, "MassTable", this->masses);
@@ -209,15 +157,13 @@ namespace io {
       //! \brief Operation to save gadget particles
       virtual void operator()(const std::string &name) {
 
-        H5::Exception::dontPrint();
-
         this->preScanForMassesAndParticleNumbers();
 
         if(this->nFiles==1) {
-          h5Files.push_back(H5::H5File(name + ".hdf5", H5F_ACC_TRUNC));
+          h5Files.push_back(HighFive::File(name + ".hdf5", HighFive::File::Truncate));
         } else {
           for(int i=0; i<this->nFiles; i++) {
-            h5Files.push_back(H5::H5File(name + "." + std::to_string(i)+ ".hdf5", H5F_ACC_TRUNC));
+            h5Files.push_back(HighFive::File(name + "." + std::to_string(i)+ ".hdf5", HighFive::File::Truncate));
           }
         }
 
@@ -279,6 +225,7 @@ namespace io {
               const cosmology::CosmologicalParameters<tools::datatypes::strip_complex<GridDataType>> &cosmology,
               int nFiles) {
 
+      HighFive::SilenceHDF5 silence; // suppresses HDF5 warnings while in scope
       GadgetHDFOutput<GridDataType, OutputFloatType> output(Boxlength, mapper, generators, cosmology, nFiles);
       output(name);
 

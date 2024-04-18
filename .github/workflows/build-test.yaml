@@ -23,8 +23,7 @@ jobs:
         include:
           - os: macos-latest
             python-version: "3.10"
-            cxx: clang++
-            # gcc won't work because homebrew's hdf5_cpp is built against apple's clang C++ library
+            cxx: g++-12
     runs-on: ${{ matrix.os }}
     env:
       CXX: ${{ matrix.cxx }}
@@ -34,6 +33,8 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
     - uses: actions/checkout@v2
+      with:
+        submodules: recursive
     - name: Install dependencies
       if: matrix.os == 'ubuntu-latest'
       shell: bash
@@ -46,7 +47,7 @@ jobs:
       if: matrix.os == 'macos-latest'
       shell: bash
       run: |
-        brew install fftw gsl hdf5 
+        brew install gcc@12 fftw gsl hdf5 
         brew link gsl
     - name: Compile code
       working-directory: genetIC
