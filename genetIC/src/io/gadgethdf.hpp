@@ -137,6 +137,7 @@ namespace io {
         writeHdfAttributeArray(headerGroup, "MassTable", this->masses);
         writeHdfAttribute(headerGroup, "ExpansionFactor", this->cosmology.scalefactor);
         writeHdfAttribute(headerGroup, "Redshift", 1./this->cosmology.scalefactor-1.);
+        writeHdfAttribute(headerGroup, "Time", 0.0); // Gadget4 expects this but doesn't use it
         writeHdfAttribute(headerGroup, "HubbleParam", this->cosmology.hubble);
         writeHdfAttribute(headerGroup, "Flag_Sfr", baryonic);
         writeHdfAttribute(headerGroup, "Flag_Cooling", baryonic);
