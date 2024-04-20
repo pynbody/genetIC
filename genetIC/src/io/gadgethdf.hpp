@@ -122,6 +122,18 @@ namespace io {
         attribute.write( value);
       }
 
+      template<typename T, typename S = typename std::enable_if<std::is_same<T, unsigned int>::value>::type>
+      void writeHdfAttributeArray32bit(HighFive::Group & group, std::string name, const std::vector<size_t> & value) {
+        std::vector<unsigned int> value_loword(value.size());
+        std::vector<unsigned int> value_hiword(value.size());
+        for(size_t i=0; i<value.size(); i++) {
+          value_loword[i] = static_cast<unsigned int>(value[i] & 0xFFFFFFFF);
+          value_hiword[i] = static_cast<unsigned int>(value[i] >> 32);
+        }
+        writeHdfAttributeArray(group, name, value_loword);
+        writeHdfAttributeArray(group, name+"_HighWord", value_hiword);
+      }
+
       template<typename T>
       void writeHdfAttribute(HighFive::Group & group, std::string name, const T & value) {
         HighFive::Attribute attribute = group.createAttribute<T>(name,
@@ -132,8 +144,12 @@ namespace io {
       virtual void writeHeaderOneFile(size_t fileNumber, std::vector<size_t> nPartPerTypeThisFile) {
         bool baryonic = (this->cosmology.OmegaBaryons0>0);
         HighFive::Group headerGroup = h5Files[fileNumber].createGroup("/Header");
-        writeHdfAttributeArray(headerGroup, "NumPart_ThisFile", nPartPerTypeThisFile);
-        writeHdfAttributeArray(headerGroup, "NumPart_Total", this->nPartPerType);
+
+        // the following two are automatically split out into low and high words (since gadget4 can't
+        // cope with reading a 64-bit integer?!)
+        writeHdfAttributeArray32bit<unsigned int>(headerGroup, "NumPart_ThisFile", nPartPerTypeThisFile);
+        writeHdfAttributeArray32bit<unsigned int>(headerGroup, "NumPart_Total", this->nPartPerType);
+
         writeHdfAttributeArray(headerGroup, "MassTable", this->masses);
         writeHdfAttribute(headerGroup, "ExpansionFactor", this->cosmology.scalefactor);
         writeHdfAttribute(headerGroup, "Redshift", 1./this->cosmology.scalefactor-1.);
@@ -144,6 +160,7 @@ namespace io {
         writeHdfAttribute(headerGroup, "Flag_Feedback", baryonic);
         writeHdfAttribute(headerGroup, "Flag_StellarAge", baryonic);
         writeHdfAttribute(headerGroup, "Flag_Metals", baryonic);
+        writeHdfAttribute(headerGroup, "Flag_Entropy_ICs", 0);
         writeHdfAttribute(headerGroup, "BoxSize", this->boxLength);
         writeHdfAttribute(headerGroup, "Omega0", this->cosmology.OmegaM0);
         writeHdfAttribute(headerGroup, "OmegaLambda", this->cosmology.OmegaLambda0);

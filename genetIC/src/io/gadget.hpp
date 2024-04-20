@@ -337,9 +337,12 @@ namespace io {
 
       }
 
+      //! \brief Returns false in base class. Override in child class to force variable mass output
+      virtual bool forceVariableMass() const { return false; }
+
       //! \brief Scan through data to obtain information on particles and their masses.
-      void preScanForMassesAndParticleNumbers() {
-        variableMass = false;
+      virtual void preScanForMassesAndParticleNumbers() {
+        variableMass = this->forceVariableMass();
         masses = vector<InternalFloatType>(6, 0.0);
         nPartPerType = vector<size_t>(6, 0);
         nTotal = 0;

@@ -16,6 +16,7 @@ namespace cosmology {
 #include "io/input.hpp"
 #include "io/gadget.hpp"
 #include "io/gadgethdf.hpp"
+#include "io/swift.hpp"
 #include "io/tipsy.hpp"
 #include "io/grafic.hpp"
 
@@ -32,7 +33,7 @@ namespace cosmology {
 namespace io {
 
   enum class OutputFormat {
-    unknown = 1, gadget2 = 2, gadget3 = 3, tipsy = 4, grafic = 5, gadgethdf = 6
+    unknown = 1, gadget2 = 2, gadget3 = 3, tipsy = 4, grafic = 5, gadgethdf = 6, swift = 7
   };
 
   std::ostream &operator<<(std::ostream &outputStream, const OutputFormat &format) {
@@ -55,6 +56,9 @@ namespace io {
       case OutputFormat::gadgethdf:
         outputStream << "gadgethdf";
         break;
+      case OutputFormat::swift:
+        outputStream << "swift";
+        break;
     }
     return outputStream;
   }
@@ -76,8 +80,10 @@ namespace io {
         format = OutputFormat::grafic;
       } else if (s == "gadgethdf") {
         format = OutputFormat::gadgethdf;
+      } else if (s == "swift") {
+        format = OutputFormat::swift;
       } else {
-        inputStream.setstate(std::ios::failbit);
+          inputStream.setstate(std::ios::failbit);
       }
     }
     return inputStream;
