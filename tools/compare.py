@@ -29,6 +29,9 @@ def infer_compare_decimal(sim):
         return 4
 
 def compare(f1,f2) :
+    assert f1.families() == f2.families()
+    for fam in f1.families():
+        assert len(f1[fam])==len(f2[fam])
     npt.assert_almost_equal(f1['mass'],f2['mass'],decimal=6)
     if 'eps' in f1.loadable_keys():
         npt.assert_almost_equal(f1['eps'],f2['eps'],decimal=6)
@@ -51,8 +54,9 @@ def compare(f1,f2) :
     if 'u' in f2.gas.loadable_keys():
         # NB intentional to check for u in f2's loadable_keys
         # older versions of genetIC did not write 'u' with gas output
-        assert 'u' in f1.gas.loadable_keys()
-        npt.assert_almost_equal(f1.gas['u'], f2.gas['u'], decimal=5)
+        if not isinstance(f1, pynbody.snapshot.gadgethdf.GadgetHDFSnap):
+            assert 'u' in f1.gas.loadable_keys()
+            npt.assert_almost_equal(f1.gas['u'], f2.gas['u'], decimal=5)
 
 def post_compare_diagnostic_plot(f1,f2):
     import pylab as p
@@ -61,12 +65,12 @@ def post_compare_diagnostic_plot(f1,f2):
     p.subplot(211)
     p.plot(f1['vx'], f2['vx']-f1['vx'], 'k,')
     p.xlabel("$v_x$")
-    p.ylabel("$\Delta v_x$")
+    p.ylabel(r"$\Delta v_x$")
 
     p.subplot(212)
     p.plot(f1['x'], f2['x']-f1['x'], 'k,')
     p.xlabel("$x$")
-    p.ylabel("$\Delta x$")
+    p.ylabel(r"$\Delta x$")
 
     p.savefig("diagnostic.png", bbox_inches='tight')
     p.close()
@@ -196,10 +200,17 @@ def check_comparison_is_possible(dirname):
 def particle_files_in_dir(dirname):
     gadget_multifiles = glob.glob(dirname + "/*.gadget?.0")
     if len(gadget_multifiles) == 1:
-        gadget_multifiles = [gadget_multifiles[0][:-2]]
-    elif len(gadget_multifiles) > 1:
-        raise IOError("There is more than one particle output file to test against.")
-    return glob.glob(dirname + "/*.tipsy") + glob.glob(dirname + "/*.gadget?") + gadget_multifiles
+        gadget_multifiles = [f[:-2] for f in gadget_multifiles]
+
+    hdf_multifiles = glob.glob(dirname + "/*.0.hdf5")
+    if len(hdf_multifiles) == 1:
+        hdf_multifiles = [f[:-7] for f in hdf_multifiles]
+
+    hdf_files = glob.glob(dirname + "/*.hdf5")
+    hdf_files = [f for f in hdf_files if not any([f.startswith(h) for h in hdf_multifiles])]
+
+    return (glob.glob(dirname + "/*.tipsy") + glob.glob(dirname + "/*.gadget?") + gadget_multifiles +
+            hdf_files + hdf_multifiles)
 
 
 def default_comparisons():
@@ -225,6 +236,8 @@ def default_comparisons():
         compare_ps(ps,ps_test)
 
     output_file = particle_files_in_dir(sys.argv[1])
+    if len(output_file)>1:
+        raise RuntimeError("More than one particle file to test against. Don't know which to use")
     if len(output_file)>0 and os.path.exists(sys.argv[1]+"/reference_output"):
         compare(pynbody.load(output_file[0]),pynbody.load(sys.argv[1]+"/reference_output"))
 

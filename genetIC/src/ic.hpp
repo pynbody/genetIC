@@ -1285,6 +1285,15 @@ public:
                             cosmology, static_cast<int>(outputFormat),
                             nGadgetFiles);
         break;
+      case OutputFormat::gadgethdf:
+        gadgethdf::save<float>(getOutputPath(), boxlen, *pMapper, pParticleGenerator, cosmology,
+                               nGadgetFiles);
+        break;
+      case OutputFormat::swift:
+        swift::save<float>(getOutputPath(), boxlen, *pMapper, pParticleGenerator, cosmology,
+                               nGadgetFiles);
+        break;
+
       case OutputFormat::tipsy:
         tipsy::save(getOutputPath() + ".tipsy", boxlen, pParticleGenerator,
                     pMapper, cosmology);

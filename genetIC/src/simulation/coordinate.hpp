@@ -176,6 +176,18 @@ public:
 
 };
 
+template<typename T>
+struct strip_coordinate {
+  public:
+  using type = T;
+};
+
+template<typename T>
+struct strip_coordinate<Coordinate<T>> {
+  public:
+  using type = T;
+};
+
 /*! \brief Iterates over all points in the window defined by the two co-ordinates, calling a function at each point.
     \param lowerCornerInclusive - lower left front corner of the window, including that point
     \param upperCornerExclusive - upper right back corner of the window, excluding that point

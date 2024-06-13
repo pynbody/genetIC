@@ -170,7 +170,7 @@ void setup_parser(tools::ClassDispatch<ICType, void> &dispatch) {
 }
 
 void header(ostream &outf, std::string prefix="") {
-  outf << prefix << "genetIC v1.4.0, compiled: " << __DATE__ << ", " << __TIME__ << endl;
+  outf << prefix << "genetIC v1.5.0, compiled: " << __DATE__ << ", " << __TIME__ << endl;
   time_t now = time(0);
   struct tm tstruct;
   char buf[80];

@@ -16,7 +16,6 @@
 #endif
 
 #include <iostream>
-#include <src/simulation/field/field.hpp>
 
 #include "src/simulation/coordinate.hpp"
 #include "src/tools/data_types/complex.hpp"
