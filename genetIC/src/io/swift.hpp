@@ -39,6 +39,10 @@ namespace io {
       HighFive::SilenceHDF5 silence; // suppresses HDF5 warnings while in scope
       SwiftHDFOutput<GridDataType, OutputFloatType> output(Boxlength, mapper, generators, cosmology, nFiles);
       output(name);
+      logging::entry() << "Swift output saved.";
+      logging::entry() << " Note that Swift output follows the GadgetHDF format and unit conventions.  You should";
+      logging::entry() << " ensure that cleanup_h_factors and cleanup_velocity_factors are both enabled within your";
+      logging::entry() << " Swift parameter file.";
 
     }
 

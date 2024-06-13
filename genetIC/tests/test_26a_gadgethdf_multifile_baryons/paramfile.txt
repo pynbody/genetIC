@@ -1,4 +1,4 @@
-# Based on test 10c, but use multi-file gadget output
+# Multi-file gadgethdf output with baryons
 
 
 # output parameters

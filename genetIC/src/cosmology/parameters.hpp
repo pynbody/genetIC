@@ -28,7 +28,28 @@ namespace cosmology {
     FloatType sigma8; //!< Sigma8 parameter
     FloatType ns; //!< Scalar spectral index
     FloatType TCMB; //!< CMB temperature today, in K
+
+    FloatType smoothNorm; //!< Smoothing scale for the initial conditions, as multiple of grid spacing
   };
+
+  //! Estimate the temperature of the gas in the initial conditions, in K
+  template<typename FloatType>
+  FloatType getTemperature(const CosmologicalParameters<FloatType> &cosmo) {
+    if(cosmo.scalefactor > cosmo.scalefactorAtDecoupling)
+      return cosmo.TCMB * cosmo.scalefactorAtDecoupling / (cosmo.scalefactor * cosmo.scalefactor);
+    else
+      return cosmo.TCMB / cosmo.scalefactor;
+  }
+
+  //! Estimate the specific internal energy of gas in the initial conditions, in km^2 s^-2 a [gadget units]
+  template<typename FloatType>
+  FloatType getInternalEnergy(const CosmologicalParameters<FloatType> &cosmo) {
+    FloatType H_mass_fraction = 0.76; // Hydrogen mass fraction
+    FloatType mean_molecular_weight = 4.0 / (1.0 + 3.0 * H_mass_fraction);
+    FloatType boltzmann_constant = 1.380649e-29; // Boltzmann constant in km^2 kg s^-2 K^-1
+    FloatType proton_mass = 1.6726219e-27; // Proton mass in kg
+    return 1.5 * getTemperature(cosmo) * boltzmann_constant / ( proton_mass * mean_molecular_weight) / cosmo.scalefactor;
+  }
 
   //! Computes an estimate of the linear growth factor.
   template<typename FloatType>

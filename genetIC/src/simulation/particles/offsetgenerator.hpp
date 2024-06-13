@@ -53,6 +53,10 @@ namespace particle {
     GridDataType getEps() const override {
       return underlying->getEps();
     }
+
+    GridDataType getSmoothingScale() const override {
+      return underlying->getSmoothingScale();
+    }
   };
 
   /*! \class OffsetMultiLevelParticleGenerator

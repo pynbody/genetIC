@@ -34,6 +34,9 @@ namespace particle {
     //! Gets the cell softening scale of the grid for this evaluator
     virtual T getEps() const = 0;
 
+    //! Gets the smoothing scale for this evaluator
+    virtual T getSmoothingScale() const = 0;
+
     //! Returns the particle at index id on the grid, without offset
     virtual Particle <T> getParticleNoOffset(size_t id) const = 0;
 

@@ -243,12 +243,23 @@ namespace particle {
       }
 
 
-      //! Gets the mass in the cell currently pointed at.
-      T getMass() const {
+
+      template<typename Function>
+      inline auto getParticleProperty(Function func) const {
         EvaluatorPtrType pEval;
         size_t id;
         std::tie(pEval, id) = getParticleEvaluatorAndIndex();
-        return pEval->getMass();
+        return (pEval.get()->*func)();
+      }
+
+      //! Gets the mass in the cell currently pointed at.
+      T getMass() const {
+        return getParticleProperty(&ParticleEvaluator<GridDataType>::getMass);
+      }
+
+      //! Gets the smoothing scale in the cell currently pointed at.
+      T getSmoothingScale() const {
+        return getParticleProperty(&ParticleEvaluator<GridDataType>::getSmoothingScale);
       }
 
       //! Returns a pointer to the pair obtained by dereferencing the iterator at its current position
