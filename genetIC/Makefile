@@ -39,10 +39,10 @@ FFTW = -DFFTW3 -DFFTW_THREADS
 FFTWLIB = -lfftw3 -lfftw3f -lfftw3_threads
 
 # if pkg-config is installed, add $(pkg-config --libs-only-L hdf5) to HDFLIB:
-HDFLIB = $(shell pkg-config --libs-only-L hdf5) -lhdf5
+HDFLIB = $(shell pkg-config --libs-only-L hdf5 fftw3) -lhdf5
 
 # add also $(pkg-config --cflags hdf5) to CFLAGS:
-CFLAGS += $(shell pkg-config --cflags hdf5)
+CFLAGS += $(shell pkg-config --cflags hdf5 fftw3)
 
 
 # Provide information on the git repository, to be printed out on each run
@@ -93,7 +93,7 @@ ifeq ($(HOST), clema)
  endif
 
 ifeq ($(HOST), butte)
-	CXX = g++-13
+	CXX = g++-14
 	CPATH = /opt/homebrew/include/
 	LPATH = /opt/homebrew/lib/
 	CFLAGS += -Wl,-ld_classic # new macOS linker doesn't like C++, see XCode bug FB13097713
