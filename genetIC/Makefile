@@ -24,7 +24,7 @@ CODEOPTIONS  = -DDOUBLEPRECISION -DOUTPUT_IN_DOUBLEPRECISION -DCUBIC_INTERPOLATI
 CPATH ?= /opt/local/include/
 LPATH ?= /opt/local/lib
 
-GSLFLAGS = -lgsl -lgslcblas
+GSLFLAGS = $(shell pkg-config --libs-only-L gsl) -lgsl -lgslcblas
 
 # Use -DFFTW3_THREADS=n to use threads. This will use n threads
 # UNLESS you are compiling with openmp, in which case you do not need to set n
@@ -36,13 +36,13 @@ GSLFLAGS = -lgsl -lgslcblas
 # Note that genetIC no longer supports the use of FFTW2
 
 FFTW = -DFFTW3 -DFFTW_THREADS
-FFTWLIB = -lfftw3 -lfftw3f -lfftw3_threads
+FFTWLIB = $(shell pkg-config --libs-only-L fftw3) -lfftw3 -lfftw3f -lfftw3_threads
 
 # if pkg-config is installed, add $(pkg-config --libs-only-L hdf5) to HDFLIB:
-HDFLIB = $(shell pkg-config --libs-only-L hdf5 fftw3) -lhdf5
+HDFLIB = $(shell pkg-config --libs-only-L hdf5) -lhdf5
 
-# add also $(pkg-config --cflags hdf5) to CFLAGS:
-CFLAGS += $(shell pkg-config --cflags hdf5 fftw3)
+# add hdf5, fftw3, and gsl include paths to CFLAGS
+CFLAGS += $(shell pkg-config --cflags hdf5 fftw3 gsl)
 
 
 # Provide information on the git repository, to be printed out on each run
