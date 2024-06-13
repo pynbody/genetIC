@@ -219,11 +219,22 @@ namespace io {
             }, "Masses");
         }
 
+        if (this->cosmology.OmegaBaryons0 > 0) {
+          OutputFloatType internalEnergy = cosmology::getInternalEnergy(this->cosmology);
+          saveBlock<OutputFloatType>(
+            particle::species::baryon,
+            [internalEnergy](auto &localIterator) {
+              return internalEnergy;
+            }, "InternalEnergy");
 
-
+          saveBlock<OutputFloatType>(
+            particle::species::baryon,
+            [](auto &localIterator) {
+              return localIterator.getSmoothingScale();
+            }, "SmoothingLength");
+        }
 
       }
-
 
     };
 

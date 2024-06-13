@@ -205,6 +205,7 @@ public:
     cosmology.TCMB = 2.725;
     cosmology.scalefactorAtDecoupling = 1./150.; // NB - this is NOT photon decoupling, it's baryon decoupling
     cosmology.OmegaM0 = 0.3;
+    setNumNeighbours(64);
     outputFolder = "./";
 
     // only an approximate value is needed to initialise a gas temperature
@@ -1257,6 +1258,16 @@ public:
     } else {
       pMapper->flagParticles(flaggedParticles);
     }
+  }
+
+  //! \brief Set the number of neighbours to use for smoothing
+  /*!
+    Note that this is only used for output smoothing length estimates, not by any calculations within
+    genetIC itself.
+  */
+  void setNumNeighbours(unsigned int n) {
+    // density of particles is 1, so we want (4 pi smoothMultiple^3/3) = n
+    cosmology.smoothNorm = pow(3.0 * n / (4.0 * M_PI), 1.0 / 3.0);
   }
 
 

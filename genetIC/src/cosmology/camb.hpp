@@ -65,6 +65,8 @@ namespace cosmology {
 
   public:
 
+    virtual ~PowerSpectrum() = default;
+
     //! \brief Evaluate power spectrum for a given species at wavenumber k (Mpc/h), including the normalisation
     //! transferType specifies the transfer function to use (currently dm or baryon)
     virtual CoordinateType operator()(CoordinateType k, particle::species transferType) const = 0;

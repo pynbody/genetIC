@@ -118,6 +118,11 @@ namespace particle {
       return onGrid->cellSize * onGrid->cellSofteningScale * epsNorm;
     }
 
+    //! Gets an SPH smoothing scale estimate for a single particle
+    virtual T getSmoothingScale() const override {
+      return onGrid->cellSize * cosmology.smoothNorm;
+    }
+
   };
 
 

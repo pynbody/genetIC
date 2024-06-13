@@ -60,6 +60,8 @@ void setup_parser(tools::ClassDispatch<ICType, void> &dispatch) {
   dispatch.add_class_route("supersample_gas", &ICType::setSupersampleGas);
   dispatch.add_class_route("subsample", &ICType::setSubsample);
   dispatch.add_class_route("eps_norm", &ICType::setEpsNorm);
+  dispatch.add_class_route("num_neighbors", &ICType::setNumNeighbours);
+  dispatch.add_class_route("num_neighbours", &ICType::setNumNeighbours);
 
   // Grafic options
   dispatch.add_class_route("pvar", &ICType::setpvarValue);
