@@ -33,11 +33,19 @@
 #include "simulation/particles/mapper/graficmapper.hpp"
 #include "simulation/particles/offsetgenerator.hpp"
 #include "tools/logging.hpp"
+#include "dummyic.hpp"
 
 using namespace std;
 
-template<typename T>
-class DummyICGenerator;
+/*
+namespace dummyic {
+  template<typename T>
+  class DummyICGenerator;
+
+  template <typename T>
+  std::shared_ptr<DummyICGenerator<T>> performDummyRun(const std::string &paramFilename);
+
+}*/
 
 
 /*!
@@ -55,7 +63,7 @@ protected:
 
   using GridPtrType = std::shared_ptr<grids::Grid<T>>;
 
-  friend class DummyICGenerator<GridDataType>;
+  friend class dummyic::DummyICGenerator<GridDataType>;
 
   cosmology::CosmologicalParameters<T> cosmology; //!< Cosmological parameters
   multilevelgrid::MultiLevelGrid<GridDataType> multiLevelContext; //!< Class to keep track of the multi-level context of the simulation
@@ -172,15 +180,12 @@ protected:
 
   using FieldType = fields::Field<GridDataType>;
 
-  tools::ClassDispatch<ICGenerator<GridDataType>, void> &interpreter; //!< Parser for parameter files
-
 
 public:
   //! \brief Main constructor for this class.
   //! Requires a single interpreter to initialise, from which it will receive input commands.
-  ICGenerator(tools::ClassDispatch<ICGenerator<GridDataType>, void> &interpreter) :
-    modificationManager(multiLevelContext, cosmology, nullptr),
-    interpreter(interpreter) {
+  ICGenerator() :
+    modificationManager(multiLevelContext, cosmology, nullptr) {
 
     // By default, we assume there is only one field - at first this will contain white noise:
     outputFields.push_back(
@@ -1079,37 +1084,19 @@ public:
     if (multiLevelContext.getNumLevels() == 0)
       throw std::runtime_error("Mapper relative command cannot be used before a basegrid has been initialised.");
 
+    auto pseudoICs = dummyic::performDummyRun<GridDataType>(fname, this);
 
-    DummyICGenerator<GridDataType> pseudoICs(this);
-    auto dispatch = interpreter.specify_instance(pseudoICs);
-    ifstream inf;
-    inf.open(fname);
-
-
-    if (!inf.is_open())
-      throw std::runtime_error("Cannot open IC paramfile for relative_to command");
-    logging::entry() << endl;
-    logging::entry() << "+ Input mapper: computing geometry from " << fname << endl;
-    {
-      tools::ChangeCwdWhileInScope temporary(tools::getDirectoryName(fname));
-      logging::IndentWhileInScope temporaryIndent;
-      logging::entry() << endl;
-      dispatch.run_loop(inf);
-    }
-    logging::entry() << endl;
-
+    pInputMapper = pseudoICs->pMapper;
+    pInputMultiLevelContext = std::make_shared<multilevelgrid::MultiLevelGrid<GridDataType>>
+      (pseudoICs->multiLevelContext);
 
 #ifdef DEBUG_INFO
-    logging::entry() << endl;
-    logging::entry() << "Input mapper retrieved:" << endl;
-    logging::entry() << *(pseudoICs.pMapper);
-    logging::entry() << endl;
+    logging::entry() << std::endl;
+    logging::entry() << "Input mapper retrieved:" << std::endl;
+    logging::entry() << *pInputMapper;
+    logging::entry() << std::endl;
 #endif
 
-
-    pInputMapper = pseudoICs.pMapper;
-    pInputMultiLevelContext = std::make_shared<multilevelgrid::MultiLevelGrid<GridDataType>>
-      (pseudoICs.multiLevelContext);
   }
 
   /*! \brief Get the grid on which the output is defined for a particular level.

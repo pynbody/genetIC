@@ -5,7 +5,7 @@ project(IC)
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/genetIC)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -g ")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++20 -g ")
 
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O0 -DOPENMP -fopenmp -DDEBUG_INFO")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -fopenmp -O3 -DOPENMP")
@@ -64,7 +64,9 @@ set(SOURCE_FILES
         genetIC/src/simulation/multilevelgrid/mask.hpp
         genetIC/src/tools/memmap.hpp
         genetIC/src/tools/numerics/tricubic.hpp genetIC/src/tools/logging.hpp genetIC/src/tools/logging.cpp genetIC/src/simulation/modifications/splice.hpp genetIC/src/tools/lru_cache.hpp
-        genetIC/src/io/swift.hpp)
+        genetIC/src/io/swift.hpp
+        genetIC/src/bindings.hpp
+)
 
 include_directories(/opt/homebrew/include)
 link_directories(/opt/homebrew/lib)
