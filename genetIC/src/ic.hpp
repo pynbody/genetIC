@@ -37,15 +37,11 @@
 
 using namespace std;
 
-/*
+
 namespace dummyic {
   template<typename T>
   class DummyICGenerator;
-
-  template <typename T>
-  std::shared_ptr<DummyICGenerator<T>> performDummyRun(const std::string &paramFilename);
-
-}*/
+}
 
 
 /*!
@@ -1084,19 +1080,24 @@ public:
     if (multiLevelContext.getNumLevels() == 0)
       throw std::runtime_error("Mapper relative command cannot be used before a basegrid has been initialised.");
 
-    auto pseudoICs = dummyic::performDummyRun<GridDataType>(fname, this);
-
-    pInputMapper = pseudoICs->pMapper;
+    logging::entry() << std::endl;
+    logging::entry() << "+ Input mapper: computing geometry from " << fname << std::endl;
+    logging::entry() << std::endl;
+    dummyic::DummyICGenerator<GridDataType> dummyICGenerator(this);
+    {
+      logging::IndentWhileInScope temporaryIndent;
+      runInterpreter<ICGenerator<GridDataType>>(dummyICGenerator, fname);
+    }
+    pInputMapper = dummyICGenerator.pMapper;
     pInputMultiLevelContext = std::make_shared<multilevelgrid::MultiLevelGrid<GridDataType>>
-      (pseudoICs->multiLevelContext);
-
+      (dummyICGenerator.multiLevelContext);
+    logging::entry() << std::endl;
 #ifdef DEBUG_INFO
     logging::entry() << std::endl;
     logging::entry() << "Input mapper retrieved:" << std::endl;
     logging::entry() << *pInputMapper;
     logging::entry() << std::endl;
 #endif
-
   }
 
   /*! \brief Get the grid on which the output is defined for a particular level.

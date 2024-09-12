@@ -37,7 +37,7 @@ namespace dummyic {
     using typename ICGenerator<GridDataType>::T;
 
     //! Constructor with a specified ICGenerator
-    DummyICGenerator(ICGenerator<GridDataType> *pUnderlying) : pUnderlying(pUnderlying) {
+    DummyICGenerator(ICGenerator<GridDataType> *pUnderlying = nullptr) : pUnderlying(pUnderlying) {
 
     }
 
@@ -147,34 +147,6 @@ namespace dummyic {
     void applyPowerSpec() override {}
   };
 
-  template<typename GridDataType>
-  std::shared_ptr<DummyICGenerator<GridDataType>> performDummyRun(const std::string &fname, ICGenerator<GridDataType> *pUnderlying) {
-    // Set up the command interpreter to issue commands to main_generator
-    tools::ClassDispatch<ICGenerator<GridDataType>, void> dispatch_generator;
-    setup_parser(dispatch_generator);
-
-    auto pseudoICs = std::make_shared<DummyICGenerator<GridDataType>>(pUnderlying);
-
-    auto dispatch = dispatch_generator.specify_instance(*pseudoICs);
-
-    std::ifstream inf;
-    inf.open(fname);
-
-    if (!inf.is_open())
-      throw std::runtime_error("Cannot open IC paramfile for relative_to command");
-    logging::entry() << std::endl;
-    logging::entry() << "+ Input mapper: computing geometry from " << fname << std::endl;
-    {
-      tools::ChangeCwdWhileInScope temporary(tools::getDirectoryName(fname));
-      logging::IndentWhileInScope temporaryIndent;
-      logging::entry() << std::endl;
-      dispatch.run_loop(inf);
-    }
-    logging::entry() << std::endl;
-
-    return pseudoICs;
-
-  }
 
 }
 

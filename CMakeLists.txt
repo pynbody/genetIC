@@ -24,7 +24,6 @@ set(SOURCE_FILES
         genetIC/src/io/gadgethdf.hpp
         genetIC/src/io/input.hpp
         genetIC/src/io/tipsy.hpp
-        genetIC/src/main.cpp
         genetIC/src/simulation/coordinate.hpp
         genetIC/src/cosmology/camb.hpp
         genetIC/src/simulation/particles/mapper/mapper.hpp
@@ -125,4 +124,5 @@ add_definitions(-DCUBIC_INTERPOLATION
         -DZELDOVICH_GRADIENT_FOURIER_SPACE
         )
 add_compile_options(-Wextra)
-add_executable(genetIC ${SOURCE_FILES})
+add_executable(genetIC ${SOURCE_FILES} genetIC/src/main.cpp)
+add_executable(genetIC_mapper ${SOURCE_FILES} genetIC/src/main_mapper.cpp)

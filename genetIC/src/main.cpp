@@ -2,12 +2,10 @@
 #include <sstream>
 #include <ctime>
 #include <iostream>
-#include <iomanip>
 
 #include "bindings.hpp"
 #include "tools/logging.hpp"
 #include "ic.hpp"
-#include "dummyic.hpp"
 
 int runGenetic(string paramFilename);
 
@@ -47,15 +45,7 @@ void header(ostream &outf, std::string prefix="") {
 
 template<typename IC>
 int runGenetic(string paramFilename) {
-  ifstream inf;
-  inf.open(paramFilename);
-
-  if (!inf.is_open()) {
-    logging::entry() << "Error: could not open parameter file " << paramFilename << endl;
-    return -1;
-  }
-
-  tools::ChangeCwdWhileInScope temporary(tools::getDirectoryName(paramFilename));
+  IC generator;
 
   ofstream outf;
   outf.open("IC_output.params");
@@ -68,22 +58,11 @@ int runGenetic(string paramFilename) {
   header(outf, "# ");
   header(cerr);
 
-  // Set up the command interpreter to issue commands to main_generator
-  tools::ClassDispatch<IC, void> dispatch_generator;
-  setup_parser(dispatch_generator);
-
-  // The main program is contained in this class:
-  IC generator;
-
-
-  auto dispatch = dispatch_generator.specify_instance(generator);
-
   // Initialising FFTW is not strictly required (it will be done later if missed here) but, since it might print
   // some output, it's neater to do it straight away:
   tools::numerics::fourier::initialise();
 
-  // Process commands
-  dispatch.run_loop(inf, outf);
+  runInterpreter(generator, paramFilename, outf);
 
   return 0;
 }

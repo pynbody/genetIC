@@ -156,4 +156,34 @@ void setup_parser(tools::ClassDispatch<ICType, void> &dispatch) {
 
 }
 
+template<typename T>
+void runInterpreter(T& target, const std::string &fname, std::ofstream &outf) {
+  runInterpreter<T>(target, fname, &outf);
+}
+
+template<typename T>
+void runInterpreter(T& target, const std::string &fname, std::ofstream *outf = nullptr) {
+  tools::ClassDispatch<T, void> dispatch_generator;
+  setup_parser<T>(dispatch_generator);
+
+  auto dispatch = dispatch_generator.specify_instance(target);
+
+  std::ifstream inf;
+  inf.open(fname);
+
+  if (!inf.is_open())
+    throw std::runtime_error("Cannot open IC paramfile "+fname);
+
+  tools::ChangeCwdWhileInScope temporaryCwd(tools::getDirectoryName(fname));
+
+  if(outf != nullptr) {
+    dispatch.run_loop(inf, *outf);
+  } else {
+    dispatch.run_loop(inf);
+  }
+
+}
+
+
+
 #endif
