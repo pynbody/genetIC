@@ -1082,10 +1082,10 @@ public:
 
     logging::entry() << std::endl;
     logging::entry() << "+ Input mapper: computing geometry from " << fname << std::endl;
-    logging::entry() << std::endl;
     dummyic::DummyICGenerator<GridDataType> dummyICGenerator(this);
     {
       logging::IndentWhileInScope temporaryIndent;
+      logging::entry() << std::endl;
       runInterpreter<ICGenerator<GridDataType>>(dummyICGenerator, fname);
     }
     pInputMapper = dummyICGenerator.pMapper;
