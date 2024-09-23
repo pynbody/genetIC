@@ -5,8 +5,8 @@ function runtest {
     echo "Running test on $i"
     head -1 $i/paramfile.txt
     cd $i
-    IC=${IC:-../../genetIC}
-    time $IC paramfile.txt > IC_output.txt 2>&1
+    IC_mapper=${IC_mapper:-../../genetIC_mapper}
+    time $IC_mapper paramfile_a.txt paramfile_b.txt ID_a.txt output.txt > IC_output.txt 2>&1
     if [ $? -ne 0 ]
     then
         echo "TEST FAILED"

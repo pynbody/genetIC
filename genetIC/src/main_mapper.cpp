@@ -25,17 +25,17 @@ int main(int argc, char *argv[]) {
   std::string idFileOutput(argv[4]);
 
   logging::entry() << "Processing geometry in " << fname1 << std::endl;
-  dummyic::DummyICGenerator<float> generator1;
+  dummyic::DummyICGenerator<double> generator1;
   {
     logging::IndentWhileInScope temporaryIndent;
-    runInterpreter<ICGenerator<float>>(generator1, fname1);
+    runInterpreter<ICGenerator<double>>(generator1, fname1);
   }
 
-  dummyic::DummyICGenerator<float> generator2(&generator1);
+  dummyic::DummyICGenerator<double> generator2(&generator1);
   logging::entry() << "Processing geometry in " << fname2 << std::endl;
   {
     logging::IndentWhileInScope temporaryIndent;
-    runInterpreter<ICGenerator<float>>(generator2, fname2);
+    runInterpreter<ICGenerator<double>>(generator2, fname2);
   }
 
 
@@ -45,7 +45,7 @@ int main(int argc, char *argv[]) {
 
   logging::entry() << "Writing IDs to " << idFileOutput << std::endl;
 
-  generator2.ICGenerator<float>::dumpID(idFileOutput);
+  generator2.ICGenerator<double>::dumpID(idFileOutput);
 
   logging::entry() << "Done." << std::endl;
 
