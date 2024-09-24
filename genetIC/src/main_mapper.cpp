@@ -40,8 +40,14 @@ int main(int argc, char *argv[]) {
 
 
 
+  generator1.clearCellFlags();
+  generator2.clearCellFlags();
+
   logging::entry() << "Loading IDs from " << idFileInput << std::endl;
   generator1.loadID(idFileInput);
+
+  // generator2.propagateFlagsToRefinedCells(generator1.getMultiLevelContext());
+  generator1.propagateFlagsToRefinedCells(generator2.getMultiLevelContext());
 
   logging::entry() << "Writing IDs to " << idFileOutput << std::endl;
 

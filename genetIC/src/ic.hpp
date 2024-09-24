@@ -1248,6 +1248,16 @@ public:
     }
   }
 
+  //! \brief Flag cells which are not explicitly referenced in the current mapper, but which are refinements of currently flagged cells
+  void propagateFlagsToRefinedCells(multilevelgrid::MultiLevelGrid<GridDataType> & otherContext) {
+    pMapper->extendParticleListToUnreferencedGrids(otherContext);
+  }
+
+  //! \brief Get the multi-level-grid context for this IC generator
+  multilevelgrid::MultiLevelGrid<GridDataType> & getMultiLevelContext() {
+    return multiLevelContext;
+  }
+
   //! \brief Set the number of neighbours to use for smoothing
   /*!
     Note that this is only used for output smoothing length estimates, not by any calculations within

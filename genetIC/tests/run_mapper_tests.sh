@@ -6,7 +6,22 @@ function runtest {
     head -1 $i/paramfile.txt
     cd $i
     IC_mapper=${IC_mapper:-../../genetIC_mapper}
-    time $IC_mapper paramfile_a.txt paramfile_b.txt ID_a.txt output.txt > IC_output.txt 2>&1
+    # if paramfile_a.txt exists, use it, otherwise use paramfile.txt
+    PARAM_A=paramfile_a.txt
+    if [ ! -f $PARAM_A ]; then
+        PARAM_A=paramfile.txt
+    fi
+    # if paramfile_b.txt exists, use it, otherwise use paramfile.txt
+    PARAM_B=paramfile_b.txt
+    if [ ! -f $PARAM_B ]; then
+        PARAM_B=paramfile.txt
+    fi
+    #if ID_a.txt exists, use it, otherwise use reference.txt
+    ID_A=ID_a.txt
+    if [ ! -f $ID_A ]; then
+        ID_A=reference.txt
+    fi
+    time $IC_mapper $PARAM_A $PARAM_B $ID_A output.txt > IC_output.txt 2>&1
     if [ $? -ne 0 ]
     then
         echo "TEST FAILED"
