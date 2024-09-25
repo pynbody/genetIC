@@ -16,12 +16,15 @@ function runtest {
     if [ ! -f $PARAM_B ]; then
         PARAM_B=paramfile.txt
     fi
-    #if ID_a.txt exists, use it, otherwise use reference.txt
+    #if ID_a.txt exists, use it; otherwise, assume we just want to output flags at end of processing paramfile_a
     ID_A=ID_a.txt
     if [ ! -f $ID_A ]; then
-        ID_A=reference.txt
+      echo $IC_mapper $PARAM_A output.txt
+      $IC_mapper $PARAM_A output.txt > IC_output.txt 2>&1
+    else
+      echo $IC_mapper $PARAM_A $PARAM_B $ID_A output.txt
+      $IC_mapper $PARAM_A $PARAM_B $ID_A output.txt > IC_output.txt 2>&1
     fi
-    time $IC_mapper $PARAM_A $PARAM_B $ID_A output.txt > IC_output.txt 2>&1
     if [ $? -ne 0 ]
     then
         echo "TEST FAILED"
