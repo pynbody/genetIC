@@ -46,6 +46,10 @@ int main(int argc, char *argv[]) {
     logging::entry() << "Loading IDs from " << idFileInput << std::endl;
     generator1.clearCellFlags();
     generator2.clearCellFlags();
+
+    // the input IDs are relative to the output for generator1, not any input mapper that may be active:
+    generator1.clearInputMapper();
+
     generator1.loadID(idFileInput);
 
     // generator2.propagateFlagsToRefinedCells(generator1.getMultiLevelContext());

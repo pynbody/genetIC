@@ -1100,6 +1100,12 @@ public:
 #endif
   }
 
+  //! Removes any input mapper that has been set up.
+  void clearInputMapper() {
+    pInputMapper.reset();
+    pInputMultiLevelContext.reset();
+  }
+
   /*! \brief Get the grid on which the output is defined for a particular level.
    *
    * This may differ from the grid on which the fields are defined either because there is an offset or

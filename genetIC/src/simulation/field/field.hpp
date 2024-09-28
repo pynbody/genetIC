@@ -4,6 +4,7 @@
 #include <memory>
 #include <vector>
 #include <cassert>
+#include <iomanip>
 #include <src/simulation/filters/filter.hpp>
 #include <src/tools/numerics/fourier.hpp>
 #include <execinfo.h>
