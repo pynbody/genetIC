@@ -3,7 +3,7 @@
 function runtest {
     rm $i/map_out.txt 2>/dev/null
     echo "Running test on $i"
-    head -1 $i/paramfile.txt
+
     cd $i
     IC_mapper=${IC_mapper:-../../genetIC_mapper}
     # if paramfile_a.txt exists, use it, otherwise use paramfile.txt
@@ -11,6 +11,9 @@ function runtest {
     if [ ! -f $PARAM_A ]; then
         PARAM_A=paramfile.txt
     fi
+
+    head -1 $PARAM_A
+
     # if paramfile_b.txt exists, use it, otherwise use paramfile.txt
     PARAM_B=paramfile_b.txt
     if [ ! -f $PARAM_B ]; then
@@ -19,10 +22,8 @@ function runtest {
     #if ID_a.txt exists, use it; otherwise, assume we just want to output flags at end of processing paramfile_a
     ID_A=ID_a.txt
     if [ ! -f $ID_A ]; then
-      echo $IC_mapper $PARAM_A output.txt
       $IC_mapper $PARAM_A output.txt > IC_output.txt 2>&1
     else
-      echo $IC_mapper $PARAM_A $PARAM_B $ID_A output.txt
       $IC_mapper $PARAM_A $PARAM_B $ID_A output.txt > IC_output.txt 2>&1
     fi
     if [ $? -ne 0 ]
