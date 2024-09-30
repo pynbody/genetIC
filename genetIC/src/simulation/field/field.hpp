@@ -162,7 +162,7 @@ namespace fields {
       peakMemUsage = currentMemUsage;
     }
 
-    now launch the periodic reporter
+    // now launch the periodic reporter
     if(!reporter.joinable()) {
       reporter = std::thread(memUsagePeriodicReportInThread);
     }
