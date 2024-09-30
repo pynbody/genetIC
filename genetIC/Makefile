@@ -57,6 +57,18 @@ GIT_VARIABLES = -DGIT_VERSION='"$(GIT_VERSION)"' -DGIT_MODIFIED='"$(GIT_MODIFIED
 HOST	= $(shell if [ `which scutil 2>/dev/null` ]; then scutil --get ComputerName | cut -c1-5; else hostname | cut -c1-5 ; fi )
 HOST3	= $(shell hostname | cut -c1-3)
 
+USE_CUFFT=0
+ifeq ($(USE_CUFFT), 1)
+	CPATH = /opt/local/include/:/opt/cuda/include/cufft/:/opt/cuda/targets/x86_64-linux/include/
+	LPATH = /opt/local/lib:/opt/cuda/lib64/
+
+	CODEOPTIONS += -DUSE_CUFFT
+	FFTW = -DFFTW3
+	FFTWLIB = -lcufft -lcufftw
+	OLD_CFLAGS=$(CFLAGS)
+	CFLAGS=-O3 -I`pwd` -I`pwd`/HighFive/include -Xcompiler="-O3 -fopenmp -std=c++14 -Wall"
+	CXX=nvcc
+
 ifeq ($(HOST3), Ana)
 	CXX = /opt/homebrew/bin/c++-14
 	CPATH = /opt/homebrew/include/
