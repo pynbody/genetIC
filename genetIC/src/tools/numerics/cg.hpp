@@ -14,7 +14,7 @@ namespace tools {
   namespace numerics {
 
     //! Solve linear equation Qx = b, and return x, using conjugate gradient
-    template <typename T>
+    template<typename T>
     fields::Field<T> conjugateGradient(std::function<fields::Field<T>(const fields::Field<T> &)> Q,
                                        const fields::Field<T> &b,
                                        double rtol = 1e-6,
@@ -25,7 +25,7 @@ namespace tools {
       fields::Field<T> x = fields::Field<T>(b.getGrid(), false);
 
       // double scaleNorm = b.norm();
-      double scaleMax = b.Maximum();
+      double scaleMax = b.maximum();
 
       if(scaleMax==0.0) {
         logging::entry(logging::warning) << "Conjugate gradient: result is zero!" << std::endl;
@@ -49,7 +49,7 @@ namespace tools {
         residual -= b;
 
         // auto norm = residual.norm();
-        auto norm = residual.Maximum();
+        auto norm = residual.maximum();
 
         if (norm < rtol * scaleMax || norm < atol)
           break;

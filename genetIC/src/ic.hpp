@@ -167,18 +167,18 @@ protected:
   //! Set the standard minimization method for splicing (CG or MINRES)
   std::string minimization_method = "CG";
 
-  //! Restarting function for splicing
+  //! (does not work yet) Allows to continue minimizing a spliced field from a previous run
   bool restart = false;
 
   //! Using fourier parallel seeding for splicing
   bool setSplicedSeedFourierParallel = false;
+  //! Using fourier series seeding for splicing
   bool setSplicedSeedFourierSeries = false;
+  //! Using real seeding for splicing
   std::string spliceSeedingType = "Real";
 
-  //! Wether to stop splicing after a certain amount of time
-  bool stop = false;
-
-  //! Set the brake time to zero (unused)
+  //! The brake time in hours, set to 0 by default. If set to a positive value, splicing will stop after the given time,
+  // if it has not yet met the minimization threshold.
   double brakeTime = 0;
 
   //! Mapper that keep track of particles in the mulit-level context.
@@ -1712,7 +1712,6 @@ public:
         k_factor,
         minimization_method,
         restart,
-        stop,
         brakeTime
       );
       splicedFieldThisLevel.toFourier();
@@ -1749,21 +1748,16 @@ public:
     restart = true;
   }
 
-  virtual void set_minimization(string set_minMethod) {
+  virtual void set_splice_minimization(string set_minMethod) {
     minimization_method = set_minMethod;
   }
 
-  virtual void stop_after(double time_to_brake) {
-    stop = true;
+  virtual void stop_splicing_after(double time_to_brake) {
     brakeTime = time_to_brake;
   }
 
   virtual void splice_density(size_t newSeed) {
     splice_with_factor(newSeed, 0);
-  }
-
-  virtual void splice_velocity(size_t newSeed) {
-    splice_with_factor(newSeed, -1);
   }
 
   virtual void splice_potential(size_t newSeed) {

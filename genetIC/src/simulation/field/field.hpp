@@ -362,7 +362,7 @@ namespace fields {
     }
 
     //! Single grid maximum. Only implemented for real space
-    auto Maximum() const {
+    auto maximum() const {
       assert(!isFourier());
 
       tools::datatypes::strip_complex<DataType> max=0;

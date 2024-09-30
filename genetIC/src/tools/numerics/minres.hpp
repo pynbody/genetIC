@@ -35,7 +35,7 @@ namespace tools {
       // auto toltest = 1e-8;     // Default tolerance (meant to even include 1024^3 potential splicing)
 
       double scaleNorm = sqrt(b.innerProduct(b));
-      double scaleMax = b.Maximum();
+      double scaleMax = b.maximum();
       double rho = r.innerProduct(s);
 
       size_t dimension = b.getGrid().size3;
@@ -84,7 +84,7 @@ namespace tools {
       }
       */
 
-      if (stop == true){
+      if (brakeTime > 0) {
 
         const std::time_t brakeDuration = brakeTime * 3600; // Calculate the duration in seconds for the brake time
         const std::time_t startTime = std::time(nullptr);   // Get the current time at splicing start
@@ -100,7 +100,7 @@ namespace tools {
           r.addScaled(q, -alpha);
 
           double norm = sqrt(r.innerProduct(r));
-          double max = r.Maximum();
+          double max = r.maximum();
 
           if (max < rtol * scaleMax || norm < atol)
             break;
@@ -123,6 +123,7 @@ namespace tools {
           if (elapsedTime >= brakeDuration) {
 
             logging::entry() << "Maximum time reached" << std::endl;
+            logging::entry() << "WARNING: the field might have large artefacting from not meeting the minimization threshold." << std::endl;
             break;
           }
             //if (max < rtol * scaleMax || norm < atol) {
@@ -173,7 +174,7 @@ namespace tools {
           r.addScaled(q, -alpha);
 
           double norm = sqrt(r.innerProduct(r));
-          double max = r.Maximum();
+          double max = r.maximum();
 
           if (max < rtol * scaleMax || norm < atol)
             break;

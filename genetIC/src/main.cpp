@@ -141,13 +141,14 @@ void setup_parser(tools::ClassDispatch<ICType, void> &dispatch) {
   dispatch.add_class_route("set_splice_accuracy", &ICType::set_splice_accuracy);
   dispatch.add_class_route("splice_seedfourier_parallel", &ICType::splice_seedfourier_parallel);
   dispatch.add_class_route("splice_seedfourier_series", &ICType::splice_seedfourier_series);
-  dispatch.add_class_route("restart_splice", &ICType::restart_splice);
-  dispatch.add_class_route("set_minimization", &ICType::set_minimization);
+  dispatch.add_deprecated_class_route("set_minimization", "set_splice_minimization", &ICType::set_splice_minimization);
+  dispatch.add_class_route("set_splice_minimization", &ICType::set_splice_minimization);
   dispatch.add_deprecated_class_route("splice", "splice_density", &ICType::splice_density);
   dispatch.add_class_route("splice_density", &ICType::splice_density);
   dispatch.add_class_route("splice_potential", &ICType::splice_potential);
 
-  dispatch.add_class_route("stop_after", &ICType::stop_after);
+  dispatch.add_deprecated_class_route("stop_after", "stop_splicing_after", &ICType::stop_splicing_after);
+  dispatch.add_class_route("stop_splicing_after", &ICType::stop_splicing_after);
   
   // Write objects to files
   // dispatch.add_class_route("dump_grid", &ICType::dumpGrid);
