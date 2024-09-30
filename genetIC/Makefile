@@ -68,6 +68,7 @@ ifeq ($(USE_CUFFT), 1)
 	OLD_CFLAGS=$(CFLAGS)
 	CFLAGS=-O3 -I`pwd` -I`pwd`/HighFive/include -Xcompiler="-O3 -fopenmp -std=c++14 -Wall"
 	CXX=nvcc
+endif
 
 ifeq ($(HOST3), Ana)
 	CXX = /opt/homebrew/bin/c++-14
