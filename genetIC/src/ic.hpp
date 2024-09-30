@@ -164,8 +164,8 @@ protected:
   T splicing_cg_rel_tol = 1e-6;
   T splicing_cg_abs_tol = 1e-12;
 
-  //! Set the standard minimization method for splicing
-  std::string minimization_method = "MINRES"; //changed to MINRES (Masters project)
+  //! Set the standard minimization method for splicing (CG or MINRES)
+  std::string minimization_method = "CG";
 
   //! Restarting function for splicing
   bool restart = false;
@@ -1767,7 +1767,6 @@ public:
   }
 
   virtual void splice_potential(size_t newSeed) {
-    // minimization_method = "MINRES";
     splice_with_factor(newSeed, -2);
   }
 
