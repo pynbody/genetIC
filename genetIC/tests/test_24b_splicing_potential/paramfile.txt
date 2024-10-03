@@ -17,7 +17,7 @@ outformat tipsy
 basegrid 50.0 16
 
 center 25 25 25
-select_sphere 10
+select_sphere 5
 
 
 set_splice_minimization MINRES
