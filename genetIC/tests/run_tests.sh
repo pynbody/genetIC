@@ -34,7 +34,7 @@ function runtest {
 
 
 if [ "$#" -eq 0 ]; then
-  for i in test_24b*
+  for i in test_*
   do
     runtest $i
   done
