@@ -36,6 +36,10 @@ function runtest {
 if [ "$#" -eq 0 ]; then
   for i in test_*
   do
+    if [ "$i" == "test_24b_splicing_potential" ]
+    then
+      export OMP_NUM_THREADS=1
+    fi
     runtest $i
   done
 else
