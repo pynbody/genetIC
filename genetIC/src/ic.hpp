@@ -1761,6 +1761,9 @@ public:
   }
 
   virtual void splicePotential(size_t newSeed) {
+    #ifdef ZELDOVICH_GRADIENT_FOURIER_SPACE
+      logging::entry(logging::level::warning) << "WARNING: The code was compiled with the 'ZELDOVICH_GRADIENT_FOURIER_SPACE' flag activated, but the potential field is being spliced." << std::endl;
+    #endif
     spliceWithFactor(newSeed, -2);
   }
 
