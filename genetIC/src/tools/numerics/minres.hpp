@@ -21,7 +21,7 @@ namespace tools {
                             double atol = 1e-12,
                             bool restart = false,
                             bool stop = false,
-                            double brakeTime = 0)
+                            double brake_time = 0)
     {
       fields::Field<T> x(b);
       x *= 0;
@@ -48,7 +48,7 @@ namespace tools {
           toltest = 1e-7;
         if (dimension == 256*256*256) {
           toltest = 1e-6;
-          brakeTime = 24; // Perhaps a time dependence instead of trying to achieve the
+          brake_time = 24; // Perhaps a time dependence instead of trying to achieve the
                           // exact tolerance is better
         }
       }
@@ -58,7 +58,9 @@ namespace tools {
       double old_norm = 0;
 
       size_t iter = 0;
-      //setting variables from last restart
+
+      // Set variables from last restart (to continue minimization on a spliced field from a previous run)
+      // -! not working yet !-
       /*
       if (restart == true) {
           logging::entry() << "Loading restart variables" << std::endl;
@@ -84,12 +86,12 @@ namespace tools {
       }
       */
 
-      if (brakeTime > 0) {
+      if (brake_time > 0) {
 
-        const std::time_t brakeDuration = brakeTime * 3600; // Calculate the duration in seconds for the brake time
+        const std::time_t brakeDuration = brake_time * 3600; // Calculate the duration in seconds for the brake time
         const std::time_t startTime = std::time(nullptr);   // Get the current time at splicing start
 
-        logging::entry() << "Splicing will stop after " << brakeTime << " hours, or when the maximum drops below " << rtol * scaleMax << std::endl;
+        logging::entry() << "Splicing will stop after " << brake_time << " hours, or when the maximum drops below " << rtol * scaleMax << std::endl;
 
         // Start iteration
         for(; iter<max_iterations; ++iter) {
@@ -126,12 +128,16 @@ namespace tools {
             logging::entry() << "WARNING: the field might have large artefacting from not meeting the minimization threshold." << std::endl;
             break;
           }
-            //if (max < rtol * scaleMax || norm < atol) {
 
-            //  logging::entry() << "Maximum time reached" << std::endl;
+            // Save current minimization variables if time limit reached
+            // -! not working yet !-
+            /*
+            if (max < rtol * scaleMax || norm < atol) {
+
+              logging::entry() << "Maximum time reached" << std::endl;
             
-              // Save current minimization variables if time limit reached
-              /*            
+              Save current minimization variables if time limit reached
+                          
               std::string variables = ".variables";
               std::string directory = output_path + variables;
 
@@ -153,11 +159,12 @@ namespace tools {
               file.open (directory + "/iter.txt");
               file << iter + 1;
               file.close();
-              */
+              
 
-            //  break;
+              break;
 
-            //}
+            }
+            */
         }
 
           // Save old norm

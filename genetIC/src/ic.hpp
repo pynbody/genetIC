@@ -160,9 +160,9 @@ protected:
   int initial_number_steps = 10; //!< Number of steps always used by quadratic modifications.
   T precision = 0.001; //!< Target precision required of quadratic modifications.
 
-  //! Accuracy of the conjugate gradient method for the splicing method
-  T splicing_cg_rel_tol = 1e-6;
-  T splicing_cg_abs_tol = 1e-12;
+  //! Accuracy of the minimization method for splicing
+  T splicing_rel_tol = 1e-6;
+  T splicing_abs_tol = 1e-12;
 
   //! Set the standard minimization method for splicing (CG or MINRES)
   std::string minimization_method = "CG";
@@ -179,7 +179,7 @@ protected:
 
   //! The brake time in hours, set to 0 by default. If set to a positive value, splicing will stop after the given time,
   // if it has not yet met the minimization threshold.
-  double brakeTime = 0;
+  double brake_time = 0;
 
   //! Mapper that keep track of particles in the mulit-level context.
   shared_ptr<particle::mapper::ParticleMapper<GridDataType>> pMapper = nullptr;
@@ -1671,7 +1671,7 @@ public:
   }
 
   //! Splicing: fixes the flagged region, while reinitialising the exterior from a new random field
-  virtual void splice_with_factor(size_t newSeed, int k_factor=0) {
+  virtual void spliceWithFactor(size_t newSeed, int k_factor=0) {
     initialiseRandomComponentIfUninitialised();
     if(outputFields.size()>1)
       throw std::runtime_error("Splicing is not yet implemented for the case of multiple transfer functions");
@@ -1707,12 +1707,12 @@ public:
         newFieldThisLevel,
         originalFieldThisLevel,
         *multiLevelContext.getCovariance(level, particle::species::all),
-        splicing_cg_rel_tol,
-        splicing_cg_abs_tol,
+        splicing_rel_tol,
+        splicing_abs_tol,
         k_factor,
         minimization_method,
         restart,
-        brakeTime
+        brake_time
       );
       splicedFieldThisLevel.toFourier();
       originalFieldThisLevel = std::move(splicedFieldThisLevel);
@@ -1724,44 +1724,44 @@ public:
    * @param type  Precision can be relative or absolute
    * @param tolerance Precision of the CG
    */
-  virtual void set_splice_accuracy(string type, double tolerance) {
+  virtual void setSpliceAccuracy(string type, double tolerance) {
     if (type == "absolute") {
-      splicing_cg_abs_tol = tolerance;
+      splicing_abs_tol = tolerance;
       logging::entry() << "Setting splicing CG absolute tolerance to " << tolerance << std::endl;
     } else if (type == "relative") {
-      splicing_cg_rel_tol = tolerance;
+      splicing_rel_tol = tolerance;
       logging::entry() << "Setting splicing CG relative tolerance to " << tolerance << std::endl;
     }
   }
 
-  virtual void splice_seedfourier_series() {
+  virtual void spliceSeedFourierSeries() {
     setSplicedSeedFourierSeries = true;
     spliceSeedingType = "fourier and series";
   }
 
-  virtual void splice_seedfourier_parallel() {
+  virtual void spliceSeedFourierParallel() {
     setSplicedSeedFourierParallel = true;
     spliceSeedingType = "fourier and parallel";
   }
 
-  virtual void restart_splice() {
+  virtual void restartSplice() {
     restart = true;
   }
 
-  virtual void set_splice_minimization(string set_minMethod) {
+  virtual void setSpliceMinimization(string set_minMethod) {
     minimization_method = set_minMethod;
   }
 
-  virtual void stop_splicing_after(double time_to_brake) {
-    brakeTime = time_to_brake;
+  virtual void stopSplicingAfter(double time_to_brake) {
+    brake_time = time_to_brake;
   }
 
-  virtual void splice_density(size_t newSeed) {
-    splice_with_factor(newSeed, 0);
+  virtual void spliceDensity(size_t newSeed) {
+    spliceWithFactor(newSeed, 0);
   }
 
-  virtual void splice_potential(size_t newSeed) {
-    splice_with_factor(newSeed, -2);
+  virtual void splicePotential(size_t newSeed) {
+    spliceWithFactor(newSeed, -2);
   }
 
   //! Reverses the sign of the low-k modes.

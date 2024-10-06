@@ -44,7 +44,7 @@ namespace modifications {
                                            const int k_factor=0,
                                            const std::string minimization_method="CG",
                                            const bool restart=false,
-                                           const double brakeTime=0
+                                           const double brake_time=0
   ) {
 
       // To understand the implementation below, first read Appendix A of Cadiou et al (2021),
@@ -115,7 +115,7 @@ namespace modifications {
       if (minimization_method == "CG") {
         alpha = tools::numerics::conjugateGradient<DataType>(X, z, rtol, atol);
       } else if (minimization_method == "MINRES") {
-        alpha = tools::numerics::minres<DataType>(X, z, rtol, atol, restart, brakeTime);
+        alpha = tools::numerics::minres<DataType>(X, z, rtol, atol, restart, brake_time);
       } else {
         throw std::runtime_error("Minimization method is invalid. Current implementations are CG and MINRES");
       }

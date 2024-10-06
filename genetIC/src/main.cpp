@@ -137,18 +137,18 @@ void setup_parser(tools::ClassDispatch<ICType, void> &dispatch) {
 
   dispatch.add_class_route("reverse", static_cast<void (ICType::*)()>(&ICType::reverse));
   dispatch.add_class_route("reverse_small_k", static_cast<void (ICType::*)(FloatType)>(&ICType::reverseSmallK));
-  dispatch.add_deprecated_class_route("splice_accuracy", "set_splice_accuracy", &ICType::set_splice_accuracy);
-  dispatch.add_class_route("set_splice_accuracy", &ICType::set_splice_accuracy);
-  dispatch.add_class_route("splice_seedfourier_parallel", &ICType::splice_seedfourier_parallel);
-  dispatch.add_class_route("splice_seedfourier_series", &ICType::splice_seedfourier_series);
-  dispatch.add_deprecated_class_route("set_minimization", "set_splice_minimization", &ICType::set_splice_minimization);
-  dispatch.add_class_route("set_splice_minimization", &ICType::set_splice_minimization);
-  dispatch.add_deprecated_class_route("splice", "splice_density", &ICType::splice_density);
-  dispatch.add_class_route("splice_density", &ICType::splice_density);
-  dispatch.add_class_route("splice_potential", &ICType::splice_potential);
+  dispatch.add_deprecated_class_route("splice_accuracy", "set_splice_accuracy", &ICType::setSpliceAccuracy);
+  dispatch.add_class_route("set_splice_accuracy", &ICType::setSpliceAccuracy);
+  dispatch.add_class_route("splice_seedfourier_parallel", &ICType::spliceSeedFourierParallel);
+  dispatch.add_class_route("splice_seedfourier_series", &ICType::spliceSeedFourierSeries);
+  dispatch.add_deprecated_class_route("set_minimization", "set_splice_minimization", &ICType::setSpliceMinimization);
+  dispatch.add_class_route("set_splice_minimization", &ICType::setSpliceMinimization);
+  dispatch.add_deprecated_class_route("splice", "splice_density", &ICType::spliceDensity);
+  dispatch.add_class_route("splice_density", &ICType::spliceDensity);
+  dispatch.add_class_route("splice_potential", &ICType::splicePotential);
 
-  dispatch.add_deprecated_class_route("stop_after", "stop_splicing_after", &ICType::stop_splicing_after);
-  dispatch.add_class_route("stop_splicing_after", &ICType::stop_splicing_after);
+  dispatch.add_deprecated_class_route("stop_after", "stop_splicing_after", &ICType::stopSplicingAfter);
+  dispatch.add_class_route("stop_splicing_after", &ICType::stopSplicingAfter);
   
   // Write objects to files
   // dispatch.add_class_route("dump_grid", &ICType::dumpGrid);
