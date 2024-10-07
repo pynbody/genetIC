@@ -1727,10 +1727,10 @@ public:
   virtual void setSpliceAccuracy(string type, double tolerance) {
     if (type == "absolute") {
       splicing_abs_tol = tolerance;
-      logging::entry() << "Setting splicing CG absolute tolerance to " << tolerance << std::endl;
+      logging::entry() << "Setting splicing " << minimization_method << " absolute tolerance to " << tolerance << std::endl;
     } else if (type == "relative") {
       splicing_rel_tol = tolerance;
-      logging::entry() << "Setting splicing CG relative tolerance to " << tolerance << std::endl;
+      logging::entry() << "Setting splicing " << minimization_method << " relative tolerance to " << tolerance << std::endl;
     }
   }
 
