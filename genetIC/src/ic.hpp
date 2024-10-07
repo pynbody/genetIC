@@ -63,7 +63,7 @@ protected:
   //! Vector of output fields (defaults to just a single field)
   std::vector<std::shared_ptr<fields::OutputField<GridDataType>>> outputFields;
   bool useBaryonTransferFunction{false}; //!< True if gas particles should use a different transfer function
-  modifications::ModificationManager<GridDataType> modificationManager; //!< Handles applying modificaitons to the various fields.
+  modifications::ModificationManager<GridDataType> modificationManager; //!< Handles applying modifications to the various fields.
   std::unique_ptr<fields::RandomFieldGenerator<GridDataType>> randomFieldGenerator; //!< Generate white noise for the output fields
   std::unique_ptr<cosmology::PowerSpectrum<GridDataType>> spectrum; //!< Transfer function data
 
@@ -159,6 +159,27 @@ protected:
   // of order of 1%. precision=0.1% is therefore sufficient and carries an acceptable numerical cost.
   int initial_number_steps = 10; //!< Number of steps always used by quadratic modifications.
   T precision = 0.001; //!< Target precision required of quadratic modifications.
+
+  //! Accuracy of the minimization method for splicing
+  T splicing_rel_tol = 1e-6;
+  T splicing_abs_tol = 1e-12;
+
+  //! Set the standard minimization method for splicing (CG or MINRES)
+  std::string minimization_method = "CG";
+
+  //! (does not work yet) Allows to continue minimizing a spliced field from a previous run
+  bool restart = false;
+
+  //! Using fourier parallel seeding for splicing
+  bool setSplicedSeedFourierParallel = false;
+  //! Using fourier series seeding for splicing
+  bool setSplicedSeedFourierSeries = false;
+  //! Using real seeding for splicing
+  std::string spliceSeedingType = "Real";
+
+  //! The brake time in hours, set to 0 by default. If set to a positive value, splicing will stop after the given time,
+  // if it has not yet met the minimization threshold.
+  double brake_time = 0;
 
   //! Mapper that keep track of particles in the mulit-level context.
   shared_ptr<particle::mapper::ParticleMapper<GridDataType>> pMapper = nullptr;
@@ -259,7 +280,7 @@ public:
     allowStrayParticles = true;
   }
 
-//!\brief Enables the use of a baryon density field.
+  //!\brief Enables the use of a baryon density field.
   //! If flagged on, the code will extract the transfer function for baryons from CAMB separately from
   //! the dark matter transfer. This causes twice as many fields to be stored and generated, but
   //! produces more accurate results for baryons than assuming they follow the same transfer function
@@ -712,11 +733,6 @@ public:
     usedGadgetParticleTypes[type]=true;
     this->updateParticleMapper();
   }
-
-
-
-
-
 
   //! \brief Obtain power spectrum from a CAMB data file
   /*!
@@ -1655,7 +1671,7 @@ public:
   }
 
   //! Splicing: fixes the flagged region, while reinitialising the exterior from a new random field
-  virtual void splice(size_t newSeed) {
+  virtual void spliceWithFactor(size_t newSeed, int k_factor=0) {
     initialiseRandomComponentIfUninitialised();
     if(outputFields.size()>1)
       throw std::runtime_error("Splicing is not yet implemented for the case of multiple transfer functions");
@@ -1673,17 +1689,85 @@ public:
 
     logging::entry() << "Constructing new random field for exterior of splice" << endl;
     newGenerator.seed(newSeed);
+    if(setSplicedSeedFourierParallel == true ||  setSplicedSeedFourierSeries == true) {
+      logging::entry() << "-!- Drawing splice seed in " << spliceSeedingType << " -!-" << endl;
+      newGenerator.setDrawInFourierSpace(true);
+      if(setSplicedSeedFourierParallel == true)
+        newGenerator.setParallel(true);
+      newGenerator.setReverseRandomDrawOrder(false);
+    }
     newGenerator.draw();
-    logging::entry() << "Finished constructing new random field. Beginning splice operation." << endl;
+    logging::entry() << "Finished constructing new random field" << endl;
+    logging::entry() << "Beginning splice operation using the " << minimization_method << " method." << endl;
 
     for(size_t level=0; level<multiLevelContext.getNumLevels(); ++level) {
       auto &originalFieldThisLevel = outputFields[0]->getFieldForLevel(level);
       auto &newFieldThisLevel = newField.getFieldForLevel(level);
-      auto splicedFieldThisLevel = modifications::spliceOneLevel(newFieldThisLevel, originalFieldThisLevel,
-                                                             *multiLevelContext.getCovariance(level, particle::species::all));
+      auto splicedFieldThisLevel = modifications::spliceOneLevel(
+        newFieldThisLevel,
+        originalFieldThisLevel,
+        *multiLevelContext.getCovariance(level, particle::species::all),
+        splicing_rel_tol,
+        splicing_abs_tol,
+        k_factor,
+        minimization_method,
+        restart,
+        brake_time
+      );
       splicedFieldThisLevel.toFourier();
       originalFieldThisLevel = std::move(splicedFieldThisLevel);
     }
+  }
+
+  //! Set the conjugate gradient precision for the splicing method
+  /*!
+   * @param type  Precision can be relative or absolute
+   * @param tolerance Precision of the CG
+   */
+  virtual void setSpliceAccuracy(string type, double tolerance) {
+    if (type == "absolute") {
+      splicing_abs_tol = tolerance;
+      logging::entry() << "Setting splicing " << minimization_method << " absolute tolerance to " << tolerance << std::endl;
+    } else if (type == "relative") {
+      splicing_rel_tol = tolerance;
+      logging::entry() << "Setting splicing " << minimization_method << " relative tolerance to " << tolerance << std::endl;
+    }
+  }
+
+  virtual void spliceSeedFourierSeries() {
+    setSplicedSeedFourierSeries = true;
+    spliceSeedingType = "fourier and series";
+  }
+
+  virtual void spliceSeedFourierParallel() {
+    setSplicedSeedFourierParallel = true;
+    spliceSeedingType = "fourier and parallel";
+  }
+
+  virtual void restartSplice() {
+    restart = true;
+  }
+
+  virtual void setSpliceMinimization(string set_minMethod) {
+    minimization_method = set_minMethod;
+  }
+
+  virtual void stopSplicingAfter(double time_to_brake) {
+    brake_time = time_to_brake;
+  }
+
+  virtual void spliceDensity(size_t newSeed) {
+    spliceWithFactor(newSeed, 0);
+  }
+
+  virtual void splicePotential(size_t newSeed) {
+    #ifdef ZELDOVICH_GRADIENT_FOURIER_SPACE
+      logging::entry(logging::level::warning) << "WARNING: You are splicing the potential field with ZELDOVICH_GRADIENT_FOURIER_SPACE." << std::endl;
+      logging::entry(logging::level::warning) << "         Due to non-locality, the density field may not exactly match within the" << std::endl;
+      logging::entry(logging::level::warning) << "         spliced region. Consider recompiling with ZELDOVICH_GRADIENT_FOURIER_SPACE" << std::endl;
+      logging::entry(logging::level::warning) << "         disabled if precise density field matching is important to you." << std::endl;
+    #endif
+    spliceWithFactor(newSeed, -2);
   }
 
   //! Reverses the sign of the low-k modes.

@@ -4,6 +4,7 @@
 #include <complex>
 #include <src/tools/data_types/complex.hpp>
 #include <src/tools/numerics/cg.hpp>
+#include <src/tools/numerics/minres.hpp>
 
 namespace modifications {
   template<typename T>
@@ -37,7 +38,14 @@ namespace modifications {
   template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
   fields::Field<DataType,T> spliceOneLevel(fields::Field<DataType,T> & a,
                                            fields::Field<DataType,T> & b,
-                                           const fields::Field<DataType,T> & cov) {
+                                           const fields::Field<DataType,T> & cov,
+                                           const double rtol,
+                                           const double atol,
+                                           const int k_factor=0,
+                                           const std::string minimization_method="CG",
+                                           const bool restart=false,
+                                           const double brake_time=0
+  ) {
 
       // To understand the implementation below, first read Appendix A of Cadiou et al (2021),
       // and/or look at the 1D toy implementation (in tools/toy_implementation/gene_splicing.ipynb) which
@@ -55,7 +63,19 @@ namespace modifications {
       // We however set the fundamental of the power spectrum to a non-null value,
       // otherwise, the mean value in the spliced region is unconstrained.
       fields::Field<DataType,T> preconditioner(cov);
+
       preconditioner.setFourierCoefficient(0, 0, 0, 1);
+      if (k_factor != 0) {
+        auto divide_by_k = [k_factor](std::complex<DataType> val, DataType kx, DataType ky, DataType kz){
+          DataType k2 = kx * kx + ky * ky + kz * kz;
+          if (k2 == 0 && k_factor < 0) {
+            return std::complex<DataType>(0, 0);
+          } else {
+            return val * DataType(pow(k2, k_factor));
+          }
+        };
+        preconditioner.forEachFourierCell(divide_by_k);
+      }
 
       fields::Field<DataType,T> delta_diff = b-a;
       delta_diff.applyTransferFunction(preconditioner, 0.5);
@@ -91,8 +111,14 @@ namespace modifications {
         return v;
       };
 
-
-      fields::Field<DataType,T> alpha = tools::numerics::conjugateGradient<DataType>(X,z);
+      fields::Field<DataType,T> alpha(z);
+      if (minimization_method == "CG") {
+        alpha = tools::numerics::conjugateGradient<DataType>(X, z, rtol, atol);
+      } else if (minimization_method == "MINRES") {
+        alpha = tools::numerics::minres<DataType>(X, z, rtol, atol, restart, brake_time);
+      } else {
+        throw std::runtime_error("Minimization method is invalid. Current implementations are CG and MINRES");
+      }
 
       alpha.toFourier();
       alpha.applyTransferFunction(preconditioner, 0.5);

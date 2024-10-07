@@ -361,6 +361,19 @@ namespace fields {
       }
     }
 
+    //! Single grid maximum. Only implemented for real space
+    auto maximum() const {
+      assert(!isFourier());
+
+      tools::datatypes::strip_complex<DataType> max=0;
+      size_t N = data.size();
+      
+      for(size_t i=0; i<N; i++) {
+        max = std::max(max, std::abs(data[i]));
+      }
+      return max;
+    }
+
     //! Single grid inner product. Only implemented for real space.
     auto innerProduct(const Field<DataType, CoordinateType> & other) const {
       assert(!other.isFourier());

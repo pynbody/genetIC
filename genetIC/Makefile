@@ -8,7 +8,7 @@ CFLAGS ?= -Wall -g -lpthread -O3 -fopenmp -std=c++17 -fdiagnostics-color=auto -I
 # -DVELOCITY_MODIFICATION_GRADIENT_FOURIER_SPACE: As the name suggests, use "ik" as the gradient operator; otherwise
 #    uses a fourth order stencil in real space. Enabling this is essential if you disable CUBIC_INTERPOLATION.
 # -DZELDOVICH_GRADIENT_FOURIER_SPACE: Same as VELOCITY_MODIFICATION_GRADIENT_FOURIER_SPACE, but for computing the
-#    Zeldovich displacement field.
+#    Zeldovich displacement field. Should be commented out if splicing the potential.
 # -DFRACTIONAL_K_SPLIT: This defines the characteristic k0 of the filter used to split information between zoom levels,
 #    defined by k0 = k_nyquist * FRACTIONAL_K_SPLIT, where k_nyquist is the Nyquist frequency of the lower-resolution grid.
 #    Higher values correlate the zoom grids more precisely with the unzoomed base grids, but at the cost of errors
@@ -20,6 +20,7 @@ CFLAGS ?= -Wall -g -lpthread -O3 -fopenmp -std=c++17 -fdiagnostics-color=auto -I
 # -DFILTER_ON_COARSE_GRID: When moving long wavelength information onto a zoom grid, filters on the base grid
 #    and then interpolates into the zoom, rather than the default which is to interpolate and then filter.
 
+# Comment out -DZELDOVICH_GRADIENT_FOURIER_SPACE for potential splicing
 CODEOPTIONS  = -DDOUBLEPRECISION -DOUTPUT_IN_DOUBLEPRECISION -DCUBIC_INTERPOLATION -DFRACTIONAL_K_SPLIT=0.3 -DFRACTIONAL_FILTER_TEMPERATURE=0.1 -DFILTER_ON_COARSE_GRID -DZELDOVICH_GRADIENT_FOURIER_SPACE
 CPATH ?= /opt/local/include/
 LPATH ?= /opt/local/lib
@@ -68,6 +69,14 @@ ifeq ($(USE_CUFFT), 1)
 	CFLAGS=-O3 -I`pwd` -I`pwd`/HighFive/include -Xcompiler="-O3 -fopenmp -std=c++14 -Wall"
 	CXX=nvcc
 endif
+
+ifeq ($(HOST3), Ana)
+	CXX = /opt/homebrew/bin/c++-14
+	CPATH = /opt/homebrew/include/
+	LPATH = /opt/homebrew/lib
+	CFLAGS = -O3 -fopenmp -std=c++14 -fdiagnostics-color=auto -I`pwd` -DOPENMP -DDOUBLEPRECISION
+endif
+
 ifeq ($(HOST3), pfe)
 	CXX = /nasa/pkgsrc/2016Q2/gcc5/bin/g++
 	CPATH = /u/apontzen/genetIC/genetIC:/nasa/gsl/1.14/include/:/nasa/intel/Compiler/2016.2.181/compilers_and_libraries_2016.2.181/linux/mkl/include/fftw

@@ -137,16 +137,26 @@ void setup_parser(tools::ClassDispatch<ICType, void> &dispatch) {
 
   dispatch.add_class_route("reverse", static_cast<void (ICType::*)()>(&ICType::reverse));
   dispatch.add_class_route("reverse_small_k", static_cast<void (ICType::*)(FloatType)>(&ICType::reverseSmallK));
-  dispatch.add_class_route("splice", &ICType::splice);
+  dispatch.add_deprecated_class_route("splice_accuracy", "set_splice_accuracy", &ICType::setSpliceAccuracy);
+  dispatch.add_class_route("set_splice_accuracy", &ICType::setSpliceAccuracy);
+  dispatch.add_class_route("splice_seedfourier_parallel", &ICType::spliceSeedFourierParallel);
+  dispatch.add_class_route("splice_seedfourier_series", &ICType::spliceSeedFourierSeries);
+  dispatch.add_deprecated_class_route("set_minimization", "set_splice_minimization", &ICType::setSpliceMinimization);
+  dispatch.add_class_route("set_splice_minimization", &ICType::setSpliceMinimization);
+  dispatch.add_deprecated_class_route("splice", "splice_density", &ICType::spliceDensity);
+  dispatch.add_class_route("splice_density", &ICType::spliceDensity);
+  dispatch.add_class_route("splice_potential", &ICType::splicePotential);
 
+  dispatch.add_deprecated_class_route("stop_after", "stop_splicing_after", &ICType::stopSplicingAfter);
+  dispatch.add_class_route("stop_splicing_after", &ICType::stopSplicingAfter);
+  
   // Write objects to files
   // dispatch.add_class_route("dump_grid", &ICType::dumpGrid);
   dispatch.add_class_route("dump_grid", static_cast<void (ICType::*)(size_t)>(&ICType::dumpGrid));
   dispatch.add_class_route("dump_vx", static_cast<void (ICType::*)(size_t)>(&ICType::dumpVelocityX));
   dispatch.add_class_route("dump_grid_for_field", static_cast<void (ICType::*)(size_t, particle::species)>(&ICType::dumpGrid));
   dispatch.add_class_route("dump_grid_fourier", static_cast<void (ICType::*)(size_t)>(&ICType::dumpGridFourier));
-  dispatch.add_class_route("dump_grid_fourier_for_field",
-                           static_cast<void (ICType::*)(size_t, particle::species)>(&ICType::dumpGridFourier));
+  dispatch.add_class_route("dump_grid_fourier_for_field", static_cast<void (ICType::*)(size_t, particle::species)>(&ICType::dumpGridFourier));
   dispatch.add_class_route("dump_ps", static_cast<void (ICType::*)(size_t)>(&ICType::dumpPS));
   dispatch.add_class_route("dump_ps_field", static_cast<void (ICType::*)(size_t, particle::species)>(&ICType::dumpPS));
   dispatch.add_class_route("dump_tipsy", static_cast<void (ICType::*)(std::string)>(&ICType::saveTipsyArray));
