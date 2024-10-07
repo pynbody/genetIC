@@ -1762,7 +1762,10 @@ public:
 
   virtual void splicePotential(size_t newSeed) {
     #ifdef ZELDOVICH_GRADIENT_FOURIER_SPACE
-      logging::entry(logging::level::warning) << "WARNING: The code was compiled with the 'ZELDOVICH_GRADIENT_FOURIER_SPACE' flag activated, but the potential field is being spliced." << std::endl;
+      logging::entry(logging::level::warning) << "WARNING: You are splicing the potential field with ZELDOVICH_GRADIENT_FOURIER_SPACE." << std::endl;
+      logging::entry(logging::level::warning) << "         Due to non-locality, the density field may not exactly match within the" << std::endl;
+      logging::entry(logging::level::warning) << "         spliced region. Consider recompiling with ZELDOVICH_GRADIENT_FOURIER_SPACE" << std::endl;
+      logging::entry(logging::level::warning) << "         disabled if precise density field matching is important to you." << std::endl;
     #endif
     spliceWithFactor(newSeed, -2);
   }
