@@ -20,7 +20,5 @@ mapper_relative_to ../mapper_test_01a_zoom/unzoomed_paramfile.txt
 IDfile ../mapper_test_01a_zoom/zoomtest.txt
 zoomgrid 3 64
 
-idfile test_ids.txt
-dump_idfile output.txt
 
 done

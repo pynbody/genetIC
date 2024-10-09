@@ -1,0 +1,33 @@
+# Test that the output mapper, not the input mapper, is used by the mapper tool
+#
+# This also tests a case of taking a single particle in a gadget file and mapping
+# it to grafic grids. Because grafic grids don't specify which zoom level will
+# actually be used, this generates flags on *all* levels. Moreover because
+# of the use of subsampling, there is a strange effect that one ends up with
+# 2^3=8 cells flagged on the 128^3 intermediate res level.
+
+
+
+Om  0.279
+Ol  0.721
+Ob  0.04
+s8  0.817
+zin	99
+random_seed_real_space	8896131
+camb	../camb_transfer_kmax40_z0.dat
+
+outdir	 ./
+outname mappertest
+outformat gadget3
+subsample 2
+
+basegrid 50.0 64
+
+centre 25 25 25
+select_sphere 3
+zoomgrid 4 64
+
+# leave an input mapper set up, that the mapping tool should ignore 
+mapper_relative_to ../mapper_test_02a_grafic/paramfile.txt
+
+done

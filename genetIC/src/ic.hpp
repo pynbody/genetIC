@@ -33,11 +33,15 @@
 #include "simulation/particles/mapper/graficmapper.hpp"
 #include "simulation/particles/offsetgenerator.hpp"
 #include "tools/logging.hpp"
+#include "dummyic.hpp"
 
 using namespace std;
 
-template<typename T>
-class DummyICGenerator;
+
+namespace dummyic {
+  template<typename T>
+  class DummyICGenerator;
+}
 
 
 /*!
@@ -55,7 +59,7 @@ protected:
 
   using GridPtrType = std::shared_ptr<grids::Grid<T>>;
 
-  friend class DummyICGenerator<GridDataType>;
+  friend class dummyic::DummyICGenerator<GridDataType>;
 
   cosmology::CosmologicalParameters<T> cosmology; //!< Cosmological parameters
   multilevelgrid::MultiLevelGrid<GridDataType> multiLevelContext; //!< Class to keep track of the multi-level context of the simulation
@@ -172,15 +176,12 @@ protected:
 
   using FieldType = fields::Field<GridDataType>;
 
-  tools::ClassDispatch<ICGenerator<GridDataType>, void> &interpreter; //!< Parser for parameter files
-
 
 public:
   //! \brief Main constructor for this class.
   //! Requires a single interpreter to initialise, from which it will receive input commands.
-  ICGenerator(tools::ClassDispatch<ICGenerator<GridDataType>, void> &interpreter) :
-    modificationManager(multiLevelContext, cosmology, nullptr),
-    interpreter(interpreter) {
+  ICGenerator() :
+    modificationManager(multiLevelContext, cosmology, nullptr) {
 
     // By default, we assume there is only one field - at first this will contain white noise:
     outputFields.push_back(
@@ -1079,37 +1080,30 @@ public:
     if (multiLevelContext.getNumLevels() == 0)
       throw std::runtime_error("Mapper relative command cannot be used before a basegrid has been initialised.");
 
-
-    DummyICGenerator<GridDataType> pseudoICs(this);
-    auto dispatch = interpreter.specify_instance(pseudoICs);
-    ifstream inf;
-    inf.open(fname);
-
-
-    if (!inf.is_open())
-      throw std::runtime_error("Cannot open IC paramfile for relative_to command");
-    logging::entry() << endl;
-    logging::entry() << "+ Input mapper: computing geometry from " << fname << endl;
+    logging::entry() << std::endl;
+    logging::entry() << "+ Input mapper: computing geometry from " << fname << std::endl;
+    dummyic::DummyICGenerator<GridDataType> dummyICGenerator(this);
     {
-      tools::ChangeCwdWhileInScope temporary(tools::getDirectoryName(fname));
       logging::IndentWhileInScope temporaryIndent;
-      logging::entry() << endl;
-      dispatch.run_loop(inf);
+      logging::entry() << std::endl;
+      runInterpreter<ICGenerator<GridDataType>>(dummyICGenerator, fname);
     }
-    logging::entry() << endl;
-
-
-#ifdef DEBUG_INFO
-    logging::entry() << endl;
-    logging::entry() << "Input mapper retrieved:" << endl;
-    logging::entry() << *(pseudoICs.pMapper);
-    logging::entry() << endl;
-#endif
-
-
-    pInputMapper = pseudoICs.pMapper;
+    pInputMapper = dummyICGenerator.pMapper;
     pInputMultiLevelContext = std::make_shared<multilevelgrid::MultiLevelGrid<GridDataType>>
-      (pseudoICs.multiLevelContext);
+      (dummyICGenerator.multiLevelContext);
+    logging::entry() << std::endl;
+#ifdef DEBUG_INFO
+    logging::entry() << std::endl;
+    logging::entry() << "Input mapper retrieved:" << std::endl;
+    logging::entry() << *pInputMapper;
+    logging::entry() << std::endl;
+#endif
+  }
+
+  //! Removes any input mapper that has been set up.
+  void clearInputMapper() {
+    pInputMapper.reset();
+    pInputMultiLevelContext.reset();
   }
 
   /*! \brief Get the grid on which the output is defined for a particular level.
@@ -1258,6 +1252,16 @@ public:
     } else {
       pMapper->flagParticles(flaggedParticles);
     }
+  }
+
+  //! \brief Flag cells which are not explicitly referenced in the current mapper, but which are refinements of currently flagged cells
+  void propagateFlagsToRefinedCells(multilevelgrid::MultiLevelGrid<GridDataType> & otherContext) {
+    pMapper->extendParticleListToUnreferencedGrids(otherContext);
+  }
+
+  //! \brief Get the multi-level-grid context for this IC generator
+  multilevelgrid::MultiLevelGrid<GridDataType> & getMultiLevelContext() {
+    return multiLevelContext;
   }
 
   //! \brief Set the number of neighbours to use for smoothing

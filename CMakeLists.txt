@@ -5,7 +5,7 @@ project(IC)
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/genetIC)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -g ")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++20 -g ")
 
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O0 -DOPENMP -fopenmp -DDEBUG_INFO")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -fopenmp -O3 -DOPENMP")
@@ -24,7 +24,6 @@ set(SOURCE_FILES
         genetIC/src/io/gadgethdf.hpp
         genetIC/src/io/input.hpp
         genetIC/src/io/tipsy.hpp
-        genetIC/src/main.cpp
         genetIC/src/simulation/coordinate.hpp
         genetIC/src/cosmology/camb.hpp
         genetIC/src/simulation/particles/mapper/mapper.hpp
@@ -64,7 +63,9 @@ set(SOURCE_FILES
         genetIC/src/simulation/multilevelgrid/mask.hpp
         genetIC/src/tools/memmap.hpp
         genetIC/src/tools/numerics/tricubic.hpp genetIC/src/tools/logging.hpp genetIC/src/tools/logging.cpp genetIC/src/simulation/modifications/splice.hpp genetIC/src/tools/lru_cache.hpp
-        genetIC/src/io/swift.hpp)
+        genetIC/src/io/swift.hpp
+        genetIC/src/bindings.hpp
+)
 
 include_directories(/opt/homebrew/include)
 link_directories(/opt/homebrew/lib)
@@ -123,4 +124,5 @@ add_definitions(-DCUBIC_INTERPOLATION
         -DZELDOVICH_GRADIENT_FOURIER_SPACE
         )
 add_compile_options(-Wextra)
-add_executable(genetIC ${SOURCE_FILES})
+add_executable(genetIC ${SOURCE_FILES} genetIC/src/main.cpp)
+add_executable(genetIC_mapper ${SOURCE_FILES} genetIC/src/main_mapper.cpp)

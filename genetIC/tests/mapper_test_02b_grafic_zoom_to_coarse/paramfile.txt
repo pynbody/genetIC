@@ -20,7 +20,4 @@ centre 25 25 25
 select_sphere 3
 zoomgrid 4 64
 
-idfile test_ids.txt
-dump_idfile output.txt
-
 done
