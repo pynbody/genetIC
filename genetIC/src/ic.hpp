@@ -1680,14 +1680,16 @@ public:
     newGenerator.draw();
     logging::entry() << "Finished constructing new random field. Beginning splice operation." << endl;
 
-    for(size_t level=0; level<multiLevelContext.getNumLevels(); ++level) {
-      auto &originalFieldThisLevel = outputFields[0]->getFieldForLevel(level);
-      auto &newFieldThisLevel = newField.getFieldForLevel(level);
-      auto splicedFieldThisLevel = modifications::spliceOneLevel(newFieldThisLevel, originalFieldThisLevel,
-                                                             *multiLevelContext.getCovariance(level, particle::species::all));
-      splicedFieldThisLevel.toFourier();
-      originalFieldThisLevel = std::move(splicedFieldThisLevel);
-    }
+    modifications::splice(newField, *(outputFields[0]));
+
+    // for(size_t level=0; level<multiLevelContext.getNumLevels(); ++level) {
+    //   auto &originalFieldThisLevel = outputFields[0]->getFieldForLevel(level);
+    //   auto &newFieldThisLevel = newField.getFieldForLevel(level);
+    //   auto splicedFieldThisLevel = modifications::spliceOneLevel(newFieldThisLevel, originalFieldThisLevel,
+    //                                                          *multiLevelContext.getCovariance(level, particle::species::all));
+    //   splicedFieldThisLevel.toFourier();
+    //   originalFieldThisLevel = std::move(splicedFieldThisLevel);
+    // }
   }
 
   //! Reverses the sign of the low-k modes.

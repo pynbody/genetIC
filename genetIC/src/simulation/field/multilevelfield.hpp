@@ -168,6 +168,11 @@ namespace fields {
       addScaled(other, 1.0);
     }
 
+    //! Subtracts the specified multi-level field to this one.
+    void operator-=(const MultiLevelField<DataType> &other) {
+      addScaled(other, -1.0);
+    }
+
     //! Divides the field by the specified ratio.
     void operator/=(DataType ratio) {
       using namespace tools::numerics;
@@ -175,6 +180,15 @@ namespace fields {
       for (size_t level = 0; level < getNumLevels(); level++) {
         auto &data = getFieldForLevel(level).getDataVector();
         data /= ratio;
+      }
+    }
+
+    void operator*=(DataType val) {
+      using namespace tools::numerics;
+
+      for (size_t level = 0; level < getNumLevels(); level++) {
+        auto &data = getFieldForLevel(level).getDataVector();
+        data *= val;
       }
     }
 
@@ -193,19 +207,17 @@ namespace fields {
     //! Add a scaled multilevel field to the current one
     void addScaled(const MultiLevelField &other, DataType scale) {
       assertContextConsistent();
-      assert(other.isFourierOnAllLevels());
+      if (other.isFourierOnAllLevels()) toFourier();
+      else if (other.isRealOnAllLevels()) toReal();
+      else throw std::runtime_error("Incompatible field types");
+      
       assert (isCompatible(other));
-      toFourier();
 
       for (size_t level = 0; level < getNumLevels(); level++) {
         if (hasFieldForLevel(level) && other.hasFieldForLevel(level)) {
           Field<DataType> &fieldThis = getFieldForLevel(level);
           const Field<DataType> &fieldOther = other.getFieldForLevel(level);
-          T kMin = fieldThis.getGrid().getFourierKmin();
-          fieldThis.forEachFourierCellInt([&fieldOther, kMin, scale]
-                                            (ComplexType currentVal, int kx, int ky, int kz) {
-            return currentVal + scale * fieldOther.getFourierCoefficient(kx, ky, kz);
-          });
+          fieldThis.addScaled(fieldOther, scale);
         }
       }
 

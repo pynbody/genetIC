@@ -9,45 +9,69 @@
 namespace tools {
   namespace numerics {
 
+    template<typename T>
+    T innerProduct(fields::OutputField<T> &a, fields::OutputField<T> &b) {
+      T result = 0;
+      for (auto ilevel = 0; ilevel < a.getNumLevels(); ++ilevel) {
+        auto& left = a.getFieldForLevel(ilevel);
+        auto& right = b.getFieldForLevel(ilevel);
+        result += left.innerProduct(right);
+      }
+      return result;
+    }
+
+    template<typename T>
+    double norm(fields::OutputField<T> &a) {
+      return std::sqrt(innerProduct(a, a));
+    }
+
     //! Solve linear equation Qx = b, and return x, using conjugate gradient
     template<typename T>
-    fields::Field<T> conjugateGradient(std::function<fields::Field<T>(const fields::Field<T> &)> Q,
-                                       const fields::Field<T> &b,
+    fields::OutputField<T> conjugateGradient(std::function<fields::OutputField<T>(const fields::OutputField<T> &)> Q,
+                                       const fields::OutputField<T> &b,
                                        double rtol = 1e-6,
                                        double atol = 1e-12) {
-      fields::Field<T> residual(b);
-      fields::Field<T> direction = -residual;
-      fields::Field<T> x = fields::Field<T>(b.getGrid(), false);
+      fields::OutputField<T> residual(b);
+      fields::OutputField<T> direction(residual);
+      direction *= -1;
+      fields::OutputField<T> x = fields::OutputField<T>(b.getContext(), b.getTransferType());
+      x.getFieldForLevel(0); // trigger allocation
 
-      double scale = b.norm();
+      double scale = norm(residual);
 
       if(scale==0.0) {
         logging::entry(logging::warning) << "Conjugate gradient: result is zero!" << std::endl;
         return x;
       }
 
-      size_t dimension = b.getGrid().size3;
+      size_t dimension = 0;
+      for (auto ilevel = 0; ilevel < b.getNumLevels(); ++ilevel) {
+        const auto ctxt = residual.getContext();
+        dimension += ctxt.getGridForLevel(ilevel).size3;
+      }
 
       size_t i;
 
       for(i=0; i<dimension+1; ++i) {
 
-        fields::Field<T> Q_direction = Q(direction);
+        auto Q_direction = Q(direction);
+  
         // distance to travel in specified direction
-        double alpha = -residual.innerProduct(direction) / direction.innerProduct(Q_direction);
+        double alpha = -innerProduct(residual, direction) / innerProduct(direction, Q_direction);
+
         x.addScaled(direction, alpha);
 
         residual = Q(x);
         residual -= b;
 
-        auto norm = residual.norm();
-        if (norm < rtol * scale || norm < atol)
+        auto res_norm = norm(residual);
+        if (res_norm < rtol * scale || res_norm < atol)
           break;
 
-        logging::entry() << "Conjugate gradient iteration " << i << " residual=" << norm << std::endl;
+        logging::entry() << "Conjugate gradient iteration " << i << " residual=" << res_norm << std::endl;
 
         // update direction for next cycle; must be Q-orthogonal to all previous updates
-        double beta = residual.innerProduct(Q_direction) / direction.innerProduct(Q_direction);
+        double beta = innerProduct(residual, Q_direction) / innerProduct(direction, Q_direction);
         direction*=beta;
         direction-=residual;
 
