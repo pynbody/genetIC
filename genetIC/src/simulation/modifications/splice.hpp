@@ -44,6 +44,8 @@ namespace modifications {
     auto filters = inputs.getFilters();
     int Nlevel = inputs.getNumLevels();
 
+    const auto& multiLevelContext = outputs.getContext();
+
     assert (inputs.isRealOnAllLevels());
 
     for (size_t level=0; level<Nlevel; ++level) {
@@ -54,41 +56,42 @@ namespace modifications {
       out->applyTransferFunction(covs[level], 0.5);
       out->toReal();
 
-      // if (level < Nlevel - 1) {
-      //   auto window = multiLevelContext.getGridForLevel(level+1).getWindow();
-      //   out->applyFilterInWindow(f, window, true);
-      // }
-      // else
-      //   out->applyFilter(f);
+      if (level < Nlevel - 1) {
+        auto window = multiLevelContext.getGridForLevel(level+1).getWindow();
+        out->applyFilterInWindow(f, window, true);
+      }
+      else
+        out->applyFilter(f);
 
-      // for (size_t source_level = 0; source_level < Nlevel; ++source_level) {
-      //   if (source_level == level)
-      //     continue; // handled above
+      for (size_t source_level = 0; source_level < Nlevel; ++source_level) {
+        if (source_level == level)
+          continue; // handled above
 
-      //   fields::Field<DataType, T> source_field(inputCopy.getFieldForLevel(source_level));
-      //   T pixel_volume_ratio = multiLevelContext.getWeightForLevel(level) /
-      //                          multiLevelContext.getWeightForLevel(source_level);
+        auto source_field = inputs.getFieldForLevel(source_level).copy();
+        T pixel_volume_ratio = multiLevelContext.getWeightForLevel(level) /
+                               multiLevelContext.getWeightForLevel(source_level);
 
-      //   auto &source_level_filter = filters.getFilterForLevel(source_level);
-      //   source_field.toReal();
-      //   out.addFieldFromDifferentGridWithFilter(
-      //     source_field,
-      //     f * source_level_filter * sqrt(pixel_volume_ratio)
-      //   );
-      // }
+        auto &source_level_filter = filters.getFilterForLevel(source_level);
+        source_field->toReal();
+        out->addFieldFromDifferentGridWithFilter(
+          *source_field,
+          f * source_level_filter * sqrt(pixel_volume_ratio)
+        );
+      }
 
       // Apply operator
       op(level, *out);
 
-      // // Apply transfer function
-      // if (level < Nlevel - 1) {
-      //   auto window = multiLevelContext.getGridForLevel(level+1).getWindow();
-      //   out->applyFilterInWindow(f, window, false);
-      // }
-      // else {
-      //   out->toFourier();
-      //   out->applyFilter(f);
-      // }
+      // Apply transfer function
+      if (level < Nlevel - 1) {
+        auto window = multiLevelContext.getGridForLevel(level+1).getWindow();
+        out->applyFilterInWindow(f, window, false);
+      }
+      else {
+        out->toFourier();
+        out->applyFilter(f);
+      }
+
       out->toFourier();
       out->applyTransferFunction(covs[level], 0.5);
       out->toReal();
