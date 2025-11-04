@@ -581,6 +581,14 @@ namespace fields {
     }
 
 
+    //! Returns a constant reference to the field on the specified grid, assuming it has been populated.
+    const Field<DataType, T> &getFieldForLevel(size_t i) const override {
+      this->assertContextConsistent();
+      assert(i < this->fieldsOnLevels.size());
+
+      return *(this->fieldsOnLevels[i]);
+    }
+
   };
 
 

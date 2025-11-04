@@ -33,28 +33,89 @@ namespace modifications {
     return mask;
   }
 
+  // Compute the operator that applies T^+ ... T *at all levels*
+  template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
+  fields::OutputField<DataType> T_op_T (
+      const fields::OutputField<DataType> &inputs,
+      const std::vector<fields::Field<DataType, T>> &covs,
+      const std::function<void(const int, fields::Field<DataType, T> &)> op
+  ) {
+    fields::OutputField<DataType> outputs(inputs);
+    auto filters = inputs.getFilters();
+    int Nlevel = inputs.getNumLevels();
+
+    assert (inputs.isRealOnAllLevels());
+
+    for (size_t level=0; level<Nlevel; ++level) {
+      auto out = inputs.getFieldForLevel(level).copy();
+      auto &f = filters.getFilterForLevel(level);
+
+      out->toFourier();
+      out->applyTransferFunction(covs[level], 0.5);
+      out->toReal();
+
+      // if (level < Nlevel - 1) {
+      //   auto window = multiLevelContext.getGridForLevel(level+1).getWindow();
+      //   out->applyFilterInWindow(f, window, true);
+      // }
+      // else
+      //   out->applyFilter(f);
+
+      // for (size_t source_level = 0; source_level < Nlevel; ++source_level) {
+      //   if (source_level == level)
+      //     continue; // handled above
+
+      //   fields::Field<DataType, T> source_field(inputCopy.getFieldForLevel(source_level));
+      //   T pixel_volume_ratio = multiLevelContext.getWeightForLevel(level) /
+      //                          multiLevelContext.getWeightForLevel(source_level);
+
+      //   auto &source_level_filter = filters.getFilterForLevel(source_level);
+      //   source_field.toReal();
+      //   out.addFieldFromDifferentGridWithFilter(
+      //     source_field,
+      //     f * source_level_filter * sqrt(pixel_volume_ratio)
+      //   );
+      // }
+
+      // Apply operator
+      op(level, *out);
+
+      // // Apply transfer function
+      // if (level < Nlevel - 1) {
+      //   auto window = multiLevelContext.getGridForLevel(level+1).getWindow();
+      //   out->applyFilterInWindow(f, window, false);
+      // }
+      // else {
+      //   out->toFourier();
+      //   out->applyFilter(f);
+      // }
+      out->toFourier();
+      out->applyTransferFunction(covs[level], 0.5);
+      out->toReal();
+
+      outputs.getFieldForLevel(level) = std::move(*out);
+    }
+    outputs.toReal();
+    return outputs;
+  };
+
   template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
   fields::OutputField<DataType> Mbar_Cm1_Mbar(
     const fields::OutputField<DataType> & inputs,
     const auto& covs, const auto& masks, const auto& masksCompl, size_t Nlevel
   ) {
-    auto outputs = inputs;
-    // outputs = T_op_T(outputs, [&](const int level, fields::Field<DataType,T> & input) {
-    for (size_t level = 0; level < Nlevel; ++level) {
-      auto & input = outputs.getFieldForLevel(level);
-      input.toFourier();
-      input.applyTransferFunction(covs[level], 0.5);
+    auto outputs = T_op_T<DataType, T>(
+      inputs,
+      covs,
+      [&](const int level, fields::Field<DataType,T> & input) -> void
+    {
       input.toReal();
       input *= masksCompl[level];
       input.toFourier();
       input.applyTransferFunction(covs[level], -1.0);
       input.toReal();
       input *= masksCompl[level];
-      input.toFourier();
-      input.applyTransferFunction(covs[level], 0.5);
-      input.toReal();
-    }
-    // });
+    });
     outputs.toReal();
     return outputs;
   }
@@ -64,23 +125,17 @@ namespace modifications {
     const fields::OutputField<DataType> & inputs,
     const auto& covs, const auto& masks, const auto& masksCompl, size_t Nlevel
   ) {
-    auto outputs = inputs;
-    // outputs = T_op_T(outputs, [&](const int level, fields::Field<DataType,T> & input) {
-    for (size_t level = 0; level < Nlevel; ++level) {
-      auto & input = outputs.getFieldForLevel(level);
-      input.toFourier();
-      input.applyTransferFunction(covs[level], 0.5);
+    auto outputs = T_op_T<DataType, T>(
+      inputs, covs,
+      [&](const int level, fields::Field<DataType,T> & input) -> void
+    {
       input.toReal();
       input *= masks[level];
       input.toFourier();
       input.applyTransferFunction(covs[level], -1.0);
       input.toReal();
       input *= masksCompl[level];
-      input.toFourier();
-      input.applyTransferFunction(covs[level], 0.5);
-      input.toReal();
-    // });
-    }
+    });
     outputs.toReal();
     return outputs;
   };
@@ -88,8 +143,6 @@ namespace modifications {
   template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
   fields::OutputField<DataType> splice(fields::OutputField<DataType> & a,
                                        fields::OutputField<DataType> & b) {
-
-      auto filters = a.getFilters();
 
       assert (a.getTransferType() == particle::species::whitenoise);
       assert (b.getTransferType() == particle::species::whitenoise);
@@ -115,8 +168,8 @@ namespace modifications {
         masksCompl.push_back(generateMaskComplementFromFlags(ctxt.getGridForLevel(level)));
       }
 
-      a.toFourier();
-      b.toFourier();
+      a.toReal();
+      b.toReal();
 
       fields::OutputField<T> delta(b);
       delta -= a;
