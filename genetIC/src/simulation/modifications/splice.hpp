@@ -66,7 +66,7 @@ namespace modifications {
       const auto &f = filters.getFilterForLevel(level);
       if (level < Nlevel - 1) {
         auto window = multiLevelContext.getGridForLevel(level+1).getWindow();
-        field.applyFilterInWindow(f, window, true);
+        field.applyFilterInWindow(f, window, false);
       } else {
         field.toFourier();
         field.applyFilter(f);
@@ -116,7 +116,7 @@ namespace modifications {
       const auto &f = filters.getFilterForLevel(level);
       if (level < Nlevel - 1) {
         auto window = multiLevelContext.getGridForLevel(level+1).getWindow();
-        field.applyFilterInWindow(f, window, false);
+        field.applyFilterInWindow(f, window, true);
       } else {
         field.toFourier();
         field.applyFilter(f);
@@ -174,6 +174,45 @@ namespace modifications {
   };
 
   template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
+  fields::OutputField<DataType> combine(
+    const fields::OutputField<DataType> &a,
+    const std::vector<fields::Field<DataType, T>> &covs
+  ) {
+    fields::OutputField<DataType> inputs(a);
+    const auto& multiLevelContext = inputs.getContext();
+    auto filters = a.getFilters();
+    int Nlevel = a.getNumLevels();
+
+    for (size_t level=0; level<Nlevel; ++level) {
+      auto& field = inputs.getFieldForLevel(level);
+      const auto &f = filters.getFilterForLevel(level);
+      field.toFourier();
+      field.applyTransferFunction(covs[level], 0.5);
+    }
+
+    // Copy inputs
+    fields::OutputField<DataType> outputs(inputs);
+
+    // Add contribution from coarser level
+    for (size_t level = 1; level<Nlevel; ++level) {
+      auto & out = outputs.getFieldForLevel(level);
+
+      // Remove low-frequency information from this level
+      out.toFourier();
+      out.applyFilter(filters.getHighPassFilterForLevel(level));
+
+      // Replace with the low-frequency information from the level below
+      out.addFieldFromDifferentGridWithFilter(
+        inputs.getFieldForLevel(level - 1),
+        filters.getLowPassFilterForLevel(level - 1)
+      );
+    }
+    outputs.toReal();
+    outputs.getContext().setLevelsAreCombined();
+    return outputs;
+  }
+
+  template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
   fields::OutputField<DataType> splice(fields::OutputField<DataType> & a,
                                        fields::OutputField<DataType> & b) {
 
@@ -216,6 +255,47 @@ namespace modifications {
 
       // fields::OutputField<DataType> alpha = tools::numerics::conjugateGradient<DataType>(A, z);
       fields::OutputField<DataType> alpha = tools::numerics::minres<DataType>(A, z);
+
+      // Combine fields
+      alpha = combine(alpha, covs);
+      a = combine(a, covs);
+      b = combine(b, covs);
+      a.toReal(); b.toReal(); alpha.toReal();
+
+      // output = b + M(a - b) + Mbar alpha [all in delta basis now]
+      fields::OutputField<DataType> outputs(b.getContext(), particle::species::all);
+      outputs.getFieldForLevel(0); // trigger allocation
+      outputs.toReal();
+      
+      for (size_t level = 0; level < Nlevel; ++level) {
+        const auto & a_field = a.getFieldForLevel(level);
+        const auto & b_field = b.getFieldForLevel(level);
+        const auto & alpha_field = alpha.getFieldForLevel(level);
+
+        auto & out = outputs.getFieldForLevel(level);
+        out += b_field;
+
+        {
+          auto temp = a_field.copy();
+          *temp -= b_field;
+          *temp *= masks[level];
+
+          out += *temp;
+        }
+
+        {
+          auto temp = alpha_field.copy();
+          *temp *= masksCompl[level];
+
+          out += *temp;
+        }
+        out.toReal();
+
+        a_field.dumpGridData("a_" + std::to_string(level) + ".dat");
+        b_field.dumpGridData("b_" + std::to_string(level) + ".dat");
+        alpha_field.dumpGridData("alpha_" + std::to_string(level) + ".dat");
+        out.dumpGridData("splice_level_" + std::to_string(level) + ".dat");
+      }
 
       // alpha.toFourier();
       // alpha.applyTransferFunction(preconditioner, 0.5);

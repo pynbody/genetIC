@@ -56,7 +56,7 @@ namespace tools {
         if (norm < rtol * scale || norm < atol)
           break;
 
-        logging::entry() << "MINRES iteration " << iter << " residual=" << norm << std::endl;
+        logging::entry() << "MINRES iteration " << iter << " residual=" << norm/scale << std::endl;
 
         s = A(r);
         double rhobar = rho;
