@@ -10,18 +10,18 @@ namespace tools {
   namespace numerics {
 
     template<typename T>
-    T innerProduct(fields::OutputField<T> &a, fields::OutputField<T> &b) {
+    T innerProduct(const fields::OutputField<T> &a, const fields::OutputField<T> &b) {
       T result = 0;
       for (auto ilevel = 0; ilevel < a.getNumLevels(); ++ilevel) {
-        auto& left = a.getFieldForLevel(ilevel);
-        auto& right = b.getFieldForLevel(ilevel);
+        const auto& left = a.getFieldForLevel(ilevel);
+        const auto& right = b.getFieldForLevel(ilevel);
         result += left.innerProduct(right);
       }
       return result;
     }
 
     template<typename T>
-    double norm(fields::OutputField<T> &a) {
+    double norm(const fields::OutputField<T> &a) {
       return std::sqrt(innerProduct(a, a));
     }
 
@@ -68,7 +68,7 @@ namespace tools {
         if (res_norm < rtol * scale || res_norm < atol)
           break;
 
-        logging::entry() << "Conjugate gradient iteration " << i << " residual=" << res_norm << std::endl;
+        logging::entry() << "Conjugate gradient iteration " << i << " residual=" << res_norm << "/" << scale << std::endl;
 
         // update direction for next cycle; must be Q-orthogonal to all previous updates
         double beta = innerProduct(residual, Q_direction) / innerProduct(direction, Q_direction);
