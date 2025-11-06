@@ -214,7 +214,8 @@ namespace modifications {
 
   template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
   fields::OutputField<DataType> splice(fields::OutputField<DataType> & a,
-                                       fields::OutputField<DataType> & b) {
+                                       fields::OutputField<DataType> & b,
+                                       T accuracy) {
 
       assert (a.getTransferType() == particle::species::whitenoise);
       assert (b.getTransferType() == particle::species::whitenoise);
@@ -254,7 +255,7 @@ namespace modifications {
 
 
       // fields::OutputField<DataType> alpha = tools::numerics::conjugateGradient<DataType>(A, z);
-      fields::OutputField<DataType> alpha = tools::numerics::minres<DataType>(A, z);
+      fields::OutputField<DataType> alpha = tools::numerics::minres<DataType>(A, z, accuracy);
 
       // Combine fields
       alpha = combine(alpha, covs);

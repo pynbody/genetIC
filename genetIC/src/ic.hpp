@@ -1659,7 +1659,7 @@ public:
   }
 
   //! Splicing: fixes the flagged region, while reinitialising the exterior from a new random field
-  virtual void splice(size_t newSeed) {
+  virtual void splice(size_t newSeed, T accuracy) {
     initialiseRandomComponentIfUninitialised();
     if(outputFields.size()>1)
       throw std::runtime_error("Splicing is not yet implemented for the case of multiple transfer functions");
@@ -1680,7 +1680,7 @@ public:
     newGenerator.draw();
     logging::entry() << "Finished constructing new random field. Beginning splice operation." << endl;
 
-    modifications::splice(newField, *(outputFields[0]));
+    modifications::splice(newField, *(outputFields[0]), accuracy);
 
     // for(size_t level=0; level<multiLevelContext.getNumLevels(); ++level) {
     //   auto &originalFieldThisLevel = outputFields[0]->getFieldForLevel(level);
