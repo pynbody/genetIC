@@ -52,67 +52,10 @@ namespace modifications {
 
     assert (inputs.isRealOnAllLevels());
 
-    // Apply C^0.5 to the input fields
-    for (size_t level=0; level<Nlevel; ++level) {
-      auto& field = inputs_delta.getFieldForLevel(level);
-      field.toFourier();
-      field.applyTransferFunction(covs[level], 0.5);
-    }
-
     // Filter all levels (but the last) in their windows
     // Notice we are doing window then filter
     for (size_t level=0; level<Nlevel; ++level) {
       auto& field = inputs_delta.getFieldForLevel(level);
-      const auto &f = filters.getFilterForLevel(level);
-      if (level < Nlevel - 1) {
-        auto window = multiLevelContext.getGridForLevel(level+1).getWindow();
-        field.applyFilterInWindow(f, window, false);
-      } else {
-        field.toFourier();
-        field.applyFilter(f);
-      }
-    }
-
-    // --------------------------------------------------------------------
-    // Operator applies to the field + contributions from all finer levels
-    for (size_t level=0; level<Nlevel; ++level) {
-      auto out = inputs_delta.getFieldForLevel(level).copy();
-
-      // Add contributions from all coarser levels
-      for (size_t source_level = 0; source_level < level; ++source_level) {
-        auto source_field = inputs_delta.getFieldForLevel(source_level).copy();
-        T pixel_volume_ratio = multiLevelContext.getWeightForLevel(level) /
-                               multiLevelContext.getWeightForLevel(source_level);
-        
-        source_field->toReal();
-        *source_field *= sqrt(pixel_volume_ratio);
-
-        out->addFieldFromDifferentGrid(*source_field);
-      }
-
-      // Apply operator
-      op(level, *out);
-
-      // Add contributions from all finer levels
-      for (size_t source_level = level + 1; source_level < Nlevel; ++source_level) {
-        auto source_field = inputs_delta.getFieldForLevel(source_level).copy();
-        T pixel_volume_ratio = multiLevelContext.getWeightForLevel(level) /
-                               multiLevelContext.getWeightForLevel(source_level);
-
-        source_field->toFourier();
-        *source_field *= sqrt(pixel_volume_ratio);
-        op(source_level, *source_field);
-
-        out->addFieldFromDifferentGrid(*source_field);
-      }
-
-      outputs.getFieldForLevel(level) = std::move(*out);
-    }
-
-    // Filter all levels (but the last) in their windows
-    // Notice we are doing filter then window (the opposite order to above)
-    for (size_t level=0; level<Nlevel; ++level) {
-      auto& field = outputs.getFieldForLevel(level);
       const auto &f = filters.getFilterForLevel(level);
       if (level < Nlevel - 1) {
         auto window = multiLevelContext.getGridForLevel(level+1).getWindow();
@@ -122,12 +65,70 @@ namespace modifications {
         field.applyFilter(f);
       }
     }
-    
+
+    // Apply C^0.5 to the input fields
+    for (size_t level=0; level<Nlevel; ++level) {
+      auto& field = inputs_delta.getFieldForLevel(level);
+      field.toFourier();
+      field.applyTransferFunction(covs[level], 0.5);
+    }
+
+
+    // --------------------------------------------------------------------
+    // Operator applies to the field + contributions from all finer levels
+    for (size_t level=0; level<Nlevel; ++level) {
+      auto out = inputs_delta.getFieldForLevel(level).copy();
+
+      // Add contributions from coarser level
+      for (size_t source_level = 0; source_level < level; ++source_level) {
+        auto source_field = inputs_delta.getFieldForLevel(source_level).copy();
+        T pixel_volume_ratio = multiLevelContext.getWeightForLevel(level) /
+                               multiLevelContext.getWeightForLevel(source_level);
+
+        source_field->toReal();
+        *source_field *= sqrt(pixel_volume_ratio);
+
+        out->addFieldFromDifferentGrid(*source_field);
+      }
+
+      // Apply operator
+      op(level, *out);
+
+      // Add contributions from finer levels
+      for (size_t source_level = level + 1; source_level < Nlevel; ++source_level) {
+        auto source_field = inputs_delta.getFieldForLevel(source_level).copy();
+        T pixel_volume_ratio = multiLevelContext.getWeightForLevel(level) /
+                               multiLevelContext.getWeightForLevel(source_level);
+
+        source_field->toReal();
+        *source_field *= sqrt(pixel_volume_ratio);
+        op(source_level, *source_field);
+
+        out->addFieldFromDifferentGrid(*source_field);
+      }
+
+      outputs.getFieldForLevel(level) = std::move(*out);
+    }
+
     // Apply C^0.5 to the input fields
     for (size_t level=0; level<Nlevel; ++level) {
       auto& field = outputs.getFieldForLevel(level);
       field.toFourier();
       field.applyTransferFunction(covs[level], 0.5);
+    }
+
+    // Filter all levels (but the last) in their windows
+    // Notice we are doing filter then window (the opposite order to above)
+    for (size_t level=0; level<Nlevel; ++level) {
+      auto& field = outputs.getFieldForLevel(level);
+      const auto &f = filters.getFilterForLevel(level);
+      if (level < Nlevel - 1) {
+        auto window = multiLevelContext.getGridForLevel(level+1).getWindow();
+        field.applyFilterInWindow(f, window, false);
+      } else {
+        field.toFourier();
+        field.applyFilter(f);
+      }
     }
 
     outputs.toReal();
@@ -178,34 +179,56 @@ namespace modifications {
     const fields::OutputField<DataType> &a,
     const std::vector<fields::Field<DataType, T>> &covs
   ) {
-    fields::OutputField<DataType> inputs(a);
-    const auto& multiLevelContext = inputs.getContext();
-    auto filters = a.getFilters();
-    int Nlevel = a.getNumLevels();
+    fields::OutputField<DataType> inputs_delta(a);
+    fields::OutputField<DataType> outputs(a.getContext(), a.getTransferType());
+    outputs.getFieldForLevel(0);
 
+    auto filters = inputs_delta.getFilters();
+    int Nlevel = inputs_delta.getNumLevels();
+
+    const auto& multiLevelContext = outputs.getContext();
+
+    // Filter all levels (but the last) in their windows
+    // Notice we are doing window then filter
     for (size_t level=0; level<Nlevel; ++level) {
-      auto& field = inputs.getFieldForLevel(level);
+      auto& field = inputs_delta.getFieldForLevel(level);
       const auto &f = filters.getFilterForLevel(level);
+      if (level < Nlevel - 1) {
+        auto window = multiLevelContext.getGridForLevel(level+1).getWindow();
+        field.applyFilterInWindow(f, window, true);
+      } else {
+        field.toFourier();
+        field.applyFilter(f);
+      }
+    }
+
+    // Apply C^0.5 to the input fields
+    for (size_t level=0; level<Nlevel; ++level) {
+      auto& field = inputs_delta.getFieldForLevel(level);
       field.toFourier();
       field.applyTransferFunction(covs[level], 0.5);
     }
 
-    // Copy inputs
-    fields::OutputField<DataType> outputs(inputs);
 
-    // Add contribution from coarser level
-    for (size_t level = 1; level<Nlevel; ++level) {
-      auto & out = outputs.getFieldForLevel(level);
+    // --------------------------------------------------------------------
+    // Operator applies to the field + contributions from all finer levels
+    for (size_t level=0; level<Nlevel; ++level) {
+      auto out = inputs_delta.getFieldForLevel(level).copy();
 
-      // Remove low-frequency information from this level
-      out.toFourier();
-      out.applyFilter(filters.getHighPassFilterForLevel(level));
+      // Add contributions from finer levels
+      for (size_t source_level = 0; source_level < Nlevel - 1; ++source_level) {
+        if (source_level == level) continue;
+        auto source_field = inputs_delta.getFieldForLevel(source_level).copy();
+        T pixel_volume_ratio = multiLevelContext.getWeightForLevel(level) /
+                               multiLevelContext.getWeightForLevel(source_level);
 
-      // Replace with the low-frequency information from the level below
-      out.addFieldFromDifferentGridWithFilter(
-        inputs.getFieldForLevel(level - 1),
-        filters.getLowPassFilterForLevel(level - 1)
-      );
+        source_field->toReal();
+        *source_field *= sqrt(pixel_volume_ratio);
+
+        out->addFieldFromDifferentGrid(*source_field);
+      }
+
+      outputs.getFieldForLevel(level) = std::move(*out);
     }
     outputs.toReal();
     outputs.getContext().setLevelsAreCombined();
@@ -267,7 +290,7 @@ namespace modifications {
       fields::OutputField<DataType> outputs(b.getContext(), particle::species::all);
       outputs.getFieldForLevel(0); // trigger allocation
       outputs.toReal();
-      
+
       for (size_t level = 0; level < Nlevel; ++level) {
         const auto & a_field = a.getFieldForLevel(level);
         const auto & b_field = b.getFieldForLevel(level);
