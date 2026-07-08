@@ -2,3 +2,6 @@
 	path = genetIC/HighFive
 	url = https://github.com/BlueBrain/HighFive
 	branch = v2.9.0
+[submodule "findfftw"]
+	path = findfftw
+	url = https://github.com/egpbos/findfftw.git
