@@ -11,6 +11,8 @@
 #define _PARSER_HPP
 
 #include <memory>
+#include <optional>
+#include <type_traits>
 #include <sstream>
 #include <iostream>
 #include <string>
@@ -87,20 +89,30 @@ namespace tools {
       recursively, extracting arguments one by one until we are left with bound_f(), which then triggers
       the specialisation above for functions with no arguments, ending the chain.
   */
+  template<typename T> struct is_optional_argument : std::false_type {};
+  template<typename T> struct is_optional_argument<std::optional<T>> : std::true_type {};
+
   template<typename Rtype, typename T1, typename... Args>
   Rtype call_function(const std::function<Rtype(T1, Args...)> &f, std::istream &input_stream,
                       std::ostream *output_stream) {
     T1 arg1{};
-    if (input_stream.eof()) {
-      throw DispatchError("Insufficient arguments");
+    if constexpr(is_optional_argument<T1>::value) {
+      input_stream >> std::ws;
+      int next = input_stream.peek();
+      if(next == std::char_traits<char>::eof()) {
+        input_stream.clear();
+      } else if(next != '#' && next != '%') {
+        typename T1::value_type value;
+        if(!(input_stream >> value)) throw DispatchError("Error while parsing optional argument");
+        arg1 = value;
+      }
+      if(output_stream && arg1) (*output_stream) << *arg1 << " ";
     } else {
+      if (input_stream.eof()) throw DispatchError("Insufficient arguments");
       input_stream >> arg1;
-      if (input_stream.fail())
-        throw DispatchError("Error while parsing arguments");
+      if (input_stream.fail()) throw DispatchError("Error while parsing arguments");
+      if(output_stream) (*output_stream) << arg1 << " ";
     }
-
-    if (output_stream != nullptr)
-      (*output_stream) << arg1 << " ";
 
     // Create function with one fewer arguments:
     std::function<Rtype(Args...)> bound_f = [&f, arg1](auto &&... args) { return f(arg1, args...); };

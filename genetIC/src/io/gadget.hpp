@@ -301,7 +301,9 @@ namespace io {
         for(int i=0; i<nFiles; i++)
           currentWriteBlocks.push_back(writers[i].template getMemMapFortran<WriteType>(nPerFile[i]));
 
-        assert(this->template genericSaveBlock(particleTypes, getData, currentWriteBlocks) == nTotalForThisBlock);
+        const auto nWritten = this->template genericSaveBlock(particleTypes, getData, currentWriteBlocks);
+        if (nWritten != nTotalForThisBlock)
+          throw std::runtime_error("Gadget block particle count does not match its header");
 
       }
 

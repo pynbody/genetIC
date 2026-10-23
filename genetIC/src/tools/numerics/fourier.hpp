@@ -152,13 +152,20 @@ namespace tools {
 
         //! Apply the callback function to all cells (no return type)
         void iterateFourierCells(const std::function<void(int, int, int)> &callback) const {
-          // TODO: this is good because we only need to implement the loop over fourier cells once,
-          // but bad because functions that are not actually accumulating will waste time accumulating zeros
-          auto callback_wrapper = [&callback](int x, int y, int z) -> ComplexType {
-            callback(x, y, z);
-            return 0;
-          };
-          iterateFourierCellsWithAccumulation(callback_wrapper);
+          field.toFourier();
+          // Updates do not need the weighted accumulation/reduction used by
+          // statistics. Keep the same canonical-mode bounds and parallelism.
+#pragma omp parallel for
+          for(int kx=0; kx<size/2+1; ++kx) {
+            const bool boundaryX=kx==0 || kx==nyquistIfEvenElseZero;
+            const int lowerY=boundaryX ? 0 : largestNegativeMode;
+            for(int ky=lowerY; ky<size/2+1; ++ky) {
+              const int lowerZ=boundaryX && (ky==0 || ky==nyquistIfEvenElseZero)
+                                 ? 0 : largestNegativeMode;
+              for(int kz=lowerZ; kz<size/2+1; ++kz) callback(kx,ky,kz);
+            }
+          }
+
         }
 
 
@@ -340,7 +347,7 @@ namespace tools {
 
             // N.B. take y loop in reverse order so that it copes with zero and nyquist kx modes naturally
             // (where we MUST copy +ve modes into -ve modes, not the opposite)
-            for (int ky = size / 2; ky > -size / 2; --ky) {
+            for (int ky = size / 2; ky >= this->largestNegativeMode; --ky) {
               std::tie(unused, loc_source) = getRealCoeffLocationAndConjugation(kx, ky, 0);
               std::tie(unused, loc_dest) = getRealCoeffLocationAndConjugation(-kx, -ky, 0);
               this->field[loc_dest] = this->field[loc_source];

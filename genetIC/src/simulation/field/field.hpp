@@ -368,7 +368,8 @@ namespace fields {
       assert(!isFourier());
 
       tools::datatypes::strip_complex<DataType> v=0;
-      size_t N = data.size();
+      // Real FFT storage has trailing workspace, which is not part of the field.
+      size_t N = pGrid->size3;
 
 #pragma omp parallel for reduction(+:v)
       for(size_t i=0; i<N; i++) {
@@ -397,8 +398,7 @@ namespace fields {
       assert(this->isFourier());
       assert(covariance.isFourier());
       assert(&covariance.getGrid() == &this->getGrid());
-      auto grid = this->getGrid();
-      forEachFourierCellInt([&grid, this, &covariance, power]
+      forEachFourierCellInt([this, &covariance, power]
                                     (T existingValue, int kx, int ky, int kz) {
 
         auto spec = covariance.getFourierCoefficient(kx,ky,kz).real();
@@ -420,63 +420,35 @@ namespace fields {
      */
     void deInterpolate(Coordinate<CoordinateType> location, DataType value) {
 
-      // TODO: The below is not conjugate deinterpolation for the linear interpolation
-      // implemented when CUBIC_INTERPOLATION is off. However, switching off
-      // CUBIC_INTERPOLATION is not recommended, so fixing this inconsistency is low
-      // priority.
-
-      int x_p_0, y_p_0, z_p_0;
-      CoordinateType dx, dy, dz;
-
-      location -= pGrid->offsetLower;
-      location = pGrid->wrapPoint(location);
-
-
-      // grid coordinates of parent cell whose *centroid* (not corner) is to the bottom-left of our current point
-      std::tie(x_p_0, y_p_0, z_p_0) = floor(location / pGrid->cellSize - 0.5);
-
-      DataType valsForInterpolation[4][4][4];
-      std::tie(dx,dy,dz) = (location / pGrid->cellSize - 0.5);
-      dx-=x_p_0;
-      dy-=y_p_0;
-      dz-=z_p_0;
-
-      // Caching would speed this up, since we anticipate repeated calls with the same dx,dy,dz (to numerical accuracy)
-      numerics::LocalUnitTricubicApproximation<CoordinateType>::getTransposeElementsForPosition(dx,dy,dz,valsForInterpolation);
-
-
-
-      // Figure out logistics of wrapping etc for indexing - more efficient than 4^3 calls to getIndexFromCoordinate
-      int index_x[4], index_y[4], index_z[4];
-      size_t gridSize = pGrid->size;
-      size_t gridSize2 = gridSize*gridSize;
-      auto getWrappedCoords = [gridSize](int coords[4], int key_cell_coord) {
-        for(int i=0; i<4; ++i) {
-          coords[i] = key_cell_coord + i - 1;
-          if(coords[i]<0) coords[i]+=gridSize;
-          if(coords[i]>gridSize) coords[i]-=gridSize;
-        }
-      };
-
-      getWrappedCoords(index_x, x_p_0);
-      getWrappedCoords(index_y, y_p_0);
-      getWrappedCoords(index_z, z_p_0);
-
-      size_t key_cell_index = pGrid->getIndexFromCoordinate({index_x[0], index_y[0], index_z[0]});
-
-      auto & data = this->getDataVector();
-      for(int i=0; i<4; ++i) {
-        for(int j=0; j<4; ++j) {
-          for(int k=0; k<4; ++k) {
-            size_t this_index = key_cell_index +
-                    (index_x[i] - index_x[0])*gridSize2 +
-                    (index_y[j] - index_y[0])*gridSize +
-                    (index_z[k] - index_z[0]);
-            // above is an optimization of this_index = pGrid->getIndexFromCoordinate({x_p_0 - 1 + i, ...} )
-            data[this_index] += value * valsForInterpolation[i][j][k];
+      assert(!isFourier());
+      location = pGrid->wrapPoint(location - pGrid->offsetLower);
+      auto cell = floor(location / pGrid->cellSize - 0.5);
+      auto fraction = location / pGrid->cellSize - 0.5 - Coordinate<CoordinateType>(cell);
+#ifdef CUBIC_INTERPOLATION
+      DataType weights[4][4][4];
+      numerics::LocalUnitTricubicApproximation<CoordinateType>::getTransposeElementsForPosition(
+        fraction.x, fraction.y, fraction.z, weights);
+      constexpr int width = 4, offset = -1;
+#else
+      DataType weights[2][2][2];
+      for(int i=0; i<2; ++i)
+        for(int j=0; j<2; ++j)
+          for(int k=0; k<2; ++k)
+            weights[i][j][k] = (i ? fraction.x : 1-fraction.x) *
+                               (j ? fraction.y : 1-fraction.y) *
+                               (k ? fraction.z : 1-fraction.z);
+      constexpr int width = 2, offset = 0;
+#endif
+      // Mirror evaluateInterpolated exactly, including saturation at zoom edges.
+      // A scatter must be serial (or externally synchronized).
+      for(int i=0; i<width; ++i)
+        for(int j=0; j<width; ++j)
+          for(int k=0; k<width; ++k) {
+            Coordinate<int> coord{cell.x+i+offset, cell.y+j+offset, cell.z+k+offset};
+            coord = pGrid->coversFullSimulation() ? pGrid->wrapCoordinate(coord)
+                                                  : pGrid->clampCoordinate(coord);
+            data[pGrid->getIndexFromCoordinateNoWrap(coord)] += value * weights[i][j][k];
           }
-        }
-      }
 
     }
 
@@ -802,20 +774,25 @@ namespace fields {
      *  The addition performs interpolation if necessary. It does not modify the grid
      *  that is being added to this one.
     */
-    void addFieldFromDifferentGrid(const Field<DataType, CoordinateType> &source) {
+    void addFieldFromDifferentGrid(const Field<DataType, CoordinateType> &source,
+                                   const std::vector<size_t> *destinationIndices = nullptr) {
       assert(!source.isFourier());
       toReal();
       TPtrGrid pSourceProxyGrid = source.getGrid().makeProxyGridToMatch(getGrid());
 
       auto evaluator = makeEvaluator(source, *pSourceProxyGrid);
-      evaluator->addTo(*this);
+      if(destinationIndices) evaluator->addToSelected(*this, *destinationIndices);
+      else evaluator->addTo(*this);
 
     }
 
 
-    //! Add a field defined on a different grid to this one, applying the specified filter while adding
+    //! Add a field defined on a different grid to this one, applying the specified filter while adding.
+    //! Optional unique destination indices are a work hint: only these samples
+    //! are guaranteed. Filtering on the destination still needs full interpolation.
     void addFieldFromDifferentGridWithFilter(const Field<DataType, CoordinateType> & source,
-                                             const filters::Filter<CoordinateType> & filter) {
+                                             const filters::Filter<CoordinateType> & filter,
+                                             const std::vector<size_t> *destinationIndices = nullptr) {
 
 #ifdef FILTER_ON_COARSE_GRID
       // Version for compatibility with pre-Dec 2016 output
@@ -828,9 +805,11 @@ namespace fields {
       temporaryField->applyFilter(filter);
       temporaryField->toReal();
       this->toReal();
-      this->addFieldFromDifferentGrid(*temporaryField);
+      this->addFieldFromDifferentGrid(*temporaryField, destinationIndices);
 
 #else
+      // Filtering on the destination couples all cells: interpolation must be full.
+      (void)destinationIndices;
       assert(!source.isFourier());
 
       auto temporaryField = std::make_shared<Field<DataType, CoordinateType>>(getGrid(), false);
@@ -859,11 +838,13 @@ namespace fields {
 
       //! addFieldFromDifferentGridWithFilter, automatically converting the source field from Fourier space if required
       void addFieldFromDifferentGridWithFilter(Field<DataType, CoordinateType> &source,
-                                               const filters::Filter<CoordinateType> & filter) {
+                                               const filters::Filter<CoordinateType> & filter,
+                                               const std::vector<size_t> *destinationIndices = nullptr) {
 #ifndef FILTER_ON_COARSE_GRID
         source.toReal();
 #endif
-        addFieldFromDifferentGridWithFilter(const_cast<const Field<DataType, CoordinateType> &>(source), filter);
+        addFieldFromDifferentGridWithFilter(const_cast<const Field<DataType, CoordinateType> &>(source), filter,
+                                           destinationIndices);
       }
 
     //! Outputs the field as a numpy array to the specified filename.
