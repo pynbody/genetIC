@@ -64,6 +64,7 @@ namespace tools {
           dimension += b.getContext().getGridForLevel(level).size3;
         maxIterations = dimension+1;
       }
+      size_t restarts = 0;
       for(size_t iteration=0; iteration<maxIterations; ++iteration) {
         const auto image = Q(direction);
         const double curvature = innerProduct(direction, image);
@@ -75,9 +76,12 @@ namespace tools {
         double next = innerProduct(residual, residual);
         if(!std::isfinite(next) || next < 0)
           throw std::runtime_error("Conjugate gradient residual became nonfinite");
-        // One operator application per ordinary iteration. Recompute the true
-        // residual periodically and before acceptance; restart after replacement.
+        bool restart = false;
+        // Check actual residuals periodically and before acceptance. Discarding
+        // conjugacy every 50 iterations needlessly slows well-resolved solves;
+        // restart only when the recurrence has lost significant accuracy.
         if(std::sqrt(next) <= tolerance || (iteration+1)%50 == 0) {
+          State recursiveResidual(residual);
           if(recomputeResidual) residual = recomputeResidual(x);
           else {
             residual = State(b);
@@ -88,10 +92,16 @@ namespace tools {
             throw std::runtime_error("Conjugate gradient true residual became nonfinite");
           if(std::sqrt(next) <= tolerance) {
             logging::entry() << "Conjugate gradient ended after " << iteration+1
-                             << " iterations; true relative residual=" << std::sqrt(next)/scale << std::endl;
+                             << " iterations; true relative residual=" << std::sqrt(next)/scale
+                             << "; residual restarts=" << restarts << std::endl;
             return x;
           }
+          recursiveResidual -= residual;
+          restart = norm(recursiveResidual) > 0.1*std::sqrt(next);
+        }
+        if(restart) {
           direction = State(residual);
+          ++restarts;
         } else {
           direction *= next/rr;
           direction += residual;

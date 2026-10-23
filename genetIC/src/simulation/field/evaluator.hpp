@@ -55,6 +55,19 @@ namespace fields {
 
 
     }
+
+    //! Add at unique destination indices, reusing the normal interpolation.
+    void addToSelected(Field<DataType, CoordinateType> &destination,
+                       const std::vector<size_t> &indices) const {
+      fields::cache::enableInterpolationCaches<CoordinateType>();
+#pragma omp parallel for schedule(static)
+      for(size_t j=0; j<indices.size(); ++j) {
+        const auto i=indices[j];
+        assert(i<destination.getGrid().size3);
+        if(contains(i)) destination[i] += (*this)[i];
+      }
+      fields::cache::disableInterpolationCaches<CoordinateType>();
+    }
   };
 
   /*! \class DirectEvaluator

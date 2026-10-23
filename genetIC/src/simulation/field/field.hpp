@@ -398,8 +398,7 @@ namespace fields {
       assert(this->isFourier());
       assert(covariance.isFourier());
       assert(&covariance.getGrid() == &this->getGrid());
-      auto grid = this->getGrid();
-      forEachFourierCellInt([&grid, this, &covariance, power]
+      forEachFourierCellInt([this, &covariance, power]
                                     (T existingValue, int kx, int ky, int kz) {
 
         auto spec = covariance.getFourierCoefficient(kx,ky,kz).real();
@@ -775,20 +774,25 @@ namespace fields {
      *  The addition performs interpolation if necessary. It does not modify the grid
      *  that is being added to this one.
     */
-    void addFieldFromDifferentGrid(const Field<DataType, CoordinateType> &source) {
+    void addFieldFromDifferentGrid(const Field<DataType, CoordinateType> &source,
+                                   const std::vector<size_t> *destinationIndices = nullptr) {
       assert(!source.isFourier());
       toReal();
       TPtrGrid pSourceProxyGrid = source.getGrid().makeProxyGridToMatch(getGrid());
 
       auto evaluator = makeEvaluator(source, *pSourceProxyGrid);
-      evaluator->addTo(*this);
+      if(destinationIndices) evaluator->addToSelected(*this, *destinationIndices);
+      else evaluator->addTo(*this);
 
     }
 
 
-    //! Add a field defined on a different grid to this one, applying the specified filter while adding
+    //! Add a field defined on a different grid to this one, applying the specified filter while adding.
+    //! Optional unique destination indices are a work hint: only these samples
+    //! are guaranteed. Filtering on the destination still needs full interpolation.
     void addFieldFromDifferentGridWithFilter(const Field<DataType, CoordinateType> & source,
-                                             const filters::Filter<CoordinateType> & filter) {
+                                             const filters::Filter<CoordinateType> & filter,
+                                             const std::vector<size_t> *destinationIndices = nullptr) {
 
 #ifdef FILTER_ON_COARSE_GRID
       // Version for compatibility with pre-Dec 2016 output
@@ -801,9 +805,11 @@ namespace fields {
       temporaryField->applyFilter(filter);
       temporaryField->toReal();
       this->toReal();
-      this->addFieldFromDifferentGrid(*temporaryField);
+      this->addFieldFromDifferentGrid(*temporaryField, destinationIndices);
 
 #else
+      // Filtering on the destination couples all cells: interpolation must be full.
+      (void)destinationIndices;
       assert(!source.isFourier());
 
       auto temporaryField = std::make_shared<Field<DataType, CoordinateType>>(getGrid(), false);
@@ -832,11 +838,13 @@ namespace fields {
 
       //! addFieldFromDifferentGridWithFilter, automatically converting the source field from Fourier space if required
       void addFieldFromDifferentGridWithFilter(Field<DataType, CoordinateType> &source,
-                                               const filters::Filter<CoordinateType> & filter) {
+                                               const filters::Filter<CoordinateType> & filter,
+                                               const std::vector<size_t> *destinationIndices = nullptr) {
 #ifndef FILTER_ON_COARSE_GRID
         source.toReal();
 #endif
-        addFieldFromDifferentGridWithFilter(const_cast<const Field<DataType, CoordinateType> &>(source), filter);
+        addFieldFromDifferentGridWithFilter(const_cast<const Field<DataType, CoordinateType> &>(source), filter,
+                                           destinationIndices);
       }
 
     //! Outputs the field as a numpy array to the specified filename.
