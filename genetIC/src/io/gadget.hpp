@@ -301,7 +301,8 @@ namespace io {
         for(int i=0; i<nFiles; i++)
           currentWriteBlocks.push_back(writers[i].template getMemMapFortran<WriteType>(nPerFile[i]));
 
-        assert(this->template genericSaveBlock(particleTypes, getData, currentWriteBlocks) == nTotalForThisBlock);
+        size_t nSaved = this->template genericSaveBlock(particleTypes, getData, currentWriteBlocks);
+        assert (nSaved == nTotalForThisBlock);
 
       }
 

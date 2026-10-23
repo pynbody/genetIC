@@ -19,11 +19,17 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         python-version: ["3.10"]
-        cxx: [g++-10, g++-11, g++-12]
+        cxx: [g++-10, g++-12, g++-15]
+        build_option: [cmake, make]
         include:
           - os: macos-latest
             python-version: "3.10"
             cxx: g++-12
+            build_option: make
+          - os: macos-latest
+            python-version: "3.10"
+            cxx: g++-12
+            build_option: cmake
     runs-on: ${{ matrix.os }}
     env:
       CXX: ${{ matrix.cxx }}
@@ -42,16 +48,24 @@ jobs:
         sudo add-apt-repository ppa:ubuntu-toolchain-r/test
         sudo apt-get update -qq
         sudo apt install libfftw3-dev libgsl0-dev libhdf5-serial-dev
-        sudo apt install gcc-10 g++-10 gcc-11 g++-11 gcc-12 g++-12
+        sudo apt install ${{ matrix.cxx }}
     - name: Install dependencies
       if: matrix.os == 'macos-latest'
       shell: bash
       run: |
-        brew install gcc@12 fftw gsl hdf5 
+        brew install gcc@12 fftw gsl hdf5
         brew link gsl
-    - name: Compile code
+    - name: Compile code with make
       working-directory: genetIC
+      if: matrix.build_option == 'make'
       run: make
+    - name: Compile code with cmake
+      if: matrix.build_option == 'cmake'
+      run: |
+        mkdir -p build
+        cd build
+        cmake .. -DCMAKE_BUILD_TYPE=Release
+        make
     - name: Install python dependencies
       shell: bash
       run: |
