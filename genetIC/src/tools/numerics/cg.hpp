@@ -53,6 +53,8 @@ namespace tools {
       const double scale = std::sqrt(rr);
       const double tolerance = std::max(rtol*scale, atol);
       if(scale <= tolerance) {
+        // Match the real-space result returned after an ordinary CG update.
+        x.toReal();
         logging::entry() << "Conjugate gradient ended after 0 iterations" << std::endl;
         return x;
       }

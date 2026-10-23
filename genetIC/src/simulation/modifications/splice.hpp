@@ -71,10 +71,14 @@ namespace modifications {
           const auto &grid = source.getGrid();
           for(size_t i=0; i<grid.size3; ++i) {
 #ifdef FILTER_ON_COARSE_GRID
-            scatter->deInterpolate(grid.getCentroidFromIndex(i), source[i]);
+            const auto value = source[i];
 #else
-            scatter->deInterpolate(grid.getCentroidFromIndex(i), (*inherited)[i]);
+            const auto value = (*inherited)[i];
 #endif
+            // Masked dual fields are sparse. Preserve the order of nonzero
+            // additions; parallelizing this overlapping scatter would race.
+            if(value != DataType(0))
+              scatter->deInterpolate(grid.getCentroidFromIndex(i), value);
           }
 #ifdef FILTER_ON_COARSE_GRID
           scatter->applyFilter(filters.getLowPassFilterForLevel(l-1));
@@ -158,13 +162,22 @@ namespace modifications {
     }
     if(!count) return State(environment);
 
+    // Cache membership once. Mask in place instead of copying every full field
+    // on every operator application; keep selected values and clear FFT padding.
+    std::vector<std::vector<unsigned char>> membership(selected.size());
+    for(size_t l=0; l<selected.size(); ++l) {
+      membership[l].resize(context.getGridForLevel(l).size3, 0);
+      for(auto i: selected[l]) membership[l][i] = 1;
+    }
     auto mask = [&](State &state) {
       state.toReal();
       for(size_t l=0; l<state.getNumLevels(); ++l) {
         auto &field = state.getFieldForLevel(l);
-        auto saved = field.getDataVector();
-        std::fill(field.getDataVector().begin(), field.getDataVector().end(), DataType(0));
-        for(auto i: selected[l]) field[i] = saved[i];
+        auto &data = field.getDataVector();
+        const auto &keep = membership[l];
+#pragma omp parallel for
+        for(size_t i=0; i<data.size(); ++i)
+          if(i>=keep.size() || !keep[i]) data[i] = DataType(0);
       }
     };
     auto D = [&](const State &state) {
