@@ -2,7 +2,10 @@
 #define IC_CG_HPP
 
 #include <functional>
-#include <src/simulation/field/field.hpp>
+#include <algorithm>
+#include <cmath>
+#include <stdexcept>
+#include <src/simulation/field/multilevelfield.hpp>
 #include <src/tools/data_types/complex.hpp>
 #include <src/tools/logging.hpp>
 
@@ -12,7 +15,7 @@ namespace tools {
     template<typename T>
     T innerProduct(const fields::OutputField<T> &a, const fields::OutputField<T> &b) {
       T result = 0;
-      for (auto ilevel = 0; ilevel < a.getNumLevels(); ++ilevel) {
+      for (size_t ilevel = 0; ilevel < a.getNumLevels(); ++ilevel) {
         const auto& left = a.getFieldForLevel(ilevel);
         const auto& right = b.getFieldForLevel(ilevel);
         result += left.innerProduct(right);
@@ -25,61 +28,78 @@ namespace tools {
       return std::sqrt(innerProduct(a, a));
     }
 
-    //! Solve linear equation Qx = b, and return x, using conjugate gradient
+    /*! Solve Qx=b by conjugate gradient. Q must be positive definite on the
+     * reachable subspace (consistent positive-semidefinite systems also work).
+     * recomputeResidual optionally evaluates b-Qx through the actual returned
+     * observable, avoiding cancellation between separately evaluated operators.
+     * It must use the same sign as b-Qx. Zero maxIterations uses dimension+1.
+     */
     template<typename T>
-    fields::OutputField<T> conjugateGradient(std::function<fields::OutputField<T>(const fields::OutputField<T> &)> Q,
-                                       const fields::OutputField<T> &b,
-                                       double rtol = 1e-6,
-                                       double atol = 1e-12) {
-      fields::OutputField<T> residual(b);
-      fields::OutputField<T> direction(residual);
-      direction *= -1;
-      fields::OutputField<T> x = fields::OutputField<T>(b.getContext(), b.getTransferType());
-      x.getFieldForLevel(0); // trigger allocation
-
-      double scale = norm(residual);
-
-      if(scale==0.0) {
-        logging::entry(logging::warning) << "Conjugate gradient: result is zero!" << std::endl;
+    fields::OutputField<T> conjugateGradient(
+        std::function<fields::OutputField<T>(const fields::OutputField<T> &)> Q,
+        const fields::OutputField<T> &b,
+        double rtol = 1e-6, double atol = 1e-12,
+        std::function<fields::OutputField<T>(const fields::OutputField<T> &)> recomputeResidual = {},
+        size_t maxIterations = 0) {
+      using State = fields::OutputField<T>;
+      if(!std::isfinite(rtol) || !std::isfinite(atol) || rtol < 0 || atol < 0)
+        throw std::runtime_error("Conjugate gradient tolerances must be finite and nonnegative");
+      State residual(b), direction(b);
+      State x(b.getContext(), b.getTransferType());
+      x.getFieldForLevel(0);
+      double rr = innerProduct(residual, residual);
+      if(!std::isfinite(rr) || rr < 0)
+        throw std::runtime_error("Conjugate gradient received a nonfinite residual");
+      const double scale = std::sqrt(rr);
+      const double tolerance = std::max(rtol*scale, atol);
+      if(scale <= tolerance) {
+        logging::entry() << "Conjugate gradient ended after 0 iterations" << std::endl;
         return x;
       }
-
-      size_t dimension = 0;
-      for (auto ilevel = 0; ilevel < b.getNumLevels(); ++ilevel) {
-        const auto ctxt = residual.getContext();
-        dimension += ctxt.getGridForLevel(ilevel).size3;
+      if(!maxIterations) {
+        size_t dimension = 0;
+        for(size_t level=0; level<b.getNumLevels(); ++level)
+          dimension += b.getContext().getGridForLevel(level).size3;
+        maxIterations = dimension+1;
       }
-
-      size_t i;
-
-      for(i=0; i<dimension+1; ++i) {
-
-        auto Q_direction = Q(direction);
-  
-        // distance to travel in specified direction
-        double alpha = -innerProduct(residual, direction) / innerProduct(direction, Q_direction);
-
-        x.addScaled(direction, alpha);
-
-        residual = Q(x);
-        residual -= b;
-
-        auto res_norm = norm(residual);
-        if (res_norm < rtol * scale || res_norm < atol)
-          break;
-
-        logging::entry() << "Conjugate gradient iteration " << i << " residual=" << res_norm << "/" << scale << std::endl;
-
-        // update direction for next cycle; must be Q-orthogonal to all previous updates
-        double beta = innerProduct(residual, Q_direction) / innerProduct(direction, Q_direction);
-        direction*=beta;
-        direction-=residual;
-
+      for(size_t iteration=0; iteration<maxIterations; ++iteration) {
+        const auto image = Q(direction);
+        const double curvature = innerProduct(direction, image);
+        if(!(curvature > 0) || !std::isfinite(curvature))
+          throw std::runtime_error("Conjugate gradient breakdown before satisfying tolerance");
+        const double step = rr/curvature;
+        x.addScaled(direction, step);
+        residual.addScaled(image, -step);
+        double next = innerProduct(residual, residual);
+        if(!std::isfinite(next) || next < 0)
+          throw std::runtime_error("Conjugate gradient residual became nonfinite");
+        // One operator application per ordinary iteration. Recompute the true
+        // residual periodically and before acceptance; restart after replacement.
+        if(std::sqrt(next) <= tolerance || (iteration+1)%50 == 0) {
+          if(recomputeResidual) residual = recomputeResidual(x);
+          else {
+            residual = State(b);
+            residual -= Q(x);
+          }
+          next = innerProduct(residual, residual);
+          if(!std::isfinite(next) || next < 0)
+            throw std::runtime_error("Conjugate gradient true residual became nonfinite");
+          if(std::sqrt(next) <= tolerance) {
+            logging::entry() << "Conjugate gradient ended after " << iteration+1
+                             << " iterations; true relative residual=" << std::sqrt(next)/scale << std::endl;
+            return x;
+          }
+          direction = State(residual);
+        } else {
+          direction *= next/rr;
+          direction += residual;
+        }
+        rr = next;
+        if((iteration+1)%50 == 0)
+          logging::entry() << "Conjugate gradient iteration " << iteration+1
+                           << " residual=" << std::sqrt(rr)/scale << std::endl;
       }
-      logging::entry() << "Conjugate gradient ended after " << i << " iterations" << std::endl;
-
-      return x;
-
+      throw std::runtime_error("Conjugate gradient did not satisfy the requested tolerance");
     }
   }
 }

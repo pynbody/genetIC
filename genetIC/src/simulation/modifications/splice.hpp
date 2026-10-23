@@ -1,348 +1,203 @@
 #ifndef IC_SPLICE_HPP
 #define IC_SPLICE_HPP
 
-#include <complex>
-#include <src/tools/data_types/complex.hpp>
+#include <src/simulation/field/multilevelfield.hpp>
 #include <src/tools/numerics/cg.hpp>
-#include <src/tools/numerics/minres.hpp>
+#include <algorithm>
+#include <cmath>
+#include <limits>
+#include <stdexcept>
 
 namespace modifications {
-  template<typename T>
-  fields::Field<char, T> generateMaskFromFlags(const grids::Grid<T> &grid) {
-    std::vector<size_t> flags;
-    grid.getFlaggedCells(flags);
 
-    fields::Field<char, T> mask(const_cast<grids::Grid<T> &>(grid), false); // fills with zeros / falses
-    for(auto f: flags) {
-      mask[f] = true;
-    }
-    return mask;
-  }
+  /*! The actual density synthesis used by MultiLevelParticleGenerator, and its
+   * Euclidean transpose. Latents are unit-variance real white noise on each grid;
+   * the covariance fields already include the physical cell-volume normalization.
+   * No context flags, power-spectrum zero modes, or input arrays are changed.
+   */
+  template<typename DataType>
+  class SpliceSynthesis {
+    using T = tools::datatypes::strip_complex<DataType>;
+    using State = fields::OutputField<DataType>;
+    const multilevelgrid::MultiLevelGrid<DataType> &context;
+    filters::FilterFamily<T> filters;
 
-  template<typename T>
-  fields::Field<char, T> generateMaskComplementFromFlags(const grids::Grid<T> &grid) {
-    std::vector<size_t> flags;
-    grid.getFlaggedCells(flags);
-
-    fields::Field<char, T> mask(const_cast<grids::Grid<T> &>(grid), false); // fills with zeros / falses
-    for(size_t i=0; i<mask.getDataVector().size(); ++i) {
-      mask[i] = true;
-    }
-    for(auto f: flags) {
-      mask[f] = false;
-    }
-    return mask;
-  }
-
-  // Compute the operator that applies T^+ ... T *at all levels*
-  template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
-  fields::OutputField<DataType> T_op_T (
-      const fields::OutputField<DataType> &inputs,
-      const std::vector<fields::Field<DataType, T>> &covs,
-      const std::function<void(const int, fields::Field<DataType, T> &)> op
-  ) {
-    fields::OutputField<DataType> outputs(inputs.getContext(), inputs.getTransferType());
-    outputs.getFieldForLevel(0); // trigger allocation
-
-    fields::OutputField<DataType> inputs_delta(inputs);
-    auto filters = inputs.getFilters();
-    int Nlevel = inputs.getNumLevels();
-
-    const auto& multiLevelContext = outputs.getContext();
-
-    assert (inputs.isRealOnAllLevels());
-
-    // Filter all levels (but the last) in their windows
-    // Notice we are doing window then filter
-    for (size_t level=0; level<Nlevel; ++level) {
-      auto& field = inputs_delta.getFieldForLevel(level);
-      const auto &f = filters.getFilterForLevel(level);
-      if (level < Nlevel - 1) {
-        auto window = multiLevelContext.getGridForLevel(level+1).getWindow();
-        field.applyFilterInWindow(f, window, true);
-      } else {
-        field.toFourier();
-        field.applyFilter(f);
-      }
-    }
-
-    // Apply C^0.5 to the input fields
-    for (size_t level=0; level<Nlevel; ++level) {
-      auto& field = inputs_delta.getFieldForLevel(level);
+    void colour(fields::Field<DataType, T> &field, size_t level) const {
       field.toFourier();
-      field.applyTransferFunction(covs[level], 0.5);
+      field.applyTransferFunction(*context.getCovariance(level, particle::species::all), 0.5);
     }
 
-
-    // --------------------------------------------------------------------
-    // Operator applies to the field + contributions from all finer levels
-    for (size_t level=0; level<Nlevel; ++level) {
-      auto out = inputs_delta.getFieldForLevel(level).copy();
-
-      // Add contributions from coarser level
-      for (size_t source_level = 0; source_level < level; ++source_level) {
-        auto source_field = inputs_delta.getFieldForLevel(source_level).copy();
-        T pixel_volume_ratio = multiLevelContext.getWeightForLevel(level) /
-                               multiLevelContext.getWeightForLevel(source_level);
-
-        source_field->toReal();
-        *source_field *= sqrt(pixel_volume_ratio);
-
-        out->addFieldFromDifferentGrid(*source_field);
-      }
-
-      // Apply operator
-      op(level, *out);
-
-      // Add contributions from finer levels
-      for (size_t source_level = level + 1; source_level < Nlevel; ++source_level) {
-        auto source_field = inputs_delta.getFieldForLevel(source_level).copy();
-        T pixel_volume_ratio = multiLevelContext.getWeightForLevel(level) /
-                               multiLevelContext.getWeightForLevel(source_level);
-
-        source_field->toReal();
-        *source_field *= sqrt(pixel_volume_ratio);
-        op(source_level, *source_field);
-
-        out->addFieldFromDifferentGrid(*source_field);
-      }
-
-      outputs.getFieldForLevel(level) = std::move(*out);
+  public:
+    explicit SpliceSynthesis(const multilevelgrid::MultiLevelGrid<DataType> &context)
+      : context(context), filters(context) {
+      if(context.getLevelsAreCombined())
+        throw std::runtime_error("Splicing requires uncombined white-noise fields");
+      for(size_t l=1; l<context.getNumLevels(); ++l)
+        if(context.getGridForLevel(l).cellSize > context.getGridForLevel(l-1).cellSize)
+          throw std::runtime_error("Splicing requires nondecreasing grid resolution");
     }
 
-    // Apply C^0.5 to the input fields
-    for (size_t level=0; level<Nlevel; ++level) {
-      auto& field = outputs.getFieldForLevel(level);
-      field.toFourier();
-      field.applyTransferFunction(covs[level], 0.5);
-    }
-
-    // Filter all levels (but the last) in their windows
-    // Notice we are doing filter then window (the opposite order to above)
-    for (size_t level=0; level<Nlevel; ++level) {
-      auto& field = outputs.getFieldForLevel(level);
-      const auto &f = filters.getFilterForLevel(level);
-      if (level < Nlevel - 1) {
-        auto window = multiLevelContext.getGridForLevel(level+1).getWindow();
-        field.applyFilterInWindow(f, window, false);
-      } else {
-        field.toFourier();
-        field.applyFilter(f);
-      }
-    }
-
-    outputs.toReal();
-    return outputs;
-  };
-
-  template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
-  fields::OutputField<DataType> Mbar_Cm1_Mbar(
-    const fields::OutputField<DataType> & inputs,
-    const auto& covs, const auto& masks, const auto& masksCompl, size_t Nlevel
-  ) {
-    auto outputs = T_op_T<DataType, T>(
-      inputs,
-      covs,
-      [&](const int level, fields::Field<DataType,T> & input) -> void
-    {
-      input.toReal();
-      input *= masksCompl[level];
-      input.toFourier();
-      input.applyTransferFunction(covs[level], -1.0);
-      input.toReal();
-      input *= masksCompl[level];
-    });
-    return outputs;
-  }
-
-  template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
-  fields::OutputField<DataType> Mbar_Cm1_M(
-    const fields::OutputField<DataType> & inputs,
-    const auto& covs, const auto& masks, const auto& masksCompl, size_t Nlevel
-  ) {
-    auto outputs = T_op_T<DataType, T>(
-      inputs, covs,
-      [&](const int level, fields::Field<DataType,T> & input) -> void
-    {
-      input.toReal();
-      input *= masks[level];
-      input.toFourier();
-      input.applyTransferFunction(covs[level], -1.0);
-      input.toReal();
-      input *= masksCompl[level];
-    });
-    return outputs;
-  };
-
-  template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
-  fields::OutputField<DataType> combine(
-    const fields::OutputField<DataType> &a,
-    const std::vector<fields::Field<DataType, T>> &covs
-  ) {
-    fields::OutputField<DataType> inputs_delta(a);
-    fields::OutputField<DataType> outputs(a.getContext(), a.getTransferType());
-    outputs.getFieldForLevel(0);
-
-    auto filters = inputs_delta.getFilters();
-    int Nlevel = inputs_delta.getNumLevels();
-
-    const auto& multiLevelContext = outputs.getContext();
-
-    // Filter all levels (but the last) in their windows
-    // Notice we are doing window then filter
-    for (size_t level=0; level<Nlevel; ++level) {
-      auto& field = inputs_delta.getFieldForLevel(level);
-      const auto &f = filters.getFilterForLevel(level);
-      if (level < Nlevel - 1) {
-        auto window = multiLevelContext.getGridForLevel(level+1).getWindow();
-        field.applyFilterInWindow(f, window, true);
-      } else {
-        field.toFourier();
-        field.applyFilter(f);
-      }
-    }
-
-    // Apply C^0.5 to the input fields
-    for (size_t level=0; level<Nlevel; ++level) {
-      auto& field = inputs_delta.getFieldForLevel(level);
-      field.toFourier();
-      field.applyTransferFunction(covs[level], 0.5);
-    }
-
-
-    // --------------------------------------------------------------------
-    // Operator applies to the field + contributions from all finer levels
-    for (size_t level=0; level<Nlevel; ++level) {
-      auto out = inputs_delta.getFieldForLevel(level).copy();
-
-      // Add contributions from finer levels
-      for (size_t source_level = 0; source_level < Nlevel - 1; ++source_level) {
-        if (source_level == level) continue;
-        auto source_field = inputs_delta.getFieldForLevel(source_level).copy();
-        T pixel_volume_ratio = multiLevelContext.getWeightForLevel(level) /
-                               multiLevelContext.getWeightForLevel(source_level);
-
-        source_field->toReal();
-        *source_field *= sqrt(pixel_volume_ratio);
-
-        out->addFieldFromDifferentGrid(*source_field);
-      }
-
-      outputs.getFieldForLevel(level) = std::move(*out);
-    }
-    outputs.toReal();
-    outputs.getContext().setLevelsAreCombined();
-    return outputs;
-  }
-
-  template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
-  fields::OutputField<DataType> splice(fields::OutputField<DataType> & a,
-                                       fields::OutputField<DataType> & b,
-                                       T accuracy) {
-
-      assert (a.getTransferType() == particle::species::whitenoise);
-      assert (b.getTransferType() == particle::species::whitenoise);
-      assert (a.isFourierOnAllLevels());
-      assert (b.isFourierOnAllLevels());
-
-      // To understand the implementation below, first read Appendix A of Cadiou et al (2021),
-      // and/or look at the 1D toy implementation (in tools/toy_implementation/gene_splicing.ipynb) which
-      // contains a similar derivation and near-identical implementation.
-
-      std::vector<fields::Field<DataType,T>> covs;
-      std::vector<fields::Field<char,T>> masks;
-      std::vector<fields::Field<char,T>> masksCompl;
-
-      int Nlevel = a.getNumLevels();
-      for(size_t level=0; level<Nlevel; ++level) {
-        auto ctxt = a.getContext();
-        fields::Field<DataType,T> cov(*ctxt.getCovariance(level, particle::species::all));
-        cov.setFourierCoefficient(0, 0, 0, 1);
-        covs.push_back(cov);
-
-        masks.push_back(generateMaskFromFlags(ctxt.getGridForLevel(level)));
-        masksCompl.push_back(generateMaskComplementFromFlags(ctxt.getGridForLevel(level)));
-      }
-
-      a.toReal();
-      b.toReal();
-
-      fields::OutputField<T> delta(b);
-      delta -= a;
-
-      fields::OutputField<T> z = Mbar_Cm1_M(delta, covs, masks, masksCompl, Nlevel);
-
-      auto A = [&](const fields::OutputField<T> & inputs) {
-        return Mbar_Cm1_Mbar(inputs, covs, masks, masksCompl, Nlevel);
-      };
-
-
-      // fields::OutputField<DataType> alpha = tools::numerics::conjugateGradient<DataType>(A, z);
-      fields::OutputField<DataType> alpha = tools::numerics::minres<DataType>(A, z, accuracy);
-
-      // Combine fields
-      alpha = combine(alpha, covs);
-      a = combine(a, covs);
-      b = combine(b, covs);
-      a.toReal(); b.toReal(); alpha.toReal();
-
-      // output = b + M(a - b) + Mbar alpha [all in delta basis now]
-      fields::OutputField<DataType> outputs(b.getContext(), particle::species::all);
-      outputs.getFieldForLevel(0); // trigger allocation
-      outputs.toReal();
-
-      for (size_t level = 0; level < Nlevel; ++level) {
-        const auto & a_field = a.getFieldForLevel(level);
-        const auto & b_field = b.getFieldForLevel(level);
-        const auto & alpha_field = alpha.getFieldForLevel(level);
-
-        auto & out = outputs.getFieldForLevel(level);
-        out += b_field;
-
-        {
-          auto temp = a_field.copy();
-          *temp -= b_field;
-          *temp *= masks[level];
-
-          out += *temp;
+    State forward(const State &noise) const {
+      State result(noise);
+      for(size_t l=0; l<result.getNumLevels(); ++l) {
+        auto &field = result.getFieldForLevel(l);
+        colour(field, l);
+        if(l) {
+          field.applyFilter(filters.getHighPassFilterForLevel(l));
+          field.addFieldFromDifferentGridWithFilter(result.getFieldForLevel(l-1),
+                                                    filters.getLowPassFilterForLevel(l-1));
         }
+      }
+      result.toReal();
+      return result;
+    }
 
-        {
-          auto temp = alpha_field.copy();
-          *temp *= masksCompl[level];
-
-          out += *temp;
+    State adjoint(const State &density) const {
+      State accumulated(density);
+      accumulated.toReal();
+      State result(context, particle::species::whitenoise);
+      result.getFieldForLevel(0);
+      for(size_t l=density.getNumLevels(); l-- > 0;) {
+        auto &source = accumulated.getFieldForLevel(l);
+        if(l) {
+          // J is interpolation of the parent at each child centroid. J^T
+          // scatters with the identical cubic (or linear) weights and boundaries.
+          auto scatter = std::make_shared<fields::Field<DataType,T>>(context.getGridForLevel(l-1), false);
+#ifndef FILTER_ON_COARSE_GRID
+          auto inherited = source.copy();
+          inherited->applyFilter(filters.getLowPassFilterForLevel(l-1));
+          inherited->toReal();
+#endif
+          const auto &grid = source.getGrid();
+          for(size_t i=0; i<grid.size3; ++i) {
+#ifdef FILTER_ON_COARSE_GRID
+            scatter->deInterpolate(grid.getCentroidFromIndex(i), source[i]);
+#else
+            scatter->deInterpolate(grid.getCentroidFromIndex(i), (*inherited)[i]);
+#endif
+          }
+#ifdef FILTER_ON_COARSE_GRID
+          scatter->applyFilter(filters.getLowPassFilterForLevel(l-1));
+#endif
+          scatter->toReal();
+          accumulated.getFieldForLevel(l-1) += *scatter;
         }
+        auto &out = result.getFieldForLevel(l);
+        out = fields::Field<DataType,T>(source);
+        if(l) out.applyFilter(filters.getHighPassFilterForLevel(l));
+        colour(out, l);
         out.toReal();
-
-        a_field.dumpGridData("a_" + std::to_string(level) + ".dat");
-        b_field.dumpGridData("b_" + std::to_string(level) + ".dat");
-        alpha_field.dumpGridData("alpha_" + std::to_string(level) + ".dat");
-        out.dumpGridData("splice_level_" + std::to_string(level) + ".dat");
       }
+      return result;
+    }
+  };
 
-      // alpha.toFourier();
-      // alpha.applyTransferFunction(preconditioner, 0.5);
-      // alpha.toReal();
+  /*! Minimize ||n - n_environment||^2 subject to M T n = M T n_donor.
+   * D=M T (M is the selected-cell mask), so D D^T is PSD by construction, including
+   * singular spectra. Keep the answer in latent coordinates: normal output
+   * synthesis must still run, and must run only once.
+   */
+  template<typename DataType, typename T=tools::datatypes::strip_complex<DataType>>
+  fields::OutputField<DataType> splice(const fields::OutputField<DataType> &donor,
+                                      const fields::OutputField<DataType> &environment,
+                                      T accuracy,
+                                      const std::vector<std::vector<size_t>> *zoomMasks = nullptr,
+                                      int borderSafety = 4) {
+    using State = fields::OutputField<DataType>;
+    if(!std::isfinite(accuracy) || accuracy <= 0 || accuracy >= 1)
+      throw std::runtime_error("Splice accuracy must be finite and between zero and one");
+    if(!donor.isCompatible(environment) ||
+       donor.getTransferType() != particle::species::whitenoise ||
+       environment.getTransferType() != particle::species::whitenoise)
+      throw std::runtime_error("Splicing requires compatible white-noise fields");
 
-      // fields::Field<DataType,T> bInDeltaBasis(b);
-      // bInDeltaBasis.toFourier();
-      // bInDeltaBasis.applyTransferFunction(preconditioner, 0.5);
-      // bInDeltaBasis.toReal();
+    if(borderSafety < 1) throw std::runtime_error("Splice border safety must be positive");
+    // The command-line path retains four cells. A smaller explicit value is
+    // available to numerical stress tests of nearly window-filling patches.
+    const auto &context = donor.getContext();
+    SpliceSynthesis<DataType> synthesis(context);
+    // The front end supplies the actual parent cells replaced by particles on
+    // each child. A full child FFT window is larger than its particle region.
+    std::vector<std::vector<size_t>> replaced;
+    if(zoomMasks) {
+      replaced = *zoomMasks;
+      if(replaced.size()+1 != donor.getNumLevels())
+        throw std::runtime_error("Splice zoom ownership masks do not match the hierarchy");
+      for(auto &cells: replaced) std::sort(cells.begin(), cells.end());
+    }
+    std::vector<std::vector<size_t>> selected(donor.getNumLevels());
+    size_t count = 0;
+    for(size_t l=0; l<donor.getNumLevels(); ++l) {
+      const auto &grid = context.getGridForLevel(l);
+      std::vector<size_t> flags;
+      grid.getFlaggedCells(flags);
+      for(auto i: flags) {
+        auto position = grid.getCentroidFromIndex(i);
+        if(zoomMasks) {
+          if(l) {
+            const auto &parent = context.getOutputGridForLevel(l-1);
+            auto parentIndex = parent.getIndexFromPoint(position);
+            if(!std::binary_search(replaced[l-1].begin(), replaced[l-1].end(), parentIndex))
+              continue; // This child sample has no particle in the output.
+          }
+          if(l+1 < donor.getNumLevels()) {
+            auto outputIndex = context.getOutputGridForLevel(l).getIndexFromPoint(position);
+            if(std::binary_search(replaced[l].begin(), replaced[l].end(), outputIndex))
+              continue; // The coarse particle was replaced by child particles.
+          }
+        } else if(l+1 < donor.getNumLevels() && context.getGridForLevel(l+1).containsPoint(position)) {
+          // Standalone grid-only callers have no particle mapper: use leaf cells.
+          continue;
+        }
+        for(size_t ancestor=1; ancestor<=l; ++ancestor)
+          if(!context.getGridForLevel(ancestor).containsPointWithBorderSafety(position, borderSafety))
+            throw std::runtime_error("Splice region is too close to a zoom edge; enlarge the zoom grid (insufficient configured padding on an enclosing level)");
+        selected[l].push_back(i);
+      }
+      count += selected[l].size();
+    }
+    if(!count) return State(environment);
 
-      // alpha*=maskCompl;
-      // alpha+=bInDeltaBasis;
+    auto mask = [&](State &state) {
+      state.toReal();
+      for(size_t l=0; l<state.getNumLevels(); ++l) {
+        auto &field = state.getFieldForLevel(l);
+        auto saved = field.getDataVector();
+        std::fill(field.getDataVector().begin(), field.getDataVector().end(), DataType(0));
+        for(auto i: selected[l]) field[i] = saved[i];
+      }
+    };
+    auto D = [&](const State &state) {
+      auto result = synthesis.forward(state);
+      mask(result);
+      return result;
+    };
+    auto G = [&](const State &state) { return D(synthesis.adjoint(state)); };
 
-      // delta_diff*=mask;
-      // alpha-=delta_diff;
-
-      // assert(!alpha.isFourier());
-      // alpha.toFourier();
-      // alpha.applyTransferFunction(preconditioner, -0.5);
-      // alpha.toReal();
-
-      return alpha;
+    const State target = D(donor);
+    State rhs(target);
+    const auto exterior = D(environment);
+    rhs -= exterior;
+    const T scale = tools::numerics::norm(rhs);
+    // A repeated splice can have a discrepancy consisting only of FFT rounding.
+    // A relative tolerance on that discrepancy alone would ask for sub-roundoff
+    // accuracy. Measure the floor in density units, not latent/noise units.
+    const T roundoff = 8*std::numeric_limits<T>::epsilon() *
+      std::max(tools::numerics::norm(target), tools::numerics::norm(exterior));
+    if(scale <= roundoff) return State(environment);
+    State answer(environment);
+    auto densityResidual = [&](const State &lambda) {
+      answer = State(environment);
+      answer += synthesis.adjoint(lambda);
+      State residual(target);
+      residual -= D(answer);
+      return residual;
+    };
+    // Shared CG checks this actual output-density residual before accepting.
+    tools::numerics::conjugateGradient<DataType>(G, rhs, accuracy, roundoff,
+                                                densityResidual, std::max(size_t(100), 4*count));
+    answer.toFourier();
+    return answer;
   }
 }
-
-#endif //IC_SPLICE_HPP
+#endif
