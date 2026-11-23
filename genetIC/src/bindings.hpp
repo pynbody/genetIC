@@ -29,12 +29,13 @@ void setup_parser(tools::ClassDispatch<ICType, void> &dispatch) {
     dispatch.add_deprecated_class_route("seed", "random_seed_real_space", static_cast<void (ICType::*)(int)>(&ICType::setSeed));
     dispatch.add_deprecated_class_route("seedfourier", "random_seed_serial", static_cast<void (ICType::*)(int)>(&ICType::setSeedFourier));
     dispatch.add_class_route("seedfourier_reverse", static_cast<void (ICType::*)(int)>(&ICType::setSeedFourierReverseOrder));
-    dispatch.add_deprecated_class_route("seedfourier_parallel", "random_seed", static_cast<void (ICType::*)(int)>(&ICType::setSeedFourierParallel));
+    dispatch.add_deprecated_class_route("seedfourier_parallel", "random_seed_legacy", static_cast<void (ICType::*)(int)>(&ICType::setSeedFourierParallelLegacy));
 
     // NEW FORMS, May 2020, ahead of release (to steer people towards a sensible default)
     dispatch.add_class_route("random_seed", static_cast<void (ICType::*)(int)>(&ICType::setSeedFourierParallel));
     dispatch.add_class_route("random_seed_serial", static_cast<void (ICType::*)(int)>(&ICType::setSeedFourier));
-    dispatch.add_class_route("random_seed_all_modes", static_cast<void (ICType::*)(int)>(&ICType::setSeedFourierParallelAllModes));
+    // Prior to v1.5.1, random_seed omitted some Fourier modes; random_seed_legacy reproduces that behaviour exactly
+    dispatch.add_class_route("random_seed_legacy", static_cast<void (ICType::*)(int)>(&ICType::setSeedFourierParallelLegacy));
     dispatch.add_class_route("random_seed_real_space", static_cast<void (ICType::*)(int)>(&ICType::setSeed));
 
     // Optional computational properties

@@ -1,4 +1,4 @@
-# Test uniform volume with parallel seeding
+# Test uniform volume with legacy (pre-1.5.1) parallel seeding, which omits some Fourier modes
 
 Om  0.279
 Ol  0.721
@@ -6,7 +6,7 @@ Ol  0.721
 s8  0.817
 zin	99
 
-random_seed	42
+random_seed_legacy	42
 camb	../camb_transfer_kmax40_z0.dat
 
 outname test_13
