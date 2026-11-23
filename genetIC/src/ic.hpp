@@ -4,11 +4,14 @@
 #include <string>
 #include <tuple>
 #include <cassert>
+#include <cctype>
 #include <functional>
 #include <algorithm>
 #include <memory>
+#include <optional>
 #include <limits>
 #include <iostream>
+#include <iomanip>
 #include <list>
 
 
@@ -143,6 +146,9 @@ protected:
 
   //! Zoom masks for each level.
   std::vector<std::vector<size_t>> zoomParticleArray;
+
+  //! Iterative solver used by subsequent splice commands.
+  modifications::SpliceSolver spliceSolver = modifications::SpliceSolver::cg;
 
 
   //! Coordinates of the cell of current interest
@@ -904,6 +910,7 @@ public:
     ofstream ifile;
     ifile.open(filename.str());
 
+    ifile << std::setprecision(std::numeric_limits<T>::max_digits10);
     ifile << levelGrid.offsetLower.x << " " << levelGrid.offsetLower.y << " "
           << levelGrid.offsetLower.z << " " << levelGrid.thisGridSize << endl;
     ifile << "The line above contains information about grid level " << level << endl;
@@ -1686,8 +1693,18 @@ public:
     outputFields[0]->reverse();
   }
 
-  //! Splicing: fixes the flagged region, while reinitialising the exterior from a new random field
-  virtual void splice(size_t newSeed) {
+  //! Select the iterative solver used by subsequent splice commands.
+  void setSpliceSolver(std::string solver) {
+    std::transform(solver.begin(), solver.end(), solver.begin(),
+                   [](unsigned char c) { return std::tolower(c); });
+    if(solver == "cg") spliceSolver = modifications::SpliceSolver::cg;
+    else if(solver == "minres") spliceSolver = modifications::SpliceSolver::minres;
+    else throw std::runtime_error("Unknown splice solver '" + solver + "'; expected cg or minres");
+  }
+
+  //! Splicing: inserts the flagged region from newSeed into the current environment
+  virtual void splice(size_t newSeed, std::optional<T> requestedAccuracy = std::nullopt) {
+    const T accuracy = requestedAccuracy.value_or(T(1e-6));
     initialiseRandomComponentIfUninitialised();
     if(outputFields.size()>1)
       throw std::runtime_error("Splicing is not yet implemented for the case of multiple transfer functions");
@@ -1698,24 +1715,16 @@ public:
     }
 
     fields::OutputField<GridDataType> newField = fields::OutputField<GridDataType>(multiLevelContext, particle::species::whitenoise);
-    auto newGenerator = fields::RandomFieldGenerator<GridDataType>(newField);
+    auto newGenerator = fields::RandomFieldGenerator<GridDataType>(newField, *randomFieldGenerator);
 
-    if(multiLevelContext.getNumLevels()>1)
-      logging::entry(logging::level::warning) << "Splicing operations on multiple levels work, but may have edge artefacts. Use experimentally/at your own risk!" << endl;
-
-    logging::entry() << "Constructing new random field for exterior of splice" << endl;
+    logging::entry() << "Constructing donor random field for selected splice region" << endl;
     newGenerator.seed(newSeed);
     newGenerator.draw();
     logging::entry() << "Finished constructing new random field. Beginning splice operation." << endl;
 
-    for(size_t level=0; level<multiLevelContext.getNumLevels(); ++level) {
-      auto &originalFieldThisLevel = outputFields[0]->getFieldForLevel(level);
-      auto &newFieldThisLevel = newField.getFieldForLevel(level);
-      auto splicedFieldThisLevel = modifications::spliceOneLevel(newFieldThisLevel, originalFieldThisLevel,
-                                                             *multiLevelContext.getCovariance(level, particle::species::all));
-      splicedFieldThisLevel.toFourier();
-      originalFieldThisLevel = std::move(splicedFieldThisLevel);
-    }
+    auto spliced = modifications::splice(newField, *(outputFields[0]), accuracy, &zoomParticleArray,
+                                        4, spliceSolver);
+    outputFields[0]->copyData(spliced);
   }
 
   //! Reverses the sign of the low-k modes.

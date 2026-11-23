@@ -124,6 +124,8 @@ void setup_parser(tools::ClassDispatch<ICType, void> &dispatch) {
 
     dispatch.add_class_route("reverse", static_cast<void (ICType::*)()>(&ICType::reverse));
     dispatch.add_class_route("reverse_small_k", static_cast<void (ICType::*)(FloatType)>(&ICType::reverseSmallK));
+
+    dispatch.add_class_route("splice_solver", &ICType::setSpliceSolver);
     dispatch.add_class_route("splice", &ICType::splice);
 
     // Write objects to files

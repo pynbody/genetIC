@@ -1,0 +1,36 @@
+# Test density splicing on three nested grids, with padded zoom edges
+
+Om  0.279
+Ol  0.721
+#Ob  0.04
+s8  0.817
+zin	99
+
+random_seed_real_space	16091992
+camb	../camb_transfer_kmax40_z0.dat
+
+outname test_22
+outdir	 ./
+outformat tipsy
+
+
+basegrid 100 32
+
+center 50 50 50
+select_sphere 10
+
+zoom_grid 2 32
+select_sphere 6
+zoom_grid 2 32
+
+# Reselect at the final resolution (rather than all children of coarse cells).
+select_sphere 3
+
+splice 18021992 3e-15
+
+done
+
+dump_ps 0
+dump_grid 0
+dump_grid 1
+dump_grid 2
