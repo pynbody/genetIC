@@ -34,6 +34,7 @@ void setup_parser(tools::ClassDispatch<ICType, void> &dispatch) {
     // NEW FORMS, May 2020, ahead of release (to steer people towards a sensible default)
     dispatch.add_class_route("random_seed", static_cast<void (ICType::*)(int)>(&ICType::setSeedFourierParallel));
     dispatch.add_class_route("random_seed_serial", static_cast<void (ICType::*)(int)>(&ICType::setSeedFourier));
+    dispatch.add_class_route("random_seed_all_modes", static_cast<void (ICType::*)(int)>(&ICType::setSeedFourierParallelAllModes));
     dispatch.add_class_route("random_seed_real_space", static_cast<void (ICType::*)(int)>(&ICType::setSeed));
 
     // Optional computational properties

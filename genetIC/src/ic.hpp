@@ -623,6 +623,7 @@ public:
     randomFieldGenerator->setDrawInFourierSpace(false);
     randomFieldGenerator->setReverseRandomDrawOrder(false);
     randomFieldGenerator->setParallel(false);
+    randomFieldGenerator->setDrawAllModes(false);
   }
 
 
@@ -635,6 +636,7 @@ public:
     randomFieldGenerator->setDrawInFourierSpace(true);
     randomFieldGenerator->setReverseRandomDrawOrder(false);
     randomFieldGenerator->setParallel(false);
+    randomFieldGenerator->setDrawAllModes(false);
   }
 
 
@@ -649,6 +651,20 @@ public:
     randomFieldGenerator->setDrawInFourierSpace(true);
     randomFieldGenerator->setParallel(true);
     randomFieldGenerator->setReverseRandomDrawOrder(false);
+    randomFieldGenerator->setDrawAllModes(false);
+  }
+
+  //! \brief As setSeedFourierParallel, but also draws the Fourier modes that the historical algorithm leaves at zero.
+  /*!
+  The historical Fourier-space seeding omits, in each cubic shell ks = max(|kx|,|ky|,|kz|), the modes with two or
+  three components equal to +ks (and their conjugates), e.g. (1,1,0) and (1,1,1). This variant draws them, using the
+  same per-shell random streams after the historical draws, so all other modes are identical to those from
+  setSeedFourierParallel with the same seed. Nyquist modes and the DC mode remain zero, as before.
+  \param seed - seed to use
+  */
+  void setSeedFourierParallelAllModes(int seed) {
+    setSeedFourierParallel(seed);
+    randomFieldGenerator->setDrawAllModes(true);
   }
 
   //!\brief Specifies the seed in fourier space, but with reversed order of draws between real and imaginary part of complex numbers.
@@ -664,6 +680,7 @@ public:
     randomFieldGenerator->setDrawInFourierSpace(true);
     randomFieldGenerator->setReverseRandomDrawOrder(true);
     randomFieldGenerator->setParallel(false);
+    randomFieldGenerator->setDrawAllModes(false);
   }
 
   //! Enables exact power spectrum enforcement.
