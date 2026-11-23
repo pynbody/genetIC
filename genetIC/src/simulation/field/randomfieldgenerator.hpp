@@ -32,6 +32,7 @@ namespace fields {
     bool reverseRandomDrawOrder; //!< If true, order in which random numbers for complex numbers is drawn is reversed.
     bool seeded; //!< True if the random number generator has already been seeded
     bool parallel; //!< True if we want to draw random numbers in parallel
+    bool drawAllModes; //!< If true, also draw the Fourier modes that the historical algorithm leaves at zero (see drawMissingModesInShell)
     unsigned long baseSeed; //!< Stores the last seed used.
     MultiLevelField <DataType> &field; //!< Reference to the multilevel field we are drawing random numbers for.
 
@@ -47,6 +48,7 @@ namespace fields {
       drawInFourierSpace = false;
       seeded = false;
       parallel = false;
+      drawAllModes = false;
     }
 
     //! Copy constructor
@@ -55,6 +57,7 @@ namespace fields {
       seeded = copy.seeded;
       baseSeed = copy.baseSeed;
       parallel = copy.parallel;
+      drawAllModes = copy.drawAllModes;
       randomNumberGeneratorType = copy.randomNumberGeneratorType;
       drawInFourierSpace = copy.drawInFourierSpace;
       reverseRandomDrawOrder = copy.reverseRandomDrawOrder;
@@ -71,6 +74,7 @@ namespace fields {
       seeded = false;
       baseSeed = copy.baseSeed;
       parallel = copy.parallel;
+      drawAllModes = copy.drawAllModes;
       randomNumberGeneratorType = copy.randomNumberGeneratorType;
       drawInFourierSpace = copy.drawInFourierSpace;
       reverseRandomDrawOrder = copy.reverseRandomDrawOrder;
@@ -95,6 +99,11 @@ namespace fields {
     //! Sets parallel to true or false
     void setParallel(bool value) {
       parallel = value;
+    }
+
+    //! Sets whether to draw the modes that the historical Fourier-space algorithm omits (see drawMissingModesInShell)
+    void setDrawAllModes(bool value) {
+      drawAllModes = value;
     }
 
     //! Sets reverseRandomDrawOrder to true or false
@@ -171,6 +180,27 @@ namespace fields {
     }
 
 
+    /*! \brief Draw the modes in cubic shell ks that the historical loops in drawRandomForSpecifiedGridFourier omit.
+     *
+     * The historical loops draw (ks, k1, k2), (k1, ks, k2), (k1, k2, ks) with k1, k2 in [-ks, ks), each draw also
+     * setting the Hermitian conjugate. A mode on shell ks is therefore covered iff exactly one of its components equals
+     * +ks, or exactly one equals -ks. The modes left at zero are those with two or three components equal to +ks (and
+     * none equal to -ks), together with their conjugates: 3(2ks-1)+1 conjugate pairs per shell. E.g. (1,1,0) and
+     * (1,1,1) are omitted while (1,-1,0) and (1,1,-1) are drawn.
+     *
+     * This routine draws one representative of each omitted pair (the one with components equal to +ks). It is
+     * called after the historical loops for the shell, so that all other modes retain exactly their historical values.
+     */
+    void drawMissingModesInShell(Field <DataType> &field, int ks, FloatType sigma, gsl_rng *localRandomState) {
+      if (ks == 0) return;
+      for (int k = -ks + 1; k < ks; k++) {
+        drawOneFourierMode(field, ks, ks, k, sigma, localRandomState);
+        drawOneFourierMode(field, ks, k, ks, sigma, localRandomState);
+        drawOneFourierMode(field, k, ks, ks, sigma, localRandomState);
+      }
+      drawOneFourierMode(field, ks, ks, ks, sigma, localRandomState);
+    }
+
     /*! \brief Draw random white noise in real space.
        *
        *  Kept for historical compatibility, even though the recommended approach is
@@ -238,11 +268,15 @@ namespace fields {
               drawOneFourierMode(field, k1, k2, ks, sigma, localRandomState);
             }
           }
+          if (drawAllModes)
+            drawMissingModesInShell(field, ks, sigma, localRandomState);
           gsl_rng_free(localRandomState);
 
         }
 
       } else {
+        if (drawAllModes)
+          throw std::runtime_error("Drawing all Fourier modes is only supported by the parallel (per-shell seeded) algorithm");
         // N.B. This is the original way of doing things that does not allow for parallelization
         for (int ks = 0; ks < int(g.size / 2); ks++) {
           pb.setProgress(float(ks * ks) * (ks * 8) / g.size3);

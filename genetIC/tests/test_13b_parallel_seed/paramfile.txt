@@ -1,0 +1,19 @@
+# Test uniform volume with (default) parallel seeding, including the Fourier modes omitted before v1.5.1
+
+Om  0.279
+Ol  0.721
+#Ob  0.04
+s8  0.817
+zin	99
+
+random_seed	42
+camb	../camb_transfer_kmax40_z0.dat
+
+outname test_13b
+outdir	 ./
+outformat tipsy
+
+
+basegrid 10.0 8
+
+done

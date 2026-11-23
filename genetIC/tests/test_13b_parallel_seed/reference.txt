@@ -1,0 +1,1 @@
+WARNING: versions of genetIC prior to 1.5.1 had a bug in random_seed that left some Fourier modes (those in each shell ks=max(|kx|,|ky|,|kz|) with two or more components equal to ks, e.g. (1,1,0)) at zero. This is now fixed. To reproduce initial conditions generated with earlier versions, use random_seed_legacy.

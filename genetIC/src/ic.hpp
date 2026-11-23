@@ -623,6 +623,7 @@ public:
     randomFieldGenerator->setDrawInFourierSpace(false);
     randomFieldGenerator->setReverseRandomDrawOrder(false);
     randomFieldGenerator->setParallel(false);
+    randomFieldGenerator->setDrawAllModes(false);
   }
 
 
@@ -631,24 +632,50 @@ public:
   \param seed - seed to use
   */
   void setSeedFourier(int seed) {
+    logging::entry(logging::level::warning)
+      << "WARNING: random_seed_serial leaves some Fourier modes (those in each shell ks=max(|kx|,|ky|,|kz|) with two "
+      << "or more components equal to ks, e.g. (1,1,0)) at zero. It is retained for backwards compatibility only; "
+      << "use random_seed for new initial conditions." << std::endl;
     randomFieldGenerator->seed(seed);
     randomFieldGenerator->setDrawInFourierSpace(true);
     randomFieldGenerator->setReverseRandomDrawOrder(false);
     randomFieldGenerator->setParallel(false);
+    randomFieldGenerator->setDrawAllModes(false);
   }
 
 
   //! \brief Set up the random field generator to work in Fourier space, using a parallel algorithm with a specified random seed
   /*!
-  Note this is faster than using the older setSeedFourier setup, but not backwards- compatible
-  (i.e. the resulting field will be different)
+  This is the default (paramfile command random_seed). Each cubic shell ks = max(|kx|,|ky|,|kz|) uses its own random
+  stream, so that the field is the same whatever the grid resolution.
+
+  Versions prior to 1.5.1 omitted, in each shell, the modes with two or three components equal to +ks (and their
+  conjugates), e.g. (1,1,0) and (1,1,1), leaving them at zero. These are now drawn, after the other modes in the same
+  shell, so all other modes are identical to those from the legacy algorithm (setSeedFourierParallelLegacy) for the
+  same seed. Nyquist modes and the DC mode remain zero.
   \param seed - seed to use
   */
   void setSeedFourierParallel(int seed) {
+    logging::entry(logging::level::warning)
+      << "WARNING: versions of genetIC prior to 1.5.1 had a bug in random_seed that left some Fourier modes "
+      << "(those in each shell ks=max(|kx|,|ky|,|kz|) with two or more components equal to ks, e.g. (1,1,0)) at zero. "
+      << "This is now fixed. To reproduce initial conditions generated with earlier versions, use random_seed_legacy."
+      << std::endl;
+    setSeedFourierParallelLegacy(seed);
+    randomFieldGenerator->setDrawAllModes(true);
+  }
+
+  //! \brief Parallel Fourier-space seeding exactly as in versions prior to 1.5.1, including the omitted modes.
+  /*!
+  Provided for backwards compatibility only (paramfile command random_seed_legacy); see setSeedFourierParallel.
+  \param seed - seed to use
+  */
+  void setSeedFourierParallelLegacy(int seed) {
     randomFieldGenerator->seed(seed);
     randomFieldGenerator->setDrawInFourierSpace(true);
     randomFieldGenerator->setParallel(true);
     randomFieldGenerator->setReverseRandomDrawOrder(false);
+    randomFieldGenerator->setDrawAllModes(false);
   }
 
   //!\brief Specifies the seed in fourier space, but with reversed order of draws between real and imaginary part of complex numbers.
@@ -664,6 +691,7 @@ public:
     randomFieldGenerator->setDrawInFourierSpace(true);
     randomFieldGenerator->setReverseRandomDrawOrder(true);
     randomFieldGenerator->setParallel(false);
+    randomFieldGenerator->setDrawAllModes(false);
   }
 
   //! Enables exact power spectrum enforcement.
