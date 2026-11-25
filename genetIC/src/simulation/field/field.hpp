@@ -451,10 +451,12 @@ namespace fields {
       size_t gridSize = pGrid->size;
       size_t gridSize2 = gridSize*gridSize;
       auto getWrappedCoords = [gridSize](int coords[4], int key_cell_coord) {
+        const int signedGridSize = static_cast<int>(gridSize);
         for(int i=0; i<4; ++i) {
           coords[i] = key_cell_coord + i - 1;
-          if(coords[i]<0) coords[i]+=gridSize;
-          if(coords[i]>gridSize) coords[i]-=gridSize;
+          if(coords[i]<0) coords[i]+=signedGridSize;
+          // note >= (not >): an index equal to gridSize is one past the end and must wrap to 0
+          if(coords[i]>=signedGridSize) coords[i]-=signedGridSize;
         }
       };
 

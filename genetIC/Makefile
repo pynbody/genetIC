@@ -10,7 +10,10 @@ CFLAGS ?= -Wall -g -lpthread -O3 -fopenmp -std=c++20 -fdiagnostics-color=auto -I
 # -DZELDOVICH_GRADIENT_FOURIER_SPACE: Same as VELOCITY_MODIFICATION_GRADIENT_FOURIER_SPACE, but for computing the
 #    Zeldovich displacement field.
 # -DFRACTIONAL_K_SPLIT: This defines the characteristic k0 of the filter used to split information between zoom levels,
-#    defined by k0 = k_nyquist * FRACTIONAL_K_SPLIT, where k_nyquist is the Nyquist frequency of the lower-resolution grid.
+#    defined by k0 = FRACTIONAL_K_SPLIT * N * 2pi/L, where N and L are the number of cells per side and the box size of
+#    the lower-resolution grid. Since that grid's Nyquist frequency is k_nyquist = N * pi/L, this equals
+#    2 * FRACTIONAL_K_SPLIT * k_nyquist, so the default of 0.3 gives k0 = 0.6 k_nyquist.
+#    NOTE: this default has changed since the genetIC paper, which quotes k0 = 0.5 k_nyquist.
 #    Higher values correlate the zoom grids more precisely with the unzoomed base grids, but at the cost of errors
 #    on small scales. The default value is an empirically-determined trade-off which works well.
 # -DFRACTIONAL_FILTER_TEMPERATURE: This defines the characteristic temperature of the Fermi filter used to split

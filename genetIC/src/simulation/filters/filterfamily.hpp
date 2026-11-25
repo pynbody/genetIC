@@ -110,6 +110,8 @@ namespace filters {
         for (size_t level = 0; level < fromContext.getNumLevels() - 1; ++level) {
           const grids::Grid<T> &grid0(fromContext.getGridForLevel(level));
 
+          // k_pixel = N * 2pi/L, i.e. twice the Nyquist frequency of grid0, so k_cut = 2 * FRACTIONAL_K_SPLIT * k_nyquist
+          // (0.6 k_nyquist for the default 0.3). The paper quotes 0.5 k_nyquist; the default has changed since.
           T k_pixel = ((T) grid0.size) * grid0.getFourierKmin();
           T k_cut = FRACTIONAL_K_SPLIT * k_pixel;
           this->addLevel(k_cut);

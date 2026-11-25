@@ -64,7 +64,7 @@ option(DEBUG_INFO
   "Output extra debug/performance information. Automatically enabled for Debug builds regardless of this setting; set this ON to force it on for Release/RelWithDebInfo builds too." OFF)
 
 set(FRACTIONAL_K_SPLIT "0.3" CACHE STRING
-  "Characteristic k0 of the filter used to split information between zoom levels, defined by k0 = k_nyquist * FRACTIONAL_K_SPLIT, where k_nyquist is the Nyquist frequency of the lower-resolution grid. Higher values correlate the zoom grids more precisely with the unzoomed base grids, at the cost of errors on small scales. The default is an empirically-determined trade-off that works well.")
+  "Characteristic k0 of the filter used to split information between zoom levels, defined by k0 = FRACTIONAL_K_SPLIT * N * 2pi/L, where N is the number of cells per side and L the box size of the lower-resolution grid. Since the Nyquist frequency of that grid is k_nyquist = N * pi/L, this is k0 = 2 * FRACTIONAL_K_SPLIT * k_nyquist, so the default of 0.3 corresponds to k0 = 0.6 k_nyquist. NOTE: the default has changed since the genetIC paper, which quotes k0 = 0.5 k_nyquist. Higher values correlate the zoom grids more precisely with the unzoomed base grids, at the cost of errors on small scales. The default is an empirically-determined trade-off that works well.")
 
 set(FRACTIONAL_FILTER_TEMPERATURE "0.1" CACHE STRING
   "Characteristic temperature of the Fermi filter used to split information between levels, as k0 * FRACTIONAL_FILTER_TEMPERATURE. Smaller values give sharper transitions, better accuracy in Fourier space but worse in real space. The default is an empirically-determined trade-off that works well.")
